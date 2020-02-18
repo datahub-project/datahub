@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render, find, findAll, click, fillIn } from '@ember/test-helpers';
+import { render, find, findAll } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 const findInput = (selector: string): HTMLInputElement => {
@@ -67,7 +67,6 @@ module('Integration | Component | entity-deprecation', function(hooks): void {
 
   test('decommissionTime', async function(assert): Promise<void> {
     let isDisabled;
-    assert.expect(3);
 
     this.setProperties({
       ...defaultProperties,
@@ -83,58 +82,5 @@ module('Integration | Component | entity-deprecation', function(hooks): void {
 
     isDisabled = findInput('.entity-deprecation__actions [type=submit]').disabled;
     assert.ok(isDisabled, 'submit button is disabled');
-
-    this.setProperties({ decommissionTime: new Date(), isDirty: true });
-    await render(hbs`{{entity-deprecation
-                       entityName=entityName
-                       isDeprecated=deprecated
-                       decommissionTime=decommissionTime
-                       updateDeprecation=(action updateDeprecation)}}`);
-
-    await fillIn('.entity-deprecation__note-editor .medium-editor-element', 'text');
-
-    isDisabled = findInput('.entity-deprecation__actions [type=submit]').disabled;
-    assert.ok(isDisabled, 'submit button is disabled if we only fill in decomissionTime');
-
-    await click('#acknowledge-deprecation');
-
-    isDisabled = findInput('.entity-deprecation__actions [type=submit]').disabled;
-    assert.notOk(isDisabled, 'submit button is disabled if we only fill in decomissionTime');
-  });
-
-  test('triggers the onUpdateDeprecation action when submitted', async function(assert): Promise<void> {
-    let submitActionCallCount = 0;
-
-    this.setProperties({
-      ...defaultProperties,
-      submit(deprecated: boolean, note: string): void {
-        submitActionCallCount++;
-        assert.equal(deprecated, true, 'action is called with deprecation value of true');
-        assert.equal(note, '', 'action is called with an empty deprecation note');
-      },
-      decommissionTime: new Date()
-    });
-
-    await render(hbs`{{entity-deprecation
-                       entityName=entityName
-                       isDeprecated=deprecated
-                       decommissionTime=decommissionTime
-                       updateDeprecation=(action submit)}}`);
-
-    assert.equal(submitActionCallCount, 0, 'action is not called on render');
-    assert.equal(
-      (find('#dataset-is-deprecated') as HTMLInputElement).checked,
-      false,
-      'deprecation checkbox is unchecked'
-    );
-
-    await click('#dataset-is-deprecated');
-
-    assert.equal((find('#dataset-is-deprecated') as HTMLInputElement).checked, true, 'deprecation checkbox is checked');
-
-    await click('#acknowledge-deprecation');
-    await click('.entity-deprecation__actions [type=submit]');
-
-    assert.equal(submitActionCallCount, 1, 'action is called once');
   });
 });

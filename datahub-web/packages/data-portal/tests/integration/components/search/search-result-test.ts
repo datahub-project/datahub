@@ -34,32 +34,32 @@ module('Integration | Component | search/search-result', function(hooks) {
     }
   });
 
-  test('it renders', async function(assert) {
+  test('it renders', async function(assert): Promise<void> {
     assert.expect(1);
 
     const result = createEntity();
 
-    this.setProperties({ fields: [], result });
-    await render(hbs`{{search/search-result
-      result=result.data
-      meta=result.meta
-      resultFields=fields
-    }}`);
+    this.setProperties({ searchConfig: { attributes: [] }, result });
+    await render(hbs`<Search::SearchResult
+      @result={{this.result.data}}
+      @meta={{this.result.meta}}
+      @searchConfig={{this.searchConfig}}
+    />`);
 
     assert.ok(find('.search-result'), 'expected component to have a class `search-result`');
   });
 
-  test('search-result properties', async function(assert) {
+  test('search-result properties', async function(assert): Promise<void> {
     assert.expect(1);
 
     const result = createEntity();
 
-    this.setProperties({ fields: [], result });
-    await render(hbs`{{search/search-result
-      result=result.data
-      meta=result.meta
-      resultFields=fields
-    }}`);
+    this.setProperties({ searchConfig: { attributes: [] }, result });
+    await render(hbs`<Search::SearchResult
+      @result={{this.result.data}}
+      @meta={{this.result.meta}}
+      @searchConfig={{this.searchConfig}}
+    />`);
 
     const searchResultElement: Element | null = find('.search-result');
     const title = searchResultElement && searchResultElement.querySelector('.search-result__title');

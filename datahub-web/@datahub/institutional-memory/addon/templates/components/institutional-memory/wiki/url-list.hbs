@@ -25,13 +25,13 @@
         {{#body.row}}
           <td class="nacho-table__cell {{baseTableClass}}__author-info">
             {{#let docLink.actor as |actor|}}
-              {{#if actor.profileLink}}
-                <a href={{actor.profileLink}} target="_blank" rel="noopener">
+              {{#with actor.entityLink.link as |link|}}
+                <DynamicLink @params={{link}}>
                   {{actor.username}}
-                </a>
+                </DynamicLink>
               {{else}}
                 {{actor.username}}
-              {{/if}}
+              {{/with}}
             {{/let}}
           </td>
           <td class="nacho-table__cell {{baseTableClass}}__date-info">

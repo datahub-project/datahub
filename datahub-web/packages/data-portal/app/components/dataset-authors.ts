@@ -26,6 +26,7 @@ import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import DataModelsService from '@datahub/data-models/services/data-models';
 
 type Comparator = -1 | 0 | 1;
 
@@ -88,6 +89,12 @@ export default class DatasetAuthors extends Component {
    */
   @service('user-lookup')
   userLookup: UserLookup;
+
+  /**
+   * Injected service for our data models getter to access the PersonEntity class
+   */
+  @service('data-models')
+  dataModels!: DataModelsService;
 
   /**
    * If there are no changes to the ownership tab, we want to keep the save button disabled. Rather than
@@ -187,14 +194,15 @@ export default class DatasetAuthors extends Component {
    * @returns {OwnerWithAvatarRecord}
    */
   datasetAuthorsOwnersAugmentedWithAvatars = (owner: IOwner): OwnerWithAvatarRecord => {
-    const { avatarProperties } = this;
+    const { avatarProperties, dataModels } = this;
+    const PersonEntityClass = dataModels.getModel('people') as typeof PersonEntity;
 
     return {
       owner,
       avatar: avatarProperties
         ? makeAvatar(avatarProperties)(owner)
         : { imageUrl: '', imageUrlFallback: '/assets/images/default_avatar.png' },
-      profile: PersonEntity.profileLinkFromUsername(owner.userName)
+      profile: PersonEntityClass.urnFromUsername(owner.userName)
     };
   };
 

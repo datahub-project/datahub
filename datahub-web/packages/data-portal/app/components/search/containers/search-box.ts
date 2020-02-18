@@ -16,6 +16,7 @@ import { facetToParamUrl } from 'wherehows-web/utils/api/search/search';
 import RouterService from '@ember/routing/router-service';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import DataModelsService from '@datahub/data-models/services/data-models';
 
 /**
  * Search box container that handle all the data part for
@@ -28,6 +29,9 @@ export default class SearchBoxContainer extends Component {
 
   @service
   search: SearchService;
+
+  @service('data-models')
+  dataModels!: DataModelsService;
 
   @alias('search.entity')
   entity?: DataModelName;
@@ -44,9 +48,9 @@ export default class SearchBoxContainer extends Component {
    */
   @computed('entity')
   get dataModelEntity(): DataModelEntity | undefined {
-    const { entity } = this;
-    if (entity) {
-      return DataModelEntity[entity];
+    const { entity, dataModels } = this;
+    if (entity && dataModels) {
+      return dataModels.getModel(entity);
     }
     return;
   }
@@ -58,8 +62,15 @@ export default class SearchBoxContainer extends Component {
    * @returns {(IterableIterator<Promise<Array<ISuggestionGroup>>>)}
    * @memberof SearchBoxContainer
    */
-  @task(function*(query: string = '', entity?: DataModelName): IterableIterator<Promise<Array<ISuggestionGroup>>> {
-    return yield typeaheadQueryProcessor(query, entity, grammarProcessingSteps);
+  @task(function*(
+    this: SearchBoxContainer,
+    query: string = '',
+    entity?: DataModelName
+  ): IterableIterator<Promise<Array<ISuggestionGroup>>> {
+    const { dataModels } = this;
+    if (entity) {
+      return yield typeaheadQueryProcessor(query, dataModels.getModel(entity), grammarProcessingSteps);
+    }
   })
   onSearchInputTask: ETaskPromise<Array<ISuggestionGroup>>;
 
@@ -71,17 +82,20 @@ export default class SearchBoxContainer extends Component {
    */
   onSearch(text: string = '', entity: DataModelName = DatasetEntity.displayName): void {
     // entity (dropdown value) might be different than this.entity (Page that you are in)
-    const dataModelEntity = DataModelEntity[entity];
-    const { attributes } = dataModelEntity.renderProps.search;
-    const defaultFacets = facetToParamUrl(transformDefaultsIntoSelections(getFacetDefaultValueForEntity(attributes)));
+    const { dataModels } = this;
+    if (entity) {
+      const dataModelEntity = dataModels.getModel(entity);
+      const { attributes } = dataModelEntity.renderProps.search;
+      const defaultFacets = facetToParamUrl(transformDefaultsIntoSelections(getFacetDefaultValueForEntity(attributes)));
 
-    this.router.transitionTo('search', {
-      queryParams: {
-        entity,
-        keyword: text,
-        page: 1,
-        facets: defaultFacets
-      }
-    });
+      this.router.transitionTo('search', {
+        queryParams: {
+          entity,
+          keyword: text,
+          page: 1,
+          facets: defaultFacets
+        }
+      });
+    }
   }
 }

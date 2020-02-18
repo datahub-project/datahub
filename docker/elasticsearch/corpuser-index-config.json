@@ -16,15 +16,17 @@
             "catenate_words": "false"
           }
         },
-        "analyzer": {
-          "delimit_edgengram": {
+        "normalizer": {
+          "custom_normalizer": {
             "filter": [
               "lowercase",
-              "autocomplete_filter"
+              "asciifolding"
             ],
-            "tokenizer": "whitespace"
-          },
-          "delimit": {
+            "type": "custom"
+          }
+        },
+        "analyzer": {
+          "delimit_edgengram": {
             "filter": [
               "lowercase",
               "custom_delimiter",
@@ -32,10 +34,16 @@
             ],
             "tokenizer": "whitespace"
           },
-          "lowercase_keyword": {
+          "delimit": {
             "filter": [
               "lowercase",
-              "autocomplete_filter"
+              "custom_delimiter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "lowercase_keyword": {
+            "filter": [
+              "lowercase"
             ],
             "type": "custom",
             "tokenizer": "keyword"
@@ -48,13 +56,7 @@
     "doc": {
       "properties": {
         "aboutMe": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
+          "type": "text"
         },
         "active": {
           "type": "boolean"
@@ -66,8 +68,7 @@
               "type": "text",
               "analyzer": "delimit_edgengram"
             }
-          },
-          "analyzer": "delimit"
+          }
         },
         "ldap": {
           "type": "text",
@@ -90,38 +91,18 @@
           "analyzer": "lowercase_keyword"
         },
         "skills": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
+          "type": "text"
         },
         "teams": {
-          "type": "text",
-          "fields": {
-            "keyword": {
-              "type": "keyword",
-              "ignore_above": 256
-            }
-          }
+          "type": "text"
         },
         "title": {
-          "type": "text",
-          "fields": {
-            "ngram": {
-              "type": "text",
-              "analyzer": "delimit_edgengram"
-            }
-          },
-          "analyzer": "delimit",
-          "fielddata": true
+          "type": "keyword",
+          "normalizer": "custom_normalizer"
         },
         "urn": {
-          "type": "text",
-          "analyzer": "lowercase_keyword",
-          "fielddata": true
+          "type": "keyword",
+          "normalizer": "custom_normalizer"
         }
       }
     }
