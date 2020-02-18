@@ -24,9 +24,11 @@ public class BuilderUtilsTest {
     Owner owner1 = new Owner().setOwner(new CorpuserUrn("t1"));
     Owner owner2 = new Owner().setOwner(new CorpuserUrn("t2"));
     Owner owner3 = new Owner().setOwner(new CorpGroupUrn("t3"));
-    List<Owner> owners = Arrays.asList(owner1, owner2, owner3);
+    Owner owner4 = new Owner().setOwner(new CorpGroupUrn("t-4-t"));
+    Owner owner5 = new Owner().setOwner(new CorpGroupUrn("t_5_t"));
+    List<Owner> owners = Arrays.asList(owner1, owner2, owner3, owner4, owner5);
     ownership.setOwners(new OwnerArray(owners));
-    assertEquals(BuilderUtils.getCorpUserOwners(ownership), Arrays.asList("t1", "t2"));
+    assertEquals(BuilderUtils.getCorpUserOwners(ownership), Arrays.asList("t1", "t2", "t3", "t-4-t", "t_5_t"));
   }
 
   @Test
