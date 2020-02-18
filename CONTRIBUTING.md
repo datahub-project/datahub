@@ -19,7 +19,7 @@ If you find a bug:
 Before you submit your Pull Request (PR), consider the following guidelines:
 
 * Search GitHub for an open or closed PR that relates to your submission. You don't want to duplicate effort.
-* Follow the [standard GitHub approach](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork) to create the PR. Please follow our [commit message format](#commit-message-format).
+* Follow the [standard GitHub approach](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork) to create the PR. Please also follow our [commit message format](#commit-message-format).
 * That's it! Thank you for your contribution!
 
 ## Commit Message Format
