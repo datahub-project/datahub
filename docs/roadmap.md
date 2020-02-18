@@ -51,3 +51,4 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - TypeScript-only frontend development
 ### gRPC + protobuf
 - Modeling in protobuf + serveing in gRPC
+### UI for metadata graph exploration
