@@ -19,60 +19,8 @@ If you find a bug:
 Before you submit your Pull Request (PR), consider the following guidelines:
 
 * Search GitHub for an open or closed PR that relates to your submission. You don't want to duplicate effort.
-* Make your changes in a new branch:
-
-```  
-  git checkout -b my-fix-branch master
-```  
-
-* Create your patch, *including appropriate test cases*.
-* Run the test suite
-* Commit your changes using a descriptive commit message that follows our [commit message format](#commit-message-format).
-
-```
-  git commit -a
-```  
-
-Note: The optional commit -a command-line option will automatically "add" and "rm" edited files.
-
-* Push your branch to GitHub:
-
-  git push origin my-fix-branch
-  
-* In GitHub, send a pull request to `datahub:master`
-* If we suggest changes, then:
-  * Make the required updates.
-  * Re-run the test suite
-  * Rebase your branch and force push to your GitHub repository (this will update your Pull Request)
-
-```
-  git rebase master -i
-  git push -f
-```
-  
-That's it! Thank you for your contribution!
-
-## After your pull request is merged
-
-After your pull request is merged, you can safely delete your branch and pull the changes from the main (upstream) repository:
-
-* Delete the remote branch on GitHub either through the GitHub web UI or your local shell as follows:
-
-```
-  git push origin --delete my-fix-branch
-```
-
-* Check out the master branch:
-
-```
-  git checkout master -f
-```
-
-* Update your master with the latest upstream version:
-
-```
-  git pull --ff upstream master
-```
+* Follow the [standard GitHub approach](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork) to create the PR. Please follow our [commit message format](#commit-message-format).
+* That's it! Thank you for your contribution!
 
 ## Commit Message Format
 
