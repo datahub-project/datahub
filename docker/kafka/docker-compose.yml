@@ -2,7 +2,7 @@
 version: '3.5'
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.3.0
+    image: confluentinc/cp-zookeeper:5.4.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -12,7 +12,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   broker:
-    image: confluentinc/cp-kafka:5.3.0
+    image: confluentinc/cp-kafka:5.4.0
     hostname: broker
     container_name: broker
     depends_on:
@@ -30,7 +30,7 @@ services:
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
-    image: confluentinc/cp-kafka:5.3.0
+    image: confluentinc/cp-kafka:5.4.0
     hostname: kafka-setup
     container_name: kafka-setup
     depends_on:
@@ -47,7 +47,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: ignored
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:5.3.0
+    image: confluentinc/cp-schema-registry:5.4.0
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
