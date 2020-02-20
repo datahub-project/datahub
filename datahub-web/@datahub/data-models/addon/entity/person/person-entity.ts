@@ -142,7 +142,7 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    */
   get profilePictureUrl(): string {
     const fallbackImgUrl = '/assets/images/default_avatar.png';
-    const baseUrl = PersonEntity.aviUrlPrimary;
+    const baseUrl = this.pictureLink;
 
     return baseUrl ? baseUrl.replace('[username]', (): string => this.username) : fallbackImgUrl;
   }

@@ -10,19 +10,19 @@ create table metadata_aspect (
   constraint pk_metadata_aspect primary key (urn,aspect,version)
 );
 
--- create default records for datahub user
+-- create default records for data-platform user
 insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdby) values(
-  'urn:li:corpuser:datahub',
+  'urn:li:corpuser:data-platform',
   'com.linkedin.identity.CorpUserInfo',
   0,
-  '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
+  '{"displayName":"Data Platform","active":true,"fullName":"Data Platform","email":"dops@typeform.com"}',
   now(),
-  'urn:li:principal:datahub'
+  'urn:li:principal:data-platform'
 ), (
-  'urn:li:corpuser:datahub',
+  'urn:li:corpuser:data-platform',
   'com.linkedin.identity.CorpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/afranzi/datahub/master/datahub-web/packages/data-portal/public/assets/images/icons/ai.png"}',
   now(),
-  'urn:li:principal:datahub'
+  'urn:li:principal:data-platform'
 );

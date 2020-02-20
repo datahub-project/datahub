@@ -5,6 +5,7 @@ export DATA_STORAGE_FOLDER=/tmp/datahub
 mkdir -p ${DATA_STORAGE_FOLDER}
 mkdir -p ${DATA_STORAGE_FOLDER}/elasticsearch
 chown 1000:1000 ${DATA_STORAGE_FOLDER}/elasticsearch
+
 cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 At this point, all containers are ready and DataHub can be considered up and running. Check specific containers guide
