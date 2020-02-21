@@ -4,11 +4,12 @@ import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
 public final class CorpuserUrn extends Urn {
 
   public static final String ENTITY_TYPE = "corpuser";
 
-  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":(\\w+)$");
+  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":([\\-\\w]+)$");
 
   private final String usernameEntity;
 

@@ -8,7 +8,7 @@ public final class CorpGroupUrn extends Urn {
 
   public static final String ENTITY_TYPE = "corpGroup";
 
-  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":(\\w+)$");
+  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":([\\-\\w]+)$");
 
   private final String groupNameEntity;
 
