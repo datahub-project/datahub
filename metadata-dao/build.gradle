@@ -14,7 +14,6 @@ dependencies {
   testCompile project(':metadata-testing:metadata-test-models')
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.guava
-  testCompile externalDependency.testng
 }
 
 // Force the main artifact to include the data template classes. Clients will no longer need to separately depend on the

@@ -20,5 +20,4 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':metadata-testing:metadata-test-utils')
-  testCompile externalDependency.testng
 }
