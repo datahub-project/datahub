@@ -11,10 +11,5 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
-  testCompile externalDependency.testng
   testCompile externalDependency.mockito
-}
-
-test {
-  useTestNG()
 }
