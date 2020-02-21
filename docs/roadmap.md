@@ -11,7 +11,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Link datasets to jobs & flows
 ### Schemas as an entity
 - Make schemas searchable
-- Support GraphQL shcmeas
+- Support GraphQL schemas
 ### Compliance management for datasets
 - Simple tag-based compliance metadata
 ### Strongly consistent local index
@@ -50,5 +50,5 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Rewrite midtier in Node
 - TypeScript-only frontend development
 ### gRPC + protobuf
-- Modeling in protobuf + serveing in gRPC
+- Modeling in protobuf + serving in gRPC
 ### UI for metadata graph exploration
