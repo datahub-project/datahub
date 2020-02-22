@@ -8,16 +8,16 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :sparkles:Feb 2020 Update: 
+> :sparkles:Feb 2020 Update:
 > - Our [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) on open sourcing DataHub is out!
 > - *DataHub v0.3.0* is [released](https://github.com/linkedin/datahub/releases/tag/v0.3.0)!
 
 ## Introduction
-DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
-[LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). 
+DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our
+[LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019).
 You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and [DataHub Onboarding Guide](docs/how/entity-onboarding.md) to understand how to extend DataHub for your own use case.
 
-This repository contains the complete source code for both DataHub's frontend & backend. You can also read about [how we sync the changes](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) between our the internal fork and GitHub. 
+This repository contains the complete source code for both DataHub's frontend & backend. You can also read about [how we sync the changes](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) between our the internal fork and GitHub.
 
 ## Quickstart
 1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/). Make sure to configure Docker to allocate enough hardware resources for Docker engine. Tested & confirmed config: 4 CPUs, 8GB RAM, 2GB Swap area.
@@ -51,9 +51,9 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
 ## Contributing
-We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
-=======
-## ⚠️ WhereHows is no longer being maintained. Please use [DataHub](https://github.com/linkedin/datahub) instead for all new production use cases. 
+We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation.
+=======XZXZ
+## ⚠️ WhereHows is no longer being maintained. Please use [DataHub](https://github.com/linkedin/datahub) instead for all new production use cases.
 
 
 # WhereHows [![Build Status](https://travis-ci.org/linkedin/WhereHows.svg?branch=master)](https://travis-ci.org/linkedin/WhereHows) [![latest](https://img.shields.io/badge/latest-1.0.0-blue.svg)](https://github.com/linkedin/WhereHows/releases) [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/wherehows) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LinkedIn/Wherehows/wiki/Contributing)
@@ -89,13 +89,12 @@ The detailed information can be found in the [Wiki][wiki]
 
 ## Examples in VM (Deprecated)
 There is a pre-built vmware image (about 11GB) to quickly demonstrate the functionality of WhereHows. Check out the [VM Guide][VM]
-
 ## WhereHows Docker
 Docker can provide configuration free dev/production setup quickly, please check out [Docker Getting Start Guide](wherehows-docker/README.md)
 
 ## Getting Started
 New to Wherehows? Check out the [Getting Started Guide][GS]
- 
+
 
 ### Preparation
 First, please [setup the metadata repository][DB] in MySQL.
