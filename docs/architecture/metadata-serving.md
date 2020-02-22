@@ -9,7 +9,7 @@ There are four types of Data Access Object ([DAO]) that standardize the way meta
 This section describes each type of DAO, its purpose, and the interface. 
 
 These DAOs rely heavily on [Java Generics](https://docs.oracle.com/javase/tutorial/extra/generics/index.html) so that the core logics can remain type-neutral. 
-However, as there’s no inheritance in [Pegasus], the generics often fallback to extending [RecordTemplate] instead of the desired types (i.e. [entity], [relationship], metadata [aspect] etc). Additionl runtime type checking has been added to the DAOs to avoid binding to unexpected types. We also cache the type checking reulst to minimize runtime overhead.
+However, as there’s no inheritance in [Pegasus], the generics often fallback to extending [RecordTemplate] instead of the desired types (i.e. [entity], [relationship], metadata [aspect] etc). Additional runtime type checking has been added to the DAOs to avoid binding to unexpected types. We also cache the type checking result to minimize runtime overhead.
 
 ## Key-value DAO (Local DAO)
 

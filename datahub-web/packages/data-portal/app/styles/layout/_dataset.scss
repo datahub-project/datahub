@@ -18,6 +18,14 @@
   margin: 0;
 }
 
+.dataset-description {
+  display: flex;
+  padding-right: item-spacing(3);
+  word-wrap: break-word;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
 .dataset-header-meta {
   display: flex;
   position: relative;

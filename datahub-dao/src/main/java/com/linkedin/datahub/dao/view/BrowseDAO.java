@@ -53,8 +53,8 @@ public class BrowseDAO<CLIENT> {
     final BrowseResultEntityArray browseResultEntityArray = browseResult.getEntities();
     node.set("elements", collectionToArrayNode(browseResultEntityArray.subList(0, browseResultEntityArray.size())));
     node.put("start", browseResult.getFrom());
-    node.put("count", browseResult.getNumEntities());
-    node.put("total", browseResult.getMetadata().getTotalNumEntities());
+    node.put("count", browseResult.getPageSize());
+    node.put("total", browseResult.getNumEntities());
     node.set("metadata", toJsonNode(browseResult.getMetadata()));
     return node;
   }

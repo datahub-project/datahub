@@ -7,14 +7,16 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :sparkles: Feb 2020 Update: *DataHub v0.3.0* just [released](https://github.com/linkedin/datahub/releases/tag/v0.3.0)!
+> :sparkles:Feb 2020 Update: 
+> - Our [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) on open sourcing DataHub is out!
+> - *DataHub v0.3.0* is [released](https://github.com/linkedin/datahub/releases/tag/v0.3.0)!
 
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
 [LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). 
 You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and [DataHub Onboarding Guide](docs/how/entity-onboarding.md) to understand how to extend DataHub for your own use case.
 
-This repository contains the complete source code for both DataHub's frontend & backend.
+This repository contains the complete source code for both DataHub's frontend & backend. You can also read about [how we sync the changes](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) between our the internal fork and GitHub. 
 
 ## Quickstart
 1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/). Make sure to configure Docker to allocate enough hardware resources for Docker engine. Tested & confirmed config: 4 CPUs, 8GB RAM, 2GB Swap area.

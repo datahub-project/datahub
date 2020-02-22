@@ -45,6 +45,12 @@
       {{/if}}
     </div>
 
+    {{#if @model.description}}
+      <span class="dataset-description">
+        {{@model.description}}
+      </span>
+    {{/if}}
+
     {{datasets/containers/dataset-owner-list
       urn=encodedUrn
       avatarEntityProps=avatarEntityProps
