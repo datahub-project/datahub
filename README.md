@@ -52,7 +52,10 @@ See [Releases](https://github.com/linkedin/datahub/releases) page for more detai
 
 ## Contributing
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation.
+<<<<<<< Updated upstream
 =======XZXZ
+=======
+>>>>>>> Stashed changes
 ## ⚠️ WhereHows is no longer being maintained. Please use [DataHub](https://github.com/linkedin/datahub) instead for all new production use cases.
 
 
