@@ -7,7 +7,6 @@ dependencies {
 
   testCompile project(':metadata-validators')
   testCompile externalDependency.guava
-  testCompile externalDependency.testng
 }
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]

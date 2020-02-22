@@ -16,12 +16,5 @@ dependencies {
 
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile project(':metadata-testing:metadata-test-models')
-  testCompile externalDependency.testng
   testCompile externalDependency.mockito
-}
-
-tasks.withType(Test) {
-  useTestNG() {
-    excludeGroups 'browseIntegration'
-  }
 }

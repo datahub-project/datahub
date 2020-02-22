@@ -14,5 +14,4 @@ dependencies {
   testCompile project(':metadata-testing:metadata-test-models')
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.mockito
-  testCompile externalDependency.testng
 }

@@ -12,5 +12,4 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.mockito
-  testCompile externalDependency.testng
 }
