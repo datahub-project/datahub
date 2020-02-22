@@ -38,6 +38,8 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Initially focus on rest.li services & GraphQL integration
 ### Kundera-based Local DAO
 - Support a wide range of document stores
+### Add GraphQL endpoint to GMS
+- Use GraphQL exclusively for frontend queries
 ### Adopt Redux
 - Use Redux exclusively for UI state management
 ### Integration tests
@@ -45,6 +47,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### AWS & GCP deployment
 - Run DataHub in [AWS](https://aws.amazon.com/) & [GCP](https://cloud.google.com/gcp) and provide how-to guides
 ### Apache incubation
+- Donate code to Apache foundation
 
 ## Long term (1+ year)
 ### Rewrite midtier in Node
