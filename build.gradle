@@ -77,6 +77,16 @@ allprojects {
 subprojects {
   apply plugin: 'maven'
 
+  plugins.withType(JavaPlugin) {
+    dependencies {
+      testCompile externalDependency.testng
+    }
+
+    tasks.withType(Test) {
+      useTestNG()
+    }
+  }
+
   afterEvaluate {
     if (project.plugins.hasPlugin('java')) {
       sourceCompatibility = 1.8

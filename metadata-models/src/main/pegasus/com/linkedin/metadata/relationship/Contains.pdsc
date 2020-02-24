@@ -7,10 +7,6 @@
     "BaseRelationship"
   ],
   "pairings": [
-    {
-      "source": "com.linkedin.common.urn.InchartsChartUrn",
-      "destination": "com.linkedin.common.urn.InchartsChartInstanceUrn"
-    }
   ],
   "fields": [
   ]
