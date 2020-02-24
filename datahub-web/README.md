@@ -40,7 +40,7 @@ Building will run the monorepo test suite and transpile the TypeScript applicati
 ## Developing & Running the web application
 Once [DataHub GMS](../gms) and the [DataHub Frontend](../datahub-frontend) are running you can start [DataHub Web](./) by running:
 ```sh
-datahub> ./gradew emberServe
+datahub> ./gradlew emberServe
 ```
 
 or
