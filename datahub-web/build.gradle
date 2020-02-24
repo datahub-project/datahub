@@ -49,7 +49,7 @@ task emberLintHbs(type: YarnTask, dependsOn: emberLintJs) {
 }
 
 task emberServe(type: YarnTask, dependsOn: emberLintHbs) {
-  args = ['workspace', yarnMainProject, 'run', 'start',  '--proxy', 'localhost:9001', '--secure-proxy=false']
+  args = ['workspace', yarnMainProject, 'run', 'start',  '--proxy', 'http://localhost:9001', '--secure-proxy=false']
 }
 
 task emberWorkspaceTest(type: YarnTask, dependsOn: emberLintHbs) {
