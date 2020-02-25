@@ -141,7 +141,7 @@ public class MceStreamTask {
   static void createProcessingTopology(final StreamsBuilder builder) {
     // Construct a `KStream` from the input topic.
     // The default key and value serdes will be used.
-     KStream<String, GenericData.Record> messages = builder.stream(
+     final KStream<String, GenericData.Record> messages = builder.stream(
             Configuration.getEnvironmentVariable("KAFKA_TOPIC_NAME", DEFAULT_MCE_KAFKA_TOPIC_NAME)
     );
      messages.foreach((k, v) -> processSingleMCE(v));
@@ -173,10 +173,10 @@ public class MceStreamTask {
      * @param event
      * @param throwable
      */
-    private static void sendFailedMCE(MetadataChangeEvent event, Throwable throwable) {
-        FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
+    private static void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
+        final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
         try {
-            GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
+            final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
             log.debug("FailedMetadataChangeEvent:"+failedMetadataChangeEvent);
             producer.send(new ProducerRecord<>(
                 Configuration.getEnvironmentVariable("FAILED_MCE_KAFKA_TOPIC_NAME", DEFAULT_FMCE_KAFKA_TOPIC_NAME),
@@ -194,7 +194,7 @@ public class MceStreamTask {
      */
   @Nonnull
   private static FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
-      FailedMetadataChangeEvent fmce = new FailedMetadataChangeEvent();
+      final FailedMetadataChangeEvent fmce = new FailedMetadataChangeEvent();
       fmce.setError(ExceptionUtils.getStackTrace(throwable));
       fmce.setMetadataChangeEvent(event);
       return fmce;
