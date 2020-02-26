@@ -2,19 +2,23 @@
   "auditHeader": null,
   "oldSnapshot": null,
   "newSnapshot": {
-    "com.linkedin.pegasus2avro.metadata.snapshot.MetricSnapshot": {
-      "urn": "urn:li:metric:(foo,bar)",
+    "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)",
       "aspects": [
         {
           "com.linkedin.pegasus2avro.common.Ownership": {
             "owners": [
               {
-                "owner": "urn:li:corpuser:foo",
+                "owner": "urn:li:corpuser:foobar",
                 "type": "DEVELOPER",
                 "source": null
               }
             ],
-            "lastModified": null
+            "lastModified": {
+              "time": 0,
+              "actor": "urn:li:corpuser:foobar",
+              "impersonator": null
+            }
           }
         }
       ]
