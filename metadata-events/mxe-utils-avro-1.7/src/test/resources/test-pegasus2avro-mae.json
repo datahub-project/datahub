@@ -1,16 +1,20 @@
 {
   "newSnapshot": {
-    "com.linkedin.metadata.snapshot.MetricSnapshot": {
-      "urn": "urn:li:metric:(foo,bar)",
+    "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)",
       "aspects": [
         {
           "com.linkedin.common.Ownership": {
             "owners": [
               {
-                "owner": "urn:li:corpuser:foo",
+                "owner": "urn:li:corpuser:foobar",
                 "type": "DEVELOPER"
               }
-            ]
+            ],
+            "lastModified": {
+              "time": 0,
+              "actor": "urn:li:corpuser:foobar"
+            }
           }
         }
       ]
