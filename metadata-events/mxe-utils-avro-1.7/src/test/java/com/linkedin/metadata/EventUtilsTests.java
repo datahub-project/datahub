@@ -3,6 +3,7 @@ package com.linkedin.metadata;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import java.io.IOException;
@@ -63,6 +64,17 @@ public class EventUtilsTests {
 
         assertEquals(record.getSchema(), com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$);
         assertNotNull(record.get("proposedSnapshot"));
+    }
+
+    @Test
+    public void testPegasusToAvroFailedMCE() throws IOException {
+        FailedMetadataChangeEvent event = recordTemplateFromResource("test-pegasus2avro-fmce.json", FailedMetadataChangeEvent.class);
+
+        GenericRecord record = EventUtils.pegasusToAvroFailedMCE(event);
+
+        assertEquals(record.getSchema(), com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent.SCHEMA$);
+        assertNotNull(record.get("error"));
+        assertNotNull(record.get("metadataChangeEvent"));
     }
 
     private GenericRecord genericRecordFromResource(String resourcePath, Schema schema) throws IOException {

@@ -9,13 +9,24 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.FailedMetadataChangeEvent;
+import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
 import com.linkedin.restli.client.Client;
 import com.linkedin.util.Configuration;
+
+import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
+import io.confluent.kafka.streams.serdes.avro.GenericAvroSerializer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -23,18 +34,21 @@ import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 import org.apache.kafka.streams.kstream.KStream;
 
 import javax.annotation.Nonnull;
+
+import java.io.IOException;
 import java.util.Properties;
 
 
 @Slf4j
 public class MceStreamTask {
 
-  private static final String DEFAULT_KAFKA_TOPIC_NAME = Topics.METADATA_CHANGE_EVENT;
+  private static final String DEFAULT_MCE_KAFKA_TOPIC_NAME = Topics.METADATA_CHANGE_EVENT;
+  private static final String DEFAULT_FMCE_KAFKA_TOPIC_NAME = Topics.FAILED_METADATA_CHANGE_EVENT;
   private static final String DEFAULT_GMS_HOST = "localhost";
   private static final String DEFAULT_GMS_PORT = "8080";
   private static final String DEFAULT_KAFKA_BOOTSTRAP_SERVER = "localhost:9092";
   private static final String DEFAULT_KAFKA_SCHEMAREGISTRY_URL = "http://localhost:8081";
-
+  private static KafkaProducer<String, GenericRecord> producer;
   private static BaseRemoteWriterDAO _remoteWriterDAO;
 
   public static void main(final String[] args) {
@@ -48,6 +62,13 @@ public class MceStreamTask {
 
     // Configure the Streams application.
     final Properties streamsConfiguration = getStreamsConfiguration();
+
+    // Configure the Kakfa Producer for sending Failed MCE
+    final Properties producerProperties = getProducerProperties();
+
+    // Define the Producer for Sending Failed MCE Events
+    producer = new KafkaProducer<>(producerProperties);
+
 
     // Define the processing topology of the Streams application.
     final StreamsBuilder builder = new StreamsBuilder();
@@ -93,6 +114,25 @@ public class MceStreamTask {
     return streamsConfiguration;
   }
 
+    /**
+     * KafkaProducer Properties to produce FailedMetadataChangeEvent
+     *
+     * @return Properties producerConfig
+     */
+  static Properties getProducerProperties() {
+      final Properties producerConfig = new Properties();
+
+      producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+          Configuration.getEnvironmentVariable("KAFKA_BOOTSTRAP_SERVER", DEFAULT_KAFKA_BOOTSTRAP_SERVER));
+      producerConfig.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+          Configuration.getEnvironmentVariable("KAFKA_SCHEMAREGISTRY_URL", DEFAULT_KAFKA_SCHEMAREGISTRY_URL));
+      producerConfig.put(ProducerConfig.CLIENT_ID_CONFIG, "failed-mce-producer");
+      producerConfig.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+      producerConfig.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, GenericAvroSerializer.class);
+
+      return producerConfig;
+  }
+
   /**
    * Define the processing topology for job.
    *
@@ -101,10 +141,10 @@ public class MceStreamTask {
   static void createProcessingTopology(final StreamsBuilder builder) {
     // Construct a `KStream` from the input topic.
     // The default key and value serdes will be used.
-    final KStream<String, GenericData.Record> messages = builder.stream(
-            Configuration.getEnvironmentVariable("KAFKA_TOPIC_NAME", DEFAULT_KAFKA_TOPIC_NAME)
+     final KStream<String, GenericData.Record> messages = builder.stream(
+            Configuration.getEnvironmentVariable("KAFKA_TOPIC_NAME", DEFAULT_MCE_KAFKA_TOPIC_NAME)
     );
-    messages.foreach((k, v) -> processSingleMCE(v));
+     messages.foreach((k, v) -> processSingleMCE(v));
   }
 
   /**
@@ -114,17 +154,50 @@ public class MceStreamTask {
    */
   static void processSingleMCE(final GenericData.Record record) {
     log.debug("Got MCE");
-
+    com.linkedin.mxe.MetadataChangeEvent event = new MetadataChangeEvent();
     try {
-      final com.linkedin.mxe.MetadataChangeEvent event = EventUtils.avroToPegasusMCE(record);
+        event = EventUtils.avroToPegasusMCE(record);
 
-      if (event.hasProposedSnapshot()) {
-        processProposedSnapshot(event.getProposedSnapshot());
-      }
+        if (event.hasProposedSnapshot()) {
+            processProposedSnapshot(event.getProposedSnapshot());
+        }
     } catch (Throwable throwable) {
-      log.error("MCE Processor Error", throwable);
-      log.error("Message: {}", record);
+        log.error("MCE Processor Error", throwable);
+        log.error("Message: {}", record);
+        sendFailedMCE(event, throwable);
     }
+  }
+
+    /**
+     * Sending Failed MCE Event to Kafka Topic
+     * @param event
+     * @param throwable
+     */
+    private static void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
+        final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
+        try {
+            final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
+            log.debug("FailedMetadataChangeEvent:"+failedMetadataChangeEvent);
+            producer.send(new ProducerRecord<>(
+                Configuration.getEnvironmentVariable("FAILED_MCE_KAFKA_TOPIC_NAME", DEFAULT_FMCE_KAFKA_TOPIC_NAME),
+                genericFailedMCERecord));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Populate a FailedMetadataChangeEvent from a MCE
+     * @param event
+     * @param throwable
+     * @return FailedMetadataChangeEvent
+     */
+  @Nonnull
+  private static FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
+      final FailedMetadataChangeEvent fmce = new FailedMetadataChangeEvent();
+      fmce.setError(ExceptionUtils.getStackTrace(throwable));
+      fmce.setMetadataChangeEvent(event);
+      return fmce;
   }
 
   static void processProposedSnapshot(@Nonnull Snapshot snapshotUnion) {

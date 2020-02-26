@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.linkedin.data.avro.DataTranslator;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import java.io.ByteArrayInputStream;
@@ -35,9 +36,14 @@ public class EventUtils {
   private static final Schema ORIGINAL_MAE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataAuditEvent.avsc");
 
+  private static final Schema ORIGINAL_FAILED_MCE_AVRO_SCHEMA =
+      getAvroSchemaFromResource("avro/com/linkedin/mxe/FailedMetadataChangeEvent.avsc");
+
   private static final Schema RENAMED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;
 
   private static final Schema RENAMED_MAE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataAuditEvent.SCHEMA$;
+
+  private static final Schema RENAMED_FAILED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent.SCHEMA$;
 
   private EventUtils() {
     // Util class
@@ -106,6 +112,20 @@ public class EventUtils {
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_MCE_AVRO_SCHEMA);
     return renameSchemaNamespace(original, ORIGINAL_MCE_AVRO_SCHEMA, RENAMED_MCE_AVRO_SCHEMA);
   }
+
+    /**
+     * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
+     *
+     * @param failedMetadataChangeEvent the Pegasus {@link FailedMetadataChangeEvent} model
+     * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+     * @throws IOException if the conversion fails
+     */
+    @Nonnull
+    public static GenericRecord pegasusToAvroFailedMCE(@Nonnull FailedMetadataChangeEvent failedMetadataChangeEvent) throws IOException {
+        GenericRecord original =
+            DataTranslator.dataMapToGenericRecord(failedMetadataChangeEvent.data(), failedMetadataChangeEvent.schema(), ORIGINAL_FAILED_MCE_AVRO_SCHEMA);
+        return renameSchemaNamespace(original, ORIGINAL_FAILED_MCE_AVRO_SCHEMA, RENAMED_FAILED_MCE_AVRO_SCHEMA);
+    }
 
   /**
    * Converts original MXE into a renamed namespace
