@@ -7,6 +7,10 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
+> :mega: First town hall meeting: 
+> - BlueJeans link: https://bluejeans.com/4642477444
+> - Signup sheet: https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/
+
 > :sparkles:Feb 2020 Update: 
 > - Our [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) on open sourcing DataHub is out!
 > - *DataHub v0.3.0* is [released](https://github.com/linkedin/datahub/releases/tag/v0.3.0)!
