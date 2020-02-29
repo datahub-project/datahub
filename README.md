@@ -47,14 +47,14 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 * [Frontend](datahub-frontend)
 * [Web App](datahub-web)
 * [Generalized Metadata Service](gms)
-* [Metadata Processing Jobs](metadata-jobs)
 * [Metadata Ingestion](metadata-ingestion)
+* [Metadata Processing Jobs](metadata-jobs)
 
 ## Releases
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
 ## Roadmap
-Check out DataHub's [roadmap](docs/roadmap.md).
+Check out DataHub's [Roadmap](docs/roadmap.md).
 
 ## Contributing
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
