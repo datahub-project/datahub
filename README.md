@@ -40,7 +40,7 @@ This repository contains the complete source code for both DataHub's frontend & 
 
 Refer to [debugging guide](docs/debugging.md) if you have issues in any of the above steps.
 
-## Quicklinks
+## Documents
 * [DataHub Architecture](docs/architecture/architecture.md)
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
 * [Docker Images](docker)
@@ -53,11 +53,11 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 ## Releases
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
-## Contributing
-We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
-
 ## Roadmap
 Check out DataHub's [roadmap](docs/roadmap.md).
+
+## Contributing
+We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
 
 ## Related Articles & Presentations
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
