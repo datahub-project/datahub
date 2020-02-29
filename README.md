@@ -62,7 +62,7 @@ Check out DataHub's [roadmap](docs/roadmap.md).
 ## Articles & Presentations
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
-* [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 19](https://conferences.oreilly.com/strata/strata-ny-2019/public/schedule/detail/77575)
-* [Journey of metadata at LinkedIn @ Crunch Data Conference 19](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
+* [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019/public/schedule/detail/77575)
+* [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 * [How LinkedIn, Uber, Lyft, Airbnb and Netflix are Solving Data Management and Discovery for Machine Learning Solutions](https://towardsdatascience.com/how-linkedin-uber-lyft-airbnb-and-netflix-are-solving-data-management-and-discovery-for-machine-9b79ee9184bb)
