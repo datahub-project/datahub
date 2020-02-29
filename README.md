@@ -66,3 +66,5 @@ We welcome contributions from the community. Please refer to [the guidelines](CO
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 * [How LinkedIn, Uber, Lyft, Airbnb and Netflix are Solving Data Management and Discovery for Machine Learning Solutions](https://towardsdatascience.com/how-linkedin-uber-lyft-airbnb-and-netflix-are-solving-data-management-and-discovery-for-machine-9b79ee9184bb)
+* [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
+* [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)
