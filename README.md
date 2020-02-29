@@ -8,7 +8,7 @@
 ![DataHub](docs/imgs/datahub-logo.png)
 
 > :mega: First DataHub town hall meeting on March 6th, 10am-11am PST: 
-> - BlueJeans link: https://bluejeans.com/4642477444
+> - Video conference link: https://bluejeans.com/4642477444
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 
 > :sparkles:Feb 2020 Update: 
