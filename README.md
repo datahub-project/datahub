@@ -9,7 +9,7 @@
 
 > :mega: First town hall meeting on March 6th, 10am-11am PST: 
 > - BlueJeans link: https://bluejeans.com/4642477444
-> - Signup sheet: https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/
+> - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 
 > :sparkles:Feb 2020 Update: 
 > - Our [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) on open sourcing DataHub is out!
