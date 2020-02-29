@@ -1,4 +1,4 @@
-# MXE Consumer Jobs
+# MXE Processing Jobs
 DataHub uses Kafka as the pub-sub message queue in the backend. There are 2 Kafka topics used by DataHub which are 
 `MetadataChangeEvent` and `MetadataAuditEvent`.
 * `MetadataChangeEvent:` This message is emitted by any data platform or crawler in which there is a change in the metadata.
