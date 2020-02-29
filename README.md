@@ -7,7 +7,7 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: First town hall meeting on March 6th, 10am-11am PST: 
+> :mega: First DataHub town hall meeting on March 6th, 10am-11am PST: 
 > - BlueJeans link: https://bluejeans.com/4642477444
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 
@@ -59,7 +59,7 @@ We welcome contributions from the community. Please refer to [the guidelines](CO
 ## Roadmap
 Check out DataHub's [roadmap](docs/roadmap.md).
 
-## Articles & Presentations
+## Related Articles & Presentations
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 * [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019/public/schedule/detail/77575)
