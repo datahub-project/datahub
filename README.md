@@ -7,7 +7,7 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: First town hall meeting: 
+> :mega: First town hall meeting on March 6th, 10am-11am PST: 
 > - BlueJeans link: https://bluejeans.com/4642477444
 > - Signup sheet: https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/
 
