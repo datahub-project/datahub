@@ -5,12 +5,12 @@
  * @enum {string}
  */
 export enum FabricType {
-  // Designates DEV fabrics, although it could be machines in EI physical fabric like EI1
+  // Designates DEV fabrics
   DEV = 'DEV',
-  // Designates Early-Integration fabrics, such EI1, EI2 etc.
+  // Designates Early-Integration fabrics
   EI = 'EI',
-  // Designates production fabrics, such as prod-ltx1, prod-lva1 etc.
+  // Designates production fabrics
   PROD = 'PROD',
-  // Designates corporation fabrics, such as corp-eat1, corp-lca1 etc.
+  // Designates corporation fabrics
   CORP = 'CORP'
 }
