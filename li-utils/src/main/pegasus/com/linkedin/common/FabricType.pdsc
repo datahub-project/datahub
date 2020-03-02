@@ -8,6 +8,6 @@
     "DEV": "Designates DEV fabrics",
     "EI": "Designates Early-Integration fabrics",
     "PROD": "Designates production fabrics",
-    "CORP": "Designates corperation fabrics"
+    "CORP": "Designates corporation fabrics"
   }
 }
