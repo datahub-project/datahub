@@ -123,10 +123,10 @@
     "doc" : "Fabric group type",
     "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
     "symbolDocs" : {
-      "DEV" : "Designates DEV fabrics",
-      "EI" : "Designates Early-Integration fabrics",
+      "DEV" : "Designates development fabrics",
+      "EI" : "Designates early-integration (staging) fabrics",
       "PROD" : "Designates production fabrics",
-      "CORP" : "Designates corperation fabrics"
+      "CORP" : "Designates corporation fabrics"
     }
   }, {
     "type" : "typeref",
