@@ -5,9 +5,9 @@
  * @enum {string}
  */
 export enum FabricType {
-  // Designates DEV fabrics
+  // Designates development fabrics
   DEV = 'DEV',
-  // Designates Early-Integration fabrics
+  // Designates early-integration (staging) fabrics
   EI = 'EI',
   // Designates production fabrics
   PROD = 'PROD',
