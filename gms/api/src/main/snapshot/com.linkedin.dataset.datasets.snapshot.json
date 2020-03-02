@@ -120,19 +120,13 @@
     "type" : "enum",
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
-    "doc" : "Fabric group type of Linkedin internal data center fabrics; For example, according to Linkedin, ei1 and ei2 are both type of EI. We are currently using a name length limit of 10 for FabricType.",
-    "symbols" : [ "DEV", "EI", "PROD", "CORP", "LIT", "PRIME", "MANDA", "AZURECONTROL", "AZUREPROD", "AZUREEI" ],
+    "doc" : "Fabric group type",
+    "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
     "symbolDocs" : {
-      "DEV" : "Designates DEV fabrics, although it could be machines in EI physical fabric like EI1",
-      "EI" : "Designates Early-Integration fabrics, such EI1, EI2 etc.",
-      "PROD" : "Designates production fabrics, such as prod-ltx1, prod-lva1 etc.",
-      "CORP" : "Designates corperation fabrics, such as corp-eat1, corp-lca1 etc.",
-      "LIT" : "Designates infrastructure testing fabrics, such as lit-lca1-1.",
-      "PRIME" : "Designates Prime fabric group for project Einstein within Linkedin.",
-      "MANDA" : "Designates production fabrics deployed in the Mergers and Acquisitions network (MANDA).",
-      "AZURECONTROL" : "Designates production fabrics deployed in the Azure control plane.",
-      "AZUREPROD" : "Designates production fabrics deployed in the Azure.",
-      "AZUREEI" : "Designates Early-Integration fabrics deployed in Azure."
+      "DEV" : "Designates development fabrics",
+      "EI" : "Designates early-integration (staging) fabrics",
+      "PROD" : "Designates production fabrics",
+      "CORP" : "Designates corporation fabrics"
     }
   }, {
     "type" : "typeref",
