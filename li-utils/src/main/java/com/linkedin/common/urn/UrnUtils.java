@@ -39,10 +39,6 @@ public class UrnUtils {
                 return FabricType.EI;
             case "DEV":
                 return FabricType.DEV;
-            case "LIT":
-                return FabricType.LIT;
-            case "PRIME":
-                return FabricType.PRIME;
             default:
                 throw new IllegalArgumentException("Unsupported Fabric Type: " + fabric);
         }
