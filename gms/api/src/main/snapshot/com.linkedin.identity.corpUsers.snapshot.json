@@ -177,20 +177,6 @@
       }
     } ]
   }, {
-    "type" : "record",
-    "name" : "AspectVersion",
-    "namespace" : "com.linkedin.metadata.aspect",
-    "doc" : "A tuple of a specific metadata aspect and its version.",
-    "fields" : [ {
-      "name" : "aspect",
-      "type" : "string",
-      "doc" : "The FQCN of the metadata aspect, e.g. com.linkedin.common.Ownership"
-    }, {
-      "name" : "version",
-      "type" : "long",
-      "doc" : "The version of the metadata aspect"
-    } ]
-  }, {
     "type" : "typeref",
     "name" : "CorpUserAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -335,19 +321,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "SnapshotKey",
-    "namespace" : "com.linkedin.metadata.snapshot",
-    "doc" : "The Key for a metadata Snapshot.",
-    "fields" : [ {
-      "name" : "aspectVersions",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.metadata.aspect.AspectVersion"
-      },
-      "doc" : "A list of metadata aspects in the Snapshot and their versions"
-    } ]
-  }, {
-    "type" : "record",
     "name" : "EmptyRecord",
     "namespace" : "com.linkedin.restli.common",
     "doc" : "An literally empty record.  Intended as a marker to indicate the absence of content where a record type is required.  If used the underlying DataMap *must* be empty, EmptyRecordValidator is provided to help enforce this.  For example,  CreateRequest extends Request<EmptyRecord> to indicate it has no response body.   Also, a ComplexKeyResource implementation that has no ParamKey should have a signature like XyzResource implements ComplexKeyResource<XyzKey, EmptyRecord, Xyz>.",
@@ -489,36 +462,6 @@
             } ],
             "entity" : {
               "path" : "/corpUsers/{corpUser}/editableInfo/{editableInfoId}"
-            }
-          }
-        }, {
-          "annotations" : {
-            "createOnly" : {
-              "value" : [ "urn" ]
-            },
-            "deprecated" : {
-              "doc" : "Use corresponding action methods in /corpUsers"
-            }
-          },
-          "name" : "snapshot",
-          "namespace" : "com.linkedin.identity.corpuser",
-          "path" : "/corpUsers/{corpUser}/snapshot",
-          "schema" : "com.linkedin.metadata.snapshot.CorpUserSnapshot",
-          "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersSnapshot",
-          "collection" : {
-            "identifier" : {
-              "name" : "snapshotId",
-              "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
-              "params" : "com.linkedin.restli.common.EmptyRecord"
-            },
-            "supports" : [ "create", "get" ],
-            "methods" : [ {
-              "method" : "create"
-            }, {
-              "method" : "get"
-            } ],
-            "entity" : {
-              "path" : "/corpUsers/{corpUser}/snapshot/{snapshotId}"
             }
           }
         } ]

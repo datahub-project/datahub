@@ -44,7 +44,7 @@ the application directly from command line after a successful [build](#build):
 
 ### Get user
 ```
-➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/corpUsers/($params:(),name:fbar)/snapshot/($params:(),aspectVersions:List((aspect:com.linkedin.identity.CorpUserInfo,version:0)))' | jq
+➜ curl 'http://localhost:8080/corpUsers?action=getSnapshot' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"urn": "urn:li:corpuser:fbar"}' -v
 {
   "urn": "urn:li:corpuser:fbar",
   "aspects": [
