@@ -73,8 +73,8 @@ public class DaoFactory {
 
   public static DatasetViewDao getDatasetViewDao() {
     if (datasetViewDao == null) {
-      datasetViewDao = new DatasetViewDao(getGmsDao().get_datasets(), getGmsDao().get_datasetSnapshots(),
-              getGmsDao().get_deprecations(), getGmsDao().get_institutionalMemory(), getGmsDao().get_schemas());
+      datasetViewDao = new DatasetViewDao(getGmsDao().get_datasets(), getGmsDao().get_deprecations(),
+              getGmsDao().get_institutionalMemory(), getGmsDao().get_schemas());
     }
     return datasetViewDao;
   }

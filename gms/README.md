@@ -62,7 +62,7 @@ the application directly from command line after a successful [build](#build):
 
 ### Get dataset
 ```
-➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/snapshot/($params:(),aspectVersions:List((aspect:com.linkedin.common.Ownership,version:0)))' | jq
+➜ curl 'http://localhost:8080/datasets?action=getSnapshot' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"}' -v
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
   "aspects": [
