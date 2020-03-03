@@ -3,37 +3,28 @@ package com.linkedin.dataset.client;
 import com.linkedin.common.client.DatasetsClient;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.dataset.Dataset;
-import com.linkedin.dataset.DatasetKey;
-import com.linkedin.dataset.DatasetsDoAutocompleteRequestBuilder;
-import com.linkedin.dataset.DatasetsDoBrowseRequestBuilder;
-import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
-import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
-import com.linkedin.dataset.DatasetsRequestBuilders;
-import com.linkedin.dataset.SnapshotRequestBuilders;
+import com.linkedin.dataset.*;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
-import com.linkedin.metadata.snapshot.SnapshotKey;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.CreateIdRequest;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 public class Datasets extends DatasetsClient {
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();
-    private static final SnapshotRequestBuilders SNAPSHOT_REQUEST_BUILDERS = new SnapshotRequestBuilders();
 
     public Datasets(@Nonnull Client restliClient) {
         super(restliClient);
@@ -54,26 +45,6 @@ public class Datasets extends DatasetsClient {
                 .build();
 
         return _client.sendRequest(getRequest).getResponse().getEntity();
-    }
-
-    /**
-     * Adds {@link DatasetSnapshot} to {@link DatasetUrn}
-     *
-     * @param urn dataset urn
-     * @param snapshot {@link DatasetSnapshot}
-     * @return Snapshot key
-     * @throws RemoteInvocationException
-     */
-    @Nonnull
-    public SnapshotKey create(@Nonnull DatasetUrn urn, @Nonnull DatasetSnapshot snapshot)
-            throws RemoteInvocationException {
-        CreateIdRequest<ComplexResourceKey<SnapshotKey, EmptyRecord>, DatasetSnapshot> createRequest =
-                SNAPSHOT_REQUEST_BUILDERS.create()
-                        .datasetKey(new ComplexResourceKey<>(toDatasetKey(urn), new EmptyRecord()))
-                        .input(snapshot)
-                        .build();
-
-        return _client.sendRequest(createRequest).getResponseEntity().getId().getKey();
     }
 
     /**
@@ -177,6 +148,20 @@ public class Datasets extends DatasetsClient {
                 entry -> getUrnFromKey(entry.getKey()),
                 entry -> entry.getValue().getEntity())
             );
+    }
+
+    /**
+     * Gets latest full dataset snapshot given dataset urn
+     *
+     * @param datasetUrn dataset urn
+     * @return latest full dataset snapshot
+     * @throws RemoteInvocationException
+     */
+    public DatasetSnapshot getLatestFullSnapshot(@Nonnull DatasetUrn datasetUrn) throws RemoteInvocationException {
+        DatasetsDoGetSnapshotRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS
+                .actionGetSnapshot()
+                .urnParam(datasetUrn.toString());
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
     @Nonnull

@@ -10,7 +10,6 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
-import com.linkedin.dataset.client.DatasetSnapshots;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.dataset.client.Deprecations;
 import com.linkedin.dataset.client.Schemas;
@@ -31,18 +30,15 @@ import static com.linkedin.datahub.util.RestliUtil.toJsonNode;
 public class DatasetViewDao {
 
   private final Datasets _datasets;
-  private final DatasetSnapshots _datasetSnapshots;
   private final Deprecations _deprecations;
   private final com.linkedin.dataset.client.InstitutionalMemory _institutionalMemory;
   private final Schemas _schemas;
 
   public DatasetViewDao(@Nonnull Datasets datasets,
-                        @Nonnull DatasetSnapshots datasetSnapshots,
                         @Nonnull Deprecations deprecations,
                         @Nonnull com.linkedin.dataset.client.InstitutionalMemory institutionalMemory,
                         @Nonnull Schemas schemas) {
     this._datasets = datasets;
-    this._datasetSnapshots = datasetSnapshots;
     this._deprecations = deprecations;
     this._institutionalMemory = institutionalMemory;
     this._schemas = schemas;
@@ -55,7 +51,7 @@ public class DatasetViewDao {
 
   @Nonnull
   public JsonNode getSnapshot(@Nonnull String datasetUrn) throws Exception {
-    DatasetSnapshot snapshot = _datasetSnapshots.getLatestFullSnapshot(toDatasetUrn(datasetUrn));
+    DatasetSnapshot snapshot = _datasets.getLatestFullSnapshot(toDatasetUrn(datasetUrn));
     return toJsonNode(snapshot);
   }
 

@@ -220,41 +220,6 @@
           }
         }
       }, {
-        "annotations" : {
-          "createOnly" : {
-            "value" : [ "urn" ]
-          }
-        },
-        "name" : "snapshot",
-        "namespace" : "com.linkedin.dataset",
-        "path" : "/datasets/{dataset}/snapshot",
-        "schema" : "com.linkedin.metadata.snapshot.DatasetSnapshot",
-        "doc" : "Rest.li entry point: /dataset/{datasetKey}/snapshot\n\ngenerated from: com.linkedin.dataset.rest.resources.DatasetsSnapshot",
-        "collection" : {
-          "identifier" : {
-            "name" : "snapshotId",
-            "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
-            "params" : "com.linkedin.restli.common.EmptyRecord"
-          },
-          "supports" : [ "create", "get" ],
-          "methods" : [ {
-            "method" : "create"
-          }, {
-            "method" : "get"
-          } ],
-          "actions" : [ {
-            "name" : "backfill",
-            "parameters" : [ {
-              "name" : "aspectNames",
-              "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
-            } ],
-            "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
-          } ],
-          "entity" : {
-            "path" : "/datasets/{dataset}/snapshot/{snapshotId}"
-          }
-        }
-      }, {
         "name" : "upstreamLineage",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/upstreamLineage",
