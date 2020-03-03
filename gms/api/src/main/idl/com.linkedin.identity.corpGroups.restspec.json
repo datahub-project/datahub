@@ -95,38 +95,7 @@
       } ]
     } ],
     "entity" : {
-      "path" : "/corpGroups/{corpGroup}",
-      "subresources" : [ {
-        "annotations" : {
-          "createOnly" : {
-            "value" : [ "urn" ]
-          },
-          "deprecated" : {
-            "doc" : "Use corresponding action methods in /corpGroups"
-          }
-        },
-        "name" : "snapshot",
-        "namespace" : "com.linkedin.identity.corpgroup",
-        "path" : "/corpGroups/{corpGroup}/snapshot",
-        "schema" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot",
-        "doc" : "Rest.li entry point: /corpGroups/{corpGroupKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpGroupsSnapshot",
-        "collection" : {
-          "identifier" : {
-            "name" : "snapshotId",
-            "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
-            "params" : "com.linkedin.restli.common.EmptyRecord"
-          },
-          "supports" : [ "create", "get" ],
-          "methods" : [ {
-            "method" : "create"
-          }, {
-            "method" : "get"
-          } ],
-          "entity" : {
-            "path" : "/corpGroups/{corpGroup}/snapshot/{snapshotId}"
-          }
-        }
-      } ]
+      "path" : "/corpGroups/{corpGroup}"
     }
   }
 }

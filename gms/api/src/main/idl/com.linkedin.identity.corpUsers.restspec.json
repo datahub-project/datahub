@@ -133,36 +133,6 @@
             "path" : "/corpUsers/{corpUser}/editableInfo/{editableInfoId}"
           }
         }
-      }, {
-        "annotations" : {
-          "createOnly" : {
-            "value" : [ "urn" ]
-          },
-          "deprecated" : {
-            "doc" : "Use corresponding action methods in /corpUsers"
-          }
-        },
-        "name" : "snapshot",
-        "namespace" : "com.linkedin.identity.corpuser",
-        "path" : "/corpUsers/{corpUser}/snapshot",
-        "schema" : "com.linkedin.metadata.snapshot.CorpUserSnapshot",
-        "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersSnapshot",
-        "collection" : {
-          "identifier" : {
-            "name" : "snapshotId",
-            "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
-            "params" : "com.linkedin.restli.common.EmptyRecord"
-          },
-          "supports" : [ "create", "get" ],
-          "methods" : [ {
-            "method" : "create"
-          }, {
-            "method" : "get"
-          } ],
-          "entity" : {
-            "path" : "/corpUsers/{corpUser}/snapshot/{snapshotId}"
-          }
-        }
       } ]
     }
   }
