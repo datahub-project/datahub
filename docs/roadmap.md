@@ -6,7 +6,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Replace PDSC with PDL
 - Simplified syntax + annotations
 ### Entity-specific MCE & MAE
-- Spilt up unified events to improve scalability & modularity
+- Split up unified events to improve scalability & modularity
 ### Metrics as entities
 - Models + UI
 ### Dashboards as entities
@@ -25,6 +25,8 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Templatized UI
 - Config-driven UI
 - Generate TypeScript types from Pegasus 
+### Entity Insights
+- UI to highlight high value information about Entities within Search and Entity Pages
 ### Kubernetes migration
 - Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
 ### Azure deployment
