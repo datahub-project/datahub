@@ -1,19 +1,19 @@
 # DataHub: A Generalized Metadata Search & Discovery Tool
 [![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
 [![Build Status](https://travis-ci.org/linkedin/datahub.svg)](https://travis-ci.org/linkedin/datahub)
-[![License](https://img.shields.io/github/license/linkedin/datahub)](LICENSE)
 [![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/CONTRIBUTING.md)
+[![License](https://img.shields.io/github/license/linkedin/datahub)](LICENSE)
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: First DataHub town hall meeting on March 6th, 10am-11am PST: 
+> :mega: Next DataHub town hall meeting on March 20th, 10am-11am PST: 
 > - Video conference link: https://bluejeans.com/4642477444
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 
-> :sparkles:Feb 2020 Update: 
-> - Our [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) on open sourcing DataHub is out!
-> - *DataHub v0.3.0* is [released](https://github.com/linkedin/datahub/releases/tag/v0.3.0)!
+> :sparkles:Mar 2020 Update: 
+> - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Reach out and say hi to the community.
+> - We had our first DataHub town hall meeting on March 6th. Will post the recording and summary soon.
 
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
