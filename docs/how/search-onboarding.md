@@ -55,7 +55,8 @@ public abstract class BaseSearchConfig<DOCUMENT extends RecordTemplate> {
 ```
 
 [DatasetSearchConfig] is the implementation of search config for `dataset` entity.
-Search query templates for datasets and users can be found [here]https://github.com/linkedin/datahub/tree/master/gms/impl/src/main/resources. 
+
+Search query templates for various entities can be found [here](https://github.com/linkedin/datahub/tree/master/gms/impl/src/main/resources). 
 
 ## 5. Add search query endpoints to GMS
 Finally, you need to create [rest.li](https://rest.li) APIs to serve your search queries. 
