@@ -3,29 +3,29 @@
 Below is DataHub's roadmap for the short and medium term. We'll revise this on a regular basis and welcome suggestions from the communities.
 
 ## Short term (3-6 months)
-### Replace PDSC with PDL
+### Replace PDSC with PDL [*WIP*]
 - Simplified syntax + code-gen based on annotations
-### Entity-specific MCE & MAE
+### Entity-specific MCE & MAE [*WIP*]
 - Split up unified events to improve scalability & modularity
-### Metrics as entities
+### Metrics as entities [*In use at LinkedIn, waiting to open source*]
 - Models + UI
-### Dashboards as entities
+### Dashboards as entities [*In use at LinkedIn, waiting to open source*]
 - Models + UI
-### Jobs & Flows as entities
+### Jobs & Flows as entities [*WIP*]
 - Link datasets to jobs & flows
-### Schemas as an entity
+### Schemas as an entity [*WIP*]
 - Make schemas searchable
 - Support GraphQL schemas
-### Compliance management for datasets
+### Compliance management for datasets [*In use at LinkedIn, waiting to open source*]
 - Simple tag-based compliance metadata
-### Strongly consistent local index
+### Strongly consistent local index [*WIP*]
 - Add query-after-write capability to local DAO 
-### Gremlin-based Query DAO
+### Gremlin-based Query DAO [*WIP*]
 - Support majority of gremlin-compatible graph DBs
-### Templatized UI
+### Templatized UI [*WIP*]
 - Config-driven UI
 - Generate TypeScript types from Pegasus 
-### Entity Insights
+### Entity Insights [*WIP*]
 - UI to highlight high value information about Entities within Search and Entity Pages
 ### Kubernetes migration
 - Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
@@ -37,7 +37,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Models + impact analysis
 ### Operational metadata
 - Indexing in OLAP store ([Pinot](https://github.com/apache/incubator-pinot)) with TTL
-### Social features
+### Social features [*WIP*]
 - Users will be able to like and follow entities
 - Dataset & field-level commenting
 ### Microservices as an entity
