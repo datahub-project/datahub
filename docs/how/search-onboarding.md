@@ -61,7 +61,7 @@ Search query templates for various entities can be found [here](https://github.c
 ## 5. Add search query endpoints to GMS
 Finally, you need to create [rest.li](https://rest.li) APIs to serve your search queries. 
 [BaseSearchableEntityResource] provides an abstract implementation of search and autocomplete APIs.
-Any top level rest.li resource implementation could extend it and this will automatically provide search and autocomplete endpoints.
+Any top level rest.li resource implementation could extend it and easily add search and autocomplete [ACTION](https://linkedin.github.io/rest.li/user_guide/restli_server#action) methods.
 Refer to [CorpUsers] rest.li resource implementation as an example.
 
 
