@@ -27,16 +27,24 @@ public class OwnerUtil {
   public static DatasetOwner toWhOwner(@Nonnull Owner owner, @Nonnull CorpUser corpUser) {
     DatasetOwner dsOwner = new DatasetOwner();
     dsOwner.setConfirmedBy("UI");
-    dsOwner.setEmail(corpUser.getInfo().getEmail());
     dsOwner.setIdType("USER");
-    dsOwner.setIsActive(corpUser.getInfo().isActive());
     dsOwner.setIsGroup(false);
-    dsOwner.setName(corpUser.getInfo().getFullName());
     dsOwner.setNamespace("urn:li:corpuser");
     dsOwner.setSource("UI");
-    dsOwner.setType(OWNER_CATEGORY_MAP_INV.get(owner.getType()));
     dsOwner.setUserName(corpUser.getUsername());
-    dsOwner.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+    dsOwner.setType(OWNER_CATEGORY_MAP_INV.get(owner.getType()));
+
+    if (corpUser.hasInfo()) {
+      dsOwner.setEmail(corpUser.getInfo().getEmail());
+      dsOwner.setIsActive(corpUser.getInfo().isActive());
+      if (corpUser.getInfo().hasFullName()) {
+        dsOwner.setName(corpUser.getInfo().getFullName());
+      }
+    }
+
+    if (corpUser.hasEditableInfo() && corpUser.getEditableInfo().hasPictureLink()) {
+      dsOwner.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+    }
 
     return dsOwner;
   }
