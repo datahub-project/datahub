@@ -24,7 +24,19 @@ also provides a comparison of some features between LinkedIn production DataHub 
  - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy [*available soon*]
  - **Profile editing**: LinkedIn style professional profile editing such as summary, skills
- 
+
+### Schemas [*available soon*]
+ - **Search**: full-text & advanced search, search ranking
+ - **Browse**: browsing through a configurable hierarchy
+ - **Schema history**: view and diff historic versions of schemas
+ - **GraphQL**: visualization of GraphQL schemas
+
+### Jos/flows [*available soon*]
+ - **Search**: full-text & advanced search, search ranking
+ - **Browse**: browsing through a configurable hierarchy
+ - **Basic information**: 
+ - **Execution history**: Executions and their status. Link to external service for viewing full info.
+
 ### Metrics [*available soon*]
  - **search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
@@ -33,7 +45,7 @@ also provides a comparison of some features between LinkedIn production DataHub 
  
 ### Dashboards [*available soon*] 
  - **search**: full-text & advanced search, search ranking
- - **Basic information**: ownership, location
+ - **Basic information**: ownership, location. Link to exzternal service for viewing the dashboard.
  - **Institutional knowledge**: support for adding free form doc to any dashboards 
 
 ## Metadata Sources
