@@ -1,4 +1,4 @@
-# Features of DataHub
+# DataHub Features
 
 DataHub is made up of a [generic backend](what/gma.md) and a [Ember-based UI](../datahub-web). Original DataHub 
 [blog post](https://engineering.linkedin.com/blog/2019/data-hub) talks about the design extensively and mentions some of
