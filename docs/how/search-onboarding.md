@@ -12,15 +12,15 @@ This is because we want to support partial updates to search documents.
 ## 2. Create the search index, define its mappings and settings
 
 A [mapping] is created using the information of search document model. 
-It defines how a document, and the fields it contains, are stored and indexed by various [tokenizer]s, [analyzer]s and data type for the fields. 
+It defines how a document, and the fields it contains, are stored and indexed by various [tokenizers], [analyzers] and data type for the fields. 
 For certain fields, sub-fields are created using different analyzers. 
 The analyzers are chosen depending on the needs for each field. 
 This is currently created manually using [curl] commands, and we plan to [automate](../what/search-index.md#search-automation-tbd) the process in the near future. 
 Check index [mappings & settings](../../docker/elasticsearch/dataset-index-config.json) for `dataset` search index.
 
 ## 3. Ingestion into search index
-The actual indexing process for each [entity] is powered by [index builder]s. 
-The builders register the metadata [aspect]s of their interest against [MAE Consumer Job] and will be invoked whenever an [MAE] of same interest is received. 
+The actual indexing process for each [entity] is powered by [index builders]. 
+The builders register the metadata [aspects] of their interest against [MAE Consumer Job] and will be invoked whenever an [MAE] of same interest is received. 
 Index builders should be extended from [BaseIndexBuilder]. Check [DatasetIndexBuilder] as an example. 
 For the consumer job to consume those MAEs, you should add your index builder to the [index builder registry].
 
@@ -55,6 +55,7 @@ public abstract class BaseSearchConfig<DOCUMENT extends RecordTemplate> {
 ```
 
 [DatasetSearchConfig] is the implementation of search config for `dataset` entity.
+Search query templates for datasets and users can be found [here]https://github.com/linkedin/datahub/tree/master/gms/impl/src/main/resources. 
 
 ## 5. Add search query endpoints to GMS
 Finally, you need to create [rest.li](https://rest.li) APIs to serve your search queries. 
