@@ -53,8 +53,8 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 ## Releases
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
-## Roadmap
-Check out DataHub's [Roadmap](docs/roadmap.md).
+## Features & Roadmap
+Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
 
 ## Contributing
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
