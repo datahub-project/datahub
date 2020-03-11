@@ -15,35 +15,35 @@ also provides a comparison of some features between LinkedIn production DataHub 
  - **Ownership**: surfacing owners of a dataset, viewing datasets you own
  - **Dataset life-cycle management**: deprecate/undeprecate, surface removed datasets and tag it with "removed"
  - **Institutional knowledge**: support for adding free form doc to any dataset
- - **Fine grain lineage**: support for lineage at the field level [*available soon*]
- - **Social actions**: likes, follows, bookmarks [*available soon*]
- - **Compliance management**: field level tag based compliance editing [*available soon*]
- - **Top users**: frequent users of a dataset [*available soon*]
+ - **Fine grain lineage**: support for lineage at the field level [*coming soon*]
+ - **Social actions**: likes, follows, bookmarks [*coming soon*]
+ - **Compliance management**: field level tag based compliance editing [*coming soon*]
+ - **Top users**: frequent users of a dataset [*coming soon*]
  
 ### Users
  - **Search**: full-text & advanced search, search ranking
- - **Browse**: browsing through a configurable hierarchy [*available soon*]
+ - **Browse**: browsing through a configurable hierarchy [*coming soon*]
  - **Profile editing**: LinkedIn style professional profile editing such as summary, skills
 
-### Schemas [*available soon*]
+### Schemas [*coming soon*]
  - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Schema history**: view and diff historic versions of schemas
  - **GraphQL**: visualization of GraphQL schemas
 
-### Jos/flows [*available soon*]
+### Jos/flows [*coming soon*]
  - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Basic information**: 
  - **Execution history**: Executions and their status. Link to external service for viewing full info.
 
-### Metrics [*available soon*]
+### Metrics [*coming soon*]
  - **search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Basic information**: ownershp, dimensions, formula, input & output datasets, dashboards
  - **Institutional knowledge**: support for adding free form doc to any metric
  
-### Dashboards [*available soon*] 
+### Dashboards [*coming soon*] 
  - **search**: full-text & advanced search, search ranking
  - **Basic information**: ownership, location. Link to exzternal service for viewing the dashboard.
  - **Institutional knowledge**: support for adding free form doc to any dashboards 
