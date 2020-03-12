@@ -27,6 +27,7 @@ task copyOriginalMXESchemas(type: Copy) {
 }
 
 compileJava.dependsOn copyOriginalMXESchemas
+processResources.dependsOn copyOriginalMXESchemas
 
 clean {
   project.delete("src/main/resources/avro")
