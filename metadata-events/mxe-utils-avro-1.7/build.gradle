@@ -29,19 +29,6 @@ task copyOriginalMXESchemas(type: Copy) {
 compileJava.dependsOn copyOriginalMXESchemas
 processResources.dependsOn copyOriginalMXESchemas
 
-task copyOriginalMXESchemasTest(type: Copy) {
-  dependsOn configurations.avroOriginal
-
-  from { // use of closure defers evaluation until execution time
-    configurations.avroOriginal.collect { zipTree(it) }
-  }
-  into("src/test/resources/")
-  include("avro/com/linkedin/mxe/")
-}
-compileTestJava.dependsOn copyOriginalMXESchemasTest
-processTestResources.dependsOn copyOriginalMXESchemasTest
-
 clean {
   project.delete("src/main/resources/avro")
-  project.delete("src/test/resources/avro")
 }
