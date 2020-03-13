@@ -8,12 +8,11 @@
 ![DataHub](docs/imgs/datahub-logo.png)
 
 > :mega: Next DataHub town hall meeting on March 20th, 10am-11am PST: 
-> - Video conference link: https://bluejeans.com/4642477444
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
+> - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
 > :sparkles:Mar 2020 Update: 
-> - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Reach out and say hi to the community.
-> - We had our first DataHub town hall meeting on March 6th. Will post the recording and summary soon.
+> - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Ask questions and keep up with the latest announcement.
 
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
