@@ -58,6 +58,9 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
 ## Contributing
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
 
+## FAQs
+Frequently Asked Questions about DataHub can be found [here](https://docs.google.com/document/d/1J3iksuEFkbc-FUph6n0TmVl8IwJEmnYRO15W8sbNbW8/edit?usp=sharing).
+
 ## Related Articles & Presentations
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
