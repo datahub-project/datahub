@@ -55,11 +55,12 @@ See [Releases](https://github.com/linkedin/datahub/releases) page for more detai
 ## Features & Roadmap
 Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
 
-## Town Halls
-Join our [slack channel](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for important discussions and announcements. You can find out more about our past and upcoming town hall meetings [here](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
-
 ## Contributing
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
+
+
+## Community
+Join our [slack channel](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for important discussions and announcements. You can find out more about our past and upcoming town hall meetings [here](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
 
 ## FAQs
 Frequently Asked Questions about DataHub can be found [here](https://docs.google.com/document/d/1J3iksuEFkbc-FUph6n0TmVl8IwJEmnYRO15W8sbNbW8/edit?usp=sharing).
