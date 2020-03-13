@@ -40,7 +40,6 @@
     # package = pkgs.mysql80 ;
     package = pkgs.mysql57 ;
     dataDir = "/opt/nix-module/data/mysql" ;
-    unixSocket = "/opt/nix-module/run/mysql.sock" ;
   } ;
 
   services.elasticsearch = {
