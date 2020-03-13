@@ -10,12 +10,12 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Agenda
-  * 5 mins quick intro
-  * 10 mins internal DataHub demo
-  * 10 mins of what's coming up next for DataHub (what roadmap items we are working on)
-  * 15 mins of answering questions from the signup sheet
-  * 10 minutes of questions from the participants
-  * 5 minutes closing remarks
+  * Quick intro - 5 mins
+  * Internal DataHub demo - 10 mins
+  * What's coming up next for DataHub (what roadmap items we are working on) - 10 mins
+  * Answering questions from the signup sheet - 15 mins
+  * Questions from the participants - 10 mins
+  * Closing remarks - 5 mins
 
 # Past Meetings
 
