@@ -57,3 +57,11 @@ kafka                     => kafka-topics.sh --bootstrap-server localhost:9092 -
 confluent schema-registry => curl http://localhost:8081
 
 ```
+
+## Environemnt Check
+
+you only need install nix to run it!
+
+```
+nix-shell datahub-check.nix -A gms
+```
