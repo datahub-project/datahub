@@ -7,7 +7,7 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: Next DataHub town hall meeting on March 20th, 9am-10am PST: 
+> :mega: Next DataHub town hall meeting on March 20th, 9am-10am PDT: 
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
