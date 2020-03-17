@@ -33,7 +33,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide how-to guides
 
 ## Medium term (6 months - 1 year)
-### Fine grain lineage
+### Dataset field-level lineage
 - Models + impact analysis
 ### Operational metadata [*WIP*]
 - Indexing in OLAP store ([Pinot](https://github.com/apache/incubator-pinot)) with TTL
