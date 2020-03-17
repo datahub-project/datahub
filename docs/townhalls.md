@@ -19,6 +19,6 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 # Past Meetings
 
-## 3/6/20
-- [Recording](https://bluejeans.com/s/vULMG)
-- [Q&A](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit)
+| Date    | Recording | Q&A |
+| ------- | :---------: | :---------: |
+| 3/6/20  | [link](https://bluejeans.com/s/vULMG) | [link](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit) |
