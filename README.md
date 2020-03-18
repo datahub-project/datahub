@@ -63,7 +63,7 @@ We welcome contributions from the community. Please refer to [the guidelines](CO
 Join our [slack channel](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for important discussions and announcements. You can also find out more about our past and upcoming [town hall meetings](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
 
 ## FAQs
-Frequently Asked Questions about DataHub can be found [here](https://docs.google.com/document/d/1J3iksuEFkbc-FUph6n0TmVl8IwJEmnYRO15W8sbNbW8/edit?usp=sharing).
+Frequently Asked Questions about DataHub can be found [here](https://github.com/linkedin/datahub/blob/master/docs/faq.md).
 
 ## Related Articles & Presentations
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
