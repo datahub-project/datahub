@@ -134,7 +134,7 @@ services:
       - ELASTICSEARCH_PORT=9200
 
   datahub-gms:
-    image: keremsahin/datahub-gms:latest
+    image: keremsahin/datahub-gms:release-0.3.1
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -163,7 +163,7 @@ services:
                                    java -jar jetty-runner-9.4.20.v20190813.jar gms.war'"
 
   datahub-frontend:
-    image: keremsahin/datahub-frontend:latest
+    image: keremsahin/datahub-frontend:release-0.3.1
     hostname: datahub-frontend
     container_name: datahub-frontend
     ports:
@@ -178,7 +178,7 @@ services:
       - datahub-gms
 
   datahub-mae-consumer:
-    image: keremsahin/datahub-mae-consumer:latest
+    image: keremsahin/datahub-mae-consumer:release-0.3.1
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     environment:
@@ -197,7 +197,7 @@ services:
               echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
 
   datahub-mce-consumer:
-    image: keremsahin/datahub-mce-consumer:latest
+    image: keremsahin/datahub-mce-consumer:release-0.3.1
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
     environment:
