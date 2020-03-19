@@ -36,7 +36,7 @@ The best way to engage is through the [Slack channel](https://datahubspace.slack
 ## What’s the best way to ramp up the product knowledge to properly test and evaluate Datahub?
 [Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](https://github.com/linkedin/datahub/tree/master/docs/architecture), [definitions](https://github.com/linkedin/datahub/tree/master/docs/what), and [onboarind guides](https://github.com/linkedin/datahub/tree/master/docs/how).
 
-The [DataHub introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
+The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 
 ## Where can I learn about the roadmap?
 You can learn more about DataHub's product roadmap at https://github.com/linkedin/datahub/blob/master/docs/roadmap.md.
@@ -92,7 +92,7 @@ The [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-model
 MCE is the ideal way to push metadata from different security zones, assuming there is a common Kafka infrastructure that aggregates the events from various security zones.
 
 ## What all data stores does DataHub backend support presently?
-Currently, DataHub supports all major database providers that are supported by Ebean as the document store i.e. Oracle, Postgres, MySQL, H2. We also support [Espresso](https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store), which is LinkedIn proprietary document store. Other than that, we support Elasticsearch and Neo4j for search and graph use cases, respectively. However, as data stores in the backend are all abstracted and accessed through DAOs, you should be able to easily support other data stores by plugging in your own DAO implementations. Please refer to https://github.com/linkedin/datahub/blob/master/docs/architecture/metadata-serving.md for more details.
+Currently, DataHub supports all major database providers that are supported by Ebean as the document store i.e. Oracle, Postgres, MySQL, H2. We also support [Espresso](https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store), which is LinkedIn's proprietary document store. Other than that, we support Elasticsearch and Neo4j for search and graph use cases, respectively. However, as data stores in the backend are all abstracted and accessed through DAOs, you should be able to easily support other data stores by plugging in your own DAO implementations. Please refer to https://github.com/linkedin/datahub/blob/master/docs/architecture/metadata-serving.md for more details.
 
 ## For which stores, you have discovery services?
 Supported data sources are listed at https://github.com/linkedin/datahub/tree/master/metadata-ingestion. To onboard your own data source which is not listed there, you can refer to the [onboarding guide](https://github.com/linkedin/datahub/blob/master/docs/how/data-source-onboarding.md).
