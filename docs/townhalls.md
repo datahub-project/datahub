@@ -6,7 +6,7 @@ It's the perfect venue to meet the team behind DataHub and other users, as well 
 From time to time we also use the opportunity to showcase upcoming features.
 
 # Coming Up
-- Next town hall will be held on March 20th, 9am-10am PDT
+- Next town hall will be held on April 3rd, 9am-10am PDT
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Agenda
@@ -21,4 +21,5 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 | Date    | Recording | Q&A |
 | ------- | :---------: | :---------: |
+| 3/20/20 | [link](https://bluejeans.com/s/FSKEF) | WIP |
 | 3/6/20  | [link](https://bluejeans.com/s/vULMG) | [link](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit) |
