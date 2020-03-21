@@ -51,7 +51,7 @@ Please refer to the [debugging guide](docs/debugging.md) if you encounter any is
 * [Metadata Processing Jobs](metadata-jobs)
 
 ## Releases
-See [Releases](https://github.com/linkedin/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases.
+See [Releases](https://github.com/linkedin/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
 
 ## Features & Roadmap
 Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
