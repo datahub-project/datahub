@@ -52,7 +52,7 @@ Must be one of the following (based on the [Angular convention](https://github.c
 
 A scope may be provided to a commit’s type, to provide additional contextual information and is contained within parenthesis, e.g., 
 ```
-feat(parser): add ability to parse arrays.
+feat(parser): add ability to parse arrays
 ```
 
 ### Description
