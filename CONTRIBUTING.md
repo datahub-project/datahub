@@ -24,37 +24,40 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 
 ## Commit Message Format
 
-Each commit message consists of a *header*, a *body* and a *footer*. The header has a special formation that includes a *type*, a *scope*, and a *subject*:
+Please follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for the commit message format. In summary, each commit message consists of a *header*, a *body* and a *footer*, separated by a single blank line.
 
-    <type>: <subject>
-    <BLANK LINE>
-    <body>
-    <BLANK LINE>
-    <footer>
+```
+<type>[optional scope]: <description>
 
-The *header* is mandatory.
+[optional body]
+
+[optional footer(s)]
+```
 
 Any line of the commit message cannot be longer than 88 characters! This allows the message to be easier to read on GitHub as well as in various Git tools.
 
-### Revert
-
-If the commit reverts a previous commit, it should begin with `revert:`, followed by the header of the reverted commit. In the body it should say: `This reverts commit <hash>`, where the hash is the SHA of the commit being reverted.
-
 ### Type
 
-Must be one of the following:
+Must be one of the following (based on the [Angular convention](https://github.com/angular/angular/blob/22b96b9/CONTRIBUTING.md#-commit-message-guidelines)):
 
 * *feat*: A new feature
 * *fix*: A bug fix
-* *docs*: Documentation changes only
-* *style*: Changes that do not affect the meaning of the code (whitespace, formatting, missing semicolons, etc.)
 * *refactor*: A code change that neither fixes a bug nor adds a feature
-* *test*: Adding missing tests
-* *chore*: Changes to the build process or auxiliary tools and libraries, such as documentation generation
+* *docs*: Documentation only changes
+* *test*: Adding missing tests or correcting existing tests
+* *perf*: A code change that improves performance
+* *style*: Changes that do not affect the meaning of the code (whitespace, formatting, missing semicolons, etc.)
+* *build*: Changes that affect the build system or external dependencies
+* *ci*: Changes to our CI configuration files and scripts
 
-### Subject
+A scope may be provided to a commit’s type, to provide additional contextual information and is contained within parenthesis, e.g., 
+```
+feat(parser): add ability to parse arrays.
+```
 
-The subject contains a succinct description of the change:
+### Description
+
+Each commit must contain a succinct description of the change:
 
 * use the imperative, present tense: "change" not "changed" nor "changes"
 * don't capitalize the first letter
@@ -62,7 +65,7 @@ The subject contains a succinct description of the change:
 
 ### Body
 
-Just as in the subject, use the imperative, present tense: "change" not "changed" nor "changes". The body should include the motivation for the change and contrast this with previous behavior.
+Just as in the description, use the imperative, present tense: "change" not "changed" nor "changes". The body should include the motivation for the change and contrast this with previous behavior.
 
 ### Footer
 
@@ -70,3 +73,12 @@ The footer should contain any information about *Breaking Changes*, and is also 
 
 *Breaking Changes* should start with the words `BREAKING CHANGE:` with a space or two new lines. The rest of the commit message is then used for this.
 
+### Revert
+
+If the commit reverts a previous commit, it should begin with `revert:`, followed by the description. In the body it should say: `Refs: <hash1> <hash2> ...`, where the hashs are the SHA of the commits being reverted, e.g. 
+
+```
+revert: let us never again speak of the noodle incident
+
+Refs: 676104e, a215868
+```
