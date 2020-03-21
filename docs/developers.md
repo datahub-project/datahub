@@ -35,6 +35,10 @@ java --version
 ```
 While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase-jdk8-downloads.html) (aka Java 8).
 
+### Getting `cannot find symbol` error for `javax.annotation.Generated`
+
+Similar to the previous issue. Please use Java 1.8 to build the project.
+
 ### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` error
 
 This is a known issue when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
