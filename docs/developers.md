@@ -1,4 +1,4 @@
-# How to Develop DataHub
+# DataHub Developer's Guide
 
 ## Building the Project
 
