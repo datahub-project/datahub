@@ -85,6 +85,8 @@ distZip {
   from 'packages/data-portal/dist'
 }
 
-artifacts {
-  assets distZip
+if (!gradle.startParameter.taskNames.any { it in ["idea"] }) {
+  artifacts {
+    assets distZip
+  }
 }
