@@ -41,6 +41,7 @@ This repository contains the complete source code for both DataHub's frontend & 
 Please refer to the [debugging guide](docs/debugging.md) if you encounter any issues during the quickstart.
 
 ## Documents
+* [DataHub Developer's Guide](docs/developers.md)
 * [DataHub Architecture](docs/architecture/architecture.md)
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
 * [Docker Images](docker)
