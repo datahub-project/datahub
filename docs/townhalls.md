@@ -9,6 +9,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Next town hall will be held on April 3rd, 9am-10am PDT
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
+- Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) first)
 - Agenda (TBD)
   * Quick intro - 5 mins
   * Internal DataHub demo - 10 mins
