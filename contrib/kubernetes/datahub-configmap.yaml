@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-configuration
+  namespace: default
+data:
+  datahub.app.version: "1.0"
+  datahub.play.mem.buffer.size: "10MB"
+  datahub.gms.host: "datahub-gms-service"
+  datahub.gms.port: "8080"
+  ebean.datasource.host: "mysql:3306"
+  ebean.datasource.url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
+  ebean.datasource.driver: "com.mysql.jdbc.Driver"
+  kafka.bootstrap.server: "broker:29092"
+  kafka.schemaregistry.url: "http://schema-registry:8081"
+  elasticsearch.host: "elasticsearch"
+  elasticsearch.port: "9200"
+  neo4j.uri: "bolt://neo4j"
