@@ -14,13 +14,6 @@ spec:
       labels:
         app: datahub-gms
     spec:
-      hostAliases:
-        - ip: "192.168.0.104" #TODO: This is the IP Address of the host machine where rest of the services are running. Need to update it temporarily
-          hostnames:
-          - "mysql"
-          - "broker"
-          - "elasticsearch"
-          - "neo4j"
       containers:
         - name: datahub-gms
           image: keremsahin/datahub-gms:latest

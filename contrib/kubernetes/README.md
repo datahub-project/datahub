@@ -12,13 +12,25 @@ This kubernetes deployment doesn't contain the below artifacts. The idea is to u
 * Mysql [Chart Link](https://hub.helm.sh/charts/stable/mysql)
 * Neo4j [Chart Link](https://hub.helm.sh/charts/stable/neo4j)
 
-Also, these can be installed on-prem or be leveraged as managed service on any cloud platform.
+Also, these can be installed on-prem or can be leveraged as managed service on any cloud platform.
 
 ## Quickstart
 1. Install Docker and Kubernetes
-2. Run the below kubectl commands
+2. Update the values in the configmap (datahub-configmap.yaml) with Docker hostname.  For example
+```
+ebean.datasource.host: "192.168.0.104:3306"
+ebean.datasource.url: "jdbc:mysql://192.168.0.104:3306/datahub?verifyServerCertificate=false&useSSL=true"
+kafka.bootstrap.server: "192.168.0.104:29092"
+kafka.schemaregistry.url: "http://192.168.0.104:8081"
+elasticsearch.host: "192.168.0.104"
+neo4j.uri: "bolt://192.168.0.104"
+```
+3. Create the configmap by running the following 
 ```
 kubectl apply -f datahub-configmap.yaml
+```
+3. Run the below kubectl commands
+```
 kubectl apply -f datahub-secret.yaml
 kubectl apply -f datahub-gms-deployment.yaml
 kubectl apply -f datahub-frontend-deployment.yaml
