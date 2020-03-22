@@ -1,8 +1,8 @@
-# Kubernetes  Setup for Datahub
+# Kubernetes  Setup for DataHub
 
 ## Introduction
-This directory provides the Kubernetes setup for Datahub.  This is the first version with simple YAML files.  
-The next version will contain Datahub [Helm](https://helm.sh/) chart that can be published to [Helm Hub](https://hub.helm.sh/)
+This directory provides the Kubernetes setup for DataHub.  This is the first version with simple YAML files.  
+The next version will contain DataHub [Helm](https://helm.sh/) chart that can be published to [Helm Hub](https://hub.helm.sh/)
 
 ## Setup
 This kubernetes deployment doesn't contain the below artifacts. The idea is to use the original helm charts for deploying each of these separately.   
@@ -29,4 +29,4 @@ Please note that these steps will be updated once it is made into a Helm chart.
 
 
 ## Testing
-For testing this setup, we can use the existing quickstart's [docker-compose](https://github.com/linkedin/datahub/blob/master/docker/quickstart/docker-compose.yml) file but commenting out data-hub-gms, datahub-frontend, datahub-mce-consumer & datahub-mae-consumer sections.
+For testing this setup, we can use the existing quickstart's [docker-compose](https://github.com/linkedin/datahub/blob/master/docker/quickstart/docker-compose.yml) file but commenting out `data-hub-gms`, `datahub-frontend`, `datahub-mce-consumer` & `datahub-mae-consumer` sections.
