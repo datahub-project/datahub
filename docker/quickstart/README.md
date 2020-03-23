@@ -1,12 +1,12 @@
 # DataHub Quickstart
 To start all Docker containers at once, please run below command:
+```bash
+cd docker/quickstart
+./quickstart.sh
 ```
-export DATA_STORAGE_FOLDER=/tmp/datahub
-mkdir -p ${DATA_STORAGE_FOLDER}
-mkdir -p ${DATA_STORAGE_FOLDER}/elasticsearch
-chown 1000:1000 ${DATA_STORAGE_FOLDER}/elasticsearch
-cd docker/quickstart && docker-compose pull && docker-compose up --build
-```
+
+By default, data will be stored at `/tmp/datahub`, however it can be overwritten by specifying the DATA_STORAGE_FOLDER env var.
+
 At this point, all containers are ready and DataHub can be considered up and running. Check specific containers guide
 for details:
 * [Elasticsearch & Kibana](../elasticsearch)
