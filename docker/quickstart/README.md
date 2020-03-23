@@ -1,8 +1,7 @@
 # DataHub Quickstart
 To start all Docker containers at once, please run below command:
 ```bash
-cd docker/quickstart
-./quickstart.sh
+cd docker/quickstart && source ./quickstart.sh
 ```
 
 By default, data will be stored at `/tmp/datahub`, however it can be overwritten by specifying the DATA_STORAGE_FOLDER env var.
