@@ -49,6 +49,7 @@ services:
   kafka-rest-proxy:
     image: confluentinc/cp-kafka-rest:5.4.0
     hostname: kafka-rest-proxy
+    container_name: kafka-rest-proxy
     ports:
       - "8082:8082"
     environment:
@@ -64,6 +65,7 @@ services:
   kafka-topics-ui:
     image: landoop/kafka-topics-ui:0.9.4
     hostname: kafka-topics-ui
+    container_name: kafka-topics-ui
     ports:
       - "18000:8000"
     environment:
