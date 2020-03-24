@@ -29,13 +29,9 @@ neo4j.uri: "bolt://192.168.0.104"
 ```
 kubectl apply -f datahub-configmap.yaml
 ```
-3. Run the below kubectl commands
+4. Run the below kubectl command
 ```
-kubectl apply -f datahub-secret.yaml
-kubectl apply -f datahub-gms-deployment.yaml
-kubectl apply -f datahub-frontend-deployment.yaml
-kubectl apply -f datahub-mce-consumer-deployment.yaml
-kubectl apply -f datahub-mae-consumer-deployment.yaml
+cd .. && kubectl apply -f kubernetes/
 ```  
 Please note that these steps will be updated once it is made into a Helm chart.
 
