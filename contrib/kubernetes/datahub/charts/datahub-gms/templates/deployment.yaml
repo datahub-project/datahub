@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datahub-gms.fullname" . }}
+  labels:
+    {{- include "datahub-gms.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "datahub-gms.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datahub-gms.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.global.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "datahub-gms.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/bash", "-c" ,"java -jar jetty-runner-9.4.20.v20190813.jar gms.war"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: EBEAN_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-secret
+                  key: ebean.datasource.username
+            - name: EBEAN_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-secret
+                  key: ebean.datasource.password
+            - name: EBEAN_DATASOURCE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: ebean.datasource.host
+            - name: EBEAN_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: ebean.datasource.url
+            - name: EBEAN_DATASOURCE_DRIVER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: ebean.datasource.driver
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: kafka.bootstrap.server
+            - name: KAFKA_SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: kafka.schemaregistry.url
+            - name: ELASTICSEARCH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: elasticsearch.host
+            - name: ELASTICSEARCH_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: elasticsearch.port
+            - name: NEO4J_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: neo4j.uri
+            - name: NEO4J_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-secret
+                  key: neo4j.username
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-secret
+                  key: neo4j.password
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
