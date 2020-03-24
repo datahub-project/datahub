@@ -7,7 +7,7 @@ The next version will contain DataHub [Helm](https://helm.sh/) chart that can be
 ## Setup
 This kubernetes deployment doesn't contain the below artifacts. The idea is to use the original helm charts for deploying each of these separately.   
 
-* Kafka and Schema Registry [Chart Link](https://hub.helm.sh/charts/incubator/kafka)
+* Kafka and Schema Registry [Chart Link](https://github.com/confluentinc/cp-helm-charts/tree/master/charts/cp-kafka)
 * Elasticsearch [Chart Link](https://hub.helm.sh/charts/elastic/elasticsearch)
 * Mysql [Chart Link](https://hub.helm.sh/charts/stable/mysql)
 * Neo4j [Chart Link](https://hub.helm.sh/charts/stable/neo4j)
