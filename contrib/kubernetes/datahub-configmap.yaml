@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datahub-configuration
+  namespace: default
+data:
+  datahub.app.version: "1.0"
+  datahub.play.mem.buffer.size: "10MB"
+  datahub.gms.host: "datahub-gms-service"
+  datahub.gms.port: "8080"
+  ebean.datasource.host: "mysql:3306" #Replace with mysql hostname (or Docker hostname if rest of services are started using docker-compose)
+  ebean.datasource.url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true" #Replace with mysql hostname
+  ebean.datasource.driver: "com.mysql.jdbc.Driver"
+  kafka.bootstrap.server: "broker:29092" #Replace with kafka broker hostname (or Docker hostname if rest of services are started using docker-compose)
+  kafka.schemaregistry.url: "http://schema-registry:8081" #Replace with schema-registry hostname (or Docker hostname if rest of services are started using docker-compose)
+  elasticsearch.host: "elasticsearch" #Replace with elasticsearch hostname (or Docker hostname if rest of services are started using docker-compose)
+  elasticsearch.port: "9200"
+  neo4j.uri: "bolt://neo4j" #Replace with neo4j hostname (or Docker hostname if rest of services are started using docker-compose)
