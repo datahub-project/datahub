@@ -71,7 +71,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
           _client.search(constructGroupsSearchRequest(path, requestMap));
       final SearchResponse entitiesResponse =
           _client.search(constructEntitiesSearchRequest(path, requestMap, from, size));
-      final BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from, size);
+      final BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from);
       result.getMetadata().setPath(path);
       return result;
     } catch (Exception e) {
@@ -127,13 +127,13 @@ public class ESBrowseDAO extends BaseBrowseDAO {
       boolean isGroupQuery) {
     final String browsePathFieldName = _config.getBrowsePathFieldName();
     final String browseDepthFieldName = _config.getBrowseDepthFieldName();
-    // final String removedFieldName = _config.getRemovedField();
+    final String removedFieldName = _config.getRemovedField();
     final int browseDepthVal = getPathDepth(path) + 1;
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    // Filter out documents which are removed -- TODO: Disable filtering until META-10900 is solved
-    // queryBuilder.mustNot(QueryBuilders.termQuery(removedFieldName, "true"));
+    // Filter out documents which are removed
+    queryBuilder.mustNot(QueryBuilders.termQuery(removedFieldName, "true"));
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(browsePathFieldName, path));
@@ -184,12 +184,11 @@ public class ESBrowseDAO extends BaseBrowseDAO {
    * @param entitiesResponse entity search response
    * @param path the path which is being browsed
    * @param from index of first entity
-   * @param size count of entities
    * @return {@link BrowseResult}
    */
   @Nonnull
   private BrowseResult extractQueryResult(@Nonnull SearchResponse groupsResponse,
-      @Nonnull SearchResponse entitiesResponse, @Nonnull String path, int from, int size) {
+      @Nonnull SearchResponse entitiesResponse, @Nonnull String path, int from) {
     final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
     final BrowseResultMetadata browseResultMetadata = extractGroupsResponse(groupsResponse, path);
     browseResultMetadata.setTotalNumEntities(
@@ -197,7 +196,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
     return new BrowseResult().setEntities(new BrowseResultEntityArray(browseResultEntityList))
         .setMetadata(browseResultMetadata)
         .setFrom(from)
-        .setPageSize(size)
+        .setPageSize(browseResultEntityList.size())
         .setNumEntities((int) entitiesResponse.getHits().getTotalHits());
   }
 

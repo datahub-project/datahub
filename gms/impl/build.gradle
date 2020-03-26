@@ -19,7 +19,6 @@ dependencies {
 
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
-  testCompile externalDependency.testng
 }
 
 // Generate IDLs

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.dao.utils;
 
-import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
@@ -14,8 +13,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
 
 
 @Slf4j
@@ -45,30 +42,6 @@ public class SearchUtils {
     }
 
     return requestParams.getCriteria().stream().collect(Collectors.toMap(Criterion::getField, Criterion::getValue));
-  }
-
-  /**
-   * Builds search query using criterion
-   *
-   * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
-   * @return QueryBuilder
-   */
-  @Nonnull
-  public static QueryBuilder getQueryBuilderFromCriterion(@Nonnull Criterion criterion) {
-    final Condition condition = criterion.getCondition();
-    if (condition == Condition.EQUAL) {
-      return QueryBuilders.termsQuery(criterion.getField(), criterion.getValue().trim().split("\\s*,\\s*"));
-    } else if (condition == Condition.GREATER_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim());
-    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim());
-    } else if (condition == Condition.LESS_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lt(criterion.getValue().trim());
-    } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim());
-    }
-
-    throw new IllegalArgumentException("Unsupported condition: " + condition);
   }
 
   /**
