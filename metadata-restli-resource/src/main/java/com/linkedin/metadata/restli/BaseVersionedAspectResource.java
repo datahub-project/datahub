@@ -126,6 +126,22 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   }
 
   /**
+   * Similar to {@link #create(Class, Function)} but returns {@link CreateKVResponse} containing latest version and created aspect
+   */
+  @RestMethod.Create
+  @ReturnEntity
+  @Nonnull
+  public Task<CreateKVResponse<Long, ASPECT>> createAndGet(@Nonnull Class<ASPECT> aspectClass,
+      @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> createLambda) {
+    return RestliUtils.toTask(() -> {
+      final URN urn = getUrn(getContext().getPathKeys());
+      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
+      final ASPECT newValue = (ASPECT) getLocalDAO().add(urn, aspectClass, createLambda, auditStamp);
+      return new CreateKVResponse<>(LATEST_VERSION, newValue);
+    });
+  }
+
+  /**
    * Creates using the provided default value only if the aspect is not set already
    *
    * @param defaultValue provided default value
@@ -134,13 +150,7 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   @RestMethod.Create
   @ReturnEntity
   @Nonnull
-  public Task<Optional<CreateKVResponse<Long, ASPECT>>> createIfAbsent(@Nonnull ASPECT defaultValue) {
-    return RestliUtils.toTask(() -> {
-      final URN urn = getUrn(getContext().getPathKeys());
-      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
-      final Optional<ASPECT> newValue = (Optional<ASPECT>) getLocalDAO().add(urn, (Class<ASPECT>) defaultValue.getClass(),
-          ignored -> ignored.orElse(defaultValue), auditStamp);
-      return newValue.map(val -> new CreateKVResponse<>(LATEST_VERSION, val));
-    });
+  public Task<CreateKVResponse<Long, ASPECT>> createIfAbsent(@Nonnull ASPECT defaultValue) {
+    return createAndGet((Class<ASPECT>) defaultValue.getClass(), ignored -> ignored.orElse(defaultValue));
   }
 }
