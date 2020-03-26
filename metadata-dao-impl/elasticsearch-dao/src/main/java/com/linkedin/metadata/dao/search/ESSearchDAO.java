@@ -45,9 +45,6 @@ import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import static com.linkedin.metadata.dao.utils.SearchUtils.*;
-
-
 /**
  * A search DAO for Elasticsearch backend.
  */
@@ -122,42 +119,12 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
 
   @Override
   @Nonnull
-  public SearchResult<DOCUMENT> filter(@Nullable Filter filters, @Nullable SortCriterion sortCriterion,
-      int from, int size) {
+  public SearchResult<DOCUMENT> filter(@Nullable Filter filters, @Nullable SortCriterion sortCriterion, int from, int size) {
 
-    final SearchRequest searchRequest = getFilteredSearchQuery(filters, sortCriterion, from, size);
+    final Map<String, String> requestMap = SearchUtils.getRequestMap(filters);
+    final SearchRequest searchRequest = ESUtils.getFilteredSearchQuery(requestMap, sortCriterion, from, size);
+
     return executeAndExtract(searchRequest, from, size);
-  }
-
-  /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to search results
-   *
-   * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
-   * @param from index to start the search from
-   * @param size the number of search hits to return
-   * @return {@link SearchRequest} that contains the filtered query
-   */
-  @Nonnull
-  SearchRequest getFilteredSearchQuery(@Nullable Filter filters, @Nullable SortCriterion sortCriterion,
-      int from, int size) {
-
-    final BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-    if (filters != null) {
-      filters.getCriteria().forEach(criterion -> {
-            if (!criterion.getValue().trim().isEmpty()) {
-              boolQueryBuilder.filter(getQueryBuilderFromCriterion(criterion));
-            }
-          });
-    }
-    final SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
-    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(boolQueryBuilder);
-    searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
-    searchRequest.source(searchSourceBuilder);
-
-    return searchRequest;
   }
 
   /**

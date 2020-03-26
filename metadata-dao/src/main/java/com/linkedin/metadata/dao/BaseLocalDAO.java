@@ -140,10 +140,10 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param urn the URN for the entity the aspect is attached to
    * @param auditStamp the audit stamp for the operation
    * @param updateLambda a lambda expression that takes the previous version of aspect and returns the new version
-   * @return {@link RecordTemplate} of the new value of aspect
+   * @return {@link RecordTemplate} of the new value of aspect, empty if the transaction fails
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
       int maxTransactionRetry) {
 
@@ -151,7 +151,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
 
     final EqualityTester<ASPECT> equalityTester = getEqualityTester(aspectClass);
 
-    final AddResult result = runInTransactionWithRetry(() -> {
+    AddResult result = runInTransactionWithRetry(() -> {
       // 1. Compute newValue based on oldValue
       AspectEntry latest = getLatest(urn, aspectClass);
       final ASPECT oldValue = latest == null ? null : (ASPECT) latest.getAspect();
@@ -178,16 +178,17 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
     }, maxTransactionRetry);
 
     // 5. Produce MAE after a successful update
-    _producer.produceMetadataAuditEvent(urn, result.getOldValue(), result.getNewValue());
-
-    return result.getNewValue();
+    if (result != null) {
+      _producer.produceMetadataAuditEvent(urn, result.getOldValue(), result.getNewValue());
+    }
+    return Optional.ofNullable(result).map(r -> result.getNewValue());
   }
 
   /**
    * Similar to {@link #add(Urn, Class, Function, AuditStamp, int)} but uses the default maximum transaction retry.
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp) {
     return add(urn, aspectClass, updateLambda, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
   }
@@ -196,7 +197,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * Similar to {@link #add(Urn, Class, Function, AuditStamp)} but takes the new value directly.
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull ASPECT newValue,
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull ASPECT newValue,
       @Nonnull AuditStamp auditStamp) {
     return add(urn, newValue.getClass(), ignored -> newValue, auditStamp);
   }
@@ -240,7 +241,6 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param <T> type for the result object
    * @return the result object from a successfully committed transaction
    */
-  @Nonnull
   protected abstract <T> T runInTransactionWithRetry(@Nonnull Supplier<T> block, int maxTransactionRetry);
 
   /**
