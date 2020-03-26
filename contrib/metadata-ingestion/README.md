@@ -11,9 +11,9 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 ## Roadmap
 
 - [X] datahub-producer load json avro data.
-- [ ] add jdbc database-schema generator
-- [ ] add hive-etl-lineage generator
-- [ ] add oracle-etl-lineage generator
+- [ ] add dataset-jdbc generator
+- [X] add lineage-hive generator
+- [ ] add lineage-oracle generator
 - [ ] enchance avro parser to show error information 
 
 
@@ -34,3 +34,7 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
     cat sample/mce.json.dat | bin/datahub-producer.hs config
 ```
 
+3. parse hive sql to  datahub
+```
+    ls sample/hive_*.sql | bin/lineage_hive_generator.hs | bin/datahub-producer.hs config
+```
