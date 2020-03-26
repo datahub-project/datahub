@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "SnapshotKey",
+  "namespace": "com.linkedin.metadata.snapshot",
+  "doc": "The Key for a metadata Snapshot.",
+  "fields": [
+    {
+      "name": "aspectVersions",
+      "doc": "A list of metadata aspects in the Snapshot and their versions",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.aspect.AspectVersion"
+      }
+    }
+  ]
+}

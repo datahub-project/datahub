@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -46,32 +45,6 @@ public class ESUtils {
       boolFilter.must(filters);
     }
     return boolFilter;
-  }
-
-  /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to search results
-   *
-   * @param requestMap search request map with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
-   * @param from index to start the search from
-   * @param size the number of search hits to return
-   * @return {@link SearchRequest} that contains the filtered query
-   */
-  @Nonnull
-  public static SearchRequest getFilteredSearchQuery(@Nonnull Map<String, String> requestMap, @Nullable SortCriterion sortCriterion, int from, int size) {
-    final BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-    for (Map.Entry<String, String> entry : requestMap.entrySet()) {
-      if (!entry.getValue().trim().isEmpty()) {
-        boolQueryBuilder.filter(QueryBuilders.termsQuery(entry.getKey(), entry.getValue().trim().split("\\s*,\\s*")));
-      }
-    }
-    final SearchRequest searchRequest = new SearchRequest();
-    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(boolQueryBuilder);
-    searchSourceBuilder.from(from).size(size);
-    buildSortOrder(searchSourceBuilder, sortCriterion);
-    searchRequest.source(searchSourceBuilder);
-    return searchRequest;
   }
 
   /**
