@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datahub-mce-consumer.fullname" . }}
+  labels:
+    {{- include "datahub-mce-consumer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "datahub-mce-consumer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datahub-mce-consumer.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.global.hostAliases }}
+      hostAliases:
+    {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "datahub-mce-consumer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/bash", "-c" ,"./mce-consumer-job/bin/mce-consumer-job"]
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: datahub-gms-deployment-configmap
+                  key: kafka.bootstrap.server
+            - name: KAFKA_SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: datahub-gms-deployment-configmap
+                  key: kafka.schemaregistry.url
+            - name: GMS_HOST
+              value: "{{ .Values.global.datahub.gms.host }}"
+            - name: GMS_PORT
+              value: "{{ .Values.global.datahub.gms.port }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

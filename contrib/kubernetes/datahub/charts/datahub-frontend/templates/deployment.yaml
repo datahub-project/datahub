@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "datahub-frontend.fullname" . }}
+  labels:
+    {{- include "datahub-frontend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "datahub-frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "datahub-frontend.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "datahub-frontend.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9001
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /admin
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /admin
+              port: http
+          env:
+            - name: DATAHUB_GMS_HOST
+              value: "{{ .Values.global.datahub.gms.host }}"
+            - name: DATAHUB_GMS_PORT
+              value: "{{ .Values.global.datahub.gms.port }}"
+            - name: DATAHUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "datahub-frontend.fullname" . }}-secret
+                  key: datahub.gms.secret
+            - name: DATAHUB_APP_VERSION
+              value: "{{ .Values.global.datahub.appVersion }}"
+            - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
+              value: "{{ .Values.datahub.play.mem.buffer.size }}"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
