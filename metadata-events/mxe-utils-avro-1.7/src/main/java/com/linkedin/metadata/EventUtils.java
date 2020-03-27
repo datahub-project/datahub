@@ -113,19 +113,19 @@ public class EventUtils {
     return renameSchemaNamespace(original, ORIGINAL_MCE_AVRO_SCHEMA, RENAMED_MCE_AVRO_SCHEMA);
   }
 
-    /**
-     * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
-     *
-     * @param failedMetadataChangeEvent the Pegasus {@link FailedMetadataChangeEvent} model
-     * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
-     * @throws IOException if the conversion fails
-     */
-    @Nonnull
-    public static GenericRecord pegasusToAvroFailedMCE(@Nonnull FailedMetadataChangeEvent failedMetadataChangeEvent) throws IOException {
-        GenericRecord original =
-            DataTranslator.dataMapToGenericRecord(failedMetadataChangeEvent.data(), failedMetadataChangeEvent.schema(), ORIGINAL_FAILED_MCE_AVRO_SCHEMA);
-        return renameSchemaNamespace(original, ORIGINAL_FAILED_MCE_AVRO_SCHEMA, RENAMED_FAILED_MCE_AVRO_SCHEMA);
-    }
+  /**
+   * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
+   *
+   * @param failedMetadataChangeEvent the Pegasus {@link FailedMetadataChangeEvent} model
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @throws IOException if the conversion fails
+   */
+  @Nonnull
+  public static GenericRecord pegasusToAvroFailedMCE(@Nonnull FailedMetadataChangeEvent failedMetadataChangeEvent) throws IOException {
+    GenericRecord original =
+        DataTranslator.dataMapToGenericRecord(failedMetadataChangeEvent.data(), failedMetadataChangeEvent.schema(), ORIGINAL_FAILED_MCE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, ORIGINAL_FAILED_MCE_AVRO_SCHEMA, RENAMED_FAILED_MCE_AVRO_SCHEMA);
+  }
 
   /**
    * Converts original MXE into a renamed namespace

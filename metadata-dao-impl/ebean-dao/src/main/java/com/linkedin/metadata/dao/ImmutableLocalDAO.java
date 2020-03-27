@@ -83,7 +83,7 @@ public class ImmutableLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends U
 
   @Override
   @Nonnull
-  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
       int maxTransactionRetry) {
     throw new UnsupportedOperationException("Not supported by immutable DAO");

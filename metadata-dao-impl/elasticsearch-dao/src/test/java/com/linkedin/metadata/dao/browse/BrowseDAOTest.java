@@ -20,13 +20,13 @@ import static org.testng.Assert.*;
 public class BrowseDAOTest {
   private BaseBrowseConfig _browseConfig;
   private RestHighLevelClient _mockClient;
-  private ESBrowseDAO _mockBrowseDAO;
+  private ESBrowseDAO _browseDAO;
 
   @BeforeMethod
   public void setup() {
     _browseConfig = new TestBrowseConfig();
     _mockClient = mock(RestHighLevelClient.class);
-    _mockBrowseDAO = new ESBrowseDAO(_mockClient, _browseConfig);
+    _browseDAO = new ESBrowseDAO(_mockClient, _browseConfig);
   }
 
   @Test
@@ -79,7 +79,7 @@ public class BrowseDAOTest {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(_mockClient.search(any())).thenReturn(mockSearchResponse);
-    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 0);
+    assertEquals(_browseDAO.getBrowsePaths(dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field doesn't exist
     when(mockSourceMap.containsKey(_browseConfig.getBrowsePathFieldName())).thenReturn(false);
@@ -87,7 +87,7 @@ public class BrowseDAOTest {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[]{mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(_mockClient.search(any())).thenReturn(mockSearchResponse);
-    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 0);
+    assertEquals(_browseDAO.getBrowsePaths(dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field exists
     when(mockSourceMap.containsKey(_browseConfig.getBrowsePathFieldName())).thenReturn(true);
@@ -96,7 +96,7 @@ public class BrowseDAOTest {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[]{mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(_mockClient.search(any())).thenReturn(mockSearchResponse);
-    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 1);
-    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).get(0), "foo");
+    assertEquals(_browseDAO.getBrowsePaths(dummyUrn).size(), 1);
+    assertEquals(_browseDAO.getBrowsePaths(dummyUrn).get(0), "foo");
   }
 }
