@@ -38,6 +38,7 @@ mkShell {
     pkgs.postgresql_jdbc
     pkgs.mysql_jdbc
     pkgs.mssql_jdbc
+    pkgs.oracle-instantclient
 
     (haskellPackages.ghcWithPackages ( p: 
       [ p.bytestring p.string-conversions
