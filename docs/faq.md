@@ -97,4 +97,5 @@ Currently, DataHub supports all major database providers that are supported by E
 ## For which stores, you have discovery services?
 Supported data sources are listed at https://github.com/linkedin/datahub/tree/master/metadata-ingestion. To onboard your own data source which is not listed there, you can refer to the [onboarding guide](https://github.com/linkedin/datahub/blob/master/docs/how/data-source-onboarding.md).
 
-
+## How is metadata ingested in Datahub? Is it real-time?
+You can call the [rest.li](https://github.com/linkedin/rest.li) API to ingest metadata in DataHub directly instead of using Kafka event. Metadata ingestion is real-time if you're updating via rest.li API. It's near real-time in the case of Kafka events due to the asynchronous nature of Kafka processing.
