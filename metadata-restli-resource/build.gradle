@@ -15,4 +15,5 @@ dependencies {
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
