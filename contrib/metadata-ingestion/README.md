@@ -11,12 +11,13 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 ## Roadmap
 
 - [X] datahub-producer load json avro data.
-- [X] add dataset-jdbc generator
 - [X] add lineage-hive generator
-- [ ] add lineage-oracle generator[include [mysql, mssql, postgresql] driver]
-- [ ] enhance lineage-jdbc generator to lazy iterator mode.
-- [ ] enchance avro parser to show error information 
+- [X] add dataset-jdbc generator[include [mysql, mssql, postgresql] driver]
 - [ ] enhance dataset-jdbc generator [oracle-driver]
+- [ ] enhance lineage-jdbc generator to lazy iterator mode.
+- [ ] add lineage-oracle generator
+- [ ] enchance avro parser to show error information 
+
 
 
 ## Quickstart
