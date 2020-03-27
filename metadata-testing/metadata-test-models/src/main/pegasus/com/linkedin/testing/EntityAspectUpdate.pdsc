@@ -5,6 +5,7 @@
   "doc": "For unit tests",
   "ref": [
     "AspectFoo",
+    "AspectBar",
     "AspectFooEvolved"
   ]
 }
