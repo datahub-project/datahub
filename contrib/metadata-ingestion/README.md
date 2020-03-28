@@ -12,8 +12,8 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 
 - [X] datahub-producer load json avro data.
 - [X] add lineage-hive generator
-- [X] add dataset-jdbc generator[include [mysql, mssql, postgresql] driver]
-- [ ] enhance dataset-jdbc generator [oracle-driver]
+- [X] add dataset-jdbc generator[include [mysql, mssql, postgresql, oracle] driver]
+- [ ] enhance dataset-jdbc generator [hive-driver]
 - [ ] enhance lineage-jdbc generator to lazy iterator mode.
 - [ ] add lineage-oracle generator
 - [ ] enchance avro parser to show error information 
@@ -42,7 +42,7 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
     ls sample/hive_*.sql | bin/lineage_hive_generator.hs | bin/datahub-producer.hs config
 ```
 
-4. load jdbc schema(mysql, mssql, postgresql) to datahub [
+4. load jdbc schema(mysql, mssql, postgresql, oracle) to datahub
 ```
     bin/dataset-jdbc-generator.hs | bin/datahub-producer.hs config
 ```
