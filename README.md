@@ -15,6 +15,16 @@
 > - DataHub v0.3.1 has just been released. See [relase notes](https://github.com/linkedin/datahub/releases/tag/v0.3.1) for more details.
 > - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Ask questions and keep up with the latest announcement.
 
+---
+
+[Quickstart](#quickstart) |
+[Documentation](#documentation) |
+[Features](https://github.com/linkedin/datahub/blob/master/docs/features.md) |
+[Roadmap](https://github.com/linkedin/datahub/blob/master/docs/roadmap.md) |
+[FAQ](https://github.com/linkedin/datahub/blob/master/docs/faq.md) |
+[Town Hall](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md)
+---
+
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
 [LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). 
