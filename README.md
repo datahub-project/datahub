@@ -5,16 +5,6 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/CONTRIBUTING.md)
 [![License](https://img.shields.io/github/license/linkedin/datahub)](LICENSE)
 
-![DataHub](docs/imgs/datahub-logo.png)
-
-> :mega: Next DataHub town hall meeting on April 3rd, 9am-10am PDT: 
-> - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
-> - Details and recordings of past meetings can be found [here](docs/townhalls.md)
-
-> :sparkles:Mar 2020 Update: 
-> - DataHub v0.3.1 has just been released. See [relase notes](https://github.com/linkedin/datahub/releases/tag/v0.3.1) for more details.
-> - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Ask questions and keep up with the latest announcement.
-
 ---
 
 [Quickstart](#quickstart) |
@@ -25,6 +15,16 @@
 [Town Hall](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md)
 
 ---
+
+![DataHub](docs/imgs/datahub-logo.png)
+
+> :mega: Next DataHub town hall meeting on April 3rd, 9am-10am PDT: 
+> - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
+> - Details and recordings of past meetings can be found [here](docs/townhalls.md)
+
+> :sparkles:Mar 2020 Update: 
+> - DataHub v0.3.1 has just been released. See [relase notes](https://github.com/linkedin/datahub/releases/tag/v0.3.1) for more details.
+> - We're on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) now! Ask questions and keep up with the latest announcement.
 
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
