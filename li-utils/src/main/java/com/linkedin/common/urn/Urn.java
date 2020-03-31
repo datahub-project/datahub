@@ -50,6 +50,10 @@ public class Urn {
     return Long.valueOf(_content);
   }
 
+  public Integer getIdAsInt() {
+    return Integer.valueOf(_content);
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (obj != null && Urn.class.isAssignableFrom(obj.getClass())) {
