@@ -10,10 +10,10 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) first)
-- Agenda (TBD)
+- Agenda
   * Quick intro - 5 mins
-  * Internal DataHub demo - 10 mins
-  * What's coming up next for DataHub (what roadmap items we are working on) - 10 mins
+  * [Demo] Creating Helm charts for deploying DataHub on Kubernetes - 10 mins
+  * [Demo] How to onboard a new metadata aspect - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
