@@ -1,5 +1,16 @@
 # DataHub FAQs
 
+## Why should we use DataHub?
+DataHub is a self-service data portal which provides search and discovery capabilities (and more!) over the data assets of an organization. This tool can help improve productivity of data scientists, data analysts, engineers of organizations dealing with massive amounts of data. Also, the regulatory environment (GDPR, CCPA etc) requires a company to know what data it has, who is using it and how long it will be retained - DataHub provides a solution to these challenges by gathering metadata across a distributed data ecosystem and surfacing it as a data catalog thereby easing the burden of data privacy/compliance.
+
+## Would you recommend Datahub rather than available commercial solutions?
+Common problems with commercial solutions can be summarized as:
+- Lacks direct access to source code: Any feature gaps can only be closed by external parties, which can be both time consuming and expensive.
+- Dependency on larger proprietary systems or environments, e.g. AWS, Azure, Cloudera etc., making it infeasible to adopt if it doesn’t fit your environment.
+- Expensive to acquire and operate.
+
+Datahub can be right for you if you want an open source unbundled solution (front-end application completely decoupled from a “battle-tested” metadata store), that you are free to modify, extend and integrate with your data ecosystem. In our experience at LinkedIn and talking to other companies in a similar situation, metadata always has a very company specific implementation and meaning. Commercial tools will typically drop-in and solve a few use-cases well out of the gate, but will need much more investment or will be impossible to extend for some specific kinds of metadata.
+
 ## Who are the major contributors in the community?
 Currently LinkedIn engineers. However, we’re receiving more and more PRs from individuals working at various companies.
 
@@ -34,7 +45,7 @@ We plan to organize public town hall meetings at bi-weekly cadence, which may ch
 The best way to engage is through the [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA). You’ll get to interact with the developers and the community. We are fairly response on Slack and plan to setup proper oncall support during normal business hours (Pacific Time). For reproducible technical issues, bugs and code contributions, Github [issues](https://github.com/linkedin/datahub/issues) and [PRs](https://github.com/linkedin/datahub/pulls) are the preferred channel.
 
 ## What’s the best way to ramp up the product knowledge to properly test and evaluate Datahub?
-[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](https://github.com/linkedin/datahub/tree/master/docs/architecture), [definitions](https://github.com/linkedin/datahub/tree/master/docs/what), and [onboarind guides](https://github.com/linkedin/datahub/tree/master/docs/how).
+[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](https://github.com/linkedin/datahub/tree/master/docs/architecture), [definitions](https://github.com/linkedin/datahub/tree/master/docs/what), and [onboarding guides](https://github.com/linkedin/datahub/tree/master/docs/how).
 
 The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 
@@ -45,7 +56,7 @@ You can learn more about DataHub's product roadmap at https://github.com/linkedi
 You can learn more about the current list of features at https://github.com/linkedin/datahub/blob/master/docs/features.md.
 
 ## Are the product strategy/vision/roadmap driven by the LinkedIn Engineering team, community, or a collaborative effort?
-Mixed of both LinkedIn DataHub team and the community. The roadmap will be a joint effort of both LinkedIn and the community. However, we’ll prioritize the tasks the align with the community's asks.
+Mixed of both LinkedIn DataHub team and the community. The roadmap will be a joint effort of both LinkedIn and the community. However, we’ll prioritize the tasks that align with the community's asks.
 
 ## Does DataHub connect with Google Cloud Platform?
 LinkedIn team is not using GCP so we cannot commit to building and testing that connectivity. However, we’ll be happy to accept community contributions for that. Also, our Slack channel and regularly scheduled town hall meetings are a good opportunity to meet with people from different companies who have similar requirements and might be collaborate on these features.
