@@ -68,6 +68,13 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   /**
+   * Return the {@link EbeanServer} server instance used for customized queries.
+   */
+  public EbeanServer getServer() {
+    return _server;
+  }
+
+  /**
    * Creates a private in-memory {@link EbeanServer} based on H2 for production.
    */
   @Nonnull

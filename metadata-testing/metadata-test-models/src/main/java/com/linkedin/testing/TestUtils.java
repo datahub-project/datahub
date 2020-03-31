@@ -1,6 +1,9 @@
 package com.linkedin.testing;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.testing.urn.BarUrn;
+import com.linkedin.testing.urn.BazUrn;
+import com.linkedin.testing.urn.FooUrn;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import java.net.URISyntaxException;
@@ -11,6 +14,33 @@ public class TestUtils {
 
   private TestUtils() {
     // util class
+  }
+
+  @Nonnull
+  public static FooUrn makeFooUrn(int id) {
+    try {
+      return new FooUrn(id);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Nonnull
+  public static BarUrn makeBarUrn(int id) {
+    try {
+      return new BarUrn(id);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Nonnull
+  public static BazUrn makeBazUrn(int id) {
+    try {
+      return new BazUrn(id);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Nonnull

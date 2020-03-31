@@ -1,6 +1,5 @@
 package com.linkedin.metadata.dao;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.internal.Neo4jGraphWriterDAO;
 import com.linkedin.metadata.dao.utils.Statement;
@@ -13,6 +12,9 @@ import com.linkedin.testing.RelationshipBar;
 import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityBar;
+import com.linkedin.testing.urn.BarUrn;
+import com.linkedin.testing.urn.BazUrn;
+import com.linkedin.testing.urn.FooUrn;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,7 +56,7 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindEntityByUrn() throws Exception {
-    Urn urn = makeUrn(1, "entityFoo");
+    FooUrn urn = makeFooUrn(1);
     EntityFoo entity = new EntityFoo().setUrn(urn).setValue("foo");
 
     _writer.addEntity(entity);
@@ -68,11 +70,11 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindEntityByAttribute() throws Exception {
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityFoo");
+    FooUrn urn2 = makeFooUrn(2);
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo");
     _writer.addEntity(entity2);
 
@@ -92,7 +94,7 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindEntityByQuery() throws Exception {
-    Urn urn1 = makeUrn(1);
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
@@ -101,7 +103,7 @@ public class Neo4jQueryDAOTest {
     assertEquals(found.size(), 1);
     assertEquals(found.get(0), entity1);
 
-    Urn urn2 = makeUrn(2);
+    FooUrn urn2 = makeFooUrn(2);
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo");
     _writer.addEntity(entity2);
 
@@ -114,23 +116,23 @@ public class Neo4jQueryDAOTest {
   @Test
   public void testFindEntityWithOneRelationship() throws Exception {
     // Test interface 1 & 3
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityFoo");
+    FooUrn urn2 = makeFooUrn(2);
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3, "entityFoo");
+    FooUrn urn3 = makeFooUrn(3);
     EntityFoo entity3 = new EntityFoo().setUrn(urn3).setValue("foo3");
     _writer.addEntity(entity3);
 
-    Urn urn4 = makeUrn(4, "entityBar");
+    BarUrn urn4 = makeBarUrn(4);
     EntityBar entity4 = new EntityBar().setUrn(urn4).setValue("bar4");
     _writer.addEntity(entity4);
 
-    Urn urn5 = makeUrn(5, "entityBar");
+    BarUrn urn5 = makeBarUrn(5);
     EntityBar entity5 = new EntityBar().setUrn(urn5).setValue("bar5");
     _writer.addEntity(entity5);
 
@@ -209,15 +211,15 @@ public class Neo4jQueryDAOTest {
   @Test
   public void testFindEntitiesMultiHops() throws Exception {
     // Test interface 5
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityFoo");
+    FooUrn urn2 = makeFooUrn(2);
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3, "entityFoo");
+    FooUrn urn3 = makeFooUrn(3);
     EntityFoo entity3 = new EntityFoo().setUrn(urn3).setValue("foo3");
     _writer.addEntity(entity3);
 
@@ -311,15 +313,15 @@ public class Neo4jQueryDAOTest {
   @Test
   public void testFindEntitiesViaTraversePathes() throws Exception {
     // Test interface 4
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("CorpGroup1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityBar");
+    BarUrn urn2 = makeBarUrn(2);
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("CorpUser2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3, "entityBaz");
+    BazUrn urn3 = makeBazUrn(3);
     EntityBaz entity3 = new EntityBaz().setUrn(urn3).setValue("Dataset3");
     _writer.addEntity(entity3);
 
@@ -358,11 +360,11 @@ public class Neo4jQueryDAOTest {
     assertEquals(result2, result);
 
     // add another user & dataset
-    Urn urn4 = makeUrn(4, "entityBar");
+    BarUrn urn4 = makeBarUrn(4);
     EntityBar entity4 = new EntityBar().setUrn(urn4).setValue("CorpUser4");
     _writer.addEntity(entity4);
 
-    Urn urn5 = makeUrn(5, "entityBaz");
+    BazUrn urn5 = makeBazUrn(5);
     EntityBaz entity5 = new EntityBaz().setUrn(urn5).setValue("Dataset5");
     _writer.addEntity(entity5);
 
@@ -414,11 +416,11 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindRelationship() throws Exception {
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityBar");
+    BarUrn urn2 = makeBarUrn(2);
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _writer.addEntity(entity2);
 
@@ -445,11 +447,11 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindRelationshipByQuery() throws Exception {
-    Urn urn1 = makeUrn(1, "entityFoo");
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2, "entityBar");
+    BarUrn urn2 = makeBarUrn(2);
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _writer.addEntity(entity2);
 
