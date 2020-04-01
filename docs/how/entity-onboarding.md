@@ -1,5 +1,7 @@
 # How to onboard an entity?
 
+> Refer to [this doc](./add-new-aspect.md) if you're only interested in adding a new aspect to an existing entity 
+
 Currently, DataHub only has a support for 3 [entity] types: `datasets`, `users` and `groups`.
 If you want to extend DataHub with your own use cases such as `metrics`, `charts`, `dashboards` etc, you should follow the below steps in order.
 
@@ -21,7 +23,10 @@ Refer to [search onboarding](search-onboarding.md).
 ## 4. GMA graph onboarding
 Refer to [graph onboarding](graph-onboarding.md).
 
-## 5. UI for entity onboarding [WIP]
+## 5. Add rest.li resource endpoint
+See [CorpUsers] for an example of top-level [resource endpoint]
+
+## 6. UI for entity onboarding [WIP]
 
 [Aspect]: ../what/aspect.md
 [DatasetAspect]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DatasetAspect.pdsc
@@ -30,3 +35,5 @@ Refer to [graph onboarding](graph-onboarding.md).
 [Snapshot Union]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdsc
 [Entity]: ../what/entity.md
 [DatasetEntity]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdsc
+[CorpUsers]: ../../gms/impl/src/main/java/com/linkedin/identity/rest/resources/CorpUsers.java
+[resource endpoint]: https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources
