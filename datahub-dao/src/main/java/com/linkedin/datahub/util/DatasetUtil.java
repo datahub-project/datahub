@@ -5,8 +5,6 @@ import com.linkedin.datahub.models.view.DatasetView;
 import com.linkedin.datahub.models.view.LineageView;
 import com.linkedin.dataset.Dataset;
 
-import com.linkedin.dataset.LineageType;
-import com.linkedin.dataset.Upstream;
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 
