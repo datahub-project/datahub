@@ -1,4 +1,4 @@
-package com.linkedin.dataset.dao.search;
+package com.linkedin.metadata.configs;
 
 import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
