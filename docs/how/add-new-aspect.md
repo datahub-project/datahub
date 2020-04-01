@@ -1,4 +1,4 @@
-# How to add a a new metadata aspect?
+# How to add a new metadata aspect?
 
 Adding a new metadata [aspect](https://github.com/linkedin/datahub/blob/master/docs/what/aspect.md) is one of the most common ways to extend an existing [entity](https://github.com/linkedin/datahub/blob/master/docs/what/entity.md).
 We'll use the [CorpUserEditableInfo](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdsc) as an example here.
