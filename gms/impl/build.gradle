@@ -24,8 +24,8 @@ dependencies {
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([
-    'com.linkedin.dataset.rest',
-    'com.linkedin.identity.rest'
+    'com.linkedin.metadata.resources.dataset',
+    'com.linkedin.metadata.resources.identity'
 ])
 
 ext.apiProject = project(':gms:api')

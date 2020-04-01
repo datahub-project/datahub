@@ -34,7 +34,7 @@ See [`CorpUsers`] for an example of top-level [resource endpoint]. Optionally ad
 [Snapshot Union]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdsc
 [Entity]: ../what/entity.md
 [DatasetEntity]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdsc
-[`CorpUsers`]: ../../gms/impl/src/main/java/com/linkedin/identity/rest/resources/CorpUsers.java
+[`CorpUsers`]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsers.java
 [resource endpoint]: https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources
 [sub-resource endpoint]: https://linkedin.github.io/rest.li/user_guide/restli_server#sub-resources
-[`CorpUsersEditableInfoResource`]: ../../gms/impl/src/main/java/com/linkedin/identity/rest/resources/CorpUsersEditableInfoResource.java
+[`CorpUsersEditableInfoResource`]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsersEditableInfoResource.java

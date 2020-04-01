@@ -1,4 +1,4 @@
-package com.linkedin.identity.rest.resources;
+package com.linkedin.metadata.resources.identity;
 
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.identity.CorpGroup;
