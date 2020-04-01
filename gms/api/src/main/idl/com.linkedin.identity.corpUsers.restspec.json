@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.identity",
   "path" : "/corpUsers",
   "schema" : "com.linkedin.identity.CorpUser",
-  "doc" : "generated from: com.linkedin.identity.rest.resources.CorpUsers",
+  "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpUsers",
   "collection" : {
     "identifier" : {
       "name" : "corpUser",
@@ -117,7 +117,7 @@
         "namespace" : "com.linkedin.identity",
         "path" : "/corpUsers/{corpUser}/editableInfo",
         "schema" : "com.linkedin.identity.CorpUserEditableInfo",
-        "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/editableInfo\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersEditableInfoResource",
+        "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/editableInfo\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpUsersEditableInfoResource",
         "collection" : {
           "identifier" : {
             "name" : "editableInfoId",

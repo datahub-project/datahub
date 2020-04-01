@@ -1,4 +1,4 @@
-package com.linkedin.dataset.rest.resources;
+package com.linkedin.metadata.resources.dataset;
 
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;

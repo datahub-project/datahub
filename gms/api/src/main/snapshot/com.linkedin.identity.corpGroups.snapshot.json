@@ -290,7 +290,7 @@
     "namespace" : "com.linkedin.identity",
     "path" : "/corpGroups",
     "schema" : "com.linkedin.identity.CorpGroup",
-    "doc" : "generated from: com.linkedin.identity.rest.resources.CorpGroups",
+    "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpGroups",
     "collection" : {
       "identifier" : {
         "name" : "corpGroup",
