@@ -29,6 +29,10 @@ For `datahub-frontend`, you should see a log similar to this at the end of the i
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9001
 ```
 
+## My elasticsearch or broker container exited with error or was stuck forever
+
+Chances are you're not giving enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
 You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics. 
