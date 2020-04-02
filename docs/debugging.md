@@ -145,3 +145,10 @@ ERROR: for mysql  Cannot start service mysql: driver failed programming external
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
 ``` 
+## toomanyrequests: too many failed login attempts for username or IP address
+Try the following
+```bash
+rm ~/.docker/config.json
+docker login
+```
+More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
