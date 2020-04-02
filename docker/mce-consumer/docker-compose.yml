@@ -10,6 +10,9 @@ services:
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
       - GMS_HOST=datahub-gms
       - GMS_PORT=8080
+      - KAFKA_MCE_TOPIC_NAME=MetadataChangeEvent
+      - KAFKA_FMCE_TOPIC_NAME=FailedMetadataChangeEvent
+      - SPRING_PROFILES_ACTIVE=test
     command: "sh -c './mce-consumer-job/bin/mce-consumer-job'"
 
 networks:
