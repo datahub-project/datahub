@@ -43,3 +43,7 @@ You can install multiple version of Java on a single machine and switch between 
 ### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` error
 
 This is a known issue when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
+
+### Various errors related to `generateDataTemplate` or other `generate` tasks
+
+As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue. 
