@@ -31,6 +31,7 @@ dependencies {
     }
     compile externalDependency.springBootStarterJetty
     compile externalDependency.springKafka
+    compile externalDependency.springActuator
 
     compileOnly externalDependency.lombok
 
