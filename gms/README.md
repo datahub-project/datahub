@@ -27,7 +27,7 @@ Quickest way to try out `DataHub GMS` is running the [Docker image](../docker/gm
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :gms:war:JettyRunWar
+./gradlew :gms:war:run
 ```
 
 ## Sample API Calls
