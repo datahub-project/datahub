@@ -17,7 +17,6 @@ import play.mvc.Security;
 import utils.ControllerUtil;
 
 import javax.annotation.Nonnull;
-import java.security.InvalidParameterException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +48,7 @@ public class User extends Controller {
     try {
       corpUser = _corpUserViewDao.getByUserName(username);
     } catch (Exception e) {
-      throw new InvalidParameterException("Invalid username: " + username);
+      throw new RuntimeException(e);
     }
 
     if (corpUser == null || !corpUser.getUsername().equals(username)
