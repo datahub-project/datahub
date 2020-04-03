@@ -42,8 +42,8 @@ Run the mce-cli to quickly ingest lots of sample data and test DataHub in action
 ```
 ➜  python mce_cli.py produce -d bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
-  MCE1: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}), "proposedDelta": None}
-  MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
+  MCE1: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}), "proposedDelta": None}
+  MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
 Flushing records...
 ```
 This will bootstrap DataHub with sample datasets and sample users.
