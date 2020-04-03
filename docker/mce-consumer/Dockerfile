@@ -9,6 +9,8 @@ RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build \
 
 FROM openjdk:8-jre-alpine
 
-COPY --from=builder /mce-consumer-job /mce-consumer-job/
+COPY --from=builder /mce-consumer-job.jar /mce-consumer-job.jar
+
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "mce-consumer-job.jar"]

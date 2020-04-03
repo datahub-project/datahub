@@ -12,8 +12,7 @@ services:
       - GMS_PORT=8080
       - KAFKA_MCE_TOPIC_NAME=MetadataChangeEvent
       - KAFKA_FMCE_TOPIC_NAME=FailedMetadataChangeEvent
-      - SPRING_PROFILES_ACTIVE=test
-    command: "sh -c './mce-consumer-job/bin/mce-consumer-job'"
+    command: "java -jar mce-consumer-job.jar"
 
 networks:
   default:

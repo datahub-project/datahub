@@ -69,7 +69,7 @@ project.ext.externalDependency = [
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.3.RELEASE',
-    'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.2.3.RELEASE',
+    'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
     'testng': 'org.testng:testng:6.9.9'
 ]
 
