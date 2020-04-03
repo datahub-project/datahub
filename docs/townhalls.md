@@ -22,5 +22,6 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 | Date    | Recording | Q&A |
 | ------- | :---------: | :---------: |
+| 4/3/20  | [link](https://bluejeans.com/s/vzYpa) | TBD
 | 3/20/20 | [link](https://bluejeans.com/s/FSKEF) | [link](https://docs.google.com/document/d/1vQ6tAGXsVafnPIcZv1GSYgnTJJXFOACa1aWzOQjiGHI/edit) |
 | 3/6/20  | [link](https://bluejeans.com/s/vULMG) | [link](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit) |
