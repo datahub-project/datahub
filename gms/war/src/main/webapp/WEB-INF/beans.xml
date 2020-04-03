@@ -17,7 +17,7 @@
     <bean id="restliRequestHandler" class="com.linkedin.restli.server.spring.ParallelRestliHttpRequestHandler">
         <constructor-arg>
             <bean class="com.linkedin.restli.server.RestLiConfig">
-                <property name="resourcePackageNames" value="com.linkedin.dataset.rest.resources,com.linkedin.identity.rest.resources" />
+                <property name="resourcePackageNames" value="com.linkedin.metadata.resources" />
             </bean>
         </constructor-arg>
         <constructor-arg ref="injectResourceFactory" />
