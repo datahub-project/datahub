@@ -31,7 +31,12 @@ For `datahub-frontend`, you should see a log similar to this at the end of the i
 
 ## My elasticsearch or broker container exited with error or was stuck forever
 
-Chances are you're not giving enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+```
+datahub-gms             | 2020/04/03 14:34:26 Problem with request: Get http://elasticsearch:9200: dial tcp 172.19.0.5:9200: connect: connection refused. Sleeping 1s
+broker                  | [2020-04-03 14:34:42,398] INFO Client session timed out, have not heard from server in 6874ms for sessionid 0x10000023fa60002, closing socket connection and attempting reconnect (org.apache.zookeeper.ClientCnxn)
+schema-registry         | [2020-04-03 14:34:48,518] WARN Client session timed out, have not heard from server in 20459ms for sessionid 0x10000023fa60007 (org.apache.zookeeper.ClientCnxn)
+```
 
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
