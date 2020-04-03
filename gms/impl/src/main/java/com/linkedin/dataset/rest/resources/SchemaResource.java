@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.dataset;
+package com.linkedin.dataset.rest.resources;
 
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.parseq.Task;

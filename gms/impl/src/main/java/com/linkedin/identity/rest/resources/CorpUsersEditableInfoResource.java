@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.identity;
+package com.linkedin.identity.rest.resources;
 
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.parseq.Task;
