@@ -1,4 +1,4 @@
-FROM openjdk:8
+FROM openjdk:8 as builder
 
 MAINTAINER Kerem Sahin ksahin@linkedin.com
 
@@ -13,6 +13,9 @@ RUN cd datahub-src && ./gradlew :datahub-frontend:dist \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
+FROM openjdk:8-jre-alpine
+
+COPY --from=builder /datahub-frontend /datahub-frontend/
 EXPOSE 9001
 
 ENV JAVA_OPTS=" \
