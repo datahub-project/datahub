@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka.config;
 
-import org.apache.http.client.methods.HttpGet;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,10 +22,4 @@ public class RemoteWriterConfig {
         Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
         return new RestliRemoteWriterDAO(restClient);
     }
-
-    @Bean
-    public HttpGet healthCheckHttpRequest() {
-        return new HttpGet("http://" + gmsHost + ":" + gmsPort + "/health");
-    }
-
 }
