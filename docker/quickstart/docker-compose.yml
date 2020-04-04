@@ -241,6 +241,8 @@ services:
     image: keremsahin/datahub-mce-consumer:latest
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
+    ports:
+        - "9090:9090"
     environment:
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081

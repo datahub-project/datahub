@@ -11,6 +11,6 @@ FROM openjdk:8-jre-alpine
 
 COPY --from=builder /mce-consumer-job.jar /mce-consumer-job.jar
 
-EXPOSE 8080
+EXPOSE 9090
 
 ENTRYPOINT ["java", "-jar", "mce-consumer-job.jar"]
