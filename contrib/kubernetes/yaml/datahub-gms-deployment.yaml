@@ -19,7 +19,7 @@ spec:
           image: keremsahin/datahub-gms:latest
           ports:
           - containerPort: 8080
-          command: ["/bin/bash", "-c" ,"java -jar jetty-runner-9.4.20.v20190813.jar gms.war"]
+          command: ["/bin/sh", "-c" ,"java -jar jetty-runner-9.4.20.v20190813.jar gms.war"]
           env:
             - name: EBEAN_DATASOURCE_USERNAME
               valueFrom:
