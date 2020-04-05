@@ -1,4 +1,4 @@
-FROM openjdk:8
+FROM openjdk:8 as builder
 
 MAINTAINER Kerem Sahin ksahin@linkedin.com
 
@@ -6,3 +6,7 @@ COPY . datahub-src
 RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build \
     && cp metadata-jobs/mce-consumer-job/build/distributions/mce-consumer-job.zip ../mce-consumer-job.zip \
     && cd .. && rm -rf datahub-src && unzip mce-consumer-job.zip
+
+FROM openjdk:8-jre-alpine
+
+COPY --from=builder /mce-consumer-job /mce-consumer-job/
