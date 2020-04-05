@@ -30,7 +30,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          command: ["/bin/bash", "-c" ,"./mae-consumer-job/bin/mae-consumer-job"]
+          command: ["/bin/sh", "-c" ,"./mae-consumer-job/bin/mae-consumer-job"]
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
