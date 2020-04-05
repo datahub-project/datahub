@@ -234,7 +234,7 @@ services:
       - kafka-setup
       - elasticsearch
       - neo4j
-    command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
+    command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
               echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
 
   datahub-mce-consumer:
@@ -249,7 +249,7 @@ services:
     depends_on:
       - kafka-setup
       - datahub-gms
-    command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
+    command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
               echo kafka-setup done! && ./mce-consumer-job/bin/mce-consumer-job'"
 
 networks:

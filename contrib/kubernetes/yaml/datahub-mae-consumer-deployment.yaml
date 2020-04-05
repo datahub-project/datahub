@@ -17,7 +17,7 @@ spec:
       containers:
         - name: datahub-mae-consumer
           image: keremsahin/datahub-mae-consumer:latest
-          command: ["/bin/bash", "-c" ,"./mae-consumer-job/bin/mae-consumer-job"]
+          command: ["/bin/sh", "-c" ,"./mae-consumer-job/bin/mae-consumer-job"]
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
               valueFrom:
