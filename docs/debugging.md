@@ -157,3 +157,13 @@ rm ~/.docker/config.json
 docker login
 ```
 More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
+
+## I've messed up my docker setup. How do I start from scratch?
+1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
+```
+docker rm -f $(docker ps -aq)
+```
+2. Clear persistent storage for DataHub containers, assuming you didn't set `DATA_STORAGE_FOLDER` environment variable.
+```
+rm -rf /tmp/datahub
+```
