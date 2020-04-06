@@ -241,6 +241,8 @@ services:
     image: keremsahin/datahub-mce-consumer:latest
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
+    ports:
+        - "9090:9090"
     environment:
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
@@ -250,7 +252,7 @@ services:
       - kafka-setup
       - datahub-gms
     command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
-              echo kafka-setup done! && ./mce-consumer-job/bin/mce-consumer-job'"
+                  echo kafka-setup done! && java -jar mce-consumer-job.jar'"
 
 networks:
   default:
