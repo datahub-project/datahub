@@ -99,7 +99,8 @@ mkMCE ts platform fields@((schemaName:schemaDescription:_):_) = [aesonQQ|
             , "hash": ""
             , "platformSchema": {
                 "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                  "tableSchema": ""
+                  "documentSchema": "{}"
+                , "tableSchema": "{}"
                 }
               }
             , "fields": #{mkFields fields}
@@ -138,7 +139,6 @@ main = do
     dbDriver:: T.Text = "com.mysql.jdbc.Driver" ;
     -- dbDriver:: T.Text = "org.postgresql.Driver" ;
     -- dbDriver:: T.Text = "com.microsoft.sqlserver.jdbc.SQLServerDriver" ;
-
     dbSQL :: T.Text = datasetMysqlSql
   runInBoundThread $ withJVM jvmArgs $ do
     [jDbUrl, jDbUser, jDbPassword, jDbDriver, jDbSQL ] <-
