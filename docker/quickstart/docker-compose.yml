@@ -238,7 +238,7 @@ services:
               echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
 
   datahub-mce-consumer:
-    image: localhost:5000/avasudevan/datahub-mce-consumer-tested:latest
+    image: keremsahin/datahub-mce-consumer:latest
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
     ports:
