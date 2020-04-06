@@ -1,5 +1,8 @@
-apply plugin: 'application'
-apply plugin: 'java'
+plugins {
+    id 'org.springframework.boot' version '2.1.2.RELEASE'
+    id 'java'
+}
+
 apply plugin: 'pegasus'
 
 configurations {
@@ -10,6 +13,9 @@ dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
     compile project(':li-utils')
+    compile (project(':gms:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
     compile project(':metadata-utils')
     compile project(':metadata-builders')
     compile project(':metadata-events:mxe-schemas')
@@ -24,6 +30,13 @@ dependencies {
     compile externalDependency.kafkaAvroSerde
     compile externalDependency.kafkaStreams
     compile externalDependency.kafkaSerializers
+
+    compile (externalDependency.springBootStarterWeb) {
+        exclude module: "spring-boot-starter-tomcat"
+    }
+    compile externalDependency.springBootStarterJetty
+    compile externalDependency.springKafka
+    compile externalDependency.springActuator
 
     compileOnly externalDependency.lombok
 
@@ -48,4 +61,6 @@ clean {
     project.delete("src/main/resources/avro")
 }
 
-mainClassName = 'com.linkedin.metadata.kafka.MaeStreamTask'
+bootJar {
+    mainClassName = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+}

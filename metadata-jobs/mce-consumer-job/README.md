@@ -36,6 +36,7 @@ Spring boot actuator has been enabled for MCE Application.
 `healthcheck`, `metrics` and `info` web endpoints are enabled by default.
 
 `healthcheck` - http://localhost:9090/actuator/health
+
 `metrics` - http://localhost:9090/actuator/metrics
 
 To retrieve a specific metric - http://localhost:9090/actuator/metrics/kafka.consumer.records.consumed.total
