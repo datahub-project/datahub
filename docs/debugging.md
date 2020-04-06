@@ -150,6 +150,12 @@ ERROR: for mysql  Cannot start service mysql: driver failed programming external
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
 ``` 
+### OCI runtime create failed
+If you see an error message like below, please make sure to git update your local repo to HEAD.
+```
+ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI runtime create failed: container_linux.go:349: starting container process caused "exec: \"bash\": executable file not found in $PATH": unknown
+```
+
 ## toomanyrequests: too many failed login attempts for username or IP address
 Try the following
 ```bash
