@@ -46,3 +46,14 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 ```
     bin/dataset-jdbc-generator.hs | bin/datahub-producer.hs config
 ```
+
+## Reference
+
+- hive/presto/vertica SQL Parser  
+  uber/queryparser [https://github.com/uber/queryparser.git]
+  
+- oracle procedure syntax  
+  https://docs.oracle.com/cd/E11882_01/server.112/e41085/sqlqr01001.htm#SQLQR110
+  
+- postgresql procedure parser  
+  SQream/hssqlppp [https://github.com/JakeWheat/hssqlppp.git]
