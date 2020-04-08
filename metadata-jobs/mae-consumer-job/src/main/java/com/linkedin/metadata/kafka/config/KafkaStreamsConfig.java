@@ -9,8 +9,8 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration;
@@ -22,11 +22,10 @@ import com.linkedin.mxe.Topics;
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
 
+@Configuration
 @EnableKafka
 @EnableKafkaStreams
-@EnableAutoConfiguration
 public class KafkaStreamsConfig {
-
 
     @Value("${KAFKA_BOOTSTRAP_SERVER:localhost:9092}")
     private String kafkaBootstrapServer;
