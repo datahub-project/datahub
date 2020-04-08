@@ -1,4 +1,4 @@
-package com.linked.metadata.kafka.config;
+package com.linkedin.metadata.kafka.config;
 
 import java.util.HashMap;
 import java.util.Map;

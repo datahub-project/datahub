@@ -8,9 +8,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.avro.generic.GenericRecord;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import com.linkedin.data.template.RecordTemplate;
@@ -33,8 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-@EnableAutoConfiguration
-@ComponentScan
 public class MetadataAuditEventsProcessor {
     private static final String DOC_TYPE = "_doc";
 
