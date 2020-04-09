@@ -158,4 +158,4 @@ Refer to [DownstreamLineageResource] rest.li resource implementation to see a us
 [graph builder registry]: ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/graph/RegisteredGraphBuilders.java
 [query dao]: ../architecture/metadata-serving.md#query-dao
 [BaseQueryDAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseQueryDAO.java
-[DownstreamLineageResource]: ../../gms/impl/src/main/java/com/linkedin/dataset/rest/resources/DownstreamLineageResource.java
+[DownstreamLineageResource]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/dataset/DownstreamLineageResource.java

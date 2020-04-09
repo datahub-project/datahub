@@ -6,7 +6,7 @@
   "fields": [
     {
       "name": "urn",
-      "type": "com.linkedin.common.Urn",
+      "type": "com.linkedin.testing.FooUrn",
       "doc": "For unit tests"
     },
     {

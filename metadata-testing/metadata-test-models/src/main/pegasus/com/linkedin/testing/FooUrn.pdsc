@@ -1,0 +1,26 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.testing.urn.FooUrn",
+    "coercerClass": "com.linkedin.testing.urn.FooUrnCoercer"
+  },
+  "name" : "FooUrn",
+  "namespace" : "com.linkedin.testing",
+  "doc" : "Foo identifier.",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "entityType" : "entityFoo",
+      "owningTeam" : "urn:li:internalTeam:metadata",
+      "name" : "Foo",
+      "namespace" : "li",
+      "doc" : "Foo identifier.",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "fooId",
+        "doc" : "GUID for foo",
+        "type" : "int"
+      } ]
+    }
+  }
+}

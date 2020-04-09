@@ -5,6 +5,8 @@ import com.linkedin.metadata.utils.Neo4jTestServerBuilder;
 import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityBar;
+import com.linkedin.testing.urn.BarUrn;
+import com.linkedin.testing.urn.FooUrn;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +41,7 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testAddRemoveEntity() throws Exception {
-    Urn urn = makeUrn(1, "entityFoo");
+    FooUrn urn = makeFooUrn(1);
     EntityFoo entity = new EntityFoo().setUrn(urn).setValue("foo");
 
     _dao.addEntity(entity);
@@ -53,7 +55,7 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testPartialUpdateEntity() throws Exception {
-    Urn urn = makeUrn(1);
+    FooUrn urn = makeFooUrn(1);
     EntityFoo entity = new EntityFoo().setUrn(urn);
 
     _dao.addEntity(entity);
@@ -77,9 +79,9 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testAddRemoveEntities() throws Exception {
-    EntityFoo entity1 = new EntityFoo().setUrn(makeUrn(1)).setValue("foo");
-    EntityFoo entity2 = new EntityFoo().setUrn(makeUrn(2)).setValue("bar");
-    EntityFoo entity3 = new EntityFoo().setUrn(makeUrn(3)).setValue("baz");
+    EntityFoo entity1 = new EntityFoo().setUrn(makeFooUrn(1)).setValue("foo");
+    EntityFoo entity2 = new EntityFoo().setUrn(makeFooUrn(2)).setValue("bar");
+    EntityFoo entity3 = new EntityFoo().setUrn(makeFooUrn(3)).setValue("baz");
     List<EntityFoo> entities = Arrays.asList(entity1, entity2, entity3);
 
     _dao.addEntities(entities);
@@ -95,8 +97,8 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testAddRelationshipNodeNonExist() throws Exception {
-    Urn urn1 = makeUrn(1);
-    Urn urn2 = makeUrn(2);
+    FooUrn urn1 = makeFooUrn(1);
+    BarUrn urn2 = makeBarUrn(2);
     RelationshipFoo relationship = new RelationshipFoo().setSource(urn1).setDestination(urn2);
 
     _dao.addRelationship(relationship, REMOVE_NONE);
@@ -108,8 +110,8 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testPartialUpdateEntityCreatedByRelationship() throws Exception {
-    Urn urn1 = makeUrn(1);
-    Urn urn2 = makeUrn(2);
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
     RelationshipFoo relationship = new RelationshipFoo().setSource(urn1).setDestination(urn2);
 
     _dao.addRelationship(relationship, REMOVE_NONE);
@@ -122,13 +124,13 @@ public class Neo4jGraphWriterDAOTest {
   @Test
   public void testAddRemoveRelationships() throws Exception {
     // Add entity1
-    Urn urn1 = makeUrn(1);
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _dao.addEntity(entity1);
     assertEntityFoo(_dao.getNode(urn1).get(), entity1);
 
     // Add entity2
-    Urn urn2 = makeUrn(2);
+    BarUrn urn2 = makeBarUrn(2);
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _dao.addEntity(entity2);
     assertEntityBar(_dao.getNode(urn2).get(), entity2);
@@ -160,13 +162,13 @@ public class Neo4jGraphWriterDAOTest {
   @Test
   public void testAddRelationshipRemoveAll() throws Exception {
     // Add entity1
-    Urn urn1 = makeUrn(1);
+    FooUrn urn1 = makeFooUrn(1);
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _dao.addEntity(entity1);
     assertEntityFoo(_dao.getNode(urn1).get(), entity1);
 
     // Add entity2
-    Urn urn2 = makeUrn(2);
+    BarUrn urn2 = makeBarUrn(2);
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _dao.addEntity(entity2);
     assertEntityBar(_dao.getNode(urn2).get(), entity2);

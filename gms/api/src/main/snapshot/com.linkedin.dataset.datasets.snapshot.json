@@ -1038,12 +1038,16 @@
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "EQUAL", "START_WITH", "END_WITH", "CONTAIN" ],
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
     "symbolDocs" : {
-      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
-      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView",
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
       "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
-      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile"
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
     }
   }, {
     "type" : "record",
@@ -1152,7 +1156,7 @@
     "namespace" : "com.linkedin.dataset",
     "path" : "/datasets",
     "schema" : "com.linkedin.dataset.Dataset",
-    "doc" : "generated from: com.linkedin.dataset.rest.resources.Datasets",
+    "doc" : "generated from: com.linkedin.metadata.resources.dataset.Datasets",
     "collection" : {
       "identifier" : {
         "name" : "dataset",
@@ -1274,7 +1278,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/deprecation",
           "schema" : "com.linkedin.dataset.DatasetDeprecation",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.dataset.rest.resources.DeprecationResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.dataset.DeprecationResource",
           "collection" : {
             "identifier" : {
               "name" : "deprecationId",
@@ -1295,7 +1299,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/downstreamLineage",
           "schema" : "com.linkedin.dataset.DownstreamLineage",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.DownstreamLineageResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.DownstreamLineageResource",
           "simple" : {
             "supports" : [ "get" ],
             "methods" : [ {
@@ -1310,7 +1314,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/institutionalMemory",
           "schema" : "com.linkedin.common.InstitutionalMemory",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.dataset.rest.resources.InstitutionalMemoryResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.dataset.InstitutionalMemoryResource",
           "collection" : {
             "identifier" : {
               "name" : "institutionalMemoryId",
@@ -1331,7 +1335,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/rawOwnership",
           "schema" : "com.linkedin.common.Ownership",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.dataset.rest.resources.OwnershipResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.metadata.resources.dataset.OwnershipResource",
           "collection" : {
             "identifier" : {
               "name" : "rawOwnershipId",
@@ -1352,7 +1356,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/schema",
           "schema" : "com.linkedin.schema.SchemaMetadata",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.dataset.rest.resources.SchemaResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.metadata.resources.dataset.SchemaResource",
           "collection" : {
             "identifier" : {
               "name" : "schemaId",
@@ -1373,7 +1377,7 @@
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/upstreamLineage",
           "schema" : "com.linkedin.dataset.UpstreamLineage",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.UpstreamLineageResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.UpstreamLineageResource",
           "collection" : {
             "identifier" : {
               "name" : "upstreamLineageId",

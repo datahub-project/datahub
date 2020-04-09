@@ -19,12 +19,12 @@ dependencies {
 
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([
-    'com.linkedin.dataset.rest',
-    'com.linkedin.identity.rest'
+    'com.linkedin.metadata.resources',
 ])
 
 ext.apiProject = project(':gms:api')

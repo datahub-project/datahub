@@ -1,6 +1,6 @@
 package com.linkedin.dataset.factory;
 
-import com.linkedin.dataset.dao.search.DatasetSearchConfig;
+import com.linkedin.metadata.configs.DatasetSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
 import com.linkedin.metadata.search.DatasetDocument;
 import org.elasticsearch.client.RestHighLevelClient;

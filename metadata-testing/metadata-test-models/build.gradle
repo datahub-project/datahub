@@ -6,3 +6,5 @@ dependencies {
 
   compile spec.product.pegasus.restliCommon
 }
+
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/java/com/linkedin/testing/urn')

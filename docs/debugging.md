@@ -16,7 +16,7 @@ c267c287a235        landoop/schema-registry-ui:latest                     "/run.
 943e60f9b4d0        neo4j:3.5.7                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
 6d79b6f02735        confluentinc/cp-zookeeper:5.2.1                       "/etc/confluent/dock…"   10 hours ago        Up 10 hours         2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
 491d9f2b2e9e        docker.elastic.co/elasticsearch/elasticsearch:5.6.8   "/bin/bash bin/es-do…"   10 hours ago        Up 10 hours         0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
-ce14b9758eb3        mysql:latest
+ce14b9758eb3        mysql:5.7
 ```
 
 Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you should see a log similar to this at the end of the initialization:
@@ -27,6 +27,15 @@ Also you can check individual Docker container logs by running `docker logs <<co
 For `datahub-frontend`, you should see a log similar to this at the end of the initialization:
 ```
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9001
+```
+
+## My elasticsearch or broker container exited with error or was stuck forever
+
+If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+```
+datahub-gms             | 2020/04/03 14:34:26 Problem with request: Get http://elasticsearch:9200: dial tcp 172.19.0.5:9200: connect: connection refused. Sleeping 1s
+broker                  | [2020-04-03 14:34:42,398] INFO Client session timed out, have not heard from server in 6874ms for sessionid 0x10000023fa60002, closing socket connection and attempting reconnect (org.apache.zookeeper.ClientCnxn)
+schema-registry         | [2020-04-03 14:34:48,518] WARN Client session timed out, have not heard from server in 20459ms for sessionid 0x10000023fa60007 (org.apache.zookeeper.ClientCnxn)
 ```
 
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
@@ -131,13 +140,36 @@ yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0 
 ## Getting `cannot start service {X}` error while starting Docker containers.
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
 ### bind: address already in use
-This error means that the network port (which is supposed to be used by the failed container) is already in use by your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If, for some reason, you don't want to kill the process which is using that port, another option is to change the port number for Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
+This error means that the network port (which is supposed to be used by the failed container) is already in use on your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If you don't want to kill the process which is using that port, another option is to change the port number for the Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
 
 ```
-Example : On MacOs
+Example : On macOS
 
 ERROR: for mysql  Cannot start service mysql: driver failed programming external connectivity on endpoint mysql (5abc99513affe527299514cea433503c6ead9e2423eeb09f127f87e2045db2ca): Error starting userland proxy: listen tcp 0.0.0.0:3306: bind: address already in use
 
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
 ``` 
+### OCI runtime create failed
+If you see an error message like below, please make sure to git update your local repo to HEAD.
+```
+ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI runtime create failed: container_linux.go:349: starting container process caused "exec: \"bash\": executable file not found in $PATH": unknown
+```
+
+## toomanyrequests: too many failed login attempts for username or IP address
+Try the following
+```bash
+rm ~/.docker/config.json
+docker login
+```
+More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
+
+## I've messed up my docker setup. How do I start from scratch?
+1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
+```
+docker rm -f $(docker ps -aq)
+```
+2. Clear persistent storage for DataHub containers, assuming you didn't set `DATA_STORAGE_FOLDER` environment variable.
+```
+rm -rf /tmp/datahub
+```

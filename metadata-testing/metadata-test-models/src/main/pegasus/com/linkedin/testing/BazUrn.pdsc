@@ -1,0 +1,26 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.testing.urn.BazUrn",
+    "coercerClass": "com.linkedin.testing.urn.BazUrnCoercer"
+  },
+  "name" : "BazUrn",
+  "namespace" : "com.linkedin.testing",
+  "doc" : "Baz identifier.",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "entityType" : "entityBaz",
+      "owningTeam" : "urn:li:internalTeam:metadata",
+      "name" : "Baz",
+      "namespace" : "li",
+      "doc" : "Baz identifier.",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "bazId",
+        "doc" : "GUID for baz",
+        "type" : "int"
+      } ]
+    }
+  }
+}

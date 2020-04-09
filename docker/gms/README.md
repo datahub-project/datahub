@@ -37,7 +37,7 @@ networks:
 ```
 
 #### MySQL, Elasticsearch and Kafka Containers
-Before starting `datahub-gms` container, `mysql`, `elasticsearch` and `kafka` containers should already be up and running. 
+Before starting `datahub-gms` container, `mysql`, `elasticsearch`, `neo4j` and `kafka` containers should already be up and running. 
 These connections are configured via environment variables in `docker-compose.yml`:
 ```
 environment:
@@ -63,3 +63,11 @@ environment:
   - ELASTICSEARCH_PORT=9200
 ```
 The value of `ELASTICSEARCH_HOST` variable should be set to the host name of the `elasticsearch` container within the Docker network.
+
+```
+environment:
+  - NEO4J_URI=bolt://neo4j
+  - NEO4J_USERNAME=neo4j
+  - NEO4J_PASSWORD=datahub
+```
+The value of `NEO4J_URI` variable should be set to the host name of the `neo4j` container within the Docker network.

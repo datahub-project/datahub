@@ -20,7 +20,7 @@
 
     pkgs.postgresql_11
     pkgs.mysql57
-    pkgs.elasticsearch7
+    pkgs.elasticsearch
     pkgs.neo4j
     pkgs.zookeeper
     pkgs.apacheKafka
@@ -40,12 +40,12 @@
     # package = pkgs.mysql80 ;
     package = pkgs.mysql57 ;
     dataDir = "/opt/nix-module/data/mysql" ;
-    unixSocket = "/opt/nix-module/run/mysql.sock" ;
   } ;
 
   services.elasticsearch = {
     enable = true ;
-    package = pkgs.elasticsearch7 ;
+    # package = pkgs.elasticsearch7 ;
+    package = pkgs.elasticsearch ;
     dataDir = "/opt/nix-module/data/elasticsearch" ;
   } ;
   

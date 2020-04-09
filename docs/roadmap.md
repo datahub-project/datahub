@@ -3,8 +3,8 @@
 Below is DataHub's roadmap for the short and medium term. We'll revise this on a regular basis and welcome suggestions from the communities.
 
 ## Short term (3-6 months)
-### Replace PDSC with PDL [*WIP*]
-- Simplified syntax + code-gen based on annotations
+### Replace PDSC with [PDL](https://linkedin.github.io/rest.li/pdl_schema) [*WIP*]
+- More readable, Java-like syntax + code-gen based on annotations
 ### Aspect-specific MCE & MAE [*WIP*]
 - Split up unified events to improve scalability & modularity
 ### Metrics as entities [*LinkedIn-internal, waiting to open source*]
@@ -33,7 +33,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide how-to guides
 
 ## Medium term (6 months - 1 year)
-### Fine grain lineage
+### Dataset field-level lineage
 - Models + impact analysis
 ### Operational metadata [*WIP*]
 - Indexing in OLAP store ([Pinot](https://github.com/apache/incubator-pinot)) with TTL

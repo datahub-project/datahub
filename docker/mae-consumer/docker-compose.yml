@@ -13,7 +13,7 @@ services:
       - NEO4J_URI=bolt://neo4j
       - NEO4J_USERNAME=neo4j
       - NEO4J_PASSWORD=datahub
-    command: "bash -c './mae-consumer-job/bin/mae-consumer-job'"
+    command: "sh -c './mae-consumer-job/bin/mae-consumer-job'"
 
 networks:
   default:

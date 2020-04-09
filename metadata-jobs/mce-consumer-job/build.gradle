@@ -1,5 +1,8 @@
-apply plugin: 'application'
-apply plugin: 'java'
+plugins {
+    id 'org.springframework.boot' version '2.1.2.RELEASE'
+    id 'java'
+}
+
 apply plugin: 'pegasus'
 
 configurations {
@@ -23,6 +26,13 @@ dependencies {
     compile externalDependency.kafkaAvroSerde
     compile externalDependency.kafkaStreams
     compile externalDependency.kafkaSerializers
+    compile (externalDependency.springBootStarterWeb) {
+        exclude module: "spring-boot-starter-tomcat"
+    }
+    compile externalDependency.springBootStarterJetty
+    compile externalDependency.springKafka
+
+    compile externalDependency.springActuator
 
     compileOnly externalDependency.lombok
 
@@ -47,4 +57,6 @@ clean {
     project.delete("src/main/resources/avro")
 }
 
-mainClassName = 'com.linkedin.metadata.kafka.MceStreamTask'
+bootJar {
+    mainClassName = 'com.linkedin.metadata.kafka.MceConsumerApplication'
+}
