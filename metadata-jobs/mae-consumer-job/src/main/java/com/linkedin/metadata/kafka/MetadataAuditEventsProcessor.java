@@ -31,7 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class MetadataAuditEventsProcessor {
-    private static final String DOC_TYPE = "_doc";
+    // Doc Type should be updated when ElasticSearch Version is upgraded.
+    private static final String DOC_TYPE = "doc";
 
     private ElasticsearchConnector elasticSearchConnector;
     private SnapshotProcessor snapshotProcessor;
