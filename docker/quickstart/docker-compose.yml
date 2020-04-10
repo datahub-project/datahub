@@ -222,6 +222,8 @@ services:
     image: keremsahin/datahub-mae-consumer:latest
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
+    ports:
+        - "9091:9091"
     environment:
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
@@ -235,7 +237,8 @@ services:
       - elasticsearch
       - neo4j
     command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
-              echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
+              echo kafka-setup done! && \
+              dockerize -wait http://neo4j:7474 -timeout 240s && java -jar mae-consumer-job.jar'"
 
   datahub-mce-consumer:
     image: keremsahin/datahub-mce-consumer:latest
