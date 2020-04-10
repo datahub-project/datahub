@@ -5,6 +5,8 @@ services:
     image: keremsahin/datahub-mae-consumer:latest
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
+    ports:
+        - "9091:9091"
     environment:
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
@@ -13,7 +15,6 @@ services:
       - NEO4J_URI=bolt://neo4j
       - NEO4J_USERNAME=neo4j
       - NEO4J_PASSWORD=datahub
-    command: "sh -c './mae-consumer-job/bin/mae-consumer-job'"
 
 networks:
   default:
