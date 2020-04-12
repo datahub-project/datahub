@@ -80,3 +80,42 @@ This is to support "partial update" when only a selective number of attributes n
   ]
 }
 ```
+
+# When to model something as an entity?
+
+A lot of time it may not be obvious if something should be modeled as an entity, a [metadata aspect](aspect.md), or even a field in a metadata aspect. One way to think of it is using the concept of [Third Normal Form](https://en.wikipedia.org/wiki/Third_normal_form). We'll use the example from the Wikipedia entry to illustrate the idea.
+
+**Tourament Table**
+| Tourament | Year | Winner |
+| ------- | --------- | --------- |
+| Indiana Invitational | 1998 | Al Fredrickson 
+| Cleveland Open | 1999 | Bob Albertson
+| Des Moines Masters | 1999 | Al Fredrickson
+| Indiana Invitational | 1999 | Chip Masterson
+
+**Winner Table**
+| Winner | Date of birth |
+| ------- | --------- |
+| Chip Masterson | 14 March 1977 
+| Al Fredrickson | 21 July 1975
+| Bob Albertson | 28 September 1968
+
+When fully normalized, it becomes clear that each table corresponds to an entity (`Tourament` and `Winner`) and is identifiable by its respective key (`{Touranment, Year}` and `Winner`). `Date of birth` column in the second table is the "metadata aspect" of the `Winner` entity. There also exists a relationship between `Tourament` and `Winner` through the `Winner` column in the first table.
+
+In other words, when you start asking yourself "Should I normalize this thing so it doesn't end up repeated data that can potentially become inconsistent?", chances are that "thing" should probably be made an entity. For example, if we need to associate a specific birthday with additional facts, such as the corresponding star sign or [birth flower](https://en.wikipedia.org/wiki/Birth_flower), we'll end up introducing the `Birthday` table & entity and further denormalize the `Winner` table.
+
+**Winner Table**
+| Winner | Birthday | Birth year |
+| ------- | --------- | --------- |
+| Chip Masterson | 14 March | 1977 
+| Al Fredrickson | 21 July | 1975
+| Bob Albertson | 28 September | 1968
+
+**Birthday Table**
+| Birthday | Star sign | Birth flower |
+| ------- | --------- | --------- |
+| 1 January | Capricorn | Carnation
+| ... | ... |
+| 1 July | Cancer | Larkspur  
+| ... | ... |
+| 31 December | Capricorn | Poinsettia
