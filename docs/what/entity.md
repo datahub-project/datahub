@@ -85,8 +85,8 @@ This is to support "partial update" when only a selective number of attributes n
 
 A lot of time it may not be obvious if something should be modeled as an entity, a [metadata aspect](aspect.md), or even a field in a metadata aspect. One way to think of it is using the concept of [Third Normal Form](https://en.wikipedia.org/wiki/Third_normal_form). We'll use the example from the Wikipedia entry to illustrate the idea.
 
-**Tourament Table**
-| Tourament | Year | Winner |
+**Tournament Table**
+| Tournament | Year | Winner |
 | ------- | --------- | --------- |
 | Indiana Invitational | 1998 | Al Fredrickson 
 | Cleveland Open | 1999 | Bob Albertson
@@ -100,7 +100,7 @@ A lot of time it may not be obvious if something should be modeled as an entity,
 | Al Fredrickson | 21 July 1975
 | Bob Albertson | 28 September 1968
 
-When fully normalized, it becomes clear that each table corresponds to an entity (`Tourament` and `Winner`) and is identifiable by its respective key (`{Touranment, Year}` and `Winner`). `Date of birth` column in the second table is the "metadata aspect" of the `Winner` entity. There also exists a relationship between `Tourament` and `Winner` through the `Winner` column in the first table.
+When fully normalized, it becomes clear that each table corresponds to an entity (`Tournament` and `Winner`) and is identifiable by its respective key (`{Tournament, Year}` and `Winner`). `Date of birth` column in the second table is the "metadata aspect" of the `Winner` entity. There also exists a relationship between `Tournament` and `Winner` through the `Winner` column in the first table.
 
 In other words, when you start asking yourself "Should I normalize this thing so it doesn't end up repeated data that can potentially become inconsistent?", chances are that "thing" should probably be made an entity. For example, if we need to associate a specific birthday with additional facts, such as the corresponding star sign or [birth flower](https://en.wikipedia.org/wiki/Birth_flower), we'll end up introducing the `Birthday` table & entity and further denormalize the `Winner` table.
 
