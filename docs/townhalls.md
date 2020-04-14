@@ -12,7 +12,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) first)
 - Agenda (TBD)
   * Quick intro - 5 mins
-  * [Demo] Arun will share how Expedia is adopting DataHub for it's production systems - 10 mins
+  * [Demo] [Expedia](https://www.expedia.com/) team will share how they are adopting DataHub for Expedia's production systems - 10 mins
   * [Demo] [larluo](https://github.com/clojurians-org) will present on Nix Usage for Datahub and Related Database Lineage Content - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
