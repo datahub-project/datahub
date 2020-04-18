@@ -11,7 +11,7 @@
 
 
 import System.Environment (lookupEnv)
-import System.IO (hPrint, stderr)
+import System.IO (hPrint, stderr, hSetEncoding, stdout, utf8)
 
 import qualified Language.Haskell.TH.Syntax as TH
 
@@ -41,7 +41,7 @@ imports "java.util.*"
 imports "java.sql.*"
 
 
-datasetOracleSql :: String
+datasetOracleSql :: T.Text
 datasetOracleSql = [q|
     select
       c.OWNER || '.' || c.TABLE_NAME as schema_name
@@ -72,6 +72,25 @@ datasetMysqlSql = [q|
     from information_schema.columns c
     where table_schema not in ('information_schema') 
     order by schema_name, c.ORDINAL_POSITION
+|]
+
+datasetPostgresqlSql :: T.Text
+datasetPostgresqlSql = [q|
+    SELECT
+        c.table_schema || '.' || c.table_name as schema_name
+      , pgtd.description as schema_description
+      , c.column_name as field_path
+      , c.data_type as native_data_type
+      , pgcd.description as description
+    FROM INFORMATION_SCHEMA.COLUMNS c
+    INNER JOIN
+      pg_catalog.pg_statio_all_tables as st on c.table_schema=st.schemaname and c.table_name=st.relname
+    LEFT JOIN
+      pg_catalog.pg_description pgcd on pgcd.objoid=st.relid and pgcd.objsubid=c.ordinal_position
+    LEFT JOIN
+      pg_catalog.pg_description pgtd on pgtd.objoid=st.relid and pgtd.objsubid=0
+    WHERE c.table_schema NOT IN ('information_schema', 'pg_catalog')
+    ORDER by schema_name, ordinal_position ;
 |]
 
 
@@ -126,20 +145,27 @@ mkMCE ts platform fields@((schemaName:schemaDescription:_):_) = [aesonQQ|
 
 main :: IO ()
 main = do
+  hSetEncoding stdout utf8
   let
     jvmArgs = case $(TH.lift =<< TH.runIO (lookupEnv "CLASSPATH")) of
       Nothing -> []
       Just cp -> [ cs ("-Djava.class.path=" ++ cp) ]
-    platform :: T.Text =  "localhost_datahub"
-    dbUrl :: T.Text = "jdbc:mysql://localhost:3306/datahub?useSSL=false"
+    platform :: T.Text =  "localhost_postgresql"
+    -- dbUrl :: T.Text = "jdbc:mysql://localhost:3306/datahub?useSSL=false"
+    -- dbUrl :: T.Text = "jdbc:oracle:thin@localhost:1521:EDWDB"
+    dbUrl :: T.Text = "jdbc:postgresql://localhost:5432/datahub"
+    
     dbUser :: T.Text  = "datahub"
     dbPassword :: T.Text = "datahub"
-
+    
     -- dbDriver:: T.Text = "oracle.jdbc.OracleDriver" ;
-    dbDriver:: T.Text = "com.mysql.jdbc.Driver" ;
-    -- dbDriver:: T.Text = "org.postgresql.Driver" ;
+    -- dbDriver:: T.Text = "com.mysql.jdbc.Driver" ;
+    dbDriver:: T.Text = "org.postgresql.Driver" ;
     -- dbDriver:: T.Text = "com.microsoft.sqlserver.jdbc.SQLServerDriver" ;
-    dbSQL :: T.Text = datasetMysqlSql
+
+    -- dbSQL :: T.Text = datasetMysqlSql
+    -- dbSQL :: T.Text = datasetOracleSql
+    dbSQL :: T.Text = datasetPostgresqlSql    
   runInBoundThread $ withJVM jvmArgs $ do
     [jDbUrl, jDbUser, jDbPassword, jDbDriver, jDbSQL ] <-
       mapM reflect [dbUrl, dbUser, dbPassword, dbDriver, dbSQL]
