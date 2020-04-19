@@ -13,11 +13,12 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 - [X] datahub-producer load json avro data.
 - [X] add lineage-hive generator
 - [X] add dataset-jdbc generator[include [mysql, mssql, postgresql, oracle] driver]
+- [*] add lineage-oracle generator
+- [*] support haskell and python version
 - [ ] enhance dataset-jdbc generator [hive-driver]
 - [ ] enhance lineage-jdbc generator to lazy iterator mode.
-- [ ] add lineage-oracle generator
-- [ ] enchance avro parser to show error information 
 
+- [ ] enchance avro parser to show error information 
 
 
 ## Quickstart
@@ -31,18 +32,30 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
   nix-channel --update nixpkgs
 ```
 
-2. load json data to datahub
+2. [optional] you can download specified dependency in advanced, or it will automatically download at run time.
 
 ```
+  nix-shell bin/[datahub-producer].hs.nix
+  nix-shell bin/[datahub-producer].py.nix
+  ...
+```
+
+3. load json data to datahub
+
+```
+    # haskell
     cat sample/mce.json.dat | bin/datahub-producer.hs config
+    
+    # python
+    bin/datahub-producer.py produce -d sample/bootstrap_mce.dat
 ```
 
-3. parse hive sql to  datahub
+4. parse hive sql to  datahub
 ```
     ls sample/hive_*.sql | bin/lineage_hive_generator.hs | bin/datahub-producer.hs config
 ```
 
-4. load jdbc schema(mysql, mssql, postgresql, oracle) to datahub
+5. load jdbc schema(mysql, mssql, postgresql, oracle) to datahub
 ```
     bin/dataset-jdbc-generator.hs | bin/datahub-producer.hs config
 ```
