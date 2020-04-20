@@ -14,7 +14,7 @@ i split the ingestion procedure to two part: [datahub-producer] and different [m
 - [X] add lineage-hive generator
 - [X] add dataset-jdbc generator[include [mysql, mssql, postgresql, oracle] driver]
 - [X] add dataset-hive generator
-- [*] add lineage-oracle generator
+- [ ] *> add lineage-oracle generator
 - [ ] enhance lineage-jdbc generator to lazy iterator mode.
 - [ ] enchance avro parser to show error information 
 
