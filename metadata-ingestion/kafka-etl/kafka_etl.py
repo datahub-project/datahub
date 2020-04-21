@@ -2,7 +2,7 @@
 import sys
 import time
 from kazoo.client import KazooClient
-from confluent.schemaregistry.client import CachedSchemaRegistryClient
+from confluent_kafka.avro.cached_schema_registry_client import CachedSchemaRegistryClient
 
 ZOOKEEPER='localhost:2181'
 AVROLOADPATH = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
@@ -15,7 +15,7 @@ def build_kafka_dataset_mce(dataset_name, schema, schema_version):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, sys_time = "urn:li:corpuser:", long(time.time())
+    actor, sys_time = "urn:li:corpuser:", int(time.time())
     schema_name = {"schemaName":dataset_name,"platform":"urn:li:dataPlatform:kafka","version":schema_version,"created":{"time":sys_time,"actor":actor},
                   "lastModified":{"time":sys_time,"actor":actor},"hash":"","platformSchema":{"documentSchema": schema},
                    "fields":[{"fieldPath":"","description":"","nativeDataType":"string","type":{"type":{"com.linkedin.pegasus2avro.schema.StringType":{}}}}]}
@@ -58,7 +58,8 @@ for dataset_name in topics:
         continue
     topic = dataset_name + '-value'
     schema_id, schema, schema_version = client.get_latest_schema(topic)
-    print topic
-    build_kafka_dataset_mce(dataset_name, str(schema), int(schema_version))
+    print(topic)
+    print(str(schema))
+    build_kafka_dataset_mce(dataset_name, str(schema), str(schema_version))
 
 sys.exit(0)

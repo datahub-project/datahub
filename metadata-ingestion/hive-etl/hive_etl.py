@@ -16,7 +16,7 @@ def hive_query(query):
     Execute the query to the HiveStore.
     """
     cursor = hive.connect(HIVESTORE).cursor()
-    cursor.execute(query, async=True)
+    cursor.execute(query, async_=True)
     status = cursor.poll().operationState
     while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
         logs = cursor.fetch_logs()
@@ -30,7 +30,7 @@ def build_hive_dataset_mce(dataset_name, schema, metadata):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, type, created_time, upstreams_dataset, sys_time = "urn:li:corpuser:" + metadata[2][7:], str(metadata[-1][11:-1]), long(metadata[3][12:]), metadata[-28][10:], long(time.time())
+    actor, type, created_time, upstreams_dataset, sys_time = "urn:li:corpuser:" + metadata[2][7:], str(metadata[-1][11:-1]), int(metadata[3][12:]), metadata[-28][10:], int(time.time())
     owners = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":sys_time,"actor":actor}}
     upstreams = {"upstreams":[{"auditStamp":{"time":sys_time,"actor":actor},"dataset":"urn:li:dataset:(urn:li:dataPlatform:hive," + upstreams_dataset + ",PROD)","type":type}]}
     elements = {"elements":[{"url":HIVESTORE,"description":"sample doc to describe upstreams","createStamp":{"time":sys_time,"actor":actor}}]}
@@ -66,10 +66,12 @@ def produce_hive_dataset_mce(mce):
     producer.flush()
 
 databases = hive_query('show databases')
+sys.stdout.write('executing database query!')
 for database in databases:
     tables = hive_query('show tables in ' + database[0])
     for table in tables:
         dataset_name = database[0] + '.' + table[0]
+        sys.stdout.write('\n%s dataset name!\n' % dataset_name)
         description = hive_query('describe extended ' + dataset_name)
         build_hive_dataset_mce(dataset_name, str(description[:-1][:-1]), description[-1][1].split(','))
 

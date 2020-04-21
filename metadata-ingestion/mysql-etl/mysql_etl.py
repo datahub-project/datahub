@@ -4,10 +4,10 @@ import time
 import mysql.connector
 from mysql.connector import Error
 
-HOST = 'HOST'
-DATABASE = 'DATABASE'
-USER = 'USER'
-PASSWORD = 'PASSWORD'
+HOST = '127.0.0.1'
+DATABASE = 'datahub'
+USER = 'datahub'
+PASSWORD = 'datahub'
 
 AVROLOADPATH = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
 KAFKATOPIC = 'MetadataChangeEvent'
@@ -19,7 +19,7 @@ def build_mysql_dataset_mce(dataset_name, schema, schema_version):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, fields, sys_time = "urn:li:corpuser:datahub", [], long(time.time())
+    actor, fields, sys_time = "urn:li:corpuser:datahub", [], int(time.time())
 
     owner = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":0,"actor":actor}}
 
@@ -69,9 +69,11 @@ try:
         tables = cursor.fetchall()
         for table in tables:
             cursor.execute("select * from information_schema.tables where table_schema=%s and table_name=%s;", (DATABASE, table[0]))
+            sys.stdout.write('\n%s is the target!\n' % table[0])
             schema_version = int(cursor.fetchone()[5])
             dataset_name = str(DATABASE + "." + table[0])
             cursor.execute("desc " + dataset_name)
+            sys.stdout.write('\n%s is the dataset!\n' % dataset_name)
             schema = cursor.fetchall()
             build_mysql_dataset_mce(dataset_name, schema, schema_version)
 
