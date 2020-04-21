@@ -149,17 +149,17 @@ If you have run the Datahub succesfully with Docker Images it provides, you have
 docker exec -it mysql mysql -u datahub -pdatahub datahub
 ```
 to access this `mysql` docker, and find the table `metadata_aspect`, and it has a schema as the following
-+------------+--------------+------+-----+---------+-------+
-| Field      | Type         | Null | Key | Default | Extra |
-+------------+--------------+------+-----+---------+-------+
-| urn        | varchar(500) | NO   | PRI | NULL    |       |
-| aspect     | varchar(200) | NO   | PRI | NULL    |       |
-| version    | bigint(20)   | NO   | PRI | NULL    |       |
-| metadata   | longtext     | NO   |     | NULL    |       |
-| createdon  | datetime(6)  | NO   |     | NULL    |       |
-| createdby  | varchar(255) | NO   |     | NULL    |       |
-| createdfor | varchar(255) | YES  |     | NULL    |       |
-+------------+--------------+------+-----+---------+-------+
+
+| Field  | Type  |Null|  Key | Default  | Extra  |   |
+|---|---|---|---|---|---|---|
+|urn | varchar(500)  |  NO |  PRI |NULL   |   |   |
+|aspect |varchar(200)   |NO   |PRI   |NULL   |   |   |
+|version|bigint(20)   |NO   |PRI   |   | NULL  |   |
+|metadata   | longtext  | NO  |   |   |NULL   |   |
+|createdon   |datetime(6)   |NO   |   | NULL  |   |   |
+|createdby   |varchar(255)   |NO   |   |NULL   |   |   |
+| createdfor  |varchar(255)   |YES   |   |NULL   |   |   |
+
 Our goal is to ingest the schema of `metadata_aspect` into the Datahub.
 
 Open `mysql_etl.py`, and fill it the `HOST`, `DATABASE`, `USER`, and `PASSWORD` with the following
@@ -207,7 +207,7 @@ First of all, head over to [openLDAP Docker images](../docker/openldap) to spin 
 The openldap_etl is based on ldap_etl with some modification.  There is an important attribute `sAMAccountName` which is not exist in OpenLDAP. We use `displayName` as a replacement to demo features:
 1. we query a user by his given name: Homer, we also filter result attributes to a few. We also look for Homer's manager, if there is one.
 2. Once we find Homer, we assemble his information and his manager's name to `corp_user_info`, as a message of `MetadataChangeEvent` topic, publish it. 
-
+```
 ➜  Config your OpenLDAP server environmental variable in the file.
     LDAPSERVER ='ldap://localhost'
     BASEDN ='dc=example,dc=org'
@@ -222,7 +222,7 @@ The openldap_etl is based on ldap_etl with some modification.  There is an impor
     KAFKATOPIC = 'MetadataChangeEvent'
     BOOTSTRAP = 'localhost:9092'
     SCHEMAREGISTRY = 'http://localhost:8081'
-
+```
 
 After Run `pip install --user -r requirements.txt`, then run `python kafka_etl.py`, you are expected to see
 ```
