@@ -1,5 +1,5 @@
 # About this Docker-compose.yml
-Use the this `[docker-hive](<https://github.com/big-data-europe/docker-hive>)` repo, and make some modification with `docker-compose.yml`
+Based on this `[docker-hive](https://github.com/big-data-europe/docker-hive)` repo, and make some modification with `docker-compose.yml`
 
 1. In `line 47`, the port of `prestodb` will be conflict with one of docker containers of datahub, change it to `7081:8080` shoud fix the problem
 
