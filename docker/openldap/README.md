@@ -1,6 +1,5 @@
 # About this Open-LDAP Docker Compose
-This docker compose  comes with a `OpenLDAP server` and `Php LDAP Admin` portal, and it is based on [this]
-(https://gist.github.com/thomasdarimont/d22a616a74b45964106461efb948df9c) with modification. 
+This docker compose  comes with a `OpenLDAP server` and `Php LDAP Admin` portal, and it is based on [this](https://gist.github.com/thomasdarimont/d22a616a74b45964106461efb948df9c) with modification. 
 
 # Start OpenLDAP and Php LDAP admin
 ```

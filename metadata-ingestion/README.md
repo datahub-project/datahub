@@ -142,3 +142,30 @@ The rdbms_etl provides you ETL channel to communicate with your RDBMS.
 ➜  python rdbms_etl.py
 ```
 This will bootstrap DataHub with your metadata in the RDBMS as a dataset entity.
+
+## Ingest Metadata from OpenLDAP to Datahub
+First of all, head over to [openLDAP Docker images](../docker/openldap) to spin up the openLdap docker images and phpLDAPadmin, follow instructions to seed users, groups and manager of an user.
+The openldap_etl is based on ldap_etl with some modification.  There is an important attribute `sAMAccountName` which is not exist in OpenLDAP. We use `displayName` as a replacement to demo features:
+1. we query a user by his given name: Homer, we also filter result attributes to a few. We also look for Homer's manager, if there is one.
+2. Once we find Homer, we assemble his information and his manager's name to `corp_user_info`, as a message of `MetadataChangeEvent` topic, publish it. 
+```
+➜  Config your OpenLDAP server environmental variable in the file.
+    LDAPSERVER ='ldap://localhost'
+    BASEDN ='dc=example,dc=org'
+    LDAPUSER = 'cn=admin,dc=example,dc=org'
+    LDAPPASSWORD = 'admin'
+    PAGESIZE = 10
+    ATTRLIST = ['cn', 'title', 'mail', 'displayName', 'departmentNumber','manager']
+    SEARCHFILTER='givenname=Homer'
+    
+➜  Config your Kafka broker environmental variable in the file.
+    AVROLOADPATH = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
+    KAFKATOPIC = 'MetadataChangeEvent'
+    BOOTSTRAP = 'localhost:9092'
+    SCHEMAREGISTRY = 'http://localhost:8081'
+```
+
+After Run `pip install --user -r requirements.txt`, then run `python openldap_etl.py`, you are expected to see
+```
+{'auditHeader': None, 'proposedSnapshot': ('com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot', {'urn': "urn:li:corpuser:'Homer Simpson'", 'aspects': [{'active': True, 'email': 'hsimpson', 'fullName': "'Homer Simpson'", 'firstName': "'Homer", 'lastName': "Simpson'", 'departmentNumber': '1001', 'displayName': 'Homer Simpson', 'title': 'Mr. Everything', 'managerUrn': "urn:li:corpuser:'Bart Simpson'"}]}), 'proposedDelta': None} has been successfully produced!
+```
