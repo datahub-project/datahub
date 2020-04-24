@@ -3,7 +3,7 @@ services:
   openldap:
     image: osixia/openldap:latest
     container_name: openldap
-    domainname: "example.org" # important: same as hostname
+    domainname: "example.org"
     hostname: "openldap"
     environment:
       LDAP_LOG_LEVEL: "256"
