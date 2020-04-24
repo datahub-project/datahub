@@ -28,7 +28,7 @@ Once we finish setting up our organization, we are about to run `openldap-etl.py
 In this script, we query a user by his given name: Homer, we also filter result attributes to a few. We also look for Homer's manager, if there is one.
 This script is mostly based on `ldap-etl.py`. However, there is an important attribute `sAMAccountName` which is not exist in OpenLDAP. So we have to modify it a little bit.
 Once we find Homer, we assemble his information and his manager's name to `corp_user_info`, as a message of `MetadataChangeEvent` topic, publish it. 
-After Run `pip install --user -r requirements.txt`, then run `python kafka_etl.py`, you are expected to see
+After Run `pip install --user -r requirements.txt`, then run `python openldap-etl.py`, you are expected to see
 ```
 {'auditHeader': None, 'proposedSnapshot': ('com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot', {'urn': "urn:li:corpuser:'Homer Simpson'", 'aspects': [{'active': True, 'email': 'hsimpson', 'fullName': "'Homer Simpson'", 'firstName': "b'Homer", 'lastName': "Simpson'", 'departmentNumber': '1001', 'displayName': 'Homer Simpson', 'title': 'Mr. Everything', 'managerUrn': "urn:li:corpuser:'Bart Simpson'"}]}), 'proposedDelta': None} has been successfully produced! 
 ```
