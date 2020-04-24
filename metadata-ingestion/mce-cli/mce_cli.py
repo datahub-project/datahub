@@ -42,7 +42,7 @@ def produce(conf, data_file, schema_record):
     producer.flush()
 
 
-def consume(conf):
+def consume(conf, schema_record):
     """
         Consume MetadataChangeEvent records
     """
@@ -51,7 +51,7 @@ def consume(conf):
 
     print("Consuming MetadataChangeEvent records from topic {} with group {}. ^c to exit.".format(topic, conf["group.id"]))
 
-    c = AvroConsumer(conf, reader_value_schema=record_schema)
+    c = AvroConsumer(conf, reader_value_schema=avro.load(schema_record))
     c.subscribe([topic])
 
     while True:
@@ -90,7 +90,7 @@ def main(args):
         # Fallback to earliest to ensure all messages are consumed
         conf['group.id'] = topic
         conf['auto.offset.reset'] = "earliest"
-        consume(conf)
+        consume(conf, args.schema_record)
 
 
 if __name__ == '__main__':
