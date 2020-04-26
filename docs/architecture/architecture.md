@@ -1,6 +1,5 @@
 # DataHub Architecture
 ![datahub-architecture](../imgs/datahub-architecture.svg)
-<img src="../imgs/datahub-architecture.svg">
 
 ## Generalized Metadata Architecture (GMA)
 Refer to [GMA](../what/gma.md).
