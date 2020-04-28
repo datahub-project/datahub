@@ -173,3 +173,9 @@ docker rm -f $(docker ps -aq)
 ```
 rm -rf /tmp/datahub
 ```
+
+## Seeing "Query threw SQLException:Table 'datahub.metadata_aspect' doesn't exist" error when logging in
+This means the database wasn't properly initialized as part of the quickstart processs. Please run the following command to manually initialize it.
+```
+docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
+```
