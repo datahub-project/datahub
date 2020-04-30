@@ -1,0 +1,9 @@
+{
+  "type": "typeref",
+  "name": "JobAspect",
+  "namespace": "com.linkedin.metadata.aspect",
+  "doc": "A union of all supported metadata aspects for a Job",
+  "ref": [
+    "com.linkedin.job.JobInfo"
+  ]
+}

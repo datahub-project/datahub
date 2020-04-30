@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "JobEntity",
+  "namespace": "com.linkedin.metadata.entity",
+  "doc": "Data model for a Job entity",
+  "include": [
+    "BaseEntity"
+  ],
+  "fields": [
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.urn.JobUrn",
+      "doc": "Urn for the Job"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Job name(id)",
+      "optional": true
+    }
+  ]
+}

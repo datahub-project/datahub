@@ -5,6 +5,7 @@
   "doc": "A union of all supported entity types.",
   "ref": [
     "CorpUserEntity",
-    "DatasetEntity"
+    "DatasetEntity",
+    "JobEntity"
   ]
 }
