@@ -93,6 +93,12 @@
       "type": "DatasetDeprecation",
       "doc": "The dataset deprecation status",
       "optional": true
+    },
+    {
+      "name": "jobInfo",
+      "type": "com.linkedin.job.JobInfo",
+      "doc": "Job information producing this dataset",
+      "optional": true
     }
   ]
 }

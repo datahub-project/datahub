@@ -463,6 +463,26 @@
       },
       "doc" : "The dataset deprecation status",
       "optional" : true
+    }, {
+      "name" : "jobInfo",
+      "type" : {
+        "type" : "record",
+        "name" : "JobInfo",
+        "namespace" : "com.linkedin.job",
+        "doc" : "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
+        "fields" : [ {
+          "name" : "name",
+          "type" : "string",
+          "doc" : "the name of the job"
+        }, {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "the description of the job",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Job information producing this dataset",
+      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", {
     "type" : "enum",
@@ -588,7 +608,7 @@
       },
       "doc" : "The list of upstream lineages to be updated for a dataset"
     } ]
-  }, {
+  }, "com.linkedin.job.JobInfo", {
     "type" : "typeref",
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -923,7 +943,7 @@
         "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
         "optional" : true
       } ]
-    } ]
+    }, "com.linkedin.job.JobInfo" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
@@ -1328,6 +1348,27 @@
             } ],
             "entity" : {
               "path" : "/datasets/{dataset}/institutionalMemory/{institutionalMemoryId}"
+            }
+          }
+        }, {
+          "name" : "jobInfo",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/jobInfo",
+          "schema" : "com.linkedin.job.JobInfo",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.dataset.JobInfoResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "jobInfoId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/jobInfo/{jobInfoId}"
             }
           }
         }, {

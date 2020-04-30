@@ -178,6 +178,27 @@
           }
         }
       }, {
+        "name" : "jobInfo",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/jobInfo",
+        "schema" : "com.linkedin.job.JobInfo",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.dataset.JobInfoResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "jobInfoId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/jobInfo/{jobInfoId}"
+          }
+        }
+      }, {
         "name" : "rawOwnership",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/rawOwnership",

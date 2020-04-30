@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "JobInfo",
+  "namespace": "com.linkedin.job",
+  "doc": "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "the name of the job"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "the description of the job",
+      "optional": true
+    }
+  ]
+}
