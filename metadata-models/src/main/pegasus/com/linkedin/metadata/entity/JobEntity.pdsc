@@ -9,7 +9,7 @@
   "fields": [
     {
       "name": "urn",
-      "type": "com.linkedin.common.urn.JobUrn",
+      "type": "com.linkedin.common.JobUrn",
       "doc": "Urn for the Job"
     },
     {

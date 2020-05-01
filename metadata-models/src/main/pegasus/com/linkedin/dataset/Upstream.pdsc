@@ -16,8 +16,9 @@
     },
     {
       "name": "job",
-      "type": "com.linkedin.common.urn.JobUrn",
-      "doc": "The upstream job the lineage associates with"
+      "type": "com.linkedin.common.JobUrn",
+      "doc": "The upstream job the lineage associates with",
+      "optional": true
     },
     {
       "name": "type",

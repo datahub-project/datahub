@@ -193,6 +193,40 @@
       "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
     } ]
   }, "com.linkedin.common.InstitutionalMemoryMetadata", {
+    "type" : "typeref",
+    "name" : "JobUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized job identifier.",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.JobUrnCoercer",
+      "class" : "com.linkedin.common.urn.JobUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "job",
+        "owningTeam" : "urn:li:internalTeam:datahub",
+        "constructable" : true,
+        "name" : "Job",
+        "namespace" : "li",
+        "doc" : "Standardized job identifier.",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "name",
+          "doc" : "",
+          "type" : "string",
+          "maxLength" : 36
+        }, {
+          "description" : "name",
+          "doc" : "",
+          "type" : "string",
+          "maxLength" : 100
+        } ],
+        "maxLength" : 100
+      }
+    }
+  }, {
     "type" : "record",
     "name" : "Owner",
     "namespace" : "com.linkedin.common",
@@ -541,6 +575,11 @@
       "type" : "com.linkedin.common.DatasetUrn",
       "doc" : "The downstream dataset the lineage points to"
     }, {
+      "name" : "job",
+      "type" : "com.linkedin.common.JobUrn",
+      "doc" : "The upstream job the lineage associates with",
+      "optional" : true
+    }, {
       "name" : "type",
       "type" : "DatasetLineageType",
       "doc" : "The type of the lineage"
@@ -577,6 +616,11 @@
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
       "doc" : "The upstream dataset the lineage points to"
+    }, {
+      "name" : "job",
+      "type" : "com.linkedin.common.JobUrn",
+      "doc" : "The upstream job the lineage associates with",
+      "optional" : true
     }, {
       "name" : "type",
       "type" : "DatasetLineageType",

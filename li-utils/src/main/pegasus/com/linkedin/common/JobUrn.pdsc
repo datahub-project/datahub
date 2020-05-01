@@ -1,0 +1,35 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.common.urn.JobUrn",
+    "coercerClass": "com.linkedin.common.urn.JobUrnCoercer"
+  },
+  "name" : "JobUrn",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Standardized job identifier.",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "accessible" : true,
+      "entityType" : "job",
+      "owningTeam" : "urn:li:internalTeam:datahub",
+      "constructable" : true,
+      "name" : "Job",
+      "namespace" : "li",
+      "doc" : "Standardized job identifier.",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "name",
+        "doc" : "",
+        "type" : "string",
+        "maxLength" : 36
+      },{
+        "description" : "name",
+        "doc" : "",
+        "type" : "string",
+        "maxLength" : 100
+      } ],
+      "maxLength" : 100
+    }
+  }
+}
