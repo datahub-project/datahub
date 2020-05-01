@@ -17,6 +17,18 @@
       "type": "string",
       "doc": "Job name(id)",
       "optional": true
+    },
+    {
+      "name": "platform",
+      "type": "com.linkedin.common.DataPlatformUrn",
+      "doc": "Platform urn for the dataset in the form of urn:li:platform:{platform_name}",
+      "optional": true
+    },
+    {
+      "name": "origin",
+      "type": "com.linkedin.common.FabricType",
+      "doc": "Fabric type where dataset belongs to or where it was generated.",
+      "optional": true
     }
   ]
 }

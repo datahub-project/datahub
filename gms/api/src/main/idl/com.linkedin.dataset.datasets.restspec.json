@@ -178,6 +178,27 @@
           }
         }
       }, {
+        "name" : "job",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/job",
+        "schema" : "com.linkedin.common.Job",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/job\n\ngenerated from: com.linkedin.metadata.resources.dataset.JobResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "jobId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/job/{jobId}"
+          }
+        }
+      }, {
         "name" : "jobInfo",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/jobInfo",
