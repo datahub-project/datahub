@@ -1,0 +1,85 @@
+{
+  "type": "record",
+  "name": "JobDocument",
+  "namespace": "com.linkedin.metadata.search",
+  "doc": "Data model for Job entity search",
+  "include": [
+    "BaseDocument"
+  ],
+  "fields": [
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.JobUrn",
+      "doc": "Urn for the Job"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Job native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+      "optional": true
+    },
+    {
+      "name": "platform",
+      "type": "string",
+      "doc": "Platform name for the Job",
+      "optional": true
+    },
+    {
+      "name": "origin",
+      "type": "com.linkedin.common.FabricType",
+      "doc": "Fabric type where Job belongs to or where it was generated",
+      "optional": true
+    },
+    {
+      "name": "owners",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "LDAP usernames of corp users who are the owners of this Job",
+      "optional": true
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Documentation of the Job.",
+      "optional": true
+    },
+    {
+      "name": "hasOwners",
+      "type": "boolean",
+      "doc": "Flag to indicate if the Job has non empty corp users as owners or not.",
+      "optional": true
+    },
+    {
+      "name": "numDownstreamDatasets",
+      "type": "long",
+      "doc": "Lineage information represented by the number of immediate downstream datasets of this job.",
+      "optional": true
+    },
+    {
+      "name": "numUpstreamDatasets",
+      "type": "long",
+      "doc": "Lineage information represented by the number of immediate upstream datasets of this job.",
+      "optional": true
+    },
+    {
+      "name": "inputs",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "List of upstreams for this job",
+      "optional": true
+    },
+    {
+      "name": "outputs",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "List of downstreams for this job",
+      "optional": true
+    }
+  ]
+}

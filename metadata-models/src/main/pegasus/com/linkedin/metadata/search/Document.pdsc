@@ -5,6 +5,7 @@
   "doc": "A union of all supported document types.",
   "ref": [
     "CorpUserInfoDocument",
-    "DatasetDocument"
+    "DatasetDocument",
+    "JobDocument"
   ]
 }

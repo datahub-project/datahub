@@ -95,8 +95,8 @@
       "optional": true
     },
     {
-      "name": "jobInfo",
-      "type": "com.linkedin.job.JobInfo",
+      "name": "job",
+      "type": "com.linkedin.common.Job",
       "doc": "Job information producing this dataset",
       "optional": true
     }

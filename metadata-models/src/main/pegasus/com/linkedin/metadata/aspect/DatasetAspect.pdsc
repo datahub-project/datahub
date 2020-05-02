@@ -11,6 +11,6 @@
     "com.linkedin.common.Ownership",
     "com.linkedin.common.Status",
     "com.linkedin.schema.SchemaMetadata",
-    "com.linkedin.job.JobInfo"
+    "com.linkedin.common.Job"
   ]
 }

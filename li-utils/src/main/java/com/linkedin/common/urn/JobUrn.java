@@ -28,6 +28,14 @@ public class JobUrn extends Urn{
         return jobNameEntity;
     }
 
+    public DataPlatformUrn getPlatformEntity() {
+        return platformEntity;
+    }
+
+    public FabricType getOriginEntity() {
+        return originEntity;
+    }
+
     public static JobUrn createFromString(String rawUrn) throws URISyntaxException {
         String content = new Urn(rawUrn).getContent();
         String[] parts = content.substring(1, content.length()-1).split(",");

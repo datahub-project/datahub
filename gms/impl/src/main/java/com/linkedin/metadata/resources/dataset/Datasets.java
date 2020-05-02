@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.dataset;
 
+import com.linkedin.common.Job;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -8,7 +9,6 @@ import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.job.JobInfo;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
@@ -130,8 +130,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
         value.setDeprecation(DatasetDeprecation.class.cast(aspect));
       } else if (aspect instanceof Status) {
         value.setRemoved(Status.class.cast(aspect).isRemoved());
-      } else if (aspect instanceof JobInfo) {
-        value.setJobInfo(JobInfo.class.cast(aspect)).getJobInfo();
+      } else if (aspect instanceof Job) {
+        value.setJob(Job.class.cast(aspect)).getJob();
       }
     });
     return value;
@@ -147,8 +147,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
     if (dataset.hasDeprecation()) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
     }
-    if (dataset.hasJobInfo()) {
-      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getJobInfo()));
+    if (dataset.hasJob()) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getJob()));
     }
     aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, new Status().setRemoved(dataset.isRemoved())));
     return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
