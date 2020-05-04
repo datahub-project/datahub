@@ -23,7 +23,7 @@ Refer to [search onboarding](search-onboarding.md).
 Refer to [graph onboarding](graph-onboarding.md).
 
 ## 5. Add rest.li resource endpoints
-See [`CorpUsers`] for an example of top-level [resource endpoint]. Optionally add aspect-specific [sub-resource endpoint] such as [`CorpUsersEditableInfoResource`].
+See [`CorpUsers`] for an example of top-level [resource endpoint]. Optionally add aspect-specific [sub-resource endpoint] such as [`CorpUsersEditableInfoResource`]. You'll also need to add [various factories](https://github.com/linkedin/datahub/tree/master/gms/factories/src/main/java/com/linkedin/identity/factory) to create and inject the DAOs used by the resource.
 
 ## 6. UI for entity onboarding [WIP]
 
