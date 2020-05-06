@@ -56,28 +56,22 @@
       "optional": true
     },
     {
-      "name": "tags",
-      "type": {
+      "name": "inputs",
+      "type":{
         "type": "array",
-        "items": "string"
+        "items":"com.linkedin.common.DatasetUrn"
       },
-      "doc": "tags for searching Job",
-      "default": []
-    },
-    {
-      "name": "properties",
-      "type": {
-        "type": "map",
-        "values": "string"
-      },
-      "doc": "A key-value map of platform-specific properties",
+      "doc": "input datasets of this job",
       "optional": true
     },
     {
-      "name": "removed",
-      "type": "boolean",
-      "doc": "whether the Job is removed or not",
-      "default": false
+      "name": "outputs",
+      "type":{
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "output datasets of this job",
+      "optional": true
     }
   ]
 }

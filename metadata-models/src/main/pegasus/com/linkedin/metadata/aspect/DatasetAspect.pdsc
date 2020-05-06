@@ -10,7 +10,6 @@
     "com.linkedin.common.InstitutionalMemory",
     "com.linkedin.common.Ownership",
     "com.linkedin.common.Status",
-    "com.linkedin.schema.SchemaMetadata",
-    "com.linkedin.common.Job"
+    "com.linkedin.schema.SchemaMetadata"
   ]
 }

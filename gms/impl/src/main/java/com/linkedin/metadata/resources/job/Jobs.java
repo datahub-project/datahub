@@ -1,17 +1,15 @@
 package com.linkedin.metadata.resources.job;
 
 import com.linkedin.common.urn.JobUrn;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.job.Job;
 import com.linkedin.job.JobKey;
+import com.linkedin.job.JobInfo;
 import com.linkedin.metadata.aspect.JobAspect;
-import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.*;
-import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
+import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.JobDocument;
 import com.linkedin.metadata.snapshot.JobSnapshot;
 import com.linkedin.parseq.Task;
@@ -33,7 +31,7 @@ import java.util.Set;
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
 @RestLiCollection(name = "jobs", namespace = "com.linkedin.job", keyName = "job")
-public class Jobs extends BaseBrowsableEntityResource<
+public class Jobs extends BaseSearchableEntityResource<
 		// @formatter:off
 		JobKey,
 		Job,
@@ -55,16 +53,16 @@ public class Jobs extends BaseBrowsableEntityResource<
 	@Named("jobSearchDao")
 	private BaseSearchDAO _searchDAO;
 
-	@Inject
-	@Named("jobBrowseDao")
-	private BaseBrowseDAO _browseDAO;
+//	@Inject
+//	@Named("jobBrowseDao")
+//	private BaseBrowseDAO _browseDAO;
 
 
-	@Nonnull
-	@Override
-	protected BaseBrowseDAO getBrowseDAO() {
-		return _browseDAO;
-	}
+//	@Nonnull
+//	@Override
+//	protected BaseBrowseDAO getBrowseDAO() {
+//		return _browseDAO;
+//	}
 
 	@Nonnull
 	@Override
@@ -107,24 +105,36 @@ public class Jobs extends BaseBrowsableEntityResource<
 				.setName(jobSnapshot.getUrn().getJobNameEntity())
 				.setOrigin(jobSnapshot.getUrn().getOriginEntity())
 				.setUrn(jobSnapshot.getUrn());
+		ModelUtils.getAspectsFromSnapshot(jobSnapshot).forEach(aspect -> {
+			if (aspect instanceof JobInfo) {
+				JobInfo jobInfo = JobInfo.class.cast(aspect);
+				if (jobInfo.hasInputs())
+					value.setInputs(jobInfo.getInputs());
+				if (jobInfo.hasOutputs())
+					value.setOutputs(jobInfo.getOutputs());
+			}
+		});
 
 		return value;
+	}
+
+	@Nonnull
+	private JobInfo getJobInfoAspect(@Nonnull Job job) {
+		final JobInfo jobInfo = new JobInfo();
+		if (job.hasInputs()) {
+			jobInfo.setInputs(job.getInputs());
+		}
+		if (job.hasOutputs()) {
+			jobInfo.setOutputs(job.getOutputs());
+		}
+		return jobInfo;
 	}
 
 	@Nonnull
 	@Override
 	protected JobSnapshot toSnapshot(@Nonnull Job job, @Nonnull JobUrn urn) {
 		final List<JobAspect> aspects = new ArrayList<>();
-//		if (job.hasProperties()) {
-//			aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(Job)));
-//		}
-//		if (job.hasInputs()) {
-//			aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
-//		}
-//		if (dataset.hasJob()) {
-//			aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getJob()));
-//		}
-//		aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, new Status().setRemoved(dataset.isRemoved())));
+		aspects.add(ModelUtils.newAspectUnion(JobAspect.class, getJobInfoAspect(job)));
 		return ModelUtils.newSnapshot(JobSnapshot.class, urn, aspects);
 	}
 
@@ -165,22 +175,23 @@ public class Jobs extends BaseBrowsableEntityResource<
 		return super.autocomplete(query, field, filter, limit);
 	}
 
-	@Action(name = ACTION_BROWSE)
-	@Override
-	@Nonnull
-	public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
-	                                 @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
-	                                 @ActionParam(PARAM_LIMIT) int limit) {
-		return super.browse(path, filter, start, limit);
-	}
+//	@Action(name = ACTION_BROWSE)
+//	@Override
+//	@Nonnull
+//	public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
+//	                                 @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
+//	                                 @ActionParam(PARAM_LIMIT) int limit) {
+//		return super.browse(path, filter, start, limit);
+//	}
+//
+//	@Action(name = ACTION_GET_BROWSE_PATHS)
+//	@Override
+//	@Nonnull
+//	public Task<StringArray> getBrowsePaths(
+//			@ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
+//		return super.getBrowsePaths(urn);
+//	}
 
-	@Action(name = ACTION_GET_BROWSE_PATHS)
-	@Override
-	@Nonnull
-	public Task<StringArray> getBrowsePaths(
-			@ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-		return super.getBrowsePaths(urn);
-	}
 	@Action(name = ACTION_INGEST)
 	@Override
 	@Nonnull

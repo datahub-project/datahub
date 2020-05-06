@@ -193,28 +193,6 @@
       "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
     } ]
   }, "com.linkedin.common.InstitutionalMemoryMetadata", {
-    "type" : "record",
-    "name" : "Job",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Input and output datasets of a job.",
-    "fields" : [ {
-      "name" : "inputs",
-      "type" : {
-        "type" : "array",
-        "items" : "DatasetUrn"
-      },
-      "doc" : "the inputs of the job",
-      "optional" : true
-    }, {
-      "name" : "outputs",
-      "type" : {
-        "type" : "array",
-        "items" : "DatasetUrn"
-      },
-      "doc" : "the outputs of the job",
-      "optional" : true
-    } ]
-  }, {
     "type" : "typeref",
     "name" : "JobUrn",
     "namespace" : "com.linkedin.common",
@@ -527,42 +505,6 @@
       },
       "doc" : "The dataset deprecation status",
       "optional" : true
-    }, {
-      "name" : "jobInfo",
-      "type" : {
-        "type" : "record",
-        "name" : "JobInfo",
-        "namespace" : "com.linkedin.job",
-        "doc" : "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
-        "fields" : [ {
-          "name" : "name",
-          "type" : "string",
-          "doc" : "the name of the job"
-        }, {
-          "name" : "description",
-          "type" : "string",
-          "doc" : "the description of the job",
-          "optional" : true
-        }, {
-          "name" : "inputs",
-          "type" : {
-            "type" : "array",
-            "items" : "com.linkedin.common.DatasetUrn"
-          },
-          "doc" : "the inputs of the job",
-          "optional" : true
-        }, {
-          "name" : "outputs",
-          "type" : {
-            "type" : "array",
-            "items" : "com.linkedin.common.DatasetUrn"
-          },
-          "doc" : "the outputs of the job",
-          "optional" : true
-        } ]
-      },
-      "doc" : "Job information producing this dataset",
-      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", {
     "type" : "enum",
@@ -698,7 +640,29 @@
       },
       "doc" : "The list of upstream lineages to be updated for a dataset"
     } ]
-  }, "com.linkedin.job.JobInfo", {
+  }, {
+    "type" : "record",
+    "name" : "JobInfo",
+    "namespace" : "com.linkedin.job",
+    "doc" : "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
+    "fields" : [ {
+      "name" : "inputs",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.DatasetUrn"
+      },
+      "doc" : "the inputs of the job",
+      "optional" : true
+    }, {
+      "name" : "outputs",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.DatasetUrn"
+      },
+      "doc" : "the outputs of the job",
+      "optional" : true
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -1033,7 +997,7 @@
         "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
         "optional" : true
       } ]
-    }, "com.linkedin.job.JobInfo" ]
+    } ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
@@ -1441,32 +1405,11 @@
             }
           }
         }, {
-          "name" : "job",
-          "namespace" : "com.linkedin.dataset",
-          "path" : "/datasets/{dataset}/job",
-          "schema" : "com.linkedin.common.Job",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/job\n\ngenerated from: com.linkedin.metadata.resources.dataset.JobResource",
-          "collection" : {
-            "identifier" : {
-              "name" : "jobId",
-              "type" : "long"
-            },
-            "supports" : [ "create", "get" ],
-            "methods" : [ {
-              "method" : "create"
-            }, {
-              "method" : "get"
-            } ],
-            "entity" : {
-              "path" : "/datasets/{dataset}/job/{jobId}"
-            }
-          }
-        }, {
           "name" : "jobInfo",
-          "namespace" : "com.linkedin.dataset",
+          "namespace" : "com.linkedin.job",
           "path" : "/datasets/{dataset}/jobInfo",
           "schema" : "com.linkedin.job.JobInfo",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.dataset.JobInfoResource",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.job.JobInfoResource",
           "collection" : {
             "identifier" : {
               "name" : "jobInfoId",
