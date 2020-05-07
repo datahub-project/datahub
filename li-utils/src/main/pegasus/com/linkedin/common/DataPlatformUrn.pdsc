@@ -1,8 +1,7 @@
 {
   "ref" : "string",
   "java" : {
-    "class" : "com.linkedin.common.urn.DataPlatformUrn",
-    "coercerClass": "com.linkedin.common.urn.DataPlatformUrnCoercer"
+    "class" : "com.linkedin.common.urn.DataPlatformUrn"
   },
   "name" : "DataPlatformUrn",
   "namespace" : "com.linkedin.common",
