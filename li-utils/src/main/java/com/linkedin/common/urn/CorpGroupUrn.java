@@ -1,5 +1,8 @@
 package com.linkedin.common.urn;
 
+import com.linkedin.data.template.Custom;
+import com.linkedin.data.template.DirectCoercer;
+import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,5 +44,21 @@ public final class CorpGroupUrn extends Urn {
 
   public static CorpGroupUrn deserialize(String rawUrn) throws URISyntaxException {
     return createFromString(rawUrn);
+  }
+
+  static {
+    Custom.registerCoercer(new DirectCoercer<CorpGroupUrn>() {
+      public Object coerceInput(CorpGroupUrn object) throws ClassCastException {
+        return object.toString();
+      }
+
+      public CorpGroupUrn coerceOutput(Object object) throws TemplateOutputCastException {
+        try {
+          return CorpGroupUrn.createFromString((String) object);
+        } catch (URISyntaxException e) {
+          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+        }
+      }
+    }, CorpGroupUrn.class);
   }
 }

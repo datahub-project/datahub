@@ -1,8 +1,7 @@
 {
   "ref" : "string",
   "java" : {
-    "class" : "com.linkedin.common.urn.DatasetUrn",
-    "coercerClass": "com.linkedin.common.urn.DatasetUrnCoercer"
+    "class" : "com.linkedin.common.urn.DatasetUrn"
   },
   "name" : "DatasetUrn",
   "namespace" : "com.linkedin.common",
