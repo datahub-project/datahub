@@ -25,6 +25,8 @@ You can run the following command to generate or update the IntelliJ project fil
 ```
 Open `datahub.ipr` in IntelliJ to start developing!
 
+For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
+
 ## Common Build Issues
 
 ### Getting `Unsupported class file major version 57`

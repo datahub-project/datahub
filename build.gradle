@@ -76,6 +76,7 @@ project.ext.externalDependency = [
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
+  apply plugin: 'checkstyle'
 }
 
 subprojects {
@@ -88,6 +89,13 @@ subprojects {
 
     tasks.withType(Test) {
       useTestNG()
+    }
+
+    checkstyle {
+      configDirectory = file("${project.rootDir}/gradle/checkstyle")
+      sourceSets = [ getProject().sourceSets.main, getProject().sourceSets.test ]
+      toolVersion = "8.0"
+      ignoreFailures = false
     }
   }
 
