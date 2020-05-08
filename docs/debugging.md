@@ -137,6 +137,16 @@ yellow open .triggered_watches              7g7_MGXFR7mBx0FwQzxpUg 1 1     0  0 
 yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0   3.2kb   3.2kb
 ```
 
+## How can I check if data has been loaded into MySQL properly?
+
+Once the mysql container is up and running, you should be able to connect to it dirctly on `localhost:3306` using tools such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke [MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
+
+```
+docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
+```
+
+Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities. 
+
 ## Getting `cannot start service {X}` error while starting Docker containers.
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
 ### bind: address already in use
