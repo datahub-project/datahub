@@ -88,6 +88,7 @@ Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thre
 * [Data Discovery in 2020](https://medium.com/@torokyle/data-discovery-in-2020-3c907383caa0)
 * [Work-Bench Snapshot: The Evolution of Data Discovery & Catalog](https://medium.com/work-bench/work-bench-snapshot-the-evolution-of-data-discovery-catalog-2f6c0425616b)
 * [In-house Data Discovery platforms](https://datastrategy.substack.com/p/in-house-data-discovery-platforms)
+* [A Data Engineer’s Perspective On Data Democratization](https://towardsdatascience.com/a-data-engineers-perspective-on-data-democratization-a8aed10f4253)
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
 * [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)
