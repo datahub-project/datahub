@@ -1,7 +1,6 @@
 package com.linkedin.metadata.resources.job;
 
 import com.linkedin.job.JobInfo;
-import com.linkedin.metadata.resources.dataset.Datasets;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.CreateResponse;
 import com.linkedin.restli.server.annotations.Optional;
@@ -16,7 +15,7 @@ import javax.annotation.Nonnull;
  * Rest.li entry point: /datasets/{datasetKey}/jobInfo
  */
 @Slf4j
-@RestLiCollection(name = "jobInfo", namespace = "com.linkedin.job", parent = Datasets.class)
+@RestLiCollection(name = "jobInfo", namespace = "com.linkedin.job", parent = Jobs.class)
 public class JobInfoResource extends BaseJobsAspectResource<JobInfo> {
 
 	public JobInfoResource() {

@@ -2,7 +2,7 @@
 version: '3.5'
 services:
   datahub-gms:
-    image: ljiang/datahub-gms:0.6
+    image: keremsahin/datahub-gms:latest
     hostname: datahub-gms
     container_name: datahub-gms
     ports:

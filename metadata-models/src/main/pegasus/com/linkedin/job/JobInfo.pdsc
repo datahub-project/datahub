@@ -2,7 +2,7 @@
   "type": "record",
   "name": "JobInfo",
   "namespace": "com.linkedin.job",
-  "doc": "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
+  "doc": "The inputs and outputs of this job",
   "fields": [
     {
       "name": "inputs",

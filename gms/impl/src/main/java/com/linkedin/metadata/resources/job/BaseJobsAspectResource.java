@@ -2,7 +2,7 @@ package com.linkedin.metadata.resources.job;
 
 import com.linkedin.common.urn.JobUrn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataset.DatasetKey;
+import com.linkedin.job.JobKey;
 import com.linkedin.metadata.aspect.JobAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
@@ -38,7 +38,7 @@ public class BaseJobsAspectResource <ASPECT extends RecordTemplate>
     @Nonnull
     @Override
     protected JobUrn getUrn(@Nonnull PathKeys keys) {
-        DatasetKey key = keys.<ComplexResourceKey<DatasetKey, EmptyRecord>>get(JOB_KEY).getKey();
+        JobKey key = keys.<ComplexResourceKey<JobKey, EmptyRecord>>get(JOB_KEY).getKey();
         return new JobUrn(key.getPlatform(), key.getName(), key.getOrigin());
     }
 }
