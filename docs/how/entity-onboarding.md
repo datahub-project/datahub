@@ -5,6 +5,9 @@
 Currently, DataHub only has a support for 3 [entity] types: `datasets`, `users` and `groups`.
 If you want to extend DataHub with your own use cases such as `metrics`, `charts`, `dashboards` etc, you should follow the below steps in order.
 
+Also we use this following diagram to help you visualize the process.
+![onboard-a-new-entity](../imgs/onboard-a-new-entity.png) 
+
 ## 1. Define URN
 Refer to [here](../what/urn.md) for URN definition.
 
