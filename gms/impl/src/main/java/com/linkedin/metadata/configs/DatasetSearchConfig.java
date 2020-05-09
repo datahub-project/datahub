@@ -3,13 +3,11 @@ package com.linkedin.metadata.configs;
 import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.search.DatasetDocument;
-
-import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 
 public class DatasetSearchConfig extends BaseSearchConfig<DatasetDocument> {

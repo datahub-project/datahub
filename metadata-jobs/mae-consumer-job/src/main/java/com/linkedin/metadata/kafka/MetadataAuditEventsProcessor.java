@@ -28,104 +28,102 @@ import com.linkedin.mxe.MetadataAuditEvent;
 
 import lombok.extern.slf4j.Slf4j;
 
+
 @Slf4j
 @Component
 public class MetadataAuditEventsProcessor {
-    // Doc Type should be updated when ElasticSearch Version is upgraded.
-    private static final String DOC_TYPE = "doc";
+  // Doc Type should be updated when ElasticSearch Version is upgraded.
+  private static final String DOC_TYPE = "doc";
 
-    private ElasticsearchConnector elasticSearchConnector;
-    private SnapshotProcessor snapshotProcessor;
-    private BaseGraphWriterDAO graphWriterDAO;
+  private ElasticsearchConnector elasticSearchConnector;
+  private SnapshotProcessor snapshotProcessor;
+  private BaseGraphWriterDAO graphWriterDAO;
 
-    public MetadataAuditEventsProcessor(
-            ElasticsearchConnector elasticSearchConnector,
-            SnapshotProcessor snapshotProcessor,
-            BaseGraphWriterDAO graphWriterDAO
-    ) {
-        this.elasticSearchConnector = elasticSearchConnector;
-        this.snapshotProcessor = snapshotProcessor;
-        this.graphWriterDAO = graphWriterDAO;
+  public MetadataAuditEventsProcessor(ElasticsearchConnector elasticSearchConnector,
+      SnapshotProcessor snapshotProcessor, BaseGraphWriterDAO graphWriterDAO) {
+    this.elasticSearchConnector = elasticSearchConnector;
+    this.snapshotProcessor = snapshotProcessor;
+    this.graphWriterDAO = graphWriterDAO;
+  }
+
+  public void processSingleMAE(final GenericRecord record) {
+    log.debug("Got MAE");
+
+    try {
+      final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
+      if (event.hasNewSnapshot()) {
+        final Snapshot snapshot = event.getNewSnapshot();
+
+        log.info(snapshot.toString());
+
+        updateElasticsearch(snapshot);
+        updateNeo4j(RecordUtils.getSelectedRecordTemplateFromUnion(snapshot));
+      }
+    } catch (Exception e) {
+      log.error("Error deserializing message: {}", e.toString());
+      log.error("Message: {}", record.toString());
+    }
+  }
+
+  /**
+   * Process snapshot and update Neo4j
+   *
+   * @param snapshot Snapshot
+   */
+  private void updateNeo4j(final RecordTemplate snapshot) {
+    try {
+      final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
+      final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
+
+      if (!updates.getEntities().isEmpty()) {
+        graphWriterDAO.addEntities(updates.getEntities());
+      }
+
+      for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
+        graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
+      }
+    } catch (Exception ex) {
+      log.error(ex.toString() + " " + Arrays.toString(ex.getStackTrace()));
+    }
+  }
+
+  /**
+   * Process snapshot and update Elasticsearch
+   *
+   * @param snapshot Snapshot
+   */
+  private void updateElasticsearch(final Snapshot snapshot) {
+    List<RecordTemplate> docs = new ArrayList<>();
+    try {
+      docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
+    } catch (Exception e) {
+      log.error("Error in getting documents from snapshot: {}", e.toString());
     }
 
-    public void processSingleMAE(final GenericRecord record) {
-        log.debug("Got MAE");
-
-        try {
-            final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
-            if (event.hasNewSnapshot()) {
-                final Snapshot snapshot = event.getNewSnapshot();
-
-                log.info(snapshot.toString());
-
-                updateElasticsearch(snapshot);
-                updateNeo4j(RecordUtils.getSelectedRecordTemplateFromUnion(snapshot));
-            }
-        } catch (Exception e) {
-            log.error("Error deserializing message: {}", e.toString());
-            log.error("Message: {}", record.toString());
+    for (RecordTemplate doc : docs) {
+      MCEElasticEvent elasticEvent = new MCEElasticEvent(doc);
+      BaseIndexBuilder indexBuilderForDoc = null;
+      for (BaseIndexBuilder indexBuilder : RegisteredIndexBuilders.REGISTERED_INDEX_BUILDERS) {
+        Class docType = indexBuilder.getDocumentType();
+        if (docType.isInstance(doc)) {
+          indexBuilderForDoc = indexBuilder;
+          break;
         }
+      }
+      if (indexBuilderForDoc == null) {
+        continue;
+      }
+      elasticEvent.setIndex(indexBuilderForDoc.getDocumentType().getSimpleName().toLowerCase());
+      elasticEvent.setType(DOC_TYPE);
+      try {
+        String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
+        elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));
+      } catch (UnsupportedEncodingException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+        log.error("Failed to encode the urn with error ", e.toString());
+        continue;
+      }
+      elasticEvent.setActionType(ChangeType.UPDATE);
+      elasticSearchConnector.feedElasticEvent(elasticEvent);
     }
-
-    /**
-     * Process snapshot and update Neo4j
-     *
-     * @param snapshot Snapshot
-     */
-    private void updateNeo4j(final RecordTemplate snapshot) {
-        try {
-            final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
-            final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
-
-            if (!updates.getEntities().isEmpty()) {
-                graphWriterDAO.addEntities(updates.getEntities());
-            }
-
-            for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
-                graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
-            }
-        } catch (Exception ex) {
-            log.error(ex.toString()+" " + Arrays.toString(ex.getStackTrace()));
-        }
-    }
-
-    /**
-     * Process snapshot and update Elasticsearch
-     *
-     * @param snapshot Snapshot
-     */
-    private void updateElasticsearch(final Snapshot snapshot) {
-        List<RecordTemplate> docs = new ArrayList<>();
-        try {
-            docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
-        } catch (Exception e) {
-            log.error("Error in getting documents from snapshot: {}", e.toString());
-        }
-
-        for (RecordTemplate doc : docs) {
-            MCEElasticEvent elasticEvent = new MCEElasticEvent(doc);
-            BaseIndexBuilder indexBuilderForDoc = null;
-            for (BaseIndexBuilder indexBuilder : RegisteredIndexBuilders.REGISTERED_INDEX_BUILDERS) {
-                Class docType = indexBuilder.getDocumentType();
-                if (docType.isInstance(doc)) {
-                    indexBuilderForDoc = indexBuilder;
-                    break;
-                }
-            }
-            if (indexBuilderForDoc == null) {
-                continue;
-            }
-            elasticEvent.setIndex(indexBuilderForDoc.getDocumentType().getSimpleName().toLowerCase());
-            elasticEvent.setType(DOC_TYPE);
-            try {
-                String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
-                elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));
-            } catch (UnsupportedEncodingException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                log.error("Failed to encode the urn with error ", e.toString());
-                continue;
-            }
-            elasticEvent.setActionType(ChangeType.UPDATE);
-            elasticSearchConnector.feedElasticEvent(elasticEvent);
-        }
-    }
+  }
 }

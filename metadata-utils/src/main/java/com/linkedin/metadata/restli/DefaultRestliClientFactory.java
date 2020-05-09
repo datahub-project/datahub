@@ -20,6 +20,9 @@ public class DefaultRestliClientFactory {
 
   private static final String DEFAULT_REQUEST_TIMEOUT_IN_MS = "10000";
 
+  private DefaultRestliClientFactory() {
+  }
+
   @Nonnull
   public static RestClient getRestLiD2Client(@Nonnull String restLiClientD2ZkHost,
                                              @Nonnull String restLiClientD2ZkPath) {

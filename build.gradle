@@ -96,6 +96,7 @@ subprojects {
       configDirectory = file("${project.rootDir}/gradle/checkstyle")
       sourceSets = [ getProject().sourceSets.main, getProject().sourceSets.test ]
       toolVersion = "8.0"
+      maxWarnings = 0
       ignoreFailures = false
     }
   }
