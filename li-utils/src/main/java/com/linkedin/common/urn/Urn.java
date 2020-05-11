@@ -82,7 +82,7 @@ public class Urn {
     try {
       final Urn dummy = Urn.createFromString(urn);
       return true;
-    } catch(URISyntaxException e) {
+    } catch (URISyntaxException e) {
       return false;
     }
   }
@@ -104,7 +104,6 @@ public class Urn {
           throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
         }
       }
-
     }, Urn.class);
   }
 }

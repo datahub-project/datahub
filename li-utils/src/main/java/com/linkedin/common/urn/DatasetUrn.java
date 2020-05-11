@@ -42,7 +42,7 @@ public final class DatasetUrn extends Urn {
 
   public static DatasetUrn createFromString(String rawUrn) throws URISyntaxException {
     String content = new Urn(rawUrn).getContent();
-    String[] parts = content.substring(1, content.length()-1).split(",");
+    String[] parts = content.substring(1, content.length() - 1).split(",");
     return new DatasetUrn(DataPlatformUrn.createFromString(parts[0]), parts[1], toFabricType(parts[2]));
   }
 

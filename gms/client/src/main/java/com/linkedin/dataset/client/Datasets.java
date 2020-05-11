@@ -3,7 +3,14 @@ package com.linkedin.dataset.client;
 import com.linkedin.common.client.DatasetsClient;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.dataset.*;
+import com.linkedin.dataset.Dataset;
+import com.linkedin.dataset.DatasetKey;
+import com.linkedin.dataset.DatasetsDoAutocompleteRequestBuilder;
+import com.linkedin.dataset.DatasetsDoBrowseRequestBuilder;
+import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
+import com.linkedin.dataset.DatasetsDoGetSnapshotRequestBuilder;
+import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
+import com.linkedin.dataset.DatasetsRequestBuilders;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
@@ -14,14 +21,13 @@ import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 public class Datasets extends DatasetsClient {
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();

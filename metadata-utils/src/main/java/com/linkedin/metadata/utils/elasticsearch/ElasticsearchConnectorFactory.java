@@ -13,6 +13,9 @@ public class ElasticsearchConnectorFactory {
   private static final int DEFAULT_ES_BULK_REQUESTS_LIMIT = 10000;
   private static final int DEFAULT_ES_BULK_FLUSH_PERIOD = 1;
 
+  private ElasticsearchConnectorFactory() {
+  }
+
   public static ElasticsearchConnector createInstance(@Nonnull String host, @Nonnull int port) {
     return new ElasticsearchConnector(Arrays.asList(host), port,
         DEFAULT_ES_THREAD_COUNT,
