@@ -1,10 +1,4 @@
 #!/bin/bash
 
-export DATA_STORAGE_FOLDER=${DATA_STORAGE_FOLDER:=/tmp/datahub}
-mkdir -p ${DATA_STORAGE_FOLDER}
-
-# https://discuss.elastic.co/t/elastic-elasticsearch-docker-not-assigning-permissions-to-data-directory-on-run/65812/4
-mkdir -p ${DATA_STORAGE_FOLDER}/elasticsearch
-sudo chmod 777 ${DATA_STORAGE_FOLDER}/elasticsearch
-
-docker-compose pull && docker-compose up --build
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd $DIR && docker-compose pull && docker-compose -p datahub up --build

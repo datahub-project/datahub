@@ -16,7 +16,7 @@ services:
       - "3306:3306"
     volumes:
       - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ${DATA_STORAGE_FOLDER}/mysql:/var/lib/mysql
+      - mysqldata:/var/lib/mysql
 
   zookeeper:
     image: confluentinc/cp-zookeeper:5.4.0
@@ -28,7 +28,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     volumes:
-      - ${DATA_STORAGE_FOLDER}/zookeeper:/var/opt/zookeeper
+      - zkdata:/var/opt/zookeeper
 
   broker:
     image: confluentinc/cp-kafka:5.4.0
@@ -137,7 +137,7 @@ services:
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
     volumes:
-      - ${DATA_STORAGE_FOLDER}/elasticsearch:/usr/share/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
 
   kibana:
     image: docker.elastic.co/kibana/kibana:5.6.8
@@ -161,7 +161,7 @@ services:
       - "7474:7474"
       - "7687:7687"
     volumes:
-      - ${DATA_STORAGE_FOLDER}/neo4j:/data
+      - neo4jdata:/data
 
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
@@ -261,3 +261,9 @@ services:
 networks:
   default:
     name: datahub_network
+
+volumes:
+  mysqldata:
+  esdata:
+  neo4jdata:
+  zkdata:

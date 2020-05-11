@@ -179,9 +179,9 @@ More discussions on the same issue https://github.com/docker/hub-feedback/issues
 ```
 docker rm -f $(docker ps -aq)
 ```
-2. Clear persistent storage for DataHub containers, assuming you didn't set `DATA_STORAGE_FOLDER` environment variable.
+2. Drop all DataHub's docker volumes.
 ```
-rm -rf /tmp/datahub
+docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
 ```
 
 ## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
