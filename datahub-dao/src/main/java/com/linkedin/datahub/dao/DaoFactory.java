@@ -4,10 +4,12 @@ import com.linkedin.datahub.dao.table.DatasetOwnerDao;
 import com.linkedin.datahub.dao.table.DatasetsDao;
 import com.linkedin.datahub.dao.table.GmsDao;
 import com.linkedin.datahub.dao.table.LineageDao;
-import com.linkedin.datahub.dao.view.*;
+import com.linkedin.datahub.dao.view.BrowseDAO;
+import com.linkedin.datahub.dao.view.CorpUserViewDao;
+import com.linkedin.datahub.dao.view.DatasetViewDao;
+import com.linkedin.datahub.dao.view.DocumentSearchDao;
+import com.linkedin.datahub.dao.view.OwnerViewDao;
 import com.linkedin.util.Configuration;
-
-import java.util.Properties;
 
 public class DaoFactory {
 
@@ -25,7 +27,7 @@ public class DaoFactory {
   private static DatasetsDao datasetsDao;
   private static LineageDao lineageDao;
 
-  public DaoFactory() {
+  private DaoFactory() {
   }
 
   private static GmsDao getGmsDao() {

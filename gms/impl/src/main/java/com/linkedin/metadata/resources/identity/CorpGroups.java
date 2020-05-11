@@ -12,7 +12,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseRestliAuditor;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.CorpGroupDocument;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;

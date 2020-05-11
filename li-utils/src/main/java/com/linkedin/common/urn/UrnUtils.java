@@ -10,6 +10,9 @@ public class UrnUtils {
 
     private static final CorpuserUrn UNKNOWN_ACTOR_URN = new CorpuserUrn("unknown");
 
+    private UrnUtils() {
+    }
+
     /**
      * Convert platform + dataset + origin into DatasetUrn
      * @param platformName String, e.g. hdfs, oracle

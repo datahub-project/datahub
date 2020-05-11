@@ -2,7 +2,11 @@ package com.linkedin.dataset.client;
 
 import com.linkedin.common.client.DatasetsClient;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.dataset.*;
+import com.linkedin.dataset.DownstreamLineage;
+import com.linkedin.dataset.DownstreamLineageRequestBuilders;
+import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.dataset.UpstreamLineageDelta;
+import com.linkedin.dataset.UpstreamLineageRequestBuilders;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.ActionRequest;
@@ -11,7 +15,6 @@ import com.linkedin.restli.client.CreateIdRequest;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
-
 import javax.annotation.Nonnull;
 
 public class Lineages extends DatasetsClient {
