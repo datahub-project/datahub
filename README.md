@@ -22,8 +22,8 @@
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
-> :sparkles:Mar 2020 Update: 
-> - DataHub v0.3.1 has just been released. See [relase notes](https://github.com/linkedin/datahub/releases/tag/v0.3.1) for more details.
+> :sparkles:April 2020 Update: 
+> - Expedia shares it's journey of adopting DataHub in it's production systems. Watch this YouTube [video](https://www.youtube.com/watch?v=xQFVySCWhew) for more details.
 > - We're on [Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) now! Ask questions and keep up with the latest announcement.
 
 ## Introduction
