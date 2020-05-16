@@ -1,7 +1,7 @@
 # DataHub Town Hall
 
 We hold regular virtual town hall meetings to meet with DataHub community. 
-Currently it's bi-weekly but we're open to adjust the cadence based on the community's need.
+Currently it's held on the last Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
