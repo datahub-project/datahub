@@ -1,6 +1,10 @@
 package com.linkedin.common.urn;
 
 import com.linkedin.common.FabricType;
+import com.linkedin.data.template.Custom;
+import com.linkedin.data.template.DirectCoercer;
+import com.linkedin.data.template.TemplateOutputCastException;
+
 import java.net.URISyntaxException;
 
 import static com.linkedin.common.urn.UrnUtils.toFabricType;
@@ -43,5 +47,21 @@ public class DataJobUrn extends Urn {
 
     public static DataJobUrn deserialize(String rawUrn) throws URISyntaxException {
         return createFromString(rawUrn);
+    }
+
+    static {
+        Custom.registerCoercer(new DirectCoercer<DataJobUrn>() {
+            public Object coerceInput(DataJobUrn object) throws ClassCastException {
+                return object.toString();
+            }
+
+            public DataJobUrn coerceOutput(Object object) throws TemplateOutputCastException {
+                try {
+                    return DataJobUrn.createFromString((String) object);
+                } catch (URISyntaxException e) {
+                    throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+                }
+            }
+        }, DataJobUrn.class);
     }
 }
