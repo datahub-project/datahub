@@ -7,7 +7,6 @@ buildscript {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.moowork.gradle:gradle-node-plugin:1.3.1'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
-    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.2.RELEASE'
   }
 }
 
@@ -49,8 +48,8 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.2.2',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
     'kafkaSchemaRegistry': 'io.confluent:kafka-schema-registry-client:3.3.1',
-    'kafkaSerializers': 'io.confluent:kafka-avro-serializer:5.3.2',
-    'kafkaStreams': 'org.apache.kafka:kafka-streams:2.5.0',
+    'kafkaSerializers': 'io.confluent:kafka-avro-serializer:3.3.1',
+    'kafkaStreams': 'org.apache.kafka:kafka-streams:2.3.0',
     'logbackClassic': 'ch.qos.logback:logback-classic:1.2.3',
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mockito': 'org.mockito:mockito-core:3.0.0',
@@ -63,11 +62,11 @@ project.ext.externalDependency = [
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
     'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'springBeans': 'org.springframework:spring-beans:5.2.3.RELEASE',
-    'springContext': 'org.springframework:spring-context:5.2.3.RELEASE',
-    'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
-    'springJdbc': 'org.springframework:spring-jdbc:5.2.3.RELEASE',
-    'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
+    'springBeans': 'org.springframework:spring-beans:5.1.6.RELEASE',
+    'springContext': 'org.springframework:spring-context:5.1.6.RELEASE',
+    'springCore': 'org.springframework:spring-core:5.1.6.RELEASE',
+    'springJdbc': 'org.springframework:spring-jdbc:5.1.6.RELEASE',
+    'springWeb': 'org.springframework:spring-web:5.1.6.RELEASE',
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.3.RELEASE',
