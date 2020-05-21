@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Metadata corresponding to a record of institutional memory.
+ */
+record InstitutionalMemoryMetadata {
+
+  /**
+   * Link to an engineering design document or a wiki page.
+   */
+  url: Url
+
+  /**
+   * Description of the link.
+   */
+  description: string
+
+  /**
+   * Audit stamp associated with creation of this record
+   */
+  createStamp: AuditStamp
+}

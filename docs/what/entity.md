@@ -17,7 +17,7 @@ There’s no need to explicitly create or destroy entity instances. An entity in
 Each entity has a special boolean attribute `removed`, which is used to mark the entity as "soft deleted", 
 without destroying existing relationships and attached metadata. This is useful for quickly reviving an incorrectly deleted entity instance without losing valuable metadata, e.g. human authored content.
 
-An example [PDSC](https://linkedin.github.io/rest.li/pdsc_syntax) schema for the `Dataset` entity is shown below. Note that:
+An example [PDL](https://linkedin.github.io/rest.li/pdl_schema) schema for the `Dataset` entity is shown below. Note that:
 1. Each entity is expected to have a `urn` field with an entity-specific URN type.
 2. The optional `removed` field is captured in BaseEntity, which is expected to be included by all entities.
 3. All other fields are expected to be of primitive types or enum only. 
@@ -26,58 +26,42 @@ this mostly depends on the underlying indexing system. For simplicity, we only a
 4. The `urn` field is non-optional, while all other fields must be optional. 
 This is to support "partial update" when only a selective number of attributes need to be altered.
 
-```json
-{
-  "type": "record",
-  "name": "BaseEntity",
-  "namespace": "com.linkedin.metadata.entity",
-  "doc": "Common fields that apply to all entities",
-  "fields": [
-    {
-      "name": "removed",
-      "type": "boolean",
-      "doc": "Whether the entity has been removed or not",
-      "optional": true,
-      "default": false
-    }
-  ]
+```
+namespace com.linkedin.metadata.entity
+
+/**
+ * Common fields that apply to all entities
+ */
+record BaseEntity {
+
+  /** Whether the entity has been removed or not */
+  removed: optional boolean = false
 }
 ```
 
-```json
-{
-  "type": "record",
-  "name": "DatasetEntity",
-  "namespace": "com.linkedin.metadata.entity",
-  "doc": "Data model for a dataset entity",
-  "include": [
-    "BaseEntity"
-  ],
-  "fields": [
-    {
-      "name": "urn",
-      "type": "com.linkedin.common.DatasetUrn",
-      "doc": "Urn of the dataset"
-    },
-    {
-      "name": "name",
-      "type": "string",
-      "doc": "Dataset native name",
-      "optional": true
-    },
-    {
-      "name": "platform",
-      "type": "com.linkedin.common.DataPlatformUrn",
-      "doc": "Platform urn for the dataset.",
-      "optional": true
-    },
-    {
-      "name": "fabric",
-      "type": "com.linkedin.common.FabricType",
-      "doc": "Fabric type where dataset belongs to.",
-      "optional": true
-    }
-  ]
+```
+namespace com.linkedin.metadata.entity
+
+import com.linkedin.common.DataPlatformUrn
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.FabricType
+
+/**
+ * Data model for a dataset entity
+ */
+record DatasetEntity includes BaseEntity {
+
+  /** Urn of the dataset */
+  urn: DatasetUrn
+
+  /** Dataset native name */
+  name: optional string
+
+  /** Platform urn for the dataset */
+  platform: optional DataPlatformUrn
+
+  /** Fabric type where dataset belongs to */
+  origin: optional FabricType
 }
 ```
 

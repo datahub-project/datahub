@@ -1,9 +1,0 @@
-{
-  "type": "typeref",
-  "name": "DummyAspect",
-  "namespace": "com.linkedin.metadata.dummy",
-  "doc": "Not to be used",
-  "ref": [
-    "com.linkedin.common.Urn"
-  ]
-}

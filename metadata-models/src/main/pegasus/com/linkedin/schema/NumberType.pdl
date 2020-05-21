@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Number data type: long, integer, short, etc..
+ */
+record NumberType {}

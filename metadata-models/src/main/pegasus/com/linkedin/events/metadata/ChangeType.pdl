@@ -1,0 +1,22 @@
+namespace com.linkedin.events.metadata
+
+/**
+ * Descriptor for a change action
+ */
+enum ChangeType {
+
+  /**
+   * create action
+   */
+  CREATE
+
+  /**
+   * delete action
+   */
+  DELETE
+
+  /**
+   * update action
+   */
+  UPDATE
+}

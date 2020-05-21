@@ -1,7 +1,0 @@
-{
-  "type" : "record",
-  "name" : "FixedType",
-  "namespace" : "com.linkedin.schema",
-  "doc" : "Fixed field type.",
-  "fields" : []
-}

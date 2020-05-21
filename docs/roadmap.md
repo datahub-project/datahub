@@ -3,8 +3,6 @@
 Below is DataHub's roadmap for the short and medium term. We'll revise this on a regular basis and welcome suggestions from the communities.
 
 ## Short term (3-6 months)
-### Replace PDSC with [PDL](https://linkedin.github.io/rest.li/pdl_schema) [*WIP*]
-- More readable, Java-like syntax + code-gen based on annotations
 ### Aspect-specific MCE & MAE [*WIP*]
 - Split up unified events to improve scalability & modularity
 ### Metrics as entities [*LinkedIn-internal, waiting to open source*]

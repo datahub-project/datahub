@@ -1,0 +1,12 @@
+namespace com.linkedin.dataset
+
+/**
+ * Describes a delta change to a dataset downstream lineage
+ */
+record DownstreamLineageDelta {
+
+  /**
+   * The list of downstream lineages to be updated for a dataset
+   */
+  downstreamsToUpdate: array[Downstream]
+}
