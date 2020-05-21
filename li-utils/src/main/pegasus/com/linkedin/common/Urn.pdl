@@ -1,0 +1,4 @@
+namespace com.linkedin.common
+
+@java.class = "com.linkedin.common.urn.Urn"
+typeref Urn = string

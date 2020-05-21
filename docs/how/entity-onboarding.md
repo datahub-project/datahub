@@ -34,12 +34,12 @@ GMS uses [Spring Framework](https://docs.spring.io/spring-framework/docs/current
 ## 7. UI for entity onboarding [WIP]
 
 [Aspect]: ../what/aspect.md
-[`DatasetAspect`]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DatasetAspect.pdsc
+[`DatasetAspect`]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DatasetAspect.pdl
 [Snapshot]: ../what/snapshot.md
-[`DatasetSnapshot`]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/DatasetSnapshot.pdsc
-[Snapshot Union]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdsc
+[`DatasetSnapshot`]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/DatasetSnapshot.pdl
+[Snapshot Union]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdl
 [Entity]: ../what/entity.md
-[DatasetEntity]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdsc
+[DatasetEntity]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdl
 [`CorpUsers`]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsers.java
 [resource endpoint]: https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources
 [sub-resource endpoint]: https://linkedin.github.io/rest.li/user_guide/restli_server#sub-resources

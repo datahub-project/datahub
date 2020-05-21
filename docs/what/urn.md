@@ -17,8 +17,8 @@ any resource for which you need unique identifier for its each instance. While y
 [DatasetUrn] with entity type `dataset`, you can also define URN for data platforms, [DataPlatformUrn].
 
 ## ID
-ID is the unique identifier part of an URN. It's unique for a specific entity type within a specific namespace.
-ID could contain a single field, or multi fields in the case of complex URNs. A complex URN can even contain other URNs as ID fields. This type of URN is also referred to as nested URN. For non-URN ID fields, the value can be either a string, number, or [Pegasus Enum](https://linkedin.github.io/rest.li/pdsc_syntax#creating-a-schema). 
+ID is the unique identifier part of a URN. It's unique for a specific entity type within a specific namespace.
+ID could contain a single field, or multi fields in the case of complex URNs. A complex URN can even contain other URNs as ID fields. This type of URN is also referred to as nested URN. For non-URN ID fields, the value can be either a string, number, or [Pegasus Enum](https://linkedin.github.io/rest.li/pdl_schema#enum-type). 
 
 Here are some example URNs with a single ID field:
 

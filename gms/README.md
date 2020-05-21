@@ -1,6 +1,6 @@
 # DataHub Generalized Metadata Store (GMS)
 DataHub GMS is a [Rest.li](https://linkedin.github.io/rest.li/) service written in Java. It is following common 
-Rest.li server development practices and all data models are Pegasus(.pdsc) models.
+Rest.li server development practices and all data models are Pegasus(.pdl) models.
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 

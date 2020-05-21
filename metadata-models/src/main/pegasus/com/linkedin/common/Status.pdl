@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * The status metadata of an entity, e.g. dataset, metric, feature, etc.
+ */
+record Status {
+
+  /**
+   * whether the entity is removed or not
+   */
+  removed: boolean = false
+}

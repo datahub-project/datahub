@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * The dataset has no specific schema associated with it
+ */
+record Schemaless {}

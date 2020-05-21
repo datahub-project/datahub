@@ -1,0 +1,88 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.Uri
+import com.linkedin.common.VersionTag
+
+/**
+ * Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent
+ */
+record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
+
+  /**
+   * Dataset unique identifier. System assigned value when a new dataset is created.
+   */
+  id: long = 0
+
+  /**
+   * Dataset urn
+   */
+  urn: DatasetUrn
+
+  /**
+   * Description for dataset
+   */
+  description: string = ""
+
+  /**
+   * The native format for the data platform
+   */
+  platformNativeType: optional enum PlatformNativeType {
+
+    /**
+     * Table
+     */
+    TABLE
+
+    /**
+     * View
+     */
+    VIEW
+
+    /**
+     * Directory in file system
+     */
+    DIRECTORY
+
+    /**
+     * Stream
+     */
+    STREAM
+
+    /**
+     * Bucket in key value store
+     */
+    BUCKET
+  }
+
+  /**
+   * The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
+   */
+  uri: optional Uri
+
+  /**
+   * List of dataset instances for this dataset
+   */
+  deploymentInfos: array[DeploymentInfo] = [ ]
+
+  /**
+   * tags for searching dataset
+   */
+  tags: array[string] = [ ]
+
+  /**
+   * A key-value map of platform-specific properties
+   */
+  properties: optional map[string, string]
+
+  /**
+   * whether the dataset is removed or not
+   */
+  removed: boolean = false
+
+  /**
+   * The dataset deprecation status
+   */
+  deprecation: optional DatasetDeprecation
+}

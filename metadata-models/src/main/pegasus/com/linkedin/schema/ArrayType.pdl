@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Array field type.
+ */
+record ArrayType {
+
+  /**
+   * List of types this array holds.
+   */
+  nestedType: optional array[string]
+}

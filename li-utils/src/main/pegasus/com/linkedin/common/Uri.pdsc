@@ -1,9 +1,0 @@
-{
-  "type":"typeref",
-  "name":"Uri",
-  "namespace":"com.linkedin.common",
-  "ref":"string",
-  "java": {
-    "class":"java.net.URI"
-  }
-}

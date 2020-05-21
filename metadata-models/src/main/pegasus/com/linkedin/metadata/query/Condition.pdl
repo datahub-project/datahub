@@ -1,0 +1,27 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The matching condition in a filter criterion
+ */
+enum Condition {
+
+  /**
+   * Represent the relation: field = value, e.g. platform = hdfs
+   */
+  EQUAL
+
+  /**
+   * Represent the relation: String field starts with value, e.g. name starts with PageView
+   */
+  START_WITH
+
+  /**
+   * Represent the relation: String field ends with value, e.g. name ends with Event
+   */
+  END_WITH
+
+  /**
+   * Represent the relation: String field contains value, e.g. name contains Profile
+   */
+  CONTAIN
+}

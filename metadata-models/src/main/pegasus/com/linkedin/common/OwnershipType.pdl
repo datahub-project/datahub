@@ -1,0 +1,37 @@
+namespace com.linkedin.common
+
+/**
+ * Owner category or owner role
+ */
+enum OwnershipType {
+
+  /**
+   * A person or group that is in charge of developing the code
+   */
+  DEVELOPER
+
+  /**
+   * A person or group that is owning the data
+   */
+  DATAOWNER
+
+  /**
+   * A person or a group that overseas the operation, e.g. a DBA or SRE.
+   */
+  DELEGATE
+
+  /**
+   * A person, group, or service that produces/generates the data
+   */
+  PRODUCER
+
+  /**
+   * A person, group, or service that consumes the data
+   */
+  CONSUMER
+
+  /**
+   * A person or a group that has direct business interest
+   */
+  STAKEHOLDER
+}

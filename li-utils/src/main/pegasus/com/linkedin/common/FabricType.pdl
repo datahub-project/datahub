@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Fabric group type
+ */
+enum FabricType {
+
+  /**
+   * Designates development fabrics
+   */
+  DEV
+
+  /**
+   * Designates early-integration (staging) fabrics
+   */
+  EI
+
+  /**
+   * Designates production fabrics
+   */
+  PROD
+
+  /**
+   * Designates corporation fabrics
+   */
+  CORP
+}

@@ -1,0 +1,8 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A generic model for the Is-Part-Of relationship
+ */
+@pairings = [ ]
+record IsPartOf includes BaseRelationship {
+}

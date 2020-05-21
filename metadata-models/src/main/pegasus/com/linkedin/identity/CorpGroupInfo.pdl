@@ -1,0 +1,31 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.CorpGroupUrn
+import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.EmailAddress
+
+/**
+ * group of corpUser, it may contains nested group
+ */
+record CorpGroupInfo {
+
+  /**
+   * email of this group
+   */
+  email: EmailAddress
+
+  /**
+   * owners of this group
+   */
+  admins: array[CorpuserUrn]
+
+  /**
+   * List of ldap urn in this group.
+   */
+  members: array[CorpuserUrn]
+
+  /**
+   * List of groups in this group.
+   */
+  groups: array[CorpGroupUrn]
+}

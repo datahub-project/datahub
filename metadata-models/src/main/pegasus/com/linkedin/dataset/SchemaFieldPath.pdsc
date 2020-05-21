@@ -1,7 +1,0 @@
-{
-  "type": "typeref",
-  "name": "SchemaFieldPath",
-  "namespace": "com.linkedin.dataset",
-  "ref": "string",
-  "doc": "Schema field path as described by schema normalizations rules: http://go/tms-schema"
-}
