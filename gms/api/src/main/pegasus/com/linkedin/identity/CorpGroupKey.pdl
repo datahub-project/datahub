@@ -1,0 +1,16 @@
+namespace com.linkedin.identity
+
+/**
+ * Key for CorpGroup resource
+ */
+record CorpGroupKey {
+
+  /**
+   * group name e.g. wherehows-dev, ask_metadata
+   */
+  @validate.strlen = {
+    "max" : 50,
+    "min" : 1
+  }
+  name: string
+}

@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Denotes a specific Hadoop cluster
+ */
+enum HadoopClusterType {
+
+  /**
+   * Holdem hadoop cluster
+   */
+  HOLDEM
+
+  /**
+   * War hadoop cluster
+   */
+  WAR
+
+  /**
+   * Faro hadoop cluster
+   */
+  FARO
+}

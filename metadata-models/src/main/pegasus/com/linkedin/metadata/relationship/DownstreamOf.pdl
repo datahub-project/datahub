@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.relationship
+
+import com.linkedin.dataset.DatasetLineageType
+
+/**
+ * A generic model for the DownstreamOf relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.DatasetUrn",
+  "source" : "com.linkedin.common.urn.DatasetUrn"
+} ]
+record DownstreamOf includes BaseRelationship {
+
+  /**
+   * The type of the lineage
+   */
+  type: optional DatasetLineageType
+}

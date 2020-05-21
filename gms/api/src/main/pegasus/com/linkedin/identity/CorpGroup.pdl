@@ -1,0 +1,12 @@
+namespace com.linkedin.identity
+
+/**
+ * Metadata for a corp group
+ */
+record CorpGroup includes CorpGroupKey {
+
+  /**
+   * Information of the corp group
+   */
+  info: optional CorpGroupInfo
+}

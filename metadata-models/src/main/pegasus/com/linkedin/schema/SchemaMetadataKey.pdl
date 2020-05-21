@@ -1,0 +1,28 @@
+namespace com.linkedin.schema
+
+import com.linkedin.common.DataPlatformUrn
+
+/**
+ * Key to retrieve schema metadata.
+ */
+record SchemaMetadataKey {
+
+  /**
+   * Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking
+   */
+  @validate.strlen = {
+    "max" : 500,
+    "min" : 1
+  }
+  schemaName: string
+
+  /**
+   * Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})
+   */
+  platform: DataPlatformUrn
+
+  /**
+   * Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version.
+   */
+  version: long
+}

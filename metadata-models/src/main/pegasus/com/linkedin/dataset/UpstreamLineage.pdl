@@ -1,0 +1,12 @@
+namespace com.linkedin.dataset
+
+/**
+ * Upstream lineage of a dataset
+ */
+record UpstreamLineage {
+
+  /**
+   * List of upstream dataset lineage information
+   */
+  upstreams: array[Upstream]
+}

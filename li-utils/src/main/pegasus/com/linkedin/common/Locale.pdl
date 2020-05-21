@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Motivated by java.util.Locale
+ */
+record Locale {
+
+  /**
+   * A lowercase two-letter language code as defined by ISO-639.
+   */
+  language: string
+
+  /**
+   * An uppercase two-letter country code as defined by ISO-3166.
+   */
+  country: optional string
+
+  /**
+   * Vendor or browser-specific code.
+   */
+  variant: optional string
+}

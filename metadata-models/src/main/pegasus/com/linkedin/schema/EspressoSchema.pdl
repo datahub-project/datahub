@@ -1,0 +1,17 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text of an espresso table schema.
+ */
+record EspressoSchema {
+
+  /**
+   * The native espresso document schema.
+   */
+  documentSchema: string
+
+  /**
+   * The espresso table schema definition.
+   */
+  tableSchema: string
+}

@@ -5,28 +5,22 @@ If you need to define a [relationship] which is not available in the set of [rel
 that relationship model should be implemented as a first step for graph onboarding. 
 Below is an example model for `OwnedBy` relationship:
 
-```json
-{
-  "type": "record",
-  "name": "OwnedBy",
-  "namespace": "com.linkedin.metadata.relationship",
-  "doc": "A generic model for the Owned-By relationship",
-  "include": [
-    "BaseRelationship"
-  ],
-  "pairings": [
-    {
-      "source": "com.linkedin.common.urn.DatasetUrn",
-      "destination": "com.linkedin.common.urn.CorpuserUrn"
-    }
-  ],
-  "fields": [
-    {
-      "name": "type",
-      "type": "com.linkedin.common.OwnershipType",
-      "doc": "The type of the ownership"
-    }
-  ]
+```
+namespace com.linkedin.metadata.relationship
+
+import com.linkedin.common.OwnershipType
+
+/**
+ * A generic model for the Owned-By relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.CorpuserUrn",
+  "source" : "com.linkedin.common.urn.DatasetUrn"
+} ]
+record OwnedBy includes BaseRelationship {
+
+  /** The type of the ownership */
+  type: OwnershipType
 }
 ```
 

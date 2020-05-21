@@ -1,0 +1,16 @@
+namespace com.linkedin.identity
+
+/**
+ * Key for CorpUser resource
+ */
+record CorpUserKey {
+
+  /**
+   * ldap name e.g. hzhang2, ywang5
+   */
+  @validate.strlen = {
+    "max" : 20,
+    "min" : 1
+  }
+  name: string
+}

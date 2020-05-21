@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Bytes field type.
+ */
+record BytesType {}

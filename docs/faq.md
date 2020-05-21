@@ -97,7 +97,7 @@ It’s very similar to what you see on the community version. We have added scre
 We’re working on a similar [feature](https://engineering.linkedin.com/blog/2020/data-sentinel-automating-data-validation) internally. Will evaluate and update the roadmap once we have a better idea of the timeline.
 
 ## Is DataHub capturing/showing column level [constraints](https://www.w3schools.com/sql/sql_constraints.asp) set at table definition?
-The [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdsc) model currently does not capture any property/field corresponding to constraints defined in the table definition. However, it should be fairly easy to extend the model to support that if needed.
+The [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdl) model currently does not capture any property/field corresponding to constraints defined in the table definition. However, it should be fairly easy to extend the model to support that if needed.
 
 ## How does DataHub manage extracting metadata from stores residing in different security zones?
 MCE is the ideal way to push metadata from different security zones, assuming there is a common Kafka infrastructure that aggregates the events from various security zones.

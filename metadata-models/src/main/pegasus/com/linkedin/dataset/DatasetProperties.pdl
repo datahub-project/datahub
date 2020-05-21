@@ -1,0 +1,29 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Uri
+
+/**
+ * Properties associated with a Dataset
+ */
+record DatasetProperties {
+
+  /**
+   * Documentation of the dataset
+   */
+  description: optional string
+
+  /**
+   * The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
+   */
+  uri: optional Uri
+
+  /**
+   * tags for the dataset
+   */
+  tags: array[string] = [ ]
+
+  /**
+   * A key-value map to capture any other non-standardized properties for the dataset
+   */
+  customProperties: map[string, string] = { }
+}

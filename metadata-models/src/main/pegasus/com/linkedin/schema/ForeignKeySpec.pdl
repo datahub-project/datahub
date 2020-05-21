@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Description of a foreign key in a schema.
+ */
+record ForeignKeySpec {
+
+  /**
+   * Foreign key definition in metadata schema.
+   */
+  foreignKey: union[DatasetFieldForeignKey, UrnForeignKey]
+}

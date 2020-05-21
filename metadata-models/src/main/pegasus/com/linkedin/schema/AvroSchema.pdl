@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text for avro schema.
+ */
+record AvroSchema {
+
+  /**
+   * The native Avro schema text.
+   */
+  schema: string
+}

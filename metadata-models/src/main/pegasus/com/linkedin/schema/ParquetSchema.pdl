@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text for Parquet schema.
+ */
+record ParquetSchema {
+
+  /**
+   * The native Parquet schema text.
+   */
+  schema: string
+}

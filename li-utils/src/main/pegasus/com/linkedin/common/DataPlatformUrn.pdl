@@ -1,0 +1,24 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized data platforms available
+ */
+@java.class = "com.linkedin.common.urn.DataPlatformUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:wherehows",
+  "entityType" : "dataPlatform",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataPlatform",
+  "doc" : "Standardized data platforms available",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "platformName",
+    "doc" : "data platform name i.e. hdfs, oracle, espresso",
+    "type" : "string",
+    "maxLength" : 25
+  } ],
+  "maxLength" : 45
+}
+typeref DataPlatformUrn = string
