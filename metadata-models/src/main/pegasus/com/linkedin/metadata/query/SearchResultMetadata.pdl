@@ -1,0 +1,23 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * The model for the search result
+ */
+record SearchResultMetadata {
+
+  /**
+   * A list of search result metadata such as aggregations
+   */
+  searchResultMetadatas: array[record AggregationMetadata {
+
+    /**
+     * The name of the aggregation, e.g, platform, origin
+     */
+    name: string
+
+    /**
+     * List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc
+     */
+    aggregations: map[string, long]
+  }]
+}

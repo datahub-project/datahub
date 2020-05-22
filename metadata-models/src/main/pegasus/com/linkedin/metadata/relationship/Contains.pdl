@@ -1,0 +1,8 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A generic model for the Has-A relationship
+ */
+@pairings = [ ]
+record Contains includes BaseRelationship {
+}

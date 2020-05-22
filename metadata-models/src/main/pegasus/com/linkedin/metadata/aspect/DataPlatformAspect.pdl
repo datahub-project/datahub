@@ -1,0 +1,8 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.dataplatform.DataPlatformInfo
+
+/**
+ * A union of all supported metadata aspects for a Data Platform
+ */
+typeref DataPlatformAspect = union[DataPlatformInfo]

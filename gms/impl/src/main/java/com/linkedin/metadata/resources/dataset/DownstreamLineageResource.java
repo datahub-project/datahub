@@ -1,7 +1,12 @@
 package com.linkedin.metadata.resources.dataset;
 
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.dataset.*;
+import com.linkedin.dataset.DatasetKey;
+import com.linkedin.dataset.Downstream;
+import com.linkedin.dataset.DownstreamArray;
+import com.linkedin.dataset.DownstreamLineage;
+import com.linkedin.dataset.Upstream;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseQueryDAO;
 import com.linkedin.metadata.dao.utils.SearchUtils;
@@ -20,16 +25,14 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
-
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-import javax.inject.Named;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
+import javax.inject.Named;
 
-import static com.linkedin.metadata.dao.Neo4jUtil.createFilter;
-import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
+import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
 
 /**

@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Enum field type.
+ */
+record EnumType {}

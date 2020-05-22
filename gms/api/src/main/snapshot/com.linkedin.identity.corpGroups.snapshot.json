@@ -6,26 +6,25 @@
     "doc" : "Corporate group's AD/LDAP login",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.CorpGroupUrnCoercer",
       "class" : "com.linkedin.common.urn.CorpGroupUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "corpGroup",
-        "owningTeam" : "urn:li:internalTeam:security",
         "constructable" : true,
+        "doc" : "Corporate group's AD/LDAP login",
+        "entityType" : "corpGroup",
+        "fields" : [ {
+          "doc" : "The name of the AD/LDAP group.",
+          "maxLength" : 64,
+          "name" : "groupName",
+          "type" : "string"
+        } ],
+        "maxLength" : 81,
         "name" : "CorpGroup",
         "namespace" : "li",
-        "doc" : "Corporate group's AD/LDAP login",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "groupName",
-          "doc" : "The name of the AD/LDAP group.",
-          "type" : "string",
-          "maxLength" : 64
-        } ],
-        "maxLength" : 81
+        "owningTeam" : "urn:li:internalTeam:security"
       }
     }
   }, {
@@ -35,26 +34,25 @@
     "doc" : "Corporate user's AD/LDAP login",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.CorpuserUrnCoercer",
       "class" : "com.linkedin.common.urn.CorpuserUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "corpuser",
-        "owningTeam" : "urn:li:internalTeam:security",
         "constructable" : true,
+        "doc" : "Corporate user's AD/LDAP login",
+        "entityType" : "corpuser",
+        "fields" : [ {
+          "doc" : "The name of the AD/LDAP user.",
+          "maxLength" : 20,
+          "name" : "username",
+          "type" : "string"
+        } ],
+        "maxLength" : 36,
         "name" : "Corpuser",
         "namespace" : "li",
-        "doc" : "Corporate user's AD/LDAP login",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "username",
-          "doc" : "The name of the AD/LDAP user.",
-          "type" : "string",
-          "maxLength" : 20
-        } ],
-        "maxLength" : 36
+        "owningTeam" : "urn:li:internalTeam:security"
       }
     }
   }, {
@@ -68,7 +66,6 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
       "class" : "com.linkedin.common.urn.Urn"
     }
   }, {
@@ -83,11 +80,11 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "group name e.g. wherehows-dev, ask_metadata ",
+        "doc" : "group name e.g. wherehows-dev, ask_metadata",
         "validate" : {
           "strlen" : {
-            "min" : 1,
-            "max" : 50
+            "max" : 50,
+            "min" : 1
           }
         }
       } ]

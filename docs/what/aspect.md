@@ -1,6 +1,6 @@
 # What is a metadata aspect?
 
-A metadata aspect is a structured document, or more precisely a `record` in [PDSC](https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates),
+A metadata aspect is a structured document, or more precisely a `record` in [PDL](https://linkedin.github.io/rest.li/pdl_schema),
  that represents a specific kind of metadata (e.g. ownership, schema, statistics, upstreams). 
  A metadata aspect on its own has no meaning (e.g. ownership for what?) and must be associated with a particular entity (e.g. ownership for PageViewEvent). 
  We purposely not to impose any model requirement on metadata aspects, as each aspect is expected to differ significantly.
@@ -22,31 +22,24 @@ Here’s an example metadata aspect. Note that the `admin` and `members` fields 
 It’s very natural to save such relationships as URNs in a metadata aspect. 
 The [relationship](relationship.md) section explains how this relationship can be explicitly extracted and modelled.
 
-```json
-{
-  "type": "record",
-  "name": "Membership",
-  "namespace": "com.linkedin.group",
-  "doc": "The membership metadata for a group",
-  "fields": [
-    {
-      "name": "auditStamp",
-      "type": "com.linkedin.common.AuditStamp",
-      "doc": "Audit stamp for the last change"
-    },
-    {
-      "name": "admin",
-      "type": "com.linkedin.common.CorpuserUrn",
-      "doc": "Admin of the group"
-    },
-    {
-      "name": "members",
-      "type": {
-        "type": "array",
-        "items": "com.linkedin.common.CorpuserUrn"
-      },
-      "doc": "Members of the group, ordered in descending importance"
-    }
-  ]
+```
+namespace com.linkedin.group
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CorpuserUrn
+
+/**
+ * The membership metadata for a group
+ */
+record Membership {
+
+  /** Audit stamp for the last change */
+  auditStamp: AuditStamp
+
+  /** Admin of the group */
+  admin: CorpuserUrn
+
+  /** Members of the group, ordered in descending importance */
+  members: array[CorpuserUrn]
 }
 ```

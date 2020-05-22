@@ -1,0 +1,32 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dataset identifier.
+ */
+@java.class = "com.linkedin.common.urn.DatasetUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dataset",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Dataset",
+  "doc" : "Standardized dataset identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DataPlatformUrn",
+    "name" : "platform",
+    "doc" : "Standardized platform urn where dataset is defined."
+  }, {
+    "name" : "datasetName",
+    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+    "type" : "string",
+    "maxLength" : 210
+  }, {
+    "type" : "com.linkedin.common.FabricType",
+    "name" : "origin",
+    "doc" : "Fabric type where dataset belongs to or where it was generated."
+  } ],
+  "maxLength" : 284
+}
+typeref DatasetUrn = string

@@ -254,7 +254,7 @@ public class RecordUtils {
       method.setAccessible(true);
       return (T) method.invoke(object, args);
     } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException(e.getCause());
     } finally {
       method.setAccessible(false);
     }

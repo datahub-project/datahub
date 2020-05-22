@@ -1,0 +1,25 @@
+namespace com.linkedin.schema
+
+import com.linkedin.common.DatasetUrn
+import com.linkedin.dataset.SchemaFieldPath
+
+/**
+ * For non-urn based foregin keys.
+ */
+record DatasetFieldForeignKey {
+
+  /**
+   * dataset that stores the resource.
+   */
+  parentDataset: DatasetUrn
+
+  /**
+   * List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset.
+   */
+  currentFieldPaths: array[SchemaFieldPath]
+
+  /**
+   * SchemaField@fieldPath that uniquely identify field in parent dataset that this field references.
+   */
+  parentField: SchemaFieldPath
+}

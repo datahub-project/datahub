@@ -20,7 +20,6 @@
         "name" : "Urn",
         "ref" : "string",
         "java" : {
-          "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
           "class" : "com.linkedin.common.urn.Urn"
         }
       },
@@ -57,26 +56,25 @@
     "doc" : "Standardized data platforms available",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.DataPlatformUrnCoercer",
       "class" : "com.linkedin.common.urn.DataPlatformUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "dataPlatform",
-        "owningTeam" : "urn:li:internalTeam:wherehows",
         "constructable" : true,
+        "doc" : "Standardized data platforms available",
+        "entityType" : "dataPlatform",
+        "fields" : [ {
+          "doc" : "data platform name i.e. hdfs, oracle, espresso",
+          "maxLength" : 25,
+          "name" : "platformName",
+          "type" : "string"
+        } ],
+        "maxLength" : 45,
         "name" : "DataPlatform",
         "namespace" : "li",
-        "doc" : "Standardized data platforms available",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "platformName",
-          "doc" : "data platform name i.e. hdfs, oracle, espresso",
-          "type" : "string",
-          "maxLength" : 25
-        } ],
-        "maxLength" : 45
+        "owningTeam" : "urn:li:internalTeam:wherehows"
       }
     }
   }, {
@@ -86,34 +84,33 @@
     "doc" : "Standardized dataset identifier.",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.DatasetUrnCoercer",
       "class" : "com.linkedin.common.urn.DatasetUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "dataset",
-        "owningTeam" : "urn:li:internalTeam:datahub",
         "constructable" : true,
-        "name" : "Dataset",
-        "namespace" : "li",
         "doc" : "Standardized dataset identifier.",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "entityType" : "dataset",
         "fields" : [ {
-          "name" : "platform",
           "doc" : "Standardized platform urn where dataset is defined.",
+          "name" : "platform",
           "type" : "com.linkedin.common.urn.DataPlatformUrn"
         }, {
-          "name" : "datasetName",
           "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
-          "type" : "string",
-          "maxLength" : 210
+          "maxLength" : 210,
+          "name" : "datasetName",
+          "type" : "string"
         }, {
-          "name" : "origin",
           "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "name" : "origin",
           "type" : "com.linkedin.common.FabricType"
         } ],
-        "maxLength" : 284
+        "maxLength" : 284,
+        "name" : "Dataset",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
   }, {
@@ -123,10 +120,10 @@
     "doc" : "Fabric group type",
     "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
     "symbolDocs" : {
+      "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration (staging) fabrics",
-      "PROD" : "Designates production fabrics",
-      "CORP" : "Designates corporation fabrics"
+      "PROD" : "Designates production fabrics"
     }
   }, {
     "type" : "typeref",
@@ -135,39 +132,39 @@
     "doc" : "Standardized job identifier.",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.JobUrnCoercer",
-      "class" : "com.linkedin.common.urn.JobUrn"
+      "class" : "com.linkedin.common.urn.JobUrn",
+      "coercerClass" : "com.linkedin.common.urn.JobUrnCoercer"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "job",
-        "owningTeam" : "urn:li:internalTeam:datahub",
         "constructable" : true,
-        "name" : "Job",
-        "namespace" : "li",
         "doc" : "Standardized job identifier.",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "entityType" : "job",
         "fields" : [ {
-          "name" : "name",
           "doc" : "",
-          "type" : "string",
-          "maxLength" : 36
+          "maxLength" : 36,
+          "name" : "name",
+          "type" : "string"
         }, {
-          "name" : "platform",
           "doc" : "Standardized platform urn where dataset is defined.",
+          "name" : "platform",
           "type" : "com.linkedin.common.urn.DataPlatformUrn"
         }, {
-          "name" : "origin",
           "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "name" : "origin",
           "type" : "com.linkedin.common.FabricType"
         }, {
-          "name" : "description",
           "doc" : "",
-          "type" : "string",
-          "maxLength" : 100
+          "maxLength" : 100,
+          "name" : "description",
+          "type" : "string"
         } ],
-        "maxLength" : 100
+        "maxLength" : 100,
+        "name" : "Job",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
   }, "com.linkedin.common.Time", {
@@ -210,8 +207,8 @@
         "doc" : "Job native name e.g. an ETL job name",
         "validate" : {
           "strlen" : {
-            "min" : 1,
-            "max" : 500
+            "max" : 500,
+            "min" : 1
           }
         }
       }, {
@@ -241,11 +238,11 @@
         "name" : "PlatformNativeType",
         "symbols" : [ "TABLE", "VIEW", "DIRECTORY", "STREAM", "BUCKET" ],
         "symbolDocs" : {
-          "TABLE" : "Table",
-          "VIEW" : "View",
+          "BUCKET" : "Bucket in key value store",
           "DIRECTORY" : "Directory in file system",
           "STREAM" : "Stream",
-          "BUCKET" : "Bucket in key value store"
+          "TABLE" : "Table",
+          "VIEW" : "View"
         }
       },
       "doc" : "The native format for the data platform",
@@ -276,7 +273,7 @@
     "type" : "record",
     "name" : "JobInfo",
     "namespace" : "com.linkedin.job",
-    "doc" : "The job producing a dataset, e.g. an ETL job, a Kafka consumer job.",
+    "doc" : "The inputs and outputs of this job",
     "fields" : [ {
       "name" : "inputs",
       "type" : {
@@ -548,7 +545,29 @@
         } ]
       } ],
       "entity" : {
-        "path" : "/jobs/{job}"
+        "path" : "/jobs/{job}",
+        "subresources" : [ {
+          "name" : "jobInfo",
+          "namespace" : "com.linkedin.job",
+          "path" : "/jobs/{job}/jobInfo",
+          "schema" : "com.linkedin.job.JobInfo",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.job.JobInfoResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "jobInfoId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/jobs/{job}/jobInfo/{jobInfoId}"
+            }
+          }
+        } ]
       }
     }
   }

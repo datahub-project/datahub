@@ -36,7 +36,7 @@ public class LineageDao {
         .collect(Collectors.toSet()));
 
     return upstreamArray.stream()
-        .map(us -> toLineageView(datasets.get(us.getDataset()), us.getType().name(), us.getAuditStamp().getActor().toString()))
+        .map(us -> toLineageView(datasets.get(us.getDataset()), us.getType().name(), us.getAuditStamp()))
         .collect(Collectors.toList());
   }
 
@@ -51,7 +51,7 @@ public class LineageDao {
         .collect(Collectors.toSet()));
 
     return downstreamArray.stream()
-        .map(ds -> toLineageView(datasets.get(ds.getDataset()), ds.getType().name(), ds.getAuditStamp().getActor().toString()))
+        .map(ds -> toLineageView(datasets.get(ds.getDataset()), ds.getType().name(), ds.getAuditStamp()))
         .collect(Collectors.toList());
   }
 }

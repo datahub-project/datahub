@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.relationship
+
+import com.linkedin.common.OwnershipType
+
+/**
+ * A generic model for the Owned-By relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.CorpuserUrn",
+  "source" : "com.linkedin.common.urn.DatasetUrn"
+} ]
+record OwnedBy includes BaseRelationship {
+
+  /**
+   * The type of the ownership
+   */
+  type: OwnershipType
+}

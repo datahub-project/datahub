@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for oracle data definition language that describes an oracle table.
+ */
+record OracleDDL {
+
+  /**
+   * The native schema in the dataset's platform. This is a human readable (json blob) table schema.
+   */
+  tableSchema: string
+}

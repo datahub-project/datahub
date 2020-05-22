@@ -1,5 +1,5 @@
 <configuration>
-    <property name="LOG_DIR" value="${LOG_DIR:- /local/logs}"/>
+    <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs}"/>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

@@ -1,0 +1,19 @@
+namespace com.linkedin.job
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * The inputs and outputs of this job
+ */
+record JobInfo {
+
+  /**
+   * the inputs of the job
+   */
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * the outputs of the job
+   */
+  outputs: optional array[DatasetUrn]
+}

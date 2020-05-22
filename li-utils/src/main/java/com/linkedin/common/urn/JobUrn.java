@@ -6,7 +6,7 @@ import java.net.URISyntaxException;
 
 import static com.linkedin.common.urn.UrnUtils.toFabricType;
 
-public class JobUrn extends Urn{
+public class JobUrn extends Urn {
     public static final String ENTITY_TYPE = "job";
 
     private final String jobNameEntity;
@@ -38,7 +38,7 @@ public class JobUrn extends Urn{
 
     public static JobUrn createFromString(String rawUrn) throws URISyntaxException {
         String content = new Urn(rawUrn).getContent();
-        String[] parts = content.substring(1, content.length()-1).split(",");
+        String[] parts = content.substring(1, content.length() - 1).split(",");
         return new JobUrn(DataPlatformUrn.createFromString(parts[0]), parts[1], toFabricType(parts[2]));
     }
 

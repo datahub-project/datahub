@@ -1,12 +1,12 @@
 # DataHub Town Hall
 
 We hold regular virtual town hall meetings to meet with DataHub community. 
-Currently it's bi-weekly but we're open to adjust the cadence based on the community's need.
+Currently it's held on the last Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
 # Coming Up
-- Next town hall will be held on May 15th, 9am-10am PDT
+- Next town hall will be held on May 29th, 9am-10am PDT
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) first)

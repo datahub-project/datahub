@@ -1,5 +1,6 @@
 package com.linkedin.datahub.util;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.datahub.models.view.DatasetView;
 import com.linkedin.datahub.models.view.LineageView;
@@ -79,15 +80,18 @@ public class DatasetUtil {
    * for the dataset in the lineage response
    * @param dataset dataset
    * @param lineageType type of lineage
-   * @param actor lineage actor
+   * @param auditStamp audit stamp
    * @return LineageView
    */
-  public static LineageView toLineageView(Dataset dataset, String lineageType, String actor) {
+  public static LineageView toLineageView(Dataset dataset, String lineageType, AuditStamp auditStamp) {
     LineageView view = new LineageView();
 
-    view.setDataset(toDatasetView(dataset));
+    DatasetView datasetView = toDatasetView(dataset);
+    datasetView.setModifiedTime(auditStamp.getTime());
+
+    view.setDataset(datasetView);
     view.setType(lineageType);
-    view.setActor(actor);
+    view.setActor(auditStamp.getActor().toString());
 
     return view;
   }

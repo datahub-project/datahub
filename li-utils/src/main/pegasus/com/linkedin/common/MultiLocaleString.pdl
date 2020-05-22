@@ -1,0 +1,18 @@
+namespace com.linkedin.common
+
+/**
+ * Represents a textual field with values for multiple locales. Most readers should use the 'localized' field entry keyed by preferredLocale.
+ */
+record MultiLocaleString {
+
+  /**
+   * Maps a locale to a localized version of the string. Each key is a Locale record converted to string format, with the language, country and variant separated by underscores. Examples: 'en', 'de_DE', 'en_US_WIN', 'de__POSIX', 'fr__MAC'.
+   */
+  localized: map[string, string]
+
+  /**
+   * The preferred locale to use, based on standard rules
+   */
+  @derived
+  preferredLocale: optional Locale
+}

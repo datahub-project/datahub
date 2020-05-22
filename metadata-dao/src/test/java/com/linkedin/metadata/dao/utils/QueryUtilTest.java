@@ -1,8 +1,5 @@
 package com.linkedin.metadata.dao.utils;
 
-import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.Ownership;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;

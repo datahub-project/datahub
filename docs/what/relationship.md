@@ -16,88 +16,76 @@ Similar to an entity, a relationship can also be associated with optional attrib
 For example, from the `Membership` metadata aspect shown below, we’re able to derive the `HasMember` relationship that links a specific `Group` to a specific `User`. We can also include additional attribute to the relationship, e.g. importance, which corresponds to the position of the specific member in the original membership array. This allows complex graph query that travel only relationships that match certain criteria, e.g. "returns only the top-5 most important members of this group." 
 Similar to the entity attributes, relationship attributes should only be added based on the expected query patterns to reduce the indexing cost.
 
-```json
-{
-  "type": "record",
-  "name": "Membership",
-  "namespace": "com.linkedin.group",
-  "doc": "The membership metadata for a group",
-  "fields": [
-    {
-      "name": "auditStamp",
-      "type": "com.linkedin.common.AuditStamp",
-      "doc": "Audit stamp for the last change"
-    },
-    {
-      "name": "admin",
-      "type": "com.linkedin.common.CorpuserUrn",
-      "doc": "Admin of the group"
-    },
-    {
-      "name": "members",
-      "type": {
-        "type": "array",
-        "items": "com.linkedin.common.CorpuserUrn"
-      },
-      "doc": "Members of the group, ordered in descending importance"
-    }
-  ]
+```
+namespace: com.linkedin.group
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CorpuserUrn
+
+/**
+ * The membership metadata for a group
+ */
+record Membership {
+
+  /** Audit stamp for the last change */
+  modified: AuditStamp
+
+  /** Admin of the group */
+  admin: CorpuserUrn
+
+  /** Members of the group, ordered in descending importance */
+  members: array[CorpuserUrn]
 }
 ```
 
 Relationships are meant to be "entity-neutral". In other words, one would expect to use the same `OwnedBy` relationship to link a `Dataset` to a `User` and to link a `Dashboard` to a `User`. As Pegasus doesn’t allow typing a field using multiple URNs (because they’re all essentially strings), we resort to using generic URN type for the source and destination. 
-We also introduce a non-standard property pairings to limit the allowed source and destination URN types.
+We also introduce a `@pairings` [annotation](https://linkedin.github.io/rest.li/pdl_migration#shorthand-for-custom-properties) to limit the allowed source and destination URN types.
 
 While it’s possible to model relationships in rest.li as [association resources](https://linkedin.github.io/rest.li/modeling/modeling#association), which often get stored as mapping tables, it is far more common to model them as "foreign keys" field in a metadata aspect. For instance, the `Ownership` aspect is likely to contain an array of owner’s corpuser URNs.
 
-Below is an example of how a relationship is modeled in PDSC. Note that:
+Below is an example of how a relationship is modeled in PDL. Note that:
 1. As the `source` and `destination` are of generic URN type, we’re able to factor them out to a common `BaseRelationship` model.
-2. Each model is expected to have a pairings property that is an array of all allowed source-destination URN pairs.
+2. Each model is expected to have a `@pairings` annotation that is an array of all allowed source-destination URN pairs.
 3. Unlike entity attributes, there’s no requirement on making all relationship attributes optional since relationships do not support partial updates.
 
-```json
-{
-  "type": "record",
-  "name": "BaseRelationship",
-  "namespace": "com.linkedin.metadata.relationship",
-  "doc": "Common fields that apply to all relationships",
-  "fields": [
-    {
-      "name": "source",
-      "type": "com.linkedin.common.Urn",
-      "doc": "Urn for the source of the relationship"
-    },
-    {
-      "name": "destination",
-      "type": "com.linkedin.common.Urn",
-      "doc": "Urn for the destination of the relationship"
-    }
-  ]
+```
+namespace com.linkedin.metadata.relationship
+
+import com.linkedin.common.Urn
+
+/**
+ * Common fields that apply to all relationships
+ */
+record BaseRelationship {
+
+  /**
+   * Urn for the source of the relationship
+   */
+  source: Urn
+
+  /**
+   * Urn for the destination of the relationship
+   */
+  destination: Urn
 }
 ```
 
-```json
+```
+namespace com.linkedin.metadata.relationship
+
+/**
+ * Data model for a has-member relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.CorpGroupUrn",
+  "source" : "com.linkedin.common.urn.CorpUserUrn"
+} ]
+record HasMembership includes BaseRelationship
 {
-  "type": "record",
-  "name": "HasMember",
-  "namespace": "com.linkedin.metadata.relationship",
-  "doc": "Data model for a has-member relationship",
-  "include": [
-    "BaseRelationship"
-  ],
-  "pairings": [
-    {
-      "source": "com.linkedin.common.urn.CorpGroupUrn",
-      "destination": "com.linkedin.common.urn.CorpUserUrn"
-    }
-  ],
-  "fields": [
-    {
-      "name": "importance",
-      "type": "int",
-      "doc": "The importance of the membership"
-    }
-  ]
+  /**
+   * The importance of the membership
+   */
+  importance: int 
 }
 ```
 

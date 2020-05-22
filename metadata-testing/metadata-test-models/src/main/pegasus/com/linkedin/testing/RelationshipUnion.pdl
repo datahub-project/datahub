@@ -1,0 +1,6 @@
+namespace com.linkedin.testing
+
+/**
+ * For unit testing
+ */
+typeref RelationshipUnion = union[RelationshipFoo, RelationshipBar]

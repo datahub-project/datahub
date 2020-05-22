@@ -18,12 +18,12 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: Next DataHub town hall meeting on May 15th, 9am-10am PDT: 
+> :mega: Next DataHub town hall meeting on May 29th, 9am-10am PDT: 
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
-> :sparkles:Mar 2020 Update: 
-> - DataHub v0.3.1 has just been released. See [relase notes](https://github.com/linkedin/datahub/releases/tag/v0.3.1) for more details.
+> :sparkles:April 2020 Update: 
+> - Expedia shares it's journey of adopting DataHub in it's production systems. Watch this YouTube [video](https://www.youtube.com/watch?v=ajcRdB22s5o) for more details.
 > - We're on [Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) now! Ask questions and keep up with the latest announcement.
 
 ## Introduction
@@ -39,7 +39,7 @@ This repository contains the complete source code for both DataHub's frontend & 
 3. Clone this repo and `cd` into the root directory of the cloned repository.
 4. Run the following command to download and run all Docker containers locally:
     ```
-    cd docker/quickstart && source ./quickstart.sh
+    ./docker/quickstart/quickstart.sh
     ```
     This step takes a while to run the first time, and it may be difficult to tell if DataHub is fully up and running from the combined log. Please use [this guide](https://github.com/linkedin/datahub/blob/master/docs/debugging.md#how-can-i-confirm-if-all-docker-containers-are-running-as-expected-after-a-quickstart) to verify that each container is running correctly.
 5. At this point, you should be able to start DataHub by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password. However, you'll notice that no data has been ingested yet.
@@ -82,9 +82,15 @@ Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thre
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 * [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 2019](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019)
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
+* [DataHub Journey with Expedia Group by Arun Vasudevan](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
+* [LinkedIn Datahub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
 * [How LinkedIn, Uber, Lyft, Airbnb and Netflix are Solving Data Management and Discovery for Machine Learning Solutions](https://towardsdatascience.com/how-linkedin-uber-lyft-airbnb-and-netflix-are-solving-data-management-and-discovery-for-machine-9b79ee9184bb)
 * [Data Discovery in 2020](https://medium.com/@torokyle/data-discovery-in-2020-3c907383caa0)
+* [Work-Bench Snapshot: The Evolution of Data Discovery & Catalog](https://medium.com/work-bench/work-bench-snapshot-the-evolution-of-data-discovery-catalog-2f6c0425616b)
+* [In-house Data Discovery platforms](https://datastrategy.substack.com/p/in-house-data-discovery-platforms)
+* [A Data Engineer’s Perspective On Data Democratization](https://towardsdatascience.com/a-data-engineers-perspective-on-data-democratization-a8aed10f4253)
+* [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
 * [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)

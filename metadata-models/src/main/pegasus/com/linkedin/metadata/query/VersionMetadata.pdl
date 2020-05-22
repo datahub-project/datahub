@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.query
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The additional version metadata for a list query
+ */
+record VersionMetadata {
+
+  /**
+   * A list of version-related information
+   */
+  versionInfos: array[
+    /**
+     * Information related to a specific version of metadata aspect.
+     */
+    record VersionInfo {
+
+      /**
+       * The version number of the metadata aspect.
+       */
+      version: long
+
+      /**
+       * The audit trail associated with the version
+       */
+      audit: AuditStamp
+    }]
+}

@@ -1,0 +1,31 @@
+namespace com.linkedin.metadata.entity
+
+import com.linkedin.common.DataPlatformUrn
+import com.linkedin.common.FabricType
+import com.linkedin.common.JobUrn
+
+/**
+ * Data model for a Job entity
+ */
+record JobEntity {
+
+  /**
+   * Urn for the Job
+   */
+  urn: JobUrn
+
+  /**
+   * Job name(id)
+   */
+  name: optional string
+
+  /**
+   * Platform urn for the dataset in the form of urn:li:platform:{platform_name}
+   */
+  platform: optional DataPlatformUrn
+
+  /**
+   * Fabric type where dataset belongs to or where it was generated.
+   */
+  origin: optional FabricType
+}

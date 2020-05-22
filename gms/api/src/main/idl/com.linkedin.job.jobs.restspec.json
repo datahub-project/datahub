@@ -95,7 +95,29 @@
       } ]
     } ],
     "entity" : {
-      "path" : "/jobs/{job}"
+      "path" : "/jobs/{job}",
+      "subresources" : [ {
+        "name" : "jobInfo",
+        "namespace" : "com.linkedin.job",
+        "path" : "/jobs/{job}/jobInfo",
+        "schema" : "com.linkedin.job.JobInfo",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/jobInfo\n\ngenerated from: com.linkedin.metadata.resources.job.JobInfoResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "jobInfoId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/jobs/{job}/jobInfo/{jobInfoId}"
+          }
+        }
+      } ]
     }
   }
 }

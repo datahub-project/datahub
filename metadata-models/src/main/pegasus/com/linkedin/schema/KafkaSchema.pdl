@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for kafka schema.
+ */
+record KafkaSchema {
+
+  /**
+   * The native kafka document schema. This is a human readable avro document schema.
+   */
+  documentSchema: string
+}

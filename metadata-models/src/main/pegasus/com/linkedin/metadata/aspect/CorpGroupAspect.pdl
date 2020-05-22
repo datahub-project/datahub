@@ -1,0 +1,8 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.identity.CorpGroupInfo
+
+/**
+ * A union of all supported metadata aspects for a CorpGroup
+ */
+typeref CorpGroupAspect = union[CorpGroupInfo]

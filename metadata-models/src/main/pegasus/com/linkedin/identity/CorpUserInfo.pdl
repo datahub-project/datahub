@@ -1,0 +1,65 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.EmailAddress
+
+/**
+ * Linkedin corp user information
+ */
+record CorpUserInfo {
+
+  /**
+   * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
+   */
+  active: boolean
+
+  /**
+   * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
+   */
+  displayName: optional string
+
+  /**
+   * email address of this user
+   */
+  email: EmailAddress
+
+  /**
+   * title of this user
+   */
+  title: optional string
+
+  /**
+   * direct manager of this user
+   */
+  managerUrn: optional CorpuserUrn
+
+  /**
+   * department id this user belong to
+   */
+  departmentId: optional long
+
+  /**
+   * department name this user belong to
+   */
+  departmentName: optional string
+
+  /**
+   * first name of this user
+   */
+  firstName: optional string
+
+  /**
+   * last name of this user
+   */
+  lastName: optional string
+
+  /**
+   * Common name of this user, format is firstName + lastName (split by a whitespace)
+   */
+  fullName: optional string
+
+  /**
+   * two uppercase letters country code. e.g.  US
+   */
+  countryCode: optional string
+}
