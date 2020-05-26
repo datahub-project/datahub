@@ -2,13 +2,13 @@ package com.linkedin.metadata.configs;
 
 import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
-import com.linkedin.metadata.search.JobDocument;
+import com.linkedin.metadata.search.DataProcessDocument;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Set;
 
-public class JobSearchConfig extends BaseSearchConfig<JobDocument> {
+public class DataProcessSearchConfig extends BaseSearchConfig<DataProcessDocument> {
     @Override
     @Nonnull
     public Set<String> getFacetFields() {
@@ -17,8 +17,8 @@ public class JobSearchConfig extends BaseSearchConfig<JobDocument> {
 
     @Override
     @Nonnull
-    public Class<JobDocument> getSearchDocument() {
-        return JobDocument.class;
+    public Class<DataProcessDocument> getSearchDocument() {
+        return DataProcessDocument.class;
     }
 
     @Override
@@ -30,12 +30,12 @@ public class JobSearchConfig extends BaseSearchConfig<JobDocument> {
     @Override
     @Nonnull
     public String getSearchQueryTemplate() {
-        return SearchUtils.readResourceFile(getClass(), "jobESSearchQueryTemplate.json");
+        return SearchUtils.readResourceFile(getClass(), "dataProcessESSearchQueryTemplate.json");
     }
 
     @Override
     @Nonnull
     public String getAutocompleteQueryTemplate() {
-        return SearchUtils.readResourceFile(getClass(), "jobESAutocompleteQueryTemplate.json");
+        return SearchUtils.readResourceFile(getClass(), "dataProcessESAutocompleteQueryTemplate.json");
     }
 }

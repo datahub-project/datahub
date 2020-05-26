@@ -1,11 +1,11 @@
-package com.linkedin.job.factory;
+package com.linkedin.dataprocess.factory;
 
-import com.linkedin.common.urn.JobUrn;
-import com.linkedin.metadata.aspect.JobAspect;
+import com.linkedin.common.urn.DataProcessUrn;
+import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaProducerCallback;
-import com.linkedin.metadata.snapshot.JobSnapshot;
+import com.linkedin.metadata.snapshot.DataProcessSnapshot;
 import io.ebean.config.ServerConfig;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,19 +17,19 @@ import org.springframework.context.annotation.DependsOn;
 
 @Configuration
 @ComponentScan(basePackages = "com.linkedin")
-public class JobDaoFactory {
+public class DataProcessDAOFactory {
     @Autowired
     ApplicationContext applicationContext;
 
-    @Bean(name = "jobDao")
+    @Bean(name = "dataProcessDAO")
     @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
-    protected EbeanLocalDAO<JobAspect, JobUrn> createInstance() {
-        KafkaMetadataEventProducer<JobSnapshot, JobAspect, JobUrn> producer =
-                new KafkaMetadataEventProducer(JobSnapshot.class,
-                        JobAspect.class,
+    protected EbeanLocalDAO<DataProcessAspect, DataProcessUrn> createInstance() {
+        KafkaMetadataEventProducer<DataProcessSnapshot, DataProcessAspect, DataProcessUrn> producer =
+                new KafkaMetadataEventProducer(DataProcessSnapshot.class,
+                        DataProcessAspect.class,
                         applicationContext.getBean(Producer.class),
                         new KafkaProducerCallback());
 
-        return new EbeanLocalDAO<>(JobAspect.class, producer, applicationContext.getBean(ServerConfig.class));
+        return new EbeanLocalDAO<>(DataProcessAspect.class, producer, applicationContext.getBean(ServerConfig.class));
     }
 }

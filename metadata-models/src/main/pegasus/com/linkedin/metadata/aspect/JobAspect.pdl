@@ -1,8 +1,0 @@
-namespace com.linkedin.metadata.aspect
-
-import com.linkedin.job.JobInfo
-
-/**
- * A union of all supported metadata aspects for a Job
- */
-typeref JobAspect = union[JobInfo]

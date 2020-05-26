@@ -20,7 +20,7 @@ public class RequestBuilders {
         {
           add(new CorpUserActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
-          add(new JobActionRequestBuilder());
+          add(new DataProcessActionRequestBuilder());
         }
       });
 

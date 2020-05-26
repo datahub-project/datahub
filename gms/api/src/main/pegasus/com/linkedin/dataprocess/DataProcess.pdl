@@ -1,0 +1,38 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.DataProcessUrn
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.Uri
+import com.linkedin.common.VersionTag
+
+/**
+ * Spec. for a process. A collection of data conforming to a single schema that can evolve over time.
+ */
+record DataProcess includes DataProcessKey, ChangeAuditStamps, VersionTag {
+
+  /**
+   * Process unique identifier. System assigned value when a new Process is created.
+   */
+  id: long = 0
+
+  /**
+   * Process urn
+   */
+  urn: DataProcessUrn
+
+  /**
+   * The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some Processs might not have a standardized uri, which makes this field optional (i.e. kafka topic).
+   */
+  uri: optional Uri
+
+  /**
+   * input datasets of this process
+   */
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * output datasets of this process
+   */
+  outputs: optional array[DatasetUrn]
+}

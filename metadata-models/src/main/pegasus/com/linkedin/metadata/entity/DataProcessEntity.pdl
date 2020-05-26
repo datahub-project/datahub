@@ -2,20 +2,20 @@ namespace com.linkedin.metadata.entity
 
 import com.linkedin.common.DataPlatformUrn
 import com.linkedin.common.FabricType
-import com.linkedin.common.JobUrn
+import com.linkedin.common.DataProcessUrn
 
 /**
- * Data model for a Job entity
+ * Data model for a Data Process entity
  */
-record JobEntity {
+record DataProcessEntity {
 
   /**
-   * Urn for the Job
+   * Urn for the Data Process
    */
-  urn: JobUrn
+  urn: DataProcessUrn
 
   /**
-   * Job name(id)
+   * Data Process name(id)
    */
   name: optional string
 

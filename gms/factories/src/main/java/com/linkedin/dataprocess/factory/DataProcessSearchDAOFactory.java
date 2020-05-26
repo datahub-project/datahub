@@ -1,8 +1,8 @@
-package com.linkedin.job.factory;
+package com.linkedin.dataprocess.factory;
 
-import com.linkedin.metadata.configs.JobSearchConfig;
+import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
-import com.linkedin.metadata.search.JobDocument;
+import com.linkedin.metadata.search.DataProcessDocument;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -13,15 +13,14 @@ import org.springframework.context.annotation.DependsOn;
 import javax.annotation.Nonnull;
 
 @Configuration
-public class JobSearchDaoFactory {
+public class DataProcessSearchDAOFactory {
     @Autowired
     ApplicationContext applicationContext;
-
-    @Bean(name = "jobSearchDao")
+    @Bean(name = "dataProcessSearchDAO")
     @DependsOn({"elasticSearchRestHighLevelClient"})
     @Nonnull
     protected ESSearchDAO createInstance() {
-        return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), JobDocument.class,
-                new JobSearchConfig());
+        return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), DataProcessDocument.class,
+                new DataProcessSearchConfig());
     }
 }
