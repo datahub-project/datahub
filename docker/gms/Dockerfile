@@ -1,6 +1,6 @@
 FROM openjdk:8 as builder
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :gms:war:build -x gms:impl:checkRestModel -x :datahub-web:emberBuild -x :datahub-web:emberLintJs -x :datahub-web:emberWorkspaceTest\
+RUN cd datahub-src && ./gradlew :gms:war:build \
     && cp gms/war/build/libs/war.war ../gms.war && cd .. && rm -rf datahub-src
 
 
