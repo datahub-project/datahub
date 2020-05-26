@@ -27,12 +27,8 @@ record DataProcess includes DataProcessKey, ChangeAuditStamps, VersionTag {
   uri: optional Uri
 
   /**
-   * input datasets of this process
-   */
-  inputs: optional array[DatasetUrn]
+  *
+  */
+  dataProcessInfo: optional DataProcessInfo
 
-  /**
-   * output datasets of this process
-   */
-  outputs: optional array[DatasetUrn]
 }

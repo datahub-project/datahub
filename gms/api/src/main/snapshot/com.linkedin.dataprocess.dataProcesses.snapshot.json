@@ -289,45 +289,32 @@
       "doc" : "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some Processs might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
       "optional" : true
     }, {
-      "name" : "inputs",
+      "name" : "dataProcessInfo",
       "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.DatasetUrn"
+        "type" : "record",
+        "name" : "DataProcessInfo",
+        "doc" : "The inputs and outputs of this data process",
+        "fields" : [ {
+          "name" : "inputs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.DatasetUrn"
+          },
+          "doc" : "the inputs of the data process",
+          "optional" : true
+        }, {
+          "name" : "outputs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.DatasetUrn"
+          },
+          "doc" : "the outputs of the data process",
+          "optional" : true
+        } ]
       },
-      "doc" : "input datasets of this process",
-      "optional" : true
-    }, {
-      "name" : "outputs",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.DatasetUrn"
-      },
-      "doc" : "output datasets of this process",
-      "optional" : true
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "DataProcessInfo",
-    "namespace" : "com.linkedin.dataprocess",
-    "doc" : "The inputs and outputs of this data process",
-    "fields" : [ {
-      "name" : "inputs",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.DatasetUrn"
-      },
-      "doc" : "the inputs of the data process",
-      "optional" : true
-    }, {
-      "name" : "outputs",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.DatasetUrn"
-      },
-      "doc" : "the outputs of the data process",
       "optional" : true
     } ]
-  }, "com.linkedin.dataprocess.DataProcessKey", {
+  }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessKey", {
     "type" : "typeref",
     "name" : "DataProcessAspect",
     "namespace" : "com.linkedin.metadata.aspect",

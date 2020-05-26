@@ -1,9 +1,0 @@
-ARG BASE_IMAGE=base-image
-FROM $BASE_IMAGE as base-image
-
-FROM openjdk:8-jre-alpine as gms
-COPY --from=base-image ./gms.war ./gms.war
-COPY --from=base-image ./jetty-runner-9.4.20.v20190813.jar ./jetty-runner-9.4.20.v20190813.jar
-EXPOSE 8080
-
-CMD java -jar jetty-runner-9.4.20.v20190813.jar gms.war

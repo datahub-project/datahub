@@ -95,12 +95,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
 		ModelUtils.getAspectsFromSnapshot(processSnapshot).forEach(aspect -> {
 			if (aspect instanceof DataProcessInfo) {
 				DataProcessInfo processInfo = DataProcessInfo.class.cast(aspect);
-				if (processInfo.hasInputs()) {
-					value.setInputs(processInfo.getInputs());
-				}
-				if (processInfo.hasOutputs()) {
-					value.setOutputs(processInfo.getOutputs());
-				}
+				value.setDataProcessInfo(processInfo);
 			}
 		});
 
@@ -110,11 +105,11 @@ public class DataProcesses extends BaseSearchableEntityResource<
 	@Nonnull
 	private DataProcessInfo getDataProcessInfoAspect(@Nonnull DataProcess process) {
 		final DataProcessInfo processInfo = new DataProcessInfo();
-		if (process.hasInputs()) {
-			processInfo.setInputs(process.getInputs());
+		if (process.getDataProcessInfo().hasInputs()) {
+			processInfo.setInputs(process.getDataProcessInfo().getInputs());
 		}
-		if (process.hasOutputs()) {
-			processInfo.setOutputs(process.getOutputs());
+		if (process.getDataProcessInfo().hasOutputs()) {
+			processInfo.setOutputs(process.getDataProcessInfo().getOutputs());
 		}
 		return processInfo;
 	}

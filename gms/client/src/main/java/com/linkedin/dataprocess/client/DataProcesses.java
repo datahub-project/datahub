@@ -1,17 +1,14 @@
 package com.linkedin.dataprocess.client;
 
 import com.linkedin.common.urn.DataProcessUrn;
-import com.linkedin.dataprocess.DataProcess;
-import com.linkedin.dataprocess.DataProcessInfoRequestBuilders;
-import com.linkedin.dataprocess.DataProcessKey;
-import com.linkedin.dataprocess.DataProcessesRequestBuilders;
-import com.linkedin.metadata.configs.DataProcessSearchConfig;
+import com.linkedin.dataprocess.*;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.metadata.restli.SearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
+import com.linkedin.restli.client.CreateIdRequest;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
@@ -23,11 +20,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+
 public class DataProcesses extends BaseClient implements SearchableClient<DataProcess> {
 
     private static final DataProcessesRequestBuilders PROCESSES_REQUEST_BUILDERS = new DataProcessesRequestBuilders();
     private static final DataProcessInfoRequestBuilders PROCESS_INFO_REQUEST_BUILDERS = new DataProcessInfoRequestBuilders();
-    private static final DataProcessSearchConfig PROCESS_SEARCH_CONFIG = new DataProcessSearchConfig();
 
     protected DataProcesses(@Nonnull Client restliClient) {
         super(restliClient);
@@ -56,6 +53,15 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
                         entry -> getUrnFromKey(entry.getKey()),
                         entry -> entry.getValue().getEntity())
                 );
+    }
+
+    public void createDataProcessInfo(@Nonnull DataProcessUrn dataProcessUrn,
+                                   @Nonnull DataProcessInfo dataProcessInfo) throws RemoteInvocationException {
+        CreateIdRequest<Long, DataProcessInfo> request = PROCESS_INFO_REQUEST_BUILDERS.create()
+                .dataprocessKey(new ComplexResourceKey<>(toDataProcessKey(dataProcessUrn), new EmptyRecord()))
+                .input(dataProcessInfo)
+                .build();
+        _client.sendRequest(request).getResponse();
     }
 
     @Nonnull
@@ -89,6 +95,6 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
     @Override
     public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nullable Map<String, String> requestFilters, int limit)
             throws RemoteInvocationException {
-        return null;
+       return null;
     }
 }

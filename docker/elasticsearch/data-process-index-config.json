@@ -1,0 +1,230 @@
+{
+  "settings": {
+    "index": {
+      "max_ngram_diff" : "50",
+      "analysis": {
+        "filter": {
+          "autocomplete_filter": {
+            "type": "edge_ngram",
+            "min_gram": "3",
+            "max_gram": "50"
+          },
+          "custom_delimiter": {
+            "split_on_numerics": "false",
+            "split_on_case_change": "false",
+            "type": "word_delimiter",
+            "preserve_original": "true",
+            "catenate_words": "false"
+          }
+        },
+        "char_filter": {
+          "data_process_pattern": {
+            "pattern": "[.]",
+            "type": "pattern_replace",
+            "replacement": "/"
+          }
+        },
+        "normalizer": {
+          "my_normalizer": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom"
+          }
+        },
+        "analyzer": {
+          "whitespace_lowercase": {
+            "filter": [
+              "lowercase"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "slash_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "slash_tokenizer"
+          },
+          "data_process_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "data_process_pattern"
+          },
+          "comma_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "custom_browse": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "path_hierarchy_tokenizer"
+          },
+          "custom_ngram": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "custom_ngram"
+          },
+          "custom_keyword": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          },
+          "comma_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "delimit": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "data_process_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "data_process_pattern"
+          },
+          "custom_browse_slash": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "path_hierarchy"
+          }
+        },
+        "tokenizer": {
+          "path_hierarchy_tokenizer": {
+            "type": "path_hierarchy",
+            "replacement": "/",
+            "delimiter": "."
+          },
+          "custom_ngram": {
+            "type": "ngram",
+            "min_gram": "3",
+            "max_gram": "50"
+          },
+          "slash_tokenizer": {
+            "pattern": "[/]",
+            "type": "pattern"
+          },
+          "comma_tokenizer": {
+            "pattern": ",",
+            "type": "pattern"
+          },
+          "data_process_pattern": {
+            "pattern": "[./]",
+            "type": "pattern"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "browsePaths": {
+        "type": "text",
+        "fields": {
+          "length": {
+            "type": "token_count",
+            "analyzer": "slash_pattern"
+          }
+        },
+        "analyzer": "custom_browse_slash",
+        "fielddata": true
+      },
+      "origin": {
+        "type": "keyword",
+        "fields": {
+          "ngram": {
+            "type": "text",
+            "analyzer": "custom_ngram"
+          }
+        },
+        "normalizer": "my_normalizer"
+      },
+      "hasOwners": {
+        "type": "boolean"
+      },
+      "name": {
+        "type": "keyword",
+        "fields": {
+          "data_process_pattern_ngram": {
+            "type": "text",
+            "analyzer": "data_process_pattern_ngram"
+          },
+          "delimited": {
+            "type": "text",
+            "analyzer": "delimit"
+          },
+          "ngram": {
+            "type": "text",
+            "analyzer": "custom_ngram"
+          },
+          "pattern": {
+            "type": "text",
+            "analyzer": "data_process_pattern"
+          }
+        },
+        "normalizer": "my_normalizer"
+      },
+      "num_inputs": {
+        "type": "long"
+      },
+      "num_outputs": {
+        "type": "long"
+      },
+      "owners": {
+        "type": "text",
+        "fields": {
+          "ngram": {
+            "type": "text",
+            "analyzer": "comma_pattern_ngram"
+          }
+        },
+        "analyzer": "comma_pattern"
+      },
+      "orchestrator": {
+        "type": "keyword",
+        "fields": {
+          "ngram": {
+            "type": "text",
+            "analyzer": "custom_ngram"
+          }
+        },
+        "normalizer": "my_normalizer"
+      },
+      "urn": {
+        "type": "keyword",
+        "normalizer": "my_normalizer"
+      },
+      "inputs": {
+        "type": "keyword",
+        "normalizer": "my_normalizer"
+      },
+      "outputs": {
+        "type": "keyword",
+        "normalizer": "my_normalizer"
+      }
+    }
+  }
+}
