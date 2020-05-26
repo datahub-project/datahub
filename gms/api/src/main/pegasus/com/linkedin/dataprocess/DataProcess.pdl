@@ -27,7 +27,7 @@ record DataProcess includes DataProcessKey, ChangeAuditStamps, VersionTag {
   uri: optional Uri
 
   /**
-  *
+  * The data process info includes the datasets of input & output
   */
   dataProcessInfo: optional DataProcessInfo
 
