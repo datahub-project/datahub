@@ -1,7 +1,11 @@
 package com.linkedin.dataprocess.client;
 
 import com.linkedin.common.urn.DataProcessUrn;
-import com.linkedin.dataprocess.*;
+import com.linkedin.dataprocess.DataProcess;
+import com.linkedin.dataprocess.DataProcessInfoRequestBuilders;
+import com.linkedin.dataprocess.DataProcessesRequestBuilders;
+import com.linkedin.dataprocess.DataProcessKey;
+import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.metadata.restli.SearchableClient;

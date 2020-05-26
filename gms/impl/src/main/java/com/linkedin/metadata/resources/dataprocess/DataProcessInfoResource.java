@@ -17,17 +17,17 @@ public class DataProcessInfoResource extends BaseDataProcessesAspectResource<Dat
         super(DataProcessInfo.class);
     }
 
-	@Nonnull
-	@Override
-	@RestMethod.Create
-	public Task<CreateResponse> create(@Nonnull DataProcessInfo dataProcessInfo) {
-		return super.create(dataProcessInfo);
-	}
+    @Nonnull
+    @Override
+    @RestMethod.Create
+    public Task<CreateResponse> create(@Nonnull DataProcessInfo dataProcessInfo) {
+        return super.create(dataProcessInfo);
+    }
 
-	@Nonnull
-	@Override
-	@RestMethod.Get
-	public Task<DataProcessInfo> get(@QueryParam("version") @Optional("0") @Nonnull Long version) {
-		return super.get(version);
-	}
+    @Nonnull
+    @Override
+    @RestMethod.Get
+    public Task<DataProcessInfo> get(@QueryParam("version") @Optional("0") @Nonnull Long version) {
+        return super.get(version);
+    }
 }
