@@ -12,8 +12,8 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) first)
 - Agenda (TBD)
   * Quick intro - 5 mins
-  * [Demo] TBD
-  * [Demo] TBD
+  * [Demo] How to add a new aspect/feature for an existing entity in UI from Charlie - 10 mins
+  * [Demo] How to search over a new field from Jyoti - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
