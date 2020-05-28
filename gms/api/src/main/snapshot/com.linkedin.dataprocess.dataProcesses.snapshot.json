@@ -31,25 +31,6 @@
       "optional" : true
     } ]
   }, {
-    "type" : "record",
-    "name" : "ChangeAuditStamps",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
-    "fields" : [ {
-      "name" : "created",
-      "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
-    }, {
-      "name" : "lastModified",
-      "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
-    }, {
-      "name" : "deleted",
-      "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
-      "optional" : true
-    } ]
-  }, {
     "type" : "typeref",
     "name" : "DataProcessUrn",
     "namespace" : "com.linkedin.common",
@@ -221,25 +202,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false
     } ]
-  }, "com.linkedin.common.Time", {
-    "type" : "typeref",
-    "name" : "Uri",
-    "namespace" : "com.linkedin.common",
-    "ref" : "string",
-    "java" : {
-      "class" : "java.net.URI"
-    }
-  }, "com.linkedin.common.Urn", {
-    "type" : "record",
-    "name" : "VersionTag",
-    "namespace" : "com.linkedin.common",
-    "doc" : "A resource-defined string representing the resource state for the purpose of concurrency control",
-    "fields" : [ {
-      "name" : "versionTag",
-      "type" : "string",
-      "optional" : true
-    } ]
-  }, {
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataProcess",
     "namespace" : "com.linkedin.dataprocess",
@@ -273,22 +236,8 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated."
       } ]
-    }, "com.linkedin.common.ChangeAuditStamps", "com.linkedin.common.VersionTag" ],
+    } ],
     "fields" : [ {
-      "name" : "id",
-      "type" : "long",
-      "doc" : "Process unique identifier. System assigned value when a new Process is created.",
-      "default" : 0
-    }, {
-      "name" : "urn",
-      "type" : "com.linkedin.common.DataProcessUrn",
-      "doc" : "Process urn"
-    }, {
-      "name" : "uri",
-      "type" : "com.linkedin.common.Uri",
-      "doc" : "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some Processs might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
-      "optional" : true
-    }, {
       "name" : "dataProcessInfo",
       "type" : {
         "type" : "record",
@@ -312,6 +261,7 @@
           "optional" : true
         } ]
       },
+      "doc" : "The data process info includes the datasets of input & output",
       "optional" : true
     } ]
   }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessKey", {
