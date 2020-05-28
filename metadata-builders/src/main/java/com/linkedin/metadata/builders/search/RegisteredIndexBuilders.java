@@ -17,7 +17,7 @@ public class RegisteredIndexBuilders {
         {
           add(new CorpUserInfoIndexBuilder());
           add(new DatasetIndexBuilder());
-//          add(new JobInfoIndexBuilder());
+          add(new DataProcessIndexBuilder());
         }
       });
 

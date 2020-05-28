@@ -14,9 +14,9 @@ public class DataProcessesClient  extends BaseClient {
     @Nonnull
     protected DataProcessKey toDataProcessKey(@Nonnull DataProcessUrn urn) {
         return new DataProcessKey()
-                .setName(urn.getProcessNameEntity())
+                .setName(urn.getNameEntity())
                 .setOrigin(urn.getOriginEntity())
-                .setOrchestrator(urn.getDataProcessOrchestrator());
+                .setOrchestrator(urn.getOrchestrator());
     }
 
     @Nonnull

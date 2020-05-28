@@ -84,8 +84,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     protected DataProcessKey toKey(@Nonnull DataProcessUrn urn) {
         return new DataProcessKey()
-                .setOrchestrator(urn.getDataProcessOrchestrator())
-                .setName(urn.getProcessNameEntity())
+                .setOrchestrator(urn.getOrchestrator())
+                .setName(urn.getNameEntity())
                 .setOrigin(urn.getOriginEntity());
     }
 
@@ -93,10 +93,9 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     protected DataProcess toValue(@Nonnull DataProcessSnapshot processSnapshot) {
         final DataProcess value = new DataProcess()
-                .setOrchestrator(processSnapshot.getUrn().getDataProcessOrchestrator())
-                .setName(processSnapshot.getUrn().getProcessNameEntity())
-                .setOrigin(processSnapshot.getUrn().getOriginEntity())
-                .setUrn(processSnapshot.getUrn());
+                .setOrchestrator(processSnapshot.getUrn().getOrchestrator())
+                .setName(processSnapshot.getUrn().getNameEntity())
+                .setOrigin(processSnapshot.getUrn().getOriginEntity());
         ModelUtils.getAspectsFromSnapshot(processSnapshot).forEach(aspect -> {
             if (aspect instanceof DataProcessInfo) {
                 DataProcessInfo processInfo = DataProcessInfo.class.cast(aspect);
