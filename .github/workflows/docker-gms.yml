@@ -1,4 +1,4 @@
-name: Build and publish gms docker images to docker hub
+name: datahub-gms docker
 on: 
   push:
     branches:

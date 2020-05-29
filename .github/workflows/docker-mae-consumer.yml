@@ -1,4 +1,4 @@
-name: Build and publish mae-consumer docker images to docker hub
+name: datahub-mae-consumer docker
 on: 
   push:
     branches:
