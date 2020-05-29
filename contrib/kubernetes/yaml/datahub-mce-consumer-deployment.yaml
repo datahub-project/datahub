@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: datahub-mce-consumer
-          image: keremsahin/datahub-mce-consumer:latest
+          image: linkedin/datahub-mce-consumer:latest
           command: ["/bin/sh", "-c" ,"./mce-consumer-job/bin/mce-consumer-job"]
           env:
             - name: KAFKA_BOOTSTRAP_SERVER

@@ -15,7 +15,7 @@ Current chart version is `0.1.0`
 | global.datahub.gms.port | string | `"8080"` |  |
 | global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"keremsahin/datahub-frontend"` |  |
+| image.repository | string | `"linkedin/datahub-frontend"` |  |
 | image.tag | string | `"latest"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |

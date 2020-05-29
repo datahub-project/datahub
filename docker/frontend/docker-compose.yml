@@ -2,7 +2,7 @@
 version: '3.5'
 services:
   datahub-frontend:
-    image: keremsahin/datahub-frontend:latest
+    image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
     hostname: datahub-frontend
     container_name: datahub-frontend
     ports:

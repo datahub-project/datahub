@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: datahub-frontend
-          image: keremsahin/datahub-frontend:latest
+          image: linkedin/datahub-frontend:latest
           ports:
           - containerPort: 9001
           env:

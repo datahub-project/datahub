@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: keremsahin/datahub-frontend
+  repository: linkedin/datahub-frontend
   tag: "latest"
   pullPolicy: IfNotPresent
 

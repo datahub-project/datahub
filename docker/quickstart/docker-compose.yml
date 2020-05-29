@@ -176,7 +176,7 @@ services:
       - ELASTICSEARCH_PORT=9200
 
   datahub-gms:
-    image: keremsahin/datahub-gms:latest
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -205,7 +205,7 @@ services:
                                    java -jar jetty-runner-9.4.20.v20190813.jar gms.war'"
 
   datahub-frontend:
-    image: keremsahin/datahub-frontend:latest
+    image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
     hostname: datahub-frontend
     container_name: datahub-frontend
     ports:
@@ -220,7 +220,7 @@ services:
       - datahub-gms
 
   datahub-mae-consumer:
-    image: keremsahin/datahub-mae-consumer:latest
+    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
@@ -242,7 +242,7 @@ services:
               dockerize -wait http://neo4j:7474 -timeout 240s && java -jar mae-consumer-job.jar'"
 
   datahub-mce-consumer:
-    image: keremsahin/datahub-mce-consumer:latest
+    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
     ports:
