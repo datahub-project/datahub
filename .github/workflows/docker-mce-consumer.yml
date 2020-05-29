@@ -1,4 +1,4 @@
-name: Build and publish mce-consumer docker images to docker hub
+name: datahub-mce-consumer docker
 on: 
   push:
     branches:

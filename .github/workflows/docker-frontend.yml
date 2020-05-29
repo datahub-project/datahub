@@ -1,4 +1,4 @@
-name: Build and publish frontend docker images to docker hub
+name: datahub-frontend docker
 on: 
   push:
     branches:
