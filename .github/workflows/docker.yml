@@ -17,7 +17,23 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-gms
           tags: latest
-      
+
+      - uses: docker/build-push-action@v1
+        with:
+          dockerfile: ./docker/mce-consumer/Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: linkedin/datahub-mce-consumer
+          tags: latest
+    
+      - uses: docker/build-push-action@v1
+        with:
+          dockerfile: ./docker/mae-consumer/Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: linkedin/datahub-mae-consumer
+          tags: latest
+                    
       - uses: docker/build-push-action@v1
         with:
           dockerfile: ./docker/frontend/Dockerfile
