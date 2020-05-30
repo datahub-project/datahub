@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+  release:
+    types: [published, edited]
 
 jobs:
   build:
@@ -15,4 +17,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-mae-consumer
-          tags: latest
+          tag_with_ref: true
