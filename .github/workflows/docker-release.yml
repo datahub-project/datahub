@@ -1,6 +1,7 @@
 name: release-tagged docker images
 on: 
   release:
+    types: [created, edited, published]
 
 jobs:
   build:
