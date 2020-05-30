@@ -15,7 +15,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-gms
-          tags: $GITHUB_REF
+          tags: ${{ github.ref }}
           
       - uses: docker/build-push-action@v1
         with:
@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-mae-consumer
-          tags: $GITHUB_REF
+          tags: ${{ github.ref }}
       
       - uses: docker/build-push-action@v1
         with:
@@ -31,7 +31,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-mce-consumer
-          tags: $GITHUB_REF
+          tags: ${{ github.ref }}
       
       - uses: docker/build-push-action@v1
         with:
@@ -39,4 +39,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: linkedin/datahub-frontend
-          tags: $GITHUB_REF
+          tags: ${{ github.ref }}
