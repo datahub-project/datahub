@@ -2,7 +2,7 @@
 version: '3.5'
 services:
   datahub-gms:
-    image: keremsahin/datahub-gms:latest
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     hostname: datahub-gms
     container_name: datahub-gms
     ports:

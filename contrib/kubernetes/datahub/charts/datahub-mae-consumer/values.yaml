@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: keremsahin/datahub-mae-consumer
+  repository: linkedin/datahub-mae-consumer
   pullPolicy: IfNotPresent
   tag: latest
 

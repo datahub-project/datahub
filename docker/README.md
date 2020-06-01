@@ -1,11 +1,11 @@
 # Docker Images
 The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images 
-which are continuously deployed to [Docker Hub](https://hub.docker.com/u/keremsahin) with every commit to repository.
+which are continuously deployed to [Docker Hub](https://hub.docker.com/u/linkedin) with every commit to repository.
 
-* [**datahub-gms**](gms): [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-gms)](https://cloud.docker.com/repository/docker/keremsahin/datahub-gms/)
-* [**datahub-frontend**](frontend): [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-frontend)](https://cloud.docker.com/repository/docker/keremsahin/datahub-frontend/)
-* [**datahub-mce-consumer**](mce-consumer): [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mce-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mce-consumer/)
-* [**datahub-mae-consumer**](mae-consumer): [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mae-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mae-consumer/)
+* [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
+* [linkedin/datahub-frontend](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend/)
+* [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)
+* [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
 Above Docker images are created for DataHub specific use. You can check subdirectories to check how those images are
 generated via [Dockerbuild](https://docs.docker.com/engine/reference/commandline/build/) files or 
