@@ -1,12 +1,12 @@
 # DataHub MetadataAuditEvent (MAE) Consumer Docker Image
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mae-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mae-consumer/)
+[![datahub-mae-consumer docker](https://github.com/linkedin/datahub/workflows/datahub-mae-consumer%20docker/badge.svg)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22datahub-mae-consumer+docker%22)
 
 Refer to [DataHub MAE Consumer Job](../../metadata-jobs/mae-consumer-job) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
 ## Build
 ```
-docker image build -t keremsahin/datahub-mae-consumer -f docker/mae-consumer/Dockerfile .
+docker image build -t linkedin/datahub-mae-consumer -f docker/mae-consumer/Dockerfile .
 ```
 This command will build and deploy the image in your local store.
 

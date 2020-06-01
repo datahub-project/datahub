@@ -1,12 +1,12 @@
 # DataHub Generalized Metadata Store (GMS) Docker Image
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-gms)](https://cloud.docker.com/repository/docker/keremsahin/datahub-gms/)
+[![datahub-gms docker](https://github.com/linkedin/datahub/workflows/datahub-gms%20docker/badge.svg)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22datahub-gms+docker%22)
 
 Refer to [DataHub GMS Service](../../gms) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
 ## Build
 ```
-docker image build -t keremsahin/datahub-gms -f docker/gms/Dockerfile .
+docker image build -t linkedin/datahub-gms -f docker/gms/Dockerfile .
 ```
 This command will build and deploy the image in your local store.
 
