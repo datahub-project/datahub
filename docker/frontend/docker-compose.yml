@@ -3,6 +3,9 @@ version: '3.5'
 services:
   datahub-frontend:
     image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: docker/frontend/Dockerfile
     hostname: datahub-frontend
     container_name: datahub-frontend
     ports:

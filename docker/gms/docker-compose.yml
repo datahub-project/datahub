@@ -3,6 +3,9 @@ version: '3.5'
 services:
   datahub-gms:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: docker/gms/Dockerfile
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
@@ -17,10 +20,10 @@ services:
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
+      - NEO4J_HOST=neo4j:7474
       - NEO4J_URI=bolt://neo4j
       - NEO4J_USERNAME=neo4j
       - NEO4J_PASSWORD=datahub
-    command: "sh -c 'java -jar jetty-runner-9.4.20.v20190813.jar gms.war'"
 
 networks:
   default:
