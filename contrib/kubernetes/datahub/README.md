@@ -18,16 +18,16 @@ Current chart version is `0.0.1`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | datahub-frontend.enabled | bool | `true` |  |
-| datahub-frontend.image.repository | string | `"keremsahin/datahub-frontend"` |  |
+| datahub-frontend.image.repository | string | `"linkedin/datahub-frontend"` |  |
 | datahub-frontend.image.tag | string | `"latest"` |  |
 | datahub-gms.enabled | bool | `true` |  |
-| datahub-gms.image.repository | string | `"keremsahin/datahub-gms"` |  |
+| datahub-gms.image.repository | string | `"linkedin/datahub-gms"` |  |
 | datahub-gms.image.tag | string | `"latest"` |  |
 | datahub-mae-consumer.enabled | bool | `true` |  |
-| datahub-mae-consumer.image.repository | string | `"keremsahin/datahub-mae-consumer"` |  |
+| datahub-mae-consumer.image.repository | string | `"linkedin/datahub-mae-consumer"` |  |
 | datahub-mae-consumer.image.tag | string | `"latest"` |  |
 | datahub-mce-consumer.enabled | bool | `true` |  |
-| datahub-mce-consumer.image.repository | string | `"keremsahin/datahub-mce-consumer"` |  |
+| datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` |  |
 | datahub-mce-consumer.image.tag | string | `"latest"` |  |
 | global.datahub.appVersion | string | `"1.0"` |  |
 | global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |

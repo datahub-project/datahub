@@ -1,7 +1,7 @@
 FROM openjdk:8 as builder
-COPY . datahub-src
-RUN cd datahub-src && ./gradlew :gms:war:build \
-    && cp gms/war/build/libs/war.war ../gms.war && cd .. && rm -rf datahub-src
+COPY . /datahub-src
+RUN cd /datahub-src && ./gradlew :gms:war:build \
+    && cp gms/war/build/libs/war.war /gms.war
 
 
 FROM openjdk:8-jre-alpine

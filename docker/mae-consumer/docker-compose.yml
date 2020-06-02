@@ -2,7 +2,7 @@
 version: '3.5'
 services:
   datahub-mae-consumer:
-    image: keremsahin/datahub-mae-consumer:latest
+    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:

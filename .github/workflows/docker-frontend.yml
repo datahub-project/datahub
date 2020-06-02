@@ -1,0 +1,20 @@
+name: datahub-frontend docker
+on: 
+  push:
+    branches:
+      - master
+  release:
+    types: [published, edited]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: docker/build-push-action@v1
+        with:
+          dockerfile: ./docker/frontend/Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: linkedin/datahub-frontend
+          tag_with_ref: true

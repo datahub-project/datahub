@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: datahub-gms
-          image: keremsahin/datahub-gms:latest
+          image: linkedin/datahub-gms:latest
           ports:
           - containerPort: 8080
           command: ["/bin/sh", "-c" ,"java -jar jetty-runner-9.4.20.v20190813.jar gms.war"]

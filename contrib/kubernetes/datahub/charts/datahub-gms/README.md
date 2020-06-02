@@ -29,7 +29,7 @@ Current chart version is `0.1.0`
 | global.sql.datasource.url | string | `"jdbc:mysql://192.168.0.104:3306/datahub?verifyServerCertificate=false\u0026useSSL=true"` |  |
 | global.sql.datasource.username | string | `"datahub"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"keremsahin/datahub-gms"` |  |
+| image.repository | string | `"linkedin/datahub-gms"` |  |
 | image.tag | string | `"latest"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |

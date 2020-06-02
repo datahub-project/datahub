@@ -1,12 +1,12 @@
 # DataHub MetadataChangeEvent (MCE) Consumer Docker Image
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mce-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mce-consumer/)
+[![datahub-mce-consumer docker](https://github.com/linkedin/datahub/workflows/datahub-mce-consumer%20docker/badge.svg)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22datahub-mce-consumer+docker%22)
 
 Refer to [DataHub MCE Consumer Job](../../metadata-jobs/mce-consumer-job) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
 ## Build
 ```
-docker image build -t keremsahin/datahub-mce-consumer -f docker/mce-consumer/Dockerfile .
+docker image build -t linkedin/datahub-mce-consumer -f docker/mce-consumer/Dockerfile .
 ```
 This command will build and deploy the image in your local store.
 

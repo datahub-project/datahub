@@ -16,7 +16,7 @@ Current chart version is `0.1.0`
 | global.hostAliases[0].hostnames[3] | string | `"neo4j"` |  |
 | global.hostAliases[0].ip | string | `"192.168.0.104"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
-| image.repository | string | `"keremsahin/datahub-mae-consumer"` |  |
+| image.repository | string | `"linkedin/datahub-mae-consumer"` |  |
 | image.tag | string | `"latest"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |

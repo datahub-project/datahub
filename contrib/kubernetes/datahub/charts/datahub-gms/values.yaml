@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: keremsahin/datahub-gms
+  repository: linkedin/datahub-gms
   pullPolicy: IfNotPresent
   tag: latest
 
