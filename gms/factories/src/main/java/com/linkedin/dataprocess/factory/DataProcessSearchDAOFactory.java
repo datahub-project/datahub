@@ -14,8 +14,10 @@ import javax.annotation.Nonnull;
 
 @Configuration
 public class DataProcessSearchDAOFactory {
+
     @Autowired
     ApplicationContext applicationContext;
+
     @Bean(name = "dataProcessSearchDAO")
     @DependsOn({"elasticSearchRestHighLevelClient"})
     @Nonnull

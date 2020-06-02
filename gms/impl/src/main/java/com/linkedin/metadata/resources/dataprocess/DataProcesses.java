@@ -9,7 +9,7 @@ import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
-import com.linkedin.metadata.search.CorpUserInfoDocument;
+import com.linkedin.metadata.search.DataProcessDocument;
 import com.linkedin.metadata.snapshot.DataProcessSnapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
@@ -39,7 +39,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     DataProcessUrn,
     DataProcessSnapshot,
     DataProcessAspect,
-    CorpUserInfoDocument> {
+    DataProcessDocument> {
     // @formatter:on
 
 
@@ -58,7 +58,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
 
     @Nonnull
     @Override
-    protected BaseSearchDAO<CorpUserInfoDocument> getSearchDAO() {
+    protected BaseSearchDAO<DataProcessDocument> getSearchDAO() {
         return _esSearchDAO;
     }
 

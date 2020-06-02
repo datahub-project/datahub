@@ -20,9 +20,9 @@ record DataProcessEntity {
   name: optional string
 
   /**
-   * Platform urn for the dataset in the form of urn:li:platform:{platform_name}
+   * Process Orchestrator for this process in the form. Options can be Airflow, Azkaban, Azure Data Factory
    */
-  platform: optional DataPlatformUrn
+   orchestrator: optional string
 
   /**
    * Fabric type where dataset belongs to or where it was generated.

@@ -10,7 +10,7 @@ import com.linkedin.common.Uri
 record DataProcess includes DataProcessKey {
 
   /**
-  * The data process info includes the datasets of input & output
+  * Metadata associated with a data process including input and output datasets
   */
   dataProcessInfo: optional DataProcessInfo
 

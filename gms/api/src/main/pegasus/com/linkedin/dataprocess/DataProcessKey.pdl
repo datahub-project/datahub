@@ -26,7 +26,7 @@ record DataProcessKey {
   name: string
 
   /**
-   * Fabric type where dataset belongs to or where it was generated.
+   * Fabric type where the job is deployed or executed.
    */
   origin: FabricType
 }

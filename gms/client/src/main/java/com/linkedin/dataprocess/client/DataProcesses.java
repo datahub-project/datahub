@@ -92,13 +92,19 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
     @Override
     public CollectionResponse<DataProcess> search(@Nonnull String input, @Nullable Map<String, String> requestFilters, int start, int count)
             throws RemoteInvocationException {
-        return null;
+        throw new UnsupportedOperationException(
+                String.format("%s doesn't support search feature yet,",
+                        this.getClass().getName())
+        );
     }
 
     @Nonnull
     @Override
     public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nullable Map<String, String> requestFilters, int limit)
             throws RemoteInvocationException {
-       return null;
+        throw new UnsupportedOperationException(
+                String.format("%s doesn't support auto completion feature yet,",
+                        this.getClass().getName())
+        );
     }
 }

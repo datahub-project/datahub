@@ -20,12 +20,18 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nullable
     @Override
     public List<DataProcessDocument> getDocumentsToUpdate(@Nonnull RecordTemplate snapshot) {
-        return null;
+        throw new UnsupportedOperationException(
+                String.format("%s doesn't support this feature yet,",
+                        this.getClass().getName())
+        );
     }
 
     @Nonnull
     @Override
     public Class<DataProcessDocument> getDocumentType() {
-        return null;
+        throw new UnsupportedOperationException(
+                String.format("%s doesn't support this feature yet,",
+                        this.getClass().getName())
+        );
     }
 }
