@@ -1,6 +1,8 @@
 #! /usr/bin/python
 import sys
 import time
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
 from pyhive import hive
 from TCLIService.ttypes import TOperationState
 
@@ -16,7 +18,7 @@ def hive_query(query):
     Execute the query to the HiveStore.
     """
     cursor = hive.connect(HIVESTORE).cursor()
-    cursor.execute(query, async=True)
+    cursor.execute(query, async_=True)
     status = cursor.poll().operationState
     while status in (TOperationState.INITIALIZED_STATE, TOperationState.RUNNING_STATE):
         logs = cursor.fetch_logs()
@@ -49,9 +51,6 @@ def produce_hive_dataset_mce(mce):
     """
     Produce MetadataChangeEvent records.
     """
-    from confluent_kafka import avro
-    from confluent_kafka.avro import AvroProducer
-
     conf = {'bootstrap.servers': BOOTSTRAP,
             'schema.registry.url': SCHEMAREGISTRY}
     record_schema = avro.load(AVROLOADPATH)

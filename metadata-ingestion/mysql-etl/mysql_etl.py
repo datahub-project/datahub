@@ -3,6 +3,8 @@ import sys
 import time
 import mysql.connector
 from mysql.connector import Error
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
 
 HOST = 'HOST'
 DATABASE = 'DATABASE'
@@ -19,7 +21,7 @@ def build_mysql_dataset_mce(dataset_name, schema, schema_version):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, fields, sys_time = "urn:li:corpuser:datahub", [], long(time.time())
+    actor, fields, sys_time = "urn:li:corpuser:datahub", [], time.time()
 
     owner = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":0,"actor":actor}}
 
@@ -41,9 +43,6 @@ def produce_mysql_dataset_mce(mce):
     """
     Produce MetadataChangeEvent records.
     """
-    from confluent_kafka import avro
-    from confluent_kafka.avro import AvroProducer
-
     conf = {'bootstrap.servers': BOOTSTRAP,
             'schema.registry.url': SCHEMAREGISTRY}
     record_schema = avro.load(AVROLOADPATH)
