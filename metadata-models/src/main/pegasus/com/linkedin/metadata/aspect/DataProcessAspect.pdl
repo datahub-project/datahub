@@ -7,4 +7,4 @@ import com.linkedin.dataprocess.DataProcessInfo
 /**
  * A union of all supported metadata aspects for a data process
  */
-typeref DataProcessAspect = union[Ownership, Status, DataProcessInfo]
+typeref DataProcessAspect = union[Ownership, DataProcessInfo]

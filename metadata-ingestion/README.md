@@ -48,6 +48,11 @@ Flushing records...
 ```
 This will bootstrap DataHub with sample datasets and sample users.
 
+> ***Note***
+> There is a [known issue](https://github.com/fastavro/fastavro/issues/292) with the Python Avro serialization library
+> that can lead to unexpected result when it comes to union of types. 
+> Always [use the tuple notation](https://fastavro.readthedocs.io/en/latest/writer.html#using-the-tuple-notation-to-specify-which-branch-of-a-union-to-take) to avoid encountering these difficult-to-debug issues.
+
 ## Ingest metadata from LDAP to DataHub
 The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
