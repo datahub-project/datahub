@@ -8,20 +8,28 @@ import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResultMetadata;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.DataProcessDocument;
 import com.linkedin.metadata.snapshot.DataProcessSnapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import com.linkedin.restli.server.CollectionResult;
+import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.Finder;
 import com.linkedin.restli.server.annotations.Optional;
+import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
@@ -141,6 +149,17 @@ public class DataProcesses extends BaseSearchableEntityResource<
             @Nonnull Set<ComplexResourceKey<DataProcessKey, EmptyRecord>> keys,
             @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
         return super.batchGet(keys, aspectNames);
+    }
+
+    @Finder(FINDER_SEARCH)
+    @Override
+    @Nonnull
+    public Task<CollectionResult<DataProcess, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
+                                                                            @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+                                                                            @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+                                                                            @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+                                                                            @PagingContextParam @Nonnull PagingContext pagingContext) {
+        return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
     }
 
     @Action(name = ACTION_INGEST)
