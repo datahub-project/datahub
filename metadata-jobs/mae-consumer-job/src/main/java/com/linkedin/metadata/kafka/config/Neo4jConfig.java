@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka.config;
 
-import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.Driver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
