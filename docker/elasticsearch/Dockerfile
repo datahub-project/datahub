@@ -14,5 +14,5 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 CMD dockerize -wait http://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT \
             -timeout 120s; \
             curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/corpuserinfodocument --data @corpuser-index-config.json; \
-            curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/datasetdocument --data @data-process-index-config.json; \
+            curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/dataprocessdocument --data @dataprocess-index-config.json; \
             curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/datasetdocument --data @dataset-index-config.json
