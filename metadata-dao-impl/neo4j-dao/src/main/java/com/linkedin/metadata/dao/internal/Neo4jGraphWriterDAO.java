@@ -13,9 +13,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Session;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
@@ -79,9 +79,9 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
    * @param statement a statement with parameters to be executed
    */
   @Nonnull
-  private StatementResult runQuery(@Nonnull Statement statement) throws Exception {
+  private List<Record> runQuery(@Nonnull Statement statement) throws Exception {
     try (final Session session = _driver.session()) {
-      return session.run(statement.getCommandText(), statement.getParams());
+      return session.run(statement.getCommandText(), statement.getParams()).list();
     }
   }
 
@@ -106,8 +106,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
 
-    final StatementResult result = runQuery(buildStatement(statement, params));
-    return result.list().stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
+    final List<Record> result = runQuery(buildStatement(statement, params));
+    return result.stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
   }
 
   // used in testing
@@ -129,8 +129,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     params.put("sourceUrn", sourceUrn.toString());
     params.put("destinationUrn", destinationUrn.toString());
 
-    final StatementResult result = runQuery(buildStatement(statement, params));
-    return result.list().stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
+    final List<Record> result = runQuery(buildStatement(statement, params));
+    return result.stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
   }
 
   // used in testing
@@ -146,8 +146,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Map<String, Object> params = new HashMap<>();
     params.put("sourceUrn", sourceUrn.toString());
 
-    final StatementResult result = runQuery(buildStatement(statement, params));
-    return result.list().stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
+    final List<Record> result = runQuery(buildStatement(statement, params));
+    return result.stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
   }
 
   @Nonnull

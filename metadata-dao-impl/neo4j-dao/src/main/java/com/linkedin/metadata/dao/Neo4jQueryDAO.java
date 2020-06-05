@@ -11,14 +11,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.javatuples.Triplet;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Record;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
-import org.neo4j.driver.v1.Value;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Value;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
@@ -49,13 +49,13 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
       @Nonnull Statement queryStatement) {
     EntityValidator.validateEntitySchema(entityClass);
 
-    return runQuery(queryStatement).list(record -> nodeRecordToEntity(entityClass, record));
+    return runQuery(queryStatement, record -> nodeRecordToEntity(entityClass, record));
   }
 
   @Nonnull
   @Override
   public List<RecordTemplate> findMixedTypesEntities(@Nonnull Statement queryStatement) {
-    return runQuery(queryStatement).list(this::nodeRecordToEntity);
+    return runQuery(queryStatement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -96,7 +96,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
     final Statement statement = buildStatement(statementString, offset, count);
 
-    return runQuery(statement).list(this::nodeRecordToEntity);
+    return runQuery(statement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -145,7 +145,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     final String statementString = String.format(matchTemplate.toString(), srcType, srcCriteria);
     final Statement statement = buildStatement(statementString, offset, count);
 
-    return runQuery(statement).list(this::nodeRecordToEntity);
+    return runQuery(statement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -163,8 +163,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     RelationshipValidator.validateRelationshipSchema(relationshipType);
 
     return runQuery(findEdges(sourceEntityClass, sourceEntityFilter, destinationEntityClass, destinationEnityFilter,
-        relationshipType, relationshipFilter, offset, count)).list(
-        record -> edgeRecordToRelationship(relationshipType, record));
+        relationshipType, relationshipFilter, offset, count), record -> edgeRecordToRelationship(relationshipType, record));
   }
 
   @Nonnull
@@ -173,24 +172,26 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
       @Nonnull Class<RELATIONSHIP> relationshipClass, @Nonnull Statement queryStatement) {
     RelationshipValidator.validateRelationshipSchema(relationshipClass);
 
-    return runQuery(queryStatement).list(record -> edgeRecordToRelationship(relationshipClass, record));
+    return runQuery(queryStatement, record -> edgeRecordToRelationship(relationshipClass, record));
   }
 
   @Nonnull
   @Override
   public List<RecordTemplate> findMixedTypesRelationships(@Nonnull Statement queryStatement) {
-    return runQuery(queryStatement).list(this::edgeRecordToRelationship);
+    return runQuery(queryStatement, this::edgeRecordToRelationship);
   }
 
   /**
    * Runs a query statement with parameters and return StatementResult
    *
    * @param statement a statement with parameters to be executed
+   * @param mapperFunction lambda to transform query result
+   * @return List<T> list of elements in the query result
    */
   @Nonnull
-  private StatementResult runQuery(@Nonnull Statement statement) {
+  private <T> List<T> runQuery(@Nonnull Statement statement, @Nonnull Function<Record, T> mapperFunction) {
     try (final Session session = _driver.session()) {
-      return session.run(statement.getCommandText(), statement.getParams());
+      return session.run(statement.getCommandText(), statement.getParams()).list(mapperFunction);
     }
   }
 
