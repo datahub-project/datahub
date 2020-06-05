@@ -4,21 +4,15 @@
       "query_string": {
         "query": "$INPUT",
         "fields": [
-          "name^4"
+          "name^4",
+          "orchestrator"
          ],
         "default_operator": "and",
         "analyzer": "standard"
       }
     },
     "functions": [
-      {
-        "filter": {
-          "term": {
-            "active": true
-          }
-        },
-        "weight": 2
-      }
+
     ],
     "score_mode": "multiply"
   }

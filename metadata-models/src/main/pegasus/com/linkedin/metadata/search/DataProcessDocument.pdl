@@ -24,12 +24,12 @@ record DataProcessDocument includes BaseDocument {
   orchestrator: optional string
 
   /**
-   * LDAP usernames of corp users who are the owners of this dataset
+   * LDAP usernames of corp users who are the owners of this process
    */
   owners: optional array[string]
 
   /**
-   * Flag to indicate if the dataset has non empty corp users as owners or not.
+   * Flag to indicate if the process has non empty corp users as owners or not.
    */
   hasOwners: optional boolean
 

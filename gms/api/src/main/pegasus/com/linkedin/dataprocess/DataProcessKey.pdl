@@ -8,7 +8,7 @@ import com.linkedin.common.FabricType
 record DataProcessKey {
 
   /**
-   * Standardized orchestration platform urn where process is running. It can be Azure Data Factory or Sqoop script
+   * Standardized orchestration platform where process is running. It can be Azure Data Factory or Sqoop script
    */
   @validate.strlen = {
     "max" : 500,

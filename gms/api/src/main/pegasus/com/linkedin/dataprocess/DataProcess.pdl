@@ -1,9 +1,5 @@
 namespace com.linkedin.dataprocess
 
-import com.linkedin.common.DataProcessUrn
-import com.linkedin.common.DatasetUrn
-import com.linkedin.common.Uri
-
 /**
  * Spec. for a process. A collection of data conforming to a single schema that can evolve over time.
  */
