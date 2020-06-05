@@ -23,7 +23,8 @@ namespace com.linkedin.common
   }, {
     "type" : "string",
     "name" : "orchestrator",
-    "doc" : "Standardized Orchestrator  where data process is defined."
+    "doc" : "Standardized Orchestrator where data process is defined.",
+    "maxLength" : 100
   }, {
     "type" : "com.linkedin.common.FabricType",
     "name" : "origin",
