@@ -87,6 +87,9 @@ services:
     depends_on:
       - broker
       - schema-registry
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
 
   schema-registry:
     image: confluentinc/cp-schema-registry:5.4.0
