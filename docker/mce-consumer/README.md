@@ -4,18 +4,13 @@
 Refer to [DataHub MCE Consumer Job](../../metadata-jobs/mce-consumer-job) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
-## Build
+## Build & Run
 ```
-docker image build -t linkedin/datahub-mce-consumer -f docker/mce-consumer/Dockerfile .
+cd docker/mce-consumer && docker-compose up --build
 ```
-This command will build and deploy the image in your local store.
+This command will rebuild the docker image and start a container based on the image.
 
-## Run container
-```
-cd docker/mce-consumer && docker-compose pull && docker-compose up
-```
-This command will start the container. If you have the image available in your local store, this image will be used
-for the container otherwise it will download the `latest` image from Docker Hub and then start that.
+To start a container using a previously built image, run the same command without the `--build` flag.
 
 ### Container configuration
 

@@ -3,6 +3,9 @@ version: '3.5'
 services:
   datahub-mce-consumer:
     image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: docker/mce-consumer/Dockerfile
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
     ports:

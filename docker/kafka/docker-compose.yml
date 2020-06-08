@@ -30,22 +30,16 @@ services:
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
-    image: confluentinc/cp-kafka:5.4.0
+    build:
+      context: .
     hostname: kafka-setup
     container_name: kafka-setup
     depends_on:
       - broker
       - schema-registry
-    command: "bash -c 'echo Waiting for Kafka to be ready... && \
-                       cub kafka-ready -b broker:29092 1 60 && \
-                       kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --topic MetadataAuditEvent && \
-                       kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --topic MetadataChangeEvent && \
-                       kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --topic FailedMetadataChangeEvent'"
     environment:
-      # The following settings are listed here only to satisfy the image's requirements.
-      # We override the image's `command` anyways, hence this container will not start a broker.
-      KAFKA_BROKER_ID: ignored
-      KAFKA_ZOOKEEPER_CONNECT: ignored
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
 
   kafka-rest-proxy:
     image: confluentinc/cp-kafka-rest:5.4.0
