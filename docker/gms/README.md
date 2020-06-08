@@ -4,18 +4,14 @@
 Refer to [DataHub GMS Service](../../gms) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
-## Build
-```
-docker image build -t linkedin/datahub-gms -f docker/gms/Dockerfile .
-```
-This command will build and deploy the image in your local store.
 
-## Run container
+## Build & Run
 ```
-cd docker/gms && docker-compose pull && docker-compose up
+cd docker/gms && docker-compose up --build
 ```
-This command will start the container. If you have the image available in your local store, this image will be used
-for the container otherwise it will download the `latest` image from Docker Hub and then start that.
+This command will rebuild the local docker image and start a container based on the image.
+
+To start a container using an existing image, run the same command without the `--build` flag.
 
 ### Container configuration
 #### External Port
@@ -66,6 +62,7 @@ The value of `ELASTICSEARCH_HOST` variable should be set to the host name of the
 
 ```
 environment:
+  - NEO4J_HOST=neo4j:7474
   - NEO4J_URI=bolt://neo4j
   - NEO4J_USERNAME=neo4j
   - NEO4J_PASSWORD=datahub
