@@ -1,7 +1,7 @@
 {
   "settings": {
     "index": {
-      "max_ngram_diff" : "50",
+      "max_ngram_diff": "50",
       "analysis": {
         "filter": {
           "autocomplete_filter": {
