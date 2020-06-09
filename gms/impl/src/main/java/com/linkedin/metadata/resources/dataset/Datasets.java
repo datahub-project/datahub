@@ -150,6 +150,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
     if (dataset.hasDeprecation()) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
     }
+
     aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, new Status().setRemoved(dataset.isRemoved())));
     return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
   }

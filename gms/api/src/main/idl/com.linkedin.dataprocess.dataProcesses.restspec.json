@@ -1,0 +1,107 @@
+{
+  "name" : "dataProcesses",
+  "namespace" : "com.linkedin.dataprocess",
+  "path" : "/dataProcesses",
+  "schema" : "com.linkedin.dataprocess.DataProcess",
+  "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
+  "collection" : {
+    "identifier" : {
+      "name" : "dataprocess",
+      "type" : "com.linkedin.dataprocess.DataProcessKey",
+      "params" : "com.linkedin.restli.common.EmptyRecord"
+    },
+    "supports" : [ "batch_get", "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    } ],
+    "finders" : [ {
+      "name" : "search",
+      "parameters" : [ {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      } ],
+      "metadata" : {
+        "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+      },
+      "pagingSupported" : true
+    } ],
+    "actions" : [ {
+      "name" : "backfill",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.DataProcessSnapshot"
+    }, {
+      "name" : "ingest",
+      "parameters" : [ {
+        "name" : "snapshot",
+        "type" : "com.linkedin.metadata.snapshot.DataProcessSnapshot"
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/dataProcesses/{dataprocess}",
+      "subresources" : [ {
+        "name" : "dataProcessInfo",
+        "namespace" : "com.linkedin.dataprocess",
+        "path" : "/dataProcesses/{dataprocess}/dataProcessInfo",
+        "schema" : "com.linkedin.dataprocess.DataProcessInfo",
+        "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "dataProcessInfoId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/dataProcesses/{dataprocess}/dataProcessInfo/{dataProcessInfoId}"
+          }
+        }
+      } ]
+    }
+  }
+}

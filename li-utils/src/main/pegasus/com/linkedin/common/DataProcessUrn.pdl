@@ -1,0 +1,35 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized process identifier.
+ */
+@java = {
+  "class" : "com.linkedin.common.urn.DataProcessUrn"
+}
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:wherehows",
+  "entityType" : "dataProcess",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataProcess",
+  "doc" : "Standardized process identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "name",
+    "doc" : "process name i.e. an ETL job name",
+    "type" : "string",
+    "maxLength" : 25
+  }, {
+    "type" : "string",
+    "name" : "orchestrator",
+    "doc" : "Standardized Orchestrator where data process is defined.",
+    "maxLength" : 100
+  }, {
+    "type" : "com.linkedin.common.FabricType",
+    "name" : "origin",
+    "doc" : "Fabric type where dataset belongs to or where it was generated."
+  } ],
+  "maxLength" : 284
+}
+typeref DataProcessUrn = string

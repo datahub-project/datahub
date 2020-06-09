@@ -20,7 +20,6 @@
         "name" : "Urn",
         "ref" : "string",
         "java" : {
-          "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
           "class" : "com.linkedin.common.urn.Urn"
         }
       },
@@ -57,26 +56,25 @@
     "doc" : "Standardized data platforms available",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.DataPlatformUrnCoercer",
       "class" : "com.linkedin.common.urn.DataPlatformUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "dataPlatform",
-        "owningTeam" : "urn:li:internalTeam:wherehows",
         "constructable" : true,
+        "doc" : "Standardized data platforms available",
+        "entityType" : "dataPlatform",
+        "fields" : [ {
+          "doc" : "data platform name i.e. hdfs, oracle, espresso",
+          "maxLength" : 25,
+          "name" : "platformName",
+          "type" : "string"
+        } ],
+        "maxLength" : 45,
         "name" : "DataPlatform",
         "namespace" : "li",
-        "doc" : "Standardized data platforms available",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "platformName",
-          "doc" : "data platform name i.e. hdfs, oracle, espresso",
-          "type" : "string",
-          "maxLength" : 25
-        } ],
-        "maxLength" : 45
+        "owningTeam" : "urn:li:internalTeam:wherehows"
       }
     }
   }, {
@@ -86,34 +84,33 @@
     "doc" : "Standardized dataset identifier.",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.DatasetUrnCoercer",
       "class" : "com.linkedin.common.urn.DatasetUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "dataset",
-        "owningTeam" : "urn:li:internalTeam:datahub",
         "constructable" : true,
-        "name" : "Dataset",
-        "namespace" : "li",
         "doc" : "Standardized dataset identifier.",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "entityType" : "dataset",
         "fields" : [ {
-          "name" : "platform",
           "doc" : "Standardized platform urn where dataset is defined.",
+          "name" : "platform",
           "type" : "com.linkedin.common.urn.DataPlatformUrn"
         }, {
-          "name" : "datasetName",
           "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
-          "type" : "string",
-          "maxLength" : 210
+          "maxLength" : 210,
+          "name" : "datasetName",
+          "type" : "string"
         }, {
-          "name" : "origin",
           "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "name" : "origin",
           "type" : "com.linkedin.common.FabricType"
         } ],
-        "maxLength" : 284
+        "maxLength" : 284,
+        "name" : "Dataset",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
   }, {
@@ -123,10 +120,10 @@
     "doc" : "Fabric group type",
     "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
     "symbolDocs" : {
+      "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration (staging) fabrics",
-      "PROD" : "Designates production fabrics",
-      "CORP" : "Designates corporation fabrics"
+      "PROD" : "Designates production fabrics"
     }
   }, {
     "type" : "typeref",
@@ -139,19 +136,19 @@
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
+        "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
         "entityType" : "fabric",
-        "owningTeam" : "urn:li:internalTeam:Tools",
+        "fields" : [ {
+          "doc" : "",
+          "maxLength" : 36,
+          "name" : "fabricName",
+          "type" : "string"
+        } ],
+        "maxLength" : 50,
         "name" : "Fabric",
         "namespace" : "li",
-        "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "fabricName",
-          "doc" : "",
-          "type" : "string",
-          "maxLength" : 36
-        } ],
-        "maxLength" : 50
+        "owningTeam" : "urn:li:internalTeam:Tools"
       }
     }
   }, {
@@ -174,8 +171,8 @@
               "name" : "Url",
               "ref" : "string",
               "java" : {
-                "coercerClass" : "com.linkedin.common.url.UrlCoercer",
-                "class" : "com.linkedin.common.url.Url"
+                "class" : "com.linkedin.common.url.Url",
+                "coercerClass" : "com.linkedin.common.url.UrlCoercer"
               }
             },
             "doc" : "Link to an engineering design document or a wiki page."
@@ -209,11 +206,11 @@
         "doc" : "Owner category or owner role",
         "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
         "symbolDocs" : {
-          "DEVELOPER" : "A person or group that is in charge of developing the code",
+          "CONSUMER" : "A person, group, or service that consumes the data",
           "DATAOWNER" : "A person or group that is owning the data",
           "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+          "DEVELOPER" : "A person or group that is in charge of developing the code",
           "PRODUCER" : "A person, group, or service that produces/generates the data",
-          "CONSUMER" : "A person, group, or service that consumes the data",
           "STAKEHOLDER" : "A person or a group that has direct business interest"
         }
       },
@@ -236,9 +233,9 @@
               "FILE_SYSTEM" : "File system, e.g. file/directory owner",
               "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
               "MANUAL" : "Manually provided by a user",
+              "OTHER" : "Other sources",
               "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
-              "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN",
-              "OTHER" : "Other sources"
+              "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN"
             }
           },
           "doc" : "The type of the source"
@@ -344,8 +341,8 @@
         "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
         "validate" : {
           "strlen" : {
-            "min" : 1,
-            "max" : 500
+            "max" : 500,
+            "min" : 1
           }
         }
       }, {
@@ -375,11 +372,11 @@
         "name" : "PlatformNativeType",
         "symbols" : [ "TABLE", "VIEW", "DIRECTORY", "STREAM", "BUCKET" ],
         "symbolDocs" : {
-          "TABLE" : "Table",
-          "VIEW" : "View",
+          "BUCKET" : "Bucket in key value store",
           "DIRECTORY" : "Directory in file system",
           "STREAM" : "Stream",
-          "BUCKET" : "Bucket in key value store"
+          "TABLE" : "Table",
+          "VIEW" : "View"
         }
       },
       "doc" : "The native format for the data platform",
@@ -608,8 +605,8 @@
           "doc" : "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
           "validate" : {
             "strlen" : {
-              "min" : 1,
-              "max" : 500
+              "max" : 500,
+              "min" : 1
             }
           }
         }, {

@@ -3,4 +3,4 @@ namespace com.linkedin.metadata.snapshot
 /**
  * A union of all supported metadata snapshot types.
  */
-typeref Snapshot = union[CorpUserSnapshot, DatasetSnapshot]
+typeref Snapshot = union[CorpUserSnapshot, DatasetSnapshot, DataProcessSnapshot]

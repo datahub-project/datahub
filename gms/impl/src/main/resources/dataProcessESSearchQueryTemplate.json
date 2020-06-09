@@ -1,0 +1,19 @@
+{
+  "function_score": {
+    "query": {
+      "query_string": {
+        "query": "$INPUT",
+        "fields": [
+          "name^4",
+          "orchestrator"
+         ],
+        "default_operator": "and",
+        "analyzer": "standard"
+      }
+    },
+    "functions": [
+
+    ],
+    "score_mode": "multiply"
+  }
+}

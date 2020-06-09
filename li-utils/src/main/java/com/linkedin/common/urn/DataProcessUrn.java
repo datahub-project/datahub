@@ -12,27 +12,27 @@ import static com.linkedin.common.urn.UrnUtils.toFabricType;
 public class DataProcessUrn extends Urn {
     public static final String ENTITY_TYPE = "dataProcess";
 
-    private final String dataJobNameEntity;
+    private final String nameEntity;
 
     private static final String CONTENT_FORMAT = "(%s,%s,%s)";
 
-    private final String dataJobOrchestrator;
+    private final String orchestrator;
 
     private final FabricType originEntity;
 
     public DataProcessUrn(String orchestrator, String name, FabricType origin) {
         super(ENTITY_TYPE, String.format(CONTENT_FORMAT, orchestrator, name, origin.name()));
-        this.dataJobOrchestrator = orchestrator;
-        this.dataJobNameEntity = name;
+        this.orchestrator = orchestrator;
+        this.nameEntity = name;
         this.originEntity = origin;
     }
 
-    public String getJobNameEntity() {
-        return dataJobNameEntity;
+    public String getNameEntity() {
+        return nameEntity;
     }
 
-    public String getDataJobOrchestrator() {
-        return dataJobOrchestrator;
+    public String getOrchestrator() {
+        return orchestrator;
     }
 
     public FabricType getOriginEntity() {
