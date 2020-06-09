@@ -1,0 +1,13 @@
+namespace com.linkedin.dataprocess
+
+/**
+ * Spec. for a process. A collection of data conforming to a single schema that can evolve over time.
+ */
+record DataProcess includes DataProcessKey {
+
+  /**
+  * Metadata associated with a data process including input and output datasets
+  */
+  dataProcessInfo: optional DataProcessInfo
+
+}

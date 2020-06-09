@@ -6,26 +6,25 @@
     "doc" : "Corporate user's AD/LDAP login",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.CorpuserUrnCoercer",
       "class" : "com.linkedin.common.urn.CorpuserUrn"
     },
     "validate" : {
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
-        "entityType" : "corpuser",
-        "owningTeam" : "urn:li:internalTeam:security",
         "constructable" : true,
+        "doc" : "Corporate user's AD/LDAP login",
+        "entityType" : "corpuser",
+        "fields" : [ {
+          "doc" : "The name of the AD/LDAP user.",
+          "maxLength" : 20,
+          "name" : "username",
+          "type" : "string"
+        } ],
+        "maxLength" : 36,
         "name" : "Corpuser",
         "namespace" : "li",
-        "doc" : "Corporate user's AD/LDAP login",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "fields" : [ {
-          "name" : "username",
-          "doc" : "The name of the AD/LDAP user.",
-          "type" : "string",
-          "maxLength" : 20
-        } ],
-        "maxLength" : 36
+        "owningTeam" : "urn:li:internalTeam:security"
       }
     }
   }, {
@@ -39,8 +38,8 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.url.UrlCoercer",
-      "class" : "com.linkedin.common.url.Url"
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
     }
   }, {
     "type" : "typeref",
@@ -48,7 +47,6 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string",
     "java" : {
-      "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
       "class" : "com.linkedin.common.urn.Urn"
     }
   }, {
@@ -168,11 +166,11 @@
     "fields" : [ {
       "name" : "name",
       "type" : "string",
-      "doc" : "ldap name e.g. hzhang2, ywang5 ",
+      "doc" : "ldap name e.g. hzhang2, ywang5",
       "validate" : {
         "strlen" : {
-          "min" : 1,
-          "max" : 20
+          "max" : 20,
+          "min" : 1
         }
       }
     } ]

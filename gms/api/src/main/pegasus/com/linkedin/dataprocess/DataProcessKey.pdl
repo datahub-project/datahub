@@ -1,0 +1,32 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.FabricType
+
+/**
+ * Key for process resource
+ */
+record DataProcessKey {
+
+  /**
+   * Standardized orchestration platform where process is running. It can be Azure Data Factory or Sqoop script
+   */
+  @validate.strlen = {
+    "max" : 500,
+    "min" : 1
+  }
+  orchestrator: string
+
+  /**
+   * Process native name e.g. an ETL process name
+   */
+  @validate.strlen = {
+    "max" : 500,
+    "min" : 1
+  }
+  name: string
+
+  /**
+   * Fabric type where the job is deployed or executed.
+   */
+  origin: FabricType
+}
