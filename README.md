@@ -45,7 +45,7 @@ This repository contains the complete source code for both DataHub's frontend & 
 5. At this point, you should be able to start DataHub by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password. However, you'll notice that no data has been ingested yet.
 6. To ingest provided [sample data](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/mce-cli/bootstrap_mce.dat) to DataHub, switch to a new terminal window, `cd` into the cloned `datahub` repo, and run the following command:
     ```
-    docker build -t ingestion -f docker/ingestion/Dockerfile . && cd docker/ingestion && docker-compose up
+    ./docker/ingestion/ingestion.sh
     ```
    After running this, you should be able to see and search sample datasets in DataHub.
 

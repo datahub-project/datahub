@@ -1,7 +1,7 @@
 package com.linkedin.dataset.factory;
 
 import com.linkedin.metadata.dao.Neo4jQueryDAO;
-import org.neo4j.driver.v1.Driver;
+import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;

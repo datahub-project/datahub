@@ -10,7 +10,7 @@ Below command will start all Kafka related containers.
 cd docker/kafka && docker-compose pull && docker-compose up
 ```
 As part of `docker-compose`, we also initialize a container called `kafka-setup` to create `MetadataAuditEvent` and 
-`MetadataChangeEvent` topics. The only thing this container does is creating Kafka topics after Kafka broker is ready.
+`MetadataChangeEvent` & `FailedMetadataChangeEvent` topics. The only thing this container does is creating Kafka topics after Kafka broker is ready.
 
 There is also a container which provides visual schema registry interface which you can register/unregister schemas.
 You can connect to `schema-registry-ui` on your web browser to monitor Kafka Schema Registry via below link:
