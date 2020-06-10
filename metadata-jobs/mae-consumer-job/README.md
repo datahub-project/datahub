@@ -19,8 +19,8 @@ However, if you only want to build `MAE Consumer Job` specifically:
 ```
 
 ## Dependencies
-Before starting `MAE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka) and  
-[Elasticsearch](../../docker/elasticsearch) Docker containers are up and running.
+Before starting `MAE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka),  
+[Elasticsearch](../../docker/elasticsearch), and [Neo4j](../../docker/neo4j) Docker containers are up and running.
 
 ## Start via Docker image
 Quickest way to try out `MAE Consumer Job` is running the [Docker image](../../docker/mae-consumer).
