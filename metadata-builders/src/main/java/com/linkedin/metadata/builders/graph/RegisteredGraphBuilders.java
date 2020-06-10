@@ -21,6 +21,7 @@ public class RegisteredGraphBuilders {
       Collections.unmodifiableList(new LinkedList<BaseGraphBuilder>() {
         {
           add(new CorpUserGraphBuilder());
+          add(new DataProcessGraphBuilder());
           add(new DatasetGraphBuilder());
         }
       });
