@@ -10,8 +10,6 @@ import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.BrowseResultEntity;
 import com.linkedin.metadata.query.BrowseResultEntityArray;
 import com.linkedin.metadata.query.BrowseResultMetadata;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.testing.EntityAspectUnion;
 import com.linkedin.testing.EntityDocument;
@@ -24,6 +22,7 @@ import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -102,7 +101,6 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
 
   @Test
   public void testBrowse() {
-    Filter filter = new Filter().setCriteria(new CriterionArray());
     BrowseResultEntityArray entities = new BrowseResultEntityArray(
         ImmutableList.of(makeBrowseResultEntity("/foo/1", makeUrn(1)), makeBrowseResultEntity("/foo/2", makeUrn(2))));
     BrowseResult expected = new BrowseResult().setEntities(entities)
@@ -111,9 +109,9 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
         .setPageSize(2)
         .setNumEntities(3);
 
-    when(_mockBrowseDAO.browse("/foo", filter, 1, 2)).thenReturn(expected);
+    when(_mockBrowseDAO.browse("/foo", EMPTY_FILTER, 1, 2)).thenReturn(expected);
 
-    BrowseResult result = runAndWait(_resource.browse("/foo", filter, 1, 2));
+    BrowseResult result = runAndWait(_resource.browse("/foo", EMPTY_FILTER, 1, 2));
 
     assertEquals(result, expected);
   }

@@ -25,6 +25,7 @@ public class EbeanMetadataAspect extends Model {
 
   private static final long serialVersionUID = 1L;
 
+  public static final String ALL_COLUMNS = "*";
   public static final String KEY_ID = "key";
   public static final String URN_COLUMN = "urn";
   public static final String ASPECT_COLUMN = "aspect";

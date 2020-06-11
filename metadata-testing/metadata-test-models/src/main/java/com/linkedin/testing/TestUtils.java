@@ -1,12 +1,16 @@
 package com.linkedin.testing;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.testing.urn.BarUrn;
 import com.linkedin.testing.urn.BazUrn;
 import com.linkedin.testing.urn.FooUrn;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 
@@ -74,5 +78,32 @@ public class TestUtils {
   @Nonnull
   public static EntityDocument makeDocument(@Nonnull Urn urn) {
     return new EntityDocument().setUrn(urn);
+  }
+
+  /**
+   * Returns all test entity classes
+   */
+  @Nonnull
+  public static Set<Class<? extends RecordTemplate>> getAllTestEntities() {
+    return Collections.unmodifiableSet(new HashSet<Class<? extends RecordTemplate>>() {
+      {
+        add(EntityBar.class);
+        add(EntityBaz.class);
+        add(EntityFoo.class);
+      }
+    });
+  }
+
+  /**
+   * Returns all test relationship classes
+   */
+  @Nonnull
+  public static Set<Class<? extends RecordTemplate>> getAllTestRelationships() {
+    return Collections.unmodifiableSet(new HashSet<Class<? extends RecordTemplate>>() {
+      {
+        add(RelationshipBar.class);
+        add(RelationshipFoo.class);
+      }
+    });
   }
 }

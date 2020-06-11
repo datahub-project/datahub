@@ -127,20 +127,28 @@ public class EbeanLocalDAOTest {
     dao.setEqualityTester(AspectFoo.class, DefaultEqualityTester.<AspectFoo>newInstance());
     Urn urn = makeUrn(1);
     String aspectName = ModelUtils.getAspectName(AspectFoo.class);
-    AspectFoo foo1 = new AspectFoo().setValue("foo");
-    AspectFoo foo2 = new AspectFoo().setValue("foo");
+    AspectFoo foo = new AspectFoo().setValue("foo");
+    AspectFoo bar = new AspectFoo().setValue("bar");
 
-    dao.add(urn, foo1, _dummyAuditStamp);
-    dao.add(urn, foo2, _dummyAuditStamp);
+    dao.add(urn, foo, _dummyAuditStamp);
+    dao.add(urn, foo, _dummyAuditStamp);
+    dao.add(urn, bar, _dummyAuditStamp);
 
+    // v0: bar
     EbeanMetadataAspect aspect = getMetadata(urn, aspectName, 0);
     AspectFoo actual = RecordUtils.toRecordTemplate(AspectFoo.class, aspect.getMetadata());
-    assertEquals(actual, foo1);
+    assertEquals(actual, bar);
 
-    assertNull(getMetadata(urn, aspectName, 1));
+    // v1: foo
+    aspect = getMetadata(urn, aspectName, 1);
+    actual = RecordUtils.toRecordTemplate(AspectFoo.class, aspect.getMetadata());
+    assertEquals(actual, foo);
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, null, foo1);
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, foo1, foo1);
+    // no v2
+    assertNull(getMetadata(urn, aspectName, 2));
+
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, null, foo);
+    verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, foo, bar);
     verifyNoMoreInteractions(_mockProducer);
   }
 
