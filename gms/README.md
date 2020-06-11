@@ -302,7 +302,7 @@ the application directly from command line after a successful [build](#build):
 
 ### Get upstream datasets
 ```
-➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/upstreamLineage/0' | jq
+➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/upstreamLineage/0' | jq
 {
   "upstreams": [
     {
@@ -310,8 +310,8 @@ the application directly from command line after a successful [build](#build):
         "actor": "urn:li:corpuser:fbar",
         "time": 0
       },
-      "type": "COPY",
-      "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,TRACKING.PageViewEvent,PROD)"
+      "type": "TRANSFORMED",
+      "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)"
     }
   ]
 }
@@ -319,24 +319,16 @@ the application directly from command line after a successful [build](#build):
 
 ### Get downstream datasets
 ```
-➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/downstreamLineage' | jq
+➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:barUp,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/downstreamLineage' | jq
 {
   "downstreams": [
     {
+      "type": "TRANSFORMED",
       "auditStamp": {
         "actor": "urn:li:corpuser:fbar",
-        "time": 1556564531534
+        "time": 0
       },
-      "type": "VIEW",
-      "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,tracking_deduped.pageviewevent,PROD)"
-    },
-    {
-      "auditStamp": {
-        "actor": "urn:li:corpuser:fbar",
-        "time": 1556564531534
-      },
-      "type": "VIEW",
-      "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,tracking.pageviewevent,PROD)"
+      "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
     }
   ]
 }
