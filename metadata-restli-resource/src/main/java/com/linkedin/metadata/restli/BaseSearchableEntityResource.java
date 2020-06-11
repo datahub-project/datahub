@@ -7,6 +7,7 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.SearchResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
@@ -84,7 +85,7 @@ public abstract class BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
 
-    final Filter searchFilter = filter != null ? filter : EMPTY_FILTER;
+    final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
     final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
         : new SortCriterion().setField(DEFAULT_SORT_CRITERION_FIELD).setOrder(SortOrder.ASCENDING);
     final SearchResult<DOCUMENT> filterResult =
@@ -101,7 +102,7 @@ public abstract class BaseSearchableEntityResource<
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
 
-    final Filter searchFilter = filter != null ? filter : EMPTY_FILTER;
+    final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
     final SearchResult<DOCUMENT> searchResult =
         getSearchDAO().search(input, searchFilter, sortCriterion, pagingContext.getStart(), pagingContext.getCount());
     return RestliUtils.toTask(

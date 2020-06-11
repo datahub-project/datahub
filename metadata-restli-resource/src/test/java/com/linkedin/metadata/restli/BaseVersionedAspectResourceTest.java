@@ -113,7 +113,7 @@ public class BaseVersionedAspectResourceTest extends BaseEngineTest {
   @Test
   public void testCreateViaLambda() {
     AspectFoo foo = new AspectFoo().setValue("foo");
-    Function<Optional<RecordTemplate>, RecordTemplate> createLambda = (prev) -> foo;
+    Function<Optional<AspectFoo>, AspectFoo> createLambda = (prev) -> foo;
 
     runAndWait(_resource.create(AspectFoo.class, createLambda));
 
@@ -124,7 +124,7 @@ public class BaseVersionedAspectResourceTest extends BaseEngineTest {
   @Test
   public void testCreateResponseViaLambda() {
     AspectFoo foo = new AspectFoo().setValue("foo");
-    Function<Optional<RecordTemplate>, RecordTemplate> createLambda = (prev) -> foo;
+    Function<Optional<AspectFoo>, AspectFoo> createLambda = (prev) -> foo;
     when(_mockLocalDAO.add(eq(ENTITY_URN), eq(AspectFoo.class), eq(createLambda), any())).thenReturn(foo);
 
     CreateKVResponse<Long, AspectFoo> response = runAndWait(_resource.createAndGet(AspectFoo.class, createLambda));

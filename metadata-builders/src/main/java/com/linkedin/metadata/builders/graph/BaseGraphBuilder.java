@@ -60,9 +60,9 @@ public abstract class BaseGraphBuilder<SNAPSHOT extends RecordTemplate> implemen
 
   protected <ENTITY extends RecordTemplate> void setRemovedProperty(@Nonnull SNAPSHOT snapshot, @Nonnull ENTITY entity) {
     EntityValidator.validateEntitySchema(entity.getClass());
-    final Optional<RecordTemplate> statusAspect = ModelUtils.getAspectFromSnapshot(snapshot, Status.class);
+    final Optional<Status> statusAspect = ModelUtils.getAspectFromSnapshot(snapshot, Status.class);
     if (statusAspect.isPresent()) {
-      RecordUtils.setRecordTemplatePrimitiveField(entity, "removed", ((Status) statusAspect.get()).isRemoved());
+      RecordUtils.setRecordTemplatePrimitiveField(entity, "removed", (statusAspect.get()).isRemoved());
     }
   }
 }

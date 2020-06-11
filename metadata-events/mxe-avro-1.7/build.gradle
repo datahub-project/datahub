@@ -7,6 +7,7 @@ apply plugin: 'java'
 
 dependencies {
   compile externalDependency.avro_1_7
+  compile externalDependency.avroCompiler_1_7
 
   avsc project(':metadata-events:mxe-schemas')
 }
@@ -24,3 +25,10 @@ clean {
 }
 
 avroCodeGen.dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+
+// Exclude classes from avro-schemas
+jar {
+  dependsOn classes
+  from sourceSets.main.output
+  exclude('com/linkedin/events/**')
+}

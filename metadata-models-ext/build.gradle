@@ -1,0 +1,34 @@
+apply plugin: 'pegasus'
+
+configurations {
+  schemaGen
+}
+
+dependencies {
+  dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
+  dataModel project(path: ':li-utils', configuration: 'dataTemplate')
+  schemaGen project(':metadata-models-generator')
+}
+
+task generateMXESchemas(type: JavaExec) {
+  main = 'com.linkedin.metadata.generator.SchemaGenerator'
+  jvmArgs '-Dgenerator.resolver.path=' + '../metadata-models/src/main/pegasus/:' + '../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath
+  classpath = project.configurations.schemaGen
+  args '../metadata-models/src/main/pegasus', 'src/mainGeneratedPdl/pegasus/com/linkedin/mxe'
+}
+
+task generateMXEDataTemplate(type: com.linkedin.pegasus.gradle.tasks.GenerateDataTemplateTask,
+    dependsOn: generateMXESchemas) {
+  inputDir = file('src/mainGeneratedPdl/pegasus/com/linkedin/mxe')
+  destinationDir = file('src/mainGeneratedDataTemplate/java')
+  codegenClasspath = configurations.pegasusPlugin
+  resolverPath = files('src/mainGeneratedPdl/pegasus/', '../metadata-models/src/main/pegasus', '../li-utils/src/main/pegasus') +
+      configurations.dataModel
+}
+
+compileMainGeneratedDataTemplateJava.dependsOn generateMXEDataTemplate
+
+clean {
+  project.delete("src/mainGeneratedDataTemplate")
+  project.delete("src/mainGeneratedPdl")
+}

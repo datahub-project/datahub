@@ -12,13 +12,13 @@ import javax.annotation.Nonnull;
 
 @Configuration
 public class DatasetQueryDaoFactory {
-    @Autowired
-    ApplicationContext applicationContext;
+  @Autowired
+  ApplicationContext applicationContext;
 
-    @Nonnull
-    @DependsOn({"neo4jDriver"})
-    @Bean(name = "datasetQueryDao")
-    protected Neo4jQueryDAO createInstance() {
-        return new Neo4jQueryDAO(applicationContext.getBean(Driver.class));
-    }
+  @Nonnull
+  @DependsOn({"neo4jDriver"})
+  @Bean(name = "datasetQueryDao")
+  protected Neo4jQueryDAO createInstance() {
+    return new Neo4jQueryDAO(applicationContext.getBean(Driver.class));
+  }
 }

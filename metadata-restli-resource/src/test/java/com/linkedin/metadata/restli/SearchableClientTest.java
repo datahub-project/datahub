@@ -2,6 +2,7 @@ package com.linkedin.metadata.restli;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.testing.EntityValue;
@@ -21,7 +22,7 @@ public class SearchableClientTest {
     @Override
     @Nonnull
     public CollectionResponse<EntityValue> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
-        int start, int count) throws RemoteInvocationException {
+        @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
 
       return new CollectionResponse<>(EntityValue.class);
     }

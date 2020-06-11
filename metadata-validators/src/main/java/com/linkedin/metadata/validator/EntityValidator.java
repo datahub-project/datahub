@@ -59,4 +59,19 @@ public class EntityValidator {
     validateEntitySchema(ValidationUtils.getRecordSchema(clazz));
     VALIDATED.add(clazz);
   }
+
+  /**
+   * Checks if an entity schema is valid
+   */
+  public static boolean isValidEntitySchema(@Nonnull Class<? extends RecordTemplate> clazz) {
+    if (!VALIDATED.contains(clazz)) {
+      try {
+        validateEntitySchema(clazz);
+      } catch (InvalidSchemaException ex) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
