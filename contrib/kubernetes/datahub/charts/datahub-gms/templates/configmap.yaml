@@ -12,4 +12,5 @@ data:
   kafka.schemaregistry.url: "{{ .Values.global.kafka.schemaregistry.url }}"
   elasticsearch.host: "{{ .Values.global.elasticsearch.host }}"
   elasticsearch.port: "{{ .Values.global.elasticsearch.port }}"
+  neo4j.host: "{{ .Values.global.neo4j.host }}"
   neo4j.uri: "{{ .Values.global.neo4j.uri }}"

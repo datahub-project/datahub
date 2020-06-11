@@ -52,6 +52,11 @@ spec:
                 configMapKeyRef:
                   name: datahub-gms-deployment-configmap
                   key: elasticsearch.port
+            - name: NEO4J_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: datahub-gms-deployment-configmap
+                  key: neo4j.host
             - name: NEO4J_URI
               valueFrom:
                 configMapKeyRef:
