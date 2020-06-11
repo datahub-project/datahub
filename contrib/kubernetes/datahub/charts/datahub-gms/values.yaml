@@ -82,6 +82,7 @@ global:
       url: "http://schema-registry:8081"
 
   neo4j:
+    host: "neo4j:7474"
     uri: "bolt://neo4j"
     username: "neo4j"
     password: "datahub"
