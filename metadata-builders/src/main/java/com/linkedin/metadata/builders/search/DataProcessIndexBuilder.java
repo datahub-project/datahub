@@ -29,9 +29,6 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nonnull
     @Override
     public Class<DataProcessDocument> getDocumentType() {
-        throw new UnsupportedOperationException(
-                String.format("%s doesn't support this feature yet,",
-                        this.getClass().getName())
-        );
+        return DataProcessDocument.class;
     }
 }
