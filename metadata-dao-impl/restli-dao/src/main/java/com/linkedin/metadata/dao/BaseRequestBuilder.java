@@ -20,6 +20,8 @@ public abstract class BaseRequestBuilder<SNAPSHOT extends RecordTemplate, URN ex
 
   /**
    * Returns a rest.li {@link Request} to retrieve a specific version of a metadata aspect for an entity.
+   *
+   * @deprecated Retrieval of versioned aspect is no longer supported. Use {@link #getRequest(Set, Urn)} instead.
    */
   @Nonnull
   public abstract Request<SNAPSHOT> getRequest(@Nonnull String aspectName, @Nonnull URN urn, long version);

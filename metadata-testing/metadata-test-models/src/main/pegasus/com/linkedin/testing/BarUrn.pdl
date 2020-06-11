@@ -4,8 +4,8 @@ namespace com.linkedin.testing
  * Bar identifier.
  */
 @java = {
-  "coercerClass" : "com.linkedin.testing.urn.BarUrnCoercer",
-  "class" : "com.linkedin.testing.urn.BarUrn"
+  "class" : "com.linkedin.testing.urn.BarUrn",
+  "coercerClass" : "com.linkedin.testing.urn.BarUrnCoercer"
 }
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "owningTeam" : "urn:li:internalTeam:metadata",

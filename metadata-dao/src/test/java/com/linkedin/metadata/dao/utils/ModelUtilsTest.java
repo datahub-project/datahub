@@ -2,6 +2,8 @@ package com.linkedin.metadata.dao.utils;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.testing.EntityFoo;
+import com.linkedin.testing.urn.BarUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.validator.InvalidSchemaException;
 import com.linkedin.testing.AspectBar;
@@ -9,6 +11,7 @@ import com.linkedin.testing.AspectFoo;
 import com.linkedin.testing.DeltaUnion;
 import com.linkedin.testing.EntityAspectUnion;
 import com.linkedin.testing.EntityAspectUnionArray;
+import com.linkedin.testing.EntityBar;
 import com.linkedin.testing.EntityDelta;
 import com.linkedin.testing.EntityDocument;
 import com.linkedin.testing.EntitySnapshot;
@@ -16,6 +19,7 @@ import com.linkedin.testing.InvalidAspectUnion;
 import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.RelationshipUnion;
 import com.linkedin.testing.SnapshotUnion;
+import com.linkedin.testing.urn.FooUrn;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -123,6 +127,29 @@ public class ModelUtilsTest {
   }
 
   @Test
+  public void testGetUrnFromEntity() {
+    FooUrn expected = makeFooUrn(1);
+    EntityFoo entity = new EntityFoo().setUrn(expected);
+
+    Urn urn = ModelUtils.getUrnFromEntity(entity);
+    assertEquals(urn, expected);
+  }
+
+  @Test
+  public void testGetUrnFromRelationship() {
+    FooUrn expectedSource = makeFooUrn(1);
+    BarUrn expectedDestination = makeBarUrn(1);
+    RelationshipFoo relationship = new RelationshipFoo()
+        .setSource(expectedSource)
+        .setDestination(expectedDestination);
+
+    Urn sourceUrn = ModelUtils.getSourceUrnFromRelationship(relationship);
+    Urn destinationUrn = ModelUtils.getDestinationUrnFromRelationship(relationship);
+    assertEquals(sourceUrn, expectedSource);
+    assertEquals(destinationUrn, expectedDestination);
+  }
+
+  @Test
   public void testGetAspectsFromSnapshot() throws IOException {
     EntitySnapshot snapshot = new EntitySnapshot();
     snapshot.setAspects(new EntityAspectUnionArray());
@@ -144,12 +171,12 @@ public class ModelUtilsTest {
     AspectFoo foo = new AspectFoo();
     snapshot.getAspects().get(0).setAspectFoo(foo);
 
-    Optional<RecordTemplate> aspect = ModelUtils.getAspectFromSnapshot(snapshot, AspectFoo.class);
-    assertTrue(aspect.isPresent());
-    assertEquals(aspect.get(), foo);
+    Optional<AspectFoo> aspectFoo = ModelUtils.getAspectFromSnapshot(snapshot, AspectFoo.class);
+    assertTrue(aspectFoo.isPresent());
+    assertEquals(aspectFoo.get(), foo);
 
-    aspect = ModelUtils.getAspectFromSnapshot(snapshot, AspectBar.class);
-    assertFalse(aspect.isPresent());
+    Optional<AspectBar> aspectBar = ModelUtils.getAspectFromSnapshot(snapshot, AspectBar.class);
+    assertFalse(aspectBar.isPresent());
   }
 
   @Test
@@ -197,6 +224,12 @@ public class ModelUtilsTest {
   }
 
   @Test
+  public void testUrnClassForEntity() {
+    assertEquals(ModelUtils.urnClassForEntity(EntityBar.class), BarUrn.class);
+  }
+
+
+  @Test
   public void testUrnClassForSnapshot() {
     assertEquals(ModelUtils.urnClassForSnapshot(EntitySnapshot.class), Urn.class);
   }
@@ -229,7 +262,7 @@ public class ModelUtilsTest {
 
   @Test
   public void testNewRelatioshipUnion() {
-    RelationshipFoo foo = new RelationshipFoo().setDestination(makeUrn(1)).setSource(makeUrn(2));
+    RelationshipFoo foo = new RelationshipFoo().setDestination(makeFooUrn(1)).setSource(makeFooUrn(2));
 
     RelationshipUnion relationshipUnion = ModelUtils.newRelationshipUnion(RelationshipUnion.class, foo);
 

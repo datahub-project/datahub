@@ -95,7 +95,7 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
 
       final ListResult<ASPECT> listResult =
           getLocalDAO().list(_aspectClass, urn, pagingContext.getStart(), pagingContext.getCount());
-      return new CollectionResult<ASPECT, ListResultMetadata>(listResult.getValues(), listResult.getMetadata());
+      return new CollectionResult<>(listResult.getValues(), listResult.getMetadata());
     });
   }
 
@@ -116,7 +116,7 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
    */
   @Nonnull
   public Task<CreateResponse> create(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> createLambda) {
+      @Nonnull Function<Optional<ASPECT>, ASPECT> createLambda) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());
       final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
@@ -132,11 +132,11 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   @ReturnEntity
   @Nonnull
   public Task<CreateKVResponse<Long, ASPECT>> createAndGet(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> createLambda) {
+      @Nonnull Function<Optional<ASPECT>, ASPECT> createLambda) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());
       final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
-      final ASPECT newValue = (ASPECT) getLocalDAO().add(urn, aspectClass, createLambda, auditStamp);
+      final ASPECT newValue = getLocalDAO().add(urn, aspectClass, createLambda, auditStamp);
       return new CreateKVResponse<>(LATEST_VERSION, newValue);
     });
   }

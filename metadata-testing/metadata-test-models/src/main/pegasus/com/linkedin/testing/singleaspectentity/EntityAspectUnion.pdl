@@ -1,0 +1,8 @@
+namespace com.linkedin.testing.singleaspectentity
+
+import com.linkedin.testing.AspectBar
+
+/**
+ * Aspect union for test
+ */
+typeref EntityAspectUnion = union[AspectBar]

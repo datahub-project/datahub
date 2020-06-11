@@ -243,6 +243,21 @@ public class BaseEntityResourceTest extends BaseEngineTest {
   }
 
   @Test
+  public void testSkipIngestAspect() {
+    Urn urn = makeUrn(1);
+    AspectFoo foo = new AspectFoo().setValue("foo");
+    AspectBar bar = new AspectBar().setValue("bar");
+    List<EntityAspectUnion> aspects = Arrays.asList(ModelUtils.newAspectUnion(EntityAspectUnion.class, foo),
+        ModelUtils.newAspectUnion(EntityAspectUnion.class, bar));
+    EntitySnapshot snapshot = ModelUtils.newSnapshot(EntitySnapshot.class, urn, aspects);
+
+    runAndWait(_resource.ingestInternal(snapshot, Collections.singleton(AspectBar.class)));
+
+    verify(_mockLocalDAO, times(1)).add(eq(urn), eq(foo), any());
+    verifyNoMoreInteractions(_mockLocalDAO);
+  }
+
+  @Test
   public void testGetSnapshotWithOneAspect() {
     Urn urn = makeUrn(1);
     AspectFoo foo = new AspectFoo().setValue("foo");

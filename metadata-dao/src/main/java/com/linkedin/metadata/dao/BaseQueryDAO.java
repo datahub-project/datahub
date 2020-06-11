@@ -2,13 +2,14 @@ package com.linkedin.metadata.dao;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.Statement;
-import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipFilter;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.javatuples.Triplet;
+
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 
 /**
@@ -150,7 +151,7 @@ public abstract class BaseQueryDAO {
       @Nullable Class<ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
       @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull Filter relationshipFilter, int offset, int count) {
     return findRelationships(sourceEntityClass, sourceEntityFilter, null,
-        new Filter().setCriteria(new CriterionArray()), relationshipType, relationshipFilter, offset, count);
+        EMPTY_FILTER, relationshipType, relationshipFilter, offset, count);
   }
 
   /**
@@ -171,7 +172,7 @@ public abstract class BaseQueryDAO {
   public <ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate> List<RELATIONSHIP> findRelationshipsFromDestination(
       @Nullable Class<ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
       @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull Filter relationshipFilter, int offset, int count) {
-    return findRelationships(null, new Filter().setCriteria(new CriterionArray()), destinationEntityClass,
+    return findRelationships(null, EMPTY_FILTER, destinationEntityClass,
         destinationEntityFilter, relationshipType, relationshipFilter, offset, count);
   }
 

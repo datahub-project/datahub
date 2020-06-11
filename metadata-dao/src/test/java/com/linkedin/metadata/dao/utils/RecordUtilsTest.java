@@ -7,9 +7,11 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.validator.InvalidSchemaException;
 import com.linkedin.metadata.validator.ValidationUtils;
+import com.linkedin.testing.AspectBar;
 import com.linkedin.testing.AspectBaz;
 import com.linkedin.testing.AspectFoo;
 import com.linkedin.testing.EntitySnapshot;
+import com.linkedin.testing.singleaspectentity.EntityValue;
 import java.io.IOException;
 import java.util.Arrays;
 import org.testng.annotations.Test;
@@ -150,6 +152,18 @@ public class RecordUtilsTest {
   @Test(expectedExceptions = InvalidSchemaException.class)
   public void testGetInvalidMetadataSnapshotClassFromName() {
     ModelUtils.getMetadataSnapshotClassFromName("com.linkedin.testing.AspectInvalid");
+  }
+
+  @Test
+  public void testExtractAspectFromSingleAspectEntity() {
+    String field1 = "foo";
+    EntityValue value = new EntityValue();
+    value.setValue(field1);
+
+    AspectBar aspect = new AspectBar();
+    aspect.setValue(field1);
+
+    assertEquals(RecordUtils.extractAspectFromSingleAspectEntity(value, AspectBar.class), aspect);
   }
 
   private AspectBaz loadAspectBaz(String resourceName) throws IOException {

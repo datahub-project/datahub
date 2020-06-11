@@ -4,8 +4,8 @@ namespace com.linkedin.testing
  * Baz identifier.
  */
 @java = {
-  "coercerClass" : "com.linkedin.testing.urn.BazUrnCoercer",
-  "class" : "com.linkedin.testing.urn.BazUrn"
+  "class" : "com.linkedin.testing.urn.BazUrn",
+  "coercerClass" : "com.linkedin.testing.urn.BazUrnCoercer"
 }
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "owningTeam" : "urn:li:internalTeam:metadata",

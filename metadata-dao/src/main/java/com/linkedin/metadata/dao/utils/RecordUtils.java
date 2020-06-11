@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
@@ -102,6 +104,57 @@ public class RecordUtils {
     }
 
     return toRecordTemplate(clazz, dataMap);
+  }
+
+  /**
+   * Extracts the aspect from an entity value which includes a single aspect.
+   *
+   * @param entity the entity value.
+   * @param aspectClass the aspect class.
+   * @return the aspect which is included in the entity.
+   * */
+  @Nonnull
+  public static <ASPECT extends RecordTemplate, ENTITY extends RecordTemplate> ASPECT
+  extractAspectFromSingleAspectEntity(@Nonnull ENTITY entity, @Nonnull Class<ASPECT> aspectClass) {
+
+    // Create an empty aspect to extract it's field names
+    final Constructor<ASPECT> constructor;
+    try {
+      @SuppressWarnings("rawtypes")
+      final Class[] constructorParamArray = new Class[] {};
+      constructor = aspectClass.getConstructor(constructorParamArray);
+    } catch (NoSuchMethodException e) {
+      throw new RuntimeException("Exception occurred while trying to get the default constructor for the aspect. ", e);
+    }
+
+    final ASPECT aspect;
+    try {
+      aspect = constructor.newInstance();
+    } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException("Exception occurred while creating an instance of the aspect. ", e);
+    }
+
+    final Set<String> aspectFields = aspect.schema().getFields()
+        .stream()
+        .map(RecordDataSchema.Field::getName)
+        .collect(Collectors.toSet());
+
+    // Get entity's field names and only keep fields which occur in the entity and not in the aspect
+    final Set<String> entityFields = entity.schema().getFields()
+        .stream()
+        .map(RecordDataSchema.Field::getName)
+        .collect(Collectors.toSet());
+    entityFields.removeAll(aspectFields);
+
+    // remove non aspect fields from entity's cloned datamap and use it to create an aspect
+    final DataMap entityDataMap;
+    try {
+      entityDataMap = entity.data().clone();
+      entityFields.forEach(entityDataMap::remove);
+      return toRecordTemplate(aspectClass, entityDataMap);
+    } catch (CloneNotSupportedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -254,7 +307,7 @@ public class RecordUtils {
       method.setAccessible(true);
       return (T) method.invoke(object, args);
     } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new RuntimeException(e.getCause());
+      throw new RuntimeException(e);
     } finally {
       method.setAccessible(false);
     }

@@ -5,6 +5,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
+import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.parseq.Task;
@@ -57,7 +58,7 @@ public abstract class BaseBrowsableEntityResource<
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
 
-    final Filter browseFilter = filter == null ? EMPTY_FILTER : filter;
+    final Filter browseFilter = filter == null ? QueryUtils.EMPTY_FILTER : filter;
     return RestliUtils.toTask(() -> getBrowseDAO().browse(path, browseFilter, start, limit));
   }
 
