@@ -33,6 +33,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 
 /**
@@ -65,11 +66,11 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
 
     return RestliUtils.toTask(() -> {
       final List<DatasetUrn> downstreamDatasets = _queryDAO
-              .findEntities(DatasetEntity.class, createFilter("urn", datasetUrn.toString()),
-                      DatasetEntity.class, EMPTY_FILTER,
-                      DownstreamOf.class, createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                      0, MAX_DOWNSTREAM_CNT)
-              .stream().map(entity -> ((DatasetEntity) entity).getUrn()).collect(Collectors.toList());
+          .findEntities(DatasetEntity.class, newFilter("urn", datasetUrn.toString()),
+              DatasetEntity.class, EMPTY_FILTER,
+              DownstreamOf.class, createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+              0, MAX_DOWNSTREAM_CNT)
+          .stream().map(entity -> ((DatasetEntity) entity).getUrn()).collect(Collectors.toList());
 
       final DownstreamArray downstreamArray = new DownstreamArray(downstreamDatasets.stream()
           .map(ds -> {
