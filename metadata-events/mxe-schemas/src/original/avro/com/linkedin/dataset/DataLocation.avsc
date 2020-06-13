@@ -1,0 +1,40 @@
+{
+  "type" : "record",
+  "name" : "DataLocation",
+  "namespace" : "com.linkedin.dataset",
+  "doc" : "DataLocation describes where dataset is located within LinkedIn environment. Location is identified with fabric:cluster pair.",
+  "fields" : [ {
+    "name" : "fabricGroup",
+    "type" : {
+      "type" : "enum",
+      "name" : "FabricType",
+      "namespace" : "com.linkedin.common",
+      "doc" : "Fabric group type",
+      "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+      "symbolDocs" : {
+        "CORP" : "Designates corporation fabrics",
+        "DEV" : "Designates development fabrics",
+        "EI" : "Designates early-integration (staging) fabrics",
+        "PROD" : "Designates production fabrics"
+      }
+    },
+    "doc" : "Fabric group type of Linkedin internal data center fabrics."
+  }, {
+    "name" : "fabric",
+    "type" : [ "null", "string" ],
+    "doc" : "Designated fabric where dataset is located such as prod-ltx1, ei-lva1 etc.",
+    "default" : null,
+    "java" : {
+      "class" : "com.linkedin.common.urn.FabricUrn"
+    }
+  }, {
+    "name" : "cluster",
+    "type" : "string",
+    "doc" : "Designated cluster where dataset is located such as kafka-tracking-cluster, queuing, etc."
+  }, {
+    "name" : "region",
+    "type" : [ "null", "string" ],
+    "doc" : "Standardized geographical region where dataset is deployed.",
+    "default" : null
+  } ]
+}

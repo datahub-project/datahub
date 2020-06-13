@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "ParquetSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text for Parquet schema.",
+  "fields" : [ {
+    "name" : "schema",
+    "type" : "string",
+    "doc" : "The native Parquet schema text."
+  } ]
+}

@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "DDL",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text for the data definition language that describes an Relational DBMS table.",
+  "fields" : [ {
+    "name" : "tableDDL",
+    "type" : "string",
+    "doc" : "The native SQL DDL that describe an Relational DBMS table."
+  } ]
+}

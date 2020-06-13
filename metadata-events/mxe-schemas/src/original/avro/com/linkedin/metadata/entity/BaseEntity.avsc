@@ -1,0 +1,12 @@
+{
+  "type" : "record",
+  "name" : "BaseEntity",
+  "namespace" : "com.linkedin.metadata.entity",
+  "doc" : "Common fields that apply to all entities",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  } ]
+}

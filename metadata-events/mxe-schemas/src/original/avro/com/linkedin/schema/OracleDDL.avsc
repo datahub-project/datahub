@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "OracleDDL",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema holder for oracle data definition language that describes an oracle table.",
+  "fields" : [ {
+    "name" : "tableSchema",
+    "type" : "string",
+    "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+  } ]
+}

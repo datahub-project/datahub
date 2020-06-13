@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "Schemaless",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "The dataset has no specific schema associated with it",
+  "fields" : [ ]
+}

@@ -1,0 +1,30 @@
+{
+  "type" : "record",
+  "name" : "OwnershipSource",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Source/provider of the ownership information",
+  "fields" : [ {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "OwnershipSourceType",
+      "symbols" : [ "AUDIT", "DATABASE", "FILE_SYSTEM", "ISSUE_TRACKING_SYSTEM", "MANUAL", "SERVICE", "SOURCE_CONTROL", "OTHER" ],
+      "symbolDocs" : {
+        "AUDIT" : "Auditing system or audit logs",
+        "DATABASE" : "Database, e.g. GRANTS table",
+        "FILE_SYSTEM" : "File system, e.g. file/directory owner",
+        "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
+        "MANUAL" : "Manually provided by a user",
+        "OTHER" : "Other sources",
+        "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
+        "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN"
+      }
+    },
+    "doc" : "The type of the source"
+  }, {
+    "name" : "url",
+    "type" : [ "null", "string" ],
+    "doc" : "A reference URL for the source",
+    "default" : null
+  } ]
+}

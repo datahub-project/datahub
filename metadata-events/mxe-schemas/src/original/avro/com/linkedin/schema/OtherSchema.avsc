@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "OtherSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema holder for undefined schema types.",
+  "fields" : [ {
+    "name" : "rawSchema",
+    "type" : "string",
+    "doc" : "The native schema in the dataset's platform."
+  } ]
+}

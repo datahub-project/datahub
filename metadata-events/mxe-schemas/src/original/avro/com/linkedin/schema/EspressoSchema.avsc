@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "EspressoSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text of an espresso table schema.",
+  "fields" : [ {
+    "name" : "documentSchema",
+    "type" : "string",
+    "doc" : "The native espresso document schema."
+  }, {
+    "name" : "tableSchema",
+    "type" : "string",
+    "doc" : "The espresso table schema definition."
+  } ]
+}

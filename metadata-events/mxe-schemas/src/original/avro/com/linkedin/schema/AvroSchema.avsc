@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "AvroSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text for avro schema.",
+  "fields" : [ {
+    "name" : "schema",
+    "type" : "string",
+    "doc" : "The native Avro schema text."
+  } ]
+}

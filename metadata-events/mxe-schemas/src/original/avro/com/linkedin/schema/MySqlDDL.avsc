@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "MySqlDDL",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema holder for MySql data definition language that describes an MySql table.",
+  "fields" : [ {
+    "name" : "tableSchema",
+    "type" : "string",
+    "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+  } ]
+}

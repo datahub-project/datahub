@@ -1,0 +1,25 @@
+{
+  "type" : "record",
+  "name" : "DatasetFieldForeignKey",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "For non-urn based foregin keys.",
+  "fields" : [ {
+    "name" : "parentDataset",
+    "type" : "string",
+    "doc" : "dataset that stores the resource.",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DatasetUrn"
+    }
+  }, {
+    "name" : "currentFieldPaths",
+    "type" : {
+      "type" : "array",
+      "items" : "string"
+    },
+    "doc" : "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
+  }, {
+    "name" : "parentField",
+    "type" : "string",
+    "doc" : "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
+  } ]
+}

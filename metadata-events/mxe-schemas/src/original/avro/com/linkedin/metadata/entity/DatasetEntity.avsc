@@ -1,0 +1,49 @@
+{
+  "type" : "record",
+  "name" : "DatasetEntity",
+  "namespace" : "com.linkedin.metadata.entity",
+  "doc" : "Data model for a dataset entity",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the dataset",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DatasetUrn"
+    }
+  }, {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+    "default" : null
+  }, {
+    "name" : "platform",
+    "type" : [ "null", "string" ],
+    "doc" : "Platform urn for the dataset in the form of urn:li:platform:{platform_name}",
+    "default" : null,
+    "java" : {
+      "class" : "com.linkedin.common.urn.DataPlatformUrn"
+    }
+  }, {
+    "name" : "origin",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "FabricType",
+      "namespace" : "com.linkedin.common",
+      "doc" : "Fabric group type",
+      "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+      "symbolDocs" : {
+        "CORP" : "Designates corporation fabrics",
+        "DEV" : "Designates development fabrics",
+        "EI" : "Designates early-integration (staging) fabrics",
+        "PROD" : "Designates production fabrics"
+      }
+    } ],
+    "doc" : "Fabric type where dataset belongs to or where it was generated.",
+    "default" : null
+  } ]
+}

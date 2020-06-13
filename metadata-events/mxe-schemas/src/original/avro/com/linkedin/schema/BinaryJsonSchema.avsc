@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "BinaryJsonSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text of binary JSON schema.",
+  "fields" : [ {
+    "name" : "schema",
+    "type" : "string",
+    "doc" : "The native schema text for binary JSON file format."
+  } ]
+}

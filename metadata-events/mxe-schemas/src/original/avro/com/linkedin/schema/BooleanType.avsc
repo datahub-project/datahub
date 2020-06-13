@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "BooleanType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Boolean field type.",
+  "fields" : [ ]
+}

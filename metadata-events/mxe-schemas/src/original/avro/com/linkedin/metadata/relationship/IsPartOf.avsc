@@ -1,0 +1,22 @@
+{
+  "type" : "record",
+  "name" : "IsPartOf",
+  "namespace" : "com.linkedin.metadata.relationship",
+  "doc" : "A generic model for the Is-Part-Of relationship",
+  "fields" : [ {
+    "name" : "source",
+    "type" : "string",
+    "doc" : "Urn for the source of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "destination",
+    "type" : "string",
+    "doc" : "Urn for the destination of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  } ],
+  "pairings" : [ ]
+}

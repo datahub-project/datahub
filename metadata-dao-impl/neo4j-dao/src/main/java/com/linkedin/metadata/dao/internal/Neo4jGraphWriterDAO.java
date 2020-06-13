@@ -2,6 +2,8 @@ package com.linkedin.metadata.dao.internal;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.dao.Neo4jUtil;
+import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.Statement;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
@@ -11,13 +13,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.exceptions.Neo4jException;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
+import static com.linkedin.metadata.dao.utils.ModelUtils.*;
+import static com.linkedin.metadata.dao.utils.RecordUtils.*;
 
 
 /**
@@ -25,35 +31,43 @@ import static com.linkedin.metadata.dao.Neo4jUtil.*;
  */
 public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
+  private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
+  private static Map<String, String> _urnToEntityMap = null;
 
   public Neo4jGraphWriterDAO(@Nonnull Driver driver) {
     this._driver = driver;
+    buildUrnToEntityMap(getAllEntities());
+  }
+
+  /* Should only be sed for testing */
+  public Neo4jGraphWriterDAO(@Nonnull Driver driver, @Nonnull Set<Class<? extends RecordTemplate>> allEntities) {
+    this._driver = driver;
+    buildUrnToEntityMap(allEntities);
   }
 
   @Override
-  public <ENTITY extends RecordTemplate> void addEntities(@Nonnull List<ENTITY> entities) throws Exception {
+  public <ENTITY extends RecordTemplate> void addEntities(@Nonnull List<ENTITY> entities) {
 
     entities.forEach(entity -> EntityValidator.validateEntitySchema(entity.getClass()));
     executeStatements(entities.stream().map(this::addNode).collect(Collectors.toList()));
   }
 
   @Override
-  public <URN extends Urn> void removeEntities(@Nonnull List<URN> urns) throws Exception {
+  public <URN extends Urn> void removeEntities(@Nonnull List<URN> urns) {
     executeStatements(urns.stream().map(this::removeNode).collect(Collectors.toList()));
   }
 
   @Override
   public <RELATIONSHIP extends RecordTemplate> void addRelationships(@Nonnull List<RELATIONSHIP> relationships,
-      @Nonnull RemovalOption removalOption) throws Exception {
+      @Nonnull RemovalOption removalOption) {
 
     relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
     executeStatements(addEdges(relationships, removalOption));
   }
 
   @Override
-  public <RELATIONSHIP extends RecordTemplate> void removeRelationships(@Nonnull List<RELATIONSHIP> relationships)
-      throws Exception {
+  public <RELATIONSHIP extends RecordTemplate> void removeRelationships(@Nonnull List<RELATIONSHIP> relationships) {
 
     relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
     executeStatements(relationships.stream().map(this::removeEdge).collect(Collectors.toList()));
@@ -64,12 +78,27 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
    *
    * @param statements List of statements with parameters to be executed in order
    */
-  private void executeStatements(@Nonnull List<Statement> statements) throws Exception {
+  private void executeStatements(@Nonnull List<Statement> statements) {
+    int retry = 0;
+    Exception lastException;
     try (final Session session = _driver.session()) {
-      session.writeTransaction(tx -> {
-        statements.forEach(statement -> tx.run(statement.getCommandText(), statement.getParams()));
-        return 0;
-      });
+      do {
+        try {
+          session.writeTransaction(tx -> {
+            statements.forEach(statement -> tx.run(statement.getCommandText(), statement.getParams()));
+            return 0;
+          });
+          lastException = null;
+          break;
+        } catch (Neo4jException e) {
+          lastException = e;
+        }
+      } while (++retry <= MAX_TRANSACTION_RETRY);
+    }
+
+    if (lastException != null) {
+      throw new RetryLimitReached("Failed to execute Neo4j write transaction after "
+          + MAX_TRANSACTION_RETRY + " retries", lastException);
     }
   }
 
@@ -79,7 +108,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
    * @param statement a statement with parameters to be executed
    */
   @Nonnull
-  private List<Record> runQuery(@Nonnull Statement statement) throws Exception {
+  private List<Record> runQuery(@Nonnull Statement statement) {
     try (final Session session = _driver.session()) {
       return session.run(statement.getCommandText(), statement.getParams()).list();
     }
@@ -87,7 +116,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   // used in testing
   @Nonnull
-  Optional<Map<String, Object>> getNode(@Nonnull Urn urn) throws Exception {
+  Optional<Map<String, Object>> getNode(@Nonnull Urn urn) {
     List<Map<String, Object>> nodes = getAllNodes(urn);
     if (nodes.isEmpty()) {
       return Optional.empty();
@@ -97,7 +126,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   // used in testing
   @Nonnull
-  List<Map<String, Object>> getAllNodes(@Nonnull Urn urn) throws Exception {
+  List<Map<String, Object>> getAllNodes(@Nonnull Urn urn) {
     final String matchTemplate = "MATCH (node%s {urn: $urn}) RETURN node";
 
     final String sourceType = getNodeType(urn);
@@ -112,10 +141,9 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   // used in testing
   @Nonnull
-  <RELATIONSHIP extends RecordTemplate> List<Map<String, Object>> getEdges(@Nonnull RELATIONSHIP relationship)
-      throws Exception {
-    final Urn sourceUrn = getUrn(relationship, SOURCE_FIELD);
-    final Urn destinationUrn = getUrn(relationship, DESTINATION_FIELD);
+  <RELATIONSHIP extends RecordTemplate> List<Map<String, Object>> getEdges(@Nonnull RELATIONSHIP relationship) {
+    final Urn sourceUrn = getSourceUrnFromRelationship(relationship);
+    final Urn destinationUrn = getDestinationUrnFromRelationship(relationship);
     final String relationshipType = getType(relationship);
 
     final String sourceType = getNodeType(sourceUrn);
@@ -135,8 +163,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   // used in testing
   @Nonnull
-  <RELATIONSHIP extends RecordTemplate> List<Map<String, Object>> getEdgesFromSource(@Nonnull Urn sourceUrn,
-      @Nonnull Class<RELATIONSHIP> relationshipClass) throws Exception {
+  <RELATIONSHIP extends RecordTemplate> List<Map<String, Object>> getEdgesFromSource(
+      @Nonnull Urn sourceUrn, @Nonnull Class<RELATIONSHIP> relationshipClass) {
     final String relationshipType = getType(relationshipClass);
     final String sourceType = getNodeType(sourceUrn);
 
@@ -152,7 +180,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   @Nonnull
   private <ENTITY extends RecordTemplate> Statement addNode(@Nonnull ENTITY entity) {
-    final Urn urn = getUrn(entity, URN_FIELD);
+    final Urn urn = getUrnFromEntity(entity);
     final String nodeType = getNodeType(urn);
 
     final String mergeTemplate = "MERGE (node%s {urn: $urn}) ON CREATE SET node%s SET node = $properties RETURN node";
@@ -196,8 +224,9 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   }
 
   @Nonnull
-  private <RELATIONSHIP extends RecordTemplate> List<Statement> addEdges(@Nonnull List<RELATIONSHIP> relationships,
-      @Nonnull RemovalOption removalOption) {
+  private <RELATIONSHIP extends RecordTemplate>
+    List<Statement> addEdges(@Nonnull List<RELATIONSHIP> relationships, @Nonnull RemovalOption removalOption) {
+
     // if no relationships, return
     if (relationships.isEmpty()) {
       return Collections.emptyList();
@@ -206,8 +235,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final List<Statement> statements = new ArrayList<>();
 
     // remove existing edges according to RemovalOption
-    final Urn source0Urn = getUrn(relationships.get(0), SOURCE_FIELD);
-    final Urn destination0Urn = getUrn(relationships.get(0), DESTINATION_FIELD);
+    final Urn source0Urn = getSourceUrnFromRelationship(relationships.get(0));
+    final Urn destination0Urn = getDestinationUrnFromRelationship(relationships.get(0));
     final String relationType = getType(relationships.get(0));
 
     final String sourceType = getNodeType(source0Urn);
@@ -248,8 +277,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     }
 
     relationships.forEach(relationship -> {
-      final Urn srcUrn = getUrn(relationship, SOURCE_FIELD);
-      final Urn destUrn = getUrn(relationship, DESTINATION_FIELD);
+      final Urn srcUrn = getSourceUrnFromRelationship(relationship);
+      final Urn destUrn = getDestinationUrnFromRelationship(relationship);
       final String sourceNodeType = getNodeType(srcUrn);
       final String destinationNodeType = getNodeType(destUrn);
 
@@ -276,16 +305,16 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   private <T extends RecordTemplate> void checkSameUrn(@Nonnull List<T> records, @Nonnull String field,
       @Nonnull Urn compare) {
-    if (!records.stream().allMatch(relation -> compare.equals(getUrn(relation, field)))) {
-      throw new IllegalArgumentException("Records have different " + field + " Urn");
+    if (!records.stream().allMatch(relation -> compare.equals(getRecordTemplateField(relation, field, Urn.class)))) {
+      throw new IllegalArgumentException("Records have different " + field + " urn");
     }
   }
 
   @Nonnull
   private <RELATIONSHIP extends RecordTemplate> Statement removeEdge(@Nonnull RELATIONSHIP relationship) {
 
-    final Urn sourceUrn = getUrn(relationship, SOURCE_FIELD);
-    final Urn destinationUrn = getUrn(relationship, DESTINATION_FIELD);
+    final Urn sourceUrn = getSourceUrnFromRelationship(relationship);
+    final Urn destinationUrn = getDestinationUrnFromRelationship(relationship);
 
     final String sourceType = getNodeType(sourceUrn);
     final String destinationType = getNodeType(destinationUrn);
@@ -315,5 +344,22 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
       return obj.toString();
     }
     return obj;
+  }
+
+  @Nonnull
+  public String getNodeType(@Nonnull Urn urn) {
+    return ":" + _urnToEntityMap.getOrDefault(urn.getEntityType(), "UNKNOWN");
+  }
+
+  @Nonnull
+  private Map<String, String> buildUrnToEntityMap(@Nonnull Set<Class<? extends RecordTemplate>> entitiesSet) {
+    if (_urnToEntityMap == null) {
+      _urnToEntityMap = entitiesSet.stream()
+          .collect(Collectors.toMap(
+              entity -> getEntityTypeFromUrnClass(urnClassForEntity(entity)),
+              entity -> Neo4jUtil.getType(entity))
+          );
+    }
+    return _urnToEntityMap;
   }
 }

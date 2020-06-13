@@ -1,0 +1,20 @@
+{
+  "type" : "record",
+  "name" : "BaseDocument",
+  "namespace" : "com.linkedin.metadata.search",
+  "doc" : "Common fields that may apply to all documents",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "browsePaths",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "All paths representing the hierarchy of this entity. This is essential for browsing various paths leading to this entity.",
+    "default" : null
+  } ]
+}

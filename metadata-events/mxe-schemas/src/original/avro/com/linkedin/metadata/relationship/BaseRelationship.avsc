@@ -1,0 +1,21 @@
+{
+  "type" : "record",
+  "name" : "BaseRelationship",
+  "namespace" : "com.linkedin.metadata.relationship",
+  "doc" : "Common fields that apply to all relationships",
+  "fields" : [ {
+    "name" : "source",
+    "type" : "string",
+    "doc" : "Urn for the source of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "destination",
+    "type" : "string",
+    "doc" : "Urn for the destination of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  } ]
+}

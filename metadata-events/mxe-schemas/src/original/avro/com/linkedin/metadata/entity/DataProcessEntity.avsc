@@ -1,0 +1,41 @@
+{
+  "type" : "record",
+  "name" : "DataProcessEntity",
+  "namespace" : "com.linkedin.metadata.entity",
+  "doc" : "Data model for a Data Process entity",
+  "fields" : [ {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the Data Process",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DataProcessUrn"
+    }
+  }, {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "Data Process name(id)",
+    "default" : null
+  }, {
+    "name" : "orchestrator",
+    "type" : [ "null", "string" ],
+    "doc" : "Process Orchestrator for this process in the form. Options can be Airflow, Azkaban, Azure Data Factory",
+    "default" : null
+  }, {
+    "name" : "origin",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "FabricType",
+      "namespace" : "com.linkedin.common",
+      "doc" : "Fabric group type",
+      "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+      "symbolDocs" : {
+        "CORP" : "Designates corporation fabrics",
+        "DEV" : "Designates development fabrics",
+        "EI" : "Designates early-integration (staging) fabrics",
+        "PROD" : "Designates production fabrics"
+      }
+    } ],
+    "doc" : "Fabric type where dataset belongs to or where it was generated.",
+    "default" : null
+  } ]
+}

@@ -5,7 +5,6 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
@@ -29,6 +28,7 @@ import org.elasticsearch.search.SearchHits;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.testng.Assert.*;
@@ -149,7 +149,7 @@ public class ESSearchDAOTest {
   public void testFilteredQueryWithTermsFilter() throws IOException {
     int from = 0;
     int size = 10;
-    Filter filter = SearchUtils.getFilter(ImmutableMap.of("key1", "value1, value2 ", "key2", "value3", "key3", " "));
+    Filter filter = newFilter(ImmutableMap.of("key1", "value1, value2 ", "key2", "value3", "key3", " "));
     SortCriterion sortCriterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField("urn");
 
     // Test 1: sort order provided
@@ -163,7 +163,7 @@ public class ESSearchDAOTest {
     assertEquals(searchRequest.indices(), new String[] {_testSearchConfig.getIndexName()});
 
     // Test 3: empty request map provided
-    searchRequest = _searchDAO.getFilteredSearchQuery(SearchUtils.getFilter(Collections.emptyMap()), sortCriterion, from, size);
+    searchRequest = _searchDAO.getFilteredSearchQuery(EMPTY_FILTER, sortCriterion, from, size);
     assertEquals(searchRequest.source().toString(), loadJsonFromResource("EmptyFilterQuery.json"));
     assertEquals(searchRequest.indices(), new String[] {_testSearchConfig.getIndexName()});
   }

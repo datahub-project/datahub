@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "BytesType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Bytes field type.",
+  "fields" : [ ]
+}

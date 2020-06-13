@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "PrestoDDL",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema holder for presto data definition language that describes a presto view.",
+  "fields" : [ {
+    "name" : "rawSchema",
+    "type" : "string",
+    "doc" : "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
+  } ]
+}

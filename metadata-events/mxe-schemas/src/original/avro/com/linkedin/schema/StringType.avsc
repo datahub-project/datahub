@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "StringType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "String field type.",
+  "fields" : [ ]
+}

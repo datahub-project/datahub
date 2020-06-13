@@ -1,0 +1,17 @@
+{
+  "type" : "record",
+  "name" : "AggregationMetadata",
+  "namespace" : "com.linkedin.metadata.query",
+  "fields" : [ {
+    "name" : "name",
+    "type" : "string",
+    "doc" : "The name of the aggregation, e.g, platform, origin"
+  }, {
+    "name" : "aggregations",
+    "type" : {
+      "type" : "map",
+      "values" : "long"
+    },
+    "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
+  } ]
+}

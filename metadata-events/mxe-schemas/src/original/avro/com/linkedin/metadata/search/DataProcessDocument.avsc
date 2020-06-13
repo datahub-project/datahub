@@ -1,0 +1,76 @@
+{
+  "type" : "record",
+  "name" : "DataProcessDocument",
+  "namespace" : "com.linkedin.metadata.search",
+  "doc" : "Data model for data process entity search",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "browsePaths",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "All paths representing the hierarchy of this entity. This is essential for browsing various paths leading to this entity.",
+    "default" : null
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the data process",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DataProcessUrn"
+    }
+  }, {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "Process native name e.g. a ETL script name",
+    "default" : null
+  }, {
+    "name" : "orchestrator",
+    "type" : [ "null", "string" ],
+    "doc" : "Orchestrator name for this process, such as Azure Data Factory",
+    "default" : null
+  }, {
+    "name" : "owners",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "LDAP usernames of corp users who are the owners of this process",
+    "default" : null
+  }, {
+    "name" : "hasOwners",
+    "type" : [ "null", "boolean" ],
+    "doc" : "Flag to indicate if the process has non empty corp users as owners or not.",
+    "default" : null
+  }, {
+    "name" : "numInputDatasets",
+    "type" : [ "null", "long" ],
+    "doc" : "Lineage information represented by the number of immediate input datasets of this process.",
+    "default" : null
+  }, {
+    "name" : "numOutputDatasets",
+    "type" : [ "null", "long" ],
+    "doc" : "Lineage information represented by the number of immediate output datasets of this process.",
+    "default" : null
+  }, {
+    "name" : "inputs",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "List of inputs for this process",
+    "default" : null
+  }, {
+    "name" : "outputs",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "List of outputs for this process",
+    "default" : null
+  } ]
+}

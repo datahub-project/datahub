@@ -1,0 +1,41 @@
+{
+  "type" : "record",
+  "name" : "DownstreamOf",
+  "namespace" : "com.linkedin.metadata.relationship",
+  "doc" : "A generic model for the DownstreamOf relationship",
+  "fields" : [ {
+    "name" : "source",
+    "type" : "string",
+    "doc" : "Urn for the source of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "destination",
+    "type" : "string",
+    "doc" : "Urn for the destination of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "type",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "DatasetLineageType",
+      "namespace" : "com.linkedin.dataset",
+      "doc" : "The various types of supported dataset lineage",
+      "symbols" : [ "COPY", "TRANSFORMED", "VIEW" ],
+      "symbolDocs" : {
+        "COPY" : "Direct copy without modification",
+        "TRANSFORMED" : "Transformed data with modification (format or content change)",
+        "VIEW" : "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+      }
+    } ],
+    "doc" : "The type of the lineage",
+    "default" : null
+  } ],
+  "pairings" : [ {
+    "destination" : "com.linkedin.common.urn.DatasetUrn",
+    "source" : "com.linkedin.common.urn.DatasetUrn"
+  } ]
+}

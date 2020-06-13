@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "OrcSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text of an ORC schema.",
+  "fields" : [ {
+    "name" : "schema",
+    "type" : "string",
+    "doc" : "The native schema for ORC file format."
+  } ]
+}

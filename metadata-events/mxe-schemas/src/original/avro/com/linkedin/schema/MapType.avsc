@@ -1,0 +1,17 @@
+{
+  "type" : "record",
+  "name" : "MapType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Map field type.",
+  "fields" : [ {
+    "name" : "keyType",
+    "type" : [ "null", "string" ],
+    "doc" : "Key type in a map",
+    "default" : null
+  }, {
+    "name" : "valueType",
+    "type" : [ "null", "string" ],
+    "doc" : "Type of the value in a map",
+    "default" : null
+  } ]
+}

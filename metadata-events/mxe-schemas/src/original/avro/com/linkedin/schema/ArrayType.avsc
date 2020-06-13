@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "ArrayType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Array field type.",
+  "fields" : [ {
+    "name" : "nestedType",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "List of types this array holds.",
+    "default" : null
+  } ]
+}

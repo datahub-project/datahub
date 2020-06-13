@@ -1,0 +1,11 @@
+namespace com.linkedin.testing
+
+/**
+ * For unit tests
+ */
+@Aspect.EntityUrns = ["com.linkedin.testing.FooUrn"]
+record AnnotatedAspectFoo {
+
+  /** For unit tests */
+  value: string
+}

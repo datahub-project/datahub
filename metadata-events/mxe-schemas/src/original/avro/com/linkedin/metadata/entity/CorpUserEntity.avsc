@@ -1,0 +1,24 @@
+{
+  "type" : "record",
+  "name" : "CorpUserEntity",
+  "namespace" : "com.linkedin.metadata.entity",
+  "doc" : "Data model for a CorpUser entity",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the LDAP User",
+    "java" : {
+      "class" : "com.linkedin.common.urn.CorpuserUrn"
+    }
+  }, {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "LDAP name(id) : e.g. hzhang2, ywang5 ..",
+    "default" : null
+  } ]
+}

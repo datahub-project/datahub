@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "NumberType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Number data type: long, integer, short, etc..",
+  "fields" : [ ]
+}

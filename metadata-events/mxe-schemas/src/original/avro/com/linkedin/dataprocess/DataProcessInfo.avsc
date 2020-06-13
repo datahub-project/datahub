@@ -1,0 +1,23 @@
+{
+  "type" : "record",
+  "name" : "DataProcessInfo",
+  "namespace" : "com.linkedin.dataprocess",
+  "doc" : "The inputs and outputs of this data process",
+  "fields" : [ {
+    "name" : "inputs",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "the inputs of the data process",
+    "default" : null
+  }, {
+    "name" : "outputs",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "the outputs of the data process",
+    "default" : null
+  } ]
+}

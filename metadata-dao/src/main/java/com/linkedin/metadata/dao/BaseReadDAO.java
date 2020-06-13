@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
@@ -104,6 +105,18 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
     }
 
     return results.get(urn);
+  }
+
+  /**
+   * Similar to {@link #get(Set, Set)} but only for one aspect.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> get(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull Set<URN> urns) {
+
+    return get(Collections.singleton(aspectClass), urns).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> (Optional<ASPECT>) entry.getValue().get(aspectClass)));
   }
 
   protected void checkValidAspect(@Nonnull Class<? extends RecordTemplate> aspectClass) {

@@ -1,0 +1,46 @@
+{
+  "type" : "record",
+  "name" : "OwnedBy",
+  "namespace" : "com.linkedin.metadata.relationship",
+  "doc" : "A generic model for the Owned-By relationship",
+  "fields" : [ {
+    "name" : "source",
+    "type" : "string",
+    "doc" : "Urn for the source of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "destination",
+    "type" : "string",
+    "doc" : "Urn for the destination of the relationship",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "OwnershipType",
+      "namespace" : "com.linkedin.common",
+      "doc" : "Owner category or owner role",
+      "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+      "symbolDocs" : {
+        "CONSUMER" : "A person, group, or service that consumes the data",
+        "DATAOWNER" : "A person or group that is owning the data",
+        "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+        "DEVELOPER" : "A person or group that is in charge of developing the code",
+        "PRODUCER" : "A person, group, or service that produces/generates the data",
+        "STAKEHOLDER" : "A person or a group that has direct business interest"
+      }
+    },
+    "doc" : "The type of the ownership"
+  } ],
+  "pairings" : [ {
+    "destination" : "com.linkedin.common.urn.CorpuserUrn",
+    "source" : "com.linkedin.common.urn.DatasetUrn"
+  }, {
+    "destination" : "com.linkedin.common.urn.CorpuserUrn",
+    "source" : "com.linkedin.common.urn.DataProcessUrn"
+  } ]
+}

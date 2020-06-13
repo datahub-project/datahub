@@ -1,0 +1,7 @@
+{
+  "type" : "record",
+  "name" : "EnumType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Enum field type.",
+  "fields" : [ ]
+}

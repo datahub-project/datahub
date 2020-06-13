@@ -1,0 +1,19 @@
+{
+  "type" : "record",
+  "name" : "BrowseResultEntity",
+  "namespace" : "com.linkedin.metadata.query",
+  "doc" : "Data model for an entity returned as part of a browse query",
+  "fields" : [ {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "Name of the entity",
+    "default" : null
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "URN of the entity",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  } ]
+}

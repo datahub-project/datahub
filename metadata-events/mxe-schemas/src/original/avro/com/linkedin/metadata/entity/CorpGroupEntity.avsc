@@ -1,0 +1,24 @@
+{
+  "type" : "record",
+  "name" : "CorpGroupEntity",
+  "namespace" : "com.linkedin.metadata.entity",
+  "doc" : "Data model for a CorpGroup entity(go/groupId)",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the LDAP Group",
+    "java" : {
+      "class" : "com.linkedin.common.urn.CorpGroupUrn"
+    }
+  }, {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "doc" : "name of the group, e.g. wherehows-dev, ask_metadata",
+    "default" : null
+  } ]
+}

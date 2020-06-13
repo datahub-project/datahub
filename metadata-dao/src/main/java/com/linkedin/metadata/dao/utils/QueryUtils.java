@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -17,26 +18,28 @@ import javax.annotation.Nullable;
 
 public class QueryUtils {
 
+  public static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
+
   private QueryUtils() {
   }
 
-  // Creates new Criterion with field and value, using EQUAL condition
+  // Creates new Criterion with field and value, using EQUAL condition.
   @Nonnull
   public static Criterion newCriterion(@Nonnull String field, @Nonnull String value) {
     return newCriterion(field, value, Condition.EQUAL);
   }
 
-  // Creates new Criterion with field, value and condition
+  // Creates new Criterion with field, value and condition.
   @Nonnull
   public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
     return new Criterion().setField(field).setValue(value).setCondition(condition);
   }
 
-  // Converts query parameters to Filter, remove null-valued parameters.
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
     if (params == null) {
-      return new Filter().setCriteria(new CriterionArray());
+      return EMPTY_FILTER;
     }
 
     CriterionArray criteria = params.entrySet()
@@ -45,6 +48,12 @@ public class QueryUtils {
         .map(e -> newCriterion(e.getKey(), e.getValue()))
         .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter().setCriteria(criteria);
+  }
+
+  // Creates new Filter from a single Criterion with EQUAL condition (default).
+  @Nonnull
+  public static Filter newFilter(@Nonnull String field, @Nonnull String value) {
+    return newFilter(Collections.singletonMap(field, value));
   }
 
   /**

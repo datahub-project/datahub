@@ -1,0 +1,56 @@
+{
+  "type" : "record",
+  "name" : "CorpGroupDocument",
+  "namespace" : "com.linkedin.metadata.search",
+  "doc" : "Data model for Corp Group entity search",
+  "fields" : [ {
+    "name" : "removed",
+    "type" : [ "boolean", "null" ],
+    "doc" : "Whether the entity has been removed or not",
+    "default" : false
+  }, {
+    "name" : "browsePaths",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "All paths representing the hierarchy of this entity. This is essential for browsing various paths leading to this entity.",
+    "default" : null
+  }, {
+    "name" : "urn",
+    "type" : "string",
+    "doc" : "Urn for the Corp group.",
+    "java" : {
+      "class" : "com.linkedin.common.urn.CorpGroupUrn"
+    }
+  }, {
+    "name" : "email",
+    "type" : [ "null", "string" ],
+    "doc" : "Email of the corp group",
+    "default" : null
+  }, {
+    "name" : "members",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "ldap usernames of corp users who are direct members of this group",
+    "default" : null
+  }, {
+    "name" : "admins",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "ldap usernames of corp users who are direct admins of this group",
+    "default" : null
+  }, {
+    "name" : "groups",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "List of group names who are part of this group",
+    "default" : null
+  } ]
+}

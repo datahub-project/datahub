@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "KeyValueSchema",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Schema text of a key-value store schema.",
+  "fields" : [ {
+    "name" : "keySchema",
+    "type" : "string",
+    "doc" : "The raw schema for the key in the key-value store."
+  }, {
+    "name" : "valueSchema",
+    "type" : "string",
+    "doc" : "The raw schema for the value in the key-value store."
+  } ]
+}

@@ -16,6 +16,7 @@ import com.linkedin.metadata.dummy.DummySnapshot;
 import com.linkedin.metadata.validator.AspectValidator;
 import com.linkedin.metadata.validator.DeltaValidator;
 import com.linkedin.metadata.validator.DocumentValidator;
+import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.InvalidSchemaException;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
@@ -25,7 +26,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.reflections.Reflections;
 
 
 public class ModelUtils {
@@ -167,6 +170,51 @@ public class ModelUtils {
   }
 
   /**
+   * Extracts the "urn" field from an entity
+   *
+   * @param entity the entity to extract urn from
+   * @param <ENTITY> must be a valid entity model defined in com.linkedin.metadata.entity
+   * @return the extracted {@link Urn}
+   */
+  @Nonnull
+  public static <ENTITY extends RecordTemplate> Urn getUrnFromEntity(@Nonnull ENTITY entity) {
+    EntityValidator.validateEntitySchema(entity.getClass());
+    return RecordUtils.getRecordTemplateField(entity, "urn", urnClassForDocument(entity.getClass()));
+  }
+
+  /**
+   * Extracts the fields with type urn from a relationship
+   *
+   * @param relationship the relationship to extract urn from
+   * @param <RELATIONSHIP> must be a valid relationship model defined in com.linkedin.metadata.relationship
+   * @param fieldName name of the field with type urn
+   * @return the extracted {@link Urn}
+   */
+  @Nonnull
+  private static <RELATIONSHIP extends RecordTemplate> Urn getUrnFromRelationship(@Nonnull RELATIONSHIP relationship,
+      @Nonnull String fieldName) {
+    RelationshipValidator.validateRelationshipSchema(relationship.getClass());
+    return RecordUtils.getRecordTemplateField(relationship, fieldName,
+        urnClassForRelationship(relationship.getClass(), fieldName));
+  }
+
+  /**
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   */
+  @Nonnull
+  public static <RELATIONSHIP extends RecordTemplate> Urn  getSourceUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+    return getUrnFromRelationship(relationship, "source");
+  }
+
+  /**
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   */
+  @Nonnull
+  public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+    return getUrnFromRelationship(relationship, "destination");
+  }
+
+  /**
    * Extracts the list of aspects in a snapshot.
    *
    * @param snapshot the snapshot to extract aspects from
@@ -187,15 +235,16 @@ public class ModelUtils {
    * @param snapshot the snapshot to extract the aspect from
    * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
    * @param aspectClass the aspect class type to extract from snapshot
-   * @return the extracted list of aspects
+   * @return the extracted aspect
    */
   @Nonnull
-  public static <SNAPSHOT extends RecordTemplate, ASPECT extends DataTemplate> Optional<RecordTemplate> getAspectFromSnapshot(
+  public static <SNAPSHOT extends RecordTemplate, ASPECT extends DataTemplate> Optional<ASPECT> getAspectFromSnapshot(
       @Nonnull SNAPSHOT snapshot, @Nonnull Class<ASPECT> aspectClass) {
 
     return getAspectsFromSnapshot(snapshot).stream()
         .filter(aspect -> aspect.getClass().equals(aspectClass))
-        .findFirst();
+        .findFirst()
+        .map(aspectClass::cast);
   }
 
   /**
@@ -311,6 +360,15 @@ public class ModelUtils {
   }
 
   /**
+   * Gets the expected {@link Urn} class for a specific kind of entity.
+   */
+  @Nonnull
+  public static Class<? extends Urn> urnClassForEntity(@Nonnull Class<? extends RecordTemplate> entityClass) {
+    EntityValidator.validateEntitySchema(entityClass);
+    return urnClassForField(entityClass, "urn");
+  }
+
+  /**
    * Gets the expected {@link Urn} class for a specific kind of snapshot.
    */
   @Nonnull
@@ -335,6 +393,32 @@ public class ModelUtils {
   public static Class<? extends Urn> urnClassForDocument(@Nonnull Class<? extends RecordTemplate> documentClass) {
     DocumentValidator.validateDocumentSchema(documentClass);
     return urnClassForField(documentClass, "urn");
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for a specific kind of relationship.
+   */
+  @Nonnull
+  private static Class<? extends Urn> urnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass,
+      @Nonnull String fieldName) {
+    RelationshipValidator.validateRelationshipSchema(relationshipClass);
+    return urnClassForField(relationshipClass, fieldName);
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for the source field of a specific kind of relationship.
+   */
+  @Nonnull
+  public static Class<? extends Urn> sourceUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+    return urnClassForRelationship(relationshipClass, "source");
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for the destination field of a specific kind of relationship.
+   */
+  @Nonnull
+  public static Class<? extends Urn> destinationUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+    return urnClassForRelationship(relationshipClass, "destination");
   }
 
   @Nonnull
@@ -398,6 +482,28 @@ public class ModelUtils {
       RecordUtils.setSelectedRecordTemplateInUnion(relationshipUnion, relationship);
       return relationshipUnion;
     } catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Returns all entity classes
+   */
+  @Nonnull
+  public static Set<Class<? extends RecordTemplate>> getAllEntities() {
+    return new Reflections("com.linkedin.metadata.entity")
+        .getSubTypesOf(RecordTemplate.class).stream().filter(EntityValidator::isValidEntitySchema)
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * Get entity type from urn class
+   */
+  @Nonnull
+  public static String getEntityTypeFromUrnClass(@Nonnull Class<? extends Urn> urnClass) {
+    try {
+      return urnClass.getDeclaredField("ENTITY_TYPE").get(null).toString();
+    } catch (NoSuchFieldException | IllegalAccessException e) {
       throw new RuntimeException(e);
     }
   }

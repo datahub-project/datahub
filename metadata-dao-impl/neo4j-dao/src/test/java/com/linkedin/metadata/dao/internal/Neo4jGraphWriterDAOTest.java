@@ -5,6 +5,7 @@ import com.linkedin.metadata.utils.Neo4jTestServerBuilder;
 import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityBar;
+import com.linkedin.testing.TestUtils;
 import com.linkedin.testing.urn.BarUrn;
 import com.linkedin.testing.urn.FooUrn;
 import java.util.Arrays;
@@ -17,6 +18,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.dao.Neo4jUtil.*;
 import static com.linkedin.metadata.dao.internal.BaseGraphWriterDAO.RemovalOption.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.testng.Assert.*;
@@ -31,7 +33,10 @@ public class Neo4jGraphWriterDAOTest {
   public void init() {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
-    _dao = new Neo4jGraphWriterDAO(GraphDatabase.driver(_serverBuilder.boltURI()));
+    _dao = new Neo4jGraphWriterDAO(
+        GraphDatabase.driver(_serverBuilder.boltURI()),
+        TestUtils.getAllTestEntities()
+    );
   }
 
   @AfterMethod
@@ -199,6 +204,18 @@ public class Neo4jGraphWriterDAOTest {
     _dao.addRelationship(relationship3, REMOVE_ALL_EDGES_FROM_SOURCE_TO_DESTINATION);
     assertRelationshipFoo(_dao.getEdgesFromSource(urn1, RelationshipFoo.class), 0);
     assertRelationshipFoo(_dao.getEdgesFromSource(urn4, RelationshipFoo.class), 1);
+  }
+
+  @Test
+  public void testGetNodeTypeFromUrn() {
+    assertEquals(_dao.getNodeType(makeBarUrn(1)), ":`com.linkedin.testing.EntityBar`");
+    assertEquals(_dao.getNodeType(makeFooUrn(1)), ":`com.linkedin.testing.EntityFoo`");
+    assertEquals(_dao.getNodeType(makeUrn(1, "entityFoo")), ":`com.linkedin.testing.EntityFoo`");
+    assertEquals(_dao.getNodeType(makeUrn("1")), ":UNKNOWN");
+
+    // test consistency !!
+    assertEquals(_dao.getNodeType(makeBarUrn(1)), getTypeOrEmptyString(EntityBar.class));
+    assertEquals(_dao.getNodeType(makeFooUrn(1)), getTypeOrEmptyString(EntityFoo.class));
   }
 
   private void assertEntityFoo(@Nonnull Map<String, Object> node, @Nonnull EntityFoo entity) {

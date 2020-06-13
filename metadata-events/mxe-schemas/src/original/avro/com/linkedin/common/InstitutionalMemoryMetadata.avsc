@@ -1,0 +1,47 @@
+{
+  "type" : "record",
+  "name" : "InstitutionalMemoryMetadata",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Metadata corresponding to a record of institutional memory.",
+  "fields" : [ {
+    "name" : "url",
+    "type" : "string",
+    "doc" : "Link to an engineering design document or a wiki page.",
+    "java" : {
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+    }
+  }, {
+    "name" : "description",
+    "type" : "string",
+    "doc" : "Description of the link."
+  }, {
+    "name" : "createStamp",
+    "type" : {
+      "type" : "record",
+      "name" : "AuditStamp",
+      "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+      "fields" : [ {
+        "name" : "time",
+        "type" : "long",
+        "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+      }, {
+        "name" : "actor",
+        "type" : "string",
+        "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+        "java" : {
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      }, {
+        "name" : "impersonator",
+        "type" : [ "null", "string" ],
+        "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+        "default" : null,
+        "java" : {
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      } ]
+    },
+    "doc" : "Audit stamp associated with creation of this record"
+  } ]
+}
