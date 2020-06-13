@@ -14,12 +14,14 @@ import javax.annotation.Nonnull;
 
 
 public class DataProcessGraphBuilder extends BaseGraphBuilder<DataProcessSnapshot> {
+
   private static final Set<BaseRelationshipBuilder> RELATIONSHIP_BUILDERS =
     Collections.unmodifiableSet(new HashSet<BaseRelationshipBuilder>() {
       {
         add(new OwnedByBuilderFromOwnership());
       }
     });
+
   public DataProcessGraphBuilder() {
     super(DataProcessSnapshot.class, RELATIONSHIP_BUILDERS);
   }
