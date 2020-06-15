@@ -23,7 +23,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 | Date    | Recording | Q&A |
 | ------- | :---------: | :---------: |
 | 05/29/20 | [link](https://bluejeans.com/s/GCAzY) | TBD
-| 4/17/20  | [link](https://bluejeans.com/s/eYRD4) | TBD
-| 4/3/20  | [link](https://bluejeans.com/s/vzYpa) | [link](https://docs.google.com/document/d/1ChF9jiJWv9wj3HLLkFYRg7NSYg8Kb0PT7COd7Hf9Zpk/edit?usp=sharing)
-| 3/20/20 | [link](https://bluejeans.com/s/FSKEF) | [link](https://docs.google.com/document/d/1vQ6tAGXsVafnPIcZv1GSYgnTJJXFOACa1aWzOQjiGHI/edit) |
-| 3/6/20  | [link](https://bluejeans.com/s/vULMG) | [link](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit) |
+| 04/17/20  | [link](https://bluejeans.com/s/eYRD4) | TBD
+| 04/03/20  | [link](https://bluejeans.com/s/vzYpa) | [link](https://docs.google.com/document/d/1ChF9jiJWv9wj3HLLkFYRg7NSYg8Kb0PT7COd7Hf9Zpk/edit?usp=sharing)
+| 03/20/20 | [link](https://bluejeans.com/s/FSKEF) | [link](https://docs.google.com/document/d/1vQ6tAGXsVafnPIcZv1GSYgnTJJXFOACa1aWzOQjiGHI/edit) |
+| 03/06/20  | [link](https://bluejeans.com/s/vULMG) | [link](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit) |
