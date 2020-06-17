@@ -8,6 +8,9 @@ import com.linkedin.common.OwnershipType
 @pairings = [ {
   "destination" : "com.linkedin.common.urn.CorpuserUrn",
   "source" : "com.linkedin.common.urn.DatasetUrn"
+}, {
+   "destination" : "com.linkedin.common.urn.CorpuserUrn",
+   "source" : "com.linkedin.common.urn.DataProcessUrn"
 } ]
 record OwnedBy includes BaseRelationship {
 

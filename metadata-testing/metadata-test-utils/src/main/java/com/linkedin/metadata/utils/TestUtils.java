@@ -12,6 +12,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import java.io.IOException;
@@ -36,6 +37,11 @@ public class TestUtils {
   @Nonnull
   public static DatasetUrn makeDatasetUrn(@Nonnull String name) {
     return new DatasetUrn(new DataPlatformUrn("mysql"), name, FabricType.DEV);
+  }
+
+  @Nonnull
+  public static DataProcessUrn makeDataProcessUrn(@Nonnull String name) {
+    return new DataProcessUrn("Azure Data Factory", name, FabricType.DEV);
   }
 
   @Nonnull
