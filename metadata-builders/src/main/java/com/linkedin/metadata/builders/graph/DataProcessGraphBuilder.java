@@ -35,8 +35,6 @@ public class DataProcessGraphBuilder extends BaseGraphBuilder<DataProcessSnapsho
         .setOrchestrator(urn.getOrchestrator())
         .setOrigin(urn.getOriginEntity());
 
-    setRemovedProperty(snapshot, entity);
-
     return Collections.singletonList(entity);
   }
 }
