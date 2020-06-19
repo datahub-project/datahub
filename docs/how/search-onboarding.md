@@ -82,6 +82,6 @@ Refer to [CorpUsers] rest.li resource implementation as an example.
 [essearchdao]: ../../metadata-dao-impl/elasticsearch-dao/src/main/java/com/linkedin/metadata/dao/search/ESSearchDAO.java
 [basesearchdao]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseSearchDAO.java
 [basesearchconfig]: ../../metadata-dao-impl/elasticsearch-dao/src/main/java/com/linkedin/metadata/dao/search/BaseSearchConfig.java
-[datasetsearchconfig]: ../../gms/impl/src/main/java/com/linkedin/dataset/dao/search/DatasetSearchConfig.java
+[datasetsearchconfig]: ../../gms/impl/src/main/java/com/linkedin/metadata/configs/DatasetSearchConfig.java
 [basesearchableentityresource]: ../../metadata-restli-resource/src/main/java/com/linkedin/metadata/restli/BaseSearchableEntityResource.java
 [corpusers]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsers.java
