@@ -1,0 +1,1 @@
+{"error":{"root_cause":[{"type":"invalid_type_name_exception","reason":"Document mapping type name can't start with '_', found: [_update]"}],"type":"invalid_type_name_exception","reason":"Document mapping type name can't start with '_', found: [_update]"},"status":400}

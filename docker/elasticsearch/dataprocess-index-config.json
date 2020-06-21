@@ -1,7 +1,6 @@
 {
   "settings": {
     "index": {
-      "max_ngram_diff": "50",
       "analysis": {
         "filter": {
           "autocomplete_filter": {
@@ -140,90 +139,92 @@
     }
   },
   "mappings": {
-    "properties": {
-      "browsePaths": {
-        "type": "text",
-        "fields": {
-          "length": {
-            "type": "token_count",
-            "analyzer": "slash_pattern"
-          }
-        },
-        "analyzer": "custom_browse_slash",
-        "fielddata": true
-      },
-      "origin": {
-        "type": "keyword",
-        "fields": {
-          "ngram": {
-            "type": "text",
-            "analyzer": "custom_ngram"
-          }
-        },
-        "normalizer": "my_normalizer"
-      },
-      "hasOwners": {
-        "type": "boolean"
-      },
-      "name": {
-        "type": "keyword",
-        "fields": {
-          "data_process_pattern_ngram": {
-            "type": "text",
-            "analyzer": "data_process_pattern_ngram"
+    "doc": {
+      "properties": {
+        "browsePaths": {
+          "type": "text",
+          "fields": {
+            "length": {
+              "type": "token_count",
+              "analyzer": "slash_pattern"
+            }
           },
-          "delimited": {
-            "type": "text",
-            "analyzer": "delimit"
+          "analyzer": "custom_browse_slash",
+          "fielddata": true
+        },
+        "origin": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            }
           },
-          "ngram": {
-            "type": "text",
-            "analyzer": "custom_ngram"
+          "normalizer": "my_normalizer"
+        },
+        "hasOwners": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "keyword",
+          "fields": {
+            "data_process_pattern_ngram": {
+              "type": "text",
+              "analyzer": "data_process_pattern_ngram"
+            },
+            "delimited": {
+              "type": "text",
+              "analyzer": "delimit"
+            },
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            },
+            "pattern": {
+              "type": "text",
+              "analyzer": "data_process_pattern"
+            }
           },
-          "pattern": {
-            "type": "text",
-            "analyzer": "data_process_pattern"
-          }
+          "normalizer": "my_normalizer"
         },
-        "normalizer": "my_normalizer"
-      },
-      "num_inputs": {
-        "type": "long"
-      },
-      "num_outputs": {
-        "type": "long"
-      },
-      "owners": {
-        "type": "text",
-        "fields": {
-          "ngram": {
-            "type": "text",
-            "analyzer": "comma_pattern_ngram"
-          }
+        "num_inputs": {
+          "type": "long"
         },
-        "analyzer": "comma_pattern"
-      },
-      "orchestrator": {
-        "type": "keyword",
-        "fields": {
-          "ngram": {
-            "type": "text",
-            "analyzer": "custom_ngram"
-          }
+        "num_outputs": {
+          "type": "long"
         },
-        "normalizer": "my_normalizer"
-      },
-      "urn": {
-        "type": "keyword",
-        "normalizer": "my_normalizer"
-      },
-      "inputs": {
-        "type": "keyword",
-        "normalizer": "my_normalizer"
-      },
-      "outputs": {
-        "type": "keyword",
-        "normalizer": "my_normalizer"
+        "owners": {
+          "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "comma_pattern_ngram"
+            }
+          },
+          "analyzer": "comma_pattern"
+        },
+        "orchestrator": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
+        "urn": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        },
+        "inputs": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        },
+        "outputs": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        }
       }
     }
   }
