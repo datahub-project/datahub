@@ -10,7 +10,6 @@ import com.linkedin.dataprocess.DataProcessKey;
 import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.metadata.restli.SearchableClient;
@@ -101,13 +100,14 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
   @Override
   public CollectionResponse<DataProcess> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
       @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
-    final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
     DataProcessesFindBySearchRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
         .findBySearch()
         .inputParam(input)
-        .filterParam(filter)
         .sortParam(sortCriterion)
         .paginate(start, count);
+    if (requestFilters != null) {
+      requestBuilder.filterParam(newFilter(requestFilters));
+    }
     return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
   }
 
@@ -122,13 +122,15 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
   public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nullable Map<String, String> requestFilters, int limit)
       throws RemoteInvocationException {
     final String autocompleteField = (field != null) ? field : DATA_PROCESS_SEARCH_CONFIG.getDefaultAutocompleteField();
-    final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
     DataProcessesDoAutocompleteRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
         .actionAutocomplete()
         .queryParam(query)
         .fieldParam(autocompleteField)
-        .filterParam(filter)
         .limitParam(limit);
+
+    if (requestFilters != null) {
+      requestBuilder.filterParam(newFilter(requestFilters));
+    }
     return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
   }
 }
