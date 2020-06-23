@@ -127,4 +127,4 @@ The mysql_etl provides you ETL channel to communicate with your MySQL.
 This will bootstrap DataHub with your metadata in the MySQL as a dataset entity.
 
 ## Ingest metadata from SQL-based data systems to DataHub
-See [sql-et](sql-etl/) for more details.
+See [sql-etl](sql-etl/) for more details.
