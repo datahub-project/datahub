@@ -166,26 +166,7 @@
           "type": "boolean"
         },
         "name": {
-          "type": "keyword",
-          "fields": {
-            "data_process_pattern_ngram": {
-              "type": "text",
-              "analyzer": "data_process_pattern_ngram"
-            },
-            "delimited": {
-              "type": "text",
-              "analyzer": "delimit"
-            },
-            "ngram": {
-              "type": "text",
-              "analyzer": "custom_ngram"
-            },
-            "pattern": {
-              "type": "text",
-              "analyzer": "data_process_pattern"
-            }
-          },
-          "normalizer": "my_normalizer"
+          "type": "keyword"
         },
         "num_inputs": {
           "type": "long"

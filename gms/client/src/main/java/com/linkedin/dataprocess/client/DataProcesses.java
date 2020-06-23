@@ -119,18 +119,16 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
 
   @Nonnull
   @Override
-  public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nullable Map<String, String> requestFilters, int limit)
+  public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nonnull Map<String, String> requestFilters, int limit)
       throws RemoteInvocationException {
     final String autocompleteField = (field != null) ? field : DATA_PROCESS_SEARCH_CONFIG.getDefaultAutocompleteField();
     DataProcessesDoAutocompleteRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
         .actionAutocomplete()
         .queryParam(query)
         .fieldParam(autocompleteField)
+        .filterParam(newFilter(requestFilters))
         .limitParam(limit);
 
-    if (requestFilters != null) {
-      requestBuilder.filterParam(newFilter(requestFilters));
-    }
     return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
   }
 }
