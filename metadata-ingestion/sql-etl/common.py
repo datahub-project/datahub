@@ -55,7 +55,7 @@ def build_dataset_mce(platform, dataset_name, columns):
     for column in columns:
         fields.append({
             "fieldPath": column["name"],
-            "nativeDataType": str(column["type"]),
+            "nativeDataType": repr(column["type"]),
             "type": { "type":get_column_type(column["type"]) }
         })
 
@@ -102,7 +102,7 @@ def run(url, options, platform, kafka_config = KafkaConfig()):
     engine = create_engine(url, **options)
     inspector = reflection.Inspector.from_engine(engine)
     for schema in inspector.get_schema_names():
-      for table in inspector.get_table_names(schema):
-          columns = inspector.get_columns(table, schema)
-          mce = build_dataset_mce(platform, f'{schema}.{table}', columns)
-          produce_dataset_mce(mce, kafka_config)
+        for table in inspector.get_table_names(schema):
+            columns = inspector.get_columns(table, schema)
+            mce = build_dataset_mce(platform, f'{schema}.{table}', columns)
+            produce_dataset_mce(mce, kafka_config)
