@@ -25,7 +25,7 @@ record DataProcessDocument includes BaseDocument {
   orchestrator: optional string
 
   /**
-   * Fabric type where dataset belongs to or where it was generated
+   * Fabric type where data process belongs to or where it was generated
    */
   origin: optional FabricType
 
