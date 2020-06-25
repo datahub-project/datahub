@@ -25,5 +25,5 @@ OPTIONS   # Additional conenction options for the driver
 
 Run the ETL script
 ```
-python sql_etl.py
+python mysql_etl.py
 ```
