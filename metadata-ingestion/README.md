@@ -81,22 +81,6 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
 
-## Ingest metadata from Hive to DataHub
-The hive_etl provides you ETL channel to communicate with your hive store.
-```
-➜  Config your hive store environmental variable in the file.
-    HIVESTORE      # Your store host.
-    
-➜  Config your Kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
-
-➜  python hive_etl.py
-```
-This will bootstrap DataHub with your metadata in the hive store as a dataset entity.
-
 ## Ingest metadata from Kafka to DataHub
 The kafka_etl provides you ETL channel to communicate with your kafka.
 ```
