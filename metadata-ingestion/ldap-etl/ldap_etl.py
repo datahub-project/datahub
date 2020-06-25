@@ -1,6 +1,8 @@
 #! /usr/bin/python
 import sys
 import ldap
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
 from ldap.controls import SimplePagedResultsControl
 from distutils.version import LooseVersion
 
@@ -10,7 +12,7 @@ LDAPSERVER ='LDAPSERVER'
 BASEDN ='BASEDN'
 LDAPUSER = 'LDAPUSER'
 LDAPPASSWORD = 'LDAPPASSWORD'
-PAGESIZE = PAGESIZE
+PAGESIZE = 20
 ATTRLIST = ['cn', 'title', 'mail', 'sAMAccountName', 'department','manager']
 SEARCHFILTER='SEARCHFILTER'
 
@@ -81,9 +83,6 @@ def produce_corp_user_mce(mce):
     """
     Produce MetadataChangeEvent records
     """
-    from confluent_kafka import avro
-    from confluent_kafka.avro import AvroProducer
-
     conf = {'bootstrap.servers': BOOTSTRAP,
             'schema.registry.url': SCHEMAREGISTRY}
     record_schema = avro.load(AVROLOADPATH)
