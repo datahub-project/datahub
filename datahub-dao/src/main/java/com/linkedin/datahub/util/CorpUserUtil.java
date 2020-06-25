@@ -64,8 +64,12 @@ public class CorpUserUtil {
         UserEntity user = new UserEntity();
         user.setCategory("person");
         user.setLabel(corpUser.getUsername());
-        user.setDisplayName(corpUser.getInfo().getDisplayName());
-        user.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+        if (corpUser.hasInfo()) {
+            user.setDisplayName(corpUser.getInfo().getDisplayName());
+        }
+        if (corpUser.hasEditableInfo() && corpUser.getEditableInfo().hasPictureLink()) {
+            user.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+        }
         return user;
     }
 }
