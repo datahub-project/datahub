@@ -23,7 +23,7 @@
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
 > :sparkles:Latest Update: 
-> - We released v0.4.0, you can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.0)
+> - We released v0.4.1, you can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.1)
 > - We're on Slack now! [Join](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or [log in with an existing account](https://datahubspace.slack.com). Ask questions and keep up with the latest announcements.
 
 ## Introduction
