@@ -17,6 +17,8 @@ for details:
 From this point on, if you want to be able to sign in to DataHub and see some sample data, please see 
 [Metadata Ingestion Guide](../../metadata-ingestion) for `bootstrapping DataHub`.
 
+You can also choose to use a specific versin of DataHub docker images instead of the `latest` by specifying `DATAHUB_VERSION` environment variable.
+
 ## Debugging Containers
 If you want to debug containers, you can check container logs:
 ```
