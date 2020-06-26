@@ -1,0 +1,268 @@
+---
+version: '3.5'
+services:
+  mysql:
+    container_name: mysql
+    hostname: mysql
+    image: mysql:5.7
+    restart: always
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: 'datahub'
+      MYSQL_USER: 'datahub'
+      MYSQL_PASSWORD: 'datahub'
+      MYSQL_ROOT_PASSWORD: 'datahub'
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysqldata:/var/lib/mysql
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zkdata:/var/opt/zookeeper
+
+  broker:
+    image: confluentinc/cp-kafka:5.4.0
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  kafka-rest-proxy:
+    image: confluentinc/cp-kafka-rest:5.4.0
+    hostname: kafka-rest-proxy
+    container_name: kafka-rest-proxy
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082/
+      KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081/
+      KAFKA_REST_HOST_NAME: kafka-rest-proxy
+      KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://broker:29092
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui:0.9.4
+    hostname: kafka-topics-ui
+    container_name: kafka-topics-ui
+    ports:
+      - "18000:8000"
+    environment:
+      KAFKA_REST_PROXY_URL: "http://kafka-rest-proxy:8082/"
+      PROXY: "true"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - kafka-rest-proxy
+
+  # This "container" is a workaround to pre-create topics
+  kafka-setup:
+    build:
+      context: ../kafka
+    hostname: kafka-setup
+    container_name: kafka-setup
+    depends_on:
+      - broker
+      - schema-registry
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.4.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui:latest
+    container_name: schema-registry-ui
+    hostname: schema-registry-ui
+    ports:
+      - "8000:8000"
+    environment:
+      SCHEMAREGISTRY_URL: 'http://schema-registry:8081'
+      ALLOW_GLOBAL: 'true'
+      ALLOW_TRANSITIVE: 'true'
+      ALLOW_DELETION: 'true'
+      READONLY_MODE: 'true'
+      PROXY: 'true'
+    depends_on:
+      - schema-registry
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.8
+    container_name: elasticsearch
+    hostname: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.6.8
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  neo4j:
+    image: neo4j:3.5.7
+    hostname: neo4j
+    container_name: neo4j
+    environment:
+      NEO4J_AUTH: 'neo4j/datahub'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4jdata:/data
+
+  # This "container" is a workaround to pre-create search indices
+  elasticsearch-setup:
+    build:
+      context: ../elasticsearch
+    hostname: elasticsearch-setup
+    container_name: elasticsearch-setup
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+
+  datahub-gms:
+    build:
+      context: ../../
+      dockerfile: docker/gms/Dockerfile
+    hostname: datahub-gms
+    container_name: datahub-gms
+    ports:
+      - "8080:8080"
+    environment:
+      - EBEAN_DATASOURCE_USERNAME=datahub
+      - EBEAN_DATASOURCE_PASSWORD=datahub
+      - EBEAN_DATASOURCE_HOST=mysql:3306
+      - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+      - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - NEO4J_HOST=neo4j:7474
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+    depends_on:
+      - elasticsearch-setup
+      - kafka-setup
+      - mysql
+      - neo4j
+
+  datahub-frontend:
+    build:
+      context: ../../
+      dockerfile: docker/frontend/Dockerfile
+    hostname: datahub-frontend
+    container_name: datahub-frontend
+    ports:
+      - "9001:9001"
+    environment:
+      - DATAHUB_GMS_HOST=datahub-gms
+      - DATAHUB_GMS_PORT=8080
+      - DATAHUB_SECRET=YouKnowNothing
+      - DATAHUB_APP_VERSION=1.0
+      - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
+    depends_on:
+      - datahub-gms
+
+  datahub-mae-consumer:
+    build:
+      context: ../../
+      dockerfile: docker/mae-consumer/Dockerfile
+    hostname: datahub-mae-consumer
+    container_name: datahub-mae-consumer
+    ports:
+        - "9091:9091"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - NEO4J_HOST=neo4j:7474
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+    depends_on:
+      - kafka-setup
+      - elasticsearch-setup
+      - neo4j
+    command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
+                  echo kafka-setup done! && /start.sh'"
+
+  datahub-mce-consumer:
+    build:
+      context: ../../
+      dockerfile: docker/mce-consumer/Dockerfile
+    hostname: datahub-mce-consumer
+    container_name: datahub-mce-consumer
+    ports:
+      - "9090:9090"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - GMS_HOST=datahub-gms
+      - GMS_PORT=8080
+    depends_on:
+      - kafka-setup
+      - datahub-gms
+    command: "sh -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
+                  echo kafka-setup done! && /start.sh'"
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  mysqldata:
+  esdata:
+  neo4jdata:
+  zkdata:
