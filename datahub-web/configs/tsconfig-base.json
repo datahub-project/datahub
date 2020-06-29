@@ -9,6 +9,7 @@
       "alwaysStrict": true,
       "strictNullChecks": true,
       "strictPropertyInitialization": true,
+      "skipLibCheck": true,
       "noFallthroughCasesInSwitch": true,
       "noUnusedLocals": true,
       "noUnusedParameters": true,
