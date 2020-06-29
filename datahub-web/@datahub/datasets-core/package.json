@@ -68,7 +68,7 @@
     "loader.js": "^4.7.0",
     "qunit-dom": "^0.8.4",
     "sass": "^1.21.0",
-    "typescript": "^3.5.3"
+    "typescript": "3.5.3"
   },
   "engines": {
     "node": "6.* || 8.* || >= 10.*"

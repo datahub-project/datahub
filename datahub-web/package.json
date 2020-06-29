@@ -24,7 +24,7 @@
     "husky": "^2.4.1",
     "lint-staged": "^8.1.5",
     "prettier": "^1.18.2",
-    "typescript": "^3.5.3",
+    "typescript": "3.5.3",
     "wsrun": "^4.0.2"
   },
   "workspaces": {

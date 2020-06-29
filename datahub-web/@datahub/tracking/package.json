@@ -61,7 +61,7 @@
     "ember-try": "^1.0.0",
     "loader.js": "^4.7.0",
     "qunit-dom": "^0.8.5",
-    "typescript": "^3.5.3"
+    "typescript": "3.5.3"
   },
   "engines": {
     "node": "6.* || 8.* || >= 10.*"
