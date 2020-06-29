@@ -20,7 +20,7 @@ import static org.testng.Assert.*;
 public class CorpGroupIndexBuilderTest {
 
   @Test
-  public void testGetDocumentsToUpdateFromDatasetSnapshot() {
+  public void testGetDocumentsToUpdateFromCorpGroupSnapshot() {
     CorpGroupUrn corpGroupUrn = new CorpGroupUrn("foo");
     CorpGroupSnapshot corpGroupSnapshot = new CorpGroupSnapshot().setUrn(corpGroupUrn).setAspects(new CorpGroupAspectArray());
     String groupName = "bar";

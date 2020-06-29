@@ -18,7 +18,7 @@ import static org.testng.Assert.*;
 public class CorpUserInfoIndexBuilderTest {
 
   @Test
-  public void testGetDocumentsToUpdateFromDatasetSnapshot() {
+  public void testGetDocumentsToUpdateFromCorpUserSnapshot() {
     String testerLdap = "fooBar";
     CorpuserUrn corpuserUrn = new CorpuserUrn(testerLdap);
     CorpUserSnapshot corpUserSnapshot =

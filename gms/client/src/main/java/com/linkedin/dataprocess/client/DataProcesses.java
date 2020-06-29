@@ -3,9 +3,12 @@ package com.linkedin.dataprocess.client;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.dataprocess.DataProcess;
 import com.linkedin.dataprocess.DataProcessInfoRequestBuilders;
+import com.linkedin.dataprocess.DataProcessesDoAutocompleteRequestBuilder;
+import com.linkedin.dataprocess.DataProcessesFindBySearchRequestBuilder;
 import com.linkedin.dataprocess.DataProcessesRequestBuilders;
 import com.linkedin.dataprocess.DataProcessKey;
 import com.linkedin.dataprocess.DataProcessInfo;
+import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseClient;
@@ -25,11 +28,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+
 
 public class DataProcesses extends BaseClient implements SearchableClient<DataProcess> {
 
-  private static final DataProcessesRequestBuilders PROCESSES_REQUEST_BUILDERS = new DataProcessesRequestBuilders();
-  private static final DataProcessInfoRequestBuilders PROCESS_INFO_REQUEST_BUILDERS = new DataProcessInfoRequestBuilders();
+  private static final DataProcessesRequestBuilders DATA_PROCESSES_REQUEST_BUILDERS = new DataProcessesRequestBuilders();
+  private static final DataProcessInfoRequestBuilders DATA_PROCESS_INFO_REQUEST_BUILDERS = new DataProcessInfoRequestBuilders();
+  private static final DataProcessSearchConfig DATA_PROCESS_SEARCH_CONFIG = new DataProcessSearchConfig();
+
 
   protected DataProcesses(@Nonnull Client restliClient) {
     super(restliClient);
@@ -38,7 +45,7 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
   @Nonnull
   public DataProcess get(@Nonnull DataProcessUrn urn)
       throws RemoteInvocationException {
-    GetRequest<DataProcess> getRequest = PROCESSES_REQUEST_BUILDERS.get()
+    GetRequest<DataProcess> getRequest = DATA_PROCESSES_REQUEST_BUILDERS.get()
         .id(new ComplexResourceKey<>(toDataProcessKey(urn), new EmptyRecord()))
         .build();
 
@@ -49,7 +56,7 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
   public Map<DataProcessUrn, DataProcess> batchGet(@Nonnull Set<DataProcessUrn> urns)
       throws RemoteInvocationException {
     BatchGetEntityRequest<ComplexResourceKey<DataProcessKey, EmptyRecord>, DataProcess> batchGetRequest
-        = PROCESSES_REQUEST_BUILDERS.batchGet()
+        = DATA_PROCESSES_REQUEST_BUILDERS.batchGet()
         .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
         .build();
 
@@ -62,7 +69,7 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
 
   public void createDataProcessInfo(@Nonnull DataProcessUrn dataProcessUrn,
       @Nonnull DataProcessInfo dataProcessInfo) throws RemoteInvocationException {
-    CreateIdRequest<Long, DataProcessInfo> request = PROCESS_INFO_REQUEST_BUILDERS.create()
+    CreateIdRequest<Long, DataProcessInfo> request = DATA_PROCESS_INFO_REQUEST_BUILDERS.create()
         .dataprocessKey(new ComplexResourceKey<>(toDataProcessKey(dataProcessUrn), new EmptyRecord()))
         .input(dataProcessInfo)
         .build();
@@ -93,19 +100,35 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
   @Override
   public CollectionResponse<DataProcess> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
       @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
-    throw new UnsupportedOperationException(
-        String.format("%s doesn't support search feature yet,",
-            this.getClass().getName())
-    );
+    DataProcessesFindBySearchRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
+        .findBySearch()
+        .inputParam(input)
+        .sortParam(sortCriterion)
+        .paginate(start, count);
+    if (requestFilters != null) {
+      requestBuilder.filterParam(newFilter(requestFilters));
+    }
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+  }
+
+  @Nonnull
+  public CollectionResponse<DataProcess> search(@Nonnull String input, int start, int count)
+      throws RemoteInvocationException {
+    return search(input, null, null, start, count);
   }
 
   @Nonnull
   @Override
-  public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nullable Map<String, String> requestFilters, int limit)
+  public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nonnull Map<String, String> requestFilters, int limit)
       throws RemoteInvocationException {
-    throw new UnsupportedOperationException(
-        String.format("%s doesn't support auto completion feature yet,",
-            this.getClass().getName())
-    );
+    final String autocompleteField = (field != null) ? field : DATA_PROCESS_SEARCH_CONFIG.getDefaultAutocompleteField();
+    DataProcessesDoAutocompleteRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
+        .actionAutocomplete()
+        .queryParam(query)
+        .fieldParam(autocompleteField)
+        .filterParam(newFilter(requestFilters))
+        .limitParam(limit);
+
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
   }
 }

@@ -2,6 +2,7 @@ namespace com.linkedin.metadata.search
 
 import com.linkedin.common.DataProcessUrn
 import com.linkedin.common.DatasetUrn
+import com.linkedin.common.FabricType
 
 /**
  * Data model for data process entity search
@@ -22,6 +23,11 @@ record DataProcessDocument includes BaseDocument {
    * Orchestrator name for this process, such as Azure Data Factory
    */
   orchestrator: optional string
+
+  /**
+   * Fabric type where data process belongs to or where it was generated
+   */
+  origin: optional FabricType
 
   /**
    * LDAP usernames of corp users who are the owners of this process

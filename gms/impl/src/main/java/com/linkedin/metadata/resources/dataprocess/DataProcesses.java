@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
@@ -151,6 +152,15 @@ public class DataProcesses extends BaseSearchableEntityResource<
         return super.batchGet(keys, aspectNames);
     }
 
+    @RestMethod.GetAll
+    @Nonnull
+    public Task<List<DataProcess>> getAll(@PagingContextParam @Nonnull PagingContext pagingContext,
+        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+        @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
+        return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
+    }
+
     @Finder(FINDER_SEARCH)
     @Override
     @Nonnull
@@ -160,6 +170,15 @@ public class DataProcesses extends BaseSearchableEntityResource<
                                                                             @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                             @PagingContextParam @Nonnull PagingContext pagingContext) {
         return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+    }
+
+    @Action(name = ACTION_AUTOCOMPLETE)
+    @Override
+    @Nonnull
+    public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
+        @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
+        @ActionParam(PARAM_LIMIT) int limit) {
+        return super.autocomplete(query, field, filter, limit);
     }
 
     @Action(name = ACTION_INGEST)

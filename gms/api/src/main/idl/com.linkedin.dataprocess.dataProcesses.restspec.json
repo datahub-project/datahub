@@ -10,7 +10,7 @@
       "type" : "com.linkedin.dataprocess.DataProcessKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
-    "supports" : [ "batch_get", "get" ],
+    "supports" : [ "batch_get", "get", "get_all" ],
     "methods" : [ {
       "method" : "get",
       "parameters" : [ {
@@ -25,6 +25,22 @@
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
         "default" : "[]"
       } ]
+    }, {
+      "method" : "get_all",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      } ],
+      "pagingSupported" : true
     } ],
     "finders" : [ {
       "name" : "search",
@@ -50,6 +66,22 @@
       "pagingSupported" : true
     } ],
     "actions" : [ {
+      "name" : "autocomplete",
+      "parameters" : [ {
+        "name" : "query",
+        "type" : "string"
+      }, {
+        "name" : "field",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
       "name" : "backfill",
       "parameters" : [ {
         "name" : "urn",
