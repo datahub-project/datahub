@@ -34,7 +34,10 @@ module('Integration | Component | institutional-memory/wiki/url-list', function(
       }
     ];
 
-    this.set('listData', listData.map(item => new InstitutionalMemory(item)));
+    this.set(
+      'listData',
+      listData.map(item => new InstitutionalMemory(item))
+    );
     await render(hbs`{{institutional-memory/wiki/url-list
                        listData=listData
                      }}`);

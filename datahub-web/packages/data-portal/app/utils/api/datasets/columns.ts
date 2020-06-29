@@ -31,7 +31,7 @@ const datasetColumnUrlById = (id: number): string => `${datasetUrlById(id)}/colu
  */
 const augmentWithHtmlComment = <T extends { comment: string }>(
   objectWithComment: T
-): T | T & { commentHtml: string } => {
+): T | (T & { commentHtml: string }) => {
   const { comment } = objectWithComment;
   // TODO: DSS-6122 Refactor global function reference to marked
   // not using spread operator here: https://github.com/Microsoft/TypeScript/issues/10727

@@ -110,9 +110,10 @@ export default class HorizontalBarChart extends Component {
    */
   @computed('series')
   get maxY(): number {
-    return arrayReduce((maxY: number, { value }: IChartDatum) => (value > maxY ? value : maxY), Number.MIN_VALUE)(
-      this.series || ([] as Array<IChartDatum>)
-    );
+    return arrayReduce(
+      (maxY: number, { value }: IChartDatum) => (value > maxY ? value : maxY),
+      Number.MIN_VALUE
+    )(this.series || ([] as Array<IChartDatum>));
   }
 
   /**

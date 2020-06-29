@@ -43,6 +43,8 @@ export type KeyNamesWithValueType<T, ValueType> = FilterKeys<T, ValueType>[keyof
 /**
  * Transforms a union type into a intersection type
  */
-export type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends ((k: infer I) => void)
+export type UnionToIntersection<U> = (U extends unknown
+? (k: U) => void
+: never) extends (k: infer I) => void
   ? I
   : never;

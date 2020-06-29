@@ -18,7 +18,7 @@ export const SnapshotMetadataAspectKey: Record<string, keyof MetadataAspect> = {
  * essentially Object.values(SnapshotMetadataAspectKey) as a type
  * @type {string}
  */
-export type SnapshotMetadataAspectKeyName = (typeof SnapshotMetadataAspectKey)[string];
+export type SnapshotMetadataAspectKeyName = typeof SnapshotMetadataAspectKey[string];
 
 /**
  * Takes a lookup key on the aspects metadata object, and returns an iteratee function that is truthy when it's argument

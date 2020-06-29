@@ -25,9 +25,9 @@ export const mapOfRouteNamesToResolver: Record<string, ((r: MaybeRouteInfoWithAt
  * @returns {boolean}
  */
 const routeNameIsEntityRoute = (routeName: string): boolean =>
-  listOfEntitiesMap((e): DataModelEntity['displayName'] => e.displayName).some(
-    (entityName: DataModelEntity['displayName']): boolean => routeName.startsWith(entityName)
-  );
+  listOfEntitiesMap(
+    (e): DataModelEntity['displayName'] => e.displayName
+  ).some((entityName: DataModelEntity['displayName']): boolean => routeName.startsWith(entityName));
 
 /**
  * Check if the route info instance has a name that is considered an entity route

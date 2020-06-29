@@ -73,7 +73,10 @@ export default function(this: IMirageServer): void {
   this.get('/datasets/count/platform/:platform_id', getDatasetCount);
 
   this.get('/datasets/:dataset_id/dataorigins', () => ({
-    dataOrigins: [{ displayTitle: 'PROD', origin: 'PROD' }, { displayTitle: 'EI', origin: 'EI' }]
+    dataOrigins: [
+      { displayTitle: 'PROD', origin: 'PROD' },
+      { displayTitle: 'EI', origin: 'EI' }
+    ]
   }));
 
   this.get('/search', getEntitySearchResults);

@@ -79,13 +79,17 @@ const formatPropertyDateValue = (property: Extract<keyof IDatasetProperties, str
   }
 
   if (property === 'dumpdate') {
-    return [['-', 0, 4], ['-', 4, 6], [' ', 6, 8], [':', 8, 10], [':', 10, 12], ['', 12, 14]].reduce(
-      (dateString, props: [string, number, number]): string => {
-        const [postfix, start, end] = props;
-        return value ? dateString + ('' + value).substring(start, end) + postfix : dateString;
-      },
-      ''
-    );
+    return [
+      ['-', 0, 4],
+      ['-', 4, 6],
+      [' ', 6, 8],
+      [':', 8, 10],
+      [':', 10, 12],
+      ['', 12, 14]
+    ].reduce((dateString, props: [string, number, number]): string => {
+      const [postfix, start, end] = props;
+      return value ? dateString + ('' + value).substring(start, end) + postfix : dateString;
+    }, '');
   }
 
   return value;

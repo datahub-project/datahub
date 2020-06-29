@@ -21,7 +21,7 @@ export interface IAttributeValue {
 /**
  * Render descriptions for search results
  */
-export interface IEntityRenderPropsEntityPage<E extends DataModelEntityInstance | (BaseEntity<{}>) = never> {
+export interface IEntityRenderPropsEntityPage<E extends DataModelEntityInstance | BaseEntity<{}> = never> {
   // Lists the sub navigation tab ids for the associated entity
   tabIds: Array<Tab>;
   // Route for the entity page

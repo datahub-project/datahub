@@ -28,7 +28,10 @@ const datasetDownstreamUrlByUrn = (urn: string): string => `${datasetUrlByUrn(ur
  * @return {Promise<Array<IDatasetView>>}
  */
 const readUpstreamDatasetsByUrn = (urn: string): Promise<LineageList> =>
-  returnDefaultIfNotFound(getJSON<LineageList>({ url: datasetUpstreamUrlByUrn(encodeUrn(urn)) }), []);
+  returnDefaultIfNotFound(
+    getJSON<LineageList>({ url: datasetUpstreamUrlByUrn(encodeUrn(urn)) }),
+    []
+  );
 
 /**
  * Requests the downstream datasets for the dataset identified by urn
@@ -36,6 +39,9 @@ const readUpstreamDatasetsByUrn = (urn: string): Promise<LineageList> =>
  * @return {Promise<Array<IDatasetView>>}
  */
 const readDownstreamDatasetsByUrn = (urn: string): Promise<LineageList> =>
-  returnDefaultIfNotFound(getJSON<LineageList>({ url: datasetDownstreamUrlByUrn(encodeUrn(urn)) }), []);
+  returnDefaultIfNotFound(
+    getJSON<LineageList>({ url: datasetDownstreamUrlByUrn(encodeUrn(urn)) }),
+    []
+  );
 
 export { readUpstreamDatasetsByUrn, readDownstreamDatasetsByUrn };

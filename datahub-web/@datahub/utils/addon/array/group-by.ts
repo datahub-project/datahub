@@ -11,12 +11,9 @@ export const groupBy = <T extends Record<string, any>, V extends Extract<T[keyof
   elements: Array<T>,
   keyToGroupBy: keyof T
 ): Record<V, Array<T>> =>
-  elements.reduce(
-    (groupMap: Record<V, Array<T>>, element: T) => {
-      const groupByKey: V = element[keyToGroupBy]; // V is constrained to string by Extract in parameter declaration
-      const groupValues: Array<T> = groupMap[groupByKey] || [];
+  elements.reduce((groupMap: Record<V, Array<T>>, element: T) => {
+    const groupByKey: V = element[keyToGroupBy]; // V is constrained to string by Extract in parameter declaration
+    const groupValues: Array<T> = groupMap[groupByKey] || [];
 
-      return Object.assign({}, groupMap, { [groupByKey]: [...groupValues, element] });
-    },
-    {} as Record<V, Array<T>>
-  );
+    return Object.assign({}, groupMap, { [groupByKey]: [...groupValues, element] });
+  }, {} as Record<V, Array<T>>);

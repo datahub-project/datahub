@@ -27,7 +27,10 @@ module('Integration | Helper | find-in-array', function(hooks) {
 
   test('it works for primitive values', async function(assert) {
     this.setProperties({
-      sampleArray: [{ id: 25, name: 'pikachu' }, { id: 133, name: 'eevee' }],
+      sampleArray: [
+        { id: 25, name: 'pikachu' },
+        { id: 133, name: 'eevee' }
+      ],
       inputA: (item: any) => item.name === 'eevee',
       inputB: (item: any) => item.id === 7
     });

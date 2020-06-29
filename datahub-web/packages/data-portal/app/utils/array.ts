@@ -169,7 +169,10 @@ export function arrayPipe<T, R1, R2, R3, R4, R5, R6, R7>(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function arrayPipe<T, R>(...fns: Array<Many<Iteratee<any, any>>>): (x: T) => R {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return arrayReduce<(a: T) => any, (x: any) => R>((acc, f) => (x): R => acc(f(x)), identity)(
+  return arrayReduce<(a: T) => any, (x: any) => R>(
+    (acc, f) => (x): R => acc(f(x)),
+    identity
+  )(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ([] as Array<Iteratee<any, any>>).concat(...fns.reverse()) // flatten if arg is of type Array<>
   );

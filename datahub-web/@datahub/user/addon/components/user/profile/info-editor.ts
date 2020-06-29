@@ -179,7 +179,11 @@ export default class UserProfileInfoEditor extends Component {
    */
   @action
   removeTag(key: 'skills' | 'teamTags', valueIndex: number): void {
-    set(this, key, this[key].filter((_tag, idx): boolean => idx !== valueIndex));
+    set(
+      this,
+      key,
+      this[key].filter((_tag, idx): boolean => idx !== valueIndex)
+    );
   }
 
   /**

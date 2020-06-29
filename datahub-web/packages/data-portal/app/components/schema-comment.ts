@@ -61,11 +61,13 @@ export class SchemaComment extends Component {
     const schemaComments: Array<IDatasetComment> = yield readDatasetSchemaComments(datasetId, columnId);
 
     if (Array.isArray(schemaComments)) {
-      const withHtmlComments = augmentObjectsWithHtmlComments(schemaComments.map(
-        ({ text }): Partial<IDatasetColumn> => ({
-          comment: text
-        })
-      ) as Array<IDatasetColumn>);
+      const withHtmlComments = augmentObjectsWithHtmlComments(
+        schemaComments.map(
+          ({ text }): Partial<IDatasetColumn> => ({
+            comment: text
+          })
+        ) as Array<IDatasetColumn>
+      );
       comments.setObjects.call(comments, withHtmlComments);
     }
   })
