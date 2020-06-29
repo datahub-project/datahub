@@ -50,11 +50,16 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nonnull
     private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn,
         @Nonnull DataProcessInfo dataProcessInfo) {
-        return  setUrnDerivedFields(urn)
-            .setNumInputDatasets(dataProcessInfo.getInputs().size())
-            .setNumOutputDatasets(dataProcessInfo.getOutputs().size())
-            .setInputs(dataProcessInfo.getInputs())
-            .setOutputs(dataProcessInfo.getOutputs());
+        DataProcessDocument dataProcessDocument = setUrnDerivedFields(urn);
+        if (dataProcessInfo.getInputs() != null) {
+            dataProcessDocument.setInputs(dataProcessInfo.getInputs())
+                .setNumInputDatasets(dataProcessInfo.getInputs().size());
+        }
+        if (dataProcessInfo.getOutputs() != null) {
+            dataProcessDocument.setOutputs(dataProcessInfo.getOutputs())
+                .setNumOutputDatasets(dataProcessInfo.getOutputs().size());
+        }
+        return dataProcessDocument;
     }
 
     @Nonnull
