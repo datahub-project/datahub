@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
-@SpringBootApplication(exclude = {RestClientAutoConfiguration.class, KafkaAutoConfiguration.class})
+@SpringBootApplication(exclude = {RestClientAutoConfiguration.class})
 public class MceConsumerApplication {
 
     public static void main(String[] args) {
