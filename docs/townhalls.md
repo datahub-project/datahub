@@ -6,14 +6,14 @@ It's the perfect venue to meet the team behind DataHub and other users, as well 
 From time to time we also use the opportunity to showcase upcoming features.
 
 # Coming Up
-- Next town hall will be held on June 26th, 9am-10am PDT
+- Next town hall will be held on July 31st, 9am-10am PDT
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) first)
 - Agenda (TBD)
   * Quick intro - 5 mins
-  * [Demo] Onboarding Data Process entity by [Liangjun](https://github.com/liangjun-jiang) from Expedia - 15 mins
-  * [Demo] How to onboard a new relationship to metadata graph by [Kerem](https://github.com/keremsahin1) from Linkedin - 15 mins
+  * [Demo] TBD
+  * [Demo] TBD
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
@@ -22,6 +22,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 | Date    | Recording | Q&A |
 | ------- | :---------: | :---------: |
+| 06/26/20 | [link](https://bluejeans.com/s/yILyR/) | TBD
 | 05/29/20 | [link](https://bluejeans.com/s/GCAzY) | TBD
 | 04/17/20  | [link](https://bluejeans.com/s/eYRD4) | TBD
 | 04/03/20  | [link](https://bluejeans.com/s/vzYpa) | [link](https://docs.google.com/document/d/1ChF9jiJWv9wj3HLLkFYRg7NSYg8Kb0PT7COd7Hf9Zpk/edit?usp=sharing)
