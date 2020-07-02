@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Deprecation status of an entity
+ */
+record Deprecation {
+
+  /**
+   * Whether the entity is deprecated.
+   */
+  deprecated: boolean
+
+  /**
+   * The time user plan to decommission this entity.
+   */
+  decommissionTime: optional Time
+
+  /**
+   * Additional information about the entity deprecation plan, such as the wiki, doc, RB.
+   */
+  note: string
+
+  /**
+   * The corpuser URN which will be credited for modifying this deprecation content.
+   */
+  actor: CorpuserUrn
+}

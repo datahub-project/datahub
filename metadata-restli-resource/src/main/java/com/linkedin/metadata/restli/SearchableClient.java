@@ -2,6 +2,7 @@ package com.linkedin.metadata.restli;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 import java.util.Map;
@@ -17,7 +18,7 @@ public interface SearchableClient<VALUE extends RecordTemplate> {
 
   @Nonnull
   CollectionResponse<VALUE> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
-      int start, int count) throws RemoteInvocationException;
+      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException;
 
   @Nonnull
   AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field,

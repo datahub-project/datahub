@@ -21,9 +21,12 @@ import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.query.ExtraInfo;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -35,7 +38,6 @@ import lombok.Value;
  * A base class for all Local DAOs.
  *
  * Local DAO is a standardized interface to store and retrieve aspects from a document store.
- * See http://go/gma for more details.
  *
  * @param <ASPECT_UNION> must be a valid aspect union type defined in com.linkedin.metadata.aspect
  * @param <URN> must be the entity URN type in {@code ASPECT_UNION}
@@ -44,15 +46,15 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
     extends BaseReadDAO<ASPECT_UNION, URN> {
 
   @Value
-  static class AspectEntry {
-    RecordTemplate aspect;
+  static class AspectEntry<ASPECT extends RecordTemplate> {
+    ASPECT aspect;
     ExtraInfo extraInfo;
   }
 
   @Value
-  static class AddResult {
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
+  static class AddResult<ASPECT extends RecordTemplate> {
+    ASPECT oldValue;
+    ASPECT newValue;
   }
 
   private static final String DEFAULT_ID_NAMESPACE = "global";
@@ -66,11 +68,18 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   // Maps an aspect class to the corresponding retention policy
   private final Map<Class<? extends RecordTemplate>, Retention> _aspectRetentionMap = new HashMap<>();
 
+  // Maps as aspect class to a list of post-update hooks
+  private final Map<Class<? extends RecordTemplate>, List<BiConsumer<Urn, RecordTemplate>>> _aspectPostUpdateHooksMap =
+      new HashMap<>();
+
   // Maps an aspect class to the corresponding equality tester
   private final Map<Class<? extends RecordTemplate>, EqualityTester<? extends RecordTemplate>>
       _aspectEqualityTesterMap = new HashMap<>();
 
   private boolean _modelValidationOnWrite = true;
+
+  // Always emit MAE on every update regardless if there's any actual change in value
+  private boolean _alwaysEmitAuditEvent = false;
 
   private Clock _clock = Clock.systemUTC();
 
@@ -105,6 +114,30 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
+   * Registers a post-update hook for a specific aspect.
+   *
+   * The hook will be invoked with the latest value of an aspect after it's updated. There's no guarantee on the order
+   * of invocation when multiple hooks are added for a single aspect. Adding the same hook again will result in
+   * {@link IllegalArgumentException} thrown. Hooks are invoked in the order they're registered.
+   */
+  public <URN extends Urn, ASPECT extends RecordTemplate> void addPostUpdateHook(@Nonnull Class<ASPECT> aspectClass,
+      @Nonnull BiConsumer<URN, ASPECT> postUpdateHook) {
+
+    checkValidAspect(aspectClass);
+    // TODO: Also validate Urn once we convert all aspect models to PDL with proper annotation
+
+    final List<BiConsumer<Urn, RecordTemplate>> hooks =
+        _aspectPostUpdateHooksMap.getOrDefault(aspectClass, new LinkedList<>());
+
+    if (hooks.contains(postUpdateHook)) {
+      throw new IllegalArgumentException("Adding an already-registered hook");
+    }
+
+    hooks.add((BiConsumer<Urn, RecordTemplate>) postUpdateHook);
+    _aspectPostUpdateHooksMap.put(aspectClass, hooks);
+  }
+
+  /**
    * Sets the {@link EqualityTester} for a specific aspect type.
    */
   public <ASPECT extends RecordTemplate> void setEqualityTester(@Nonnull Class<ASPECT> aspectClass,
@@ -131,6 +164,13 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
+   * Sets if MAE should be always emitted after each update even if there's no actual value change.
+   */
+  public void setAlwaysEmitAuditEvent(boolean alwaysEmitAuditEvent) {
+    _alwaysEmitAuditEvent = alwaysEmitAuditEvent;
+  }
+
+  /**
    * Adds a new version of aspect for an entity.
    *
    * The new aspect will have an automatically assigned version number, which is guaranteed to be positive and
@@ -143,19 +183,19 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @return {@link RecordTemplate} of the new value of aspect
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
+  public <ASPECT extends RecordTemplate> ASPECT add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+      @Nonnull Function<Optional<ASPECT>, ASPECT> updateLambda, @Nonnull AuditStamp auditStamp,
       int maxTransactionRetry) {
 
     checkValidAspect(aspectClass);
 
     final EqualityTester<ASPECT> equalityTester = getEqualityTester(aspectClass);
 
-    final AddResult result = runInTransactionWithRetry(() -> {
+    final AddResult<ASPECT> result = runInTransactionWithRetry(() -> {
       // 1. Compute newValue based on oldValue
-      AspectEntry latest = getLatest(urn, aspectClass);
-      final ASPECT oldValue = latest == null ? null : (ASPECT) latest.getAspect();
-      final ASPECT newValue = (ASPECT) updateLambda.apply(Optional.ofNullable(oldValue));
+      AspectEntry<ASPECT> latest = getLatest(urn, aspectClass);
+      final ASPECT oldValue = latest == null ? null : latest.getAspect();
+      final ASPECT newValue = updateLambda.apply(Optional.ofNullable(oldValue));
       checkValidAspect(newValue.getClass());
       if (_modelValidationOnWrite) {
         validateAgainstSchema(newValue);
@@ -163,7 +203,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
 
       // 2. Skip saving if there's no actual change
       if (oldValue != null && equalityTester.equals(oldValue, newValue)) {
-        return new AddResult(oldValue, oldValue);
+        return new AddResult<>(oldValue, oldValue);
       }
 
       // 3. Save the newValue as the latest version
@@ -174,21 +214,31 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       // 4. Apply retention policy
       applyRetention(urn, aspectClass, getRetention(aspectClass), largestVersion);
 
-      return new AddResult(oldValue, newValue);
+      return new AddResult<>(oldValue, newValue);
     }, maxTransactionRetry);
 
-    // 5. Produce MAE after a successful update
-    _producer.produceMetadataAuditEvent(urn, result.getOldValue(), result.getNewValue());
+    final ASPECT oldValue = result.getOldValue();
+    final ASPECT newValue = result.getNewValue();
 
-    return result.getNewValue();
+    // 5. Produce MAE after a successful update
+    if (_alwaysEmitAuditEvent || oldValue != newValue) {
+      _producer.produceMetadataAuditEvent(urn, oldValue, newValue);
+    }
+
+    // 6. Invoke post-update hooks if there's any
+    if (_aspectPostUpdateHooksMap.containsKey(aspectClass)) {
+      _aspectPostUpdateHooksMap.get(aspectClass).forEach(hook -> hook.accept(urn, newValue));
+    }
+
+    return newValue;
   }
 
   /**
    * Similar to {@link #add(Urn, Class, Function, AuditStamp, int)} but uses the default maximum transaction retry.
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp) {
+  public <ASPECT extends RecordTemplate> ASPECT add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+      @Nonnull Function<Optional<ASPECT>, ASPECT> updateLambda, @Nonnull AuditStamp auditStamp) {
     return add(urn, aspectClass, updateLambda, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
@@ -196,9 +246,9 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * Similar to {@link #add(Urn, Class, Function, AuditStamp)} but takes the new value directly.
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> RecordTemplate add(@Nonnull URN urn, @Nonnull ASPECT newValue,
+  public <ASPECT extends RecordTemplate> ASPECT add(@Nonnull URN urn, @Nonnull ASPECT newValue,
       @Nonnull AuditStamp auditStamp) {
-    return add(urn, newValue.getClass(), ignored -> newValue, auditStamp);
+    return add(urn, (Class<ASPECT>) newValue.getClass(), ignored -> newValue, auditStamp);
   }
 
   private <ASPECT extends RecordTemplate> void applyRetention(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
@@ -229,8 +279,9 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param newAuditStamp the audit stamp for the operation
    * @return the largestVersion
    */
-  protected abstract <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
-      @Nullable ASPECT oldEntry, @Nullable AuditStamp oldAuditStamp, @Nonnull ASPECT newEntry, @Nonnull AuditStamp newAuditStamp);
+  protected abstract <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn,
+      @Nonnull Class<ASPECT> aspectClass, @Nullable ASPECT oldEntry, @Nullable AuditStamp oldAuditStamp,
+      @Nonnull ASPECT newEntry, @Nonnull AuditStamp newAuditStamp);
 
   /**
    * Runs the given lambda expression in a transaction with a limited number of retries.
@@ -251,7 +302,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @return the latest version for the aspect type, or null if there's none
    */
   @Nullable
-  protected abstract <ASPECT extends RecordTemplate> AspectEntry getLatest(@Nonnull URN urn,
+  protected abstract <ASPECT extends RecordTemplate> AspectEntry<ASPECT> getLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass);
 
   /**

@@ -20,59 +20,45 @@ import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.r2.filter.FilterChain;
 import com.linkedin.r2.filter.FilterChains;
 import com.linkedin.r2.filter.transport.FilterChainDispatcher;
-import org.springframework.web.HttpRequestHandler;
-
-import com.linkedin.restli.server.RestLiServer;
-import com.linkedin.restli.server.RestLiConfig;
-import com.linkedin.restli.server.DelegatingTransportDispatcher;
-
 import com.linkedin.r2.transport.http.server.RAPServlet;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.linkedin.restli.server.DelegatingTransportDispatcher;
+import com.linkedin.restli.server.RestLiConfig;
+import com.linkedin.restli.server.RestLiServer;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.web.HttpRequestHandler;
+
 
 public class ParallelRestliHttpRequestHandler implements HttpRequestHandler {
 
   private RAPServlet _r2Servlet;
 
-  public ParallelRestliHttpRequestHandler(RestLiConfig config, SpringInjectResourceFactory injectResourceFactory)
-  {
+  public ParallelRestliHttpRequestHandler(RestLiConfig config, SpringInjectResourceFactory injectResourceFactory) {
     this(config, injectResourceFactory, FilterChains.empty());
   }
 
-  public ParallelRestliHttpRequestHandler(RestLiConfig config,
-                                    SpringInjectResourceFactory injectResourceFactory,
-                                    FilterChain filterChain)
-  {
+  public ParallelRestliHttpRequestHandler(RestLiConfig config, SpringInjectResourceFactory injectResourceFactory,
+      FilterChain filterChain) {
     RestLiServer restLiServer = new RestLiServer(config, injectResourceFactory, getDefaultParseqEngine());
     _r2Servlet = new RAPServlet(
-        new FilterChainDispatcher(
-            new DelegatingTransportDispatcher(restLiServer, restLiServer),
-            filterChain
-        )
-    );
+        new FilterChainDispatcher(new DelegatingTransportDispatcher(restLiServer, restLiServer), filterChain));
   }
 
   public Engine getDefaultParseqEngine() {
     final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-    Engine engine = new EngineBuilder()
-            .setTaskExecutor(scheduler)
-            .setTimerScheduler(scheduler)
-            .build();
+    Engine engine = new EngineBuilder().setTaskExecutor(scheduler).setTimerScheduler(scheduler).build();
     return engine;
   }
 
-  public ParallelRestliHttpRequestHandler(RAPServlet r2Servlet)
-  {
+  public ParallelRestliHttpRequestHandler(RAPServlet r2Servlet) {
     _r2Servlet = r2Servlet;
   }
 
-  public void handleRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException
-  {
+  public void handleRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
     _r2Servlet.service(req, res);
   }
 }

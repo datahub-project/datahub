@@ -132,7 +132,6 @@ public class ESBrowseDAO extends BaseBrowseDAO {
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    // Filter out documents which are removed
     queryBuilder.mustNot(QueryBuilders.termQuery(removedFieldName, "true"));
 
     if (!path.isEmpty()) {

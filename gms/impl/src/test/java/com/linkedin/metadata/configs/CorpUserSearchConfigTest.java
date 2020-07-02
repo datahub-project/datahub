@@ -1,13 +1,11 @@
 package com.linkedin.metadata.configs;
 
-import com.linkedin.metadata.dao.SearchResult;
-import com.linkedin.metadata.utils.ESTestUtils;
-import com.linkedin.metadata.configs.CorpUserSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
+import com.linkedin.metadata.utils.ESTestUtils;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;

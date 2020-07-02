@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Null field type.
+ */
+record NullType {}

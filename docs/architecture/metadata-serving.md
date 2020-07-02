@@ -109,9 +109,9 @@ To prevent circular dependency ([rest.li] service depends on remote DAO, which i
 Remote DAO will need to construct raw rest.li requests directly, instead of using each entity’s rest.li request builder.
 
 
-[AutocompleteResult]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/AutoCompleteResult.pdsc
-[Filter]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/Filter.pdsc
-[SortCriterion]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/SortCriterion.pdsc
+[AutocompleteResult]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/AutoCompleteResult.pdl
+[Filter]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/Filter.pdl
+[SortCriterion]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/SortCriterion.pdl
 [SearchResult]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/SearchResult.java
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java

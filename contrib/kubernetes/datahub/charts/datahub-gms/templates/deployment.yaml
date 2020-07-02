@@ -31,7 +31,6 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/bin/sh", "-c" ,"java -jar jetty-runner-9.4.20.v20190813.jar gms.war"]
           ports:
             - name: http
               containerPort: 8080
@@ -82,6 +81,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "datahub-gms.fullname" . }}-configmap
                   key: elasticsearch.port
+            - name: NEO4J_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "datahub-gms.fullname" . }}-configmap
+                  key: neo4j.host
             - name: NEO4J_URI
               valueFrom:
                 configMapKeyRef:

@@ -1,7 +1,0 @@
-{
-  "type" : "typeref",
-  "name" : "Time",
-  "namespace": "com.linkedin.common",
-  "doc"  : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-  "ref"  : "long"
-}

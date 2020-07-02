@@ -1,0 +1,6 @@
+namespace com.linkedin.metadata.delta
+
+/**
+ * A union of all supported metadata delta types.
+ */
+typeref Delta = union[]

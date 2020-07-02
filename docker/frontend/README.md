@@ -1,21 +1,16 @@
 # DataHub Frontend Docker Image
-[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-frontend)](https://cloud.docker.com/repository/docker/keremsahin/datahub-frontend/)
+[![datahub-frontend docker](https://github.com/linkedin/datahub/workflows/datahub-frontend%20docker/badge.svg)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22datahub-frontend+docker%22)
 
 Refer to [DataHub Frontend Service](../../datahub-frontend) to have a quick understanding of the architecture and 
 responsibility of this service for the DataHub.
 
-## Build
+## Build & Run
 ```
-docker image build -t keremsahin/datahub-frontend -f docker/frontend/Dockerfile .
+cd docker/frontend && docker-compose up --build
 ```
-This command will build and deploy the image in your local store.
+This command will rebuild the docker image and start a container based on the image.
 
-## Run container
-```
-cd docker/frontend && docker-compose pull && docker-compose up
-```
-This command will start the container. If you have the image available in your local store, this image will be used
-for the container otherwise it will download the `latest` image from Docker Hub and then start that.
+To start a container using an existing image, run the same command without the `--build` flag.
 
 ### Container configuration
 #### External Port

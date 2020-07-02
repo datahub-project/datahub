@@ -1,0 +1,6 @@
+namespace com.linkedin.testing
+
+/**
+ * For unit tests
+ */
+typeref InvalidAspectUnion = union[AspectInvalid]

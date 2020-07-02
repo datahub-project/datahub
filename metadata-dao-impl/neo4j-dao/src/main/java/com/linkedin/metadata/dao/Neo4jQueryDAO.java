@@ -7,18 +7,20 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.javatuples.Triplet;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Record;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
-import org.neo4j.driver.v1.Value;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Value;
+import org.neo4j.driver.types.Path;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
 
@@ -49,13 +51,13 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
       @Nonnull Statement queryStatement) {
     EntityValidator.validateEntitySchema(entityClass);
 
-    return runQuery(queryStatement).list(record -> nodeRecordToEntity(entityClass, record));
+    return runQuery(queryStatement, record -> nodeRecordToEntity(entityClass, record));
   }
 
   @Nonnull
   @Override
   public List<RecordTemplate> findMixedTypesEntities(@Nonnull Statement queryStatement) {
-    return runQuery(queryStatement).list(this::nodeRecordToEntity);
+    return runQuery(queryStatement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -96,7 +98,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
     final Statement statement = buildStatement(statementString, offset, count);
 
-    return runQuery(statement).list(this::nodeRecordToEntity);
+    return runQuery(statement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -145,7 +147,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     final String statementString = String.format(matchTemplate.toString(), srcType, srcCriteria);
     final Statement statement = buildStatement(statementString, offset, count);
 
-    return runQuery(statement).list(this::nodeRecordToEntity);
+    return runQuery(statement, this::nodeRecordToEntity);
   }
 
   @Nonnull
@@ -163,8 +165,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     RelationshipValidator.validateRelationshipSchema(relationshipType);
 
     return runQuery(findEdges(sourceEntityClass, sourceEntityFilter, destinationEntityClass, destinationEnityFilter,
-        relationshipType, relationshipFilter, offset, count)).list(
-        record -> edgeRecordToRelationship(relationshipType, record));
+        relationshipType, relationshipFilter, offset, count), record -> edgeRecordToRelationship(relationshipType, record));
   }
 
   @Nonnull
@@ -173,24 +174,67 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
       @Nonnull Class<RELATIONSHIP> relationshipClass, @Nonnull Statement queryStatement) {
     RelationshipValidator.validateRelationshipSchema(relationshipClass);
 
-    return runQuery(queryStatement).list(record -> edgeRecordToRelationship(relationshipClass, record));
+    return runQuery(queryStatement, record -> edgeRecordToRelationship(relationshipClass, record));
   }
 
   @Nonnull
   @Override
   public List<RecordTemplate> findMixedTypesRelationships(@Nonnull Statement queryStatement) {
-    return runQuery(queryStatement).list(this::edgeRecordToRelationship);
+    return runQuery(queryStatement, this::edgeRecordToRelationship);
+  }
+
+  @Nonnull
+  public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate>
+  List<List<RecordTemplate>> getPathsToAllNodesTraversed(
+      @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
+      @Nullable Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
+      @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull RelationshipFilter relationshipFilter,
+      int minHops, int maxHops, int offset, int count) {
+
+    if (sourceEntityClass != null) {
+      EntityValidator.validateEntitySchema(sourceEntityClass);
+    }
+    if (destinationEntityClass != null) {
+      EntityValidator.validateEntitySchema(destinationEntityClass);
+    }
+    RelationshipValidator.validateRelationshipSchema(relationshipType);
+
+    final String srcType = getTypeOrEmptyString(sourceEntityClass);
+    final String srcCriteria = filterToCriteria(sourceEntityFilter);
+    final String destType = getTypeOrEmptyString(destinationEntityClass);
+    final String destCriteria = filterToCriteria(destinationEntityFilter);
+    final String edgeType = getType(relationshipType);
+    final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
+
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+    String matchTemplate = "MATCH p=(src%s %s)-[r:%s*%d..%d %s]-(dest%s %s) RETURN p";
+    if (relationshipDirection == RelationshipDirection.INCOMING) {
+      matchTemplate = "MATCH p=(src%s %s)<-[r:%s*%d..%d %s]-(dest%s %s) RETURN p";
+    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+      matchTemplate = "MATCH p=(src%s %s)-[r:%s*%d..%d %s]->(dest%s %s) RETURN p";
+    }
+
+    final String statementString =
+        String.format(matchTemplate, srcType, srcCriteria, edgeType, minHops, maxHops, edgeCriteria, destType,
+            destCriteria);
+
+    final Statement statement = buildStatement(statementString, "length(p), dest.urn", offset, count);
+
+    return runQuery(statement, this::pathRecordToEntityList);
   }
 
   /**
    * Runs a query statement with parameters and return StatementResult
    *
    * @param statement a statement with parameters to be executed
+   * @param mapperFunction lambda to transform query result
+   * @return List<T> list of elements in the query result
    */
   @Nonnull
-  private StatementResult runQuery(@Nonnull Statement statement) {
+  private <T> List<T> runQuery(@Nonnull Statement statement, @Nonnull Function<Record, T> mapperFunction) {
     try (final Session session = _driver.session()) {
-      return session.run(statement.getCommandText(), statement.getParams());
+      return session.run(statement.getCommandText(), statement.getParams()).list(mapperFunction);
     }
   }
 
@@ -233,10 +277,6 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
   @Nonnull
   private Statement buildStatement(@Nonnull String statement, @Nullable String orderBy, int offset, int count) {
-    if (offset <= 0 && count < 0) {
-      return new Statement(statement, Collections.emptyMap());
-    }
-
     String orderStatement = statement;
     if (orderBy != null) {
       orderStatement += " ORDER BY " + orderBy;
@@ -259,6 +299,14 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   private <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
       @Nonnull Record nodeRecord) {
     return nodeToEntity(entityClass, nodeRecord.values().get(0).asNode());
+  }
+
+  @Nonnull
+  private List<RecordTemplate> pathRecordToEntityList(@Nonnull Record pathRecord) {
+    final Path path = pathRecord.values().get(0).asPath();
+    return StreamSupport.stream(path.nodes().spliterator(), false)
+        .map(Neo4jUtil::nodeToEntity)
+        .collect(Collectors.toList());
   }
 
   @Nonnull

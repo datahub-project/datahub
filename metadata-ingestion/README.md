@@ -4,14 +4,20 @@
 1. Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. Easiest
 way to do that is through [Docker images](../docker).
 2. You also need to build the `mxe-schemas` module as below.
-    ```
-    ./gradlew :metadata-events:mxe-schemas:build
-    ```
-    This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic.
-3. Before launching each ETL ingestion pipeline, you can install/verify the library versions as below.
-    ```
-    pip install --user -r requirements.txt
-    ```
+   ```
+   ./gradlew :metadata-events:mxe-schemas:build
+   ```
+   This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic.
+3. All the scripts are written using Python 3 and most likely won't work with Python 2.x interpreters.
+   You can verify the version of your Python using the following command.
+   ```
+   python --version
+   ```
+   We recommend using [pyenv](https://github.com/pyenv/pyenv) to install and manage your Python environment.
+4. Before launching each ETL ingestion pipeline, you can install/verify the library versions as below.
+   ```
+   pip install --user -r requirements.txt
+   ```
     
 ## MCE Producer/Consumer CLI
 `mce_cli.py` script provides a convenient way to produce a list of MCEs from a data file. 
@@ -48,6 +54,11 @@ Flushing records...
 ```
 This will bootstrap DataHub with sample datasets and sample users.
 
+> ***Note***
+> There is a [known issue](https://github.com/fastavro/fastavro/issues/292) with the Python Avro serialization library
+> that can lead to unexpected result when it comes to union of types. 
+> Always [use the tuple notation](https://fastavro.readthedocs.io/en/latest/writer.html#using-the-tuple-notation-to-specify-which-branch-of-a-union-to-take) to avoid encountering these difficult-to-debug issues.
+
 ## Ingest metadata from LDAP to DataHub
 The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
@@ -69,22 +80,6 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ➜  python ldap_etl.py
 ```
 This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
-
-## Ingest metadata from Hive to DataHub
-The hive_etl provides you ETL channel to communicate with your hive store.
-```
-➜  Config your hive store environmental variable in the file.
-    HIVESTORE      # Your store host.
-    
-➜  Config your Kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
-
-➜  python hive_etl.py
-```
-This will bootstrap DataHub with your metadata in the hive store as a dataset entity.
 
 ## Ingest metadata from Kafka to DataHub
 The kafka_etl provides you ETL channel to communicate with your kafka.
@@ -121,24 +116,5 @@ The mysql_etl provides you ETL channel to communicate with your MySQL.
 ```
 This will bootstrap DataHub with your metadata in the MySQL as a dataset entity.
 
-## Ingest metadata from RDBMS to DataHub
-The rdbms_etl provides you ETL channel to communicate with your RDBMS.
-- Currently supports IBM DB2, Firebird, MSSQL Server, MySQL, Oracle,PostgreSQL, SQLite and ODBC connections.
-- Some platform-specific logic are modularized and required to be implemented on your ad-hoc usage.
-```
-➜  Config your MySQL environmental variable in the file.
-    HOST           # Your server host.
-    DATABASE       # Target database.
-    USER           # Your user account.
-    PASSWORD       # Your password.
-    PORT           # Connection port.
-    
-➜  Config your kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
-
-➜  python rdbms_etl.py
-```
-This will bootstrap DataHub with your metadata in the RDBMS as a dataset entity.
+## Ingest metadata from SQL-based data systems to DataHub
+See [sql-etl](sql-etl/) for more details.

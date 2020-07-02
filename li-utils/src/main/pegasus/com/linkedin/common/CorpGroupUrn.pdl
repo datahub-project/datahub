@@ -1,0 +1,24 @@
+namespace com.linkedin.common
+
+/**
+ * Corporate group's AD/LDAP login
+ */
+@java.class = "com.linkedin.common.urn.CorpGroupUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:security",
+  "entityType" : "corpGroup",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "CorpGroup",
+  "doc" : "Corporate group's AD/LDAP login",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "groupName",
+    "doc" : "The name of the AD/LDAP group.",
+    "type" : "string",
+    "maxLength" : 64
+  } ],
+  "maxLength" : 81
+}
+typeref CorpGroupUrn = string

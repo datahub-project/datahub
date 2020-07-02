@@ -19,6 +19,7 @@ public class RequestBuilders {
       Collections.unmodifiableSet(new HashSet<BaseRequestBuilder>() {
         {
           add(new CorpUserActionRequestBuilder());
+          add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
         }
       });

@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Ownership information of an entity, suggested by source system or other services.
+ */
+record OwnershipSuggestion {
+
+  /**
+   * List of owners of the entity.
+   */
+  owners: array[Owner]
+}

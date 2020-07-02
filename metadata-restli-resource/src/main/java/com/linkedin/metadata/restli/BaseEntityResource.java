@@ -153,11 +153,19 @@ public abstract class BaseEntityResource<
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull SNAPSHOT snapshot) {
+    return ingestInternal(snapshot, Collections.emptySet());
+  }
+
+  @Nonnull
+  protected Task<Void> ingestInternal(@Nonnull SNAPSHOT snapshot,
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectsToIgnore) {
     return RestliUtils.toTask(() -> {
       final URN urn = (URN) ModelUtils.getUrnFromSnapshot(snapshot);
       final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
-      ModelUtils.getAspectsFromSnapshot(snapshot).stream().forEach(metadata -> {
-        getLocalDAO().add(urn, metadata, auditStamp);
+      ModelUtils.getAspectsFromSnapshot(snapshot).stream().forEach(aspect -> {
+        if (!aspectsToIgnore.contains(aspect.getClass())) {
+          getLocalDAO().add(urn, aspect, auditStamp);
+        }
       });
       return null;
     });

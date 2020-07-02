@@ -1,0 +1,22 @@
+namespace com.linkedin.identity
+
+/**
+ * Metadata for a corp user
+ */
+record CorpUser {
+
+  /**
+   * Username of the corp user
+   */
+  username: string
+
+  /**
+   * Information of the corp user
+   */
+  info: optional CorpUserInfo
+
+  /**
+   * Editable information of the corp user
+   */
+  editableInfo: optional CorpUserEditableInfo
+}

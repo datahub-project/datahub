@@ -5,10 +5,10 @@ You can list all Docker containers in your local by running `docker container ls
 
 ```
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
-979830a342ce        keremsahin/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
-3abfc72e205d        keremsahin/datahub-frontend:latest                    "datahub-frontend/bi…"   10 hours ago        Up 10 hours         0.0.0.0:9001->9001/tcp                                     datahub-frontend
-50b2308a8efd        keremsahin/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
-4d6b03d77113        keremsahin/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
+979830a342ce        linkedin/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
+3abfc72e205d        linkedin/datahub-frontend:latest                    "datahub-frontend/bi…"   10 hours ago        Up 10 hours         0.0.0.0:9001->9001/tcp                                     datahub-frontend
+50b2308a8efd        linkedin/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
+4d6b03d77113        linkedin/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
 c267c287a235        landoop/schema-registry-ui:latest                     "/run.sh"                10 hours ago        Up 10 hours         0.0.0.0:8000->8000/tcp                                     schema-registry-ui
 4b38899cc29a        confluentinc/cp-schema-registry:5.2.1                 "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:8081->8081/tcp                                     schema-registry
 37c29781a263        confluentinc/cp-kafka:5.2.1                           "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
@@ -137,6 +137,16 @@ yellow open .triggered_watches              7g7_MGXFR7mBx0FwQzxpUg 1 1     0  0 
 yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0   3.2kb   3.2kb
 ```
 
+## How can I check if data has been loaded into MySQL properly?
+
+Once the mysql container is up and running, you should be able to connect to it dirctly on `localhost:3306` using tools such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke [MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
+
+```
+docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
+```
+
+Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities. 
+
 ## Getting `cannot start service {X}` error while starting Docker containers.
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
 ### bind: address already in use
@@ -169,7 +179,13 @@ More discussions on the same issue https://github.com/docker/hub-feedback/issues
 ```
 docker rm -f $(docker ps -aq)
 ```
-2. Clear persistent storage for DataHub containers, assuming you didn't set `DATA_STORAGE_FOLDER` environment variable.
+2. Drop all DataHub's docker volumes.
 ```
-rm -rf /tmp/datahub
+docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
+```
+
+## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
+This means the database wasn't properly initialized as part of the quickstart processs. Please run the following command to manually initialize it.
+```
+docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
 ```

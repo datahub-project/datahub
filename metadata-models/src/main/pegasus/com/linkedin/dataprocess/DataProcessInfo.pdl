@@ -1,0 +1,19 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * The inputs and outputs of this data process
+ */
+record DataProcessInfo {
+
+  /**
+   * the inputs of the data process
+   */
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * the outputs of the data process
+   */
+  outputs: optional array[DatasetUrn]
+}

@@ -157,7 +157,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   @Override
   @Nullable
-  protected <ASPECT extends RecordTemplate> AspectEntry getLatest(@Nonnull URN urn,
+  protected <ASPECT extends RecordTemplate> AspectEntry<ASPECT> getLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass) {
     final PrimaryKey key = new PrimaryKey(urn.toString(), ModelUtils.getAspectName(aspectClass), 0L);
     final EbeanMetadataAspect latest = _server.find(EbeanMetadataAspect.class, key);
@@ -165,7 +165,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
       return null;
     }
 
-    return new AspectEntry(RecordUtils.toRecordTemplate(aspectClass, latest.getMetadata()), toExtraInfo(latest));
+    return new AspectEntry<>(RecordUtils.toRecordTemplate(aspectClass, latest.getMetadata()), toExtraInfo(latest));
   }
 
   @Override
@@ -251,7 +251,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   @Nonnull
   private List<EbeanMetadataAspect> batchGet(@Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys) {
 
-    ExpressionList<EbeanMetadataAspect> query = _server.find(EbeanMetadataAspect.class).where();
+    ExpressionList<EbeanMetadataAspect> query = _server.find(EbeanMetadataAspect.class).select(ALL_COLUMNS).where();
     if (keys.size() > 1) {
       query = query.or();
     }
@@ -329,6 +329,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     checkValidAspect(aspectClass);
 
     final PagedList<EbeanMetadataAspect> pagedList = _server.find(EbeanMetadataAspect.class)
+        .select(ALL_COLUMNS)
         .where()
         .eq(URN_COLUMN, urn.toString())
         .eq(ASPECT_COLUMN, ModelUtils.getAspectName(aspectClass))
@@ -353,6 +354,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     checkValidAspect(aspectClass);
 
     final PagedList<EbeanMetadataAspect> pagedList = _server.find(EbeanMetadataAspect.class)
+        .select(ALL_COLUMNS)
         .where()
         .eq(ASPECT_COLUMN, ModelUtils.getAspectName(aspectClass))
         .eq(VERSION_COLUMN, version)

@@ -7,6 +7,10 @@ import java.util.Optional;
 import java.util.Properties;
 
 public class Configuration {
+
+    private Configuration() {
+    }
+
     @Nonnull
     public static Properties loadProperties(@Nonnull String configFile) {
         Properties configuration = new Properties();

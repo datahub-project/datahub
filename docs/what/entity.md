@@ -17,7 +17,7 @@ There’s no need to explicitly create or destroy entity instances. An entity in
 Each entity has a special boolean attribute `removed`, which is used to mark the entity as "soft deleted", 
 without destroying existing relationships and attached metadata. This is useful for quickly reviving an incorrectly deleted entity instance without losing valuable metadata, e.g. human authored content.
 
-An example [PDSC](https://linkedin.github.io/rest.li/pdsc_syntax) schema for the `Dataset` entity is shown below. Note that:
+An example [PDL](https://linkedin.github.io/rest.li/pdl_schema) schema for the `Dataset` entity is shown below. Note that:
 1. Each entity is expected to have a `urn` field with an entity-specific URN type.
 2. The optional `removed` field is captured in BaseEntity, which is expected to be included by all entities.
 3. All other fields are expected to be of primitive types or enum only. 
@@ -26,57 +26,80 @@ this mostly depends on the underlying indexing system. For simplicity, we only a
 4. The `urn` field is non-optional, while all other fields must be optional. 
 This is to support "partial update" when only a selective number of attributes need to be altered.
 
-```json
-{
-  "type": "record",
-  "name": "BaseEntity",
-  "namespace": "com.linkedin.metadata.entity",
-  "doc": "Common fields that apply to all entities",
-  "fields": [
-    {
-      "name": "removed",
-      "type": "boolean",
-      "doc": "Whether the entity has been removed or not",
-      "optional": true,
-      "default": false
-    }
-  ]
+```
+namespace com.linkedin.metadata.entity
+
+/**
+ * Common fields that apply to all entities
+ */
+record BaseEntity {
+
+  /** Whether the entity has been removed or not */
+  removed: optional boolean = false
 }
 ```
 
-```json
-{
-  "type": "record",
-  "name": "DatasetEntity",
-  "namespace": "com.linkedin.metadata.entity",
-  "doc": "Data model for a dataset entity",
-  "include": [
-    "BaseEntity"
-  ],
-  "fields": [
-    {
-      "name": "urn",
-      "type": "com.linkedin.common.DatasetUrn",
-      "doc": "Urn of the dataset"
-    },
-    {
-      "name": "name",
-      "type": "string",
-      "doc": "Dataset native name",
-      "optional": true
-    },
-    {
-      "name": "platform",
-      "type": "com.linkedin.common.DataPlatformUrn",
-      "doc": "Platform urn for the dataset.",
-      "optional": true
-    },
-    {
-      "name": "fabric",
-      "type": "com.linkedin.common.FabricType",
-      "doc": "Fabric type where dataset belongs to.",
-      "optional": true
-    }
-  ]
+```
+namespace com.linkedin.metadata.entity
+
+import com.linkedin.common.DataPlatformUrn
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.FabricType
+
+/**
+ * Data model for a dataset entity
+ */
+record DatasetEntity includes BaseEntity {
+
+  /** Urn of the dataset */
+  urn: DatasetUrn
+
+  /** Dataset native name */
+  name: optional string
+
+  /** Platform urn for the dataset */
+  platform: optional DataPlatformUrn
+
+  /** Fabric type where dataset belongs to */
+  origin: optional FabricType
 }
 ```
+
+# When to model something as an entity?
+
+A lot of time it may not be obvious if something should be modeled as an entity, a [metadata aspect](aspect.md), or even a field in a metadata aspect. One way to think of it is using the concept of [Third Normal Form](https://en.wikipedia.org/wiki/Third_normal_form). We'll use the example from the Wikipedia entry to illustrate the idea.
+
+**Tournament Table**
+| Tournament | Year | Winner |
+| ------- | --------- | --------- |
+| Indiana Invitational | 1998 | Al Fredrickson 
+| Cleveland Open | 1999 | Bob Albertson
+| Des Moines Masters | 1999 | Al Fredrickson
+| Indiana Invitational | 1999 | Chip Masterson
+
+**Winner Table**
+| Winner | Date of birth |
+| ------- | --------- |
+| Chip Masterson | 14 March 1977 
+| Al Fredrickson | 21 July 1975
+| Bob Albertson | 28 September 1968
+
+When fully normalized, it becomes clear that each table corresponds to an entity (`Tournament` and `Winner`) and is identifiable by its respective key (`{Tournament, Year}` and `Winner`). `Date of birth` column in the second table is the "metadata aspect" of the `Winner` entity. There also exists a relationship between `Tournament` and `Winner` through the `Winner` column in the first table.
+
+In other words, when you start asking yourself "Should I normalize this thing so it doesn't end up repeated data that can potentially become inconsistent?", chances are that "thing" should probably be made an entity. For example, if we need to associate a specific birthday with additional facts, such as the corresponding star sign or [birth flower](https://en.wikipedia.org/wiki/Birth_flower), we'll end up introducing the `Birthday` table & entity and further denormalize the `Winner` table.
+
+**Winner Table**
+| Winner | Birthday | Birth year |
+| ------- | --------- | --------- |
+| Chip Masterson | 14 March | 1977 
+| Al Fredrickson | 21 July | 1975
+| Bob Albertson | 28 September | 1968
+
+**Birthday Table**
+| Birthday | Star sign | Birth flower |
+| ------- | --------- | --------- |
+| 1 January | Capricorn | Carnation
+| ... | ... |
+| 1 July | Cancer | Larkspur  
+| ... | ... |
+| 31 December | Capricorn | Poinsettia

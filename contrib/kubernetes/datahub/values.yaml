@@ -5,25 +5,25 @@
 datahub-gms:
   enabled: true
   image:
-    repository: keremsahin/datahub-gms
+    repository: linkedin/datahub-gms
     tag: "latest"
 
 datahub-frontend:
   enabled: true
   image:
-    repository: keremsahin/datahub-frontend
+    repository: linkedin/datahub-frontend
     tag: "latest"
 
 datahub-mae-consumer:
   enabled: true
   image:
-    repository: keremsahin/datahub-mae-consumer
+    repository: linkedin/datahub-mae-consumer
     tag: "latest"
 
 datahub-mce-consumer:
   enabled: true
   image:
-    repository: keremsahin/datahub-mce-consumer
+    repository: linkedin/datahub-mce-consumer
     tag: "latest"
 
 global:

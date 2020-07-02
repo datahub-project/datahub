@@ -1,6 +1,11 @@
 #! /usr/bin/python
 import argparse
+import ast
 from confluent_kafka import avro
+from confluent_kafka.avro import AvroConsumer
+from confluent_kafka.avro import AvroProducer
+from confluent_kafka.avro.serializer import SerializerError
+
 
 topic = "MetadataChangeEvent"
 
@@ -13,9 +18,6 @@ def produce(conf, data_file, schema_record):
     """
         Produce MetadataChangeEvent records
     """
-    from confluent_kafka.avro import AvroProducer
-    import ast
-
     producer = AvroProducer(conf, default_value_schema=avro.load(schema_record))
 
     print("Producing MetadataChangeEvent records to topic {}. ^c to exit.".format(topic))
@@ -36,22 +38,19 @@ def produce(conf, data_file, schema_record):
                 break
             except ValueError as e:
                 print ("Message serialization failed {}".format(e))
-                continue
+                break
 
     print("Flushing records...")
     producer.flush()
 
 
-def consume(conf):
+def consume(conf, schema_record):
     """
         Consume MetadataChangeEvent records
     """
-    from confluent_kafka.avro import AvroConsumer
-    from confluent_kafka.avro.serializer import SerializerError
-
     print("Consuming MetadataChangeEvent records from topic {} with group {}. ^c to exit.".format(topic, conf["group.id"]))
 
-    c = AvroConsumer(conf, reader_value_schema=record_schema)
+    c = AvroConsumer(conf, reader_value_schema=avro.load(schema_record))
     c.subscribe([topic])
 
     while True:
@@ -90,7 +89,7 @@ def main(args):
         # Fallback to earliest to ensure all messages are consumed
         conf['group.id'] = topic
         conf['auto.offset.reset'] = "earliest"
-        consume(conf)
+        consume(conf, args.schema_record)
 
 
 if __name__ == '__main__':

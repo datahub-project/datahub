@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema text of an ORC schema.
+ */
+record OrcSchema {
+
+  /**
+   * The native schema for ORC file format.
+   */
+  schema: string
+}

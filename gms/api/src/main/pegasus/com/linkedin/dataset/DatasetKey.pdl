@@ -1,0 +1,30 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.DataPlatformUrn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for dataset resource
+ */
+record DatasetKey {
+
+  /**
+   * Standardized platform urn where dataset is defined. The data platform Urn (urn:li:platform:{platform_name})
+   */
+  @validate.`com.linkedin.dataset.rest.validator.DataPlatformValidator` = { }
+  platform: DataPlatformUrn
+
+  /**
+   * Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
+   */
+  @validate.strlen = {
+    "max" : 500,
+    "min" : 1
+  }
+  name: string
+
+  /**
+   * Fabric type where dataset belongs to or where it was generated.
+   */
+  origin: FabricType
+}

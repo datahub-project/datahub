@@ -1,0 +1,6 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A union of all supported relationship types.
+ */
+typeref Relationship = union[Contains, IsPartOf, OwnedBy]
