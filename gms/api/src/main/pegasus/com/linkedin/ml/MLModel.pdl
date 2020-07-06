@@ -1,0 +1,46 @@
+namespace com.linkedin.ml
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.ModelUrn
+import com.linkedin.common.VersionTag
+
+/**
+ * Kafka event for proposing a machine learning model change for an entity.
+ */
+record MLModel includes MLModelKey, ChangeAuditStamps, VersionTag {
+
+  /**
+   * Model unique identifier. System assigned value when a new model is created.
+   */
+  id: long = 0
+
+  /**
+   * Model urn
+   */
+  urn: ModelUrn
+
+  /**
+   * Description for model
+   */
+  description: string = ""
+
+  /**
+   * Url where the source code of the model is available.
+   */
+  sourceControlUrl: string = ""
+
+  /**
+   * tags for searching model
+   */
+  tags: array[string] = [ ]
+
+  /**
+   * A key-value map of platform-specific properties
+   */
+  properties: optional map[string, string]
+
+  /**
+   * Boolean value indicating the model is actively in use or not.
+   */
+  active: optional boolean
+}
