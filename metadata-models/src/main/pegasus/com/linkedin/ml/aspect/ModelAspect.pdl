@@ -13,6 +13,7 @@ import com.linkedin.ml.metadata.ModelProperties
 import com.linkedin.ml.metadata.QuantitativeAnalyses
 import com.linkedin.ml.metadata.TrainingData
 import com.linkedin.common.Cost
+import com.linkedin.common.Deprecation
 
 /**
  * A union of all supported metadata aspects for a ML Model
