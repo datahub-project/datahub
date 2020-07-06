@@ -1,0 +1,22 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Metrics to be featured for the ML model.
+ */
+record Metrics {
+
+  /**
+   * For classification systems, the error types that can be derived from a confusion matrix are false positive rate, false negative rate, false discovery rate, and false omission rate. We note that the relative importance of each of these metrics is system, product and context dependent.
+   */
+  classificationSystems: optional string
+
+  /**
+   * For score-based systems such as pricing models and risk assessment algorithms, describing differences in the distribution of measured metrics across groups may be helpful.
+   */
+  scoreBasedAnalyses: optional string
+
+  /**
+   *  Confidence intervals for metrics derived from confusion matrices can be calculated by treating the matrices as probabilistic models of system performance
+   */
+  confidence: optional string
+}

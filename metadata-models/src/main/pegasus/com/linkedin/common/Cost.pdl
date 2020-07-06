@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/*
+* Cost Details for an Entity
+*/
+record Cost {
+
+    /*
+    * Code to which the Cost of this entity should be attributed to
+    */
+    costCode: string
+}

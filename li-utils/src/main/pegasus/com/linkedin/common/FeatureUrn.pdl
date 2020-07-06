@@ -1,0 +1,32 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized feature identifier.
+ */
+@java.class = "com.linkedin.common.urn.FeatureUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "feature",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Feature",
+  "doc" : "Standardized feature identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "string",
+    "name" : "description",
+    "doc" : "Description of the ML Feature."
+  }, {
+    "type" : "string",
+    "name" : "featureName",
+    "doc" : "Name of the Feature",
+    "maxLength" : 210
+  }, {
+    "type" : "string",
+    "name" : "dataType",
+    "doc" : "Type of the Feature added"
+  } ],
+  "maxLength" : 284
+}
+typeref FeatureUrn = string

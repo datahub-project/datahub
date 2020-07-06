@@ -1,0 +1,22 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Intended Use for the ML Model
+ */
+record IntendedUse {
+
+  /**
+   * Primary Use cases for the model.
+   */
+  primaryUses: optional string
+
+  /**
+   * Primary Intended Users - For example, was the model developed for entertainment purposes, for hobbyists, or enterprise solutions?
+   */
+  primaryUsers: optional string
+
+  /**
+   * Highlight technology that the model might easily be confused with, or related contexts that users could try to apply the model to.
+   */
+  outOfScopeUses: optional string
+}

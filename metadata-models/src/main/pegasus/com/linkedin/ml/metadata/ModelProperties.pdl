@@ -1,0 +1,39 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.FeatureUrn
+
+/**
+ * Properties associated with a ML Model
+ */
+record ModelProperties {
+
+  /**
+   * Documentation of the ML Model
+   */
+  description: optional string
+
+  /**
+   * Date when the model was developed
+   */
+  date: optional string
+
+  /**
+   * Version of the ML Model
+   */
+  version: optional string
+
+  /**
+   * Type of Algorithm or Model such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
+   */
+  type: optional string
+
+  /**
+    *   List of features used for model training
+    */
+  features: optional array[FeatureUrn]
+
+  /**
+   * tags for the ml model
+   */
+  tags: array[string] = [ ]
+}

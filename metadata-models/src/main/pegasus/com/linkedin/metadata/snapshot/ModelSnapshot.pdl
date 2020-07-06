@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.ModelUrn
+import com.linkedin.ml.aspect.ModelAspect
+
+/**
+ * Model Snapshot entity details.
+ */
+record ModelSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: ModelUrn
+
+  /**
+   * The list of metadata aspects associated with the model. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[ModelAspect]
+}
