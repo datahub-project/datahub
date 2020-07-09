@@ -80,21 +80,26 @@ def build_dataset_mce(platform, dataset_name, columns):
     }
 
 
+def delivery_report(err, msg):
+    """ Called once for each message produced to indicate delivery result.
+        Triggered by poll() or flush(). """
+    if err is not None:
+        print('Message delivery failed: {}'.format(err))
+    else:
+        print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
+
+
 def produce_dataset_mce(mce, kafka_config):
     """
     Produces a MetadataChangeEvent to Kafka
     """
     conf = {'bootstrap.servers': kafka_config.bootstrap_server,
+            'on_delivery': delivery_report,
             'schema.registry.url': kafka_config.schema_registry}
     record_schema = avro.load(kafka_config.avsc_path)
     producer = AvroProducer(conf, default_value_schema=record_schema)
 
-    try:
-        producer.produce(topic=kafka_config.kafka_topic, value=mce)
-        producer.poll(0)
-        print('\n%s has been successfully produced!\n' % mce)
-    except ValueError as e:
-        print('Message serialization failed %s' % e)
+    producer.produce(topic=kafka_config.kafka_topic, value=mce)
     producer.flush()
 
 
