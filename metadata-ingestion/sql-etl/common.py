@@ -1,6 +1,5 @@
 #! /usr/bin/python
 import time
-from uuid import uuid4
 
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
@@ -57,7 +56,8 @@ def build_dataset_mce(platform, dataset_name, columns):
         fields.append({
             "fieldPath": column["name"],
             "nativeDataType": repr(column["type"]),
-            "type": { "type":get_column_type(column["type"]) }
+            "type": { "type":get_column_type(column["type"]) },
+            "description": column["comment"]
         })
 
     schema_metadata = {
@@ -100,7 +100,7 @@ def produce_dataset_mce(mce, kafka_config):
     record_schema = avro.load(kafka_config.avsc_path)
     producer = AvroProducer(conf, default_value_schema=record_schema)
 
-    producer.produce(topic=kafka_config.kafka_topic, key=str(uuid4()), value=mce)
+    producer.produce(topic=kafka_config.kafka_topic, key=mce['proposedSnapshot'][1]['urn'], value=mce)
     producer.flush()
 
 
