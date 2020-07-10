@@ -97,8 +97,9 @@ def produce_dataset_mce(mce, kafka_config):
     conf = {'bootstrap.servers': kafka_config.bootstrap_server,
             'on_delivery': delivery_report,
             'schema.registry.url': kafka_config.schema_registry}
+    key_schema = avro.loads('{"type": "string"}')
     record_schema = avro.load(kafka_config.avsc_path)
-    producer = AvroProducer(conf, default_value_schema=record_schema)
+    producer = AvroProducer(conf, default_key_schema=key_schema, default_value_schema=record_schema)
 
     producer.produce(topic=kafka_config.kafka_topic, key=mce['proposedSnapshot'][1]['urn'], value=mce)
     producer.flush()
