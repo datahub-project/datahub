@@ -1,0 +1,17 @@
+namespace com.linkedin.dataJob.azkaban
+
+/**
+ * Metadata associated with a Azkaban flow
+ */
+record AzkabanFlowInfo {
+
+  /**
+   * Azkaban project information including project name, version and cluster
+   */
+  project: AzkabanProjectInfo
+
+  /**
+   * Azkaban flow name
+   */
+  flowName: string
+}

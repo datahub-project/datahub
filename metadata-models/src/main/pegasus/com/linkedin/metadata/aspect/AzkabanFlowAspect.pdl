@@ -1,0 +1,10 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.common.Ownership
+import com.linkedin.dataJob.azkaban.AzkabanFlowInfo
+import com.linkedin.dataJob.azkaban.AzkabanFlowJobsInfo
+
+/**
+ * A union of all supported metadata aspects for a Azkaban flow
+ */
+typeref AzkabanFlowAspect = union[Ownership, AzkabanFlowInfo, AzkabanFlowJobsInfo]

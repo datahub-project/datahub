@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.AzkabanJobUrn
+import com.linkedin.metadata.aspect.AzkabanJobAspect
+
+/**
+ * A metadata snapshot for a specific azkaban job entity
+ */
+record AzkabanJobSnapshot {
+
+  /**
+   * Azkaban job urn identifying a Azkaban declared job
+   */
+  urn: AzkabanJobUrn
+
+  /**
+   * The list of metadata aspects associated with a Azkaban job. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[AzkabanJobAspect]
+}

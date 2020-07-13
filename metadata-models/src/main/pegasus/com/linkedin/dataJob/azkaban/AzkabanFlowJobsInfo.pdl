@@ -1,0 +1,14 @@
+namespace com.linkedin.dataJob.azkaban
+
+import com.linkedin.common.AzkabanJobUrn
+
+/**
+ * Azkaban jobs associated with a Azkaban flow
+ */
+record AzkabanFlowJobsInfo {
+
+  /**
+   * List of Azkaban jobs that are part of this flow
+   */
+  jobs: array[AzkabanJobUrn]
+}

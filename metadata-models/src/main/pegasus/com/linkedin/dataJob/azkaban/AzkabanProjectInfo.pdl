@@ -1,0 +1,22 @@
+namespace com.linkedin.dataJob.azkaban
+
+/**
+ * Metadata associated with a Azkaban project
+ */
+record AzkabanProjectInfo {
+
+  /**
+   * Azkaban project name
+   */
+  projectName: string
+
+  /**
+   * Azkaban project upload version
+   */
+  projectVersion: string
+
+  /**
+   * Hadoop cluster in which the project exists
+   */
+  clusterInfo: AzkabanClusterInfo
+}

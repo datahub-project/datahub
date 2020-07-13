@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.entity
+
+import com.linkedin.common.AzkabanFlowUrn
+
+/**
+ * Data model for a Azkaban flow entity
+ */
+record AzkabanFlowEntity includes AzkabanFlowBaseEntity {
+
+  /**
+   * Urn for the Azkaban flow
+   */
+  urn: AzkabanFlowUrn
+}

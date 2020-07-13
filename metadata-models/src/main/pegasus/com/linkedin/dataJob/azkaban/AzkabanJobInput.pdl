@@ -1,0 +1,9 @@
+namespace com.linkedin.dataJob.azkaban
+
+import com.linkedin.dataJob.DataJobInput
+
+/**
+ * Inputs consumed by the Azkaban job
+ */
+record AzkabanJobInput includes DataJobInput {
+}

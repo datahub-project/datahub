@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.AzkabanFlowUrn
+import com.linkedin.metadata.aspect.AzkabanFlowAspect
+
+/**
+ * A metadata snapshot for a specific azkaban flow entity
+ */
+record AzkabanFlowSnapshot {
+
+  /**
+   * Azkaban flow urn identifying a Azkaban declared flow
+   */
+  urn: AzkabanFlowUrn
+
+  /**
+   * The list of metadata aspects associated with a Azkaban flow. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[AzkabanFlowAspect]
+}

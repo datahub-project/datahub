@@ -1,6 +1,7 @@
 package com.linkedin.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.metadata.entity.AzkabanFlowBaseEntity;
 import com.linkedin.metadata.entity.BaseEntity;
 import com.linkedin.metadata.relationship.BaseRelationship;
 import com.linkedin.metadata.search.BaseDocument;
@@ -13,7 +14,7 @@ public class ModelValidationConstants {
     // Util class
   }
 
-  static final Set<Class> IGNORED_ENTITY_CLASSES = ImmutableSet.of(BaseEntity.class);
+  static final Set<Class> IGNORED_ENTITY_CLASSES = ImmutableSet.of(BaseEntity.class, AzkabanFlowBaseEntity.class);
 
   static final Set<Class> IGNORED_RELATIONSHIP_CLASSES = ImmutableSet.of(BaseRelationship.class);
 

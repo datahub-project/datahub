@@ -1,0 +1,9 @@
+namespace com.linkedin.dataJob.azkaban
+
+import com.linkedin.dataJob.DataJobOutput
+
+/**
+ * Outputs produced by the Azkaban job
+ */
+record AzkabanJobOutput includes DataJobOutput {
+}

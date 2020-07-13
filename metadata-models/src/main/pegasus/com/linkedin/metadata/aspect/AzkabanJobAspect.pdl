@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.common.Ownership
+import com.linkedin.dataJob.azkaban.AzkabanJobInfo
+import com.linkedin.dataJob.azkaban.AzkabanJobInput
+import com.linkedin.dataJob.azkaban.AzkabanJobOutput
+
+/**
+ * A union of all supported metadata aspects for a Azkaban job
+ */
+typeref AzkabanJobAspect = union[
+  AzkabanJobInfo,
+  AzkabanJobInput,
+  AzkabanJobOutput,
+  Ownership
+]

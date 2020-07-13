@@ -1,0 +1,12 @@
+namespace com.linkedin.dataJob.azkaban
+
+/**
+ * Metadata associated with a Azkaban job
+ */
+record AzkabanJobInfo includes AzkabanFlowInfo {
+
+  /**
+   * Azkaban job name
+   */
+  jobName: string
+}
