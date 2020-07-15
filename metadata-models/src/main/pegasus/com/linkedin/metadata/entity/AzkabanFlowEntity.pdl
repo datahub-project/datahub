@@ -5,7 +5,7 @@ import com.linkedin.common.AzkabanFlowUrn
 /**
  * Data model for a Azkaban flow entity
  */
-record AzkabanFlowEntity includes AzkabanFlowBaseEntity {
+record AzkabanFlowEntity {
 
   /**
    * Urn for the Azkaban flow

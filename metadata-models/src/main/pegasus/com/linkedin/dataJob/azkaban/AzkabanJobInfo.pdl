@@ -1,9 +1,16 @@
 namespace com.linkedin.dataJob.azkaban
 
+import com.linkedin.common.AzkabanFlowUrn
+
 /**
  * Metadata associated with a Azkaban job
  */
-record AzkabanJobInfo includes AzkabanFlowInfo {
+record AzkabanJobInfo {
+
+  /**
+   * Reference to the parent Azkaban flow
+   */
+  flow: AzkabanFlowUrn
 
   /**
    * Azkaban job name
