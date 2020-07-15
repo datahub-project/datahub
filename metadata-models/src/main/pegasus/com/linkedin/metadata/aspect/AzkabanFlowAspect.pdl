@@ -7,4 +7,8 @@ import com.linkedin.dataJob.azkaban.AzkabanFlowJobsInfo
 /**
  * A union of all supported metadata aspects for a Azkaban flow
  */
-typeref AzkabanFlowAspect = union[Ownership, AzkabanFlowInfo, AzkabanFlowJobsInfo]
+typeref AzkabanFlowAspect = union[
+  AzkabanFlowInfo,
+  AzkabanFlowJobsInfo,
+  Ownership
+]

@@ -11,4 +11,19 @@ record AzkabanFlowEntity includes AzkabanFlowBaseEntity {
    * Urn for the Azkaban flow
    */
   urn: AzkabanFlowUrn
+
+  /**
+   * Azkaban cluster name
+   */
+  clusterName: optional string
+
+  /**
+   * Azkaban flow name
+   */
+  flowName: optional string
+
+  /**
+   * Azkaban project name
+   */
+  projectName: optional string
 }
