@@ -3,7 +3,7 @@ namespace com.linkedin.common
 /**
  * Standardized feature identifier.
  */
-@java.class = "com.linkedin.common.urn.FeatureUrn"
+@java.class = "com.linkedin.common.urn.MlFeatureUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
@@ -29,4 +29,4 @@ namespace com.linkedin.common
   } ],
   "maxLength" : 284
 }
-typeref FeatureUrn = string
+typeref MlFeatureUrn = string

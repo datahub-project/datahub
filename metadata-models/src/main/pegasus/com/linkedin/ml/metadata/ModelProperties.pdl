@@ -1,6 +1,7 @@
 namespace com.linkedin.ml.metadata
 
-import com.linkedin.common.FeatureUrn
+import com.linkedin.common.MlFeatureUrn
+import com.linkedin.common.Time
 
 /**
  * Properties associated with a ML Model
@@ -15,7 +16,7 @@ record ModelProperties {
   /**
    * Date when the model was developed
    */
-  date: optional string
+  date: optional Time
 
   /**
    * Version of the ML Model
@@ -30,7 +31,7 @@ record ModelProperties {
   /**
     *   List of features used for model training
     */
-  features: optional array[FeatureUrn]
+  features: optional array[MlFeatureUrn]
 
   /**
    * tags for the ml model

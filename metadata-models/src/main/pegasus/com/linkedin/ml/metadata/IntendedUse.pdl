@@ -13,7 +13,7 @@ record IntendedUse {
   /**
    * Primary Intended Users - For example, was the model developed for entertainment purposes, for hobbyists, or enterprise solutions?
    */
-  primaryUsers: optional string
+  primaryUsers: optional IntendedUserType
 
   /**
    * Highlight technology that the model might easily be confused with, or related contexts that users could try to apply the model to.

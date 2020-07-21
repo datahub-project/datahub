@@ -6,7 +6,12 @@ namespace com.linkedin.ml.metadata
 record CaveatsAndRecommendations {
 
   /**
-   * This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?
+   * This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?
    */
-  caveatsAndRecommendations: optional string
+  caveats: optional string
+
+  /**
+   * Recommendations on where this model should be used.
+   */
+  recommendations: optional string
 }

@@ -1,4 +1,4 @@
-namespace com.linkedin.ml.aspect
+namespace com.linkedin.metadata.aspect
 
 import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.Ownership

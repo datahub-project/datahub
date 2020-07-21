@@ -3,30 +3,30 @@ namespace com.linkedin.common
 /**
  * Standardized model identifier.
  */
-@java.class = "com.linkedin.common.urn.ModelUrn"
+@java.class = "com.linkedin.common.urn.MlModelUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
   "entityType" : "model",
   "constructable" : true,
   "namespace" : "li",
-  "name" : "Model",
+  "name" : "MlModel",
   "doc" : "Standardized model identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
-    "type" : "com.linkedin.common.urn.DataPlatformUrn",
     "name" : "platform",
+    "type" : "com.linkedin.common.urn.DataPlatformUrn",
     "doc" : "Standardized platform urn for the model."
   }, {
     "name" : "modelName",
-    "doc" : "Name of the Model",
+    "doc" : "Name of the MLModel",
     "type" : "string",
     "maxLength" : 210
   }, {
-    "type" : "com.linkedin.common.FabricType",
     "name" : "origin",
+    "type" : "com.linkedin.common.FabricType",
     "doc" : "Fabric type where model belongs to or where it was generated."
   } ],
   "maxLength" : 284
 }
-typeref ModelUrn = string
+typeref MlModelUrn = string

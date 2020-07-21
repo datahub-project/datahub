@@ -20,5 +20,5 @@ record EvaluationData {
   /**
    * How was the data preprocessed for evaluation (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
    */
-  preProcessing: optional string
+  preProcessing: optional array[string]
 }
