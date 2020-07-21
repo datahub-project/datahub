@@ -9,13 +9,13 @@ import com.linkedin.common.FabricType
 record MLModelKey {
 
   /**
-   * Standardized platform urn where ML Model is defined. The data platform Urn (urn:li:platform:{platform_name})
+   * Standardized platform urn where ML Model is defined. The data platform Urn (urn:li:platform:{dataScienceplatform_name})
    */
   @validate.`com.linkedin.dataset.rest.validator.DataPlatformValidator` = { }
   platform: DataPlatformUrn
 
   /**
-   * ML Model native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
+   * ML Model name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
    */
   @validate.strlen = {
     "max" : 500,

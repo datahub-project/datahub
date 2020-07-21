@@ -11,11 +11,6 @@ record EthicalConsiderations {
   data: optional string
 
   /**
-   * Sensitivity of the ML Model
-   */
-  sensitivity: optional array[string]
-
-  /**
    *  Is the model intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?
    */
   humanLife: optional string
