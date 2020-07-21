@@ -2,6 +2,7 @@ namespace com.linkedin.ml.metadata
 
 import com.linkedin.common.MlFeatureUrn
 import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
 
 /**
  * Properties associated with a ML Model
@@ -21,7 +22,7 @@ record ModelProperties {
   /**
    * Version of the ML Model
    */
-  version: optional string
+  version: optional VersionTag
 
   /**
    * Type of Algorithm or Model such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
