@@ -22,7 +22,7 @@
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
-> :sparkles:Latest Update: 
+> :sparkles: Latest Update: 
 > - We've released v0.4.1. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.1)
 > - We're on Slack now! [Join](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or [log in with an existing account](https://datahubspace.slack.com). Ask questions and keep up with the latest announcements.
 
@@ -102,7 +102,7 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
 * [DataHub Journey with Expedia Group by Arun Vasudevan](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
-* [LinkedIn Datahub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
+* [LinkedIn DataHub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
 * [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
 
 See the full list [here](https://github.com/linkedin/datahub/blob/mars-lan-patch-2/docs/links.md).
