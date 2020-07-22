@@ -23,7 +23,7 @@
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
 
 > :sparkles:Latest Update: 
-> - We released v0.4.1, you can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.1)
+> - We've released v0.4.1. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.1)
 > - We're on Slack now! [Join](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or [log in with an existing account](https://datahubspace.slack.com). Ask questions and keep up with the latest announcements.
 
 ## Introduction
@@ -78,7 +78,7 @@ We welcome contributions from the community. Please refer to our [Contributing G
 Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for important discussions and announcements. You can also find out more about our past and upcoming [town hall meetings](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
 
 ## Adoption
-Here are the companies officially using DataHub. Please feel free to add your company to the list if we miss it.
+Here are the companies officially adopted DataHub. Please feel free to add your company to the list if we miss it.
 * [LinkedIn](http://linkedin.com)
 * [Expedia Group](http://expedia.com)
 * [TypeForm](http://typeform.com)
@@ -87,9 +87,13 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [Microsoft](https://microsoft.com)
 * [Saxo bank](https://www.home.saxo)
 * [Morgan Stanley](https://www.morganstanley.com)
+* [Experian](https://www.experian.com)
 * [Instructure](https://www.instructure.com)
+* [Orange Telecom](https://www.orange.com)
+* [bookings.com](https://www.booking.com)
 * [SpotHero](https://spothero.com)
 * [Geotab](https://www.geotab.com)
+* [University of Phoenix](https://www.phoenix.edu)
 
 ## Select Articles & Talks
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
