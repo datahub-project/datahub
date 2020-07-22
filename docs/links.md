@@ -2,7 +2,6 @@
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 * [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 2019](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019)
-* [DataHub Journey with Expedia Group by Arun Vasudevan](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 * [LinkedIn Datahub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
 * [How LinkedIn, Uber, Lyft, Airbnb and Netflix are Solving Data Management and Discovery for Machine Learning Solutions](https://towardsdatascience.com/how-linkedin-uber-lyft-airbnb-and-netflix-are-solving-data-management-and-discovery-for-machine-9b79ee9184bb)
@@ -15,6 +14,7 @@
 
 # Talks & Presentations
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
+* [DataHub Journey with Expedia Group by Arun Vasudevan](https://www.youtube.com/watch?v=ajcRdB22s5o)
 
 # Non-English Articles
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
