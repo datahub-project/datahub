@@ -303,3 +303,20 @@ http://localhost:9001/api/v1/party/entities
     }]
 }
 ```
+
+## Authentication
+DataHub frontend leverages [Java Authentication and Authorization Service (JAAS)](https://docs.oracle.com/javase/7/docs/technotes/guides/security/jaas/JAASRefGuide.html) to perform the authentication. By default we provided a [DummyLoginModule](app/security/DummyLoginModule.java) which will accept any username/password combination. You can update [jaas.conf](conf/jaas.conf) to match your authentication requirement. For example, use the following config for LDAP-based authentication,
+
+```
+WHZ-Authentication {
+  com.sun.security.auth.module.LdapLoginModule sufficient
+  userProvider="ldaps://<host>:636/dc=<domain>"
+  authIdentity="{USERNAME}"
+  userFilter="(&(objectClass=person)(uid={USERNAME}))"
+  java.naming.security.authentication="simple"
+  debug="false"
+  useSSL="true";
+};
+```
+
+Note that the special keyword `USERNAME` will be substituted by the actual username.  
