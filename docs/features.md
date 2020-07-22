@@ -55,4 +55,5 @@ We have provided example [ETL ingestion](architecture/metadata-ingestion.md) scr
  - Hive
  - Kafka
  - RDBMS (MySQL, Oracle, Postgres etc)
+ - Data warehouse (Snowflake, BigQuery etc)
  - LDAP
