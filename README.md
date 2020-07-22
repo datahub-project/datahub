@@ -77,6 +77,20 @@ We welcome contributions from the community. Please refer to our [Contributing G
 ## Community
 Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for important discussions and announcements. You can also find out more about our past and upcoming [town hall meetings](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
 
+## Adoption
+Here are the companies officially using DataHub. Please feel free to add your company to the list if we miss it.
+* [LinkedIn](http://linkedin.com)
+* [Expedia Group](http://expedia.com)
+* [TypeForm](http://typeform.com)
+
+Here is a list of companies currently building POC or seriously evaluating DataHub.
+* [Microsoft](https://microsoft.com)
+* [Saxo bank](https://www.home.saxo)
+* [Morgan Stanley](https://www.morganstanley.com)
+* [Instructure](https://www.instructure.com)
+* [SpotHero](https://spothero.com)
+* [Geotab](https://www.geotab.com)
+
 ## Select Articles & Talks
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
