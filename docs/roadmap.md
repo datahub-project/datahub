@@ -13,6 +13,8 @@ ETAs are revisted on a regular basis and are subject to change. If you would lik
 - Add query-after-write capability to local DAO 
 ### Gremlin-based Query DAO
 - Support majority of gremlin-compatible graph DBs
+### Integration tests
+- Add docker-based integration tests
 ### Kubernetes migration
 - Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
 
@@ -44,10 +46,6 @@ ETAs are revisted on a regular basis and are subject to change. If you would lik
 - Use GraphQL exclusively for frontend queries
 ### Adopt Redux
 - Use Redux exclusively for UI state management
-### Integration tests
-- Add docker-based integration tests
-### AWS & GCP deployment
-- Run DataHub in [AWS](https://aws.amazon.com/) & [GCP](https://cloud.google.com/gcp) and provide how-to guides
 ### Apache incubation
 - Donate code to Apache foundation
 ### Azure deployment
@@ -58,6 +56,8 @@ ETAs are revisted on a regular basis and are subject to change. If you would lik
 - Initially focus on rest.li services & GraphQL integration
 ### JNoSQL-based Local DAO
 - Support a wide range of document stores
+### AWS & GCP deployment
+- Run DataHub in [AWS](https://aws.amazon.com/) & [GCP](https://cloud.google.com/gcp) and provide how-to guides
 
 ## Visionary Goals (1 year+)
 ### Rewrite midtier in Node
