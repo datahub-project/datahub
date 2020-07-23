@@ -19,15 +19,11 @@ dependencies {
 
   play externalDependency.jerseyCore
   play externalDependency.jerseyGuava
-  play externalDependency.mysqlConnector
-  play externalDependency.playJavaJdbc
-  play externalDependency.springJdbc
 
   playTest externalDependency.mockito
   playTest externalDependency.playTest
 
   playRun externalDependency.guice
-  playRun externalDependency.h2
   playRun externalDependency.playDocs
   playRun externalDependency.playGuice
 }
