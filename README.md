@@ -94,6 +94,8 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [SpotHero](https://spothero.com)
 * [Geotab](https://www.geotab.com)
 * [University of Phoenix](https://www.phoenix.edu)
+* [ThoughtWorks](https://www.thoughtworks.com)
+* [Sysco AS](https://sysco.no)
 
 ## Select Articles & Talks
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
