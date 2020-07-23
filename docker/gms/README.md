@@ -76,7 +76,7 @@ For example, you can run the following command to start a GMS that connects to a
 ```
 cd docker/gms && docker-compose -f docker-compose-postgres.yml up --build
 ```
-or a MariaDB
+or a MariaDB backend
 ```
 cd docker/gms && docker-compose -f docker-compose-mariadb.yml up --build
 ```
