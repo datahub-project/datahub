@@ -1,22 +1,22 @@
-# MySQL
+# MariaDB
 
-DataHub GMS uses MySQL as the storage backend.
+DataHub GMS can use MariaDB as an alternate storage backend.
 
-[Official MySQL Docker image](https://hub.docker.com/_/mysql) found in Docker Hub is used without 
+[Official MariaDB Docker image](https://hub.docker.com/_/mariadb) found in Docker Hub is used without 
 any modification.
 
 ## Run Docker container
-Below command will start the MySQL container.
+Below command will start the MariaDB container.
 ```
-cd docker/mysql && docker-compose pull && docker-compose up
+cd docker/mariadb && docker-compose pull && docker-compose up
 ```
 
 An initialization script [init.sql](init.sql) is provided to container. This script initializes `metadata-aspect` table
 which is basically the Key-Value store of the DataHub GMS.
 
-To connect to MySQL container, you can type below command:
+To connect to MariaDB container, you can type below command:
 ```
-docker exec -it mysql mysql -u datahub -pdatahub datahub
+docker exec -it mariadb mysql -u datahub -pdatahub datahub
 ```
 
 ## Container configuration

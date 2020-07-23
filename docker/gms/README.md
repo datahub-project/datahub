@@ -68,3 +68,15 @@ environment:
   - NEO4J_PASSWORD=datahub
 ```
 The value of `NEO4J_URI` variable should be set to the host name of the `neo4j` container within the Docker network.
+
+## Other Database Platforms
+While GMS defaults to using MySQL as its storage backend, it is possible to switch to any of the 
+[database platforms](https://ebean.io/docs/database/) supported by Ebean.
+For example, you can run the following command to start a GMS that connects to a PostgreSQL backend
+```
+cd docker/gms && docker-compose -f docker-compose-postgres.yml up --build
+```
+or a MariaDB backend
+```
+cd docker/gms && docker-compose -f docker-compose-mariadb.yml up --build
+```

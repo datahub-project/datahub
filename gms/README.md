@@ -333,8 +333,3 @@ the application directly from command line after a successful [build](#build):
   ]
 }
 ```
-
-## Using a different DB backend
-The default implementation of GMS stores the [aspects](../docs/what/asepct.md) in MySQL. You can change the DB backend to PostgreSQL, Oracle, or [other DB systems](https://ebean.io/docs/database/) supported by Ebean by changing the following configurations:
-1. Replace the MySQL connector with the desired connector (e.g. `org.postgresql:postgresql:42.2.14`) in [gms/war/build.gradle](https://github.com/linkedin/datahub/blob/master/gms/war/build.gradle).
-2. Specify `EBEAN_DATASOURCE_DRIVER` & `EBEAN_DATASOURCE_URL` environment variables to match your environment, e.g. `org.postgresql.Driver` & `jdbc:postgresql://localhost:{port}/{dbName}`
