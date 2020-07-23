@@ -71,6 +71,7 @@ project.ext.externalDependency = [
     'springContext': 'org.springframework:spring-context:5.2.3.RELEASE',
     'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
     'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
+    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.2.RELEASE',
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
