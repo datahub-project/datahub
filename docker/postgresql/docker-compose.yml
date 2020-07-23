@@ -1,0 +1,19 @@
+---
+version: '3.5'
+services:
+  postgres:
+    container_name: postgres
+    hostname: postgres
+    image: postgres:12.3
+    restart: always
+    environment:
+      POSTGRES_USER: datahub
+      POSTGRES_PASSWORD: datahub
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+networks:
+  default:
+    name: datahub_network

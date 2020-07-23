@@ -7,7 +7,9 @@ dependencies {
 
   runtime externalDependency.h2
   runtime externalDependency.logbackClassic
+  runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
+  runtime externalDependency.postgresql
 
   runtime spec.product.pegasus.restliSpringBridge
 }

@@ -1,22 +1,22 @@
 # MySQL
 
-DataHub GMS uses MySQL as the storage backend.
+DataHub GMS can use PostgreSQL as an alternate storage backend.
 
-[Official MySQL Docker image](https://hub.docker.com/_/mysql) found in Docker Hub is used without 
+[Official PostgreSQL Docker image](https://hub.docker.com/_/postgres) found in Docker Hub is used without 
 any modification.
 
 ## Run Docker container
 Below command will start the MySQL container.
 ```
-cd docker/mysql && docker-compose pull && docker-compose up
+cd docker/postgres && docker-compose pull && docker-compose up
 ```
 
 An initialization script [init.sql](init.sql) is provided to container. This script initializes `metadata-aspect` table
 which is basically the Key-Value store of the DataHub GMS.
 
-To connect to MySQL container, you can type below command:
+To connect to PostgreSQL container, you can type below command:
 ```
-docker exec -it mysql mysql -u datahub -pdatahub datahub
+docker exec -it postgres psql -U datahub
 ```
 
 ## Container configuration
@@ -26,7 +26,7 @@ If you need to configure default configurations for your container such as the e
 how to change your exposed port settings.
 ```
 ports:
-  - '3306:3306'
+  - '5432:5432'
 ```
 
 ### Docker Network
