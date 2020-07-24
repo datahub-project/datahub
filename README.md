@@ -83,6 +83,7 @@ Here are the companies officially adopted DataHub. Please feel free to add your 
 * [LinkedIn](http://linkedin.com)
 * [Expedia Group](http://expedia.com)
 * [TypeForm](http://typeform.com)
+* [Valassis]( https://www.valassis.com)
 
 Here is a list of companies currently building POC or seriously evaluating DataHub.
 * [Microsoft](https://microsoft.com)
