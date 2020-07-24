@@ -11,7 +11,7 @@
 [Documentation](#documentation) |
 [Features](https://github.com/linkedin/datahub/blob/master/docs/features.md) |
 [Roadmap](https://github.com/linkedin/datahub/blob/master/docs/roadmap.md) |
-[Adoption](#adoption)
+[Adoption](#adoption) |
 [FAQ](https://github.com/linkedin/datahub/blob/master/docs/faq.md) |
 [Town Hall](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md)
 
