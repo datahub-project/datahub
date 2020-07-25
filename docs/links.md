@@ -21,5 +21,6 @@
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
 * [DataHub——实时数据治理平台](https://www.cnblogs.com/tree1123/p/12840871.html)
 * [数据治理工具-元数据管理](https://blog.csdn.net/weixin_42526352/article/details/105371012)
+* [元数据管理框架的独舞](https://mp.weixin.qq.com/s/J6xtX3js70brdN3c_7ZkNg)
 * [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)
 * [Linkedin bringt Open-Source-Datahub](https://www.itmagazine.ch/artikel/71532/Linkedin_bringt_Open-Source-Datahub.html)
