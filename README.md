@@ -82,7 +82,8 @@ Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thre
 Here are the companies officially adopted DataHub. Please feel free to add your company to the list if we miss it.
 * [LinkedIn](http://linkedin.com)
 * [Expedia Group](http://expedia.com)
-* [Saxo bank](https://www.home.saxo)
+* [Saxo Bank](https://www.home.saxo)
+* [Shanghai HuaRui Bank](https://www.shrbank.com)
 * [TypeForm](http://typeform.com)
 * [Valassis]( https://www.valassis.com)
 
