@@ -1,3 +1,4 @@
+safe: true
 plugins:
   - jekyll-relative-links
 relative_links:
