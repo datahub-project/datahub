@@ -52,10 +52,10 @@ For reproducible technical issues, bugs and code contributions, Github [issues](
 The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 
 ## Where can I learn about the roadmap?
-You can learn more about DataHub's [product roadmap](https://github.com/linkedin/datahub/blob/master/docs/roadmap.md), which gets updated regularly.
+You can learn more about DataHub's [product roadmap](roadmap.md), which gets updated regularly.
 
 ## Where can I learn about the current list of features/functionalities?
-You can learn more about the current [list of features](https://github.com/linkedin/datahub/blob/master/docs/features.md).
+You can learn more about the current [list of features](features.md).
 
 ## Are the product strategy/vision/roadmap driven by the LinkedIn Engineering team, community, or a collaborative effort?
 Mixed of both LinkedIn DataHub team and the community. The roadmap will be a joint effort of both LinkedIn and the community. However, we’ll most likely prioritize tasks that align with the community's asks.
@@ -64,7 +64,7 @@ Mixed of both LinkedIn DataHub team and the community. The roadmap will be a joi
 LinkedIn is not using GCP so we cannot commit to building and testing that connectivity. However, we’ll be happy to accept community contributions for GCP integration. Also, our Slack channel and regularly scheduled town hall meetings are a good opportunity to meet with people from different companies who have similar requirements and might be interested in collaborating on these features.
 
 ## How approachable would LinkedIn be to provide insights/support or collaborate on a functionality?
-Please take a look at our [roadmap](https://github.com/linkedin/datahub/blob/master/docs/roadmap.md) & [features](https://github.com/linkedin/datahub/blob/master/docs/features.md) to get a sense of what’s being open sourced in the near future. If there’s something missing from the list, we’re open to discussion. In fact, the town hall would be the perfect venue for such discussions.
+Please take a look at our [roadmap](roadmap.md) & [features](features.md) to get a sense of what’s being open sourced in the near future. If there’s something missing from the list, we’re open to discussion. In fact, the town hall would be the perfect venue for such discussions.
 
 ## How do LinkedIn Engineering team and the community ensure the quality of the community code for DataHub?
 All PRs are reviewed by the LinkedIn team. Any extension/contribution coming from the community which LinkedIn team doesn’t have any expertise on will be placed into a incuation directory first (`/contrib`). Once it’s blessed and adopted by the community, we’ll graduate it from incubation and move it into the main code base.
@@ -105,7 +105,7 @@ The [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-model
 MCE is the ideal way to push metadata from different security zones, assuming there is a common Kafka infrastructure that aggregates the events from various security zones.
 
 ## What all data stores does DataHub backend support presently?
-Currently, DataHub supports all major database providers that are supported by Ebean as the document store i.e. Oracle, Postgres, MySQL, H2. We also support [Espresso](https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store), which is LinkedIn's proprietary document store. Other than that, we support Elasticsearch and Neo4j for search and graph use cases, respectively. However, as data stores in the backend are all abstracted and accessed through DAOs, you should be able to easily support other data stores by plugging in your own DAO implementations. Please refer to https://github.com/linkedin/datahub/blob/master/docs/architecture/metadata-serving.md for more details.
+Currently, DataHub supports all major database providers that are supported by Ebean as the document store i.e. Oracle, Postgres, MySQL, H2. We also support [Espresso](https://engineering.linkedin.com/espresso/introducing-espresso-linkedins-hot-new-distributed-document-store), which is LinkedIn's proprietary document store. Other than that, we support Elasticsearch and Neo4j for search and graph use cases, respectively. However, as data stores in the backend are all abstracted and accessed through DAOs, you should be able to easily support other data stores by plugging in your own DAO implementations. Please refer to [Metadata Serving](architecture/metadata-serving.md) for more details.
 
 ## For which stores, you have discovery services?
 Supported data sources are listed [here](https://github.com/linkedin/datahub/tree/master/metadata-ingestion). To onboard your own data source which is not listed there, you can refer to the [onboarding guide](how/data-source-onboarding.md).
