@@ -9,11 +9,11 @@
 
 [Quickstart](#quickstart) |
 [Documentation](#documentation) |
-[Features](https://github.com/linkedin/datahub/blob/master/docs/features.md) |
-[Roadmap](https://github.com/linkedin/datahub/blob/master/docs/roadmap.md) |
+[Features](docs/features.md) |
+[Roadmap](docs/roadmap.md) |
 [Adoption](#adoption) |
-[FAQ](https://github.com/linkedin/datahub/blob/master/docs/faq.md) |
-[Town Hall](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md)
+[FAQ](docs/faq.md) |
+[Town Hall](docs/townhalls.md)
 
 ---
 
@@ -41,7 +41,7 @@ This repository contains the complete source code for both DataHub's frontend & 
     ```
     ./docker/quickstart/quickstart.sh
     ```
-    This step takes a while to run the first time, and it may be difficult to tell if DataHub is fully up and running from the combined log. Please use [this guide](https://github.com/linkedin/datahub/blob/master/docs/debugging.md#how-can-i-confirm-if-all-docker-containers-are-running-as-expected-after-a-quickstart) to verify that each container is running correctly.
+    This step takes a while to run the first time, and it may be difficult to tell if DataHub is fully up and running from the combined log. Please use [this guide](docs/debugging.md#how-can-i-confirm-if-all-docker-containers-are-running-as-expected-after-a-quickstart) to verify that each container is running correctly.
 5. At this point, you should be able to start DataHub by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password. However, you'll notice that no data has been ingested yet.
 6. To ingest provided [sample data](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/mce-cli/bootstrap_mce.dat) to DataHub, switch to a new terminal window, `cd` into the cloned `datahub` repo, and run the following command:
     ```
@@ -66,16 +66,16 @@ Please refer to the [debugging guide](docs/debugging.md) if you encounter any is
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
 
 ## FAQs
-Frequently Asked Questions about DataHub can be found [here](https://github.com/linkedin/datahub/blob/master/docs/faq.md).
+Frequently Asked Questions about DataHub can be found [here](docs/faq.md).
 
 ## Features & Roadmap
 Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
 
 ## Contributing
-We welcome contributions from the community. Please refer to our [Contributing Guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features. 
+We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features. 
 
 ## Community
-Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for discussions and important announcements. You can also find out more about our past and upcoming [town hall meetings](https://github.com/linkedin/datahub/blob/master/docs/townhalls.md).
+Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thread/GV2TEEZ5L-1583704023.001100) for discussions and important announcements. You can also find out more about our past and upcoming [town hall meetings](docs/townhalls.md).
 
 ## Adoption
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
@@ -110,4 +110,4 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [LinkedIn DataHub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
 * [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
 
-See the full list [here](https://github.com/linkedin/datahub/blob/mars-lan-patch-2/docs/links.md).
+See the full list [here](docs/links.md).
