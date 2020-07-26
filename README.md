@@ -87,7 +87,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 * [Valassis]( https://www.valassis.com)
 
 Here is a list of companies currently building POC or seriously evaluating DataHub.
-* [bookings.com](https://www.booking.com)
+* [Booking.com](https://www.booking.com)
 * [Experian](https://www.experian.com)
 * [Geotab](https://www.geotab.com)
 * [Instructure](https://www.instructure.com)
