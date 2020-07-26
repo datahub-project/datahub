@@ -1,11 +1,11 @@
 # Onboarding to GMA Graph - Adding a new relationship type
 
-Steps for this already detailed in https://github.com/linkedin/datahub/blob/master/docs/how/graph-onboarding.md
+Steps for this already detailed in [How to onboard to GMA graph?](../how/graph-onboarding.md)
 
 For this exercise, we'll add a new relationship type `FollowedBy` which is extracted out of `Follow` aspect. For that, we first need to add `Follow` aspect.
 
 ## 1. Onboard `Follow` aspect
-Referring to the guide https://github.com/linkedin/datahub/blob/master/docs/how/add-new-aspect.md
+Referring to [How to add a new metadata aspect?](../how/add-new-aspect.md)
 
 ### 1.1 Model new aspect
 * Follow.pdl
