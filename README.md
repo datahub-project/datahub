@@ -79,25 +79,25 @@ Join our [slack workspace](https://app.slack.com/client/TUMKD5EGJ/DV0SB2ZQV/thre
 
 ## Adoption
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
-* [LinkedIn](http://linkedin.com)
 * [Expedia Group](http://expedia.com)
+* [LinkedIn](http://linkedin.com)
 * [Saxo Bank](https://www.home.saxo)
 * [Shanghai HuaRui Bank](https://www.shrbank.com)
 * [TypeForm](http://typeform.com)
 * [Valassis]( https://www.valassis.com)
 
 Here is a list of companies currently building POC or seriously evaluating DataHub.
+* [bookings.com](https://www.booking.com)
+* [Experian](https://www.experian.com)
+* [Geotab](https://www.geotab.com)
+* [Instructure](https://www.instructure.com)
 * [Microsoft](https://microsoft.com)
 * [Morgan Stanley](https://www.morganstanley.com)
-* [Experian](https://www.experian.com)
-* [Instructure](https://www.instructure.com)
 * [Orange Telecom](https://www.orange.com)
-* [bookings.com](https://www.booking.com)
 * [SpotHero](https://spothero.com)
-* [Geotab](https://www.geotab.com)
-* [University of Phoenix](https://www.phoenix.edu)
-* [ThoughtWorks](https://www.thoughtworks.com)
 * [Sysco AS](https://sysco.no)
+* [ThoughtWorks](https://www.thoughtworks.com)
+* [University of Phoenix](https://www.phoenix.edu)
 * [Vectice](https://www.vectice.com)
 
 ## Select Articles & Talks
