@@ -8,7 +8,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.stereotype.Component;
+import org.springframework.kafka.annotation.KafkaListener;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -28,9 +31,12 @@ import com.linkedin.mxe.MetadataAuditEvent;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.linkedin.mxe.Topics;
+
 
 @Slf4j
 @Component
+@EnableKafka
 public class MetadataAuditEventsProcessor {
   // Doc Type should be updated when ElasticSearch Version is upgraded.
   private static final String DOC_TYPE = "doc";
@@ -46,7 +52,9 @@ public class MetadataAuditEventsProcessor {
     this.graphWriterDAO = graphWriterDAO;
   }
 
-  public void processSingleMAE(final GenericRecord record) {
+  @KafkaListener(id = "mae-consumer-job-client", topics = "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}")
+  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
 
     try {

@@ -52,7 +52,6 @@ project.ext.externalDependency = [
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
     'kafkaSchemaRegistry': 'io.confluent:kafka-schema-registry-client:3.3.1',
     'kafkaSerializers': 'io.confluent:kafka-avro-serializer:3.3.1',
-    'kafkaStreams': 'org.apache.kafka:kafka-streams:2.3.0',
     'logbackClassic': 'ch.qos.logback:logback-classic:1.2.3',
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
@@ -72,9 +71,10 @@ project.ext.externalDependency = [
     'springContext': 'org.springframework:spring-context:5.2.3.RELEASE',
     'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
     'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
+    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.2.RELEASE',
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.2.3.RELEASE',
+    'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
     'testng': 'org.testng:testng:6.9.9'
 ]
