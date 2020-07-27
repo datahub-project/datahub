@@ -99,6 +99,7 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [ThoughtWorks](https://www.thoughtworks.com)
 * [University of Phoenix](https://www.phoenix.edu)
 * [Vectice](https://www.vectice.com)
+* [Viasat](https://viasat.com)
 
 ## Select Articles & Talks
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)

@@ -32,7 +32,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.web.HttpRequestHandler;
 
-
 public class ParallelRestliHttpRequestHandler implements HttpRequestHandler {
 
   private RAPServlet _r2Servlet;

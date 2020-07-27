@@ -12,6 +12,22 @@
 **/src/mainGenerated*
 **/src/testGenerated*
 
+# Java
+.java-version
+
+# Python
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+MANIFEST
+
 # Added by mp-maker
 **/build
 /config
