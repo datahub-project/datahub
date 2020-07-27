@@ -10,7 +10,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
 - Standing [Slack AMA channel](https://app.slack.com/client/TUMKD5EGJ/C01040VS7CJ) during the meeting (Must join [DataHub's Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) first)
-- Agenda (TBD)
+- Agenda
   * Quick intro - 5 mins
   * [Demo] Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) - by Nagarjuna from LinkedIn (15 mins)
   * [Demo] Showcasing new Lineage UI in internal LinkedIn DataHub - By Ignacio from LinkedIn (10 mins)
