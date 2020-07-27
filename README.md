@@ -94,6 +94,7 @@ Here is a list of companies currently building POC or seriously evaluating DataH
 * [Microsoft](https://microsoft.com)
 * [Morgan Stanley](https://www.morganstanley.com)
 * [Orange Telecom](https://www.orange.com)
+* [REEF Technology](https://reeftechnology.com)
 * [SpotHero](https://spothero.com)
 * [Sysco AS](https://sysco.no)
 * [ThoughtWorks](https://www.thoughtworks.com)
