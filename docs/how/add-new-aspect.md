@@ -1,6 +1,6 @@
 # How to add a new metadata aspect?
 
-Adding a new metadata [aspect](https://github.com/linkedin/datahub/blob/master/docs/what/aspect.md) is one of the most common ways to extend an existing [entity](https://github.com/linkedin/datahub/blob/master/docs/what/entity.md).
+Adding a new metadata [aspect](../what/aspect.md) is one of the most common ways to extend an existing [entity](../what/entity.md).
 We'll use the [CorpUserEditableInfo](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdl) as an example here.
 
 1. Add the aspect model to the corresponding namespace (e.g. [`com.linkedin.identity`](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/identity))
@@ -17,4 +17,4 @@ We'll use the [CorpUserEditableInfo](https://github.com/linkedin/datahub/blob/ma
 5. (Optional) If there's need to update the aspect via API (instead of/in addition to MCE), add a [sub-resource](https://linkedin.github.io/rest.li/user_guide/restli_server#sub-resources) endpoint for the new aspect (e.g. [`CorpUsersEditableInfoResource`](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/java/com/linkedin/metadata/resources/identity/CorpUsersEditableInfoResource.java)). The sub-resource endpiont also allows you to retrieve previous versions of the aspect as well as additional metadata such as the audit stamp.
 
 6. After rebuilding & restarting [gms](https://github.com/linkedin/datahub/tree/master/gms), [mce-consumer-job](https://github.com/linkedin/datahub/tree/master/metadata-jobs/mce-consumer-job) & [mae-consumer-job](https://github.com/linkedin/datahub/tree/master/metadata-jobs/mae-consumer-job),
-you should be able to start emitting [MCE](https://github.com/linkedin/datahub/blob/master/docs/what/mxe.md) with the new aspect and have it automatically ingested & stored in DB.
+you should be able to start emitting [MCE](../what/mxe.md) with the new aspect and have it automatically ingested & stored in DB.
