@@ -53,7 +53,7 @@ public class EventUtils {
 
   @Nonnull
   private static Schema getAvroSchemaFromResource(@Nonnull String resourcePath) {
-    URL url = Resources.getResource(resourcePath);
+    URL url = EventUtils.class.getClassLoader().getResource(resourcePath);
     try {
       return Schema.parse(Resources.toString(url, Charsets.UTF_8));
     } catch (IOException e) {
