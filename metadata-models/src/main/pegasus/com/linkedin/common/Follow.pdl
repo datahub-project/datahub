@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Follow information of an entity.
+ */
+record Follow {
+
+  /**
+   * List of followers of an entity.
+   */
+  followers: array[FollowAction]
+}

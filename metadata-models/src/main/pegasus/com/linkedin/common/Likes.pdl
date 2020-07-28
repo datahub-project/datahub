@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Corp users that have liked this entity. This is primarily for counting users who have liked the entity, also to provide personalized search experience.
+ */
+record Likes {
+
+  /**
+   * List of social actions associated with the likes of a data entity.
+   */
+  actions: array[LikeAction]
+}

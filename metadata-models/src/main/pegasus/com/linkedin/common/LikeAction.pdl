@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * Like Action on a data entity.
+ */
+record LikeAction {
+
+  /**
+   * Corp user liking a data entity
+   */
+  likedBy: CorpuserUrn
+
+  /**
+   * Audit stamp containing who last modified the record and when. Impersonator here is the social application where the user has performed the action.
+   */
+  lastModified: optional AuditStamp
+}
