@@ -1,0 +1,13 @@
+namespace com.linkedin.metadata.examples.cli
+
+import com.linkedin.mxe.MetadataChangeEvent
+
+/**
+ * Schema definition for the format of the input file to the CLI for producing events.
+ */
+record MetadataChangeEvents {
+  /**
+   * Events to produce.
+   */
+  events: array[MetadataChangeEvent]
+}

@@ -1,6 +1,7 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
+  id 'pegasus'
 }
 
 dependencies {
@@ -10,19 +11,30 @@ dependencies {
   compile project(':metadata-events:mxe-schemas')
   compile project(':metadata-ingestion-examples:common')
 
+  dataModel project(':metadata-models')
+
+  compile spec.product.pegasus.restliServer
   compile externalDependency.javaxInject
   compile externalDependency.kafkaAvroSerde
   compile externalDependency.lombok
+  compile externalDependency.picocli
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
   compile externalDependency.springKafka
 
-  annotationProcessor externalDependency.lombok
-
   runtime externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
+  annotationProcessor externalDependency.picocli
+}
+
+bootRun {
+  if (project.hasProperty('args')) {
+    args project.args.split(',')
+  }
 }
 
 bootJar {
-  mainClassName = 'com.linkedin.metadata.examples.kafka.KafkaEtlApplication'
+  mainClassName = 'com.linkedin.metadata.examples.cli.MceCliApplication'
 }

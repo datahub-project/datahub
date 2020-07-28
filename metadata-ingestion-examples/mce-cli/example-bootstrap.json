@@ -1,0 +1,355 @@
+{
+  "events": [
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
+          "urn": "urn:li:corpuser:datahub",
+          "aspects": [
+            {
+              "com.linkedin.identity.CorpUserInfo": {
+                "active": true,
+                "displayName": "Data Hub",
+                "fullName": "Data Hub",
+                "email": "datahub@linkedin.com",
+                "title": "CEO"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.CorpUserSnapshot": {
+          "urn": "urn:li:corpuser:jdoe",
+          "aspects": [
+            {
+              "com.linkedin.identity.CorpUserInfo": {
+                "active": true,
+                "displayName": "John Doe",
+                "fullName": "John Doe",
+                "email": "jdoe@linkedin.com",
+                "title": "Software Engineer"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            },
+            {
+              "com.linkedin.common.InstitutionalMemory": {
+                "elements": [
+                  {
+                    "url": "https://www.linkedin.com",
+                    "description": "Sample doc",
+                    "createStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.schema.SchemaMetadata": {
+                "schemaName": "SampleKafkaSchema",
+                "platform": "urn:li:dataPlatform:kafka",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "field_foo",
+                    "description": "Foo field description",
+                    "nativeDataType": "string",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.StringType": {}
+                      }
+                    }
+                  },
+                  {
+                    "fieldPath": "field_bar",
+                    "description": "Bar field description",
+                    "nativeDataType": "boolean",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.BooleanType": {}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            },
+            {
+              "com.linkedin.dataset.UpstreamLineage": {
+                "upstreams": [
+                  {
+                    "auditStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+                    "type": "TRANSFORMED"
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.common.InstitutionalMemory": {
+                "elements": [
+                  {
+                    "url": "https://www.linkedin.com",
+                    "description": "Sample doc",
+                    "createStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.schema.SchemaMetadata": {
+                "schemaName": "SampleHdfsSchema",
+                "platform": "urn:li:dataPlatform:hdfs",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "field_foo",
+                    "description": "Foo field description",
+                    "nativeDataType": "string",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.StringType": {}
+                      }
+                    }
+                  },
+                  {
+                    "fieldPath": "field_bar",
+                    "description": "Bar field description",
+                    "nativeDataType": "boolean",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.BooleanType": {}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            },
+            {
+              "com.linkedin.dataset.UpstreamLineage": {
+                "upstreams": [
+                  {
+                    "auditStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+                    "type": "TRANSFORMED"
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.common.InstitutionalMemory": {
+                "elements": [
+                  {
+                    "url": "https://www.linkedin.com",
+                    "description": "Sample doc",
+                    "createStamp": {
+                      "time": 1581407189000,
+                      "actor": "urn:li:corpuser:jdoe"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "com.linkedin.schema.SchemaMetadata": {
+                "schemaName": "SampleHiveSchema",
+                "platform": "urn:li:dataPlatform:hive",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe"
+                },
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "field_foo",
+                    "description": "Foo field description",
+                    "nativeDataType": "string",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.StringType": {}
+                      }
+                    }
+                  },
+                  {
+                    "fieldPath": "field_bar",
+                    "description": "Bar field description",
+                    "nativeDataType": "boolean",
+                    "type": {
+                      "type": {
+                        "com.linkedin.schema.BooleanType": {}
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DataProcessSnapshot": {
+          "urn": "urn:li:dataProcess:(sqoop,DEMO,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:datahub"
+                }
+              }
+            },
+            {
+              "com.linkedin.dataprocess.DataProcessInfo": {
+                "inputs": [
+                  "urn:li:dataset:(urn:li:dataPlatform:cassandra,barEarth,DEV)",
+                  "urn:li:dataset:(urn:li:dataPlatform:cassandra,barMars,DEV)"
+                ],
+                "outputs": [
+                  "urn:li:dataset:(urn:li:dataPlatform:hbase,barSky,PROD)",
+                  "urn:li:dataset:(urn:li:dataPlatform:hbase,barOcean,PROD)"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

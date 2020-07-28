@@ -61,6 +61,7 @@ project.ext.externalDependency = [
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.0.0',
     'parseqTest': 'com.linkedin.parseq:parseq:3.0.7:test',
+    'picocli': 'info.picocli:picocli:4.5.0',
     'playDocs': 'com.typesafe.play:play-docs_2.11:2.6.18',
     'playGuice': 'com.typesafe.play:play-guice_2.11:2.6.18',
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
