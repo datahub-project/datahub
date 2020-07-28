@@ -13,3 +13,4 @@ DataHub is LinkedIn's generalized metadata search & discovery tool. To learn mor
 * [Generalized Metadata Service](https://github.com/linkedin/datahub/tree/master/gms)
 * [Metadata Ingestion](https://github.com/linkedin/datahub/tree/master/metadata-ingestion)
 * [Metadata Processing Jobs](https://github.com/linkedin/datahub/tree/master/metadata-jobs)
+* [The RFC Process](rfc.md)
