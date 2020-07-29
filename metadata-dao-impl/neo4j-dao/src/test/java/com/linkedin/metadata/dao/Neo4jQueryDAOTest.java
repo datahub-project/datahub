@@ -511,17 +511,17 @@ public class Neo4jQueryDAOTest {
     // Get reports roll-up - 2 levels
     Filter sourceFilter = newFilter("urn", urn1.toString());
     RelationshipFilter relationshipFilter = createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING);
-    List<List<RecordTemplate>> nodesInPath = _dao.getPathsToAllNodesTraversed(EntityFoo.class, sourceFilter, null,
+    List<List<RecordTemplate>> paths = _dao.getTraversedPaths(EntityFoo.class, sourceFilter, null,
         EMPTY_FILTER, RelationshipFoo.class, relationshipFilter, 1, 2, -1, -1);
-    assertEquals(nodesInPath.size(), 5);
-    assertEquals(nodesInPath.stream().filter(l -> l.size() == 2).collect(Collectors.toList()).size(), 2);
-    assertEquals(nodesInPath.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 3);
+    assertEquals(paths.size(), 5);
+    assertEquals(paths.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 2);
+    assertEquals(paths.stream().filter(l -> l.size() == 5).collect(Collectors.toList()).size(), 3);
 
     // Get reports roll-up - 1 level
-    nodesInPath = _dao.getPathsToAllNodesTraversed(EntityFoo.class, sourceFilter, null,
+    paths = _dao.getTraversedPaths(EntityFoo.class, sourceFilter, null,
         EMPTY_FILTER, RelationshipFoo.class, relationshipFilter, 1, 1, -1, -1);
-    assertEquals(nodesInPath.size(), 2);
-    assertEquals(nodesInPath.stream().filter(l -> l.size() == 2).collect(Collectors.toList()).size(), 2);
-    assertEquals(nodesInPath.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 0);
+    assertEquals(paths.size(), 2);
+    assertEquals(paths.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 2);
+    assertEquals(paths.stream().filter(l -> l.size() == 5).collect(Collectors.toList()).size(), 0);
   }
 }
