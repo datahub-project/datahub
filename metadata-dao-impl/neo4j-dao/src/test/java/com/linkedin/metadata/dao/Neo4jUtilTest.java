@@ -1,6 +1,7 @@
 package com.linkedin.metadata.dao;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
@@ -8,18 +9,23 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
-import com.linkedin.testing.RelationshipFoo;
-import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityBar;
-import com.linkedin.testing.urn.FooUrn;
+import com.linkedin.testing.EntityFoo;
+import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.urn.BarUrn;
+import com.linkedin.testing.urn.FooUrn;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.neo4j.driver.Value;
 import org.neo4j.driver.internal.InternalNode;
+import org.neo4j.driver.internal.InternalPath;
 import org.neo4j.driver.internal.InternalRelationship;
+import org.neo4j.driver.internal.value.IntegerValue;
 import org.neo4j.driver.internal.value.StringValue;
 import org.neo4j.driver.types.Node;
+import org.neo4j.driver.types.Path;
 import org.neo4j.driver.types.Relationship;
 import org.testng.annotations.Test;
 
@@ -183,5 +189,41 @@ public class Neo4jUtilTest {
         .setDirection(direction);
 
     assertEquals(createRelationshipFilter(field, value, direction), relationshipFilter);
+  }
+
+  @Test
+  public void testPathSegmentToRecordList() {
+    FooUrn fooUrn = makeFooUrn(1);
+    Node fooNode = new InternalNode(0, Collections.singletonList("com.linkedin.testing.EntityFoo"),
+        Collections.singletonMap("urn", new StringValue(fooUrn.toString())));
+
+    BarUrn barUrn = makeBarUrn(1);
+    Node barNode = new InternalNode(1, Collections.singletonList("com.linkedin.testing.EntityBar"),
+        Collections.singletonMap("urn", new StringValue(barUrn.toString())));
+
+    Relationship edge = new InternalRelationship(2, 0, 1, RelationshipFoo.class.getCanonicalName(),
+        new HashMap<String, Value>() {
+          {
+            put("intField", new IntegerValue(42));
+            put("type", new StringValue("dummyType"));
+          }
+        });
+
+    Path path = new InternalPath(fooNode, edge, barNode);
+
+    List<RecordTemplate> pathList = pathSegmentToRecordList(path.iterator().next());
+
+    assertTrue(pathList.get(0) instanceof EntityFoo);
+    assertTrue(pathList.get(1) instanceof RelationshipFoo);
+    assertTrue(pathList.get(2) instanceof EntityBar);
+
+    assertEquals(pathList.get(0), new EntityFoo().setUrn(fooUrn));
+    assertTrue(DataTemplateUtil.areEqual(pathList.get(1),
+        new RelationshipFoo()
+            .setIntField(42)
+            .setSource(fooUrn)
+            .setDestination(barUrn)
+            .setType("dummyType")));
+    assertEquals(pathList.get(2), new EntityBar().setUrn(barUrn));
   }
 }

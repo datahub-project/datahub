@@ -1,0 +1,36 @@
+@import com.linkedin.metadata.generator.EventSpec;
+@import com.linkedin.metadata.generator.SchemaGeneratorUtil;
+@args String entityUrn, String nameSpace EventSpec eventSpec
+@assign (entityName) {@SchemaGeneratorUtil.getEntityName(entityUrn)}
+namespace com.linkedin.mxe@(nameSpace)
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import @entityUrn
+import @eventSpec.getFullValueType()
+
+/**
+ * MetadataAuditEvent for the @(entityName)Urn with @(eventSpec.getValueType()) aspect.
+ */
+@@MetadataAuditEvent
+record MetadataAuditEvent {
+
+  /**
+   * Kafka audit header for the MetadataAuditEvent.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * @(entityName)Urn as the key for the MetadataAuditEvent.
+   */
+  urn: @(entityName)Urn
+
+  /**
+   * Aspect of the @eventSpec.getValueType() before the update.
+   */
+  oldValue: optional @eventSpec.getValueType()
+
+  /**
+   * Aspect of the @eventSpec.getValueType() after the update.
+   */
+  newValue: @eventSpec.getValueType()
+}

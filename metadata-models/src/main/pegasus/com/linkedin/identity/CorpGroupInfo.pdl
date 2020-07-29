@@ -7,6 +7,7 @@ import com.linkedin.common.EmailAddress
 /**
  * group of corpUser, it may contains nested group
  */
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
 record CorpGroupInfo {
 
   /**
