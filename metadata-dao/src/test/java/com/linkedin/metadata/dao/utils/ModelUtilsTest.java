@@ -139,9 +139,7 @@ public class ModelUtilsTest {
   public void testGetUrnFromRelationship() {
     FooUrn expectedSource = makeFooUrn(1);
     BarUrn expectedDestination = makeBarUrn(1);
-    RelationshipFoo relationship = new RelationshipFoo()
-        .setSource(expectedSource)
-        .setDestination(expectedDestination);
+    RelationshipFoo relationship = new RelationshipFoo().setSource(expectedSource).setDestination(expectedDestination);
 
     Urn sourceUrn = ModelUtils.getSourceUrnFromRelationship(relationship);
     Urn destinationUrn = ModelUtils.getDestinationUrnFromRelationship(relationship);
@@ -228,7 +226,6 @@ public class ModelUtilsTest {
     assertEquals(ModelUtils.urnClassForEntity(EntityBar.class), BarUrn.class);
   }
 
-
   @Test
   public void testUrnClassForSnapshot() {
     assertEquals(ModelUtils.urnClassForSnapshot(EntitySnapshot.class), Urn.class);
@@ -267,5 +264,13 @@ public class ModelUtilsTest {
     RelationshipUnion relationshipUnion = ModelUtils.newRelationshipUnion(RelationshipUnion.class, foo);
 
     assertEquals(relationshipUnion.getRelationshipFoo(), foo);
+  }
+
+  @Test
+  public void testGetMAETopicName() throws URISyntaxException {
+    FooUrn urn = new FooUrn(1);
+    AspectFoo foo = new AspectFoo().setValue("foo");
+
+    assertEquals(ModelUtils.getAspectSpecificMAETopicName(urn, foo), "METADATA_AUDIT_EVENT_FOO_ASPECTFOO");
   }
 }

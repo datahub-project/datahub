@@ -1,14 +1,7 @@
 package com.linkedin.metadata.restli;
 
 import com.linkedin.common.callback.FutureCallback;
-import com.linkedin.data.schema.validation.CoercionMode;
-import com.linkedin.data.schema.validation.RequiredMode;
-import com.linkedin.data.schema.validation.UnrecognizedFieldMode;
-import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
-import com.linkedin.data.schema.validation.ValidationOptions;
-import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.exception.ModelValidationException;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.ActionRequest;
 import com.linkedin.restli.client.BatchGetEntityRequest;
@@ -29,11 +22,6 @@ import javax.annotation.Nonnull;
 
 
 public abstract class BaseClient implements AutoCloseable {
-  private static final ValidationOptions VALIDATION_OPTIONS = new ValidationOptions(
-      RequiredMode.FIXUP_ABSENT_WITH_DEFAULT,
-      CoercionMode.NORMAL,
-      UnrecognizedFieldMode.DISALLOW
-  );
 
   protected final Client _client;
 
@@ -59,9 +47,7 @@ public abstract class BaseClient implements AutoCloseable {
    */
   protected <ASPECT extends RecordTemplate> ASPECT get(@Nonnull GetRequest<ASPECT> request)
       throws RemoteInvocationException {
-    final ASPECT aspect = _client.sendRequest(request).getResponse().getEntity();
-    validateEntity(aspect);
-    return aspect;
+    return _client.sendRequest(request).getResponse().getEntity();
   }
 
   /**
@@ -91,11 +77,7 @@ public abstract class BaseClient implements AutoCloseable {
     return _client.sendRequest(request).getResponseEntity().getResults()
         .entrySet().stream().collect(Collectors.toMap(
             entry -> getUrnFunc.apply(entry.getKey().getKey()),
-            entry -> {
-              ASPECT aspect = entry.getValue().getEntity();
-              validateEntity(aspect);
-              return aspect;
-            }
+            entry -> entry.getValue().getEntity()
         ));
   }
 
@@ -139,9 +121,7 @@ public abstract class BaseClient implements AutoCloseable {
    */
   protected <ASPECT extends RecordTemplate> CollectionResponse<ASPECT> getAll(@Nonnull GetAllRequest<ASPECT> request)
       throws RemoteInvocationException {
-    final CollectionResponse<ASPECT> response = _client.sendRequest(request).getResponse().getEntity();
-    response.getElements().forEach(this::validateEntity);
-    return response;
+    return _client.sendRequest(request).getResponse().getEntity();
   }
 
   /**
@@ -164,9 +144,7 @@ public abstract class BaseClient implements AutoCloseable {
    */
   protected <ASPECT extends RecordTemplate> ASPECT doAction(@Nonnull ActionRequest<ASPECT> request)
       throws RemoteInvocationException {
-    final ASPECT aspect = _client.sendRequest(request).getResponse().getEntity();
-    validateEntity(aspect);
-    return aspect;
+    return _client.sendRequest(request).getResponse().getEntity();
   }
 
   /**
@@ -175,12 +153,5 @@ public abstract class BaseClient implements AutoCloseable {
   protected <K, ASPECT extends RecordTemplate, RB extends ActionRequestBuilderBase<K, ASPECT, RB>>
   ASPECT doAction(@Nonnull ActionRequestBuilderBase<K, ASPECT, RB> requestBuilder) throws RemoteInvocationException {
     return doAction(requestBuilder.build());
-  }
-
-  protected void validateEntity(@Nonnull RecordTemplate entity) {
-    final ValidationResult validationResult = ValidateDataAgainstSchema.validate(entity, VALIDATION_OPTIONS);
-    if (!validationResult.isValid()) {
-      throw new ModelValidationException(validationResult.getMessages().toString());
-    }
   }
 }

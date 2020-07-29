@@ -11,6 +11,7 @@
 # Pegasus & Avro
 **/src/mainGenerated*
 **/src/testGenerated*
+metadata-events/mxe-registration/src/main/resources/**/*.avsc
 
 # Java
 .java-version

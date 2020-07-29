@@ -7,11 +7,11 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -185,7 +185,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
   @Nonnull
   public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate>
-  List<List<RecordTemplate>> getPathsToAllNodesTraversed(
+  List<List<RecordTemplate>> getTraversedPaths(
       @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
       @Nullable Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
       @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull RelationshipFilter relationshipFilter,
@@ -221,7 +221,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
     final Statement statement = buildStatement(statementString, "length(p), dest.urn", offset, count);
 
-    return runQuery(statement, this::pathRecordToEntityList);
+    return runQuery(statement, this::pathRecordToPathList);
   }
 
   /**
@@ -302,11 +302,21 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   @Nonnull
-  private List<RecordTemplate> pathRecordToEntityList(@Nonnull Record pathRecord) {
+  private List<RecordTemplate> pathRecordToPathList(@Nonnull Record pathRecord) {
     final Path path = pathRecord.values().get(0).asPath();
-    return StreamSupport.stream(path.nodes().spliterator(), false)
-        .map(Neo4jUtil::nodeToEntity)
-        .collect(Collectors.toList());
+    final List<RecordTemplate> pathList = new ArrayList<>();
+
+    StreamSupport.stream(path.spliterator(), false)
+        .map(Neo4jUtil::pathSegmentToRecordList)
+        .forEach(segment -> {
+          if (pathList.isEmpty()) {
+            pathList.add(segment.get(0));
+          }
+          pathList.add(segment.get(1));
+          pathList.add(segment.get(2));
+        });
+
+    return pathList;
   }
 
   @Nonnull

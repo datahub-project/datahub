@@ -39,5 +39,7 @@ public class ESUtilsTest {
   public void testEscapeReservedCharacters() {
     assertEquals(escapeReservedCharacters("foobar"), "foobar");
     assertEquals(escapeReservedCharacters("**"), "\\*\\*");
+    assertEquals(escapeReservedCharacters("()"), "\\(\\)");
+    assertEquals(escapeReservedCharacters("{}"), "\\{\\}");
   }
 }
