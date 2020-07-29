@@ -1,18 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-
-import javax.annotation.Nonnull;
-
-import org.apache.avro.generic.GenericRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
@@ -23,25 +10,41 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
-
+import java.io.IOException;
+import java.net.URISyntaxException;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
 
 
 @Slf4j
 @Component
+@EnableKafka
 public class MetadataChangeEventsProcessor {
 
   private BaseRemoteWriterDAO remoteWriterDAO;
-  @Autowired
-  private KafkaProducer<String, GenericRecord> kafkaProducer;
+  private KafkaTemplate<String, GenericRecord> kafkaTemplate;
+
   @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String fmceTopicName;
 
-  public MetadataChangeEventsProcessor(BaseRemoteWriterDAO remoteWriterDAO) {
+  public MetadataChangeEventsProcessor(BaseRemoteWriterDAO remoteWriterDAO,
+      KafkaTemplate<String, GenericRecord> kafkaTemplate) {
     this.remoteWriterDAO = remoteWriterDAO;
+    this.kafkaTemplate = kafkaTemplate;
   }
 
-  public void processSingleMCE(final GenericRecord record) {
+  @KafkaListener(id = "mce-consumer-job-client",
+      topics = "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
+  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    final GenericRecord record = consumerRecord.value();
     log.debug("Got MCE");
     log.debug("Record ", record);
 
@@ -72,7 +75,7 @@ public class MetadataChangeEventsProcessor {
       final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
       log.debug("Sending FailedMessages to topic - {}", fmceTopicName);
       log.info("Error while processing MCE: FailedMetadataChangeEvent - {}", failedMetadataChangeEvent);
-      this.kafkaProducer.send(new ProducerRecord<>(fmceTopicName, genericFailedMCERecord));
+      this.kafkaTemplate.send(fmceTopicName, genericFailedMCERecord);
     } catch (IOException e) {
       log.error("Error while sending FailedMetadataChangeEvent: Exception  - {}, FailedMetadataChangeEvent - {}",
           e.getStackTrace(), failedMetadataChangeEvent);
