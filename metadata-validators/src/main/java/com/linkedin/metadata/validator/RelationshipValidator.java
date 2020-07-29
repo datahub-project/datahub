@@ -118,18 +118,18 @@ public class RelationshipValidator {
       }
 
       String sourceUrn = map.getString("source");
-      if (!isValidUrnClass(sourceUrn)) {
-        ValidationUtils.invalidSchema(
-            "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.", className,
-            sourceUrn);
-      }
+//      if (!isValidUrnClass(sourceUrn)) {
+//        ValidationUtils.invalidSchema(
+//            "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.", className,
+//            sourceUrn);
+//      }
 
       String destinationUrn = map.getString("destination");
-      if (!isValidUrnClass(destinationUrn)) {
-        ValidationUtils.invalidSchema(
-            "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.", className,
-            destinationUrn);
-      }
+//      if (!isValidUrnClass(destinationUrn)) {
+//        ValidationUtils.invalidSchema(
+//            "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.", className,
+//            destinationUrn);
+//      }
 
       Pair pair = new Pair(sourceUrn, destinationUrn);
       if (registeredPairs.contains(pair)) {

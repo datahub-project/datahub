@@ -6,6 +6,7 @@ import com.linkedin.common.Status
 import com.linkedin.dataset.DatasetDeprecation
 import com.linkedin.dataset.DatasetProperties
 import com.linkedin.dataset.UpstreamLineage
+import com.linkedin.dataset.FineGrainUpstreamLineage
 import com.linkedin.schema.SchemaMetadata
 
 /**
@@ -18,5 +19,6 @@ typeref DatasetAspect = union[
   InstitutionalMemory,
   Ownership,
   Status,
-  SchemaMetadata
+  SchemaMetadata,
+  FineGrainUpstreamLineage
 ]

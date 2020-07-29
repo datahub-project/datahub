@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A generic model for the Has-A relationship
+ */
+@pairings = [{
+     "destination" : "com.linkedin.schema.Urn",
+     "source" : "com.linkedin.common.urn.DatasetUrn"
+ }]
+record HasField includes BaseRelationship {
+
+}

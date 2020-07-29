@@ -62,14 +62,14 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   public <RELATIONSHIP extends RecordTemplate> void addRelationships(@Nonnull List<RELATIONSHIP> relationships,
       @Nonnull RemovalOption removalOption) {
 
-    relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
+//    relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
     executeStatements(addEdges(relationships, removalOption));
   }
 
   @Override
   public <RELATIONSHIP extends RecordTemplate> void removeRelationships(@Nonnull List<RELATIONSHIP> relationships) {
 
-    relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
+//    relationships.forEach(relationship -> RelationshipValidator.validateRelationshipSchema(relationship.getClass()));
     executeStatements(relationships.stream().map(this::removeEdge).collect(Collectors.toList()));
   }
 

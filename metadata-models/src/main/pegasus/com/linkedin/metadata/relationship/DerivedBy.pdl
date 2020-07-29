@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A generic model for column A is derived by column B
+ */
+@pairings = [{
+     "destination" : "com.linkedin.common.urn.Urn",
+     "source" : "com.linkedin.common.urn.Urn"
+ }]
+record DerivedBy includes BaseRelationship {
+
+}
