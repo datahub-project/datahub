@@ -18,10 +18,10 @@ public class ESUtils {
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
 
   /*
-  * TODO: we might need to extend this list if need be, below link has the complete list
-  * https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
-  * */
-  private static final char[] ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = {'*'};
+   * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
+   * characters in an Elasticsearch regular expression.
+   */
+  private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()";
 
   private ESUtils() {
 
@@ -81,7 +81,7 @@ public class ESUtils {
    */
   @Nonnull
   public static String escapeReservedCharacters(@Nonnull String input) {
-    for (char reservedChar : ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS) {
+    for (char reservedChar : ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS.toCharArray()) {
       input = input.replace(String.valueOf(reservedChar), "\\" + reservedChar);
     }
     return input;

@@ -18,5 +18,6 @@ public class DummyMetadataEventProducerTest {
     AspectFoo newValue = new AspectFoo().setValue("new");
 
     producer.produceMetadataAuditEvent(urn, oldValue, newValue);
+    producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
   }
 }
