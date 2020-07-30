@@ -7,7 +7,7 @@ from confluent_kafka.avro import AvroProducer
 from confluent_kafka.avro.serializer import SerializerError
 
 
-topic = "MetadataChangeEvent"
+topic = "MetadataChangeEvent_v4"
 
 class MetadataChangeEvent(object):
 
