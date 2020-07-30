@@ -9,9 +9,9 @@ The following sequence diagram highlights the key features Datahub has, and how 
 
 ![datahub-sequence-diagram](imgs/datahub-sequence-diagram.png)
 1. It starts with ingesting your metadata into datahub. We provide a [collection of sample Python scripts](https://github.com/linkedin/datahub/tree/master/metadata-ingestion) for you. Those scripts work with the popular relationship databases, find metadata of the data source, and publish metadata in Avro data format to MetadataChangeEvent(MCE) Kafka topic.
-2. A MetadataChangeEvent(MCE) processor consumes Kafka message with given topic, and make necessary transformation, send to Generalized Metadata Service(GMS), and GMS persists the metadata to a relationship database of your choice. Currently we are supporting MySQL, Postgre SQL and MariaDB)
+2. A MetadataChangeEvent (MCE) processor consumes Kafka message with given topic, and make necessary transformation, send to Generalized Metadata Service (GMS), and GMS persists the metadata to a relational database of your choice. Currently we support MySQL, PostgreSQL and MariaDB.
 3. GMS also checks the received metadata to find out whether there is a previous version. If so, it will publish the difference to Kafka’s MetadataAuditEvent (MAE) topic.
-4. MAE processor consumes MetadataAuditEvent message from Kafka, and persist to Neo4j & Elastic Search(ES).
+4. MAE processor consumes MetadataAuditEvent message from Kafka, and persist to Neo4j & Elastic Search (ES).
 5. The frontend of Datahub talks to the metadata restful API services of GMS. The metadata discovering users can browse, search metadatas, get the details of metadata such as the owner, the lineage and other customer tags. 
 
 
