@@ -14,7 +14,8 @@ From time to time we also use the opportunity to showcase upcoming features.
   * Quick intro - 5 mins
   * [Demo] Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) - by Nagarjuna from LinkedIn (15 mins)
   * [Demo] Showcasing new Lineage UI in internal LinkedIn DataHub - By Ignacio from LinkedIn (10 mins)
-  * Answering questions from the signup sheet - 15 mins
+  * [Announcement] New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) - John Plaisted! (2 mins)
+  * Answering questions from the signup sheet - 13 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
 
