@@ -76,4 +76,4 @@ datahub> yarn workspace @datahub/data-models test
 ```
 
 ## Contributing
-[See contributing.md](../CONTRIBUTING.md)
+[See contributing.md](../docs/CONTRIBUTING.md)
