@@ -15,7 +15,7 @@ from the metadata associated with the entity. Another way to understand the attr
 
 There’s no need to explicitly create or destroy entity instances. An entity instance will be automatically created in the graph whenever a new relationship involving the instance is formed, or when a new metadata aspect is attached to the instance. 
 Each entity has a special boolean attribute `removed`, which is used to mark the entity as "soft deleted", 
-without destroying existing relationships and attached metadata. This is useful for quickly reviving an incorrectly deleted entity instance without losing valuable metadata, e.g. human authored content.
+without destroying existing relationships and attached metadata. See [How to delete an entity?](#how-to-delete-an-entity) for more details.
 
 An example [PDL](https://linkedin.github.io/rest.li/pdl_schema) schema for the `Dataset` entity is shown below. Note that:
 1. Each entity is expected to have a `urn` field with an entity-specific URN type.
@@ -103,3 +103,12 @@ In other words, when you start asking yourself "Should I normalize this thing so
 | 1 July | Cancer | Larkspur  
 | ... | ... |
 | 31 December | Capricorn | Poinsettia
+
+# How to delete an entity?
+
+We purposely made all [metadata aspects](aspect.md) immutable, i.e. each edit results in a new version created and no specific version can be manually deleted. However, since the existance of an entity is defined by the existance of its associated metadata aspects, it seems that there's no easy way to delete an entity. In fact, this is echoed by the fact that [GMS](gms.md) doesn't actually provide any `DELETE` API!
+
+The main reason for choosing this append-only design is that a lot of metadata is valuable and irrecoverable once lost, e.g. information curated by human or a lineage produced by a one-off pipeline. Audit trial is also extremely imporatnt when it comes to sensitive metadata such as privacy settings, access control etc. We really don't want to wipe out the metadata aspects thinking that the entity is no longer needed—to then regret the decision a year later.
+
+Having said that, cluterring your catalog or graph with deleted entities is also undesirable and can lead to a lot of confusion. To strike a balance, we decided to introduce a special [`Status`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Status.pdl) aspect to indicate if the entity is deleted or not. All aspects of an entity can now live forever, while the entity itself can be "soft deleted" by flipping a flag in the `Status` aspect. The flag is then repsected by the search index & graph builders when populating the indicies. To keep the storage space in check, one can even implement a garbage collector, which reguarly clears out aspects of entities that have been soft-deleted for a long time. 
+
