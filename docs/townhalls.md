@@ -5,7 +5,11 @@ Currently it's held on the last Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming Up
+# Coming up
+
+Coming soon!
+
+# 7/31/20
 - Next town hall will be held on July 31st, 9am-10am PDT
 - Standing [signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit) 
 - Standing VC link: https://bluejeans.com/4642477444
