@@ -27,6 +27,7 @@ Coming soon!
 
 | Date    | Recording | Q&A |
 | ------- | :---------: | :---------: |
+| 07/31/20 | [link](https://bluejeans.com/s/wjnDRJevi5z/) |
 | 06/26/20 | [link](https://bluejeans.com/s/yILyR/) | 
 | 05/29/20 | [link](https://bluejeans.com/s/GCAzY) | 
 | 04/17/20  | [link](https://bluejeans.com/s/eYRD4) | 
