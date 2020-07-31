@@ -7,7 +7,7 @@
 
 ---
 
-[Quickstart](#quickstart) |
+[Quickstart](docs/quickstart.md) |
 [Documentation](#documentation) |
 [Features](docs/features.md) |
 [Roadmap](docs/roadmap.md) |
