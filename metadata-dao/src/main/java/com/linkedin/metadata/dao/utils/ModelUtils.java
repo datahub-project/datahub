@@ -34,6 +34,7 @@ import org.reflections.Reflections;
 public class ModelUtils {
 
   private static final ClassLoader CLASS_LOADER = DummySnapshot.class.getClassLoader();
+  private static final String METADATA_AUDIT_EVENT_PREFIX = "METADATA_AUDIT_EVENT";
 
   private ModelUtils() {
     // Util class
@@ -202,7 +203,8 @@ public class ModelUtils {
    * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
    */
   @Nonnull
-  public static <RELATIONSHIP extends RecordTemplate> Urn  getSourceUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+  public static <RELATIONSHIP extends RecordTemplate> Urn getSourceUrnFromRelationship(
+      @Nonnull RELATIONSHIP relationship) {
     return getUrnFromRelationship(relationship, "source");
   }
 
@@ -210,7 +212,8 @@ public class ModelUtils {
    * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
    */
   @Nonnull
-  public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+  public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(
+      @Nonnull RELATIONSHIP relationship) {
     return getUrnFromRelationship(relationship, "destination");
   }
 
@@ -399,8 +402,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for a specific kind of relationship.
    */
   @Nonnull
-  private static Class<? extends Urn> urnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass,
-      @Nonnull String fieldName) {
+  private static Class<? extends Urn> urnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass, @Nonnull String fieldName) {
     RelationshipValidator.validateRelationshipSchema(relationshipClass);
     return urnClassForField(relationshipClass, fieldName);
   }
@@ -409,7 +412,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for the source field of a specific kind of relationship.
    */
   @Nonnull
-  public static Class<? extends Urn> sourceUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+  public static Class<? extends Urn> sourceUrnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass) {
     return urnClassForRelationship(relationshipClass, "source");
   }
 
@@ -417,7 +421,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for the destination field of a specific kind of relationship.
    */
   @Nonnull
-  public static Class<? extends Urn> destinationUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+  public static Class<? extends Urn> destinationUrnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass) {
     return urnClassForRelationship(relationshipClass, "destination");
   }
 
@@ -491,8 +496,9 @@ public class ModelUtils {
    */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllEntities() {
-    return new Reflections("com.linkedin.metadata.entity")
-        .getSubTypesOf(RecordTemplate.class).stream().filter(EntityValidator::isValidEntitySchema)
+    return new Reflections("com.linkedin.metadata.entity").getSubTypesOf(RecordTemplate.class)
+        .stream()
+        .filter(EntityValidator::isValidEntitySchema)
         .collect(Collectors.toSet());
   }
 
@@ -506,5 +512,16 @@ public class ModelUtils {
     } catch (NoSuchFieldException | IllegalAccessException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Get aspect specific kafka topic name from urn & aspect classes.
+   */
+  @Nonnull
+  public static <URN extends Urn, ASPECT extends RecordTemplate> String getAspectSpecificMAETopicName(@Nonnull URN urn,
+      @Nonnull ASPECT newValue) {
+    final String urnStr = urn.getClass().getSimpleName().toUpperCase();
+    return String.format("%s_%s_%s", METADATA_AUDIT_EVENT_PREFIX, urnStr.substring(0, urnStr.length() - "Urn".length()),
+        newValue.getClass().getSimpleName().toUpperCase());
   }
 }

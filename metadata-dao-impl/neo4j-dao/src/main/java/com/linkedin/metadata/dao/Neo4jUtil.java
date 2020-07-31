@@ -8,14 +8,17 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ClassUtils;
 import org.neo4j.driver.types.Node;
+import org.neo4j.driver.types.Path;
 import org.neo4j.driver.types.Relationship;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
@@ -163,6 +166,25 @@ public class Neo4jUtil {
 
     final String className = node.labels().iterator().next();
     return RecordUtils.toRecordTemplate(className, new DataMap(node.asMap()));
+  }
+
+  /**
+   * Converts path segment (field:value map) list of {@link RecordTemplate}s of nodes & edges
+   *
+   * @param segment The segment of a path containing nodes & edges
+   * @return List<RecordTemplate>
+   */
+  @Nonnull
+  public static List<RecordTemplate> pathSegmentToRecordList(@Nonnull Path.Segment segment) {
+    final Node startNode = segment.start();
+    final Node endNode = segment.end();
+    final Relationship edge = segment.relationship();
+
+    return Arrays.asList(
+        nodeToEntity(startNode),
+        edgeToRelationship(startNode, endNode, edge),
+        nodeToEntity(endNode)
+    );
   }
 
   /**

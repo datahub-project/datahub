@@ -29,4 +29,10 @@ public class DummyMetadataEventProducer<URN extends Urn>
       @Nonnull ASPECT newValue) {
     // Do nothing
   }
+
+  @Override
+  public <ASPECT extends RecordTemplate> void produceAspectSpecificMetadataAuditEvent(@Nonnull URN urn,
+      @Nullable ASPECT oldValue, @Nonnull ASPECT newValue) {
+    // Do nothing
+  }
 }

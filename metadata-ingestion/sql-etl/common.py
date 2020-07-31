@@ -15,7 +15,7 @@ OPTIONS = {} # e.g. {"encoding": "latin1"}
 @dataclass
 class KafkaConfig:
     avsc_path = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
-    kafka_topic = 'MetadataChangeEvent'
+    kafka_topic = 'MetadataChangeEvent_v4'
     bootstrap_server = 'localhost:9092'
     schema_registry = 'http://localhost:8081'
 

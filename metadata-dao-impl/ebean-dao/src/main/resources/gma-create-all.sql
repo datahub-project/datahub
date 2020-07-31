@@ -15,3 +15,18 @@ create table metadata_id (
   constraint uq_metadata_id_namespace_id unique (namespace,id)
 );
 
+create table metadata_index (
+  id                            bigint auto_increment not null,
+  urn                           varchar(500) not null,
+  aspect                        varchar(200) not null,
+  path                          varchar(200) not null,
+  longval                       bigint,
+  stringval                     varchar(500),
+  doubleval                     double,
+  constraint pk_metadata_index primary key (id)
+);
+
+create index idx_long_val on metadata_index (aspect,path,longval,urn);
+create index idx_string_val on metadata_index (aspect,path,stringval,urn);
+create index idx_double_val on metadata_index (aspect,path,doubleval,urn);
+create index idx_urn on metadata_index (urn);
