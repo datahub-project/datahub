@@ -1,5 +1,5 @@
 name: datahub-mce-consumer docker
-on: 
+on:
   push:
     branches:
       - master
@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'linkedin/datahub' }}
     steps:
       - uses: actions/checkout@v2
       - uses: docker/build-push-action@v1
