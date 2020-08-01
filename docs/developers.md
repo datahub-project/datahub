@@ -35,7 +35,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/linkedin/datahub/issues/1699).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
@@ -44,7 +44,7 @@ You can install multiple version of Java on a single machine and switch between 
 
 ### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error
 
-This is a known issue when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
+This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when building the project on Windows due a bug in the Pegasus plugin. Please build on a Mac or Linux instead. 
 
 ### Various errors related to `generateDataTemplate` or other `generate` tasks
 
