@@ -62,11 +62,6 @@ record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
   uri: optional Uri
 
   /**
-   * List of dataset instances for this dataset
-   */
-  deploymentInfos: array[DeploymentInfo] = [ ]
-
-  /**
    * tags for searching dataset
    */
   tags: array[string] = [ ]
