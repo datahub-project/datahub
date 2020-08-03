@@ -45,15 +45,12 @@ spec:
             - name: NEO4J_URI
               value: "{{ .Values.global.neo4j.uri }}"
             - name: NEO4J_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: datahub-gms-deployment-secret
-                  key: neo4j.username
+              value: "{{ .Values.global.neo4j.username }}"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: datahub-gms-deployment-secret
-                  key: neo4j.password
+                  name: "{{ .Values.global.neo4j.password.secretRef }}"
+                  key: "{{ .Values.global.neo4j.password.secretKey }}"
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

@@ -37,15 +37,12 @@ spec:
               protocol: TCP
           env:
             - name: EBEAN_DATASOURCE_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-secret
-                  key: ebean.datasource.username
+              value: "{{ .Values.global.sql.datasource.username }}"
             - name: EBEAN_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-secret
-                  key: ebean.datasource.password
+                  name: "{{ .Values.global.sql.datasource.password.secretRef }}"
+                  key: "{{ .Values.global.sql.datasource.password.secretKey }}"
             - name: EBEAN_DATASOURCE_HOST
               value: "{{ .Values.global.sql.datasource.host }}"
             - name: EBEAN_DATASOURCE_URL
@@ -65,15 +62,12 @@ spec:
             - name: NEO4J_URI
               value: "{{ .Values.global.neo4j.uri }}"
             - name: NEO4J_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-secret
-                  key: neo4j.username
+              value: "{{ .Values.global.neo4j.username }}"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-secret
-                  key: neo4j.password
+                  name: "{{ .Values.global.neo4j.password.secretRef }}"
+                  key: "{{ .Values.global.neo4j.password.secretKey }}"
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
