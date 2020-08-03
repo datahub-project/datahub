@@ -37,7 +37,7 @@ spec:
             - name: KAFKA_SCHEMAREGISTRY_URL
               value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: GMS_HOST
-              value: "{{ .Values.global.datahub.gms.host }}"
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
           resources:

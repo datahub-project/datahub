@@ -35,7 +35,6 @@ securityContext: {}
 
 service:
   type: LoadBalancer #ClusterIP
-  port: 8080
 
 ingress:
   enabled: false
@@ -101,7 +100,6 @@ global:
 
   datahub:
     gms:
-      host: "datahub-gms-service"
       port: "8080"
     appVersion: "1.0"
 

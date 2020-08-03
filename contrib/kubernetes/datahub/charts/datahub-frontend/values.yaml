@@ -76,6 +76,5 @@ datahub:
 global:
   datahub:
     gms:
-      host: "datahub-gms-deployment"
       port: "8080"
     appVersion: "1.0"

@@ -41,7 +41,7 @@ spec:
               port: http
           env:
             - name: DATAHUB_GMS_HOST
-              value: "{{ .Values.global.datahub.gms.host }}"
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: DATAHUB_GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
             - name: DATAHUB_SECRET
