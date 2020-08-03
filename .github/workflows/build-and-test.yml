@@ -1,15 +1,17 @@
-name: Gradle Build & Test
+name: build & test
 on:
   push:
     branches:
       - master
     paths-ignore:
       - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - master
     paths-ignore:
       - 'docs/**'
+      - '**.md'
   release:
     types: [published, edited]
 
