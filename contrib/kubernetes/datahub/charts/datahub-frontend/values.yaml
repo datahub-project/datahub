@@ -11,7 +11,7 @@ image:
 
 imagePullSecrets: []
 nameOverride: ""
-fullnameOverride: "datahub-frontend"
+fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
