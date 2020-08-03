@@ -1,4 +1,4 @@
-name: Gradle Build & Test
+name: build & test
 on:
   push:
     branches:

@@ -1,6 +1,6 @@
 # DataHub: A Generalized Metadata Search & Discovery Tool
 [![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
-![Gradle Build & Test](https://github.com/linkedin/datahub/workflows/Gradle%20Build%20&%20Test/badge.svg)
+![Build & Test](https://github.com/linkedin/datahub/workflows/build%20%26%20test/badge.svg)
 [![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/CONTRIBUTING.md)
 [![License](https://img.shields.io/github/license/linkedin/datahub)](LICENSE)
