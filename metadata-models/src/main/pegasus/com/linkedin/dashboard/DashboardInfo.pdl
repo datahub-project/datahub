@@ -1,0 +1,42 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.common.AccessLevel
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.ChartUrn
+import com.linkedin.common.Time
+
+/**
+ * Information about a dashboard
+ */
+record DashboardInfo {
+
+  /**
+   * Title of the dashboard
+   */
+  title: string
+
+  /**
+   * Detailed description about the dashboard
+   */
+  description: string
+
+  /**
+   * Charts in a dashboard
+   */
+  charts: array[ChartUrn] = [ ]
+
+  /**
+   * Captures information about who created/last modified/deleted this dashboard and when
+   */
+  lastModified: ChangeAuditStamps
+
+  /**
+   * Access level for the dashboard
+   */
+  access: optional AccessLevel
+
+  /**
+   * The time when this dashboard last refreshed
+   */
+  lastRefreshed: optional Time
+}

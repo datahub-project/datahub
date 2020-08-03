@@ -1,0 +1,17 @@
+namespace com.linkedin.chart
+
+/**
+ * The various types of charts
+ */
+enum ChartType {
+
+  /**
+   * Chart showing Markdown formatted text
+   */
+  TEXT
+
+  /**
+   * Chart showing a table
+   */
+  TABLE
+}

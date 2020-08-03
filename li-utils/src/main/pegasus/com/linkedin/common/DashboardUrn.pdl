@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dashboard identifier
+ */
+@java.class = "com.linkedin.common.urn.DashboardUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dashboard",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Dashboard",
+  "doc" : "Standardized dashboard identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "dashboardTool",
+    "doc" : "The name of the dashboard tool such as looker, redash etc.",
+    "type" : "string",
+    "maxLength" : 20
+  },
+  {
+    "name" : "dashboardId",
+    "doc" : "Unique id of the dashboard assigned by the specific dashboard tool",
+    "type" : "string",
+    "maxLength" : 20
+  }],
+  "maxLength" : 36
+}
+typeref DashboardUrn = string
