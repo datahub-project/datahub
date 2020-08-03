@@ -19,7 +19,7 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> :mega: Next DataHub town hall meeting on August 20th, 9am-10am PDT: 
+> :mega: Next DataHub town hall meeting on August 28th, 9am-10am PDT: 
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - VC link (**NEW** we're using zoom!): https://linkedin.zoom.us/j/95617940722
 > - Details and recordings of past meetings can be found [here](docs/townhalls.md)
