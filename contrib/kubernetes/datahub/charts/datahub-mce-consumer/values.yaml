@@ -69,11 +69,17 @@ tolerations: []
 affinity: {}
 
 global:
+  kafka:
+    bootstrap:
+      server: "broker:29092"
+    schemaregistry:
+      url: "http://schema-registry:8081"
+
   datahub:
     gms:
       host: "datahub-gms-deployment"
       port: "8080"
-      secret: "YouKnowNothing"
+
   hostAliases:
     - ip: "192.168.0.104"
       hostnames:
