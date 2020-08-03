@@ -59,7 +59,6 @@ global:
     gms:
       host: "datahub-gms-deployment"
       port: "8080"
-      secret: "YouKnowNothing"
     appVersion: "1.0"
 
   hostAliases:

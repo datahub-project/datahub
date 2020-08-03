@@ -47,7 +47,7 @@ spec:
             - name: DATAHUB_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datahub-frontend.fullname" . }}-secret
+                  name: {{ printf "%s-gms-secret" .Release.Name }}
                   key: datahub.gms.secret
             - name: DATAHUB_APP_VERSION
               value: "{{ .Values.global.datahub.appVersion }}"
