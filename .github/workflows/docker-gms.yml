@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-#    if: ${{ github.repository == 'linkedin/datahub' }}
+    if: ${{ github.repository == 'linkedin/datahub' }}
     steps:
       - uses: actions/checkout@v2
       - id: tag

@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-#    if: ${{ github.repository == 'linkedin/datahub' }}
+    if: ${{ github.repository == 'linkedin/datahub' }}
     steps:
       - uses: actions/checkout@v2
       - id: tag
@@ -30,6 +30,6 @@ jobs:
       - uses: VaultVulp/gp-docker-action@1.1.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: ./docker/gms/Dockerfile
+          dockerfile: ./docker/frontend/Dockerfile
           image-name: datahub-frontend
           image-tag: ${{ steps.tag.outputs.tag }}
