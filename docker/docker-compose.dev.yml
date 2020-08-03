@@ -1,0 +1,38 @@
+# Default overrides for running local development.
+
+# Every app that can be debugged needs A) a debug dockerfile, to create a minimal image that doesn't build any code, and
+# B) needs to configure bind mounts to mount code. Note this assumes code is portable (JS, Java). There can be debugging
+# solutions, that is just the general pattern (e.g. maybe Python doesn't build a binary, so just mount source code).
+
+# To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
+# port to this file.
+---
+# TODO mount + debug docker file for frontend
+version: '3.8'
+services:
+  datahub-gms:
+    image: linkedin/datahub-gms:debug
+    build:
+      context: datahub-gms/debug
+      dockerfile: Dockerfile
+    volumes:
+      - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+      - ../gms/war/build/libs/:/datahub/datahub-gms/bin
+
+  datahub-mae-consumer:
+    image: linkedin/datahub-mae-consumer:debug
+    build:
+      context: datahub-mae-consumer/debug
+      dockerfile: Dockerfile
+    volumes:
+      - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
+      - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
+
+  datahub-mce-consumer:
+    image: linkedin/datahub-mce-consumer:debug
+    build:
+      context: datahub-mce-consumer/debug
+      dockerfile: Dockerfile
+    volumes:
+      - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
+      - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
