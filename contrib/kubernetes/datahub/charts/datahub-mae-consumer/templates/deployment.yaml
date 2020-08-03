@@ -33,35 +33,17 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.bootstrap.server
+              value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.schemaregistry.url
+              value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: ELASTICSEARCH_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: elasticsearch.host
+              value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: elasticsearch.port
+              value: "{{ .Values.global.elasticsearch.port }}"
             - name: NEO4J_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: neo4j.host
+              value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: neo4j.uri
+              value: "{{ .Values.global.neo4j.uri }}"
             - name: NEO4J_USERNAME
               valueFrom:
                 secretKeyRef:

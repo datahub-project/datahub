@@ -47,50 +47,23 @@ spec:
                   name: {{ include "datahub-gms.fullname" . }}-secret
                   key: ebean.datasource.password
             - name: EBEAN_DATASOURCE_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: ebean.datasource.host
+              value: "{{ .Values.global.sql.datasource.host }}"
             - name: EBEAN_DATASOURCE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: ebean.datasource.url
+              value: "{{ .Values.global.sql.datasource.url }}"
             - name: EBEAN_DATASOURCE_DRIVER
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: ebean.datasource.driver
+              value: "{{ .Values.global.sql.datasource.driver }}"
             - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: kafka.bootstrap.server
+              value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: kafka.schemaregistry.url
+              value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: ELASTICSEARCH_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: elasticsearch.host
+              value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: elasticsearch.port
+              value: "{{ .Values.global.elasticsearch.port }}"
             - name: NEO4J_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: neo4j.host
+              value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "datahub-gms.fullname" . }}-configmap
-                  key: neo4j.uri
+              value: "{{ .Values.global.neo4j.uri }}"
             - name: NEO4J_USERNAME
               valueFrom:
                 secretKeyRef:

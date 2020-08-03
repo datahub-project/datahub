@@ -33,15 +33,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.bootstrap.server
+              value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.schemaregistry.url
+              value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: GMS_HOST
               value: "{{ .Values.global.datahub.gms.host }}"
             - name: GMS_PORT
