@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   release:
     types: [published, edited]
 
