@@ -535,6 +535,54 @@
       },
       "doc" : "List of downstream dataset lineage information"
     } ]
+  }, {
+    "type" : "record",
+    "name" : "FineGrainFieldUpstream",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Upstream lineage information about a dataset including the source reporting the lineage",
+    "fields" : [ {
+      "name" : "sourceField",
+      "type" : "string",
+      "doc" : "The source field"
+    }, {
+      "name" : "destinationField",
+      "type" : "string",
+      "doc" : "The destination column"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "FineGrainUpstream",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Upstream lineage information about a dataset including the source reporting the lineage",
+    "fields" : [ {
+      "name" : "auditStamp",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who reported the lineage and when"
+    }, {
+      "name" : "dataset",
+      "type" : "com.linkedin.common.DatasetUrn",
+      "doc" : "The upstream dataset the lineage points to"
+    }, {
+      "name" : "fields",
+      "type" : {
+        "type" : "array",
+        "items" : "FineGrainFieldUpstream"
+      },
+      "doc" : "The source and target column mapping"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "FineGrainUpstreamLineage",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Upstream lineage of a dataset",
+    "fields" : [ {
+      "name" : "upstreams",
+      "type" : {
+        "type" : "array",
+        "items" : "FineGrainUpstream"
+      },
+      "doc" : "List of upstream dataset lineage information"
+    } ]
   }, "com.linkedin.dataset.PlatformNativeType", {
     "type" : "typeref",
     "name" : "SchemaFieldPath",
@@ -920,7 +968,7 @@
         "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
         "optional" : true
       } ]
-    } ]
+    }, "com.linkedin.dataset.FineGrainUpstreamLineage" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
