@@ -49,7 +49,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   @Override
   public <ENTITY extends RecordTemplate> void addEntities(@Nonnull List<ENTITY> entities) {
 
-    entities.forEach(entity -> EntityValidator.validateEntitySchema(entity.getClass()));
+//    entities.forEach(entity -> EntityValidator.validateEntitySchema(entity.getClass()));
     executeStatements(entities.stream().map(this::addNode).collect(Collectors.toList()));
   }
 
@@ -245,7 +245,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Map<String, Object> params = new HashMap<>();
 
     if (removalOption == RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE) {
-      checkSameUrn(relationships, SOURCE_FIELD, source0Urn);
+//      checkSameUrn(relationships, SOURCE_FIELD, source0Urn);
 
       final String removeTemplate = "MATCH (source%s {urn: $urn})-[relation:%s]->() DELETE relation";
       final String statement = String.format(removeTemplate, sourceType, relationType);
@@ -254,7 +254,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
       statements.add(buildStatement(statement, params));
     } else if (removalOption == RemovalOption.REMOVE_ALL_EDGES_TO_DESTINATION) {
-      checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
+//      checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
 
       final String removeTemplate = "MATCH ()-[relation:%s]->(destination%s {urn: $urn}) DELETE relation";
       final String statement = String.format(removeTemplate, relationType, destinationType);
@@ -263,8 +263,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
       statements.add(buildStatement(statement, params));
     } else if (removalOption == RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE_TO_DESTINATION) {
-      checkSameUrn(relationships, SOURCE_FIELD, source0Urn);
-      checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
+//      checkSameUrn(relationships, SOURCE_FIELD, source0Urn);
+//      checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
 
       final String removeTemplate =
           "MATCH (source%s {urn: $sourceUrn})-[relation:%s]->(destination%s {urn: $destinationUrn}) DELETE relation";
@@ -348,7 +348,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
 
   @Nonnull
   public String getNodeType(@Nonnull Urn urn) {
-    return ":" + _urnToEntityMap.getOrDefault(urn.getEntityType(), "UNKNOWN");
+    return ":" + _urnToEntityMap.getOrDefault(urn.getEntityType(), "SCHEMA_FIELD");
   }
 
   @Nonnull

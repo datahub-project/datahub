@@ -13,7 +13,7 @@ import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.dao.internal.BaseGraphWriterDAO.RemovalOption.*;
 
-public class HasFieldBuilderFromSchemaMetadata extends BaseRelationshipBuilder<SchemaMetadata> {
+public class HasFieldBuilderFromSchemaMetadata  extends BaseRelationshipBuilder<SchemaMetadata> {
 
   public HasFieldBuilderFromSchemaMetadata() {
     super(SchemaMetadata.class);

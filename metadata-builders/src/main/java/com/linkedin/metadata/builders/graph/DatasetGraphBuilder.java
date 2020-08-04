@@ -21,8 +21,8 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
         {
           add(new DownstreamOfBuilderFromUpstreamLineage());
           add(new HasFieldBuilderFromSchemaMetadata());
-          add(new DerivedByBuilderFromFineGrainUpstreamLineage());
           add(new OwnedByBuilderFromOwnership());
+          add(new DerivedByBuilderFromFineGrainUpstreamLineage());
         }
       });
 

@@ -2,7 +2,6 @@ namespace com.linkedin.dataset
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.DatasetUrn
-import com.linkedin.schema.SchemaField
 
 /**
  * Upstream lineage information about a dataset including the source reporting the lineage
@@ -17,23 +16,11 @@ record FineGrainUpstream {
   /**
    * The upstream dataset the lineage points to
    */
-  sourceDataset: DatasetUrn
+  dataset: DatasetUrn
 
   /**
-   * The source column
+   * The source and target column mapping
    */
-  sourceField: SchemaField
-
-  /**
-   * The destination dataset
-   */
-  destinationDataset: DatasetUrn
-
-  /**
-   * The destination column
-   */
-  destinationField: SchemaField
-
-
+  fields: array[FineGrainFieldUpstream]
 
 }

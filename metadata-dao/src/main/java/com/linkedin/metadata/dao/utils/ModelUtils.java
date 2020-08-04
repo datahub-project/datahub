@@ -179,7 +179,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static <ENTITY extends RecordTemplate> Urn getUrnFromEntity(@Nonnull ENTITY entity) {
-    EntityValidator.validateEntitySchema(entity.getClass());
+//    EntityValidator.validateEntitySchema(entity.getClass());
     return RecordUtils.getRecordTemplateField(entity, "urn", urnClassForDocument(entity.getClass()));
   }
 
