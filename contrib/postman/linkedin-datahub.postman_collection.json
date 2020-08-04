@@ -1,0 +1,693 @@
+{
+	"info": {
+		"_postman_id": "818ab8b7-2e0d-49a2-8578-fbb810bd5ca4",
+		"name": "linkedin-datahub",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "create-user",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"snapshot\": {\"aspects\": [{\"com.linkedin.identity.CorpUserInfo\":{\"active\": true, \"displayName\": \"l Jiang\", \"fullName\": \"liangjun Jiang\", \"email\": \"ljiang@linkedin.com\"}}, {\"com.linkedin.identity.CorpUserEditableInfo\":{}}], \"urn\": \"urn:li:corpuser:ljiang\"}}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/corpUsers?action=ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"corpUsers"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "ingest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-dataset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"snapshot\": {\n        \"aspects\": [\n            {\n                \"com.linkedin.common.Ownership\": {\n                    \"owners\": [\n                        {\n                            \"owner\": \"urn:li:corpuser:kzhang13\",\n                            \"type\": \"DATAOWNER\"\n                        }\n                    ],\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    }\n                }\n            },\n            {\n                \"com.linkedin.dataset.UpstreamLineage\": {\n                    \"upstreams\": [\n                        {\n                            \"auditStamp\": {\n                                \"time\": 0,\n                                \"actor\": \"urn:li:corpuser:kzhang13\"\n                            },\n                            \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,p_foo_13,PROD)\",\n                            \"type\": \"TRANSFORMED\"\n                        },\n                        {\n                            \"auditStamp\": {\n                                \"time\": 0,\n                                \"actor\": \"urn:li:corpuser:kzhang13\"\n                            },\n                            \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,2_p_foo_13,PROD)\",\n                            \"type\": \"TRANSFORMED\"\n                        }\n                    ]\n                }                  \n            },\n            {\n                \"com.linkedin.dataset.FineGrainUpstreamLineage\": {\n                    \"upstreams\": [\n                        {\n                            \"auditStamp\": {\n                                \"time\": 0,\n                                \"actor\": \"urn:li:corpuser:kzhang13\"\n                            },\n                            \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,p_foo_13,PROD)\",\n                            \"fields\": [\n                                {\n                                    \"sourceField\": \"foo131\",\n                                    \"destinationField\" : \"bar131\"\n                                },\n                                {\n                                    \"sourceField\": \"foo132\",\n                                    \"destinationField\" : \"bar132\"\n                                }\n                            ]\n                        },\n                        {\n                            \"auditStamp\": {\n                                \"time\": 0,\n                                \"actor\": \"urn:li:corpuser:kzhang13\"\n                            },\n                            \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,p_2_foo_13,PROD)\",\n                            \"fields\": [\n                                {\n                                    \"sourceField\": \"2_foo131\",\n                                    \"destinationField\" : \"bar131\"\n                                },\n                                {\n                                    \"sourceField\": \"2_foo132\",\n                                    \"destinationField\" : \"bar132\"\n                                }\n                            ]\n                        }\n                    ]\n                }                  \n            },\n            {\n                \"com.linkedin.common.InstitutionalMemory\": {\n                    \"elements\": [\n                        {\n                            \"url\": \"https://www.linkedin.com\",\n                            \"description\": \"Sample doc\",\n                            \"createStamp\": {\n                                \"time\": 0,\n                                \"actor\": \"urn:li:corpuser:kzhang13\"\n                            }\n                        }\n                    ]\n                }\n            },\n            {\n                \"com.linkedin.schema.SchemaMetadata\": {\n                    \"schemaName\": \"hbaseEvent\",\n                    \"platform\": \"urn:li:dataPlatform:hbase\",\n                    \"version\": 0,\n                    \"created\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"hash\": \"\",\n                    \"platformSchema\": {\n                        \"com.linkedin.schema.KafkaSchema\": {\n                            \"documentSchema\": \"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"MetadataChangeEvent\\\",\\\"namespace\\\":\\\"com.linkedin.mxe\\\",\\\"doc\\\":\\\"Kafka event for proposing a metadata change for an entity.\\\",\\\"fields\\\":[{\\\"name\\\":\\\"auditHeader\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"KafkaAuditHeader\\\",\\\"namespace\\\":\\\"com.linkedin.avro2pegasus.events\\\",\\\"doc\\\":\\\"Header\\\"}}]}\"\n                        }\n                    },\n                    \"fields\": [\n                        {\n                            \"fieldPath\": \"bar131\",\n                            \"description\": \"Bar\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"bar132\",\n                            \"description\": \"Bar\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"bar133\",\n                            \"description\": \"Bar\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"col134\",\n                            \"description\": \"Bar\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        }\n                    ]\n                }\n            }\n        ],\n        \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:druid,c_bar_13,PROD)\"\n    }\n}\n\n\n"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets?action=ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "ingest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-dataset-upstream-2",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"snapshot\": {\n        \"aspects\": [\n            {\n                \"com.linkedin.common.Ownership\": {\n                    \"owners\": [\n                        {\n                            \"owner\": \"urn:li:corpuser:kzhang13\",\n                            \"type\": \"DATAOWNER\"\n                        }\n                    ],\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    }\n                }\n            },\n            {\n                \"com.linkedin.schema.SchemaMetadata\": {\n                    \"schemaName\": \"hbaseEvent\",\n                    \"platform\": \"urn:li:dataPlatform:hbase\",\n                    \"version\": 0,\n                    \"created\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"hash\": \"\",\n                    \"platformSchema\": {\n                        \"com.linkedin.schema.KafkaSchema\": {\n                            \"documentSchema\": \"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"MetadataChangeEvent\\\",\\\"namespace\\\":\\\"com.linkedin.mxe\\\",\\\"doc\\\":\\\"Kafka event for proposing a metadata change for an entity.\\\",\\\"fields\\\":[{\\\"name\\\":\\\"auditHeader\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"KafkaAuditHeader\\\",\\\"namespace\\\":\\\"com.linkedin.avro2pegasus.events\\\",\\\"doc\\\":\\\"Header\\\"}}]}\"\n                        }\n                    },\n                    \"fields\": [\n                        {\n                            \"fieldPath\": \"2_foo131\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"2_foo132\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"2_foo133\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"2_foo134\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        }\n                    ]\n                }\n            }\n        ],\n        \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,p_2_foo_13,PROD)\"\n    }\n}\n\n\n"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets?action=ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "ingest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-dataset-upstream",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"snapshot\": {\n        \"aspects\": [\n            {\n                \"com.linkedin.common.Ownership\": {\n                    \"owners\": [\n                        {\n                            \"owner\": \"urn:li:corpuser:kzhang13\",\n                            \"type\": \"DATAOWNER\"\n                        }\n                    ],\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    }\n                }\n            },\n            {\n                \"com.linkedin.schema.SchemaMetadata\": {\n                    \"schemaName\": \"hbaseEvent\",\n                    \"platform\": \"urn:li:dataPlatform:hbase\",\n                    \"version\": 0,\n                    \"created\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang13\"\n                    },\n                    \"hash\": \"\",\n                    \"platformSchema\": {\n                        \"com.linkedin.schema.KafkaSchema\": {\n                            \"documentSchema\": \"{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"MetadataChangeEvent\\\",\\\"namespace\\\":\\\"com.linkedin.mxe\\\",\\\"doc\\\":\\\"Kafka event for proposing a metadata change for an entity.\\\",\\\"fields\\\":[{\\\"name\\\":\\\"auditHeader\\\",\\\"type\\\":{\\\"type\\\":\\\"record\\\",\\\"name\\\":\\\"KafkaAuditHeader\\\",\\\"namespace\\\":\\\"com.linkedin.avro2pegasus.events\\\",\\\"doc\\\":\\\"Header\\\"}}]}\"\n                        }\n                    },\n                    \"fields\": [\n                        {\n                            \"fieldPath\": \"foo131\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"foo132\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"foo133\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        },\n                        {\n                            \"fieldPath\": \"foo134\",\n                            \"description\": \"foo\",\n                            \"nativeDataType\": \"string\",\n                            \"type\": {\n                                \"type\": {\n                                    \"com.linkedin.schema.StringType\": {}\n                                }\n                            }\n                        }\n                    ]\n                }\n            }\n        ],\n        \"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hasketl,p_foo_13,PROD)\"\n    }\n}\n\n\n"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets?action=ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "ingest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-data-processes",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"snapshot\": {\n        \"aspects\": [\n        \t{\n                \"com.linkedin.common.Ownership\": {\n                    \"owners\": [\n                        {\n                            \"owner\": \"urn:li:corpuser:kzhang10\",\n                            \"type\": \"DATAOWNER\"\n                        }\n                    ],\n                    \"lastModified\": {\n                        \"time\": 0,\n                        \"actor\": \"urn:li:corpuser:kzhang10\"\n                    }\n                }\n            },\n            {\n                \"com.linkedin.dataprocess.DataProcessInfo\":{\n\t                \"inputs\": [\n\t                   \"urn:li:dataset:(urn:li:dataPlatform:hbase,barSky,PROD)\",\n\t                   \"urn:li:dataset:(urn:li:dataPlatform:hbase,barOcean,PROD)\"\n\t                ],\n\t                \"outputs\": [\n\t                    \"urn:li:dataset:(urn:li:dataPlatform:cassandra,barEarth,DEV)\",\n\t                    \"urn:li:dataset:(urn:li:dataPlatform:cassandra,barMars,DEV)\"\n\t                ]\n            \t}\n            }\n        ],\n        \"name\": \"a process of hbase\",\n        \"urn\": \"urn:li:dataprocess:(AZURESYNESIS,Demo7DataProcess12,PROD)\"\n    }\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/dataProcesses?action=ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"dataProcesses"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "ingest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-a-user",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://localhost:8080/corpUsers/($params:(),name:ljiang)",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"corpUsers",
+						"($params:(),name:ljiang)"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hbase,ObamaEvent1,PROD)\"}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets/?action=getSnapshot",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						""
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "getSnapshot"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataprocess",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"urn\": \"urn:li:process:(urn:li:dataPlatform:hbase,Demo2Process,DEV)\"}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/dataProcesses/?action=getSnapshot",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"dataProcesses",
+						""
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "getSnapshot"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-all-user",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get_all"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/corpUsers",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"corpUsers"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "browse-dataset",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"path\": \"\", \"start\": 0, \"limit\": 10}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets?action=browse",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "browse"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search-a-user",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "finder"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/corpUsers?q=search&input=jiang&",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"corpUsers"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "search"
+						},
+						{
+							"key": "input",
+							"value": "jiang"
+						},
+						{
+							"key": "",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search-a-job",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "finder"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/jobs?q=search&input=KobeJob&",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"jobs"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "search"
+						},
+						{
+							"key": "input",
+							"value": "KobeJob"
+						},
+						{
+							"key": "",
+							"value": null
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "search-a-dataset",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "finder"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets?q=search&input=kzhang4",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "search"
+						},
+						{
+							"key": "input",
+							"value": "kzhang4"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataset-ownership",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahbase)/rawOwnership/0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahbase)",
+						"rawOwnership",
+						"0"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataset-upstreamlineage",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:ObamaEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahbase)/upstreamLineage/0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:ObamaEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahbase)",
+						"upstreamLineage",
+						"0"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataset-processinfo",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:JackChangEvent,origin:DEV,platform:urn%3Ali%3AdataPlatform%3Ahbase)/jobInfo/0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:JackChangEvent,origin:DEV,platform:urn%3Ali%3AdataPlatform%3Ahbase)",
+						"jobInfo",
+						"0"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-dataset-schema",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/schema/0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)",
+						"schema",
+						"0"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-upstream-datasets",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/upstreamLineage/0",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)",
+						"upstreamLineage",
+						"0"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get-downstream-datasets",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					},
+					{
+						"key": "X-RestLi-Method",
+						"value": "get"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/downstreamLineage",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets",
+						"($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)",
+						"downstreamLineage"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "typehead-for-datasets",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "X-RestLi-Protocol-Version",
+						"value": "2.0.0"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"query\": \"ljiang\", \"field\": \"name\", \"limit\": 10, \"filter\": {\"criteria\": []}}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/datasets?action=autocomplete",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"datasets"
+					],
+					"query": [
+						{
+							"key": "action",
+							"value": "autocomplete"
+						}
+					]
+				},
+				"description": "auto completion"
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
