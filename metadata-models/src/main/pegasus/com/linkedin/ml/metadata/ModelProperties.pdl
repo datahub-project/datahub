@@ -1,6 +1,6 @@
 namespace com.linkedin.ml.metadata
 
-import com.linkedin.common.MlFeatureUrn
+import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 
@@ -30,12 +30,12 @@ record ModelProperties {
   type: optional string
 
   /**
-    *   List of features used for model training
-    */
-  features: optional array[MlFeatureUrn]
+   * List of features used for model training
+   */
+  mlFeatures: optional array[MLFeatureUrn]
 
   /**
-   * tags for the ml model
+   * Tags for the ml model
    */
   tags: array[string] = [ ]
 }

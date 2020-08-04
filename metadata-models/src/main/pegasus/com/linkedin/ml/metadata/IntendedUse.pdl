@@ -8,15 +8,15 @@ record IntendedUse {
   /**
    * Primary Use cases for the model.
    */
-  primaryUses: optional string
+  primaryUses: optional array[string]
 
   /**
    * Primary Intended Users - For example, was the model developed for entertainment purposes, for hobbyists, or enterprise solutions?
    */
-  primaryUsers: optional IntendedUserType
+  primaryUsers: optional array[IntendedUserType]
 
   /**
    * Highlight technology that the model might easily be confused with, or related contexts that users could try to apply the model to.
    */
-  outOfScopeUses: optional string
+  outOfScopeUses: optional array[string]
 }

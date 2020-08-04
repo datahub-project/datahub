@@ -1,0 +1,19 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.FeatureDataType
+
+/**
+ * Properties associated with a MLFeature
+ */
+record MLFeatureProperties {
+
+  /**
+   * Documentation of the ML Feature
+   */
+  description: optional string
+
+  /**
+   * Data Type of the MLFeature
+   */
+  dataType: optional FeatureDataType
+}

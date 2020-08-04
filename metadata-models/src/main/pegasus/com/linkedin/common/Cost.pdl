@@ -6,7 +6,12 @@ namespace com.linkedin.common
 record Cost {
 
     /*
-    * Code to which the Cost of this entity should be attributed to
+    * Type of Cost Code
     */
-    costCode: string
+    costType: CostType
+
+    /*
+    * Code to which the     Cost of this entity should be attributed to
+    */
+    cost: CostValue
 }

@@ -3,7 +3,7 @@ namespace com.linkedin.common
 /**
  * Standardized model identifier.
  */
-@java.class = "com.linkedin.common.urn.MlModelUrn"
+@java.class = "com.linkedin.common.urn.MLModelUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
@@ -29,4 +29,4 @@ namespace com.linkedin.common
   } ],
   "maxLength" : 284
 }
-typeref MlModelUrn = string
+typeref MLModelUrn = string
