@@ -1,0 +1,47 @@
+namespace com.linkedin.common
+
+/**
+ * Feature Data Type
+ */
+enum FeatureDataType {
+
+  /**
+   * Boolean Data Type
+   */
+  BOOLEAN
+
+  /**
+   * Text Data Type ex: string
+   */
+  TEXT
+
+  /**
+   * Number Data Type ex: int, float, complex
+   */
+  NUMBER
+
+  /**
+   * Date/Time Data Type ex: date, time, datetime
+   */
+  DATETIME
+
+  /**
+   * Mapping Data Type ex: dict, map
+   */
+  MAP
+
+  /**
+   * Sequence Data Type ex: list, tuple, range
+   */
+  SEQUENCE
+
+  /**
+   * Binary Data Type ex: bytes, bytearray
+   */
+  BINARY
+
+  /**
+   * Set Data Type ex: set, frozenset
+   */
+  SET
+}

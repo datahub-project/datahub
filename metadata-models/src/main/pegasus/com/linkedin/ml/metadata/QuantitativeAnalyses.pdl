@@ -8,10 +8,10 @@ record QuantitativeAnalyses {
   /**
    * Link to a dashboard with results showing how the model performed with respect to each factor
    */
-  unitaryResults: optional string
+  unitaryResults: optional ResultsType
 
   /**
    * Link to a dashboard with results showing how the model performed with respect to the intersection of evaluated factors?
    */
-  intersectionalResults: optional string
+  intersectionalResults: optional ResultsType
 }
