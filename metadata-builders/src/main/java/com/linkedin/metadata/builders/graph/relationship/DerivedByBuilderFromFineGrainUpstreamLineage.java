@@ -6,7 +6,6 @@ import com.linkedin.dataset.FineGrainUpstream;
 import com.linkedin.dataset.FineGrainUpstreamLineage;
 import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.relationship.DerivedBy;
-import com.linkedin.metadata.relationship.HasField;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,14 +29,14 @@ public class DerivedByBuilderFromFineGrainUpstreamLineage extends BaseRelationsh
 
     List<DerivedBy> list = new ArrayList();
 
-    for(FineGrainUpstream stream: upstreamLineage.getUpstreams()) {
-      for(FineGrainFieldUpstream fieldUpStream: stream.getFields()) {
+    for (FineGrainUpstream stream: upstreamLineage.getUpstreams()) {
+      for (FineGrainFieldUpstream fieldUpStream: stream.getFields()) {
         try {
           list.add(new DerivedBy()
               .setSource(Urn.createFromString(stream.getDataset().toString() + ":" + fieldUpStream.getSourceField()))
-              .setDestination(Urn.createFromString(urn.toString() + ":" + fieldUpStream.getTargetField())));
+              .setDestination(Urn.createFromString(urn.toString() + ":" + fieldUpStream.getDestinationField())));
         } catch (URISyntaxException e) {
-
+          return null;
         }
       }
     }

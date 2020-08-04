@@ -31,7 +31,7 @@ public class HasFieldBuilderFromSchemaMetadata  extends BaseRelationshipBuilder<
       try {
         list.add(new HasField().setSource(urn).setDestination(new Urn(urn.toString() + ":" + field.getFieldPath())));
       } catch (URISyntaxException e) {
-
+        return null;
       }
     }
     return Collections.singletonList(new GraphBuilder.RelationshipUpdates(

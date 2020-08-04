@@ -5,8 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.Neo4jUtil;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.utils.Statement;
-import com.linkedin.metadata.validator.EntityValidator;
-import com.linkedin.metadata.validator.RelationshipValidator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
