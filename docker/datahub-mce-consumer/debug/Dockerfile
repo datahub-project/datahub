@@ -1,3 +1,5 @@
+# Dummy docker file for development. Assumes code is built on your machine and mounted to this image.
+
 FROM openjdk:8-jre-alpine
 ENV DOCKERIZE_VERSION v0.6.1
 RUN apk --no-cache add curl tar \

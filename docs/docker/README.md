@@ -12,7 +12,8 @@ area.
 The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images 
 which are continuously deployed to [Docker Hub](https://hub.docker.com/u/linkedin) with every commit to repository.
 
-You can easily download and run all these images and their dependencies with our [quick start guide](../quickstart.md).
+You can easily download and run all these images and their dependencies with our
+[quick start guide](../docs/quickstart.md).
 
 DataHub Docker Images:
 
@@ -32,7 +33,7 @@ If you want to test ingesting some data once DataHub is up, see [**Ingestion**](
 
 ## Using Docker Images During Development
 
-See [Using Docker Images During Development](development.md).
+See [Using Docker Images During Development](../docs/docker/development.md).
 
 ## Building And Deploying Docker Images
 

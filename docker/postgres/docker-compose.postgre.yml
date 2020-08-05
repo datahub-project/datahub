@@ -1,4 +1,4 @@
-# Override to use MariaDB as a backing store for datahub-gms.
+# Override to use PostgreSQL as a backing store for datahub-gms.
 ---
 version: '3.8'
 services:
@@ -6,15 +6,15 @@ services:
     container_name: postgres
     hostname: postgres
     image: postgres:12.3
-    env_file: postgres/env/dev.env
+    env_file: env/dev.env
     restart: always
     ports:
       - '5432:5432'
     volumes:
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   datahub-gms:
-    env_file: datahub-gms/env/dev.mariadb.env
+    env_file: ../datahub-gms/env/dev.postgres.env
     depends_on:
       - postgres
 
