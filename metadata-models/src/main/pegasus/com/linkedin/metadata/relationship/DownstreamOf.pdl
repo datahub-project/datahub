@@ -8,6 +8,9 @@ import com.linkedin.dataset.DatasetLineageType
 @pairings = [ {
   "destination" : "com.linkedin.common.urn.DatasetUrn",
   "source" : "com.linkedin.common.urn.DatasetUrn"
+}, {
+  "destination" : "com.linkedin.common.urn.DatasetUrn",
+  "source" : "com.linkedin.common.urn.ChartUrn"
 } ]
 record DownstreamOf includes BaseRelationship {
 
