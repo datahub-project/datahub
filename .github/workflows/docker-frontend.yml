@@ -13,6 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: docker/build-push-action@v1
+        env:
+          DOCKER_BUILDKIT: 1
         with:
           dockerfile: ./docker/frontend/Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
