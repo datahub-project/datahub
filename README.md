@@ -22,7 +22,7 @@
 > 📣 Next DataHub town hall meeting on August 28th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/)) 
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - VC link (**NEW** we're using zoom!): https://linkedin.zoom.us/j/95617940722
-> - Details and recordings of past meetings can be found [here](docs/townhalls.md)
+> - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update: 
 > - We've released v0.4.2. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.2)
