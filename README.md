@@ -78,6 +78,7 @@ Here is a list of companies that are currently building POC or seriously evaluat
 * [Experian](https://www.experian.com)
 * [Geotab](https://www.geotab.com)
 * [Instructure](https://www.instructure.com)
+* [Inventec](https://www.inventec.com)
 * [Microsoft](https://microsoft.com)
 * [Morgan Stanley](https://www.morganstanley.com)
 * [Orange Telecom](https://www.orange.com)
