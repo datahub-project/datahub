@@ -1,0 +1,45 @@
+# Default overrides for running local development.
+
+# Images here are made as "development" images by following the general pattern of defining a multistage build with
+# separate prod/dev steps; using APP_ENV to specify which to use. The dev steps should avoid building and instead assume
+# that binaries and scripts will be mounted to the image, as also set up by this file. Also see see this excellent
+# thread https://github.com/docker/cli/issues/1134.
+
+# To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
+# port to this file.
+---
+# TODO mount + debug docker file for frontend
+version: '3.8'
+services:
+  datahub-gms:
+    image: linkedin/datahub-gms:debug
+    build:
+      context: datahub-gms
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+      - ../gms/war/build/libs/:/datahub/datahub-gms/bin
+
+  datahub-mae-consumer:
+    image: linkedin/datahub-mae-consumer:debug
+    build:
+      context: datahub-mae-consumer
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
+      - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
+
+  datahub-mce-consumer:
+    image: linkedin/datahub-mce-consumer:debug
+    build:
+      context: datahub-mce-consumer
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
+      - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
