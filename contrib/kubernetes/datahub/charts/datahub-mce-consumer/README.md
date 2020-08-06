@@ -2,7 +2,7 @@ datahub-mce-consumer
 ====================
 A Helm chart for datahub-mce-consumer
 
-Current chart version is `0.1.0`
+Current chart version is `0.2.0`
 
 ## Chart Values
 
@@ -10,9 +10,9 @@ Current chart version is `0.1.0`
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
 | fullnameOverride | string | `""` |  |
-| global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |
+| global.kafka.bootstrap.server | string | `"broker:29092"` |  |
+| global.kafka.schemaregistry.url | string | `"http://schema-registry:8081"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
-| global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
 | global.hostAliases[0].hostnames[0] | string | `"broker"` |  |
 | global.hostAliases[0].hostnames[1] | string | `"mysql"` |  |
 | global.hostAliases[0].hostnames[2] | string | `"elasticsearch"` |  |
