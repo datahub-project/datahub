@@ -17,11 +17,8 @@ metadata-events/mxe-registration/src/main/resources/**/*.avsc
 .java-version
 
 # Python
-.env
 .venv
-env/
 venv/
-ENV/
 env.bak/
 venv.bak/
 .mypy_cache/
