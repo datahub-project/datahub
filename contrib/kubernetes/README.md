@@ -31,10 +31,10 @@ The following table lists the configuration parameters and its default values
 
 | Repository | Name | Version |
 |------------|------|---------|
-| file://./charts/datahub-frontend | datahub-frontend | 0.1.0 |
-| file://./charts/datahub-gms | datahub-gms | 0.1.0 |
-| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.1.0 |
-| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.1.0 |
+| file://./charts/datahub-frontend | datahub-frontend | 0.2.0 |
+| file://./charts/datahub-gms | datahub-gms | 0.2.0 |
+| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.2.0 |
+| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.2.0 |
 
 #### Chart Values
 
