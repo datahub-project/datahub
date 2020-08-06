@@ -1,0 +1,192 @@
+# Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
+
+# Please see the README.md for instructions as to how to use and customize.
+
+# NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
+---
+version: '3.8'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.0
+    env_file: zookeeper/env/docker.env
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - zkdata:/var/opt/zookeeper
+
+  broker:
+    image: confluentinc/cp-kafka:5.4.0
+    env_file: broker/env/docker.env
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+
+  kafka-rest-proxy:
+    image: confluentinc/cp-kafka-rest:5.4.0
+    env_file: kafka-rest-proxy/env/docker.env
+    hostname: kafka-rest-proxy
+    container_name: kafka-rest-proxy
+    ports:
+      - "8082:8082"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui:0.9.4
+    env_file: kafka-topics-ui/env/docker.env
+    hostname: kafka-topics-ui
+    container_name: kafka-topics-ui
+    ports:
+      - "18000:8000"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - kafka-rest-proxy
+
+  # This "container" is a workaround to pre-create topics
+  kafka-setup:
+    build:
+      context: kafka-setup
+    env_file: kafka-setup/env/docker.env
+    hostname: kafka-setup
+    container_name: kafka-setup
+    depends_on:
+      - broker
+      - schema-registry
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.4.0
+    env_file: schema-registry/env/docker.env
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "8081:8081"
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui:latest
+    env_file: schema-registry-ui/env/docker.env
+    container_name: schema-registry-ui
+    hostname: schema-registry-ui
+    ports:
+      - "8000:8000"
+    depends_on:
+      - schema-registry
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.8
+    env_file: elasticsearch/env/docker.env
+    container_name: elasticsearch
+    hostname: elasticsearch
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:5.6.8
+    env_file: kibana/env/docker.env
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  neo4j:
+    image: neo4j:3.5.7
+    env_file: neo4j/env/docker.env
+    hostname: neo4j
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4jdata:/data
+
+  # This "container" is a workaround to pre-create search indices
+  elasticsearch-setup:
+    build:
+      context: elasticsearch-setup
+    env_file: elasticsearch-setup/env/docker.env
+    hostname: elasticsearch-setup
+    container_name: elasticsearch-setup
+    depends_on:
+      - elasticsearch
+
+  datahub-gms:
+    build:
+        context: ../
+        dockerfile: docker/datahub-gms/Dockerfile
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
+    hostname: datahub-gms
+    container_name: datahub-gms
+    ports:
+      - "8080:8080"
+    depends_on:
+      - elasticsearch-setup
+      - kafka-setup
+      - mysql
+      - neo4j
+
+  datahub-frontend:
+    build:
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
+    image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
+    env_file: datahub-frontend/env/docker.env
+    hostname: datahub-frontend
+    container_name: datahub-frontend
+    ports:
+      - "9001:9001"
+    depends_on:
+      - datahub-gms
+
+  datahub-mae-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mae-consumer/Dockerfile
+    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
+    env_file: datahub-mae-consumer/env/docker.env
+    hostname: datahub-mae-consumer
+    container_name: datahub-mae-consumer
+    ports:
+        - "9091:9091"
+    depends_on:
+      - kafka-setup
+      - elasticsearch-setup
+      - neo4j
+
+  datahub-mce-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mce-consumer/Dockerfile
+    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
+    env_file: datahub-mce-consumer/env/docker.env
+    hostname: datahub-mce-consumer
+    container_name: datahub-mce-consumer
+    ports:
+      - "9090:9090"
+    depends_on:
+      - kafka-setup
+      - datahub-gms
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  esdata:
+  neo4jdata:
+  zkdata:
