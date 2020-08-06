@@ -13,7 +13,7 @@ RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-
 
 FROM base as prod-install
 COPY --from=prod-build /mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
-COPY --from=prod-build docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
+COPY --from=prod-build /datahub-src/docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
 FROM base as dev-install

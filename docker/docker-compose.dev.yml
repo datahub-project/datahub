@@ -15,6 +15,7 @@ services:
     image: linkedin/datahub-gms:debug
     build:
       context: datahub-gms
+      dockerfile: Dockerfile
       args:
         APP_ENV: dev
     volumes:
@@ -25,6 +26,7 @@ services:
     image: linkedin/datahub-mae-consumer:debug
     build:
       context: datahub-mae-consumer
+      dockerfile: Dockerfile
       args:
         APP_ENV: dev
     volumes:
@@ -35,6 +37,7 @@ services:
     image: linkedin/datahub-mce-consumer:debug
     build:
       context: datahub-mce-consumer
+      dockerfile: Dockerfile
       args:
         APP_ENV: dev
     volumes:

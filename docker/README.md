@@ -40,3 +40,17 @@ See [Using Docker Images During Development](../docs/docker/development.md).
 
 We use GitHub actions to build and continuously deploy our images. There should be no need to do this manually; a
 successful release on Github will automatically publish the images.
+
+### Building images
+
+To build the full images (that we are going to publish), you need to run the following:
+
+```
+COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub build
+```
+
+This is because we're relying on builtkit for multistage builds. It does not hurt also set `DATAHUB_VERSION` to
+something unique.
+
+This is not our recommended development flow and most developers should be following the
+[Using Docker Images During Development](#using-docker-images-during-development) guide.
