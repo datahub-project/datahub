@@ -3,10 +3,12 @@
 version: '3.8'
 services:
   mysql:
+    build:
+        context: mysql
     container_name: mysql
     hostname: mysql
     image: mysql:5.7
-    env_file: mysql/env/dev.env
+    env_file: mysql/env/docker.env
     restart: always
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
@@ -16,7 +18,7 @@ services:
       - mysqldata:/var/lib/mysql
 
   datahub-gms:
-    env_file: datahub-gms/env/dev.env
+    env_file: datahub-gms/env/docker.env
     depends_on:
       - mysql
 

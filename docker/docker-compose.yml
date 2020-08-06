@@ -6,22 +6,9 @@
 ---
 version: '3.8'
 services:
-  mysql:
-    container_name: mysql
-    hostname: mysql
-    image: mysql:5.7
-    env_file: mysql/env/dev.env
-    restart: always
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - mysqldata:/var/lib/mysql
-
   zookeeper:
     image: confluentinc/cp-zookeeper:5.4.0
-    env_file: zookeeper/env/dev.env
+    env_file: zookeeper/env/docker.env
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -31,7 +18,7 @@ services:
 
   broker:
     image: confluentinc/cp-kafka:5.4.0
-    env_file: broker/env/dev.env
+    env_file: broker/env/docker.env
     hostname: broker
     container_name: broker
     depends_on:
@@ -42,7 +29,7 @@ services:
 
   kafka-rest-proxy:
     image: confluentinc/cp-kafka-rest:5.4.0
-    env_file: kafka-rest-proxy/env/dev.env
+    env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     container_name: kafka-rest-proxy
     ports:
@@ -54,7 +41,7 @@ services:
 
   kafka-topics-ui:
     image: landoop/kafka-topics-ui:0.9.4
-    env_file: kafka-topics-ui/env/dev.env
+    env_file: kafka-topics-ui/env/docker.env
     hostname: kafka-topics-ui
     container_name: kafka-topics-ui
     ports:
@@ -67,7 +54,9 @@ services:
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
-    env_file: kafka-setup/env/dev.env
+    build:
+      context: kafka-setup
+    env_file: kafka-setup/env/docker.env
     hostname: kafka-setup
     container_name: kafka-setup
     depends_on:
@@ -76,7 +65,7 @@ services:
 
   schema-registry:
     image: confluentinc/cp-schema-registry:5.4.0
-    env_file: schema-registry/env/dev.env
+    env_file: schema-registry/env/docker.env
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
@@ -87,7 +76,7 @@ services:
 
   schema-registry-ui:
     image: landoop/schema-registry-ui:latest
-    env_file: schema-registry-ui/env/dev.env
+    env_file: schema-registry-ui/env/docker.env
     container_name: schema-registry-ui
     hostname: schema-registry-ui
     ports:
@@ -97,7 +86,7 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:5.6.8
-    env_file: elasticsearch/env/dev.env
+    env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch
     ports:
@@ -107,7 +96,7 @@ services:
 
   kibana:
     image: docker.elastic.co/kibana/kibana:5.6.8
-    env_file: kibana/env/dev.env
+    env_file: kibana/env/docker.env
     container_name: kibana
     hostname: kibana
     ports:
@@ -117,7 +106,7 @@ services:
 
   neo4j:
     image: neo4j:3.5.7
-    env_file: neo4j/env/dev.env
+    env_file: neo4j/env/docker.env
     hostname: neo4j
     container_name: neo4j
     ports:
@@ -128,13 +117,18 @@ services:
 
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
-    env_file: elasticsearch-setup/env/dev.env
+    build:
+      context: elasticsearch-setup
+    env_file: elasticsearch-setup/env/docker.env
     hostname: elasticsearch-setup
     container_name: elasticsearch-setup
     depends_on:
       - elasticsearch
 
   datahub-gms:
+    build:
+        context: ../
+        dockerfile: docker/datahub-gms/Dockerfile
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     hostname: datahub-gms
     container_name: datahub-gms
@@ -147,8 +141,11 @@ services:
       - neo4j
 
   datahub-frontend:
+    build:
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
     image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
-    env_file: datahub-frontend/env/dev.env
+    env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend
     container_name: datahub-frontend
     ports:
@@ -157,8 +154,11 @@ services:
       - datahub-gms
 
   datahub-mae-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mae-consumer/Dockerfile
     image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
-    env_file: datahub-mae-consumer/env/dev.env
+    env_file: datahub-mae-consumer/env/docker.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
@@ -169,8 +169,11 @@ services:
       - neo4j
 
   datahub-mce-consumer:
+    build:
+      context: ../
+      dockerfile: docker/datahub-mce-consumer/Dockerfile
     image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
-    env_file: datahub-mce-consumer/env/dev.env
+    env_file: datahub-mce-consumer/env/docker.env
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
     ports:
@@ -184,7 +187,6 @@ networks:
     name: datahub_network
 
 volumes:
-  mysqldata:
   esdata:
   neo4jdata:
   zkdata:
