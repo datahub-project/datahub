@@ -8,13 +8,12 @@ RUN apk --no-cache add curl tar \
 
 FROM openjdk:8 as prod-build
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :metadata-jobs:mae-consumer-job:build \
-    && cp metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar ../mae-consumer-job.jar \
-    && cd .. && rm -rf datahub-src
+RUN cd datahub-src && ./gradlew :metadata-jobs:mae-consumer-job:build
+RUN cd datahub-src && cp metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar ../mae-consumer-job.jar
 
 FROM base as prod-install
 COPY --from=prod-build /mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
-COPY --from=prod-build docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
+COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
 FROM base as dev-install

@@ -8,9 +8,8 @@ RUN apk --no-cache add curl tar \
 
 FROM openjdk:8 as prod-build
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build \
-    && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar ../mce-consumer-job.jar \
-    && cd .. && rm -rf datahub-src
+RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build
+RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar ../mce-consumer-job.jar
 
 FROM base as prod-install
 COPY --from=prod-build /mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/

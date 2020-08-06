@@ -9,8 +9,8 @@ RUN apk --no-cache add curl tar \
 
 FROM openjdk:8 as prod-build
 COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :gms:war:build \
-    && cp gms/war/build/libs/war.war /war.war
+RUN cd /datahub-src && ./gradlew :gms:war:build
+RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
 
 FROM base as prod-install
 COPY --from=prod-build /war.war /datahub/datahub-gms/bin/war.war
