@@ -54,6 +54,7 @@ Agenda
 ## 04/03/20
 
 [Recording](https://bluejeans.com/s/vzYpa)
+
 [Q&A](https://docs.google.com/document/d/1ChF9jiJWv9wj3HLLkFYRg7NSYg8Kb0PT7COd7Hf9Zpk/edit?usp=sharing)
 
 - Agenda
@@ -67,6 +68,7 @@ Agenda
 ## 03/20/20
 
 [Recording](https://bluejeans.com/s/FSKEF)
+
 [Q&A](https://docs.google.com/document/d/1vQ6tAGXsVafnPIcZv1GSYgnTJJXFOACa1aWzOQjiGHI/edit)
 
 Agenda
@@ -80,5 +82,6 @@ Agenda
 ## 03/06/20
 
 [Recording](https://bluejeans.com/s/vULMG)
+
 [Q&A](https://docs.google.com/document/d/1N_VGqlH9CD-54LBsVlpcK2Cf2Mgmuzq79EvN9qgBqtQ/edit)
 
