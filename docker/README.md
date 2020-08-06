@@ -2,7 +2,8 @@
 
 ## Prerequisites
 You need to install [docker](https://docs.docker.com/install/) and
-[docker-compose](https://docs.docker.com/compose/install/).
+[docker-compose](https://docs.docker.com/compose/install/) (if using Linux; on Windows and Mac compose is included with
+Docker Desktop).
 
 Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap
 area.
