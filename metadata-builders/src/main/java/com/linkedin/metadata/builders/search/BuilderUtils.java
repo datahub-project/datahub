@@ -3,16 +3,13 @@ package com.linkedin.metadata.builders.search;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.DatasetUrnArray;
-import com.linkedin.common.MultiLocaleString;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.StringArray;
 import java.net.URISyntaxException;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -74,24 +71,6 @@ public final class BuilderUtils {
   @Nonnull
   public static StringArray getCorpGroupnames(@Nonnull CorpGroupUrnArray corpgroupUrns) {
     return corpgroupUrns.stream().map(urn -> urn.getGroupNameEntity()).collect(Collectors.toCollection(StringArray::new));
-  }
-
-  /**
-   * Convert a Multi locale String to users preferred language
-   * @param multiLocaleString
-   * @param locale {@link String} User's preferred language such as "en_US"
-   * @return Localized String
-   */
-  @Nonnull
-  public static String convertMultiLocaleStringToString(@Nonnull MultiLocaleString multiLocaleString, @Nonnull String locale) {
-    String convertedString = multiLocaleString.getLocalized().get(locale);
-      if (convertedString == null) {
-        Set<String> keySet = multiLocaleString.getLocalized(GetMode.STRICT).keySet();
-        if (!keySet.isEmpty() && keySet.iterator().hasNext()) {
-          convertedString = multiLocaleString.getLocalized().get(keySet.iterator().next());
-        }
-      }
-    return convertedString != null ? convertedString : "";
   }
 
   /**
