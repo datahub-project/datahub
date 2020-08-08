@@ -25,6 +25,10 @@ spec:
       serviceAccountName: {{ include "datahub-mae-consumer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | indent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -51,6 +55,13 @@ spec:
                 secretKeyRef:
                   name: "{{ .Values.global.neo4j.password.secretRef }}"
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
+          {{- if .Values.extraEnvs }}
+            {{ toYaml .Values.extraEnvs | indent 10 }}
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

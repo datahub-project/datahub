@@ -9,6 +9,9 @@ Current chart version is `0.2.0`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| extraEnvs | Extra [environment variables][] which will be appended to the `env:` definition for the container | `[]` |
+| extraVolumes | Templatable string of additional `volumes` to be passed to the `tpl` function | "" |
+| extraVolumeMounts | Templatable string of additional `volumeMounts` to be passed to the `tpl` function | "" |
 | fullnameOverride | string | `"datahub-gms-deployment"` |  |
 | global.datahub.appVersion | string | `"1.0"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
