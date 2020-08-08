@@ -24,13 +24,13 @@ DataHub Docker Images:
 * [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
 Dependencies:
-* [**Kafka and Schema Registry**](kafka)
-* [**Elasticsearch**](elasticsearch-setup)
-* [**MySQL**](mysql)
+* [Kafka and Schema Registry](kafka)
+* [Elasticsearch](elasticsearch-setup)
+* [MySQL](mysql)
 
 ### Ingesting demo data.
 
-If you want to test ingesting some data once DataHub is up, see [**Ingestion**](ingestion/README.md).
+If you want to test ingesting some data once DataHub is up, see [Ingestion](ingestion/README.md) for more details.
 
 ## Using Docker Images During Development
 
@@ -38,10 +38,13 @@ See [Using Docker Images During Development](../docs/docker/development.md).
 
 ## Building And Deploying Docker Images
 
-We use GitHub actions to build and continuously deploy our images. There should be no need to do this manually; a
+We use GitHub Actions to build and continuously deploy our images. There should be no need to do this manually; a
 successful release on Github will automatically publish the images.
 
 ### Building images
+
+> This is **not** our recommended development flow and most developers should be following the
+> [Using Docker Images During Development](#using-docker-images-during-development) guide.
 
 To build the full images (that we are going to publish), you need to run the following:
 
@@ -51,6 +54,3 @@ COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub build
 
 This is because we're relying on builtkit for multistage builds. It does not hurt also set `DATAHUB_VERSION` to
 something unique.
-
-This is not our recommended development flow and most developers should be following the
-[Using Docker Images During Development](#using-docker-images-during-development) guide.
