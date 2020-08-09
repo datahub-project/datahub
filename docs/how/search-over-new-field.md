@@ -5,7 +5,7 @@ If you need to onboard a new entity to search, refer to [How to onboard to GMA S
 For this exercise, we'll add a new field to an existing aspect of corp users and search over this field. Your use case might require searching over an existing field of an aspect or create a brand new aspect and search over it's field(s). For such use cases, similar steps should be followed.
 
 ## 1. Add field to aspect (skip this step if the field already exists in an aspect)
-For this example, we will add new field `courses` to `CorpUserEditableInfo` which is an aspect of corp user entity.
+For this example, we will add new field `courses` to [CorpUserEditableInfo](../../metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdl) which is an aspect of corp user entity.
 ```
 namespace com.linkedin.identity
 
@@ -26,7 +26,7 @@ record CorpUserEditableInfo {
 ```
 
 ## 2. Add field to search document model
-For this example, we will add new field `courses` to `CorpUserInfoDocument.pdl` which is the search document model for corp user entity.
+For this example, we will add field `courses` to [CorpUserInfoDocument.pdl](../../metadata-models/src/main/pegasus/com/linkedin/metadata/search/CorpUserInfoDocument.pdl) which is the search document model for corp user entity.
 
 ```
 namespace com.linkedin.metadata.search
@@ -89,7 +89,7 @@ If you want corp user search index to contain this new field `courses` next time
 Choose your analyzer wisely. For this example, we store the field `courses` as an array of string and hence use `text` data type. Default analyzer is `standard` and it provides grammar based tokenization.
 
 ## 5. Update the index builder logic
-Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in `CorpUserInfoIndexBuilder`
+Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in [CorpUserInfoIndexBuilder](../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/CorpUserInfoIndexBuilder.java)
 
 ```java
 package com.linkedin.metadata.builders.search;
@@ -122,7 +122,7 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
 ```
 
 ## 6: Update search query template, to start searching over the new field.
-For this example, we will modify `corpUserESSearchQueryTemplate.json` to start searching over the field `courses`. Here is an example
+For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/impl/src/main/resources/corpUserESSearchQueryTemplate.json) to start searching over the field `courses`. Here is an example
 
 ```json
 {
@@ -157,7 +157,7 @@ For this example, we will modify `corpUserESSearchQueryTemplate.json` to start s
   }
 }
 ```
-As you can see in the above query template, corp user search is performed across multiple fields. We have now added `courses` to the array of fields.
+As you can see in the above query template, corp user search is performed across multiple fields, to which the field `courses` has been added.
 
 ## 7: Test your changes
 Make sure relevant docker containers are rebuilt before testing the changes.
