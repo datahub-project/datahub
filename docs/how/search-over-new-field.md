@@ -1,6 +1,6 @@
 # Onboarding to GMA Search - searching over a new field
 
-If you need to onboard a new entity to search, refer to [How to onboard to GMA Search](docs/how/search-onboarding.md)
+If you need to onboard a new entity to search, refer to [How to onboard to GMA Search](./search-onboarding.md)
 
 For this exercise, we'll add a new field to an existing aspect of corp users and search over this field. Your use case might require searching over an existing field of an aspect or create a brand new aspect and search over it's field(s). For such use cases, similar steps should be followed.
 
