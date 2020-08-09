@@ -1,6 +1,6 @@
 # Onboarding to GMA Search - searching over a new field
 
-If you need to onboard a new entity to search, refer to [How to onboard to GMA Search](./search-onboarding.md)
+If you need to onboard a new entity to search, refer to [How to onboard to GMA Search](./search-onboarding.md).
 
 For this exercise, we'll add a new field to an existing aspect of corp users and search over this field. Your use case might require searching over an existing field of an aspect or create a brand new aspect and search over it's field(s). For such use cases, similar steps should be followed.
 
@@ -47,7 +47,7 @@ record CorpUserInfoDocument includes BaseDocument {
 ```
 
 ## 3. Modify the mapping of search index
-Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index
+Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
 ```json
 curl http://localhost:8080/corpuserinfodocument/doc/_mapping? --data '
@@ -61,7 +61,7 @@ curl http://localhost:8080/corpuserinfodocument/doc/_mapping? --data '
 ```
 
 ## 4. Modify index config, so that the new mapping is picked up next time
-If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json)
+If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json).
 
 ```
 {
@@ -89,7 +89,7 @@ If you want corp user search index to contain this new field `courses` next time
 Choose your analyzer wisely. For this example, we store the field `courses` as an array of string and hence use `text` data type. Default analyzer is `standard` and it provides grammar based tokenization.
 
 ## 5. Update the index builder logic
-Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in [CorpUserInfoIndexBuilder](../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/CorpUserInfoIndexBuilder.java)
+Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in [CorpUserInfoIndexBuilder](../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/CorpUserInfoIndexBuilder.java).
 
 ```java
 package com.linkedin.metadata.builders.search;
@@ -121,8 +121,8 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
 
 ```
 
-## 6: Update search query template, to start searching over the new field.
-For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/impl/src/main/resources/corpUserESSearchQueryTemplate.json) to start searching over the field `courses`. Here is an example
+## 6: Update search query template, to start searching over the new field
+For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/impl/src/main/resources/corpUserESSearchQueryTemplate.json) to start searching over the field `courses`. Here is an example.
 
 ```json
 {
@@ -161,7 +161,7 @@ As you can see in the above query template, corp user search is performed across
 
 ## 7: Test your changes
 Make sure relevant docker containers are rebuilt before testing the changes.
-If this is a new field that has been added to an existing snapshot, then you can test by ingesting data that contains this new field. Here is an example of ingesting to `/corpUsers` endpoint, with the new field `courses`
+If this is a new field that has been added to an existing snapshot, then you can test by ingesting data that contains this new field. Here is an example of ingesting to `/corpUsers` endpoint, with the new field `courses`.
 
 ```
 curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '
@@ -189,7 +189,7 @@ curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protoc
 }'
 ```
 
-Once the ingestion is done, you can test your changes by issuing search queries. Here is an example query with response:
+Once the ingestion is done, you can test your changes by issuing search queries. Here is an example query with response.
 
 ```
 curl "http://localhost:8080/corpUsers?q=search&input=ai200" -H 'X-RestLi-Protocol-Version: 2.0.0' -s | jq
