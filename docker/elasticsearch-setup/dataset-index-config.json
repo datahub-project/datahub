@@ -165,6 +165,14 @@
         "deprecated": {
           "type": "boolean"
         },
+        "description": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
         "hasOwners": {
           "type": "boolean"
         },
