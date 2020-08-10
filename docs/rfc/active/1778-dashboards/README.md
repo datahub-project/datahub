@@ -21,7 +21,7 @@ By having dashboards as a top level entity in Datahub, we achieve below goals:
 
 ## Detailed design
 
-![high level design](imgs/high_level_design.png)
+![high level design](high_level_design.png)
 
 As shown in the above diagram, dashboards are composed of a collection of charts at a very high level. These charts
 could be shared by different dashboards. In the example sketched above, `Chart_1`, `Chart_2` and `Chart_3` are part of
@@ -80,7 +80,7 @@ Below is a list of metadata which can be associated with a dashboard:
 
 ### Metadata graph
 
-![dashboards_graph](imgs/dashboards_graph.png)
+![dashboards_graph](dashboards_graph.png)
 
 An example metadata graph showing complete data lineage picture is shown above.
 In this picture, `Dash_A` and `Dash_B` are dashboards and they are connected to charts through `Contains` edges.
