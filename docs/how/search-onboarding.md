@@ -1,5 +1,7 @@
 # How to onboard to GMA search?
 
+> Refer to [this doc](./search-over-new-field.md) if you're only interested in indexing a new field of an existing entity 
+
 ## 1. Define search document model for the entity
 Modeling is the most important and crucial part of your design. 
 [Search document] model contains a list of fields that need to be indexed along with the names and their data types. 
