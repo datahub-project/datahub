@@ -7,9 +7,7 @@ Normally, you'd rebuild your images from scratch with `docker-compose build` (or
 this takes way too long for development. It has to copy the entire repo to each image and rebuild it there.
 
 The `docker-compose.dev.yml` file bypasses this problem by mounting binaries, startup scripts, and other data to
-special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`). Mounts work
-both ways, so they should also try to mount log directories on the container, so that they are easy to read on your
-local machine without needing to inspect the running container (especially if the app crashes and the container stops!).
+special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`).
 
 We highly recommend you just invoke the `docker/dev.sh` script we've included. It is pretty small if you want to read it
 to see what it does, but it ends up using our `docker-compose.dev.yml` file.
@@ -43,7 +41,12 @@ JAVA_TOOL_OPTIONS -agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspe
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
 ```
 
+
 ## Tips for People New To Docker
+
+## Accessing Logs
+
+It is highly recommended you use [Docker Desktop's dashboard](https://www.docker.com/products/docker-desktop) to access service logs. If you double click an image it will pull up the logs for you.
 
 ### Conflicting containers
 
