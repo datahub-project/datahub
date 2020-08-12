@@ -1,0 +1,12 @@
+version: '3.1'
+
+services:
+
+  postgres:
+    image: mcr.microsoft.com/mssql/server
+    restart: always
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: DatahubR0cks
+    ports:
+      - "1433:1433"
