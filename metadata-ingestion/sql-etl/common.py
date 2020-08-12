@@ -8,10 +8,6 @@ from sqlalchemy import create_engine
 from sqlalchemy import types
 from sqlalchemy.engine import reflection
 
-URL = 'mysql+pymysql://datahub:datahub@localhost:3306' # e.g. mysql+pymysql://username:password@hostname:port
-OPTIONS = {} # e.g. {"encoding": "latin1"}
-
-
 @dataclass
 class KafkaConfig:
     avsc_path = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
@@ -57,7 +53,7 @@ def build_dataset_mce(platform, dataset_name, columns):
             "fieldPath": column["name"],
             "nativeDataType": repr(column["type"]),
             "type": { "type":get_column_type(column["type"]) },
-            "description": column["comment"]
+            "description": column.get("comment", None)
         })
 
     schema_metadata = {
