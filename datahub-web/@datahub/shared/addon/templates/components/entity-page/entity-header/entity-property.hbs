@@ -1,0 +1,52 @@
+{{#if hasBlock}}
+  {{yield
+    (hash
+      propertyName=(component "entity-page/entity-header/naked-div" class="wherehows-entity-header-property__name")
+      propertyValue=(component "entity-page/entity-header/naked-div" class="wherehows-entity-header-property__value")
+    )
+  }}
+{{else}}
+  {{!-- META-11899: Reuse Properties Panel for this --}}
+  <div class="wherehows-entity-header-property__name">
+    <strong>
+      {{titleize name}}
+    </strong>
+  </div>
+
+  <div class="wherehows-entity-header-property__value">
+    {{#if (eq config.displayType "link")}}
+
+      {{#each computedLink as |link|}}
+
+        <a
+          href={{link.ref}} target="_blank"
+          rel="noreferrer noopener"
+          class="wherehows-entity-header-property__item-value"
+        >
+          {{link.display}}
+        </a>
+
+      {{/each}}
+
+    {{else if (eq config.displayType "component")}}
+
+      {{component config.componentOptions.name options=config.componentOptions.options}}
+
+    {{else}}
+
+      {{#if (eq valueType "string")}}
+        {{displayValue}}
+      {{else if (eq valueType "array")}}
+        {{#each displayValue as |item|}}
+          <span class="wherehows-entity-header-property__item-value">{{item}}</span>
+        {{/each}}
+      {{else if (eq valueType "boolean")}}
+        {{if displayValue "Yes" "No"}}
+      {{else}}
+        Unrecognized type {{valueType}}: {{displayValue}}
+      {{/if}}
+
+    {{/if}}
+
+  </div>
+{{/if}}

@@ -1,0 +1,8 @@
+@mixin nacho-button {
+  cursor: pointer;
+}
+
+@mixin nacho-button--blank {
+  border: none;
+  background: transparent;
+}

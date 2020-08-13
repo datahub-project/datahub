@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { action } from '@ember/object';
 import { classNames } from '@ember-decorators/component';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { noop } from 'lodash';
 
 @classNames('nacho-login-form')
 export default class LoginForm extends Component {

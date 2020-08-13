@@ -1,10 +1,28 @@
+<h4 class="dataset-relationships__header">
+  Upstream
+
+  {{#if this.upstreams}}
+    <JitAcl::Access::RequestAccessButton
+      class="nacho-button--tertiary"
+      @semanticUrns={{this.upstreamUrns}}
+      @requestJitAccess={{@requestJitAccess}}
+      @addRequestJitUrn={{@requestJitAccess.addRequestJitUrn}}
+    />
+  {{/if}}
+</h4>
+
 {{#if getDatasetUpstreamsTask.isRunning}}
-  {{pendulum-ellipsis-animation}}
+  <PendulumEllipsisAnimation />
 {{else}}
-  {{yield
-    (hash
-      upstreams=upstreams
-      urn=urn
-    )
-  }}
+  {{#if this.upstreams}}
+    <Datasets::Relationships::DatasetRelationshipTable
+      @relationships={{this.upstreams}}
+    />
+
+  {{else}}
+    <div class="dataset-relationships-not-found">
+      This dataset does not have upstream relationships.
+    </div>
+
+  {{/if}}
 {{/if}}

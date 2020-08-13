@@ -3,12 +3,12 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render, findAll, triggerEvent } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
-module('Integration | Component | radio-button-composer', function(hooks) {
+module('Integration | Component | radio-button-composer', function(hooks): void {
   setupRenderingTest(hooks);
 
   const disabledClass = 'paralyzed-pikachu';
 
-  test('decorated properties behave as expected', async function(assert) {
+  test('decorated properties behave as expected', async function(assert): Promise<void> {
     this.setProperties({
       disabledClass,
       value: 'electrify',
@@ -27,7 +27,7 @@ module('Integration | Component | radio-button-composer', function(hooks) {
 
     // Ensures the function assert was called.
     assert.expect(4);
-    assert.equal(this.element.textContent!.trim(), 'electrify', 'renders expected value');
+    assert.equal(this.element.textContent?.trim(), 'electrify', 'renders expected value');
     assert.equal(findAll(`.${disabledClass}`).length, 0, 'Does not disable when not supposed to');
 
     await triggerEvent('span', 'mouseover');

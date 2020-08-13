@@ -19,3 +19,8 @@ declare module 'ember-simple-auth/services/session' {
     isAuthenticated: boolean;
   }
 }
+
+declare module 'ember-simple-auth/authenticators/base' {
+  import EmberObject from '@ember/object';
+  export default EmberObject;
+}

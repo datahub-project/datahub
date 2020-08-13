@@ -1,0 +1,22 @@
+.nacho-avatar {
+  @include round-avatar;
+  box-sizing: border-box;
+  background-clip: content-box;
+  border: 2px solid transparent;
+  background-color: get-color(silver3);
+
+  &--stacked {
+    border: 2px solid white;
+    transition-duration: 167ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    transition-delay: 0s;
+
+    &:nth-of-type(1n + 2) {
+      margin-left: -(item-spacing(7) / 2);
+    }
+  }
+
+  &--focused {
+    border-color: get-color(blue5);
+  }
+}

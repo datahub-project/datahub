@@ -1,9 +1,8 @@
 import Service from '@ember/service';
-import { bannerAnimationSpeed } from '@datahub/utils/constants/notifications';
-import { NotificationEvent } from '@datahub/utils/constants/notifications';
-import { delay } from 'wherehows-web/utils/promise-delay';
+import { bannerAnimationSpeed, NotificationEvent } from '@datahub/utils/constants/notifications';
+import { delay } from 'datahub-web/utils/promise-delay';
 import { computed } from '@ember/object';
-import { getConfig } from 'wherehows-web/services/configurator';
+import { getConfig } from 'datahub-web/services/configurator';
 
 /**
  * Expected properties to be found on a basic banner object added to our list
@@ -15,6 +14,7 @@ export interface IBanner {
   isDismissable: boolean;
   iconName: string;
   usePartial: boolean;
+  link?: string;
 }
 
 /**
@@ -113,6 +113,36 @@ export default class BannerService extends Service {
       isExiting: false,
       isDismissable: isDismissableMap[type],
       iconName: iconNameMap[type]
+    });
+  }
+
+  /**
+   * Method to add a custom banner to our queue. Takes the content and creates a standardized interface our service can
+   * understand
+   * @param content - the content inside the banner. Should be text
+   * @param type - the type of banner we want to create
+   * @param icon - a custom icon for the banner, defaults to the icon used for the notifcation type of not provided
+   * @param link - any link we want to draw attention to for our banner
+   */
+  addCustomBanner(
+    content: string,
+    type: NotificationEvent = NotificationEvent['info'],
+    icon?: string,
+    link?: string
+  ): void {
+    // Note: If we don't have an icon given, we default to the type of icon that is corresponded to the event type
+    icon = icon || iconNameMap[type];
+    // Ensures we have a valid notification type, if not we default to the info one
+    type = Object.values(NotificationEvent).includes(type) ? type : NotificationEvent['info'];
+
+    this.banners.unshiftObject({
+      type,
+      content,
+      link,
+      iconName: icon,
+      isExiting: false,
+      isDismissable: true,
+      usePartial: false
     });
   }
 

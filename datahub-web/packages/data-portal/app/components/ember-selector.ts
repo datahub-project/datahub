@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { classNames } from '@ember-decorators/component';
 import { computed, action } from '@ember/object';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { noop } from 'lodash';
 
 interface IOption<T> {
   value: T;
@@ -12,12 +12,12 @@ interface IOption<T> {
 
 // TODO META-7964 replace Ember Selector with nacho component
 @classNames('nacho-select')
-export default class EmberSelector extends Component {
-  selected: any;
+export default class EmberSelector<T extends Partial<IOption<T>>> extends Component {
+  selected: T;
 
-  values: Array<any> = [];
+  values: Array<T> = [];
 
-  selectionDidChange: (selected: any) => void = noop;
+  selectionDidChange: (selected: T) => void = noop;
 
   /**
    * Parse and transform the values list into a list of objects with the currently
@@ -25,17 +25,19 @@ export default class EmberSelector extends Component {
    */
 
   @computed('selected', 'values')
-  get content(): Array<IOption<any>> {
+  get content(): Array<IOption<T>> {
     const { selected = null, values = [] } = this;
 
-    const content = values.map(option => {
-      if (typeof option === 'object' && typeof option.value !== 'undefined') {
-        const isSelected = option.value === selected;
-        return { value: option.value, label: option.label, isSelected, isDisabled: option.isDisabled || false };
-      }
+    const content = values.map(
+      (option: T): IOption<T> => {
+        if (typeof option === 'object' && typeof option.value !== 'undefined') {
+          const isSelected = option.value === selected;
+          return { value: option.value, label: option.label, isSelected, isDisabled: option.isDisabled || false };
+        }
 
-      return { value: option, isSelected: option === selected };
-    });
+        return { value: option, isSelected: option === selected };
+      }
+    );
 
     return content;
   }

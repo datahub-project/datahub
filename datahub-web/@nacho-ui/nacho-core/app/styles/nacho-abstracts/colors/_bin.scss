@@ -1,0 +1,13 @@
+/// The bin layer of our color theming should simply be all of the colors that are available to be used in our application, providing
+/// one layer of abstraction of using simply hex values for everything. This enum can also be preset by a consumer in their theming
+/// layer, which will take priority over our value below.
+
+/// All the available colors we want to be able to work with in our application, will default to what's in the theme
+/// layer if not already set
+$color-bin: (
+  blue5: #0977b1,
+  purple7: #594cc9,
+  red6: #df2511,
+  white: #ffffff,
+  black: #000000
+) !default;

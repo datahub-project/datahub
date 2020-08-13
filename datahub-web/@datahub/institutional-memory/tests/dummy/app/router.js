@@ -1,20 +1,20 @@
 import EmberRouter from '@ember/routing/router';
 import config from './config/environment';
 
-const Router = EmberRouter.extend({
-  location: config.locationType,
-  rootURL: config.rootURL
-});
+export default class Router extends EmberRouter {
+  location = config.locationType;
+  rootURL = config.rootURL;
+}
 
 Router.map(function() {
   this.route('wiki');
   this.route('testcomponents');
-
+  // TODO: [META-11856] This is here as the acceptance test for the wiki tab throws an error because
+  // this package has no concept of the user profile page, but the avatar links to such page. Should
+  // be improved when we revamp how testing is done
   this.route('user', function() {
     this.route('profile', { path: '/:user_id' }, function() {
       this.route('tab', { path: '/:tab_selected' });
     });
   });
 });
-
-export default Router;

@@ -3,11 +3,11 @@ import {
   IState,
   AutocompleteRuleNames,
   INodeProcessor
-} from 'wherehows-web/utils/parsers/autocomplete/types';
-import { entityProcessor } from 'wherehows-web/utils/parsers/autocomplete/processors/entity';
-import { facetsProcessor } from 'wherehows-web/utils/parsers/autocomplete/processors/facets';
-import { logicalOperatorsProcessor } from 'wherehows-web/utils/parsers/autocomplete/processors/logical-operators';
-import { arrayReduce } from 'wherehows-web/utils/array';
+} from 'datahub-web/utils/parsers/autocomplete/types';
+import { entityProcessor } from 'datahub-web/utils/parsers/autocomplete/processors/entity';
+import { facetsProcessor } from 'datahub-web/utils/parsers/autocomplete/processors/facets';
+import { logicalOperatorsProcessor } from 'datahub-web/utils/parsers/autocomplete/processors/logical-operators';
+import { arrayReduce } from '@datahub/utils/array/index';
 
 /**
  * List of grammarnode-processs to process the nodes that provides value for the autocomplete

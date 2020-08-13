@@ -1,0 +1,6 @@
+.nacho-sort-button {
+  @include nacho-button;
+  @include nacho-button--blank;
+  padding: 0;
+  margin-left: item-spacing(1);
+}

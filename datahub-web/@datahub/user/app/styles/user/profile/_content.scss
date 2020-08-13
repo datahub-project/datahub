@@ -1,7 +1,7 @@
 .user-profile-content {
   $application-navbar-static-height: item-spacing(8) !default;
   $banner-alerts-height: 52px !default;
-  $tablist-width: item-spacing(5) * 11;
+  $tablist-width: 210px;
 
   margin-top: item-spacing(6);
 
@@ -32,7 +32,7 @@
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          width: $tablist-width;
+          min-width: $tablist-width;
           position: sticky;
           background-color: get-color(white);
           margin: item-spacing(2 0);

@@ -2,17 +2,19 @@
 @import 'hero';
 @import 'avatar/all';
 @import 'dataset-author/all';
-@import 'browse-nav/all';
+@import 'dataset-compliance/all';
 @import 'feature-card/all';
 @import 'entity-list/all';
 @import 'notifications/all';
 @import 'dataset-comments/all';
 @import 'comments/all';
+@import 'dataset-purge-policy/all';
 @import 'dataset-property/all';
 @import 'user-lookup/all';
 @import 'pendulum-ellipsis-animation/all';
 @import 'toggle-switch/all';
 @import 'schemaless-tagging/all';
+@import 'dataset-acl-access/all';
 @import 'ivy-tabs/all';
 @import 'upstream-owners/all';
 @import 'dataset-schema/all';
@@ -20,12 +22,10 @@
 @import 'entity-header/all';
 @import 'dataset-fabric/all';
 @import 'dataset-relationships/all';
-@import 'visualization/all';
 @import 'search/all';
-@import 'hotkey/all';
 @import 'dataset-owner/all';
+@import 'ump-metrics/all';
 
-@import 'nacho/nacho-button';
 @import 'nacho/nacho-global-search';
 @import 'nacho/nacho-filter-rail';
 @import 'nacho/nacho-table';

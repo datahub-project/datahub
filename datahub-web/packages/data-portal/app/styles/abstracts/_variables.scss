@@ -1,65 +1,12 @@
 /// Contains application wide Sass variables
 
-/// Regular font family
-/// @type List
-$text-font-stack: ('Source Sans Pro', 'Helvetica', 'Arial', sans-serif) !default;
-
-/// Font family for bootstrap glyphicons
-/// @type list
-$glyphicons-stack: ('Glyphicons Halflings', sans-serif);
-
-$font-weights: (
-  normal: (
-    2: 200,
-    3: 300,
-    4: 400,
-    6: 600
-  ),
-  italic: (
-    2: 200,
-    3: 300,
-    4: 400,
-    6: 600
-  )
-);
-
 //===============
 /// Theming Colors
 //===============
 
-/// Main brand color
-/// @type Color
-$brand-color: set-color(blue, oxford);
-
-/// Secondary color
-/// @type Color
-$secondary-color: set-color(white, catskill);
-
-/// Copy text color
-/// @type Color
-$text-color: set-color(black, dune);
-
-/// Copy text color
-/// @type Color
-$text-invert-color: tint($text-color, 90%);
-
-/// Copy link color
-/// @type Color
-$link-color: get-color(blue7);
-
 /// Container's maximum width
 /// @type Length
 $max-width: 1180px !default;
-
-/// Navigation height
-/// Specifies a fixed height for the application's navigation bar, useful for dependent layouts and
-/// component positioning
-/// @type Length
-$application-navbar-static-height: item-spacing(8);
-
-/// Application wide height for breadcrumbs
-$application-navigation-breadcrumbs-static-height: item-spacing(6);
-$application-navigation-tab-static-height: item-spacing(7);
 
 /// Breakpoints map
 /// @prop {String} keys - Keys are identifiers mapped to a given length
@@ -78,26 +25,3 @@ $breakpoints: (
     min-width: 1024px
   )
 ) !default;
-
-/// Z-indexes map, gathering all Z layers of the application
-/// @type Map
-/// @prop {String} key - Layer’s name
-/// @prop {Number} value - Z value mapped to the key
-$z-indexes: (
-  'toast': 6000,
-  'modal': 5000,
-  'dropdown': 4000,
-  'nav': 1000,
-  'above': +1,
-  'default': 0,
-  'below': -1
-) !default;
-
-/// Absolute URL where all assets are served from
-/// @type String
-$base-url: '/assets/' !default;
-
-/// For animations related to banner alerts. This corresponds to a constant value in the js files at
-/// constants/notifications.js
-$banner-animation-speed: 0.6s;
-$banner-alerts-height: 52px;

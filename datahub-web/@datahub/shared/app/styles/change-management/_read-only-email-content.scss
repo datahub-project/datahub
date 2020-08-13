@@ -1,0 +1,20 @@
+.read-only-email-content {
+  &__body {
+    padding-right: item-spacing(5) + 2;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: row;
+    margin-right: item-spacing(9);
+  }
+
+  &__main {
+    margin: item-spacing(2 8 2 5);
+  }
+
+  &__item-highlighted {
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}

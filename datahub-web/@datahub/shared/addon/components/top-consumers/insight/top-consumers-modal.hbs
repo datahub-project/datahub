@@ -1,0 +1,16 @@
+<TabContentModal
+  @title="Top Consumers"
+  @tabs={{this.tabs}}
+  @currentTab={{@tabSelected}}
+  @tabSelectionDidChange={{fn this.tabSelectionDidChange}}
+  @onCloseTabContentModal={{fn this.onCloseTopConsumersModal}}
+  as |Modal|
+>
+  <ConcurrencyTaskStateHandler
+    @task={{@containerTask}}
+  >
+    <Modal.content
+      @profiles={{this.topConsumerProfilesSelected}}
+    />
+  </ConcurrencyTaskStateHandler>
+</TabContentModal>

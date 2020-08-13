@@ -1,0 +1,47 @@
+.view-change-log {
+  padding: item-spacing(2 5);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__close {
+    font-size: item-spacing(1) * 10;
+    line-height: item-spacing(5);
+    background-color: transparent;
+    cursor: pointer;
+    box-sizing: border-box;
+    color: get-color(black, 0.7);
+    border: 0;
+  }
+
+  &__modal {
+    width: $modal-width-x-large;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: row;
+    margin-right: item-spacing(9);
+  }
+
+  &__main {
+    margin: item-spacing(2 8 2 5);
+  }
+
+  &__body {
+    padding-right: item-spacing(5) + 2;
+  }
+
+  &__divider {
+    display: block;
+    margin: item-spacing(0 6);
+    border: 1px solid #e0e0e0;
+  }
+
+  &__item-highlighted {
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.6);
+  }
+}

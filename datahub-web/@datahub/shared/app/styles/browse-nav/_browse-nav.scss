@@ -1,0 +1,111 @@
+$browse-nav-border-color: get-color(gray1);
+
+.browse-nav {
+  width: 100%;
+  border-left: 1px solid $browse-nav-border-color;
+  border-right: 1px solid $browse-nav-border-color;
+
+  &__item {
+    @include flex-column-center;
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  &__alt {
+    @include flex-column-center;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    font-weight: fw(normal, 6);
+    font-size: 24px;
+    position: absolute;
+    margin: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  &__entity {
+    cursor: pointer;
+    border-bottom: 1px solid $browse-nav-border-color;
+    min-height: 90px;
+    /**
+     * Overrides bootstrap .active class.
+     *   Ember applies this for active route links
+     */
+    &.active {
+      background-color: get-color(gray1);
+    }
+
+    /**
+     * Resets the bootstrap grid margins
+     */
+    &[class|='col'] {
+      padding: 0;
+    }
+
+    &#{&} {
+      display: flex;
+      justify-content: center;
+    }
+
+    &:hover {
+      .browse-nav__item {
+        opacity: 0;
+      }
+
+      .browse-nav__alt {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__pill {
+    @include tag(get-color(blue5), get-color(white));
+    font-size: item-spacing(4);
+    line-height: item-spacing(4);
+    white-space: nowrap;
+  }
+
+  &__entity + &__entity {
+    border-left: 1px solid $browse-nav-border-color;
+  }
+
+  &__count {
+    font-size: 21px;
+    margin: item-spacing(0 4);
+  }
+
+  &__title {
+    font-weight: fw(normal, 2);
+    text-transform: capitalize;
+    margin: 0;
+  }
+
+  &__subtext {
+    font-weight: fw(normal, 2);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.browse-viewport {
+  &__loading {
+    $loading-container-height: 170px;
+    height: $loading-container-height;
+    width: 95%;
+  }
+}
+
+.nav-link-to {
+  width: 100%;
+}
+
+.breadcrumb-error {
+  display: flex;
+  align-items: center;
+}

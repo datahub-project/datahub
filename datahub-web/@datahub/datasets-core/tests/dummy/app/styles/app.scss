@@ -1,22 +1,4 @@
-// TODO: [META-7912] Migrate this to open source nacho-core
-/// Applies rules to render an element with a tag shape
-/// @param {Color} $bg-color the background color for the tag
-/// @param {Color} $color font/text color
-/// @param {Color} $border-color=$bg-color the color to apply to the tag border
-///@example - Usage
-/// .foo {
-///   @include tag(get-color(gray1), get-color(gray6));
-/// }
-@mixin tag($bg-color, $color, $border-color: $bg-color) {
-  border-radius: 32px;
-  background-color: $bg-color;
-  border: 1px solid $border-color;
-  color: $color;
-  display: inline-block;
-  line-height: item-spacing(3);
-  padding: 1px 10px;
-}
-
+@import 'nacho-core';
 @import 'datahub-utils';
 @import 'nacho-table';
 @import 'nacho-animations';

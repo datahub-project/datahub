@@ -1,0 +1,115 @@
+<section class="{{this.baseCssClass}}">
+
+  {{#if numberOfHiddenNodes}}
+    <div class="{{this.baseCssClass}}__toolbar-item">
+      Hiding
+      <button
+        type="button"
+        {{on 'click' this.openConfigurationPanel}}
+        class="nacho-button nacho-button--small nacho-button--tertiary {{this.baseCssClass}}__toolbar-item-button">
+        {{this.numberOfHiddenNodes}} nodes
+      </button>
+    </div>
+  {{/if}}
+  {{#if @state.lineageMode}}
+    <div class="{{this.baseCssClass}}__toolbar-item {{this.baseCssClass}}__lineage-depth-info">
+      Showing
+      <button
+        type="button"
+        {{on 'click' this.openConfigurationPanel}}
+        class="nacho-button nacho-button--small nacho-button--tertiary {{this.baseCssClass}}__toolbar-item-button">
+        {{@state.lineageDepth}} levels
+      </button>
+      of upstream and downstream
+    </div>
+  {{/if}}
+
+  <div class="{{this.baseCssClass}}__toolbar-item">
+    <div class="{{this.baseCssClass}}__search-container">
+      {{#if @state.isSearching}}
+        <PowerSelectTypeahead
+          @triggerClass="{{this.baseCssClass}}__searchbar"
+          @placeholder="Search an entity..."
+          @search={{fn this.onSearchNode}}
+          @onchange={{fn this.onTypeaheadSelect}}
+          as |suggestion|>
+          {{suggestion.displayName}}
+        </PowerSelectTypeahead>
+      {{/if}}
+      <button class="{{this.baseCssClass}}__toolbar-button {{this.baseCssClass}}__toolbar-button-search nacho-button nacho-button--tertiary" {{on 'click' (fn this.onSearchIconClick)}} type="button">
+        <FaIcon
+          class="{{this.baseCssClass}}__connection-icon"
+          @prefix="fas"
+          @icon="search"
+        />
+      </button>
+    </div>
+
+    <BasicDropdown
+      @verticalPosition="below"
+      @horizontalPosition="right"
+      @onOpen={{this.initChangeSet}}
+    as |dropdown|>
+      <dropdown.trigger {{did-insert this.didInsertDropdownTrigger dropdown}}>
+        <button class="{{this.baseCssClass}}__toolbar-button {{this.baseCssClass}}__toolbar-button-configuration {{this.baseCssClass}}__toolbar-item nacho-button nacho-button--tertiary" type="button">
+          <FaIcon
+            class="{{this.baseCssClass}}__connection-icon"
+            @prefix="fas"
+            @icon="cog"
+          />
+        </button>
+      </dropdown.trigger>
+      <dropdown.content>
+        <div class="{{this.baseCssClass}}__toolbar-dropdown">
+          <div class="{{this.baseCssClass}}__toolbar-input">
+            <span class="{{this.baseCssClass}}__toolbar-input-text">
+              Show attributes
+            </span>
+            <Input
+              id="show-connections-only"
+              @type="checkbox"
+              title="Show connections only"
+              class="toggle-switch toggle-switch--light"
+              @checked={{this.changeSet.showAttributes}}
+            />
+            <label
+              for="show-connections-only"
+              class="toggle-button"
+            >
+            </label>
+          </div>
+
+          {{#if @state.lineageMode}}
+            <div class="{{this.baseCssClass}}__toolbar-input">
+              <span class="{{this.baseCssClass}}__toolbar-input-text">
+                Level of lineage shown
+              </span>
+              <Input
+                class="{{this.baseCssClass}}__toolbar-input-number"
+                type='number'
+                min='1'
+                @value={{this.changeSet.lineageDepth}} />
+            </div>
+          {{/if}}
+          <div class="{{this.baseCssClass}}__toolbar-input {{this.baseCssClass}}__toolbar-input--vertical-layout">
+            <span class="{{this.baseCssClass}}__toolbar-input-text">
+              Exclude nodes containing keywords
+            </span>
+            <span class="{{this.baseCssClass}}__toolbar-input-description">
+              Type the name of the node or use a glob pattern. <a href="http://go/datahub/graph/uifilters" rel="noreferrer noopener" target="_blank">Learn More</a>
+            </span>
+            <Textarea
+              class="{{this.baseCssClass}}__toolbar-input-textarea"
+              placeholder="Example: *_someword_*"
+              @value={{this.changeSet.excludeNodePattern}} rows="3"/>
+          </div>
+
+          <div class="{{this.baseCssClass}}__toolbar-submit">
+            <button type="button" class="nacho-button nacho-button--tertiary {{this.baseCssClass}}__toolbar-cancel-button" {{on 'click' this.onCancel}} disabled={{this.changeSet.isPristine}}>Cancel</button>
+            <button type="button" class="nacho-button {{this.baseCssClass}}__toolbar-submit-button" {{on 'click' this.onSubmit}} disabled={{this.changeSet.isPristine}}>Apply</button>
+          </div>
+        </div>
+      </dropdown.content>
+    </BasicDropdown>
+  </div>
+</section>

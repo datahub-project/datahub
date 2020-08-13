@@ -1,5 +1,5 @@
 {{#if getPlatformsTask.isRunning}}
-  {{pendulum-ellipsis-animation}}
+  <PendulumEllipsisAnimation />
 {{else}}
   {{yield facets selections counts (action onFacetChange) (action onFacetClear)}}
 {{/if}}

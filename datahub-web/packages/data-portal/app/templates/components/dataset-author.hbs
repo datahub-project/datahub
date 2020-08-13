@@ -1,12 +1,12 @@
 {{#let @owner.owner as |ownerRecord|}}
   <td>
     {{#unless isOwnerInActive}}
-      {{avatars/avatar-image avatar=@owner.avatar}}
+      <Avatars::AvatarImage @avatar={{@owner.avatar}} />
     {{/unless}}
 
-    <LinkTo @route="user.profile" @model={{@owner.profile}}>
-      {{ownerRecord.userName}}
-    </LinkTo>
+    <Avatar::Containers::AvatarMain @username={{ownerRecord.userName}} as |avatars|>
+      <Avatar::AvatarName @avatar={{avatars.[0]}} />
+    </Avatar::Containers::AvatarMain>
 
     {{#if isOwnerInActive}}
 
@@ -37,19 +37,14 @@
   {{/unless}}
 
   <td>
-    {{ember-selector
-      class=(unless isOwnerMutable "nacho-select--hidden-state")
-      values=ownerTypes
-      selected=ownerRecord.type
-      disabled=(not isOwnerMutable)
-      selectionDidChange=(action "changeOwnerType")
-    }}
+    <EmberSelector @class={{unless isOwnerMutable "nacho-select--hidden-state"}} @values={{ownerTypes}} @selected={{ownerRecord.type}} @disabled={{not isOwnerMutable}} @selectionDidChange={{action "changeOwnerType"}} />
   </td>
 
   <td>
     {{#if isOwnerMutable}}
 
       <button
+        type="button"
         class="nacho-button nacho-button--small remove-dataset-author"
         {{action "onRemoveOwner"}}
       >
@@ -69,6 +64,7 @@
       {{else}}
 
         <button
+          type="button"
           class="nacho-button nacho-button--small confirm-suggested-dataset-author"
           {{action "confirmOwner"}}
         >

@@ -1,5 +1,10 @@
+import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { ListEntity } from '@datahub/data-models/entity/list/list-entity';
+import { BaseEntity } from '@datahub/data-models/entity/base-entity';
+import { IBaseEntity } from '@datahub/metadata-types/types/entity/index';
+import { DataConstructChangeManagementEntity } from '@datahub/data-models/entity/data-construct-change-management/data-construct-change-management-entity';
 
 /**
  * Defines the interface for the DataModelEntity enum below.
@@ -7,7 +12,10 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
  */
 export interface IDataModelEntity {
   [DatasetEntity.displayName]: typeof DatasetEntity;
+  [FeatureEntity.displayName]: typeof FeatureEntity;
   [PersonEntity.displayName]: typeof PersonEntity;
+  [ListEntity.displayName]: typeof ListEntity;
+  [DataConstructChangeManagementEntity.displayName]: typeof DataConstructChangeManagementEntity;
 }
 
 /**
@@ -16,9 +24,34 @@ export interface IDataModelEntity {
  */
 export const DataModelEntity: IDataModelEntity = {
   [DatasetEntity.displayName]: DatasetEntity,
-  [PersonEntity.displayName]: PersonEntity
+  [FeatureEntity.displayName]: FeatureEntity,
+  [PersonEntity.displayName]: PersonEntity,
+  [ListEntity.displayName]: ListEntity,
+  [DataConstructChangeManagementEntity.displayName]: DataConstructChangeManagementEntity
 };
 
+/**
+ * Will Generate a map of entities using the api name. Since some entities will throw exceptions while
+ * accesing their render props, it will ignore those entities
+ * @param entities
+ */
+export const generateEntityApiNameMap = <k extends IDataModelEntity>(entities: k): Record<string, k[keyof k]> =>
+  Object.values(entities).reduce((m, entity: IDataModelEntity[keyof IDataModelEntity]) => {
+    // some entities may no implement render props
+    try {
+      return { ...m, [`${entity.renderProps.apiEntityName}`]: entity };
+    } catch (e) {
+      return m;
+    }
+  }, {});
+
+/**
+ * Reverse lookup by apiName
+ */
+export const DataModelEntityApiNameMap: Record<
+  string,
+  IDataModelEntity[keyof IDataModelEntity]
+> = generateEntityApiNameMap(DataModelEntity);
 /**
  * Aliases the keys on the DataModelEntity enum for reference convenience
  * This maps to the names of the available entities for example 'datasets',  'users', etc
@@ -34,14 +67,7 @@ export type DataModelEntity = typeof DataModelEntity[DataModelName];
 /**
  * A specific instance of data model entity
  * For example { DatasetEntity | UserEntity | ... }
+ * As we move to a dynamic world of entities. Having a more open entity like BaseEntity, which all entities should
+ * implement aliviate some type constrains.
  */
-export type DataModelEntityInstance = InstanceType<DataModelEntity>;
-
-/**
- * Guards on a string entityName if it maps to an entity data model (class inheriting from BaseEntity)
- * @param {string} entityName the displayName to match against for DataModelEntity types
- */
-export const isDataModelBaseEntityName = (entityName: DataModelName): boolean =>
-  Object.values(DataModelEntity)
-    .mapBy('displayName')
-    .includes(entityName);
+export type DataModelEntityInstance = BaseEntity<IBaseEntity | {}>;

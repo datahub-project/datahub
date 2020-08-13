@@ -1,0 +1,21 @@
+.nacho-table__field-value-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+
+  &-item {
+    display: inline;
+    margin: 0;
+    padding: 0;
+
+    &:after {
+      content: ',';
+      margin-right: 5px;
+      margin-left: -3px;
+    }
+
+    &:last-child:after {
+      content: '';
+    }
+  }
+}

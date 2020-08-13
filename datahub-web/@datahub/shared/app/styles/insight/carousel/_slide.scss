@@ -1,0 +1,10 @@
+.insight-carousel {
+  width: fit-content;
+  display: flex;
+  margin: item-spacing(3) auto item-spacing(5) item-spacing(0);
+
+  // Insert a left margin between any child siblings in the carousel
+  & > * + * {
+    margin-left: item-spacing(5);
+  }
+}

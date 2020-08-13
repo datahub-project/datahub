@@ -10,72 +10,45 @@
     <hr class="nacho-divider">
   </header>
 
-  <h4 class="dataset-relationships__header">
-    Upstream
-  </h4>
+  <Datasets::Containers::DatasetLineageUpstreams
+    @urn={{@urn}}
+    @requestJitAccess={{@requestJitAccess}}
+  />
 
-  {{#datasets/containers/dataset-lineage-upstreams
-    urn=urn
-  as |upstreamsContainer|
-  }}
-    {{#if upstreamsContainer.upstreams}}
+  <Datasets::Containers::DatasetLineageDownstreams
+    @urn={{@urn}}
+    @requestJitAccess={{@requestJitAccess}}
+  />
 
-      {{datasets/relationships/dataset-relationship-table
-        relationships=upstreamsContainer.upstreams
-      }}
-
-    {{else}}
-      <div class="dataset-relationships-not-found">
-        This dataset does not have upstream relationships.
-      </div>
-    {{/if}}
-  {{/datasets/containers/dataset-lineage-upstreams}}
-
-
-  <h4 class="dataset-relationships__header">
-    Downstream
-  </h4>
-
-  {{#datasets/containers/dataset-lineage-downstreams
-    urn=urn
-  as |downstreamsContainer|
-  }}
-    {{#if downstreamsContainer.downstreams}}
-
-      {{datasets/relationships/dataset-relationship-table
-        relationships=downstreamsContainer.downstreams
-      }}
-
-    {{else}}
-      <div class="dataset-relationships-not-found">
-        This dataset does not have downstream relationships.
-      </div>
-    {{/if}}
-  {{/datasets/containers/dataset-lineage-downstreams}}
-
-  {{#if showLineageGraph}}
-    {{#datasets/containers/dataset-relationship-levels
-      urn=urn
-      dataset=dataset
-    as |nodes edges toggleNode firstLoadTask|
-    }}
+  {{#if this.showLineageV3}}
+    <Lineage::LineageMain @urn={{@urn}} />
+  {{else}}
+    <Datasets::Containers::DatasetRelationshipLevels
+      @urn={{@urn}}
+      @dataset={{@dataset}}
+      as |nodes edges toggleNode firstLoadTask|
+    >
       <h4 class="dataset-relationships__header">
         Lineage (Beta)
       </h4>
+
       <ConcurrencyTaskStateHandler @task={{firstLoadTask}}>
         <div class="dataset-relationship-levels__container">
-          {{datasets/relationships/dataset-relationship-levels
-            nodes=nodes
-            edges=edges
-            toggleNode=(action toggleNode)
-          }}
-          {{datasets/relationships/dataset-relationship-vis
-            nodes=nodes
-            edges=edges
-            toggleNode=(action toggleNode)
-          }}
+          <Datasets::Relationships::DatasetRelationshipLevels
+            @nodes={{nodes}}
+            @edges={{edges}}
+            @toggleNode={{fn toggleNode}}
+          />
+
+          <Datasets::Relationships::DatasetRelationshipVis
+            @nodes={{nodes}}
+            @edges={{edges}}
+            @toggleNode={{fn toggleNode}}
+          />
         </div>
       </ConcurrencyTaskStateHandler>
-    {{/datasets/containers/dataset-relationship-levels}}
+
+    </Datasets::Containers::DatasetRelationshipLevels>
   {{/if}}
+
 </section>

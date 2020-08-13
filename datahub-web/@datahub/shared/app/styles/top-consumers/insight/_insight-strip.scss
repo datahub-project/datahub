@@ -1,0 +1,96 @@
+.top-consumers-insight-strip {
+  $title-font-size: fs(standard);
+  $text-font-size: fs(small);
+  background-color: get-color(gray0);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 0 (item-spacing(2) + 2);
+  height: 36px;
+  margin-top: item-spacing(3);
+  max-width: 400px;
+
+  & + & {
+    margin-left: item-spacing(2);
+  }
+
+  &__insight-icon {
+    margin: item-spacing(1 1 0 0);
+    color: get-color(blue7);
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+
+    &::after {
+      content: ',';
+      margin-right: item-spacing(1);
+      color: get-color(black, 0.6);
+      font-size: $text-font-size;
+    }
+
+    &:last-child:after {
+      content: none;
+    }
+  }
+
+  &__list {
+    display: flex;
+  }
+
+  &__show-more {
+    display: flex;
+    align-items: center;
+
+    &::before {
+      content: 'and';
+      margin-right: item-spacing(1);
+      color: get-color(black, 0.6);
+      font-size: $text-font-size;
+    }
+
+    &-button {
+      background: none;
+      padding: 0;
+      border: none;
+      border-bottom: 0.5px solid get-color(black, 0.6);
+
+      &:hover {
+        color: get-color(blue5);
+        border-bottom-color: get-color(blue5);
+        cursor: pointer;
+      }
+
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+
+  &__text {
+    font-size: $text-font-size;
+    color: get-color(black, 0.6);
+
+    &--clickable {
+      border-bottom: 0.5px solid get-color(black, 0.6);
+
+      &:hover {
+        color: get-color(blue5);
+        border-bottom-color: get-color(blue5);
+        cursor: pointer;
+      }
+    }
+  }
+
+  &__title {
+    font-weight: fw(normal, 4);
+    font-size: $text-font-size;
+  }
+
+  &__tooltip-icon {
+    margin: item-spacing(0 1);
+    font-size: fs(standard);
+    color: get-color(black, 0.6);
+  }
+}

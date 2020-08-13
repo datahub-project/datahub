@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 import { alias } from '@ember/object/computed';
 import { set } from '@ember/object';
 import { classNames, tagName, attribute } from '@ember-decorators/component';

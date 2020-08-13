@@ -1,6 +1,6 @@
 import StorageArray from 'ember-local-storage/local/array';
 import { IStoredEntityAttrs } from '@datahub/lists/types/list';
-import { DataModelEntityInstance } from '@datahub/data-models/addon/constants/entity';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity/index';
 
 /**
  * Finds a DataModelEntity's stored attributes in a list of IStoredEntityAttrs or vice-versa, using the urn for equality comparison

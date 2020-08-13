@@ -1,0 +1,38 @@
+{{! when there are no entries and includeTitleWhenEmpty is not false --}}
+{{#if (and (not this.entries) (not includeTitleWhenEmpty))}}
+  <EmptyState @heading={{this.emptyStateHeader}} />
+{{else}}
+  <NachoTable
+    @tableConfigs={{this.tableConfigs}}
+    @data={{this.entries}}
+    @tableClass={{this.baseClass}} as |Table|
+  >
+    <Table.global>
+      <header>
+        <h3 class="{{this.baseClass}}__title">
+          {{@title}}
+        </h3>
+      </header>
+    </Table.global>
+    <Table.body as |Body|>
+
+      {{! Renders each entry in the entries attribute as two column table of prop(s) and value(s)}}
+      {{#each-in this.entries as |prop value|}}
+        <Body.row as |Row|>
+          <Row.cell>
+            <strong>
+              {{titleize (humanize (dasherize prop))}}
+            </strong>
+          </Row.cell>
+
+          <Row.cell>
+            {{value}}
+          </Row.cell>
+        </Body.row>
+      {{else}}
+        <EmptyState @heading={{this.emptyStateHeader}} />
+      {{/each-in}}
+
+    </Table.body>
+  </NachoTable>
+{{/if}}

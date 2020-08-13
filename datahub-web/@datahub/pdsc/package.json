@@ -1,0 +1,63 @@
+{
+  "name": "@datahub/pdsc",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepack": "node_modules/.bin/tsc",
+    "prepublish": "node_modules/.bin/tsc",
+    "tsc": "node_modules/.bin/tsc",
+    "run": "node_modules/.bin/tsc && node dist/index.js",
+    "test": "node_modules/.bin/tsc -p test/ && node_modules/.bin/mocha test/**/*.spec.js",
+    "testGrep": "node_modules/.bin/tsc -p test/ && node_modules/.bin/mocha test/**/*.spec.js --grep ",
+    "debug-test": "node_modules/.bin/tsc -p test/ && node_modules/.bin/mocha --inspect-brk  test/**/*.spec.js",
+    "tslint": "./node_modules/.bin/tslint -p tsconfig.json 'src/**/*.ts'",
+    "prettier": "./node_modules/.bin/prettier --write '{src,test}/**/*.ts'",
+    "watch-test": "tsc -w -p test/ & sleep 1 && mocha -w test/**/*.spec.js",
+    "generate-metadata-models": "node_modules/.bin/tsc && node dist/index.js --data-model ../../../build/datahub-web/pdscs/pegasus"
+  },
+  "pre-commit": [
+    "test",
+    "tslint",
+    "prettier",
+    "precommit"
+  ],
+  "dependencies": {
+    "decompress": "^4.2.0",
+    "glob": "^7.1.2",
+    "json5": "^0.5.1",
+    "lockfile": "^1.0.3",
+    "minimist": "^1.2.0",
+    "mkdirp": "^0.5.1",
+    "prettier": "^1.6.1",
+    "request": "^2.81.0",
+    "request-promise-native": "1.0.4",
+    "xml2js": "^0.4.17"
+  },
+  "devDependencies": {
+    "@types/chai": "^3.5.2",
+    "@types/cheerio": "^0.22.1",
+    "@types/glob": "^5.0.30",
+    "@types/json5": "^0.0.29",
+    "@types/lockfile": "^0.4.29",
+    "@types/minimist": "^1.2.0",
+    "@types/mkdirp": "^0.3.29",
+    "@types/mocha": "^2.2.41",
+    "@types/node": "^8.0.7",
+    "@types/prettier": "^1.6.1",
+    "@types/request-promise-native": "^1.0.5",
+    "@types/xml2js": "^0.4.0",
+    "chai": "^3.5.0",
+    "find-root": "^1.1.0",
+    "mocha": "^3.3.0",
+    "pre-commit": "^1.2.2",
+    "tslint": "^5.7.0",
+    "tslint-config-prettier": "^1.5.0",
+    "typescript": "^3.9.3"
+  },
+  "files": [
+    "dist",
+    "local-types"
+  ]
+}

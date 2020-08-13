@@ -1,0 +1,6 @@
+@mixin nacho-table-clear-title {
+  .nacho-table__title {
+    background-color: unset;
+    padding: item-spacing(4);
+  }
+}

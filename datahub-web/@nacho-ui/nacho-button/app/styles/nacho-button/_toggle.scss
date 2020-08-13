@@ -1,0 +1,55 @@
+.nacho-toggle {
+  $toggle-height: 32px;
+  display: flex;
+
+  &__content {
+    position: relative;
+    height: $toggle-height;
+    background-color: $nacho-toggle-content-background-color;
+    border-radius: 20px;
+    box-sizing: border-box;
+    padding: item-spacing(1 4);
+    cursor: pointer;
+  }
+
+  &__button {
+    background-color: transparent;
+    border: none;
+    outline: none;
+    font-weight: bold;
+    height: 100%;
+    cursor: pointer;
+
+    &--active {
+      color: get-color(white);
+    }
+
+    &--left {
+      margin-right: item-spacing(3);
+    }
+
+    &--right {
+      margin-left: item-spacing(3);
+    }
+  }
+
+  &__slider {
+    $slider-transition-speed: 0.25s;
+    transition: left $slider-transition-speed;
+    position: absolute;
+    background-color: $nacho-toggle-active-color;
+    height: $toggle-height;
+    border-radius: 20px;
+    width: 50%;
+    top: 0;
+    z-index: z(below);
+
+    &--left-active {
+      left: 0;
+    }
+
+    &--right-active {
+      left: 50%;
+    }
+  }
+}

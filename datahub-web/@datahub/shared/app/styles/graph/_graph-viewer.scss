@@ -1,0 +1,182 @@
+.graph-viewer {
+  $unselectedOpacity: 0.6;
+  min-height: 455px;
+
+  &--fullscreen-mode {
+    $side-margin: 2 * item-spacing(4);
+    $top-position: 206px;
+    position: absolute;
+    left: $side-margin / 2;
+    width: calc(100vw - #{$side-margin});
+    height: calc(100vh - #{$top-position});
+    min-height: 0;
+
+    &.graph-viewer--with-banner-offset {
+      height: calc(100vh - #{$top-position + $banner-alerts-height});
+    }
+  }
+
+  text {
+    font-family: helvetica, open-sans;
+    font-size: 16px;
+    fill: get-color(gray10);
+  }
+
+  &-icon-resources {
+    display: none;
+  }
+
+  &__action-go-to-entity {
+    cursor: pointer;
+  }
+
+  &__connector {
+    fill: none;
+    stroke: get-color(gray3);
+    stroke-width: 1;
+    opacity: $unselectedOpacity;
+
+    &-arrow {
+      opacity: $unselectedOpacity;
+      stroke-width: 4;
+      stroke: get-color(gray3);
+      fill: get-color(gray3);
+    }
+
+    &-text {
+      opacity: $unselectedOpacity;
+
+      &#{&} {
+        fill: get-color(gray5);
+      }
+    }
+  }
+
+  &__property {
+    opacity: $unselectedOpacity;
+    &-bg {
+      fill: white;
+      stroke: get-color(gray4);
+    }
+
+    &-type {
+      &#{&} {
+        fill: get-color(gray6);
+      }
+    }
+
+    &-type--reference {
+      &#{&} {
+        fill: get-color(blue6);
+        cursor: pointer;
+      }
+    }
+  }
+
+  &__title {
+    cursor: pointer;
+    opacity: $unselectedOpacity;
+
+    &-bg {
+      fill: get-color(slate6);
+      stroke: get-color(gray4);
+    }
+    &-text {
+      &#{&} {
+        fill: white;
+        font-size: 20px;
+      }
+    }
+  }
+
+  &__toolbar {
+    opacity: $unselectedOpacity;
+
+    &-bg {
+      fill: get-color(white);
+      stroke: get-color(gray4);
+    }
+  }
+
+  &__action {
+    cursor: pointer;
+  }
+  .node-related {
+    .graph-viewer {
+      &__title {
+        opacity: $unselectedOpacity + 0.2;
+        &-bg {
+          fill: get-color(slate9);
+        }
+      }
+      &__property {
+        opacity: $unselectedOpacity + 0.2;
+      }
+    }
+  }
+  .selected {
+    .graph-viewer {
+      &__title {
+        opacity: 1;
+        &-bg {
+          fill: get-color(blue6);
+        }
+      }
+      &__property {
+        opacity: 1;
+      }
+      &__toolbar {
+        opacity: 1;
+      }
+    }
+  }
+
+  .edge-to-selected {
+    .graph-viewer {
+      &__connector {
+        stroke-width: 3;
+        opacity: 1;
+        stroke: get-color(slate9);
+        &-arrow {
+          fill: get-color(slate9);
+          stroke: get-color(slate9);
+          opacity: 1;
+        }
+
+        &-text {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .edge-from-selected {
+    .graph-viewer {
+      &__connector {
+        stroke-width: 3;
+        opacity: 1;
+        stroke: get-color(blue4);
+
+        &-arrow {
+          stroke: get-color(blue4);
+          fill: get-color(blue4);
+          opacity: 1;
+        }
+
+        &-text {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .graph-viewer__property.attr-selected {
+    opacity: 1;
+
+    .graph-viewer__property {
+      &-bg {
+        fill: get-color(silver1);
+      }
+    }
+  }
+}

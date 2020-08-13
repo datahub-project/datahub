@@ -1,0 +1,17 @@
+<ConcurrencyTaskStateHandler @task={{getEntityCategoriesNodesTask}}>
+  {{yield
+    (hash
+      browsePath=this.browsePath
+      requestParams=@params
+      entityType=this.entityType
+      totalNumEntities=this.totalNumEntities
+      showSearchWithinHierarchy=this.showSearchWithinHierarchy
+      showAsTiles=this.showAsTiles
+      getEntityCategoriesNodesTask=this.getEntityCategoriesNodesTask
+      isLoadingList=this.isLoadingList
+      onFinishedLoadingEntities=(action this.onFinishedLoadingEntities)
+      onFinishedLoadingGroups=(action this.onFinishedLoadingGroups)
+      onFinishedLoadingTiles=(action this.onFinishedLoadingTiles)
+    )
+  }}
+</ConcurrencyTaskStateHandler>

@@ -1,0 +1,29 @@
+<div class={{this.baseClass}}>
+  {{#each @profiles as |profile|}}
+    {{#let
+      profile.entity
+      profile.linkParam
+      as |entity linkParam|
+    }}
+      <div class="{{this.baseClass}}__profile">
+        <div class="{{this.baseClass}}__profile-picture">
+          {{svg-jar "nav-people" class="grid-group-entity-profile-list__profile-icon"}}
+        </div>
+
+        <div class="{{this.baseClass}}__content">
+          <span class="{{this.baseClass}}__name">
+            {{entity.name}}
+          </span>
+
+          <DynamicLink class="{{this.baseClass}}__link" @params={{linkParam}}>
+            <span class="{{this.baseClass}}__link-text" >{{linkParam.title}}</span>
+            <FaIcon
+              class="{{this.baseClass}}__link-icon"
+              @icon="external-link-alt"
+            />
+          </DynamicLink>
+        </div>
+      </div>
+    {{/let}}
+  {{/each}}
+</div>

@@ -1,0 +1,7 @@
+/// Minor overrides for table stylings, this seems to be because wherehows has a lot of css baggage that we need
+/// to refactor out
+.metric-code-table .nacho-table {
+  td {
+    padding: 16px 24px;
+  }
+}

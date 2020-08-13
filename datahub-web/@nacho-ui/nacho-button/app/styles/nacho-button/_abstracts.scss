@@ -1,0 +1,11 @@
+/// Provides default temporary color until we have a defined theming layer
+$nacho-toggle-content-background-color: #adafaf;
+$nacho-toggle-active-color: #5def5d;
+
+@if map-get($color-bin, slate4) != null {
+  $nacho-toggle-content-background-color: get-color(slate4, 0.25);
+}
+
+@if map-get($color-bin, blue5) != null {
+  $nacho-toggle-active-color: get-color(blue5);
+}

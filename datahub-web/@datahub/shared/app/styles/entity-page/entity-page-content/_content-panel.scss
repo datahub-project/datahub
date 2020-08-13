@@ -1,0 +1,41 @@
+.content-panel {
+  margin-top: item-spacing(6);
+
+  &__title {
+    font-weight: fw(normal, 4);
+    margin: 0;
+  }
+
+  &__description {
+    color: get-color(gray5);
+    margin: item-spacing(2 0 0 0);
+  }
+
+  &__actions {
+    display: flex;
+    flex-grow: 1;
+    justify-content: flex-end;
+    margin: 0;
+    align-items: flex-end;
+  }
+
+  &__panel-toggle {
+    display: flex;
+    align-items: flex-end;
+    margin-left: item-spacing(4);
+  }
+
+  &__header-row {
+    display: flex;
+    margin: item-spacing(0 0 3 0);
+  }
+
+  &__toggle-button {
+    &#{&}#{&}#{&} {
+      padding: 0;
+      height: auto;
+      line-height: 2rem;
+      margin: item-spacing(0 1);
+    }
+  }
+}

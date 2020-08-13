@@ -1,0 +1,5 @@
+/// Used when you want to produce a hover card effect on an item
+@mixin hover-card {
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2), -1px 0px 1px rgba(0, 0, 0, 0.1), 0px 1px 1px rgba(0, 0, 0, 0.1),
+    1px 0px 1px rgba(0, 0, 0, 0.1), 0px -1px 1px rgba(0, 0, 0, 0.1);
+}

@@ -1,0 +1,11 @@
+<div class="wherehows-entity-header__content">
+  {{yield
+    (hash
+      row=(component "entity-page/entity-header/content-row")
+      entityType=(component entityTypeComponent)
+      entityTitle=(component entityTitleComponent)
+      entityProperty=(component entityPropertyComponent)
+      entityAttributePillCalloutComponent=(component entityAttributePillCalloutComponent)
+    )
+  }}
+</div>

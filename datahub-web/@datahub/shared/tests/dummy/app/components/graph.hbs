@@ -1,0 +1,7 @@
+{{#if this.state}}
+  <div class='dummy-graph-toolbar'>
+    <h1>{{if this.state.lineageMode 'Lineage' 'Schema'}}</h1>
+    <Graph::Toolbar @state={{this.state}} @lastState={{this.lastState}} @onStateChanged={{fn this.onStateChanged}} />
+  </div>
+  <Graph::GraphViewer @state={{this.state}} @lastState={{this.lastState}} @onStateChanged={{fn this.onStateChanged}}/>
+{{/if}}

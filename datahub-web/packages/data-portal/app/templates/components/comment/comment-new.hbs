@@ -7,11 +7,7 @@
       @onInput={{action (mut comment.text)}}
     />
 
-    {{ember-selector
-      values=commentTypes
-      selected=(readonly commentType)
-      selectionDidChange="changeCommentType"
-    }}
+    <EmberSelector @values={{commentTypes}} @selected={{readonly commentType}} @selectionDidChange="changeCommentType" />
 
     <div class="comment-new__actions">
       <button type="submit" class="nacho-button--large nacho-button--secondary">

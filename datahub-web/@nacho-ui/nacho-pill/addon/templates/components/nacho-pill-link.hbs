@@ -1,0 +1,11 @@
+{{#if hasBlock}}
+  {{yield (hash params=this.linkToParams)}}
+{{else}}
+  {{#if linkTo}}
+    {{#link-to params=this.linkToParams}}
+      {{text}}
+    {{/link-to}}
+  {{else}}
+    {{text}}
+  {{/if}}
+{{/if}}

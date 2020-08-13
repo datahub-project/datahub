@@ -1,0 +1,37 @@
+<div class="{{this.baseClass}}-buttons">
+  {{#if this.stateLabel}}
+    {{! If we have a state value set, show the associated label instead of the buttons }}
+    <button
+      class="{{this.buttonClass}}__reverse nacho-button nacho-button--tertiary"
+      type="button"
+      {{on "click" this.onReverse}}
+    >
+      <TooltipOnElement
+        @text="Undo"
+      />
+      <div class="{{this.baseClass}}__label {{this.stateClass}}">
+        <strong>
+          {{this.stateLabel}}
+        </strong>
+      </div>
+    </button>
+  {{else}}
+    <Buttons::SvgIcon
+      @iconName="check-icon"
+      @title={{@affirmTitle}}
+      @onClick={{fn this.onClick this.State.affirm}}
+      class="{{this.buttonClass}} {{this.buttonClass}}__affirm"
+      ...attributes
+      disabled={{@affirmDisabled}}
+    />
+
+    <Buttons::SvgIcon
+      @iconName="cancel-icon"
+      @title={{@denyTitle}}
+      @onClick={{fn this.onClick this.State.deny}}
+      class="{{this.buttonClass}} {{this.buttonClass}}__deny"
+      ...attributes
+      disabled={{@denyDisabled}}
+    />
+  {{/if}}
+</div>

@@ -1,10 +1,10 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
 import { run, schedule } from '@ember/runloop';
-import { baseCommentEditorOptions } from 'wherehows-web/constants';
-import { IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
+import { baseCommentEditorOptions } from 'datahub-web/constants';
+import { IDatasetComment } from 'datahub-web/typings/api/datasets/comments';
 import Notifications from '@datahub/utils/services/notifications';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { noop } from 'lodash';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { tagName, classNames } from '@ember-decorators/component';
 import { inject as service } from '@ember/service';
@@ -49,7 +49,7 @@ export default class CommentItem extends Component {
    * Flag indicating the comment is in edit mode
    * @type {boolean}
    */
-  isEditing: boolean = false;
+  isEditing = false;
 
   /**
    * Editor options to set on the comment editor

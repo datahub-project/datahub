@@ -1,0 +1,75 @@
+<Browser::Containers::EntityCategories @params={{model}} as |categoriesContainer|>
+  <section class="browse-category-container {{if (eq model.segments.length 0) "browse-category-container--no-breadcrumbs"}}">
+    {{!-- Dont show breadcrumbs first level since we already have the title and there is real action --}}
+    {{#if (gt model.segments.length 0)}}
+      <Browser::EntityBreadcrumbs
+        class={{with-banner-offset "nacho-breadcrumbs-container"}}
+        @entity={{lowercase model.displayName}}
+        @segments={{model.segments}}
+      />
+    {{/if}}
+    <div class="container">
+
+      <header class="browse-category-container__header">
+        {{#with categoriesContainer.browsePath.title as |title|}}
+          <h3 class="browse-category-container__title">
+            {{title}}
+          </h3>
+        {{/with}}
+
+        {{#if categoriesContainer.isLoadingList}}
+          <div class="browse-category-container__list-loading">
+            <PendulumEllipsisAnimation />
+          </div>
+        {{/if}}
+
+        {{#if categoriesContainer.showSearchWithinHierarchy}}
+          <aside class="browse-category-container__header__actions">
+            <Browser::SearchWithinHierarchy @count={{categoriesContainer.totalNumEntities}} @entityType={{model.displayName}} @segments={{model.segments}} />
+          </aside>
+        {{/if}}
+      </header>
+
+      {{#if categoriesContainer.showAsTiles}}
+
+        <div class="row">
+          <BigList
+            @list={{categoriesContainer.browsePath.groups}}
+            @onFinished={{action categoriesContainer.onFinishedLoadingTiles}}
+            as |group|>
+            <Browser::BrowseCard @title={{group.link.text}} @description={{pluralize group.count group.entity}} @link={{group.link}} />
+          </BigList>
+        </div>
+
+      {{else}}
+
+        {{#if (eq browsePath.count 0)}}
+          <EmptyState
+              @heading="No records found"
+              @subHead="We could not retrieve any entities at the specified category"
+            />
+        {{else}}
+
+          <ul class="browse-category-container__ul">
+            <BigList
+              @list={{categoriesContainer.browsePath.groups}}
+              @onFinished={{action categoriesContainer.onFinishedLoadingGroups}}
+              as |group|
+            >
+              <Browser::BrowseCategory @node={{group}} />
+            </BigList>
+
+            <BigList
+              @list={{categoriesContainer.browsePath.entities}}
+              @onFinished={{action categoriesContainer.onFinishedLoadingEntities}}
+              as |entity|
+            >
+              <Browser::BrowseCategory @node={{entity}} @isForEntityPage={{true}} />
+            </BigList>
+          </ul>
+        {{/if}}
+
+      {{/if}}
+    </div>
+  </section>
+</Browser::Containers::EntityCategories>

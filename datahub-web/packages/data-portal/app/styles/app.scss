@@ -4,9 +4,9 @@
 @import 'ember-power-select-typeahead';
 @import 'ember-power-calendar';
 
+@import 'nacho-core';
+
 @import 'datahub-utils';
-@import 'entity-header';
-@import 'entity-deprecation';
 @import 'datahub-shared';
 @import 'entity-lists';
 
@@ -17,8 +17,11 @@
 @import 'nacho-table';
 @import 'nacho-pill';
 @import 'nacho-avatars';
+@import 'nacho-button';
+@import 'nacho-dropdown';
 @import 'datasets-core';
 @import 'institutional-memory';
+
 @import 'user-entity';
 @import 'components/all';
 @import 'layout/all';

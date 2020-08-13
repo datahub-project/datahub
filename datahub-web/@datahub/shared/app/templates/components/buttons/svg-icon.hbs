@@ -1,0 +1,19 @@
+<button
+  type="button"
+  title={{@title}}
+  class={{this.baseClass}}
+  {{on "click" this.onClick}}
+  ...attributes
+>
+  {{! If a title argument is provided, render the element tooltip, however,
+     the native title can be supplied if the consumer does not wish to use the tooltip component
+     but use native browser accessibility features
+  }}
+  {{#if @title}}
+    <TooltipOnElement
+      @text={{@title}}
+    />
+  {{/if}}
+  {{! Show a question mark if an iconName is not supplied }}
+  {{if @iconName (svg-jar @iconName class=@iconClass height="18px") "?"}}
+</button>

@@ -2,10 +2,10 @@
   <ul class="nacho-table__field-value-list {{@baseClass}}__field-value-list">
     {{#each @value as |valueItem|}}
       <li class="nacho-table__field-value-list-item {{@baseClass}}__field-value-list-item">
-        <Properties::SingleValueRenderer @value={{valueItem}} @component={{@component}} />
+        <Properties::SingleValueRenderer @value={{valueItem}} @component={{@component}} @entity={{@entity}} />
       </li>
     {{/each}}
   </ul>
 {{else}}
-  <Properties::SingleValueRenderer @value={{@value}} @component={{@component}} />
+  <Properties::SingleValueRenderer @value={{@value}} @component={{@component}} @entity={{@entity}} />
 {{/if}}

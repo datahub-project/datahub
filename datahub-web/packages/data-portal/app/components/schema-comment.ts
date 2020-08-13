@@ -1,15 +1,14 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
-import { assert } from '@ember/debug';
 import {
   readDatasetSchemaComments,
   createDatasetSchemaComment,
   updateDatasetSchemaComment,
   deleteDatasetSchemaComment
-} from 'wherehows-web/utils/api/datasets/schema-comments';
-import { augmentObjectsWithHtmlComments } from 'wherehows-web/utils/api/datasets/columns';
-import { IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
-import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
+} from 'datahub-web/utils/api/datasets/schema-comments';
+import { augmentObjectsWithHtmlComments } from 'datahub-web/utils/api/datasets/columns';
+import { IDatasetComment } from 'datahub-web/typings/api/datasets/comments';
+import { IDatasetColumn } from 'datahub-web/typings/api/datasets/columns';
 import Notifications from '@datahub/utils/services/notifications';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { action } from '@ember/object';
@@ -58,14 +57,18 @@ export class SchemaComment extends Component {
     columnId,
     comments
   }: IGetCommentsTaskArgs): IterableIterator<Promise<Array<IDatasetComment>>> {
-    const schemaComments: Array<IDatasetComment> = yield readDatasetSchemaComments(datasetId, columnId);
+    const schemaComments = ((yield readDatasetSchemaComments(datasetId, columnId)) as unknown) as Array<
+      IDatasetComment
+    >;
 
     if (Array.isArray(schemaComments)) {
-      const withHtmlComments = augmentObjectsWithHtmlComments(schemaComments.map(
-        ({ text }): Partial<IDatasetColumn> => ({
-          comment: text
-        })
-      ) as Array<IDatasetColumn>);
+      const withHtmlComments = augmentObjectsWithHtmlComments(
+        schemaComments.map(
+          ({ text }): Partial<IDatasetColumn> => ({
+            comment: text
+          })
+        ) as Array<IDatasetColumn>
+      );
       comments.setObjects.call(comments, withHtmlComments);
     }
   })
@@ -90,12 +93,10 @@ export class SchemaComment extends Component {
    * @return {Promise<boolean>}
    */
   @action
-  async handleSchemaComment(strategy: SchemaCommentActions): Promise<boolean> {
-    const [, { text }] = arguments;
+  async handleSchemaComment(strategy: SchemaCommentActions, options: { text?: string } = {}): Promise<boolean> {
+    const { text = '' } = options;
     const { datasetId, columnId, notifications, comments, getCommentsTask } = this;
     const { notify } = notifications;
-
-    assert(`Expected action to be one of ${Object.keys(SchemaCommentActions)}`, strategy in SchemaCommentActions);
 
     const action = {
       add: (): Promise<void> => createDatasetSchemaComment(datasetId, columnId, text),

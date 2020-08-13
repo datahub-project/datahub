@@ -1,8 +1,14 @@
 <ConcurrencyTaskStateHandler @task={{getContainerDataTask}}>
-  {{institutional-memory/wiki/url-list
-    listData=institutionalMemoryList
-    entityDisplayName=entity.displayName
-    addInstitutionalMemoryLink=(action "addInstitutionalMemoryLink")
-    removeInstitutionalMemoryLink=(action "removeInstitutionalMemoryLink")
-  }}
+  <InstitutionalMemory::Wiki::UrlList
+    @listData={{this.institutionalMemoryList}}
+    @entityDisplayName={{this.entity.displayName}}
+    @addInstitutionalMemoryLink={{fn this.addInstitutionalMemoryLink}}
+    @removeInstitutionalMemoryLink={{fn this.removeInstitutionalMemoryLink}}
+  />
 </ConcurrencyTaskStateHandler>
+
+{{#if this.isChangeManagementEnabled}}
+  <ChangeManagement::ChangeLogSearchProvider
+    @entity={{this.entity}}
+  />
+{{/if}}

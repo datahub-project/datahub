@@ -1,0 +1,101 @@
+{{#if (and (not @changeLogs) readOnly) }}
+  <NachoTable
+    @tableClass={{this.baseTableClass}}
+    as |Table|
+  >
+    <Table.global>
+      <header>
+        <h3 class="{{this.baseTableClass}}__title">
+          {{this.tableTitle}}
+        </h3>
+        <p class="{{this.baseTableClass}}__label">
+          Document and notify consumers of major changes or outages regarding the current entity
+          <MoreInfo @tooltip={{this.tooltipText}} @link={{this.changeManagementWiki}}/>
+        </p>
+      </header>
+    </Table.global>
+    <Table.body as |Body|>
+      <Body.row as |Row|>
+        <Row.cell>
+          There is no change log available yet.
+        </Row.cell>
+      </Body.row>
+    </Table.body>
+  </NachoTable>
+{{else}}
+  <NachoTable
+    @tableConfigs={{this.tableConfigs}}
+    @tableClass={{this.baseTableClass}}
+  as |Table|
+  >
+  <Table.global>
+    <header>
+      <h3 class="{{this.baseTableClass}}__title">
+        {{this.tableTitle}}
+      </h3>
+      <p class="{{this.baseTableClass}}__label">
+        Document and notify consumers of major changes or outages regarding the current entity
+        <MoreInfo @tooltip={{this.tooltipText}} @link={{this.changeManagementWiki}}/>
+      </p>
+    </header>
+  </Table.global>
+  <Table.body as |Body|>
+  {{#each @changeLogs as |changeLog|}}
+    <Body.row as |Row|>
+      <Row.cell>
+        {{changeLog.createdBy}}
+      </Row.cell>
+      <Row.cell>
+        {{moment-format (unix changeLog.dateAdded) "MM/DD/YYYY"}}
+      </Row.cell>
+      <Row.cell>
+        <TruncatedTextWithTooltip @text={{changeLog.subject}} />
+      </Row.cell>
+      <Row.cell>
+        {{if changeLog.sendEmail "Notified" "Not Notified"}}
+      </Row.cell>
+      <Row.cell>
+        <button
+          type="button"
+          class="{{this.baseTableClass}}__actions-button"
+          {{on "click" (fn this.showChangeLogDetail changeLog.id)}}
+          {{track-control-interaction type="SHORT_PRESS" name="DatahubChangeManagementViewDetail"}}
+        >
+          View Detail
+        </button>
+        {{!-- Don't display an option to `Send Notification` for Non-owners and already notified change logs --}}
+        {{#if (and (not readOnly) (not changeLog.sendEmail))}}
+          <button
+            type="button"
+            class="{{this.baseTableClass}}__actions-button"
+            {{on "click" (fn this.onSendEmail changeLog.id)}}
+            {{track-control-interaction type="SHORT_PRESS" name="DatahubChangeManagementSendNotification"}}
+          >
+            Send Notification
+          </button>
+        {{/if}}
+      </Row.cell>
+    </Body.row>
+  {{/each}}
+  </Table.body>
+
+  {{!--Non owners can only read existing logs in the Audit log and cannot add new ones--}}
+  {{#unless @readOnly}}
+  <Table.foot class="{{this.baseTableClass}}__footer">
+    <button
+      type="button"
+      class="{{this.baseTableClass}}__footer-button"
+      {{action this.onAddLog}}
+      {{track-control-interaction type="SHORT_PRESS" name="DatahubChangeManagementAddLog"}}
+    >
+      <FaIcon
+        @icon = "plus"
+        @class="{{this.baseTableClass}}__footer-icon"
+      />
+      Add log
+    </button>
+  </Table.foot>
+  {{/unless}}
+  </NachoTable>
+{{/if}}
+

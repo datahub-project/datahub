@@ -3,14 +3,15 @@ import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-rout
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
 import { action, setProperties, set } from '@ember/object';
 import { inject as service } from '@ember/service';
-import SearchService from 'wherehows-web/services/search';
-import { ISearchApiParams } from 'wherehows-web/typings/api/search/search';
-import SearchController from 'wherehows-web/controllers/search';
+import SearchService from '@datahub/search/services/search';
+import SearchController from 'datahub-web/controllers/search';
 import Transition from '@ember/routing/-private/transition';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
+import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
+import Configurator from 'datahub-web/services/configurator';
+import { DataModelName } from '@datahub/data-models/constants/entity/index';
 
 export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
   /**
@@ -18,6 +19,12 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    */
   @service('data-models')
   dataModels!: DataModelsService;
+
+  /**
+   * Injects the service taht lets us access our application configurations
+   */
+  @service
+  configurator!: Configurator;
 
   /**
    * Stores a reference to the application search service
@@ -42,9 +49,12 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    * @return {void}
    * @memberof SearchRoute
    */
-  model(
-    queryParam: ISearchApiParams
-  ): {
+  model(queryParam: {
+    entity: DataModelName;
+    page: string;
+    facets: string;
+    keyword: string;
+  }): {
     fields: Array<ISearchEntityRenderProps>;
     showFacets: boolean;
     searchConfig: IEntityRenderCommonPropsSearch;

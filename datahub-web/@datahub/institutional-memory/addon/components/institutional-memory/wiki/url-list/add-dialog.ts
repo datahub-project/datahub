@@ -5,7 +5,7 @@ import { layout, classNames } from '@ember-decorators/component';
 import { action } from '@ember/object';
 import { baseTableClass } from '@datahub/institutional-memory/components/institutional-memory/wiki/url-list';
 import { setProperties } from '@ember/object';
-import { noop } from '@datahub/utils/function/noop';
+import { noop } from 'lodash';
 
 /**
  * Creates a modal class base string for convenience
@@ -40,12 +40,12 @@ export default class WikiUrlListAddDialog extends Component {
   /**
    * User input url for the wiki link they want to create
    */
-  url: string = '';
+  url = '';
 
   /**
    * User input description for the wiki link they want to create
    */
-  description: string = '';
+  description = '';
 
   /**
    * Set character limit for the description

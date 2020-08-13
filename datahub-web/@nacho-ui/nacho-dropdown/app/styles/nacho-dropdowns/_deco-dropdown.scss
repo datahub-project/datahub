@@ -1,0 +1,28 @@
+.nacho-dropdown {
+  &--deco {
+    position: relative;
+    display: flex;
+
+    .ember-basic-dropdown {
+      position: initial;
+      flex-basis: 100%;
+
+      .ember-power-select-trigger {
+        border: none;
+        width: 100%;
+
+        &:focus {
+          outline: none;
+        }
+      }
+    }
+  }
+
+  &__category-header {
+    font-size: fs(large);
+    line-height: fs(x-large);
+    font-weight: fw(normal, 6);
+    padding: item-spacing(3) 0;
+    color: get-color(black, 0.9);
+  }
+}

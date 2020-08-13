@@ -10,6 +10,8 @@
   }
 
   &__title {
+    display: flex;
+    flex-flow: row wrap;
     margin: 0;
     font-size: 16px;
     font-weight: 400;
@@ -39,6 +41,10 @@
 
   &__option--empty {
     color: rgba(0, 0, 0, 0.6);
+  }
+
+  &__dynamic-header {
+    margin-top: 15px;
   }
 }
 

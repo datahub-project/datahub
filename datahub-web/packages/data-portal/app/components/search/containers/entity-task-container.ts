@@ -1,27 +1,49 @@
+import {
+  IBaseTrackingEvent,
+  ICustomEventData,
+  ITrackSearchResultImpressionsParams
+} from '@datahub/shared/types/tracking/event-tracking.d';
+import { TrackingEventCategory } from '@datahub/shared/constants/tracking/event-tracking/index';
 import Component from '@ember/component';
 import { set } from '@ember/object';
 import { computed } from '@ember/object';
-import { facetFromParamUrl, readSearchV2, facetToParamUrl } from 'wherehows-web/utils/api/search/search';
+import { facetFromParamUrl, readSearchV2, facetToParamUrl } from 'datahub-web/utils/api/search/search';
 import { IFacetsCounts, IFacetsSelectionsMap } from '@datahub/data-models/types/entity/facets';
 import { task } from 'ember-concurrency';
 import { debounce } from '@ember/runloop';
 import { IDataModelEntitySearchResult, ISearchDataWithMetadata } from '@datahub/data-models/types/entity/search';
-import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
-import { withResultMetadata, searchResultMetasToFacetCounts } from 'wherehows-web/utils/search/search-results';
+import { DataModelEntity, DataModelName, DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { ISearchEntityApiParams, IEntitySearchResult } from 'wherehows-web/typings/api/search/entity';
+import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/search/types/api/entity';
 import { alias } from '@ember/object/computed';
-import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { inject as service } from '@ember/service';
 import RouterService from '@ember/routing/router-service';
 import { fromRestli } from 'restliparams';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
-import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
+import UnifiedTracking from '@datahub/shared/services/unified-tracking';
+import DataModelsService from '@datahub/data-models/services/data-models';
+import { ITrackEntitySearchParams } from '@datahub/shared/types/tracking/search';
+import { getFacetForcedValueForEntity } from '@datahub/data-models/entity/utils/facets';
+import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
+import CurrentUser from '@datahub/shared/services/current-user';
+import { PageKey, CustomTrackingEventName } from '@datahub/shared/constants/tracking/event-tracking';
+import { ISearchResultImpressionTrackEventParams } from '@datahub/shared/types/tracking/event-tracking';
+import {
+  searchResultItemIndex,
+  searchResultMetasToFacetCounts,
+  withResultMetadata
+} from '@datahub/search/utils/search-results';
+import { assertComponentPropertyNotUndefined } from '@datahub/utils/decorators/assert';
 
-@containerDataSource('searchTask', ['keyword', 'page', 'facets', 'entity'])
-export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Component {
+@containerDataSource<SearchEntityTaskContainer>('searchTask', ['keyword', 'page', 'facets', 'entity'])
+export default class SearchEntityTaskContainer extends Component {
+  /**
+   * Service to create entity instances
+   */
+  @service('data-models')
+  dataModels!: DataModelsService;
+
   /**
    * Router service to perform some changes in query params
    */
@@ -35,56 +57,64 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
   trackingService: UnifiedTracking;
 
   /**
+   * Injects the application CurrentUser service to provide the actor information on the action event
+   */
+  @service('current-user')
+  sessionUser!: CurrentUser;
+
+  /**
    * User provided keyword search string
    * @type {string}
    */
-  keyword: string;
+  keyword?: string;
 
   /**
    * The current search page
    * @type {number}
    */
-  page: number;
+  page?: number;
 
   /**
    * Encoded facets state in a restli fashion
    * @type {string}
    */
-  facets: string;
+  facets?: string;
 
   /**
    * The category to narrow/ filter search results
-   * @type {string}
    */
+  @assertComponentPropertyNotUndefined
   entity: DataModelName;
 
   /**
    * Page size of search results, expected to be passed in or received from a held constant
    * @type {number}
    */
-  pageSize: number = 10;
+  @assertComponentPropertyNotUndefined
+  pageSize = 10;
 
   /**
    * If we wish to enable track or not
    */
-  shouldCollectSearchTelemetry: boolean = false;
+  shouldCollectSearchTelemetry?: boolean;
 
   /**
-   * Fields of the entity to render in search/facets/autocomplete
+   * Search config used to render search/facets/autocomplete
    */
-  fields: Array<ISearchEntityRenderProps>;
+  @assertComponentPropertyNotUndefined
+  searchConfig: IEntityRenderCommonPropsSearch;
 
   /**
    * Search result data
    */
-  result?: IDataModelEntitySearchResult<T>;
+  result?: IDataModelEntitySearchResult<DataModelEntityInstance>;
 
   /**
    * Flag indicating that the search facets have changed and a search will be performed
    * @type {boolean}
    * @memberof SearchController
    */
-  _isFacetsChanging: boolean = false;
+  _isFacetsChanging = false;
 
   /**
    * Counts for all the facets showing in the ui from search result
@@ -178,25 +208,32 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    * Queries the search endpoint with the requested query params and applies the search result to the result
    * attribute
    */
-  @(task(function*(this: SearchEntityTaskContainer<T>): IterableIterator<Promise<void>> {
+  @(task(function*(this: SearchEntityTaskContainer): IterableIterator<Promise<void>> {
     return yield this.searchEntities();
   }).restartable())
   searchTask!: ETaskPromise<void>;
-  /**
-   * Will perform a search for all types of entities (except datasets at the moment)
-   */
-  async searchEntities(): Promise<void> {
-    const { keyword, page, facetsApiParams, entity, pageSize, shouldCollectSearchTelemetry } = this;
 
+  /**
+   * Will perform a search for any type of entity (except datasets at the moment)
+   */
+  async getResultsForEntity(
+    entity: DataModelName,
+    searchConfig: SearchEntityTaskContainer['searchConfig']
+  ): Promise<IDataModelEntitySearchResult<DataModelEntityInstance> | undefined> {
+    const { keyword = '', page = 1, facetsApiParams, pageSize, dataModels } = this;
+    const forcedFacets = getFacetForcedValueForEntity(searchConfig.attributes);
+    const mergedFacetsApiParams: Record<string, Array<string>> = { ...facetsApiParams, ...forcedFacets };
     const searchApiParams: ISearchEntityApiParams = {
-      facets: facetsApiParams,
+      facets: mergedFacetsApiParams,
       input: keyword,
-      type: this.dataModelEntity.renderProps.search.apiName,
+      type: dataModels.getModel(entity).renderProps.apiEntityName,
       start: (page - 1) * pageSize,
       count: pageSize
     };
 
-    const searchResultProxy: IEntitySearchResult<T> = await readSearchV2<T>(searchApiParams);
+    const searchResultProxy: IEntitySearchResult<DataModelEntityInstance['entity']> = await readSearchV2<
+      DataModelEntityInstance['entity']
+    >(searchApiParams);
     const { elements } = searchResultProxy;
 
     if (elements) {
@@ -204,24 +241,36 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
       const itemsPerPage = count;
       const totalPages = Math.ceil(total / itemsPerPage);
       const page = Math.ceil((start + 1) / itemsPerPage);
+      const data = elements.map(
+        (entityData): DataModelEntityInstance => dataModels.createPartialInstance(entity, entityData)
+      );
 
-      set(this, 'result', {
-        data: elements,
+      const entitySearchResult = {
+        data,
         count: total,
         start,
         itemsPerPage,
         page,
         totalPages,
         facets: searchResultMetasToFacetCounts(searchResultProxy.searchResultMetadatas, facetsApiParams)
-      });
+      };
 
-      if (shouldCollectSearchTelemetry) {
-        // Allow analytics service to track content impressions
-        this.trackingService.trackContentImpressions();
-        // Capture search activity once search query is complete and results / no results are returned
-        this.trackingService.trackSiteSearch({ keyword, entity, searchCount: total });
-      }
+      return entitySearchResult;
+    }
 
+    return;
+  }
+
+  /**
+   * Used as an entry to the getResultsForEntity method from our data task in this component
+   */
+  async searchEntities(): Promise<void> {
+    const { entity, searchConfig } = this;
+    const result = await this.getResultsForEntity(entity, searchConfig);
+    if (result) {
+      const trackingParams = this.getEntitySearchTrackingParams(result);
+      trackingParams && this.trackEntitySearch(trackingParams);
+      set(this, 'result', result);
       return;
     }
 
@@ -235,9 +284,46 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    */
   @computed('entity')
   get dataModelEntity(): DataModelEntity {
-    const { entity } = this;
-    const entityClass = DataModelEntity[entity || DatasetEntity.displayName];
+    const { entity, dataModels } = this;
+    const entityClass = dataModels.getModel(entity || DatasetEntity.displayName);
     return entityClass;
+  }
+
+  /**
+   * From an entity search result, derives the parameters needed for tracking results
+   * @param searchResults - the expected results from performing an entity search
+   */
+  getEntitySearchTrackingParams(searchResults: SearchEntityTaskContainer['result']): ITrackEntitySearchParams | void {
+    if (searchResults) {
+      const { keyword = '', entity } = this;
+      const { itemsPerPage, page } = searchResults;
+      const searchResultImpressionsTrackingParams: ITrackSearchResultImpressionsParams = {
+        result: searchResults,
+        itemsPerPage,
+        page
+      };
+
+      return { keyword, entity, searchCount: searchResults.count, searchResultImpressionsTrackingParams };
+    }
+  }
+
+  /**
+   * Uses the injected analytics service to track the current search performed
+   * @param {ITrackEntitySearchParams} entitySearchTrackingParams parameters supplied to the tracking service's trackEntitySearch method
+   */
+  trackEntitySearch(entitySearchTrackingParams: ITrackEntitySearchParams): void {
+    if (this.shouldCollectSearchTelemetry) {
+      const { keyword, entity, searchCount, searchResultImpressionsTrackingParams } = entitySearchTrackingParams;
+      // Allow analytics service to track content impressions , this is specific to piwik tracking
+      this.trackingService.trackContentImpressions();
+      // Capture search activity once search query is complete and results / no results are returned
+      this.trackingService.trackSiteSearch({ keyword, entity, searchCount });
+      /**
+       * Tracks search result impressions for every individual search-result.
+       * Refer to`trackSearchResultImpressions` method for details on what exactly is tracked under each searchResult
+       */
+      this.trackSearchResultImpressions(searchResultImpressionsTrackingParams);
+    }
   }
 
   /**
@@ -246,21 +332,66 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    * and query params.
    */
   @computed('result')
-  get decoratedResults(): undefined | IDataModelEntitySearchResult<ISearchDataWithMetadata<T>> {
-    const { result, entity } = this;
-
+  get decoratedResults(): undefined | IDataModelEntitySearchResult<ISearchDataWithMetadata<DataModelEntityInstance>> {
+    const { result } = this;
     if (result) {
       const { page, itemsPerPage } = result;
 
       // Decorates each result item with ISearchResultMetadata metadata
-      const resultsDataWithMetadata: Array<ISearchDataWithMetadata<T>> = result.data.map(
-        withResultMetadata({ page, itemsPerPage, entity })
+      const resultsDataWithMetadata: Array<ISearchDataWithMetadata<DataModelEntityInstance>> = result.data.map(
+        withResultMetadata({ page, itemsPerPage })
       );
-
       // now data instead of plain api is decorated data
       return { ...result, data: resultsDataWithMetadata };
     }
 
     return;
+  }
+
+  /**
+   * Method used to iterate over the search results of an entity and handoff `userName`, `targetUrn` and `absolutePosition` for each result to the
+   * `trackSearchResultImpressionEvent` method.
+   *
+   * @param {ITrackSearchResultImpressionsParams} trackSearchResultImpressionParams A map containing the search result items , itemsPerPage and the page number
+   */
+  trackSearchResultImpressions(trackSearchResultImpressionParams: ITrackSearchResultImpressionsParams): void {
+    const userName = this.sessionUser.entity?.username || '';
+    const { itemsPerPage, result, page } = trackSearchResultImpressionParams;
+    // iterates over the search results of the current page and tracks the impression of each result through their absolutePosition and urn
+    result.data.forEach((searchResultItem: { urn: string }, pageIndex: number): void => {
+      const absolutePosition = searchResultItemIndex({ pageIndex, itemsPerPage, page });
+      const targetUrn = searchResultItem.urn;
+      this.trackSearchResultImpressionEvent({ userName, targetUrn, absolutePosition });
+    });
+  }
+
+  /**
+   * Creates attributes for tracking the search action event and invokes the tracking service.
+   *
+   * @param {ICategoryContainerTrackEventParams} { userName, query, absolutePosition, facet } the current user's username, search query keyed in by the user , the positioning of the search result card in the list, the facet filters clicked by the user
+   */
+  trackSearchResultImpressionEvent({
+    userName,
+    targetUrn,
+    absolutePosition
+  }: ISearchResultImpressionTrackEventParams): void {
+    const baseEventAttrs: IBaseTrackingEvent = {
+      category: TrackingEventCategory.Search,
+      action: CustomTrackingEventName.SearchImpression
+    };
+    const customEventAttrs: ICustomEventData = {
+      pageKey: PageKey.searchCategory,
+      eventName: CustomTrackingEventName.SearchImpression,
+      userName: userName,
+      target: targetUrn,
+      body: {
+        requesterUrn: userName,
+        targetUrn: targetUrn,
+        query: this.keyword,
+        absolutePosition,
+        facet: null
+      }
+    };
+    this.trackingService.trackEvent(baseEventAttrs, customEventAttrs);
   }
 }

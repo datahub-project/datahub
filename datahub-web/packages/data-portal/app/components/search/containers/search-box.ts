@@ -1,9 +1,9 @@
 import Component from '@ember/component';
 import { inject as service } from '@ember/service';
-import SearchService from 'wherehows-web/services/search';
+import SearchService from '@datahub/search/services/search';
 import { alias } from '@ember/object/computed';
-import { grammarProcessingSteps, typeaheadQueryProcessor } from 'wherehows-web/utils/parsers/autocomplete';
-import { ISuggestionGroup } from 'wherehows-web/utils/parsers/autocomplete/types';
+import { grammarProcessingSteps, typeaheadQueryProcessor } from 'datahub-web/utils/parsers/autocomplete';
+import { ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { tagName } from '@ember-decorators/component';
 import { computed } from '@ember/object';
@@ -12,7 +12,7 @@ import {
   getFacetDefaultValueForEntity,
   transformDefaultsIntoSelections
 } from '@datahub/data-models/entity/utils/facets';
-import { facetToParamUrl } from 'wherehows-web/utils/api/search/search';
+import { facetToParamUrl } from 'datahub-web/utils/api/search/search';
 import RouterService from '@ember/routing/router-service';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
@@ -64,12 +64,12 @@ export default class SearchBoxContainer extends Component {
    */
   @task(function*(
     this: SearchBoxContainer,
-    query: string = '',
+    query = '',
     entity?: DataModelName
   ): IterableIterator<Promise<Array<ISuggestionGroup>>> {
     const { dataModels } = this;
     if (entity) {
-      return yield typeaheadQueryProcessor(query, dataModels.getModel(entity), grammarProcessingSteps);
+      return yield typeaheadQueryProcessor(query as string, dataModels.getModel(entity), grammarProcessingSteps);
     }
   })
   onSearchInputTask: ETaskPromise<Array<ISuggestionGroup>>;
@@ -80,7 +80,7 @@ export default class SearchBoxContainer extends Component {
    * @param {Entity} [entity]
    * @memberof SearchBoxContainer
    */
-  onSearch(text: string = '', entity: DataModelName = DatasetEntity.displayName): void {
+  onSearch(text = '', entity: DataModelName = DatasetEntity.displayName): void {
     // entity (dropdown value) might be different than this.entity (Page that you are in)
     const { dataModels } = this;
     if (entity) {
