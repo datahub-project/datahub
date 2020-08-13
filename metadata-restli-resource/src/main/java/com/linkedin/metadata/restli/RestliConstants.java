@@ -7,7 +7,8 @@ public final class RestliConstants {
 
   public static final String ACTION_AUTOCOMPLETE = "autocomplete";
   public static final String ACTION_BACKFILL = "backfill";
-  public static final String ACTION_BATCH_BACKFILL = "batchBackfill";
+  public static final String ACTION_BACKFILL_WITH_URNS = "backfillWithUrns";
+  public static final String ACTION_BACKFILL_LEGACY = "backfillLegacy";
   public static final String ACTION_BROWSE = "browse";
   public static final String ACTION_GET_BROWSE_PATHS = "getBrowsePaths";
   public static final String ACTION_GET_SNAPSHOT = "getSnapshot";
