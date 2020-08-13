@@ -3,6 +3,7 @@ package com.linkedin.metadata.restli;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
@@ -24,9 +25,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -209,10 +212,12 @@ public abstract class BaseEntityResource<
 
   /**
    * An action method for emitting MAE backfill messages for an entity.
+   *
+   * @deprecated Use {@link #backfill(String[], String[])} instead
    */
-  @Action(name = ACTION_BACKFILL)
+  @Action(name = ACTION_BACKFILL_LEGACY)
   @Nonnull
-  public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
@@ -222,23 +227,64 @@ public abstract class BaseEntityResource<
           .filter(optionalAspect -> optionalAspect.isPresent())
           .map(optionalAspect -> ModelUtils.getAspectName(optionalAspect.get().getClass()))
           .collect(Collectors.toList());
-      return backfilledAspects.toArray(new String[0]);
+      return new BackfillResult().setEntities(new BackfillResultEntityArray(Collections.singleton(
+          new BackfillResultEntity().setUrn(urn).setAspects(new StringArray(backfilledAspects))
+      )));
     });
   }
 
   /**
    * An action method for emitting MAE backfill messages for a set of entities.
    */
-  @Action(name = ACTION_BATCH_BACKFILL)
+  @Action(name = ACTION_BACKFILL_WITH_URNS)
   @Nonnull
-  public Task<Void> batchBackfill(@ActionParam(PARAM_URNS) @Nonnull String[] urns,
-      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_URNS) @Nonnull String[] urns,
+                                       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
       final Set<URN> urnSet = Arrays.stream(urns).map(urnString -> parseUrnParam(urnString)).collect(Collectors.toSet());
-      getLocalDAO().backfill(parseAspectsParam(aspectNames), urnSet);
-      return null;
+      return buildBackfillResult(getLocalDAO().backfill(parseAspectsParam(aspectNames), urnSet));
     });
+  }
+
+  /**
+   * An action method for emitting MAE backfill messages for a set of entities using SCSI.
+   */
+  @Action(name = ACTION_BACKFILL)
+  @Nonnull
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+                                       @ActionParam(PARAM_URN) @Optional @Nullable String lastUrn,
+                                       @ActionParam(PARAM_LIMIT) int limit) {
+
+    return RestliUtils.toTask(() ->
+            buildBackfillResult(getLocalDAO().backfill(parseAspectsParam(aspectNames),
+                    _urnClass,
+                    parseUrnParam(lastUrn),
+                    limit)));
+  }
+
+  @Nonnull
+  private BackfillResult buildBackfillResult(@Nonnull Map<URN, Map<Class<? extends RecordTemplate>,
+          java.util.Optional<? extends RecordTemplate>>> backfilledAspects) {
+
+    final Set<URN> urns = new TreeSet<>(Comparator.comparing(Urn::toString));
+    urns.addAll(backfilledAspects.keySet());
+    return new BackfillResult().setEntities(new BackfillResultEntityArray(
+            urns.stream().map(urn -> buildBackfillResultEntity(urn, backfilledAspects.get(urn)))
+                    .collect(Collectors.toList())));
+  }
+
+  @Nonnull
+  private BackfillResultEntity buildBackfillResultEntity(@Nonnull URN urn, Map<Class<? extends RecordTemplate>,
+          java.util.Optional<? extends RecordTemplate>> aspectMap) {
+
+    return new BackfillResultEntity()
+            .setUrn(urn)
+            .setAspects(new StringArray(aspectMap.entrySet().stream()
+                    .filter(aspect -> aspect.getValue().isPresent())
+                    .map(aspect -> aspect.getKey().getCanonicalName())
+                    .collect(Collectors.toList()))
+            );
   }
 
   /**
@@ -272,7 +318,7 @@ public abstract class BaseEntityResource<
 
     return RestliUtils.toTask(() ->
         getLocalDAO()
-            .listUrns(filter, lastUrn == null ? null : parseUrnParam(lastUrn), limit)
+            .listUrns(filter, parseUrnParam(lastUrn), limit)
             .getValues()
             .stream()
             .map(Urn::toString)
@@ -341,8 +387,12 @@ public abstract class BaseEntityResource<
     return ModelUtils.newSnapshot(_snapshotClass, urn, aspects);
   }
 
-  @Nonnull
-  private URN parseUrnParam(@Nonnull String urnString) {
+  @Nullable
+  private URN parseUrnParam(@Nullable String urnString) {
+    if (urnString == null) {
+      return null;
+    }
+
     try {
       return createUrnFromString(urnString);
     } catch (Exception e) {

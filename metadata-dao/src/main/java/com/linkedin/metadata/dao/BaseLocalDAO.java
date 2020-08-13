@@ -20,9 +20,12 @@ import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.IndexCriterion;
+import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -384,6 +387,16 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   public abstract ListResult<Urn> listUrns(@Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize);
 
   /**
+   * Similar to {@link #listUrns(IndexFilter, URN, int)}. This is to get all urns with type URN
+   */
+  @Nonnull
+  public ListResult<Urn> listUrns(@Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
+    final IndexFilter indexFilter = new IndexFilter()
+            .setCriteria(new IndexCriterionArray(new IndexCriterion().setAspect(urnClazz.getCanonicalName())));
+    return listUrns(indexFilter, lastUrn, pageSize);
+  }
+
+  /**
    * Runs the given lambda expression in a transaction with a limited number of retries.
    *
    * @param block the lambda expression to run
@@ -503,6 +516,27 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
     });
     return urnToAspects;
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, Set)} but fetches the set of URNs to backfill using local secondary index
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> backfill(
+          @Nonnull Class<ASPECT> aspectClass, @Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
+    final ListResult<Urn> urnList = listUrns(urnClazz, lastUrn, pageSize);
+    return backfill(aspectClass, new HashSet(urnList.getValues()));
+  }
+
+  /**
+   * Similar to {@link #backfill(Set, Set)} but fetches the set of URNs to backfill using local secondary index
+   */
+  @Nonnull
+  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
+          @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Class<URN> urnClazz,
+          @Nullable URN lastUrn, int pageSize) {
+    final ListResult<Urn> urnList = listUrns(urnClazz, lastUrn, pageSize);
+    return backfill(aspectClasses, new HashSet(urnList.getValues()));
   }
 
   /**
