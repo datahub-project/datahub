@@ -477,6 +477,46 @@ public class EbeanLocalDAOTest {
   }
 
   @Test
+  public void testBackfillUsingSCSI() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    dao.enableLocalSecondaryIndex(true);
+
+    List<Urn> urns = ImmutableList.of(makeFooUrn(1), makeFooUrn(2), makeFooUrn(3));
+
+    Map<Urn, Map<Class<? extends RecordTemplate>, RecordTemplate>> aspects = new HashMap<>();
+
+    urns.forEach(urn -> {
+      AspectFoo aspectFoo = new AspectFoo().setValue("foo");
+      AspectBar aspectBar = new AspectBar().setValue("bar");
+      aspects.put(urn, ImmutableMap.of(AspectFoo.class, aspectFoo, AspectBar.class, aspectBar));
+      addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, aspectFoo);
+      addMetadata(urn, AspectBar.class.getCanonicalName(), 0, aspectBar);
+      dao.processAndSaveUrnToLocalSecondaryIndex(urn);
+    });
+
+    // Backfill single aspect
+    Map<Urn, Optional<AspectFoo>> backfilledAspects1 = dao.backfill(AspectFoo.class, FooUrn.class, null, 3);
+    for (Urn urn: urns) {
+      RecordTemplate aspect = aspects.get(urn).get(AspectFoo.class);
+      assertEquals(backfilledAspects1.get(urn).get(), aspect);
+      verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
+    }
+    clearInvocations(_mockProducer);
+
+    // Backfill set of aspects
+    Map<Urn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects2 =
+            dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), FooUrn.class, null, 3);
+    for (Urn urn: urns) {
+      for (Class<? extends RecordTemplate> clazz: aspects.get(urn).keySet()) {
+        RecordTemplate aspect = aspects.get(urn).get(clazz);
+        assertEquals(backfilledAspects2.get(urn).get(clazz).get(), aspect);
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
+      }
+    }
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
   public void testListVersions() {
     EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
     Urn urn = makeUrn(1);
@@ -926,6 +966,32 @@ public class EbeanLocalDAOTest {
     urns = dao.listUrns(indexFilter6, urn1, 2);
 
     assertEquals(urns.getTotalCount(), 0);
+  }
+
+  @Test
+  void testListUrnsFromIndexForAnEntity() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    dao.enableLocalSecondaryIndex(true);
+
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
+    FooUrn urn3 = makeFooUrn(3);
+    BarUrn urn4 = makeBarUrn(4);
+
+    dao.processAndSaveUrnToLocalSecondaryIndex(urn1);
+    dao.processAndSaveUrnToLocalSecondaryIndex(urn2);
+    dao.processAndSaveUrnToLocalSecondaryIndex(urn3);
+    dao.processAndSaveUrnToLocalSecondaryIndex(urn4);
+
+    // List foo urns
+    ListResult<Urn> urns = dao.listUrns(FooUrn.class, null, 2);
+    assertEquals(urns.getValues(), Arrays.asList(urn1, urn2));
+    assertEquals(urns.getTotalCount(), 3);
+
+    // List bar urns
+    urns = dao.listUrns(BarUrn.class, null, 1);
+    assertEquals(urns.getValues(), Arrays.asList(urn4));
+    assertEquals(urns.getTotalCount(), 1);
   }
 
   private void addMetadata(Urn urn, String aspectName, long version, RecordTemplate metadata) {

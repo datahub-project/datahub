@@ -315,9 +315,14 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), aspectNames));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(urn.toString(), aspectNames));
 
-    assertEquals(ImmutableSet.copyOf(backfilledAspects), ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class)));
+    assertEquals(backfillResult.getEntities().size(), 1);
+
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn);
+    assertEquals(backfillResultEntity.getAspects().size(), 1);
+    assertEquals(backfillResultEntity.getAspects().get(0), ModelUtils.getAspectName(AspectFoo.class));
   }
 
   @Test
@@ -328,9 +333,14 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     when(_mockLocalDAO.backfill(AspectBar.class, urn)).thenReturn(Optional.of(bar));
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), null));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(urn.toString(), null));
 
-    assertEquals(ImmutableSet.copyOf(backfilledAspects),
+    assertEquals(backfillResult.getEntities().size(), 1);
+
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn);
+    assertEquals(backfillResultEntity.getAspects().size(), 2);
+    assertEquals(ImmutableSet.copyOf(backfillResultEntity.getAspects()),
         ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class), ModelUtils.getAspectName(AspectBar.class)));
   }
 
@@ -350,12 +360,58 @@ public class BaseEntityResourceTest extends BaseEngineTest {
   public void testBatchBackfill() {
     Urn urn1 = makeUrn(1);
     Urn urn2 = makeUrn(2);
+    AspectFoo foo1 = new AspectFoo().setValue("foo1");
+    AspectBar bar1 = new AspectBar().setValue("bar1");
+    AspectBar bar2 = new AspectBar().setValue("bar2");
+    String[] aspects = new String[] {"com.linkedin.testing.AspectFoo", "com.linkedin.testing.AspectBar"};
+    when(_mockLocalDAO.backfill(_resource.parseAspectsParam(aspects), ImmutableSet.of(urn1, urn2)))
+            .thenReturn(ImmutableMap.of(urn1, ImmutableMap.of(AspectFoo.class, Optional.of(foo1), AspectBar.class, Optional.of(bar1)),
+                    urn2, ImmutableMap.of(AspectBar.class, Optional.of(bar2))));
 
-    runAndWait(_resource.batchBackfill(new String[]{urn1.toString(), urn2.toString()},
-        new String[] {"com.linkedin.testing.AspectFoo", "com.linkedin.testing.AspectBar"}));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(new String[]{urn1.toString(), urn2.toString()}, aspects));
+    assertEquals(backfillResult.getEntities().size(), 2);
 
-    verify(_mockLocalDAO, times(1))
-        .backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), ImmutableSet.of(urn1, urn2));
+    // Test first entity
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn1);
+    assertEquals(backfillResultEntity.getAspects().size(), 2);
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectFoo"));
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectBar"));
+
+    // Test second entity
+    backfillResultEntity = backfillResult.getEntities().get(1);
+    assertEquals(backfillResultEntity.getUrn(), urn2);
+    assertEquals(backfillResultEntity.getAspects().size(), 1);
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectBar"));
+  }
+
+  @Test
+  public void testBackfillUsingSCSI() {
+    Urn urn1 = makeUrn(1);
+    Urn urn2 = makeUrn(2);
+    AspectFoo foo1 = new AspectFoo().setValue("foo1");
+    AspectBar bar1 = new AspectBar().setValue("bar1");
+    AspectBar bar2 = new AspectBar().setValue("bar2");
+    String[] aspects = new String[] {"com.linkedin.testing.AspectFoo", "com.linkedin.testing.AspectBar"};
+    when(_mockLocalDAO.backfill(_resource.parseAspectsParam(aspects), Urn.class, null, 10))
+            .thenReturn(ImmutableMap.of(urn1, ImmutableMap.of(AspectFoo.class, Optional.of(foo1), AspectBar.class, Optional.of(bar1)),
+                    urn2, ImmutableMap.of(AspectBar.class, Optional.of(bar2))));
+
+    BackfillResult backfillResult = runAndWait(_resource.backfill(aspects, null, 10));
+    assertEquals(backfillResult.getEntities().size(), 2);
+
+    // Test first entity
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn1);
+    assertEquals(backfillResultEntity.getAspects().size(), 2);
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectFoo"));
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectBar"));
+
+    // Test second entity
+    backfillResultEntity = backfillResult.getEntities().get(1);
+    assertEquals(backfillResultEntity.getUrn(), urn2);
+    assertEquals(backfillResultEntity.getAspects().size(), 1);
+    assertTrue(backfillResultEntity.getAspects().contains("com.linkedin.testing.AspectBar"));
   }
 
   @Test
