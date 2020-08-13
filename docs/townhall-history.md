@@ -8,8 +8,8 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 
 Agenda
   * Quick intro - 5 mins
-  * [Demo] Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) - by Nagarjuna from LinkedIn (15 mins)
-  * [Demo] Showcasing new Lineage UI in internal LinkedIn DataHub - By Ignacio from LinkedIn (10 mins)
+  * [Demo] Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) - by [Nagarjuna](https://www.linkedin.com/in/nagarjunak) from LinkedIn (15 mins)
+  * [Demo] Showcasing new Lineage UI in internal LinkedIn DataHub - By [Ignacio](https://www.linkedin.com/in/ignaciobona) from LinkedIn (10 mins)
   * [Announcement] New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) - John Plaisted! (2 mins)
   * Answering questions from the signup sheet - 13 mins
   * Questions from the participants - 10 mins
@@ -46,7 +46,7 @@ Agenda
 Agenda
   * Quick intro - 5 mins
   * [Demo] [Expedia](https://www.expedia.com/) team will share how they are adopting DataHub for Expedia's production systems - 10 mins
-  * [Demo] [larluo](https://github.com/clojurians-org) will present on Nix Usage for Datahub and Related Database Lineage Content - 10 mins
+  * [Demo] [Larry](https://github.com/clojurians-org) will present on Nix Usage for Datahub and Related Database Lineage Content - 10 mins
   * Answering questions from the signup sheet - 15 mins	  * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins	  * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
