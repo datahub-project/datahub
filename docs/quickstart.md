@@ -5,7 +5,7 @@
 3. Clone this repo and `cd` into the root directory of the cloned repository.
 4. Run the following command to download and run all Docker containers locally:
     ```
-    ./docker/quickstart/quickstart.sh
+    ./docker/quickstart.sh
     ```
     This step takes a while to run the first time, and it may be difficult to tell if DataHub is fully up and running from the combined log. Please use [this guide](debugging.md#how-can-i-confirm-if-all-docker-containers-are-running-as-expected-after-a-quickstart) to verify that each container is running correctly.
 5. At this point, you should be able to start DataHub by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password. However, you'll notice that no data has been ingested yet.
