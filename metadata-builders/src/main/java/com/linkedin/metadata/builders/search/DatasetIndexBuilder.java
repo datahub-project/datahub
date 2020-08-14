@@ -72,6 +72,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
     final DatasetDocument doc = setUrnDerivedFields(urn);
     if (datasetProperties.hasDescription()) {
       doc.setDescription(datasetProperties.getDescription());
+    } else {
+      doc.setDescription("");
     }
     return doc;
   }
