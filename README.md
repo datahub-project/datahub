@@ -78,6 +78,7 @@ Here is a list of companies that are currently building POC or seriously evaluat
 * [Booking.com](https://www.booking.com)
 * [Experian](https://www.experian.com)
 * [Geotab](https://www.geotab.com)
+* [Kindred Group](https://www.kindredgroup.com)
 * [Instructure](https://www.instructure.com)
 * [Inventec](https://www.inventec.com)
 * [Microsoft](https://microsoft.com)
