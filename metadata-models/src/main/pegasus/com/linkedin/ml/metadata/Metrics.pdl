@@ -1,7 +1,7 @@
 namespace com.linkedin.ml.metadata
 
 /**
- * Metrics to be featured for the ML model.
+ * Metrics to be featured for the MLModel.
  */
 record Metrics {
 
@@ -11,12 +11,12 @@ record Metrics {
   classificationSystems: optional string
 
   /**
-   * For score-based systems such as pricing models and risk assessment algorithms, describing differences in the distribution of measured metrics across groups may be helpful.
+   * For score-based systems such as pricing MLModel's and risk assessment algorithms, describing differences in the distribution of measured metrics across groups may be helpful.
    */
   scoreBasedAnalyses: optional string
 
   /**
-   *  Confidence intervals for metrics derived from confusion matrices can be calculated by treating the matrices as probabilistic models of system performance
+   *  Confidence intervals for metrics derived from confusion matrices can be calculated by treating the matrices as probabilistic MLModel's of system performance
    */
   confidence: optional string
 }

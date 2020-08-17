@@ -11,7 +11,7 @@ record CaveatsAndRecommendations {
   caveats: optional string
 
   /**
-   * Recommendations on where this model should be used.
+   * Recommendations on where this MLModel should be used.
    */
   recommendations: optional string
 }

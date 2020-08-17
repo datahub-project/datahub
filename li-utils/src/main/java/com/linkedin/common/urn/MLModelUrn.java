@@ -9,20 +9,20 @@ import static com.linkedin.common.urn.UrnUtils.toFabricType;
 
 public final class MLModelUrn extends Urn {
 
-  public static final String ENTITY_TYPE = "model";
+  public static final String ENTITY_TYPE = "mlModel";
 
   private static final String CONTENT_FORMAT = "(%s,%s,%s)";
 
   private final DataPlatformUrn platformEntity;
 
-  private final String modelNameEntity;
+  private final String mlModelNameEntity;
 
   private final FabricType originEntity;
 
-  public MLModelUrn(DataPlatformUrn platform, String modelName, FabricType origin) {
-    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, platform.toString(), modelName, origin.name()));
+  public MLModelUrn(DataPlatformUrn platform, String mlModelName, FabricType origin) {
+    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, platform.toString(), mlModelName, origin.name()));
     this.platformEntity = platform;
-    this.modelNameEntity = modelName;
+    this.mlModelNameEntity = mlModelName;
     this.originEntity = origin;
   }
 
@@ -30,8 +30,8 @@ public final class MLModelUrn extends Urn {
     return platformEntity;
   }
 
-  public String getModelNameEntity() {
-    return modelNameEntity;
+  public String getMlModelNameEntity() {
+    return mlModelNameEntity;
   }
 
   public FabricType getOriginEntity() {

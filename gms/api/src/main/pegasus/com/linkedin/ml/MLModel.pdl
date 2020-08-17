@@ -8,9 +8,9 @@ import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.Status
 import com.linkedin.common.Cost
 import com.linkedin.common.Deprecation
-import com.linkedin.ml.metadata.ModelProperties
+import com.linkedin.ml.metadata.MLModelProperties
 import com.linkedin.ml.metadata.IntendedUse
-import com.linkedin.ml.metadata.ModelFactors
+import com.linkedin.ml.metadata.MLModelFactors
 import com.linkedin.ml.metadata.Metrics
 import com.linkedin.ml.metadata.EvaluationData
 import com.linkedin.ml.metadata.TrainingData
@@ -30,9 +30,9 @@ record MLModel includes MLModelKey, ChangeAuditStamps, VersionTag {
   ownership: optional Ownership
 
   /**
-   * Model Properties
+   * MLModel Properties
    */
-  modelProperties: optional ModelProperties
+  mlModelProperties: optional MLModelProperties
 
   /**
    * Intended Use
@@ -40,9 +40,9 @@ record MLModel includes MLModelKey, ChangeAuditStamps, VersionTag {
   intendedUse: optional IntendedUse
 
   /**
-   * Model Factors
+   * MLModel Factors
    */
-  modelFactors: optional ModelFactors
+  mlModelFactors: optional MLModelFactors
 
   /**
    * Metrics

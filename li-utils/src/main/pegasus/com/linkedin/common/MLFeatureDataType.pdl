@@ -1,9 +1,9 @@
 namespace com.linkedin.common
 
 /**
- * Feature Data Type
+ * MLFeature Data Type
  */
-enum FeatureDataType {
+enum MLFeatureDataType {
 
   /**
    * Boolean Data Type

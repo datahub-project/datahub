@@ -8,7 +8,7 @@ import com.linkedin.common.DatasetUrn
 record EvaluationData {
 
   /**
-   * What datasets were used to evaluate the model?
+   * What datasets were used to evaluate the MLModel?
    */
   datasets: optional array[DatasetUrn]
 
