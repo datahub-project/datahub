@@ -1,13 +1,13 @@
 namespace com.linkedin.common
 
 /**
- * Standardized model identifier.
+ * Standardized MLModel identifier.
  */
 @java.class = "com.linkedin.common.urn.MLModelUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
-  "entityType" : "model",
+  "entityType" : "mlModel",
   "constructable" : true,
   "namespace" : "li",
   "name" : "MlModel",
@@ -16,9 +16,9 @@ namespace com.linkedin.common
   "fields" : [ {
     "name" : "platform",
     "type" : "com.linkedin.common.urn.DataPlatformUrn",
-    "doc" : "Standardized platform urn for the model."
+    "doc" : "Standardized platform urn for the MLModel."
   }, {
-    "name" : "modelName",
+    "name" : "mlModelName",
     "doc" : "Name of the MLModel",
     "type" : "string",
     "maxLength" : 210

@@ -1,25 +1,25 @@
 namespace com.linkedin.common
 
 /**
- * Standardized feature identifier.
+ * Standardized MLFeature identifier.
  */
 @java.class = "com.linkedin.common.urn.MLFeatureUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
-  "entityType" : "feature",
+  "entityType" : "mlFeature",
   "constructable" : true,
   "namespace" : "li",
-  "name" : "Feature",
-  "doc" : "Standardized feature identifier.",
+  "name" : "MLFeature",
+  "doc" : "Standardized MLFeature identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
-    "name" : "featureNamespace",
+    "name" : "mlFeatureNamespace",
     "type" : "string",
-    "doc" : "Namespace for the feature"
+    "doc" : "Namespace for the MLFeature"
   }, { "type" : "string",
-    "name" : "featureName",
-    "doc" : "Name of the Feature",
+    "name" : "mlFeatureName",
+    "doc" : "Name of the MLFeature",
     "maxLength" : 210
   }],
   "maxLength" : 284

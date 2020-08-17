@@ -6,22 +6,22 @@ public final class MLFeatureUrn extends Urn {
 
   private static final String CONTENT_FORMAT = "(%s,%s,%s)";
 
-  private final String featureNamespace;
+  private final String mlFeatureNamespace;
 
-  private final String featureName;
+  private final String mlFeatureName;
 
-  public MLFeatureUrn(String featureNameSpace, String featureName) {
-    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, featureNameSpace, featureName));
-    this.featureNamespace = featureNameSpace;
-    this.featureName = featureName;
+  public MLFeatureUrn(String mlFeatureNamespace, String mlFeatureName) {
+    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, mlFeatureNamespace, mlFeatureName));
+    this.mlFeatureNamespace = mlFeatureNamespace;
+    this.mlFeatureName = mlFeatureName;
   }
 
-  public String getFeatureName() {
-    return featureName;
+  public String getMlFeatureName() {
+    return mlFeatureName;
   }
 
-  public String getFeatureNamespace() {
-    return featureNamespace;
+  public String getMlFeatureNamespace() {
+    return mlFeatureNamespace;
   }
 
 }
