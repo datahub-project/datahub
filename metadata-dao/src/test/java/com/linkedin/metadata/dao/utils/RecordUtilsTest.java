@@ -1,6 +1,7 @@
 package com.linkedin.metadata.dao.utils;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -10,8 +11,12 @@ import com.linkedin.metadata.validator.ValidationUtils;
 import com.linkedin.testing.AspectBar;
 import com.linkedin.testing.AspectBaz;
 import com.linkedin.testing.AspectFoo;
+import com.linkedin.testing.AspectFooArray;
 import com.linkedin.testing.EntitySnapshot;
+import com.linkedin.testing.EntityValueArray;
+import com.linkedin.testing.MixedRecord;
 import com.linkedin.testing.singleaspectentity.EntityValue;
+import com.linkedin.testing.urn.FooUrn;
 import java.io.IOException;
 import java.util.Arrays;
 import org.testng.annotations.Test;
@@ -166,7 +171,147 @@ public class RecordUtilsTest {
     assertEquals(RecordUtils.extractAspectFromSingleAspectEntity(value, AspectBar.class), aspect);
   }
 
+  @Test(description = "Test getFieldValue() when RecordTemplate has primitive fields")
+  public void testGetFieldValuePrimitive() {
+    // case 1: string field set, bool field isn't set, default field should return default value
+    final MixedRecord mixedRecord1 = new MixedRecord().setValue("fooVal1");
+    PathSpec ps1 = MixedRecord.fields().value();
+    PathSpec ps2 = MixedRecord.fields().flag();
+    PathSpec ps3 = MixedRecord.fields().defaultField();
+
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    Object o2 = RecordUtils.getFieldValue(mixedRecord1, ps2);
+    Object o3 = RecordUtils.getFieldValue(mixedRecord1, ps3);
+    assertEquals(o1, "fooVal1");
+    assertNull(o2);
+    assertEquals(o3, "defaultVal");
+    assertEquals(ps1.toString(), "/value");
+    assertEquals(ps2.toString(), "/flag");
+    assertEquals(ps3.toString(), "/defaultField");
+
+    // case 2: string and bool field both set
+    final MixedRecord mixedRecord2 = new MixedRecord().setValue("fooVal2").setFlag(true);
+    Object o4 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().value());
+    Object o5 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().flag());
+    assertEquals(o4, "fooVal2");
+    assertEquals(o5, true);
+  }
+
+  @Test(description = "Test getFieldValue() when RecordTemplate has TypeRef field")
+  public void testGetFieldValueTypeRef() {
+    // case 1: Urn as the TypeRef
+    FooUrn urn = makeFooUrn(1);
+    final MixedRecord mixedRecord1 = new MixedRecord().setFooUrn(urn);
+    PathSpec ps1 = MixedRecord.fields().fooUrn();
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    assertEquals(o1, urn);
+    assertEquals(ps1.toString(), "/fooUrn");
+
+    // case 2: TypeRef defined in the same pdl
+    final MixedRecord mixedRecord2 = new MixedRecord().setIntTypeRef(2);
+    PathSpec ps2 = MixedRecord.fields().intTypeRef();
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+    assertEquals(o2, 2);
+    assertEquals(ps2.toString(), "/intTypeRef");
+
+    // case 3: TypeRef for Record field reference
+    AspectFoo aspectFoo = new AspectFoo().setValue("fooVal");
+    PathSpec ps3 = MixedRecord.fields().recordTypeRef().value();
+    final MixedRecord mixedRecord3 = new MixedRecord().setRecordTypeRef(aspectFoo);
+    Object o3 = RecordUtils.getFieldValue(mixedRecord3, ps3);
+    assertEquals(o3, "fooVal");
+    assertEquals(ps3.toString(), "/recordTypeRef/value");
+  }
+
+  @Test(description = "Test getFieldValue() when RecordTemplate has another field of Record type")
+  public void testGetFieldValueRecordType() {
+    // case 1: referencing a field inside a RecordTemplate, one level deep
+    AspectFoo foo1 = new AspectFoo().setValue("fooVal1");
+    MixedRecord mixedRecord1 = new MixedRecord().setRecordField(foo1);
+    PathSpec ps1 = MixedRecord.fields().recordField().value();
+
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+
+    assertEquals(o1, "fooVal1");
+    assertEquals(ps1.toString(), "/recordField/value");
+
+    // case 2: referencing a field inside a RecordTemplate, two levels deep i.e. nested field
+    AspectFoo foo2 = new AspectFoo().setValue("fooVal2");
+    com.linkedin.testing.EntityValue entityValue = new com.linkedin.testing.EntityValue().setFoo(foo2);
+    MixedRecord mixedRecord2 = new MixedRecord().setNestedRecordField(entityValue);
+    PathSpec ps2 = MixedRecord.fields().nestedRecordField().foo().value();
+
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+
+    assertEquals(o2, "fooVal2");
+    assertEquals(ps2.toString(), "/nestedRecordField/foo/value");
+  }
+
+  @Test(description = "Test getFieldValue() when RecordTemplate has field of type array")
+  public void testGetFieldValueArray() {
+    // case 1: array of strings
+    final MixedRecord mixedRecord1 = new MixedRecord().setStringArray(new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
+
+    PathSpec ps1 = MixedRecord.fields().stringArray();
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+
+    assertEquals(o1, new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
+    assertEquals(ps1.toString(), "/stringArray");
+
+    // case 2: wildcard on array of records
+    AspectFoo aspectFoo1 = new AspectFoo().setValue("fooVal1");
+    AspectFoo aspectFoo2 = new AspectFoo().setValue("fooVal2");
+    AspectFoo aspectFoo3 = new AspectFoo().setValue("fooVal3");
+    AspectFoo aspectFoo4 = new AspectFoo().setValue("fooVal4");
+    final AspectFooArray aspectFooArray = new AspectFooArray(Arrays.asList(aspectFoo1, aspectFoo2, aspectFoo3, aspectFoo4));
+    final MixedRecord mixedRecord2 = new MixedRecord().setRecordArray(aspectFooArray);
+
+    PathSpec ps2 = MixedRecord.fields().recordArray().items().value();
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+
+    assertEquals(o2, new StringArray(Arrays.asList("fooVal1", "fooVal2", "fooVal3", "fooVal4")));
+    assertEquals(ps2.toString(), "/recordArray/*/value");
+
+    // case 3: array of records is empty
+    final MixedRecord mixedRecord3 = new MixedRecord().setRecordArray(new AspectFooArray());
+    Object o3 = RecordUtils.getFieldValue(mixedRecord3, MixedRecord.fields().recordArray().items().value());
+    assertEquals(o3, new StringArray());
+
+    // case 4: referencing an index of array is not supported
+    final MixedRecord mixedRecord4 = new MixedRecord().setRecordArray(aspectFooArray);
+    PathSpec ps4 = new PathSpec("recordArray", "0", "value");
+
+    assertThrows(UnsupportedOperationException.class, () -> RecordUtils.getFieldValue(mixedRecord4, ps4));
+
+    // case 5: referencing nested field inside array of records, field being 2 levels deep
+    AspectFoo f1 = new AspectFoo().setValue("val1");
+    AspectFoo f2 = new AspectFoo().setValue("val2");
+    com.linkedin.testing.EntityValue val1 = new com.linkedin.testing.EntityValue().setFoo(f1);
+    com.linkedin.testing.EntityValue val2 = new com.linkedin.testing.EntityValue().setFoo(f2);
+    EntityValueArray entityValues = new EntityValueArray(Arrays.asList(val1, val2));
+    final MixedRecord mixedRecord5 = new MixedRecord().setNestedRecordArray(entityValues);
+
+    PathSpec ps5 = MixedRecord.fields().nestedRecordArray().items().foo().value();
+    Object o5 = RecordUtils.getFieldValue(mixedRecord5, ps5);
+
+    assertEquals(o5, new StringArray("val1", "val2"));
+    assertEquals(ps5.toString(), "/nestedRecordArray/*/foo/value");
+  }
+
+  @Test
+  public void testCapitalizeFirst() {
+    String s = "field1";
+    assertEquals(RecordUtils.capitalizeFirst(s), "Field1");
+
+    s = "t";
+    assertEquals(RecordUtils.capitalizeFirst(s), "T");
+
+    s = "";
+    assertEquals(RecordUtils.capitalizeFirst(s), "");
+  }
+
   private AspectBaz loadAspectBaz(String resourceName) throws IOException {
     return RecordUtils.toRecordTemplate(AspectBaz.class, loadJsonFromResource(resourceName));
   }
+
 }
