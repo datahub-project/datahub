@@ -100,3 +100,7 @@ That being said, generally there’s a more "natural way" to specify the directi
 
 Since all relationships are explicitly declared, it’s fairly easy for a user to discover what relationships are available and their directionality by inspecting 
 the [relationships directory](../../metadata-models/src/main/pegasus/com/linkedin/metadata/relationship). It’s also possible to provide a UI for the catalog of entities and relationships for analysts who are interested in building complex graph queries to gain insights into the metadata.
+
+## High Cardinality Relationships
+
+See [this doc](../advanced/high-cardinality.md) for suggestions on how to best model relationships with high cardinality.
