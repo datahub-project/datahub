@@ -8,7 +8,7 @@ import com.linkedin.ml.metadata.EthicalConsiderations
 import com.linkedin.ml.metadata.EvaluationData
 import com.linkedin.ml.metadata.IntendedUse
 import com.linkedin.ml.metadata.Metrics
-import com.linkedin.ml.metadata.MLModelFactors
+import com.linkedin.ml.metadata.MLModelFactorPrompts
 import com.linkedin.ml.metadata.MLModelProperties
 import com.linkedin.ml.metadata.QuantitativeAnalyses
 import com.linkedin.ml.metadata.TrainingData
@@ -22,7 +22,7 @@ typeref MLModelAspect = union[
   Ownership,
   MLModelProperties,
   IntendedUse,
-  MLModelFactors,
+  MLModelFactorPrompts,
   Metrics,
   EvaluationData,
   TrainingData,

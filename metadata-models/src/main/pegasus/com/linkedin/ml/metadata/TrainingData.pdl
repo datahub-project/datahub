@@ -7,18 +7,8 @@ import com.linkedin.common.DatasetUrn
  */
 record TrainingData {
 
-  /**
-   * What datasets were used to train the MLModel?
-   */
-  datasets: optional array[DatasetUrn]
-
-  /**
-   * Why were these datasets chosen?
-   */
-  motivation: optional string
-
-  /**
-   * How was the data preprocessed for evaluation (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
-   */
-  preProcessing: optional string
+    /**
+    * Details on the dataset(s) used for training the MLModel
+    */
+    trainingData: optional array[BaseData]
 }

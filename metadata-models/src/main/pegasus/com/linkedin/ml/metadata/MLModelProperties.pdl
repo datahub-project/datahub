@@ -30,6 +30,11 @@ record MLModelProperties {
   type: optional string
 
   /**
+   * Hyper Parameters of the MLModel
+   */
+  hyperParameters: optional array[string]
+
+  /**
    * List of features used for MLModel training
    */
   mlFeatures: optional array[MLFeatureUrn]

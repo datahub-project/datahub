@@ -7,18 +7,8 @@ import com.linkedin.common.DatasetUrn
  */
 record EvaluationData {
 
-  /**
-   * What datasets were used to evaluate the MLModel?
-   */
-  datasets: optional array[DatasetUrn]
-
-  /**
-   * Why were these datasets chosen?
-   */
-  motivation: optional string
-
-  /**
-   * How was the data preprocessed for evaluation (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
-   */
-  preProcessing: optional array[string]
+    /**
+     * Details on the dataset(s) used for the quantitative analyses in the MLModel
+     */
+    evaluationData: optional array[BaseData]
 }
