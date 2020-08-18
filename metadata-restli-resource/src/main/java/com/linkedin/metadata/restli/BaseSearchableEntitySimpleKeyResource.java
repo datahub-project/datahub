@@ -73,7 +73,7 @@ public abstract class BaseSearchableEntitySimpleKeyResource<
   @Nonnull
   public Task<List<VALUE>> getAll(
       @Nonnull PagingContext pagingContext,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
 
@@ -91,7 +91,7 @@ public abstract class BaseSearchableEntitySimpleKeyResource<
   @Nonnull
   public Task<CollectionResult<VALUE, SearchResultMetadata>> search(
       @QueryParam(PARAM_INPUT) @Nonnull String input,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {

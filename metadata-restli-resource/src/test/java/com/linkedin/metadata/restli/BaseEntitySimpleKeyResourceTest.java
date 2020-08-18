@@ -59,7 +59,7 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.get(new HashSet<>(Arrays.asList(aspect1Key, aspect2Key))))
         .thenReturn(Collections.singletonMap(aspect1Key, Optional.of(foo)));
 
-    EntityValue value = runAndWait(_resource.get(id, new String[0]));
+    EntityValue value = runAndWait(_resource.get(id, null));
 
     assertEquals(value.getFoo(), foo);
     assertFalse(value.hasBar());
@@ -134,7 +134,7 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.get(ImmutableSet.of(aspectFooKey1, aspectBarKey1, aspectFooKey2, aspectBarKey2))).thenReturn(
         ImmutableMap.of(aspectFooKey1, Optional.of(foo), aspectFooKey2, Optional.of(bar)));
 
-    Map<Long, EntityValue> keyValueMap = runAndWait(_resource.batchGet(ImmutableSet.of(id1, id2), new String[0]))
+    Map<Long, EntityValue> keyValueMap = runAndWait(_resource.batchGet(ImmutableSet.of(id1, id2), null))
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -204,7 +204,7 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     Set<AspectKey<Urn, ? extends RecordTemplate>> aspectKeys = ImmutableSet.of(fooKey, barKey);
     when(_mockLocalDAO.get(aspectKeys)).thenReturn(ImmutableMap.of(fooKey, Optional.of(foo), barKey, Optional.of(bar)));
 
-    EntitySnapshot snapshot = runAndWait(_resource.getSnapshot(urn.toString(), new String[0]));
+    EntitySnapshot snapshot = runAndWait(_resource.getSnapshot(urn.toString(), null));
 
     assertEquals(snapshot.getUrn(), urn);
 
@@ -241,7 +241,7 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     when(_mockLocalDAO.backfill(AspectBar.class, urn)).thenReturn(Optional.of(bar));
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), new String[0]));
+    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), null));
 
     assertEquals(ImmutableSet.copyOf(backfilledAspects),
         ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class), ModelUtils.getAspectName(AspectBar.class)));
