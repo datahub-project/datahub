@@ -3,7 +3,7 @@ import {
   IEntityRenderPropsEntityPage,
   ITabProperties
 } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { PersonTab } from '@datahub/data-models/constants/entity/person/tabs';
+import { PersonTab, getPersonTabPropertiesFor } from '@datahub/data-models/constants/entity/person/tabs';
 
 /**
  * Specific render properties only to the person entity
@@ -28,12 +28,14 @@ export interface IPersonEntitySpecificConfigs {
  * Making sure entityPage is not marked optional in the types as we know it is defined
  */
 export const getRenderProps = (): IEntityRenderProps & { entityPage: IEntityRenderPropsEntityPage } => {
+  const tabIds = [PersonTab.UserOwnership];
+
   return {
     apiEntityName: 'corpuser',
     entityPage: {
       apiRouteName: 'corpusers',
       route: 'user.profile',
-      tabProperties: [],
+      tabProperties: getPersonTabPropertiesFor(tabIds),
       defaultTab: PersonTab.UserOwnership,
       attributePlaceholder: '–'
     },

@@ -48,7 +48,7 @@ export default class AvatarImage extends Component {
    * @memberof AvatarImage
    */
   @task(function*(this: AvatarImage): IterableIterator<void> {
-    set(this, 'src', this.avatar.imageUrlFallback);
+    set(this, 'src', fallback);
   })
   onImageFallback!: ETaskPromise<void>;
 }

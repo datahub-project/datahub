@@ -51,9 +51,14 @@ export default class CurrentUser extends Service {
     // otherwise raise an exception
     if (session.isAuthenticated) {
       const userV2: ICorpUserInfo = await currentUser();
+      // TODO: Current midtier is falling behind, requiring us to make adjustments in open source to accommodate
+      // Since we actually are calling v1 endpoint here, ICorpUserInfo is not appropriate typing. This temp workaround
+      // will let us have parity with current OS while we make the fix to push out from internal
+      const tempFixUserInfo = (userV2 as unknown) as { user: { userName: string } };
+
       const PersonEntityClass = dataModels.getModel(PersonEntity.displayName);
-      const urn = PersonEntityClass.urnFromUsername(userV2.username);
-      const entity = dataModels.createPartialInstance(PersonEntityClass.displayName, { ...userV2, urn });
+      const urn = PersonEntityClass.urnFromUsername(tempFixUserInfo.user.userName);
+      const entity = await dataModels.createInstance(PersonEntityClass.displayName, urn);
 
       set(this, 'entity', entity);
     }

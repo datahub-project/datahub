@@ -141,7 +141,8 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    * Url link to the person's profile picture
    */
   get profilePictureUrl(): string {
-    throw new Error(NotImplementedError);
+    // A not implemented error breaks the build, so we have a default instead
+    return 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/Pok%C3%A9mon_Pikachu_art.png/220px-Pok%C3%A9mon_Pikachu_art.png';
   }
 
   /**

@@ -71,14 +71,18 @@ export default class UnifiedTracking extends Service {
       const metrics = this.metrics;
       const { trackers } = tracking;
       const { piwikSiteId, piwikUrl } = trackers.piwik;
+      // TODO: More graceful way to handle this. Currently our configs return empty string "" and site id 0, which are
+      // both read as falsy by the metrics adapter and throws a blocking error
+      const fallbackPiwikUrl = 'www.google.com';
+      const fallbackSiteId = 575600;
       const trackingAdaptersToActivate: Array<IAdapterOptions> = [
         ...adapterOptions,
         {
           name: 'Piwik',
           environments: ['all'],
           config: {
-            piwikUrl,
-            siteId: piwikSiteId
+            piwikUrl: piwikUrl || fallbackPiwikUrl,
+            siteId: piwikSiteId || fallbackSiteId
           }
         }
       ];
