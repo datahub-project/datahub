@@ -32,7 +32,7 @@ record MLModelProperties {
   /**
    * Hyper Parameters of the MLModel
    */
-  hyperParameters: optional array[string]
+  hyperParameters: optional map[string, HyperParameterValueType]
 
   /**
    * List of features used for MLModel training
