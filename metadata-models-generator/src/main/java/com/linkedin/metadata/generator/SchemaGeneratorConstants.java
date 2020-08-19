@@ -14,6 +14,7 @@ public class SchemaGeneratorConstants {
 
   // used in SchemaAnnotationRetriever
   static final String ASPECT = "Aspect";
+  static final String DELTA = "Delta";
   static final String ENTITY_URNS = "EntityUrns";
 
   // used in EventSchemaComposer

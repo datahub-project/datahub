@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 
 public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn> {
 
+  public static final long FIRST_VERSION = 0;
   public static final long LATEST_VERSION = 0;
 
   // A set of pre-computed valid metadata types
@@ -27,6 +28,10 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
     AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     _validMetadataAspects = ModelUtils.getValidAspectTypes(aspectUnionClass);
+  }
+
+  public BaseReadDAO(@Nonnull Set<Class<? extends RecordTemplate>> aspects) {
+    _validMetadataAspects = aspects;
   }
 
   /**
@@ -123,5 +128,9 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
     if (!_validMetadataAspects.contains(aspectClass)) {
       throw new InvalidMetadataType(aspectClass + " is not a supported metadata aspect type");
     }
+  }
+
+  protected void checkValidAspects(@Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
+    aspectClasses.forEach(aspectClass -> checkValidAspect(aspectClass));
   }
 }

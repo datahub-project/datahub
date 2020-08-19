@@ -3,19 +3,19 @@ namespace com.linkedin.mxe.bar.annotatedAspectBar
 import com.linkedin.avro2pegasus.events.KafkaAuditHeader
 
 /**
-* FailedMetadataChangeEvent for the BarUrn with AnnotatedAspectBar aspect.
-*/
+ * FailedMetadataChangeEvent for the BarUrn with AnnotatedAspectBar aspect.
+ */
 @FailedMetadataChangeEvent
 record FailedMetadataChangeEvent {
 
   /**
-  * Kafka event for capturing a failure to process a MetadataChangeEvent.
-  */
+   * Kafka event for capturing a failure to process a MetadataChangeEvent.
+   */
   auditHeader: optional KafkaAuditHeader
 
   /**
-  * The event that failed to be processed.
-  */
+   * The event that failed to be processed.
+   */
   metadataChangeEvent: MetadataChangeEvent
 
   /**

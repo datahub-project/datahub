@@ -1,0 +1,10 @@
+namespace com.linkedin.testing
+
+/**
+ * For unit tests
+ */
+record AnnotatedAspectBarDelta {
+
+  /** For unit tests */
+  stringFieldToUpdate: string
+}
