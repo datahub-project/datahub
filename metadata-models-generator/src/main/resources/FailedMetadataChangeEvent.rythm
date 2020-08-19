@@ -7,19 +7,19 @@ namespace com.linkedin.mxe@(nameSpace)
 import com.linkedin.avro2pegasus.events.KafkaAuditHeader
 
 /**
-* FailedMetadataChangeEvent for the @(entityName)Urn with @(eventSpec.getValueType()) aspect.
-*/
+ * FailedMetadataChangeEvent for the @(entityName)Urn with @(eventSpec.getValueType()) aspect.
+ */
 @@FailedMetadataChangeEvent
 record FailedMetadataChangeEvent {
 
   /**
-  * Kafka event for capturing a failure to process a MetadataChangeEvent.
-  */
+   * Kafka event for capturing a failure to process a MetadataChangeEvent.
+   */
   auditHeader: optional KafkaAuditHeader
 
   /**
-  * The event that failed to be processed.
-  */
+   * The event that failed to be processed.
+   */
   metadataChangeEvent: MetadataChangeEvent
 
   /**

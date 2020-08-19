@@ -524,4 +524,11 @@ public class ModelUtils {
     return String.format("%s_%s_%s", METADATA_AUDIT_EVENT_PREFIX, urnStr.substring(0, urnStr.length() - "Urn".length()),
         newValue.getClass().getSimpleName().toUpperCase());
   }
+
+  /**
+   * Return true if the aspect is defined in common namespace
+   */
+  public static boolean isCommonAspect(@Nonnull Class<? extends RecordTemplate> clazz) {
+    return clazz.getPackage().getName().startsWith("com.linkedin.common");
+  }
 }

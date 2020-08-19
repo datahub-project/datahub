@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.specific.SpecificRecord;
@@ -31,6 +32,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 /**
  * A Kafka implementation of {@link BaseMetadataEventProducer}.
  */
+@Slf4j
 public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn>
     extends BaseMetadataEventProducer<SNAPSHOT, ASPECT_UNION, URN> {
 
@@ -114,14 +116,17 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   @Override
   public <ASPECT extends RecordTemplate> void produceAspectSpecificMetadataAuditEvent(@Nonnull URN urn,
       @Nullable ASPECT oldValue, @Nonnull ASPECT newValue) {
-
-    validateAspectSpecificTopic(ModelUtils.getAspectSpecificMAETopicName(urn, newValue));
+    final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
+    if (!isValidateAspectSpecificTopic(topicKey)) {
+      log.error("The aspect specific topic {} is not registered.", topicKey);
+      return;
+    }
 
     String topic;
     Class<? extends SpecificRecord> maeAvroClass;
     RecordTemplate metadataAuditEvent;
     try {
-      topic = (String) Topics.class.getField(ModelUtils.getAspectSpecificMAETopicName(urn, newValue)).get(null);
+      topic = (String) Topics.class.getField(topicKey).get(null);
       maeAvroClass = Configs.TOPIC_SCHEMA_CLASS_MAP.get(topic);
       metadataAuditEvent = (RecordTemplate) EventUtils.getPegasusClass(maeAvroClass).newInstance();
 
@@ -159,9 +164,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
     return snapshot;
   }
 
-  static void validateAspectSpecificTopic(@Nonnull String topic) {
-    if (!Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic))) {
-      throw new IllegalArgumentException(String.format("The aspect specific topic %s is not registered.", topic));
-    }
+  static boolean isValidateAspectSpecificTopic(@Nonnull String topic) {
+    return Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic));
   }
 }

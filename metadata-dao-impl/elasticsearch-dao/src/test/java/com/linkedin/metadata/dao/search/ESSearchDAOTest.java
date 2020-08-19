@@ -186,14 +186,14 @@ public class ESSearchDAOTest {
   }
 
   @Test
-  public void testFilteredQueryUnsupportedCondition() throws IOException {
+  public void testFilteredQueryUnsupportedCondition() {
     int from = 0;
     int size = 10;
     final Filter filter2 = new Filter().setCriteria(new CriterionArray(Arrays.asList(
         new Criterion().setField("field_contain").setValue("value_contain").setCondition(Condition.CONTAIN)
     )));
     SortCriterion sortCriterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField("urn");
-    assertThrows(IllegalArgumentException.class, () -> _searchDAO.getFilteredSearchQuery(filter2, sortCriterion, from, size));
+    assertThrows(UnsupportedOperationException.class, () -> _searchDAO.getFilteredSearchQuery(filter2, sortCriterion, from, size));
   }
 
   private static SearchHit makeSearchHit(int id) {

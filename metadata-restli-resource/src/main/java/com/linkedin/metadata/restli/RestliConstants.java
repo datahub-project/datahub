@@ -7,10 +7,12 @@ public final class RestliConstants {
 
   public static final String ACTION_AUTOCOMPLETE = "autocomplete";
   public static final String ACTION_BACKFILL = "backfill";
+  public static final String ACTION_BATCH_BACKFILL = "batchBackfill";
   public static final String ACTION_BROWSE = "browse";
   public static final String ACTION_GET_BROWSE_PATHS = "getBrowsePaths";
   public static final String ACTION_GET_SNAPSHOT = "getSnapshot";
   public static final String ACTION_INGEST = "ingest";
+  public static final String ACTION_LIST_URNS_FROM_INDEX = "listUrnsFromIndex";
 
   public static final String PARAM_INPUT = "input";
   public static final String PARAM_ASPECTS = "aspects";
@@ -23,4 +25,5 @@ public final class RestliConstants {
   public static final String PARAM_LIMIT = "limit";
   public static final String PARAM_SNAPSHOT = "snapshot";
   public static final String PARAM_URN = "urn";
+  public static final String PARAM_URNS = "urns";
 }

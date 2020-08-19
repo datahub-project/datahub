@@ -3,7 +3,8 @@ namespace com.linkedin.testing
 /**
  * For unit tests
  */
-@Aspect.EntityUrns = ["com.linkedin.testing.FooUrn", "com.linkedin.testing.BarUrn"]
+@Aspect = { "Delta": "com.linkedin.testing.AnnotatedAspectBarDelta",
+  "EntityUrns": ["com.linkedin.testing.FooUrn", "com.linkedin.testing.BarUrn"]}
 record AnnotatedAspectBar {
 
   /** For unit tests */

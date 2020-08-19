@@ -1,11 +1,20 @@
 package com.linkedin.metadata.restli;
 
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.dao.ListResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.ExtraInfoArray;
+import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.CollectionResult;
+import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.ResourceContext;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.testing.AspectBar;
@@ -27,9 +36,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.dao.BaseReadDAO.LATEST_VERSION;
+import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
+
 
 public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest {
 
@@ -50,8 +61,8 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
     SingleAspectEntityUrn urn = new SingleAspectEntityUrn(id1);
     AspectBar aspect = new AspectBar().setValue(field1);
     AspectKey<SingleAspectEntityUrn, AspectBar> aspectKey = new AspectKey<>(AspectBar.class, urn, LATEST_VERSION);
-    when(_mockLocalDao.get(Collections.singleton(aspectKey)))
-        .thenReturn(Collections.singletonMap(aspectKey, Optional.of(aspect)));
+    when(_mockLocalDao.get(Collections.singleton(aspectKey))).thenReturn(
+        Collections.singletonMap(aspectKey, Optional.of(aspect)));
 
     EntityValue result = runAndWait(_resource.get(id1, new String[0]));
 
@@ -76,8 +87,10 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
     AspectBar aspect2 = new AspectBar().setValue(field11);
     AspectKey<SingleAspectEntityUrn, AspectBar> aspectKey2 = new AspectKey<>(AspectBar.class, urn2, LATEST_VERSION);
 
-    Set<AspectKey<SingleAspectEntityUrn, ? extends RecordTemplate>> keys = new HashSet<>(Arrays.asList(aspectKey1, aspectKey2));
-    Map<AspectKey<SingleAspectEntityUrn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> keyAspectMap = new HashMap<>();
+    Set<AspectKey<SingleAspectEntityUrn, ? extends RecordTemplate>> keys =
+        new HashSet<>(Arrays.asList(aspectKey1, aspectKey2));
+    Map<AspectKey<SingleAspectEntityUrn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> keyAspectMap =
+        new HashMap<>();
     keyAspectMap.put(aspectKey1, Optional.of(aspect1));
     keyAspectMap.put(aspectKey2, Optional.of(aspect2));
 
@@ -98,8 +111,7 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
 
     SingleAspectEntityUrn urn = new SingleAspectEntityUrn(id1);
     AspectKey<SingleAspectEntityUrn, AspectBar> aspectKey = new AspectKey<>(AspectBar.class, urn, LATEST_VERSION);
-    when(_mockLocalDao.get(Collections.singleton(aspectKey)))
-        .thenReturn(Collections.emptyMap());
+    when(_mockLocalDao.get(Collections.singleton(aspectKey))).thenReturn(Collections.emptyMap());
 
     try {
       runAndWait(_resource.get(id1, new String[0]));
@@ -114,10 +126,9 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
     String field1 = "foo";
 
     SingleAspectEntityUrn urn = new SingleAspectEntityUrn(id1);
-    AspectBar aspect = new AspectBar()
-        .setValue(field1);
-    List<EntityAspectUnion> aspectUnions = Collections.singletonList(
-        ModelUtils.newAspectUnion(EntityAspectUnion.class, aspect));
+    AspectBar aspect = new AspectBar().setValue(field1);
+    List<EntityAspectUnion> aspectUnions =
+        Collections.singletonList(ModelUtils.newAspectUnion(EntityAspectUnion.class, aspect));
 
     EntitySnapshot snapshot = ModelUtils.newSnapshot(EntitySnapshot.class, urn, aspectUnions);
 
@@ -134,16 +145,15 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
     int field2 = 1000;
 
     SingleAspectEntityUrn urn = new SingleAspectEntityUrn(id1);
-    AspectBar aspect = new AspectBar()
-        .setValue(field1);
-    List<EntityAspectUnion> aspectUnions = Collections.singletonList(
-        ModelUtils.newAspectUnion(EntityAspectUnion.class, aspect));
+    AspectBar aspect = new AspectBar().setValue(field1);
+    List<EntityAspectUnion> aspectUnions =
+        Collections.singletonList(ModelUtils.newAspectUnion(EntityAspectUnion.class, aspect));
     AspectKey<SingleAspectEntityUrn, AspectBar> aspectKey = new AspectKey<>(AspectBar.class, urn, LATEST_VERSION);
 
-    when(_mockLocalDao.get(Collections.singleton(aspectKey)))
-        .thenReturn(Collections.singletonMap(aspectKey, Optional.of(aspect)));
+    when(_mockLocalDao.get(Collections.singleton(aspectKey))).thenReturn(
+        Collections.singletonMap(aspectKey, Optional.of(aspect)));
 
-    EntitySnapshot resultSnapshot = runAndWait(_resource.getSnapshot(urn.toString(), new String[0]));
+    EntitySnapshot resultSnapshot = runAndWait(_resource.getSnapshot(urn.toString(), null));
     assertEquals(resultSnapshot, ModelUtils.newSnapshot(EntitySnapshot.class, urn, aspectUnions));
   }
 
@@ -168,7 +178,7 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
 
     SingleAspectEntityUrn urn = new SingleAspectEntityUrn(id1);
 
-    runAndWait(_resource.backfill(urn.toString(), new String[0]));
+    runAndWait(_resource.backfill(urn.toString(), null));
     verify(_mockLocalDao, times(1)).backfill(eq(AspectBar.class), eq(urn));
     verifyNoMoreInteractions(_mockLocalDao);
   }
@@ -182,11 +192,32 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
     }
   }
 
+  @Test
+  public void testGetAll() {
+    List<AspectBar> bars = ImmutableList.of(new AspectBar().setValue("e1"), new AspectBar().setValue("e2"));
+    ExtraInfo extraInfo1 = makeExtraInfo(makeUrn(1), LATEST_VERSION, makeAuditStamp("bar1"));
+    ExtraInfo extraInfo2 = makeExtraInfo(makeUrn(2), LATEST_VERSION, makeAuditStamp("bar2"));
+    ListResultMetadata listResultMetadata =
+        new ListResultMetadata().setExtraInfos(new ExtraInfoArray(ImmutableList.of(extraInfo1, extraInfo2)));
+    ListResult listResult = ListResult.<AspectBar>builder().values(bars).metadata(listResultMetadata).build();
+
+    PagingContext pagingContext = new PagingContext(0, 2);
+    when(_mockLocalDao.list(AspectBar.class, pagingContext.getStart(), pagingContext.getCount())).thenReturn(listResult);
+
+    CollectionResult<EntityValue, ListResultMetadata> entities = runAndWait(_resource.getAllWithMetadata(pagingContext));
+    assertEquals(entities.getElements(), bars);
+    assertEquals(entities.getMetadata(), listResultMetadata);
+  }
+
+  private ExtraInfo makeExtraInfo(Urn urn, Long version, AuditStamp audit) {
+    return new ExtraInfo().setUrn(urn).setVersion(version).setAudit(audit);
+  }
+
   /**
    * Test implementation of BaseSingleAspectEntitySimpleKeyResource.
    * */
-  private class TestResource extends BaseSingleAspectEntitySimpleKeyResource<
-          Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
+  private class TestResource extends
+                             BaseSingleAspectEntitySimpleKeyResource<Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
 
     TestResource() {
       super(AspectBar.class, EntityAspectUnion.class, EntityValue.class, EntitySnapshot.class);

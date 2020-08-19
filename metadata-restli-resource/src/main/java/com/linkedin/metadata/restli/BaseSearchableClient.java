@@ -34,16 +34,16 @@ public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends
    * @throws RemoteInvocationException when the rest.li request fails
    */
   @Nonnull
-  public abstract CollectionResponse<VALUE> search(@Nonnull String input, @Nonnull StringArray aspectNames, @Nullable Map<String, String> requestFilters,
+  public abstract CollectionResponse<VALUE> search(@Nonnull String input, @Nullable StringArray aspectNames, @Nullable Map<String, String> requestFilters,
       @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException;
 
   /**
-   * Similar to {@link #search(String, StringArray, Map, SortCriterion, int, int)} with empty list for aspect names, meaning all aspects will be returned
+   * Similar to {@link #search(String, StringArray, Map, SortCriterion, int, int)} with null for aspect names, meaning all aspects will be returned
    */
   @Nonnull
   public CollectionResponse<VALUE> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
       @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
-    return search(input, new StringArray(), requestFilters, sortCriterion, start, count);
+    return search(input, null, requestFilters, sortCriterion, start, count);
   }
 
   /**
