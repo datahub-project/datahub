@@ -1,5 +1,5 @@
 - Start Date: 08/18/2020
-- RFC PR: 
+- RFC PR: https://github.com/linkedin/datahub/pull/1812
 - Implementation PR(s): https://github.com/linkedin/datahub/pull/1721
 
 # Machine Learning Models
