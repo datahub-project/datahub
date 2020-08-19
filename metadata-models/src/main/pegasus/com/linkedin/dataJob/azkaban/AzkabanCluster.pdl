@@ -1,0 +1,6 @@
+namespace com.linkedin.dataJob.azkaban
+
+/**
+ * Azkaban cluster name
+ */
+typeref AzkabanCluster = string

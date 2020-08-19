@@ -18,5 +18,5 @@ record AzkabanProjectInfo {
   /**
    * Hadoop cluster in which the project exists
    */
-  clusterInfo: AzkabanClusterInfo
+  cluster: AzkabanCluster
 }

@@ -8,11 +8,6 @@ import com.linkedin.common.AzkabanFlowUrn
 record AzkabanJobInfo {
 
   /**
-   * Reference to the parent Azkaban flow
-   */
-  flow: AzkabanFlowUrn
-
-  /**
    * Azkaban job name
    */
   jobName: string
