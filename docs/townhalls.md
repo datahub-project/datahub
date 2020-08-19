@@ -65,7 +65,11 @@ https://linkedin.zoom.us/skype/95617940722
 
 ## Agenda
 
-Coming soon!
+- Quick intro - 5 mins
+- [Presentation] Data Governance look for a Digital Bank - by Sheetal Pratik from Saxo Bank (20 mins)
+- [Demo] Column level lineage for datasets - by Nagarjuna from LinkedIn (15 mins)
+- General Q&A from sign up sheet and participants - 15 mins
+- Closing remarks - 5 mins
 
 # Past Meetings
 
