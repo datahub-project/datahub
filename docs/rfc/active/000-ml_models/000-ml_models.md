@@ -2,7 +2,7 @@
 - RFC PR: 
 - Implementation PR(s): https://github.com/linkedin/datahub/pull/1721
 
-# AI Models
+# Machine Learning Models
 
 ## Summary
 
@@ -11,7 +11,7 @@ learning and related artificial intelligence technology. The work is inspired by
 
 ## Motivation
 
-We need to model AI model metadata for transparent model reporting. Below are some of the reasons why storing machine learning model metadata is important:
+We need to model ML model metadata for transparent model reporting. Below are some of the reasons why storing machine learning model metadata is important:
 - Drawing boundaries around a model's capabilities and limitations: There is a need to store the conditions under which a model performs best and most consistently and if it has some blind spots. It helps potential users of the models be better informed on which models are best for their specific purposes. Also, it helps minimize usage of machine learning models in contexts for which they are not well suited.
 - Metrics and Limitations: A model’s performance can be measured in countless ways, but we need to catalog the metrics that are most relevant and useful. Similarly there is a need to store a model's potential limitations that are most useful to quantify.
 - Ensure comparability across models in a well-informed way: Modeling metadata of ML models allows us to compare candidate models' results across not only traditional evaluation metrics but also along the axes of ethical, inclusive, and fair
