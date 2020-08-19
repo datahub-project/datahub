@@ -142,7 +142,10 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    */
   get profilePictureUrl(): string {
     // A not implemented error breaks the build, so we have a default instead
-    return 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/Pok%C3%A9mon_Pikachu_art.png/220px-Pok%C3%A9mon_Pikachu_art.png';
+    const fallbackImgUrl = PersonEntity.aviUrlFallback || '/assets/images/default_avatar.png';
+    const baseUrl = PersonEntity.aviUrlPrimary;
+
+    return baseUrl ? baseUrl.replace('[username]', (): string => this.username) : fallbackImgUrl;
   }
 
   /**
