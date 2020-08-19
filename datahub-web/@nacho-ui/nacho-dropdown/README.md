@@ -48,4 +48,4 @@ For more information on using ember-cli, visit [https://ember-cli.com/](https://
 License
 ------------------------------------------------------------------------------
 
-This project is licensed under the [MIT License](LICENSE.md).
+This project is licensed under the [Apache License](LICENSE.md).
