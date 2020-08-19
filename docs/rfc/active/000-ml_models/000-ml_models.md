@@ -89,7 +89,7 @@ It's important to make ML features as a top level entity because ML features cou
 - Deprecation: Captures if the feature has been deprecated or not.
 
 ### Metadata graph
-![ai_models_graph](ai_models_graph.png)
+![ml_model_graph](ml_model_graph.png)
 
 An example metadata graph with complete data lineage picture is shown above. Below are the main edges of the graph
 1. Evaluation dataset contains data used for quantitative analyses hence ML Model is connected to the evaluation dataset(s) through `DownstreamOf` edge
