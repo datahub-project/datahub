@@ -1,6 +1,7 @@
 package com.linkedin.metadata.dao.utils;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.urn.BarUrn;
@@ -272,5 +273,14 @@ public class ModelUtilsTest {
     AspectFoo foo = new AspectFoo().setValue("foo");
 
     assertEquals(ModelUtils.getAspectSpecificMAETopicName(urn, foo), "METADATA_AUDIT_EVENT_FOO_ASPECTFOO");
+  }
+
+  @Test
+  public void testIsCommonAspect() {
+    boolean result = ModelUtils.isCommonAspect(AspectFoo.class);
+    assertFalse(result);
+
+    result = ModelUtils.isCommonAspect(Ownership.class);
+    assertTrue(result);
   }
 }

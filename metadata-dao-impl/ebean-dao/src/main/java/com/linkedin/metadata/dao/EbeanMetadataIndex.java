@@ -11,6 +11,7 @@ import javax.persistence.Table;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 
 @Getter
@@ -35,6 +36,7 @@ import lombok.Setter;
     EbeanMetadataIndex.URN_COLUMN
 })
 @Entity
+@Accessors(chain = true)
 @Table(name = "metadata_index")
 public class EbeanMetadataIndex extends Model {
 
@@ -74,5 +76,4 @@ public class EbeanMetadataIndex extends Model {
 
   @Column(name = DOUBLE_COLUMN)
   protected Double doubleVal;
-
 }

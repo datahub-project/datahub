@@ -18,13 +18,16 @@ import com.linkedin.metadata.dao.retention.IndefiniteRetention;
 import com.linkedin.metadata.dao.retention.Retention;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
+import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -64,6 +67,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   protected final BaseMetadataEventProducer _producer;
+  protected final LocalDAOStorageConfig _storageConfig;
 
   // Maps an aspect class to the corresponding retention policy
   private final Map<Class<? extends RecordTemplate>, Retention> _aspectRetentionMap = new HashMap<>();
@@ -81,11 +85,39 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   // Always emit MAE on every update regardless if there's any actual change in value
   private boolean _alwaysEmitAuditEvent = false;
 
+  // Opt in to emit Aspect Specific MAE, at initial migration stage, always emit the event
+  private boolean _emitAspectSpecificAuditEvent = false;
+
+  // Flag for enabling reads and writes to local secondary index
+  private boolean _enableLocalSecondaryIndex = false;
+
+  // Flag for backfilling local secondary index
+  private boolean _backfillLocalSecondaryIndex = false;
+
   private Clock _clock = Clock.systemUTC();
 
+  /**
+   * Constructor for BaseLocalDAO
+   *
+   * @param aspectUnionClass containing union of all supported aspects. Must be a valid aspect union defined in com.linkedin.metadata.aspect
+   * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
+   */
   public BaseLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseMetadataEventProducer producer) {
     super(aspectUnionClass);
     _producer = producer;
+    _storageConfig = LocalDAOStorageConfig.builder().build();
+  }
+
+  /**
+   * Constructor for BaseLocalDAO
+   *
+   * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
+   * @param storageConfig {@link LocalDAOStorageConfig} containing storage config of full list of supported aspects
+   */
+  public BaseLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull LocalDAOStorageConfig storageConfig) {
+    super(storageConfig.getAspectStorageConfigMap().keySet());
+    _producer = producer;
+    _storageConfig = storageConfig;
   }
 
   /**
@@ -171,6 +203,42 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
+   * Sets if aspect specific MAE should be always emitted after each update even if there's no actual value change.
+   */
+  public void setEmitAspectSpecificAuditEvent(boolean emitAspectSpecificAuditEvent) {
+    _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
+  }
+
+  /**
+   * Sets if writes to local secondary index enabled
+   * @deprecated Use {@link #enableLocalSecondaryIndex(boolean)} instead
+   */
+  public void setWriteToLocalSecondaryIndex(boolean writeToLocalSecondaryIndex) {
+    _enableLocalSecondaryIndex = writeToLocalSecondaryIndex;
+  }
+
+  /**
+   * Enables reads from and writes to local secondary index
+   */
+  public void enableLocalSecondaryIndex(boolean enableLocalSecondaryIndex) {
+    _enableLocalSecondaryIndex = enableLocalSecondaryIndex;
+  }
+
+  /**
+   * Gets if reads and writes to local secondary index are enabled
+   */
+  public boolean isLocalSecondaryIndexEnabled() {
+    return _enableLocalSecondaryIndex;
+  }
+
+  /**
+   * Sets if local secondary index backfilling is enabled
+   */
+  public void setBackfillLocalSecondaryIndex(boolean backfillLocalSecondaryIndex) {
+    _backfillLocalSecondaryIndex = backfillLocalSecondaryIndex;
+  }
+
+  /**
    * Adds a new version of aspect for an entity.
    *
    * The new aspect will have an automatically assigned version number, which is guaranteed to be positive and
@@ -214,18 +282,29 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       // 4. Apply retention policy
       applyRetention(urn, aspectClass, getRetention(aspectClass), largestVersion);
 
+      // 5. Save to local secondary index
+      if (_enableLocalSecondaryIndex) {
+        saveToLocalSecondaryIndex(urn, newValue, largestVersion);
+      }
+
       return new AddResult<>(oldValue, newValue);
     }, maxTransactionRetry);
 
     final ASPECT oldValue = result.getOldValue();
     final ASPECT newValue = result.getNewValue();
 
-    // 5. Produce MAE after a successful update
+    // 6. Produce MAE after a successful update
     if (_alwaysEmitAuditEvent || oldValue != newValue) {
       _producer.produceMetadataAuditEvent(urn, oldValue, newValue);
     }
 
-    // 6. Invoke post-update hooks if there's any
+    // TODO: Replace step 6 with step 6.1 with diff option after pipeline is fully migrated to aspect specific events.
+    // 6.1. Produce aspect specific MAE after a successful update
+    if (_emitAspectSpecificAuditEvent) {
+      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
+    }
+
+    // 7. Invoke post-update hooks if there's any
     if (_aspectPostUpdateHooksMap.containsKey(aspectClass)) {
       _aspectPostUpdateHooksMap.get(aspectClass).forEach(hook -> hook.accept(urn, newValue));
     }
@@ -282,6 +361,27 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   protected abstract <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass, @Nullable ASPECT oldEntry, @Nullable AuditStamp oldAuditStamp,
       @Nonnull ASPECT newEntry, @Nonnull AuditStamp newAuditStamp);
+
+  /**
+   * Saves the new value of an aspect to local secondary index
+   *
+   * @param urn the URN for the entity the aspect is attached to
+   * @param newValue {@link RecordTemplate} of the new value of aspect
+   * @param version version of the aspect
+   */
+  protected abstract <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull URN urn,
+      @Nullable ASPECT newValue, long version);
+
+  /**
+   * Returns list of urns from local secondary index that satisfy the given filter conditions.
+   *
+   * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pageSize maximum number of distinct urns to return
+   * @return {@link ListResult} of urns from local secondary index that satisfy the given filter conditions
+   */
+  @Nonnull
+  public abstract ListResult<Urn> listUrns(@Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize);
 
   /**
    * Runs the given lambda expression in a transaction with a limited number of retries.
@@ -350,7 +450,8 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn, @Nonnull TimeBasedRetention retention, long currentTime);
 
   /**
-   * Emits backfill MetadataAuditEvent for the latest version of an aspect for an entity.
+   * Emits backfill MAE for the latest version of an aspect of an entity and also backfills local
+   * secondary index if writes & backfill enabled
    *
    * @param aspectClass the type of aspect to backfill
    * @param urn {@link Urn} for the entity
@@ -362,8 +463,61 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn) {
     checkValidAspect(aspectClass);
     Optional<ASPECT> aspect = get(aspectClass, urn, LATEST_VERSION);
-    aspect.ifPresent(value -> _producer.produceMetadataAuditEvent(urn, value, value));
+    aspect.ifPresent(value -> backfill(value, urn));
     return aspect;
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and do a batch backfill
+   */
+  @Nonnull
+  public Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> backfill(
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull URN urn) {
+    checkValidAspects(aspectClasses);
+    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspects = get(aspectClasses, urn);
+    aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
+    return aspects;
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, URN)} but gets a set of urns and do a batch backfill
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> backfill(@Nonnull Class<ASPECT> aspectClass,
+      @Nonnull Set<URN> urns) {
+    checkValidAspect(aspectClass);
+    final Map<URN, Optional<ASPECT>> urnToAspects = get(aspectClass, urns);
+    urnToAspects.forEach((urn, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
+    return urnToAspects;
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and a set of URNs and do a batch backfill
+   */
+  @Nonnull
+  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Set<URN> urns) {
+    checkValidAspects(aspectClasses);
+    final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnToAspects = get(aspectClasses, urns);
+    urnToAspects.forEach((urn, aspects) -> {
+      aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
+    });
+    return urnToAspects;
+  }
+
+  /**
+   * Emits backfill MAE for an aspect of an entity and also backfills local secondary index if writes & backfill enabled
+   *
+   * @param aspect aspect to backfill
+   * @param urn {@link Urn} for the entity
+   * @param <ASPECT> must be a supported aspect type in {@code ASPECT_UNION}.
+   */
+  private <ASPECT extends RecordTemplate> void backfill(@Nonnull ASPECT aspect, @Nonnull URN urn) {
+    // Backfill local secondary index as well if writes & backfill enabled
+    if (_enableLocalSecondaryIndex && _backfillLocalSecondaryIndex) {
+      saveToLocalSecondaryIndex(urn, aspect, FIRST_VERSION);
+    }
+    _producer.produceMetadataAuditEvent(urn, aspect, aspect);
   }
 
   /**
