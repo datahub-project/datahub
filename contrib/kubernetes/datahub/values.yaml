@@ -38,23 +38,26 @@ global:
       url: "http://schema-registry:8081"
 
   neo4j:
+    host: "neo4j:7474"
     uri: "bolt://neo4j"
     username: "neo4j"
-    password: "datahub"
+    password:
+      secretRef: "neo4j-secrets"
+      secretKey: "neo4j-password"
 
   sql:
     datasource:
-      host: "mysql"
+      host: "mysql:3306"
       url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
       driver: "com.mysql.jdbc.Driver"
       username: "datahub"
-      password: "datahub"
+      password:
+        secretRef: "mysql-secrets"
+        secretKey: "mysql-password"
 
   datahub:
     gms:
-      host: "datahub-gms-deployment"
       port: "8080"
-      secret: "YouKnowNothing"
     appVersion: "1.0"
 
   hostAliases:
