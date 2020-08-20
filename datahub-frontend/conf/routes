@@ -35,6 +35,7 @@ GET           /api/v2/datasets/:urn/owners/suggestion                         co
 GET           /api/v2/datasets/:urn/schema                                    controllers.api.v2.Dataset.getDatasetSchema(urn: String)
 GET           /api/v2/datasets/:urn/snapshot                                  controllers.api.v2.Dataset.getDatasetSnapshot(urn: String)
 GET           /api/v2/datasets/:urn/upstreams                                 controllers.api.v2.Dataset.getDatasetUpstreams(urn: String)
+GET           /api/v2/list/platforms                                          controllers.api.v2.Dataset.getDataPlatforms
 GET           /api/v2/search                                                  controllers.api.v2.Search.search()
 
 GET           /api/*path                                                      controllers.Application.apiNotFound(path)
