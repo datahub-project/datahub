@@ -22,9 +22,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.StringUtils;
@@ -34,6 +37,9 @@ public class RecordUtils {
 
   private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
   private static final String ARRAY_WILDCARD = "*";
+  private static final Pattern LEADING_SPACESLASH_PATTERN = Pattern.compile("^[/ ]+");
+  private static final Pattern TRAILING_SPACESLASH_PATTERN = Pattern.compile("[/ ]+$");
+  private static final Pattern SLASH_PATERN = Pattern.compile("/");
 
   /**
    * Using in-memory hash map to store the get/is methods of the schema fields of RecordTemplate.
@@ -365,7 +371,7 @@ public class RecordUtils {
    * @return value of the field in the record
    */
   @Nullable
-  public static Object getFieldValue(@Nonnull RecordTemplate record, @Nonnull String fieldName) {
+  private static Object invokeMethod(@Nonnull RecordTemplate record, @Nonnull String fieldName) {
     METHOD_CACHE.putIfAbsent(record.getClass(), getMethodsFromRecordTemplate(record));
     try {
       return METHOD_CACHE.get(record.getClass()).get(fieldName).invoke(record);
@@ -388,9 +394,24 @@ public class RecordUtils {
     if (!reference.isEmpty()) {
       return Arrays.stream((reference).toArray())
           .map(x -> getFieldValue(((RecordTemplate) x), ps))
+          .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
           .collect(Collectors.toList());
     }
     return Collections.emptyList();
+  }
+
+  /**
+   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as input
+   */
+  @Nonnull
+  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull String pathSpecAsString) {
+    pathSpecAsString = LEADING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
+    pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
+
+    if (!pathSpecAsString.isEmpty()) {
+      return getFieldValue(recordTemplate, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
+    }
+    return Optional.empty();
   }
 
   /**
@@ -404,9 +425,9 @@ public class RecordUtils {
    * @param ps {@link PathSpec} representing the path whose value needs to be returned
    * @return Referenced object of the RecordTemplate corresponding to the PathSpec
    */
-  @Nullable
+  @Nonnull
   @SuppressWarnings("rawtypes")
-  public static Object getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull PathSpec ps) {
+  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull PathSpec ps) {
     Object reference = recordTemplate;
     final int pathSize = ps.getPathComponents().size();
     for (int i = 0; i < pathSize; i++) {
@@ -418,13 +439,17 @@ public class RecordUtils {
         throw new UnsupportedOperationException(String.format("Array indexing is not supported for %s (%s from %s)", part, ps, reference));
       }
       if (reference instanceof RecordTemplate) {
-        reference = getFieldValue((RecordTemplate) reference, part);
+        reference = invokeMethod((RecordTemplate) reference, part);
+        if (reference == null) {
+          return Optional.empty();
+        }
       } else if (reference instanceof AbstractArrayTemplate) {
-        return getReferenceForAbstractArray((AbstractArrayTemplate<RecordTemplate>) reference, new PathSpec(ps.getPathComponents().subList(i, pathSize)));
+        return Optional.of(getReferenceForAbstractArray(
+            (AbstractArrayTemplate<RecordTemplate>) reference, new PathSpec(ps.getPathComponents().subList(i, pathSize))));
       } else {
         throw new UnsupportedOperationException(String.format("Failed at extracting %s (%s from %s)", part, ps, recordTemplate));
       }
     }
-    return reference;
+    return Optional.of(reference);
   }
 }

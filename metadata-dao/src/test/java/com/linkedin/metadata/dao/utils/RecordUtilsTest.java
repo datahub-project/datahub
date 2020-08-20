@@ -19,6 +19,7 @@ import com.linkedin.testing.singleaspectentity.EntityValue;
 import com.linkedin.testing.urn.FooUrn;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.utils.TestUtils.*;
@@ -179,22 +180,26 @@ public class RecordUtilsTest {
     PathSpec ps2 = MixedRecord.fields().flag();
     PathSpec ps3 = MixedRecord.fields().defaultField();
 
-    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
-    Object o2 = RecordUtils.getFieldValue(mixedRecord1, ps2);
-    Object o3 = RecordUtils.getFieldValue(mixedRecord1, ps3);
-    assertEquals(o1, "fooVal1");
-    assertNull(o2);
-    assertEquals(o3, "defaultVal");
+    Optional<Object> o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    Optional<Object> o2 = RecordUtils.getFieldValue(mixedRecord1, ps2);
+    Optional<Object> o3 = RecordUtils.getFieldValue(mixedRecord1, ps3);
+    assertEquals(o1.get(), "fooVal1");
+    assertFalse(o2.isPresent());
+    assertEquals(o3.get(), "defaultVal");
     assertEquals(ps1.toString(), "/value");
     assertEquals(ps2.toString(), "/flag");
     assertEquals(ps3.toString(), "/defaultField");
 
     // case 2: string and bool field both set
     final MixedRecord mixedRecord2 = new MixedRecord().setValue("fooVal2").setFlag(true);
-    Object o4 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().value());
-    Object o5 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().flag());
+    Object o4 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().value()).get();
+    Object o5 = RecordUtils.getFieldValue(mixedRecord2, MixedRecord.fields().flag()).get();
     assertEquals(o4, "fooVal2");
     assertEquals(o5, true);
+
+    // case 3: similar to case1, just that pegasus path as string is used as input
+    Object o6 = RecordUtils.getFieldValue(mixedRecord1, "/value");
+    assertEquals(o6, o1);
   }
 
   @Test(description = "Test getFieldValue() when RecordTemplate has TypeRef field")
@@ -203,14 +208,14 @@ public class RecordUtilsTest {
     FooUrn urn = makeFooUrn(1);
     final MixedRecord mixedRecord1 = new MixedRecord().setFooUrn(urn);
     PathSpec ps1 = MixedRecord.fields().fooUrn();
-    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1).get();
     assertEquals(o1, urn);
     assertEquals(ps1.toString(), "/fooUrn");
 
     // case 2: TypeRef defined in the same pdl
     final MixedRecord mixedRecord2 = new MixedRecord().setIntTypeRef(2);
     PathSpec ps2 = MixedRecord.fields().intTypeRef();
-    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2).get();
     assertEquals(o2, 2);
     assertEquals(ps2.toString(), "/intTypeRef");
 
@@ -218,22 +223,26 @@ public class RecordUtilsTest {
     AspectFoo aspectFoo = new AspectFoo().setValue("fooVal");
     PathSpec ps3 = MixedRecord.fields().recordTypeRef().value();
     final MixedRecord mixedRecord3 = new MixedRecord().setRecordTypeRef(aspectFoo);
-    Object o3 = RecordUtils.getFieldValue(mixedRecord3, ps3);
+    Object o3 = RecordUtils.getFieldValue(mixedRecord3, ps3).get();
     assertEquals(o3, "fooVal");
     assertEquals(ps3.toString(), "/recordTypeRef/value");
   }
 
   @Test(description = "Test getFieldValue() when RecordTemplate has another field of Record type")
   public void testGetFieldValueRecordType() {
-    // case 1: referencing a field inside a RecordTemplate, one level deep
+    // case 1: referencing a field inside a RecordTemplate, one level deep.
     AspectFoo foo1 = new AspectFoo().setValue("fooVal1");
     MixedRecord mixedRecord1 = new MixedRecord().setRecordField(foo1);
-    PathSpec ps1 = MixedRecord.fields().recordField().value();
+    PathSpec ps1f1 = MixedRecord.fields().recordField().value();
+    PathSpec ps1f2 = MixedRecord.fields().nestedRecordField().foo().value(); // referencing a nullable record template field
 
-    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    Optional<Object> o1f1 = RecordUtils.getFieldValue(mixedRecord1, ps1f1);
+    Optional<Object> o1f2 = RecordUtils.getFieldValue(mixedRecord1, ps1f2);
 
-    assertEquals(o1, "fooVal1");
-    assertEquals(ps1.toString(), "/recordField/value");
+    assertEquals(o1f1.get(), "fooVal1");
+    assertEquals(ps1f1.toString(), "/recordField/value");
+    assertFalse(o1f2.isPresent());
+    assertEquals(ps1f2.toString(), "/nestedRecordField/foo/value");
 
     // case 2: referencing a field inside a RecordTemplate, two levels deep i.e. nested field
     AspectFoo foo2 = new AspectFoo().setValue("fooVal2");
@@ -241,7 +250,7 @@ public class RecordUtilsTest {
     MixedRecord mixedRecord2 = new MixedRecord().setNestedRecordField(entityValue);
     PathSpec ps2 = MixedRecord.fields().nestedRecordField().foo().value();
 
-    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2).get();
 
     assertEquals(o2, "fooVal2");
     assertEquals(ps2.toString(), "/nestedRecordField/foo/value");
@@ -249,11 +258,12 @@ public class RecordUtilsTest {
 
   @Test(description = "Test getFieldValue() when RecordTemplate has field of type array")
   public void testGetFieldValueArray() {
+
     // case 1: array of strings
     final MixedRecord mixedRecord1 = new MixedRecord().setStringArray(new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
 
     PathSpec ps1 = MixedRecord.fields().stringArray();
-    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1);
+    Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1).get();
 
     assertEquals(o1, new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
     assertEquals(ps1.toString(), "/stringArray");
@@ -267,21 +277,20 @@ public class RecordUtilsTest {
     final MixedRecord mixedRecord2 = new MixedRecord().setRecordArray(aspectFooArray);
 
     PathSpec ps2 = MixedRecord.fields().recordArray().items().value();
-    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2);
+    Object o2 = RecordUtils.getFieldValue(mixedRecord2, ps2).get();
 
     assertEquals(o2, new StringArray(Arrays.asList("fooVal1", "fooVal2", "fooVal3", "fooVal4")));
     assertEquals(ps2.toString(), "/recordArray/*/value");
 
     // case 3: array of records is empty
     final MixedRecord mixedRecord3 = new MixedRecord().setRecordArray(new AspectFooArray());
-    Object o3 = RecordUtils.getFieldValue(mixedRecord3, MixedRecord.fields().recordArray().items().value());
+    Object o3 = RecordUtils.getFieldValue(mixedRecord3, MixedRecord.fields().recordArray().items().value()).get();
     assertEquals(o3, new StringArray());
 
     // case 4: referencing an index of array is not supported
     final MixedRecord mixedRecord4 = new MixedRecord().setRecordArray(aspectFooArray);
-    PathSpec ps4 = new PathSpec("recordArray", "0", "value");
 
-    assertThrows(UnsupportedOperationException.class, () -> RecordUtils.getFieldValue(mixedRecord4, ps4));
+    assertThrows(UnsupportedOperationException.class, () -> RecordUtils.getFieldValue(mixedRecord4, "/recordArray/0/value"));
 
     // case 5: referencing nested field inside array of records, field being 2 levels deep
     AspectFoo f1 = new AspectFoo().setValue("val1");
@@ -291,11 +300,27 @@ public class RecordUtilsTest {
     EntityValueArray entityValues = new EntityValueArray(Arrays.asList(val1, val2));
     final MixedRecord mixedRecord5 = new MixedRecord().setNestedRecordArray(entityValues);
 
-    PathSpec ps5 = MixedRecord.fields().nestedRecordArray().items().foo().value();
-    Object o5 = RecordUtils.getFieldValue(mixedRecord5, ps5);
+    PathSpec psFoo5 = MixedRecord.fields().nestedRecordArray().items().foo().value();
+    PathSpec psBar5 = MixedRecord.fields().nestedRecordArray().items().bar().value();
+    Optional<Object> oFoo5 = RecordUtils.getFieldValue(mixedRecord5, psFoo5);
+    Optional<Object> oBar5 = RecordUtils.getFieldValue(mixedRecord5, psBar5);
 
-    assertEquals(o5, new StringArray("val1", "val2"));
-    assertEquals(ps5.toString(), "/nestedRecordArray/*/foo/value");
+    assertEquals(oFoo5.get(), new StringArray("val1", "val2"));
+    assertEquals(psFoo5.toString(), "/nestedRecordArray/*/foo/value");
+    assertEquals(oBar5.get(), new StringArray());
+    assertEquals(psBar5.toString(), "/nestedRecordArray/*/bar/value");
+
+    // case 6: optional field containing array of strings is not set
+    final MixedRecord mixedRecord6 = new MixedRecord();
+    PathSpec ps6 = MixedRecord.fields().stringArray();
+    Optional<Object> o6 = RecordUtils.getFieldValue(mixedRecord6, ps6);
+    assertFalse(o6.isPresent());
+
+    // case 7: optional field containing array of records is not set
+    final MixedRecord mixedRecord7 = new MixedRecord();
+    PathSpec ps7 = MixedRecord.fields().recordArray().items().value();
+    Optional<Object> o7 = RecordUtils.getFieldValue(mixedRecord7, ps7);
+    assertFalse(o7.isPresent());
   }
 
   @Test
