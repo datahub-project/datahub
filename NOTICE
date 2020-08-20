@@ -11,21 +11,17 @@ CONDITIONS OF ANY KIND, either express or implied.
 This product includes software developed by The Apache Software
 Foundation (http://www.apache.org/).
 
+This product includes/uses Snappy-Java (https://github.com/xerial/snappy-java)
+Copyright (c) 2011 Taro L. Saito
+License: Apache 2.0
+
 This product includes/uses Jackson (http://jackson.codehaus.org/)
 Copyright (c) 2007- Tatu Saloranta, tatu.saloranta@iki.fi
 License: Apache 2.0
 
-This product includes/uses Jcraft (www.jcraft.com)
-Copyright (c) 2002 Atsuhiko Yamanaka, JCraft, Inc.
+This product includes/uses ParaNamer (https://github.com/paul-hammant/paranamer)
+Copyright (c) 2006- Paul Hammant & ThoughtWorks Inc
 License: BSD
-
-This product includes/uses Joda (http://joda-time.sourceforge.net/)
-Copyright 2001-2006 Stephen Colebourne
-License: Apache 2.0
-
-This product includes/uses Quartz Scheduler (http://quartz-scheduler.org/)
-Copyright (c) 2008 Terracotta, Inc.
-License: Apache 2.0
 
 This product includes/uses SLF4J (http://slf4j.org)
 Copyright (c) 2004 QOS.ch
@@ -40,25 +36,9 @@ Copyright (c) 2007 Mockito contributors
 License: MIT
 
 This product includes/uses Play Framework (https://www.playframework.com/)
-Copyright (c) 2009-2015 Typesafe
-License: Apache 2.0
-
-This product includes/uses Akka (http://akka.io/)
-Copyright (c) 2009-2015 Typesafe
+Copyright (c) 2009- Typesafe
 License: Apache 2.0
 
 This product includes/uses Spring Framework (http://projects.spring.io/spring-framework/)
-Copyright (c) 2002-2015 the original author or authors
+Copyright (c) 2002- the original author or authors
 License: Apache 2.0
-
-This product includes/uses JsonPath (http://goessner.net/articles/JsonPath/)
-Copyright (c) 2011 the original author or authors
-License: Apache 2.0
-
-This product includes/uses jsoup (http://jsoup.org/)
-Copyright © 2009 - 2013 Jonathan Hedley (jonathan@hedley.net)
-License: MIT
-
-This product includes/uses JGit (https://eclipse.org/jgit/)
-Copyright (c) 2007, Eclipse Foundation, Inc. and its licensors
-License: Eclipse Distribution License
