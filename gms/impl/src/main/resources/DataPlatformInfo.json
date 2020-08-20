@@ -19,25 +19,10 @@
     "name": "couchbase",
     "type": "KEY_VALUE_STORE"
   },
-  "urn:li:dataPlatform:dalids": {
-    "datasetNameDelimiter": ".",
-    "name": "dalids",
-    "type": "FILE_SYSTEM"
-  },
-  "urn:li:dataPlatform:espresso": {
-    "datasetNameDelimiter": ".",
-    "name": "espresso",
-    "type": "KEY_VALUE_STORE"
-  },
   "urn:li:dataPlatform:external": {
     "datasetNameDelimiter": ".",
     "name": "external",
     "type": "OTHERS"
-  },
-  "urn:li:dataPlatform:followfeed": {
-    "datasetNameDelimiter": ".",
-    "name": "followfeed",
-    "type": "OBJECT_STORE"
   },
   "urn:li:dataPlatform:hdfs": {
     "datasetNameDelimiter": "/",
@@ -53,11 +38,6 @@
     "datasetNameDelimiter": ".",
     "name": "kafka",
     "type": "MESSAGE_BROKER"
-  },
-  "urn:li:dataPlatform:kafka-lc": {
-    "datasetNameDelimiter": ".",
-    "name": "kafka-lc",
-    "type": "KEY_VALUE_STORE"
   },
   "urn:li:dataPlatform:kusto": {
     "datasetNameDelimiter": ".",
@@ -89,40 +69,10 @@
     "name": "presto",
     "type": "QUERY_ENGINE"
   },
-  "urn:li:dataPlatform:seas-cloud": {
-    "datasetNameDelimiter": ".",
-    "name": "seas-cloud",
-    "type": "SEARCH_ENGINE"
-  },
-  "urn:li:dataPlatform:seas-deployed": {
-    "datasetNameDelimiter": "/",
-    "name": "seas-deployed",
-    "type": "SEARCH_ENGINE"
-  },
-  "urn:li:dataPlatform:seas-hdfs": {
-    "datasetNameDelimiter": "/",
-    "name": "seas-hdfs",
-    "type": "FILE_SYSTEM"
-  },
   "urn:li:dataPlatform:teradata": {
     "datasetNameDelimiter": ".",
     "name": "teradata",
     "type": "RELATIONAL_DB"
-  },
-  "urn:li:dataPlatform:ump": {
-    "datasetNameDelimiter": ".",
-    "name": "ump",
-    "type": "FILE_SYSTEM"
-  },
-  "urn:li:dataPlatform:vector": {
-    "datasetNameDelimiter": ".",
-    "name": "vector",
-    "type": "KEY_VALUE_STORE"
-  },
-  "urn:li:dataPlatform:venice": {
-    "datasetNameDelimiter": ".",
-    "name": "venice",
-    "type": "KEY_VALUE_STORE"
   },
   "urn:li:dataPlatform:voldemort": {
     "datasetNameDelimiter": ".",
