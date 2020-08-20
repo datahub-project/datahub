@@ -24,7 +24,7 @@ DataHub Docker Images:
 * [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
 Dependencies:
-* [Kafka and Schema Registry](kafka)
+* [Kafka, Zookeeper, and Schema Registry](kafka-setup)
 * [Elasticsearch](elasticsearch-setup)
 * [MySQL](mysql)
 * [Neo4j](neo4j)
