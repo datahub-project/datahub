@@ -287,7 +287,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
 
       // 5. Save to local secondary index
       if (_enableLocalSecondaryIndex) {
-        saveToLocalSecondaryIndex(urn, newValue, largestVersion);
+        updateLocalIndex(urn, newValue, largestVersion);
       }
 
       return new AddResult<>(oldValue, newValue);
@@ -372,7 +372,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param newValue {@link RecordTemplate} of the new value of aspect
    * @param version version of the aspect
    */
-  protected abstract <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull URN urn,
+  protected abstract <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull URN urn,
       @Nullable ASPECT newValue, long version);
 
   /**
@@ -549,7 +549,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   private <ASPECT extends RecordTemplate> void backfill(@Nonnull ASPECT aspect, @Nonnull URN urn) {
     // Backfill local secondary index as well if writes & backfill enabled
     if (_enableLocalSecondaryIndex && _backfillLocalSecondaryIndex) {
-      saveToLocalSecondaryIndex(urn, aspect, FIRST_VERSION);
+      updateLocalIndex(urn, aspect, FIRST_VERSION);
     }
     _producer.produceMetadataAuditEvent(urn, aspect, aspect);
   }
