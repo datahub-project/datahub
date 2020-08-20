@@ -25,7 +25,7 @@
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update: 
-> - We've released v0.4.2. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.2)
+> - We've released v0.4.3. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.4.3)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 ## Introduction
