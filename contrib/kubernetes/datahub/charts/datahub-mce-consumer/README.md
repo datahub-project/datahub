@@ -2,17 +2,20 @@ datahub-mce-consumer
 ====================
 A Helm chart for datahub-mce-consumer
 
-Current chart version is `0.1.0`
+Current chart version is `0.2.0`
 
 ## Chart Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| extraEnvs | Extra [environment variables][] which will be appended to the `env:` definition for the container | `[]` |
+| extraVolumes | Templatable string of additional `volumes` to be passed to the `tpl` function | "" |
+| extraVolumeMounts | Templatable string of additional `volumeMounts` to be passed to the `tpl` function | "" |
 | fullnameOverride | string | `""` |  |
-| global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |
+| global.kafka.bootstrap.server | string | `"broker:29092"` |  |
+| global.kafka.schemaregistry.url | string | `"http://schema-registry:8081"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
-| global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
 | global.hostAliases[0].hostnames[0] | string | `"broker"` |  |
 | global.hostAliases[0].hostnames[1] | string | `"mysql"` |  |
 | global.hostAliases[0].hostnames[2] | string | `"elasticsearch"` |  |

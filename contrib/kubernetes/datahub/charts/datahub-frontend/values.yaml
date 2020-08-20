@@ -7,11 +7,11 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-frontend
   tag: "latest"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets: []
 nameOverride: ""
-fullnameOverride: "datahub-frontend"
+fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -50,6 +50,22 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+# Extra environment variables
+# This will be appended to the current 'env:' key. You can use any of the kubernetes env
+# syntax here
+extraEnvs: []
+  # - name: MY_ENVIRONMENT_VAR
+ #   value: the_value_goes_here
+
+extraVolumes: []
+  # - name: extras
+  #   emptyDir: {}
+
+extraVolumeMounts: []
+  # - name: extras
+  #   mountPath: /usr/share/extras
+  #   readOnly: true
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -76,6 +92,5 @@ datahub:
 global:
   datahub:
     gms:
-      host: "datahub-gms-deployment"
       port: "8080"
-      secret: "YouKnowNothing"
+    appVersion: "1.0"
