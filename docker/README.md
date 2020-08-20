@@ -27,6 +27,7 @@ Dependencies:
 * [Kafka and Schema Registry](kafka)
 * [Elasticsearch](elasticsearch-setup)
 * [MySQL](mysql)
+* [Neo4j](neo4j)
 
 ### Ingesting demo data.
 
