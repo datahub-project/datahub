@@ -1,17 +1,13 @@
 import { BaseEntity, IBaseEntityStatics, statics } from '@datahub/data-models/entity/base-entity';
 import {
-  readDatasetCompliance,
   saveDatasetCompliance,
-  readDatasetComplianceSuggestion,
   readDatasetExportPolicy,
   readDatasetRetention,
   saveDatasetExportPolicy,
   saveDatasetRetention,
   saveDatasetComplianceSuggestionFeedbackByUrn
 } from '@datahub/data-models/api/dataset/compliance';
-import DatasetComplianceInfo, {
-  initialComplianceObjectFactory
-} from '@datahub/data-models/entity/dataset/modules/compliance-info';
+import DatasetComplianceInfo from '@datahub/data-models/entity/dataset/modules/compliance-info';
 import { readDatasetSchema } from '@datahub/data-models/api/dataset/schema';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
 import { set, setProperties, computed } from '@ember/object';
@@ -31,7 +27,6 @@ import { IDatasetSnapshot } from '@datahub/metadata-types/types/metadata/dataset
 import { every } from 'lodash';
 import DatasetComplianceSuggestion from '@datahub/data-models/entity/dataset/modules/compliance-suggestion';
 import { SuggestionIntent } from '@datahub/data-models/constants/entity/dataset/compliance-suggestions';
-import { IEntityComplianceSuggestion } from '@datahub/metadata-types/constants/entity/dataset/compliance-suggestion';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
 import { getDatasetUrnParts } from '@datahub/data-models/entity/dataset/utils/urn';
 import { readDataPlatforms } from '@datahub/data-models/api/dataset/platforms';
@@ -39,7 +34,7 @@ import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
 import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
 import { oneWay, alias, reads } from '@ember/object/computed';
 import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
-import { toLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
+// import { toLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
 import { readDatasetOwnersByUrn } from '@datahub/data-models/api/dataset/ownership';
 import { transformOwnersResponseIntoOwners } from '@datahub/data-models/entity/dataset/utils/owner';
 import { readInstitutionalMemory, writeInstitutionalMemory } from '@datahub/data-models/entity/institutional-memory';
@@ -273,41 +268,11 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   }
 
   /**
-   * Is a promise that retrieves the compliance information and suggested compliance information and returns
-   * sets and returns the compliance info class in a thennable format.
-   */
-  async readCompliance(): Promise<DatasetComplianceInfo> {
-    const { urn, compliance } = this;
-    // Determines if we are recalling new compliance data, in which case we can recyle the old suggestions
-    const suggestions = (compliance && compliance.rawSuggestions) || undefined;
-    const complianceRead = readDatasetCompliance(urn).catch(
-      // We know that if we get a 404, this is not a true error and should be handled on the UI by creating an
-      // "initial compliance factory". For all other non 404 scenarios, we will let the given error be thrown
-      getDefaultIfNotFoundError(initialComplianceObjectFactory(urn))
-    );
-
-    const suggestionRead =
-      suggestions ||
-      readDatasetComplianceSuggestion(urn)
-        .then(({ suggestedFieldClassification }): Array<IEntityComplianceSuggestion> => suggestedFieldClassification)
-        // Because the suggestions are not a vital part of the flow of compliance annotations table right now
-        // we squash these errors and simply return undefined. When a module comes to exist that allows for better
-        // error handling, it should be injected here to handle it in a non-disruptive way
-        .catch((): void => undefined);
-
-    const [complianceInfo, suggestionInfo] = await Promise.all([complianceRead, suggestionRead]);
-    const instance: DatasetComplianceInfo = new DatasetComplianceInfo(complianceInfo, suggestionInfo || []);
-    set(this, 'compliance', instance);
-    return instance;
-  }
-
-  /**
    * Is a promise that retrieves the compliance information (if it doesn't exist yet) and returns whether or not
    * the dataset contains personally identifiable information
    */
-  async readPiiStatus(): Promise<boolean> {
-    const { containsPersonalData } = this.compliance || (await this.readCompliance());
-    return !!containsPersonalData;
+  readPiiStatus(): Promise<boolean> {
+    return Promise.resolve().then(() => false);
   }
 
   /**
@@ -438,7 +403,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    */
   get legacyDataset(): IDatasetEntity | void {
     if (this.entity) {
-      return toLegacy(this.entity, this.urn);
+      return (this.entity as unknown) as IDatasetEntity;
     }
   }
 

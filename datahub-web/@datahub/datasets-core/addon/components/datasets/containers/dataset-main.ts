@@ -225,14 +225,16 @@ export default class DatasetMainContainer extends Component {
   /**
    * Array of tabs that are available for this entity
    */
+  @computed('entity')
   get datasetTabs(): Array<ITabProperties> {
     const { entity } = this;
+
     if (!entity) {
       return [];
     }
     const tabs: Array<string> = [
       DatasetTab.Schema,
-      DatasetTab.Access,
+      DatasetTab.Properties,
       DatasetTab.Ownership,
       DatasetTab.DatasetGroups,
       DatasetTab.Relationships,

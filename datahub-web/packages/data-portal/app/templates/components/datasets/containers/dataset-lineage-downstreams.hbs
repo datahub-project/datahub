@@ -1,14 +1,5 @@
 <h4 class="dataset-relationships__header">
   Downstream
-
-  {{#if this.downstreams}}
-    <JitAcl::Access::RequestAccessButton
-      class="nacho-button--tertiary"
-      @semanticUrns={{this.downstreamUrns}}
-      @requestJitAccess={{@requestJitAccess}}
-      @addRequestJitUrn={{@requestJitAccess.addRequestJitUrn}}
-    />
-  {{/if}}
 </h4>
 
 {{#if getDatasetDownstreamsTask.isRunning}}

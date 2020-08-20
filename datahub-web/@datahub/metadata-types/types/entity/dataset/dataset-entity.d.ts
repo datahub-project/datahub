@@ -35,4 +35,5 @@ export interface IDatasetEntity {
   uri: string;
   // The health score for the dataset entity
   healthScore: number;
+  urn?: string;
 }

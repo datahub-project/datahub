@@ -14,4 +14,6 @@ const platformsUrl = `${getListUrlRoot(ApiVersion.v2)}/platforms`;
  * @returns {Promise<Array<IComplianceDataType>>}
  */
 export const readDataPlatforms = (): Promise<Array<IDataPlatform>> =>
-  getJSON({ url: platformsUrl }).then(({ platforms }) => platforms);
+  getJSON({ url: platformsUrl })
+    .then(({ platforms }) => platforms || [])
+    .catch(() => []);

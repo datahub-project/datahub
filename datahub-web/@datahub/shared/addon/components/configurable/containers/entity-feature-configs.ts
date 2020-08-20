@@ -50,9 +50,13 @@ export default class EntityFeatureConfigsContainer extends Component {
    */
   @task(function*(this: EntityFeatureConfigsContainer): IterableIterator<Promise<boolean>> {
     if (this.urn && this.targetFeature) {
-      const configs: boolean = ((yield readEntityFeatureConfigs(this.urn, this.targetFeature)) as unknown) as boolean;
+      try {
+        const configs: boolean = ((yield readEntityFeatureConfigs(this.urn, this.targetFeature)) as unknown) as boolean;
 
-      set(this, 'configs', configs);
+        set(this, 'configs', configs);
+      } catch {
+        // Do nothing
+      }
     }
   })
   getContainerDataTask!: ETaskPromise<Promise<boolean>>;
