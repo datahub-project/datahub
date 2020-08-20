@@ -120,7 +120,10 @@
             "items" : "com.linkedin.common.CorpGroupUrn"
           },
           "doc" : "List of groups in this group."
-        } ]
+        } ],
+        "Aspect" : {
+          "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ]
+        }
       },
       "doc" : "Information of the corp group",
       "optional" : true
@@ -300,14 +303,14 @@
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       }, {
         "method" : "batch_get",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       } ],
       "finders" : [ {
@@ -318,7 +321,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
@@ -357,7 +360,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
@@ -368,7 +371,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot"
       }, {

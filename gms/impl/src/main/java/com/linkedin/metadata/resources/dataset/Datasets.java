@@ -173,7 +173,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Override
   @Nonnull
   public Task<Dataset> get(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.get(key, aspectNames);
   }
 
@@ -182,7 +182,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   public Task<Map<ComplexResourceKey<DatasetKey, EmptyRecord>, Dataset>> batchGet(
       @Nonnull Set<ComplexResourceKey<DatasetKey, EmptyRecord>> keys,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.batchGet(keys, aspectNames);
   }
 
@@ -190,7 +190,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Override
   @Nonnull
   public Task<CollectionResult<Dataset, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
@@ -231,14 +231,14 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Override
   @Nonnull
   public Task<DatasetSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.getSnapshot(urnString, aspectNames);
   }
   @Action(name = ACTION_BACKFILL)
   @Override
   @Nonnull
   public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.backfill(urnString, aspectNames);
   }
 }
