@@ -205,15 +205,15 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Override
-  protected <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull URN urn,
+  protected <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull URN urn,
       @Nonnull ASPECT newValue, long version) {
 
     // Process and save URN
     // Only do this with the first version of each aspect
     if (version == FIRST_VERSION) {
-      processAndSaveUrnToLocalSecondaryIndex(urn);
+      updateUrnInLocalIndex(urn);
     }
-    processAndSaveAspectToLocalSecondaryIndex(urn, newValue);
+    updateAspectInLocalIndex(urn, newValue);
   }
 
   @Override
@@ -253,7 +253,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     }
   }
 
-  protected long saveSingleRecordToLocalSecondaryIndex(@Nonnull URN urn, @Nonnull String aspect,
+  protected long saveSingleRecordToLocalIndex(@Nonnull URN urn, @Nonnull String aspect,
       @Nonnull String path, @Nonnull Object value) {
 
     final EbeanMetadataIndex record = new EbeanMetadataIndex()
@@ -277,21 +277,39 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     return Collections.unmodifiableMap(new HashMap<>(_storageConfig.getAspectStorageConfigMap()));
   }
 
-  protected void processAndSaveUrnToLocalSecondaryIndex(@Nonnull URN urn) {
-    if (existsInLocalSecondaryIndex(urn)) {
+  private void updateUrnInLocalIndex(@Nonnull URN urn) {
+    if (existsInLocalIndex(urn)) {
       return;
     }
 
     final Map<String, Object> pathValueMap = getUrnPathExtractor(urn.getClass()).extractPaths(urn);
     pathValueMap.forEach(
-        (path, value) -> saveSingleRecordToLocalSecondaryIndex(urn, urn.getClass().getCanonicalName(), path, value)
+        (path, value) -> saveSingleRecordToLocalIndex(urn, urn.getClass().getCanonicalName(), path, value)
     );
   }
 
-  // TODO: Will be implemented later
-  protected <ASPECT extends RecordTemplate> void processAndSaveAspectToLocalSecondaryIndex(@Nonnull URN urn,
-      @Nullable ASPECT newValue) {
+  private <ASPECT extends RecordTemplate> void updateAspectInLocalIndex(@Nonnull URN urn, @Nonnull ASPECT newValue) {
 
+    if (_storageConfig.getAspectStorageConfigMap() == null || !_storageConfig.getAspectStorageConfigMap().containsKey(newValue.getClass())) {
+      return;
+    }
+    // step1: remove all rows from the index table corresponding to <urn, aspect> pair
+    _server.find(EbeanMetadataIndex.class)
+        .where()
+        .eq(URN_COLUMN, urn.toString())
+        .eq(ASPECT_COLUMN, ModelUtils.getAspectName(newValue.getClass()))
+        .delete();
+
+    // step2: add fields of the aspect that need to be indexed
+    final Map<String, LocalDAOStorageConfig.PathStorageConfig> pathStorageConfigMap =
+        _storageConfig.getAspectStorageConfigMap().get(newValue.getClass()).getPathStorageConfigMap();
+
+    pathStorageConfigMap.keySet()
+        .stream()
+        .filter(path -> pathStorageConfigMap.get(path).isStrongConsistentSecondaryIndex())
+        .collect(Collectors.toMap(Function.identity(), path -> RecordUtils.getFieldValue(newValue, path)))
+        .forEach((k, v) -> v.ifPresent(
+            value -> saveSingleRecordToLocalIndex(urn, newValue.getClass().getCanonicalName(), k, value)));
   }
 
   @Override
@@ -350,7 +368,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
             .map(record -> toRecordTemplate(key.getAspectClass(), record))));
   }
 
-  public boolean existsInLocalSecondaryIndex(@Nonnull URN urn) {
+  public boolean existsInLocalIndex(@Nonnull URN urn) {
     return _server.find(EbeanMetadataIndex.class)
         .where().eq(URN_COLUMN, urn.toString())
         .exists();

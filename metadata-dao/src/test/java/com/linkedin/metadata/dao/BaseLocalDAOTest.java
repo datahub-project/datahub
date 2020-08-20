@@ -50,7 +50,7 @@ public class BaseLocalDAOTest {
     }
 
     @Override
-    protected <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull FooUrn urn,
+    protected <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull FooUrn urn,
         @Nullable ASPECT newValue, long version) {
 
     }
