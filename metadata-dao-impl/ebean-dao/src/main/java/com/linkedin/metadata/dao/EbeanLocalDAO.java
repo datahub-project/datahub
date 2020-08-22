@@ -24,6 +24,7 @@ import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.ExpressionList;
 import io.ebean.PagedList;
+import io.ebean.Query;
 import io.ebean.Transaction;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
@@ -33,12 +34,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
@@ -606,10 +607,10 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
       object = indexValue.getDouble();
       return new GMAIndexPair(EbeanMetadataIndex.DOUBLE_COLUMN, object);
     } else if (indexValue.isFloat()) {
-      object = indexValue.getFloat();
+      object = (indexValue.getFloat()).doubleValue();
       return new GMAIndexPair(EbeanMetadataIndex.DOUBLE_COLUMN, object);
     } else if (indexValue.isInt()) {
-      object = indexValue.getInt();
+      object = Long.valueOf(indexValue.getInt());
       return new GMAIndexPair(EbeanMetadataIndex.LONG_COLUMN, object);
     } else if (indexValue.isLong()) {
       object = indexValue.getLong();
@@ -623,10 +624,55 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   /**
+   * Sets the values of parameters in metadata index query based on its position, values obtained from
+   * {@link IndexCriterionArray} and last urn
+   *
+   * @param indexCriterionArray {@link IndexCriterionArray} whose values will be used to set parameters in metadata
+   *                                                       index query based on its position
+   * @param indexQuery {@link Query} whose ordered parameters need to be set, based on it's position
+   * @param lastUrn String representation of the urn whose value is used to set the last urn parameter in index query
+   */
+  private static void setParameters(@Nonnull IndexCriterionArray indexCriterionArray, @Nonnull Query<EbeanMetadataIndex> indexQuery,
+      @Nonnull String lastUrn) {
+    indexQuery.setParameter(1, lastUrn);
+    int pos = 2;
+    for (IndexCriterion criterion : indexCriterionArray) {
+      indexQuery.setParameter(pos++, criterion.getAspect());
+      if (criterion.hasPathParams()) {
+        indexQuery.setParameter(pos++, criterion.getPathParams().getPath());
+        indexQuery.setParameter(pos++, getGMAIndexPair(criterion.getPathParams().getValue()).value);
+      }
+    }
+  }
+
+  /**
+   * Constructs SQL query that contains positioned parameters (with `?`), based on whether {@link IndexCriterion} of
+   * a given condition has field `pathParams`
+   *
+   * @param indexCriterionArray {@link IndexCriterionArray} used to construct the SQL query
+   * @return String representation of SQL query
+   */
+  @Nonnull
+  private static String constructSQLQuery(@Nonnull IndexCriterionArray indexCriterionArray) {
+    String selectClause = "SELECT DISTINCT(t0.urn) FROM metadata_index t0";
+    selectClause += IntStream.range(1, indexCriterionArray.size()).mapToObj(i -> " INNER JOIN metadata_index " + "t"
+        + i + " ON t0.urn = " + "t" + i + ".urn").collect(Collectors.joining(""));
+    final StringBuilder whereClause = new StringBuilder("WHERE t0.urn > ?");
+    IntStream.range(0, indexCriterionArray.size()).forEach(i -> {
+      final IndexCriterion criterion = indexCriterionArray.get(i);
+      whereClause.append(" AND t").append(i).append(".aspect = ?");
+      if (criterion.hasPathParams()) {
+        whereClause.append(" AND t").append(i).append(".path = ?").append(" AND t").append(i).append(".")
+            .append(getGMAIndexPair(criterion.getPathParams().getValue()).valueType).append(" = ?");
+      }
+    });
+    return selectClause + " " + whereClause;
+  }
+
+  /**
    * Returns list of urns from strongly consistent secondary index that satisfy the given filter conditions.
    * Results are sorted in increasing alphabetical order of urn.
-   * NOTE: Currently this works for only one filter condition
-   * TODO: Extend the support for multiple filter conditions
+   * NOTE: Currently this works for upto 10 filter conditions.
    *
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. This eliminates the need to use offset which
@@ -644,32 +690,21 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     if (indexCriterionArray.size() == 0) {
       throw new UnsupportedOperationException("Empty Index Filter is not supported by EbeanLocalDAO");
     }
-    if (indexCriterionArray.size() > 1) {
-      throw new UnsupportedOperationException("Currently only one filter condition is supported by EbeanLocalDAO");
+    if (indexCriterionArray.size() > 10) {
+      throw new UnsupportedOperationException("Currently more than 10 filter conditions is not supported by EbeanLocalDAO");
     }
+    final Query<EbeanMetadataIndex> query = _server.findNative(EbeanMetadataIndex.class, constructSQLQuery(indexCriterionArray));
+    setParameters(indexCriterionArray, query, lastUrn == null ? "" : lastUrn.toString());
 
-    final IndexCriterion criterion = indexCriterionArray.get(0);
-    ExpressionList<EbeanMetadataIndex> expressionList = _server.find(EbeanMetadataIndex.class)
-        .setDistinct(true)
-        .select(EbeanMetadataIndex.URN_COLUMN)
-        .where()
-        .gt(EbeanMetadataIndex.URN_COLUMN, lastUrn == null ? "" : lastUrn.toString())
-        .eq(EbeanMetadataIndex.ASPECT_COLUMN, criterion.getAspect());
-    if (criterion.hasPathParams()) {
-      final GMAIndexPair gmaIndexPair = getGMAIndexPair(criterion.getPathParams().getValue());
-      expressionList = expressionList
-          .eq(EbeanMetadataIndex.PATH_COLUMN, criterion.getPathParams().getPath())
-          .eq(gmaIndexPair.valueType, gmaIndexPair.value);
-    }
-    final PagedList<EbeanMetadataIndex> pagedList =  expressionList
+    final PagedList<EbeanMetadataIndex> pagedList = query
         .orderBy()
         .asc(EbeanMetadataIndex.URN_COLUMN)
         .setMaxRows(pageSize)
         .findPagedList();
+
     final List<Urn> urns = pagedList.getList()
         .stream()
         .map(EbeanLocalDAO::extractUrn)
-        .filter(Objects::nonNull)
         .collect(Collectors.toList());
     return toListResult(urns, null, pagedList, null);
   }
