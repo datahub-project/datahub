@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.persistence.RollbackException;
 import org.mockito.InOrder;
 import org.testng.annotations.BeforeClass;
@@ -560,6 +561,88 @@ public class EbeanLocalDAOTest {
     assertEquals(results.getValues(), new ArrayList<>());
   }
 
+  private static IndexCriterionArray makeIndexCriterionArray(int size) {
+    List<IndexCriterion> criterionArrays = new ArrayList<>();
+    IntStream.range(0, size).forEach(i -> criterionArrays.add(new IndexCriterion().setAspect("aspect" + i)));
+    return new IndexCriterionArray(criterionArrays);
+  }
+
+  @Test
+  void testListUrnsFromIndexManyFilters() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    dao.enableLocalSecondaryIndex(true);
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
+    FooUrn urn3 = makeFooUrn(3);
+    String aspect1 = "aspect1" + System.currentTimeMillis();
+    String aspect2 = "aspect2" + System.currentTimeMillis();
+
+    addIndex(urn1, aspect1, "/path1", true); // boolean
+    addIndex(urn1, aspect1, "/path2", 1.534e2); // double
+    addIndex(urn1, aspect1, "/path3", 123.4f); // float
+    addIndex(urn1, aspect2, "/path4", 123); // int
+    addIndex(urn1, aspect2, "/path5", 1234L); // long
+    addIndex(urn1, aspect2, "/path6", "val"); // string
+
+    addIndex(urn2, aspect1, "/path1", true); // boolean
+    addIndex(urn2, aspect1, "/path2", 1.534e2); // double
+
+    addIndex(urn3, aspect1, "/path1", true); // boolean
+    addIndex(urn3, aspect1, "/path2", 1.534e2); // double
+    addIndex(urn3, aspect1, "/path3", 123.4f); // float
+    addIndex(urn3, aspect2, "/path4", 123); // int
+    addIndex(urn3, aspect2, "/path5", 1234L); // long
+    addIndex(urn3, aspect2, "/path6", "val"); // string
+
+    IndexValue indexValue1 = new IndexValue();
+    indexValue1.setBoolean(true);
+    IndexCriterion criterion1 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path1").setValue(indexValue1));
+    IndexValue indexValue2 = new IndexValue();
+    indexValue2.setDouble(1.534e2);
+    IndexCriterion criterion2 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path2").setValue(indexValue2));
+    IndexValue indexValue3 = new IndexValue();
+    indexValue3.setFloat(123.4f);
+    IndexCriterion criterion3 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path3").setValue(indexValue3));
+    IndexValue indexValue4 = new IndexValue();
+    indexValue4.setInt(123);
+    IndexCriterion criterion4 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path4").setValue(indexValue4));
+    IndexValue indexValue5 = new IndexValue();
+    indexValue5.setLong(1234L);
+    IndexCriterion criterion5 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path5").setValue(indexValue5));
+    IndexValue indexValue6 = new IndexValue();
+    indexValue6.setString("val");
+    IndexCriterion criterion6 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path6").setValue(indexValue6));
+
+    // 1. with two filter conditions
+    IndexCriterionArray indexCriterionArray1 = new IndexCriterionArray(Arrays.asList(criterion1, criterion2));
+    final IndexFilter indexFilter1 = new IndexFilter().setCriteria(indexCriterionArray1);
+    ListResult<Urn> urns1 = dao.listUrns(indexFilter1, null, 3);
+
+    assertEquals(urns1.getValues(), Arrays.asList(urn1, urn2, urn3));
+    assertEquals(urns1.getTotalCount(), 3);
+    assertEquals(urns1.getTotalPageCount(), 1);
+    assertEquals(urns1.getPageSize(), 3);
+    assertFalse(urns1.isHavingMore());
+
+    // 2. with two filter conditions, check if LIMIT is working as desired i.e. totalCount is more than the page size
+    ListResult<Urn> urns2 = dao.listUrns(indexFilter1, null, 2);
+    assertEquals(urns2.getValues(), Arrays.asList(urn1, urn2));
+    assertEquals(urns2.getTotalCount(), 3);
+    assertEquals(urns2.getTotalPageCount(), 2);
+    assertEquals(urns2.getPageSize(), 2);
+    assertTrue(urns2.isHavingMore());
+
+    // 3. with six filter conditions covering all different data types that value can take
+    IndexCriterionArray indexCriterionArray3 = new IndexCriterionArray(Arrays.asList(criterion1, criterion2, criterion3, criterion4, criterion5, criterion6));
+    final IndexFilter indexFilter3 = new IndexFilter().setCriteria(indexCriterionArray3);
+    ListResult<Urn> urns3 = dao.listUrns(indexFilter3, urn1, 5);
+    assertEquals(urns3.getValues(), Collections.singletonList(urn3));
+    assertEquals(urns3.getTotalCount(), 1);
+    assertEquals(urns3.getTotalPageCount(), 1);
+    assertEquals(urns3.getPageSize(), 5);
+    assertFalse(urns3.isHavingMore());
+  }
+
   @Test
   public void testListUrns() {
     EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
@@ -954,16 +1037,18 @@ public class EbeanLocalDAOTest {
     assertEquals(dVal, gmaIndexPair.value);
     // 3. IndexValue pair corresponds to float
     float fVal = 0.0001f;
+    double doubleVal = fVal;
     indexValue.setFloat(fVal);
     gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
     assertEquals(EbeanMetadataIndex.DOUBLE_COLUMN, gmaIndexPair.valueType);
-    assertEquals(fVal, gmaIndexPair.value);
+    assertEquals(doubleVal, gmaIndexPair.value);
     // 4. IndexValue pair corresponds to int
     int iVal = 100;
+    long longVal = iVal;
     indexValue.setInt(iVal);
     gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
     assertEquals(EbeanMetadataIndex.LONG_COLUMN, gmaIndexPair.valueType);
-    assertEquals(iVal, gmaIndexPair.value);
+    assertEquals(longVal, gmaIndexPair.value);
     // 5. IndexValue pair corresponds to long
     long lVal = 1L;
     indexValue.setLong(lVal);
@@ -984,14 +1069,15 @@ public class EbeanLocalDAOTest {
     FooUrn urn1 = makeFooUrn(1);
     FooUrn urn2 = makeFooUrn(2);
     FooUrn urn3 = makeFooUrn(3);
-    addIndex(urn1, "aspect1", "/path1", "val1");
-    addIndex(urn1, "aspect1", "/path2", "val2");
-    addIndex(urn1, "aspect1", "/path3", "val3");
-    addIndex(urn2, "aspect1", "/path1", "val1");
-    addIndex(urn3, "aspect1", "/path1", "val1");
+    String aspect = "aspect" + System.currentTimeMillis();
+    addIndex(urn1, aspect, "/path1", "val1");
+    addIndex(urn1, aspect, "/path2", "val2");
+    addIndex(urn1, aspect, "/path3", "val3");
+    addIndex(urn2, aspect, "/path1", "val1");
+    addIndex(urn3, aspect, "/path1", "val1");
 
     // 1. local secondary index is not enabled, should throw exception
-    IndexCriterion indexCriterion = new IndexCriterion().setAspect("aspect1");
+    IndexCriterion indexCriterion = new IndexCriterion().setAspect(aspect);
     final IndexFilter indexFilter1 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
     dao.enableLocalSecondaryIndex(false);
 
@@ -1005,15 +1091,12 @@ public class EbeanLocalDAOTest {
 
     assertThrows(UnsupportedOperationException.class, () -> dao.listUrns(indexFilter2, null, 2));
 
-    // 3. index criterion array contains more than 1 criterion, should throw an exception
-    IndexCriterion indexCriterion1 = new IndexCriterion().setAspect("aspect1");
-    IndexCriterion indexCriterion2 = new IndexCriterion().setAspect("aspect2");
-    final IndexFilter indexFilter3 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion1, indexCriterion2));
-
+    // 3. index criterion array contains more than 10 criterion, should throw an exception
+    final IndexFilter indexFilter3 = new IndexFilter().setCriteria(makeIndexCriterionArray(11));
     assertThrows(UnsupportedOperationException.class, () -> dao.listUrns(indexFilter3, null, 2));
 
-    // 4. only aspect is provided in Index Filter
-    indexCriterion = new IndexCriterion().setAspect("aspect1");
+    // 3. only aspect and not path or value is provided in Index Filter
+    indexCriterion = new IndexCriterion().setAspect(aspect);
     final IndexFilter indexFilter4 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
 
     ListResult<Urn> urns = dao.listUrns(indexFilter4, null, 2);
@@ -1025,7 +1108,7 @@ public class EbeanLocalDAOTest {
     IndexValue indexValue = new IndexValue();
     indexValue.setString("val1");
     IndexPathParams indexPathParams = new IndexPathParams().setPath("/path1").setValue(indexValue);
-    indexCriterion = new IndexCriterion().setAspect("aspect1").setPathParams(indexPathParams);
+    indexCriterion = new IndexCriterion().setAspect(aspect).setPathParams(indexPathParams);
     final IndexFilter indexFilter5 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
 
     urns = dao.listUrns(indexFilter5, urn1, 2);
@@ -1035,7 +1118,7 @@ public class EbeanLocalDAOTest {
     // 6. aspect with correct path but incorrect value
     indexValue.setString("valX");
     indexPathParams = new IndexPathParams().setPath("/path1").setValue(indexValue);
-    indexCriterion = new IndexCriterion().setAspect("aspect1").setPathParams(indexPathParams);
+    indexCriterion = new IndexCriterion().setAspect(aspect).setPathParams(indexPathParams);
     final IndexFilter indexFilter6 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
 
     urns = dao.listUrns(indexFilter6, urn1, 2);
@@ -1091,12 +1174,26 @@ public class EbeanLocalDAOTest {
         .findList();
   }
 
-  private void addIndex(Urn urn, String aspectName, String pathName, String sVal) {
+  private void addIndex(Urn urn, String aspectName, String pathName, Object val) {
     EbeanMetadataIndex index = new EbeanMetadataIndex();
     index.setUrn(urn.toString())
         .setAspect(aspectName)
-        .setPath(pathName)
-        .setStringVal(sVal);
+        .setPath(pathName);
+    if (val instanceof String) {
+      index.setStringVal(val.toString());
+    } else if (val instanceof Boolean) {
+      index.setStringVal(String.valueOf(val));
+    } else if (val instanceof Double) {
+      index.setDoubleVal((Double) val);
+    } else if (val instanceof Float) {
+      index.setDoubleVal(((Float) val).doubleValue());
+    } else if (val instanceof Integer) {
+      index.setLongVal(Long.valueOf((Integer) val));
+    } else if (val instanceof Long) {
+      index.setLongVal((Long) val);
+    } else {
+      return;
+    }
     _server.save(index);
   }
 
