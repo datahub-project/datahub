@@ -12,11 +12,13 @@ learning and related artificial intelligence technology. The work is inspired by
 ## Motivation
 
 We need to model ML model metadata for transparent model reporting. Below are some of the reasons why storing machine learning model metadata is important:
+- Search and discovery of ML models trained, across an organization.
 - Drawing boundaries around a model's capabilities and limitations: There is a need to store the conditions under which a model performs best and most consistently and if it has some blind spots. It helps potential users of the models be better informed on which models are best for their specific purposes. Also, it helps minimize usage of machine learning models in contexts for which they are not well suited.
 - Metrics and Limitations: A model’s performance can be measured in countless ways, but we need to catalog the metrics that are most relevant and useful. Similarly there is a need to store a model's potential limitations that are most useful to quantify.
 - Ensure comparability across models in a well-informed way: Modeling metadata of ML models allows us to compare candidate models' results across not only traditional evaluation metrics but also along the axes of ethical, inclusive, and fairness
 considerations.
-- Promote reproducibility: Often a model is trained on transformed data, there are some preprocessing steps involved in transforming the data e.g. centering, scaling, dealing with missing values, etc. These transforms should be stored as part of model metadata to ensure reproducibility. 
+- Promote reproducibility: Often a model is trained on transformed data, there are some preprocessing steps involved in transforming the data e.g. centering, scaling, dealing with missing values, etc. These transforms should be stored as part of model metadata to ensure reproducibility.
+- Ensure Data Governance: Increasing public concern over consumer privacy is resulting in new data laws, such as GDPR and CCPA, causing enterprises to strengthen their data governance & compliance efforts. Therefore, there is a need to store compliance information of ML models containing PII or condidential data (through manual tags or automated process) to eliminate the risk of sensitive data exposure.
 
 ## Detailed design
 ![high level design](high_level_design.png)
@@ -31,12 +33,12 @@ These URNs should allow for unique identification of machine learning models and
 
 A machine learning model URN will look like below:
 ```
-urn:li:mlModel:(<<platform>>,<<name>>,<<fabric>>)
+urn:li:mlModel:(<<platform>>,<<modelName>>,<<fabric>>)
 ```
 A machine learning feature will be uniquely identified by it's name and the namespace this feature belongs to.
 A machine learning feature URN will look like below:
 ```
-urn:li:mlFeature:(<<namespace>>,<<name>>)
+urn:li:mlFeature:(<<namespace>>,<<featureName>>)
 ```
 
 ### Entities
