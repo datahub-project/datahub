@@ -21,6 +21,28 @@
 > alternative solutions. In other words, enumerate the constraints you are trying to solve without coupling them too
 > closely to the solution you have in mind.
 
+## Requirements
+
+> What specific requirements does your design need to meet? This should ideally be a bulleted list of items you wish
+> to achieve with your design. This can help everyone involved (including yourself!) make sure your design is robust
+> enough to meet these requirements.
+>
+> Once everyone has agreed upon the set of requirements for your design, we can use this list to review the detailed
+> design.
+
+### Extensibility
+
+> Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding
+> a new API or set of models that others can build on in later? Please list these concerns here as well.
+
+## Non-Requirements
+
+> Call out things you don't want to discuss in detail during this review here, to help focus the conversation. This can
+> include things you may build in the future based off this design, but don't wish to discuss in detail, in which case
+> it may also be wise to explicitly list that extensibility in your design is a requirement.
+>
+> This list can be high level and not detailed. It is to help focus the conversation on what you want to focus on.
+
 ## Detailed design
 
 > This is the bulk of the RFC.
