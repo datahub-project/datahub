@@ -1,6 +1,5 @@
 import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 import { getJSON, postJSON } from '@datahub/utils/api/fetcher';
-import buildUrl from '@datahub/utils/api/build-url';
 import { ApiVersion, getApiRoot } from '@datahub/utils/api/shared';
 
 /**
@@ -8,7 +7,7 @@ import { ApiVersion, getApiRoot } from '@datahub/utils/api/shared';
  * @param {string} urn - the urn for the entity
  */
 const institutionalMemoryByUrn = (urn: string, entityType: string): string =>
-  buildUrl(`${getApiRoot(ApiVersion.v2)}/institutionalmemory`, { urn, type: entityType });
+  `${getApiRoot(ApiVersion.v2)}/${entityType}s/${urn}/institutionalmemory`;
 
 /**
  * Fetches the list of wiki-type url links to documents related to an entity

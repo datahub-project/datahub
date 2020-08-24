@@ -236,9 +236,7 @@ export default class DatasetMainContainer extends Component {
       DatasetTab.Schema,
       DatasetTab.Properties,
       DatasetTab.Ownership,
-      DatasetTab.DatasetGroups,
-      DatasetTab.Relationships,
-      DatasetTab.Health
+      DatasetTab.Relationships
     ];
 
     return [...TabProperties.filter((tab): boolean => tabs.includes(tab.id)), ...CommonTabProperties];
