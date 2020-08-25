@@ -8,12 +8,12 @@ import com.linkedin.common.DatasetUrn
 record BaseData {
 
   /**
-   * What datasets were used in the MLModel?
+   * What dataset were used in the MLModel?
    */
-  datasets: optional DatasetUrn
+  dataset: DatasetUrn
 
   /**
-   * Why were these datasets chosen?
+   * Why was this dataset chosen?
    */
   motivation: optional string
 

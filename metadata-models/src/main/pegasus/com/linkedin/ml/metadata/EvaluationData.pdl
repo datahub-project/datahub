@@ -10,5 +10,5 @@ record EvaluationData {
     /**
      * Details on the dataset(s) used for the quantitative analyses in the MLModel
      */
-    evaluationData: optional array[BaseData]
+    evaluationData: array[BaseData]
 }
