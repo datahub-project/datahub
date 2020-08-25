@@ -15,6 +15,7 @@
 # Talks & Presentations
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
 * [DataHub Journey with Expedia Group by Arun Vasudevan](https://www.youtube.com/watch?v=ajcRdB22s5o)
+* [Metadata Management And Integration At LinkedIn With DataHub @ Data Engineering Podcase](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
 
 # Non-English Articles
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
