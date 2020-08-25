@@ -1,9 +1,14 @@
 namespace com.linkedin.dataJob.azkaban
 
-import com.linkedin.dataJob.DataJobOutput
+import com.linkedin.common.DatasetUrn
 
 /**
  * Outputs produced by the Azkaban job
  */
-record AzkabanJobOutput includes DataJobOutput {
+record AzkabanJobOutput {
+
+  /**
+   * Output datasets produced by the data job during processing
+   */
+  outputDatasets: array[DatasetUrn]
 }
