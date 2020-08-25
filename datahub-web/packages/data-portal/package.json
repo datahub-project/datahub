@@ -121,7 +121,7 @@
     "ember-tooltips": "^2.10.0",
     "ember-truth-helpers": "^2.0.0",
     "font-awesome": "^4.7.0",
-    "highcharts": "^6.2.0",
+    "highcharts": "^7.2.2",
     "ivy-tabs": "^3.3.0",
     "jquery": "^3.3.0",
     "jquery-jsonview": "^1.2.3",
