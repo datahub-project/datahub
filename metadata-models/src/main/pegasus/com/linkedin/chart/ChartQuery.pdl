@@ -24,10 +24,5 @@ record ChartQuery {
      * SQL type queries
      */
     SQL
-
-    /**
-     * Other query type
-     */
-    OTHER
   }
 }

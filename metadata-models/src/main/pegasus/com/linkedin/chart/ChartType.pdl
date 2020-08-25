@@ -6,12 +6,27 @@ namespace com.linkedin.chart
 enum ChartType {
 
   /**
-   * Chart showing Markdown formatted text
+   * Chart showing a Bar chart
    */
-  TEXT
+  BAR
+
+  /**
+   * Chart showing a Pie chart
+   */
+  PIE
+
+  /**
+   * Chart showing a Scatter plot
+   */
+  SCATTER
 
   /**
    * Chart showing a table
    */
   TABLE
+
+  /**
+   * Chart showing Markdown formatted text
+   */
+  TEXT
 }
