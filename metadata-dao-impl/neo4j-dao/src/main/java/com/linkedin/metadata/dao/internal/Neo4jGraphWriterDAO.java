@@ -103,7 +103,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   }
 
   /**
-   * Run a query statement with parameters and return StatementResult
+   * Run a query statement with parameters and return StatementResult.
    *
    * @param statement a statement with parameters to be executed
    */
@@ -208,7 +208,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   }
 
   /**
-   * Gets Node based on Urn, if not exist, creates placeholder node
+   * Gets Node based on Urn, if not exist, creates placeholder node.
    */
   @Nonnull
   private Statement getOrInsertNode(@Nonnull Urn urn) {

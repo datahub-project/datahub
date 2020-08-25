@@ -11,13 +11,12 @@ import javax.annotation.Nullable;
 /**
  * A base class for all Browse DAOs.
  *
- * A browse DAO is a standardized interface to browse metadata.
- * See http://go/gma for more details.
+ * <p>A browse DAO is a standardized interface to browse metadata. See http://go/gma for more details.
  */
 public abstract class BaseBrowseDAO {
 
   /**
-   * Gets a list of groups/entities that match given browse request
+   * Gets a list of groups/entities that match given browse request.
    *
    * @param path the path to be browsed
    * @param requestParams the request map with fields and values as filters
@@ -29,7 +28,7 @@ public abstract class BaseBrowseDAO {
   public abstract BrowseResult browse(@Nonnull String path, @Nullable Filter requestParams, int from, int size);
 
   /**
-   * Gets a list of paths for a given urn
+   * Gets a list of paths for a given urn.
    *
    * @param urn urn of the entity
    * @return all paths related to a given urn

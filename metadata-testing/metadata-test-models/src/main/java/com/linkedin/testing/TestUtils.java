@@ -81,7 +81,7 @@ public class TestUtils {
   }
 
   /**
-   * Returns all test entity classes
+   * Returns all test entity classes.
    */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllTestEntities() {
@@ -95,7 +95,7 @@ public class TestUtils {
   }
 
   /**
-   * Returns all test relationship classes
+   * Returns all test relationship classes.
    */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllTestRelationships() {

@@ -31,9 +31,9 @@ public class ESUtils {
   }
 
   /**
-   * Constructs the filter query given filter map
+   * Constructs the filter query given filter map.
    *
-   * Multiple values can be selected for a filter, and it is currently modeled as string separated by comma
+   * <p>Multiple values can be selected for a filter, and it is currently modeled as string separated by comma
    *
    * @param filter the search filter
    * @return built filter query
@@ -72,7 +72,7 @@ public class ESUtils {
   }
 
   /**
-   * Populates source field of search query with the sort order as per the criterion provided
+   * Populates source field of search query with the sort order as per the criterion provided.
    *
    * <p>
    * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
@@ -98,7 +98,7 @@ public class ESUtils {
   }
 
   /**
-   * Escapes the Elasticsearch reserved characters in the given input string
+   * Escapes the Elasticsearch reserved characters in the given input string.
    *
    * @param input input string
    * @return input string in which reserved characters are escaped
