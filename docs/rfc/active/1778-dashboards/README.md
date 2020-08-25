@@ -106,15 +106,6 @@ We should create/update user guides to educate users for:
  - Search & discovery experience (how to find a dashboard in DataHub)
  - Lineage experience (how to find upstream datasets of a dashboard and how to find dashboards generated from a dataset)
 
-## Alternatives
-
-In this design, there is an underlying assumption that input sources for charts will be a list of datasets.
-This is slightly different from our Linkedin internal implementation in which metrics are the input sources for the charts.
-We'll not follow this for open source DataHub for below reasons: 
- - Metric entity is not open source
- - Popular dashboarding tools (Looker and Redash) generally use datasets as inputs directly and allow slicing & dicing 
- on the dataset itself using their queries. In some way, they are generating the metrics on the fly.
-
 ## Rollout / Adoption Strategy
 
 The design is supposed to be generic enough that any user of the DataHub should easily be able
