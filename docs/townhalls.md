@@ -11,6 +11,8 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 **NEW!** We're now using Zoom! You can join with this link, or see the full invite below. https://linkedin.zoom.us/j/95617940722
 
+[Sign up sheet](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit#gid=57816078)
+
 <details>
   <summary>Full Invite</summary>
 
