@@ -7,17 +7,30 @@
 ## Summary
 
 Adding support for dashboards (and charts) metadata cataloging and enabling search & discovery for them.
-The design should accomodate for different dashboarding ([Looker](www.looker.com), [Redash](www.redash.io)) tools used within a company.
+The design should accommodate for different dashboarding ([Looker](www.looker.com), [Redash](www.redash.io)) tools used within a company.
 
 ## Motivation
 
 Dashboards are a key piece within a data ecosystem of a company. They are used by different groups of employees across different organizations.
 They provide a way to visualize some data assets (tracking datasets or metrics) by allowing slice and dicing of the input data source.
 When a company scales, data assets including dashboards gets richer and bigger. Therefore, it's important to find and access to the right dashboard.
-By having dashboards as a top level entity in Datahub, we achieve below goals:
 
-- Enabling Search & Discovery for dashboard assets
+## Goals
+
+By having dashboards as a top-level entity in DataHub, we achieve below goals:
+
+- Enabling Search & Discovery for dashboard assets by using dashboard metadata
 - Link dashboards to underlying data sources and have a more complete picture of data lineage
+
+## Non-goals
+
+DataHub will only serve as a catalog for dashboards where users search dashboards by using keywords. 
+Entity page for a dashboard might contain links to the dashboard to direct users to view the dashboard after finding it.
+However, DataHub will not try to show the actual dashboard or any charts within that. This is not desired and shouldn't be allowed because:
+
+ - Dashboards or charts within a dashboard might have different ACLs that prevent users without the necessary permission to display the dashboard. 
+ Generally, the source of truth for these ACLs are dashboarding tools.
+ - Underlying data sources might have some ACLs too. Again, the source of truth for these ACLs are specific data platforms.
 
 ## Detailed design
 
@@ -50,7 +63,7 @@ Dashboarding tools generally have different jargon to denote a chart.
 They are called as [Look](https://docs.looker.com/exploring-data/saving-and-editing-looks) in Looker 
 and [Visualization](https://redash.io/help/user-guide/visualizations/visualization-types) in Redash.
 But, irrespective of the name, charts are the different tiles which exists in a dashboard.
-Charts are mainly used for delivering some information in a visual way to make it easily understandable.
+Charts are mainly used for delivering some information visually to make it easily understandable.
 They might be using single or multiple data sources and generally have an associated query running against
 the underlying data source to generate the data that it will present.
 
@@ -83,8 +96,8 @@ Below is a list of metadata which can be associated with a dashboard:
 ![dashboards_graph](dashboards_graph.png)
 
 An example metadata graph showing complete data lineage picture is shown above.
-In this picture, `Dash_A` and `Dash_B` are dashboards and they are connected to charts through `Contains` edges.
-`C1`, `C2`, `C3` and `C4` are charts and they are connected to underlying datasets through `DownstreamOf` edges.
+In this picture, `Dash_A` and `Dash_B` are dashboards, and they are connected to charts through `Contains` edges.
+`C1`, `C2`, `C3` and `C4` are charts, and they are connected to underlying datasets through `DownstreamOf` edges.
 `D1`, `D2` and `D3` are datasets.
 
 ## How we teach this
@@ -114,4 +127,4 @@ dashboarding platform (if it's not already provided in DataHub repo). This ETL s
 
 ## Unresolved questions (To-do)
  
-1. We'll be adding social features like subscribe and follow later on. But, it's out of scope for this RFC.
+1. We'll be adding social features like subscribe and follow later on. However, it's out of scope for this RFC.
