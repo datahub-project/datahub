@@ -26,9 +26,9 @@ record ChartInfo {
   lastModified: ChangeAuditStamps
 
   /**
-   * Input datasets for the chart
+   * Data sources for the chart
    */
-  inputs: optional array[DatasetUrn]
+  inputs: optional array[ChartDataSourceType]
 
   /**
    * Query to build a chart from input datasets
