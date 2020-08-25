@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.metadata.generator.SchemaGeneratorConstants.*;
 
 
-/***
+/**
  * Parse the property annotations from the pdl schema.
  */
 @Slf4j

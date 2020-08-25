@@ -30,7 +30,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * A base class for generating rest.li requests against entity-specific action methods.
  *
- * See http://go/gma for more details.
+ * <p>See http://go/gma for more details.
  *
  * @param <SNAPSHOT> must be a valid snapshot type defined in com.linkedin.metadata.snapshot
  * @param <URN> must be the URN type used in {@code SNAPSHOT}

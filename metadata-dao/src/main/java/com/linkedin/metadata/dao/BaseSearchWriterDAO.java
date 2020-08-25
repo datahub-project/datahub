@@ -8,7 +8,7 @@ import javax.annotation.Nonnull;
 /**
  * A base class for all Search Writer DAOs.
  *
- * Search Writer DAO is a standardized interface to update a search index.
+ * <p>Search Writer DAO is a standardized interface to update a search index.
  */
 public abstract class BaseSearchWriterDAO<DOCUMENT extends RecordTemplate> {
 

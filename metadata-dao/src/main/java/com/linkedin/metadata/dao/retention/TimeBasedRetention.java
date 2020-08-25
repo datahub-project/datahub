@@ -10,7 +10,7 @@ import lombok.Value;
 public class TimeBasedRetention implements Retention {
 
   /**
-   * Constructs a {@link TimeBasedRetention} object
+   * Constructs a {@link TimeBasedRetention} object.
    *
    * @param maxAgeToRetain maximal age (in milliseconds) to retain. Must be positive.
    */

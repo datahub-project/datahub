@@ -8,13 +8,13 @@ import javax.annotation.Nonnull;
 /**
  * A base class for all remote writer DAOs.
  *
- * Remote writer DAO allows updating metadata aspects hosted on a remote service without knowing the exact
+ * <p>Remote writer DAO allows updating metadata aspects hosted on a remote service without knowing the exact
  * URN-to-service mapping.
  */
 public abstract class BaseRemoteWriterDAO {
 
   /**
-   * Creates a new metadata snapshot against a remote service
+   * Creates a new metadata snapshot against a remote service.
    *
    * @param urn the {@link Urn} for the entity
    * @param snapshot the snapshot containing updated metadata aspects

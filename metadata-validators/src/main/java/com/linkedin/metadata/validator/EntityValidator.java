@@ -9,7 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
-public class EntityValidator {
+/**
+ * Utility class to validate entity schemas.
+ */
+public final class EntityValidator {
 
   // Allowed non-optional fields. All other fields must be optional.
   private static final Set<String> NON_OPTIONAL_FIELDS = Collections.unmodifiableSet(new HashSet<String>() {
@@ -61,7 +64,7 @@ public class EntityValidator {
   }
 
   /**
-   * Checks if an entity schema is valid
+   * Checks if an entity schema is valid.
    */
   public static boolean isValidEntitySchema(@Nonnull Class<? extends RecordTemplate> clazz) {
     if (!VALIDATED.contains(clazz)) {
