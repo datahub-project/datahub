@@ -67,7 +67,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   /**
-   * Constructor for EbeanLocalDAO
+   * Constructor for EbeanLocalDAO.
    *
    * @param aspectUnionClass containing union of all supported aspects. Must be a valid aspect union defined in com.linkedin.metadata.aspect
    * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
@@ -80,7 +80,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   /**
-   * Constructor for EbeanLocalDAO
+   * Constructor for EbeanLocalDAO.
    *
    * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
    * @param serverConfig {@link ServerConfig} that defines the configuration of EbeanServer instances
@@ -395,7 +395,8 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   /**
-   * Checks if an {@link AspectKey} and a {@link PrimaryKey} for Ebean are equivalent
+   * Checks if an {@link AspectKey} and a {@link PrimaryKey} for Ebean are equivalent.
+   *
    * @param aspectKey Urn needs to do a ignore case match
    */
   private boolean matchKeys(@Nonnull AspectKey<URN, ? extends RecordTemplate> aspectKey, @Nonnull PrimaryKey pk) {
@@ -625,7 +626,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   /**
    * Sets the values of parameters in metadata index query based on its position, values obtained from
-   * {@link IndexCriterionArray} and last urn
+   * {@link IndexCriterionArray} and last urn.
    *
    * @param indexCriterionArray {@link IndexCriterionArray} whose values will be used to set parameters in metadata
    *                                                       index query based on its position
@@ -647,7 +648,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   /**
    * Constructs SQL query that contains positioned parameters (with `?`), based on whether {@link IndexCriterion} of
-   * a given condition has field `pathParams`
+   * a given condition has field `pathParams`.
    *
    * @param indexCriterionArray {@link IndexCriterionArray} used to construct the SQL query
    * @return String representation of SQL query
@@ -671,8 +672,10 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   /**
    * Returns list of urns from strongly consistent secondary index that satisfy the given filter conditions.
-   * Results are sorted in increasing alphabetical order of urn.
-   * NOTE: Currently this works for upto 10 filter conditions.
+   *
+   * <p>Results are sorted in increasing alphabetical order of urn.
+   *
+   * <p>NOTE: Currently this works for upto 10 filter conditions.
    *
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. This eliminates the need to use offset which

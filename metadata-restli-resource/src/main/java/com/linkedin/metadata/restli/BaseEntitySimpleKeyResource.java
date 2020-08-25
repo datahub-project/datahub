@@ -34,7 +34,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * A base class for the entity rest.li resource where the key is of a primitive (simple) type.
  *
- * See http://go/gma for more details
+ * <p>See http://go/gma for more details
  *
  * @param <KEY> the resource's simple key type
  * @param <VALUE> the resource's value type
@@ -229,7 +229,7 @@ public abstract class BaseEntitySimpleKeyResource<
   }
 
   /**
-   * Returns a map of {@link VALUE} models given the collection of {@link URN}s and set of aspect classes
+   * Returns a map of {@link VALUE} models given the collection of {@link URN}s and set of aspect classes.
    *
    * @param urns collection of urns
    * @param aspectClasses set of aspect classes

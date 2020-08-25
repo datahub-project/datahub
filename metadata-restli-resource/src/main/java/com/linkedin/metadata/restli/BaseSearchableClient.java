@@ -11,8 +11,10 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+
 /**
- * Base client that all entities supporting search should implement in their respective restli MPs
+ * Base client that all entities supporting search should implement in their respective restli MPs.
+ *
  * @param <VALUE> the client's value type
  */
 public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends BaseClient {
@@ -22,7 +24,8 @@ public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends
   }
 
   /**
-   * Search method that the client inheriting this class must implement. Returns {@link CollectionResponse} containing list of aspects
+   * Search method that the client inheriting this class must implement. Returns {@link CollectionResponse} containing
+   * list of aspects.
    *
    * @param input Input query
    * @param aspectNames List of aspects to be returned in the VALUE model
@@ -34,11 +37,13 @@ public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends
    * @throws RemoteInvocationException when the rest.li request fails
    */
   @Nonnull
-  public abstract CollectionResponse<VALUE> search(@Nonnull String input, @Nullable StringArray aspectNames, @Nullable Map<String, String> requestFilters,
-      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException;
+  public abstract CollectionResponse<VALUE> search(@Nonnull String input, @Nullable StringArray aspectNames,
+      @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+      throws RemoteInvocationException;
 
   /**
-   * Similar to {@link #search(String, StringArray, Map, SortCriterion, int, int)} with null for aspect names, meaning all aspects will be returned
+   * Similar to {@link #search(String, StringArray, Map, SortCriterion, int, int)} with null for aspect names, meaning
+   * all aspects will be returned.
    */
   @Nonnull
   public CollectionResponse<VALUE> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
@@ -47,7 +52,7 @@ public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends
   }
 
   /**
-   * Autocomplete method that the client will override only if they need this capability. It returns {@link AutoCompleteResult} containing list of suggestions.
+   * Autocomplete method that the client will override only if they need this capability.
    *
    * @param query Input query
    * @param field Field against which the query needs autocompletion
@@ -61,5 +66,4 @@ public abstract class BaseSearchableClient<VALUE extends RecordTemplate> extends
       @Nullable Map<String, String> requestFilters, int limit) throws RemoteInvocationException {
     throw new UnsupportedOperationException("Not implemented yet.");
   }
-
 }
