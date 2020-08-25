@@ -10,5 +10,5 @@ record TrainingData {
     /**
     * Details on the dataset(s) used for training the MLModel
     */
-    trainingData: optional array[BaseData]
+    trainingData: array[BaseData]
 }
