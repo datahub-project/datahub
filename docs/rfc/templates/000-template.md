@@ -82,6 +82,12 @@
 > If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
 > automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces? 
 
+## Future Work
+
+> Describe any future projects, at a very high level, that will build off this proposal. This does not need to be
+> exhaustive, nor does it need to be anything you work on. It just helps reviewers see how this can be used in the
+> future, so they can help ensure your design is flexible enough.
+
 ## Unresolved questions
 
 > Optional, but suggested for first drafts. What parts of the design are still TBD?
