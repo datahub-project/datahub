@@ -1,24 +1,12 @@
-import { identity, not } from 'wherehows-web/utils/helpers/functions';
-
-/**
- * Composable function that will in turn consume an item from a list an emit a result of equal or same type
- * @type Iteratee
- */
-export type Iteratee<A, R> = (a: A) => R;
-
-/**
- * Aliases a type T or an array of type T
- * @template T
- * @alias
- */
-export type Many<T> = T | Array<T>;
+import { identity, not } from 'datahub-web/utils/helpers/functions';
+import { Many, Iteratee } from '@datahub/utils/types/array';
 
 /**
  * Takes a number of elements in the list from the start up to the length of the list
  * @template T type of elements in array
  * @param {number} [n=0] number of elements to take from the start of the array
  */
-export const take = <T>(n: number = 0): ((list: Array<T>) => Array<T>) => (list: Array<T>): Array<T> =>
+export const take = <T>(n = 0): ((list: Array<T>) => Array<T>) => (list: Array<T>): Array<T> =>
   Array.prototype.slice.call(list, 0, n < 0 ? 0 : n);
 
 /**
@@ -30,7 +18,7 @@ export const take = <T>(n: number = 0): ((list: Array<T>) => Array<T>) => (list:
  */
 export const arrayMap = <T, U>(
   predicate: (param: T, index: number, collection: Array<T>) => U
-): ((array: Array<T>) => Array<U>) => (array = []) => array.map(predicate);
+): ((array: Array<T>) => Array<U>) => (array = []): Array<U> => array.map(predicate);
 
 /**
  * Iteratee-first data-last each function
@@ -38,7 +26,7 @@ export const arrayMap = <T, U>(
  * @param {(param: T) => void} predicate iteratee
  * @returns {((array: Array<T>) => void)}
  */
-export const arrayEach = <T>(predicate: (param: T) => void): ((array: Array<T>) => void) => (array = []) =>
+export const arrayEach = <T>(predicate: (param: T) => void): ((array: Array<T>) => void) => (array = []): void =>
   array.forEach(predicate);
 
 /**
@@ -52,7 +40,7 @@ export const arrayEach = <T>(predicate: (param: T) => void): ((array: Array<T>) 
  */
 export const arrayPartition = <T, U extends T>(
   predicate: (param: T) => param is U
-): ((array: Array<T>) => [Array<U>, Array<Exclude<T, U>>]) => (array = []) => [
+): ((array: Array<T>) => [Array<U>, Array<Exclude<T, U>>]) => (array = []): [Array<U>, Array<Exclude<T, U>>] => [
   array.filter(predicate),
   array.filter<Exclude<T, U>>((v: T): v is Exclude<T, U> => not(predicate)(v))
 ];
@@ -62,8 +50,9 @@ export const arrayPartition = <T, U extends T>(
  * @param {(param: T) => boolean} predicate
  * @return {(array: Array<T>) => Array<T>}
  */
-export const arrayFilter = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => Array<T>) => (array = []) =>
-  array.filter(predicate);
+export const arrayFilter = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => Array<T>) => (
+  array = []
+): Array<T> => array.filter(predicate);
 
 /**
  * Type safe utility `iterate-first data-last` function for array every
@@ -71,8 +60,9 @@ export const arrayFilter = <T>(predicate: (param: T) => boolean): ((array: Array
  * @param {(param: T) => boolean} predicate
  * @returns {((array: Array<T>) => boolean)}
  */
-export const arrayEvery = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
-  array.every(predicate);
+export const arrayEvery = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (
+  array = []
+): boolean => array.every(predicate);
 
 /**
  * Type safe utility `iterate-first data-last` function for array some
@@ -80,8 +70,9 @@ export const arrayEvery = <T>(predicate: (param: T) => boolean): ((array: Array<
  * @param {(param: T) => boolean} predicate
  * @return {(array: Array<T>) => boolean}
  */
-export const arraySome = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
-  array.some(predicate);
+export const arraySome = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (
+  array = []
+): boolean => array.some(predicate);
 
 /**
  * Composable reducer abstraction, curries a reducing iteratee and returns a reducing function that takes a list
@@ -93,7 +84,7 @@ export const arraySome = <T>(predicate: (param: T) => boolean): ((array: Array<T
 export const arrayReduce = <T, U>(
   iteratee: (accumulator: U, element: T, index: number, collection: Array<T>) => U,
   init: U
-): ((arr: Array<T>) => U) => (array = []) => array.reduce(iteratee, init);
+): ((arr: Array<T>) => U) => (array = []): U => array.reduce(iteratee, init);
 
 // arrayPipe overloads
 export function arrayPipe<T, R1 = T>(f1: (a1: T) => R1): (x: T) => R1;
@@ -169,7 +160,10 @@ export function arrayPipe<T, R1, R2, R3, R4, R5, R6, R7>(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function arrayPipe<T, R>(...fns: Array<Many<Iteratee<any, any>>>): (x: T) => R {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return arrayReduce<(a: T) => any, (x: any) => R>((acc, f) => (x): R => acc(f(x)), identity)(
+  return arrayReduce<(a: T) => any, (x: any) => R>(
+    (acc, f) => (x): R => acc(f(x)),
+    identity
+  )(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ([] as Array<Iteratee<any, any>>).concat(...fns.reverse()) // flatten if arg is of type Array<>
   );
@@ -216,7 +210,7 @@ export const chunkArrayAsync = <T, U>(
   iterateeSync: (arr?: Array<T>) => U,
   accumulator: (res: U) => U,
   { chunkSize = 50, context = null }: IChunkArrayOptions = { chunkSize: 50, context: null }
-): ((list: Array<T>) => Promise<U>) => (list: Array<T>) =>
+): ((list: Array<T>) => Promise<U>) => (list: Array<T>): Promise<U> =>
   new Promise<U>(function(resolve) {
     const queue = list.slice(0); // creates a shallow copy of the original list
     let result: U;
@@ -243,7 +237,8 @@ export const chunkArrayAsync = <T, U>(
 export const iterateArrayAsync = <T, U = T>(
   iteratee: (arr?: Array<T>) => Array<U>
 ): ((list: Array<T>, context?: null) => Promise<Array<U>>) => (list: Array<T>, context = null): Promise<Array<U>> => {
-  const accumulator = (base: Array<U>): ((arr: Array<U>) => Array<U>) => (arr: Array<U>) => (base = [...base, ...arr]);
+  const accumulator = (base: Array<U>): ((arr: Array<U>) => Array<U>) => (arr: Array<U>): Array<U> =>
+    (base = [...base, ...arr]);
   return chunkArrayAsync(iteratee, accumulator([]), { chunkSize: 50, context })(list);
 };
 
@@ -257,6 +252,6 @@ export const iterateArrayAsync = <T, U = T>(
 export const reduceArrayAsync = <T, U>(
   reducer: (arr?: Array<T>) => U
 ): ((list: Array<T>, context?: null) => Promise<U>) => (list: Array<T>, context = null): Promise<U> => {
-  const accumulator = (base: U): ((int: U) => U) => (int: U) => Object.assign(base, int);
+  const accumulator = (base: U): ((int: U) => U) => (int: U): U => Object.assign(base, int);
   return chunkArrayAsync(reducer, accumulator(reducer.call(context)))(list);
 };

@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "rootDir": "../../",
     "paths": {
+      "dummy/mirage/*": ["tests/dummy/mirage/*"],
       "dummy/tests/*": ["tests/*"],
       "dummy/*": ["tests/dummy/app/*", "app/*"],
       "@datahub/data-models": ["addon"],

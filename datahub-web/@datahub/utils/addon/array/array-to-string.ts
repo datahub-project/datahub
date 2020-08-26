@@ -4,11 +4,7 @@
  * @param {string} separator separator for more than 2 items
  * @param {string} lastSeparator separator for the last 2 items in the list
  */
-export const arrayToString = (
-  array: Array<string>,
-  separator: string = ', ',
-  lastSeparator: string = ' or '
-): string => {
+export const arrayToString = (array: Array<string>, separator = ', ', lastSeparator = ' or '): string => {
   let result = '';
   if (array.length > 1) {
     result = `${array.slice(0, array.length - 1).join(separator)}${lastSeparator}`;

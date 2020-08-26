@@ -1,0 +1,8 @@
+// Rules for the Search result Health Score component
+.search-health-score {
+  &#{&} {
+    padding: 0;
+    border-bottom: 1px solid get-color(gray2);
+    border-radius: 0;
+  }
+}

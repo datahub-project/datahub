@@ -1,4 +1,4 @@
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 import { oneWay } from '@ember/object/computed';
 import { computed } from '@ember/object';
 import { msTimeAsUnix } from '@datahub/utils/helpers/ms-time-as-unix';

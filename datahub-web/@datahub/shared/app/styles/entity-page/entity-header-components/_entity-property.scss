@@ -1,0 +1,37 @@
+.wherehows-entity-header-property {
+  $margin-spacing: 10px;
+  display: flex;
+  padding: 0;
+  width: 100%;
+
+  &__name,
+  &__value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__name {
+    flex-shrink: 0;
+    margin-right: $margin-spacing;
+    width: 100px;
+  }
+
+  &__value {
+    word-break: break-word;
+    white-space: normal;
+    flex-shrink: 1;
+    margin-left: $margin-spacing;
+  }
+
+  &__item-value {
+    &:after {
+      content: ',';
+      color: get-color(black);
+    }
+
+    &:last-child:after {
+      content: '';
+    }
+  }
+}

@@ -28,18 +28,22 @@ module.exports = {
     '@typescript-eslint/interface-name-prefix': ['error', 'always'],
     '@typescript-eslint/member-delimiter-style': 'error',
     '@typescript-eslint/no-empty-interface': 'error',
-    '@typescript-eslint/no-angle-bracket-type-assertion': 'warn',
-    '@typescript-eslint/array-type': ['error', 'generic'],
+    '@typescript-eslint/consistent-type-assertions': 'warn',
+    '@typescript-eslint/array-type': ['error', { default: 'generic' }],
     '@typescript-eslint/no-non-null-assertion': 'warn',
     '@typescript-eslint/explicit-member-accessibility': 'off',
     '@typescript-eslint/no-parameter-properties': 'off',
-    '@typescript-eslint/no-object-literal-type-assertion': 'warn',
     '@typescript-eslint/explicit-function-return-type': 'warn',
+    '@typescript-eslint/ban-ts-ignore': 'warn',
+    '@typescript-eslint/no-empty-function': 'warn',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }],
-    'ember/no-ember-super-in-es-classes': 'error'
+    'ember/no-ember-super-in-es-classes': 'error',
+    '@datahub/no-addon-import': 'error',
+    '@datahub/no-linkedin-import': 'warn',
+    eqeqeq: ['error', 'always']
   },
-  plugins: ['prettier', 'ember', '@typescript-eslint'],
+  plugins: ['prettier', 'ember', '@typescript-eslint', '@datahub'],
   overrides: [
     // node files
     {
@@ -47,8 +51,9 @@ module.exports = {
         '**/.eslintrc.js',
         '**/.template-lintrc.js',
         '**/ember-cli-build.js',
+        '**/scripts/**/*.js',
         '**/testem.js',
-        '**/blueprints/*/index.js',
+        '**/index.js',
         '**/config/**/*.js',
         '**/lib/*/**.js'
       ],
@@ -62,6 +67,17 @@ module.exports = {
       },
       rules: {
         '@typescript-eslint/no-var-requires': 'off'
+      }
+    },
+    {
+      files: [
+        '@linkedin/**/*.ts',
+        '@linkedin/**/*.js',
+        'packages/data-portal-internal-clone/**/*.ts',
+        'packages/data-portal-internal-clone/**/*.js'
+      ],
+      rules: {
+        '@datahub/no-linkedin-import': 'off'
       }
     }
   ]

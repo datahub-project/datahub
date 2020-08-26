@@ -13,7 +13,7 @@ export default class LastSavedBy extends Component {
    * @type {string}
    * @memberof LastSavedBy
    */
-  actor: string = 'unknown';
+  actor = 'unknown';
 
   /**
    * The time at which the related transaction occurred
@@ -27,14 +27,14 @@ export default class LastSavedBy extends Component {
    * @type {number}
    * @memberof LastSavedBy
    */
-  maxCharLength: number = 30;
+  maxCharLength = 30;
 
   /**
    * Alternate title for the component
    * @type {string}
    * @memberof LastSavedBy
    */
-  title: string = 'Last Saved:';
+  title = 'Last Saved:';
 
   /**
    * Resolves the appropriate representation for the time the transaction occurred

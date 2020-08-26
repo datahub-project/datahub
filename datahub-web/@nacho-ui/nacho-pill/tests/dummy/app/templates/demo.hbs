@@ -1,0 +1,65 @@
+<h3>Nacho Pill Link</h3>
+<table class="test-pills-table">
+  <thead>
+    <tr>
+      <th>Basic</th>
+      <th>Active</th>
+      <th>Query Params</th>
+      <th>No Link</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        {{nacho-pill-link
+          text="Pikachu"
+          linkTo="mydummy"
+        }}
+      </td>
+      <td>{{nacho-pill-link text="Squirtle" linkTo="demo" isActive=true}}</td>
+      <td>
+        {{nacho-pill-link
+          text="Eevee"
+          linkTo="demo"
+          queryParams=model.queryparam
+        }}
+      </td>
+      <td>
+        {{nacho-pill-link text="Mew"}}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Nacho Pill Normal</h3>
+<table class="test-pills-table">
+  <thead>
+    <tr>
+      <th>Basic</th>
+      <th>Alert</th>
+      <th>Warning</th>
+      <th>Action</th>
+      <th>Good</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        {{nacho-pill text="Pikachu"}}
+      </td>
+      <td>{{nacho-pill text="Squirtle" state="alert"}}</td>
+      <td>
+        {{nacho-pill text="Eevee" state="warning"}}
+      </td>
+      <td>
+        {{nacho-pill text="Mew" state="action"}}
+      </td>
+      <td>{{nacho-pill text="Meowth" state="good"}}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Nacho Pill Input</h3>
+<TestNachoPillInput />
+
+{{outlet}}

@@ -1,5 +1,6 @@
 /// Search bar height
 $app-search-bar-height: 32px;
+$app-search-bar-border-offset-height: 2px;
 $app-search-bar-background: white;
 // as per design specs
 $app-search-bar-select-width: 192px;
@@ -16,17 +17,17 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
 
   &__input-container {
     flex-grow: 1;
+    height: $app-search-bar-height;
   }
 
   &__entity-select {
     background: $app-search-bar-background;
-    height: $app-search-bar-height;
     border-radius: 2px;
     margin-right: item-spacing(3);
   }
 
   &__entity-select select {
-    height: $app-search-bar-height;
+    height: $app-search-bar-height - $app-search-bar-border-offset-height;
     display: block;
     background: $app-search-bar-background;
     border: 0;
@@ -35,6 +36,7 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
 
   &__text-input {
     height: $app-search-bar-height;
+    border: 1px solid $app-search-bar-disabled-color;
     border-radius: 2px 0 0 2px;
     min-width: $app-search-bar-input-width;
 
@@ -118,7 +120,7 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
   &__suggestion-description {
     padding: 0;
     margin: 0;
-    font-size: 14px;
+    font-size: fs(standard);
     color: get-color(gray4);
     line-height: 1.1;
     display: block;

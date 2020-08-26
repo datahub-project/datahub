@@ -18,7 +18,7 @@ export const ownerUrnRegExp = new RegExp(ownerUrnPattern);
  * @param {string} [ownerUrn=''] the urn for the urn to extracts into parts
  * @returns {OwnerUrnObject}
  */
-export const getOwnerUrnParts = (ownerUrn: string = ''): OwnerUrnObject => {
+export const getOwnerUrnParts = (ownerUrn = ''): OwnerUrnObject => {
   const urnParts: OwnerUrnObject = {
     type: undefined,
     name: undefined,

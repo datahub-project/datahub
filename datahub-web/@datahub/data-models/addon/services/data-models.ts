@@ -1,8 +1,16 @@
 import Service from '@ember/service';
-import { DataModelEntity, DataModelName, DataModelEntityInstance } from '@datahub/data-models/constants/entity';
+import {
+  DataModelEntity,
+  DataModelName,
+  DataModelEntityInstance,
+  DataModelEntityApiNameMap
+} from '@datahub/data-models/constants/entity';
 import { set } from '@ember/object';
 import { isBaseEntity } from '@datahub/data-models/entity/base-entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import { assignRelationshipGettersToClassObject } from '@datahub/data-models/relationships/creator';
+import { IDataModelEntity } from '@datahub/data-models/constants/entity';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Encapsulating Guards logic into this class so it is easier to move if data-models grow
@@ -22,7 +30,7 @@ export class Guards {
    * List of unguarded entities
    */
   get unGuardedEntitiesDisplayName(): Array<DataModelName> {
-    return [DatasetEntity.displayName];
+    return [DatasetEntity.displayName, PersonEntity.displayName];
   }
 
   /**
@@ -69,6 +77,13 @@ export default class DataModelsService extends Service {
   }
 
   /**
+   * Returns a Entity Data Model class given its api name
+   */
+  getModelByApiName(apiName: string): IDataModelEntity[keyof IDataModelEntity] | void {
+    return DataModelEntityApiNameMap[apiName];
+  }
+
+  /**
    * Creates a partial instance given the "entity" part of the model. This is useful for bulk
    * loads like Search or Lists or if we want to rely on the data models service to create an
    * entity instance for us given an entity type and urn
@@ -85,7 +100,7 @@ export default class DataModelsService extends Service {
     if (typeof data === 'string') {
       instance = new EntityClass(data) as InstanceType<typeof DataModelEntity[K]>;
     } else {
-      const urn: string = isBaseEntity(data) && data.urn ? data.urn : '';
+      const urn = isBaseEntity(data) ? data.urn : '';
       instance = new EntityClass(urn) as InstanceType<typeof DataModelEntity[K]>;
       set(instance, 'entity', data as typeof instance['entity']);
     }
@@ -119,6 +134,28 @@ export default class DataModelsService extends Service {
    * class and within any child classes without a direct import
    */
   dataModelEntitiesMap = DataModelEntity;
+
+  /**
+   * Sets up the relationships mapping on all of our data model entity classes based on the meta
+   * information given by the @relationship decorator
+   */
+  _setupRelationships(): void {
+    const { dataModelEntitiesMap } = this;
+    const dataModelEntities = Object.values(dataModelEntitiesMap);
+    dataModelEntities.forEach((entity): void => {
+      assignRelationshipGettersToClassObject(entity, this.createPartialInstance.bind(this));
+    });
+  }
+
+  /**
+   * Inits the services.
+   * NOTE: This needs to be an 'init' fn as we need to invoke this after default values of dataModelEntitiesMap are set
+   * for more info, see this link: https://github.com/ember-decorators/ember-decorators/issues/329#issuecomment-443771927
+   */
+  init(): void {
+    super.init();
+    this._setupRelationships();
+  }
 }
 
 // DO NOT DELETE: this is how TypeScript knows how to look up your services.

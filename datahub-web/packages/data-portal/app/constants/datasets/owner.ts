@@ -1,8 +1,8 @@
 import { set } from '@ember/object';
-import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
-import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IOwner } from 'datahub-web/typings/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'datahub-web/utils/api/datasets/owners';
+import { arrayFilter, isListUnique } from '@datahub/utils/array/index';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
@@ -177,5 +177,5 @@ export const avatarWithDropDownOption = (avatar: IAvatar): IAvatar & Required<Pi
  */
 export const avatarWithProfileLink = (avatar: IAvatar): IAvatar => ({
   ...avatar,
-  profileLink: `#/user/${PersonEntity.urnFromUsername(avatar.userName || '')}`
+  profileLink: PersonEntity.profileLinkFromUsername(avatar.userName || '')
 });

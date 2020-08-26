@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { jsonValuesMatch } from '@datahub/utils/validators/json';
 
 module('Unit | Utility | validators/json', function() {
-  test('it returns expected value when testing two json objects', function(assert) {
+  test('it returns expected value when testing two json objects', function(assert): void {
     assert.expect(2);
     const testObjectA = { pikachu: 'raichu', charmander: 'charmeleon' };
     const testObjectB = { pikachu: 'raichu', charmander: 'charmeleon' };

@@ -1,4 +1,4 @@
-import { CommentTypeUnion } from 'wherehows-web/typings/api/datasets/comments';
+import { CommentTypeUnion } from 'datahub-web/typings/api/datasets/comments';
 
 /**
  * List of CrUD actions that can be performed on a stream comment

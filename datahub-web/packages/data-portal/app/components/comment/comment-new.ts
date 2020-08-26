@@ -1,10 +1,9 @@
 import Component from '@ember/component';
 import { setProperties, set } from '@ember/object';
 import { run, schedule, scheduleOnce } from '@ember/runloop';
-import { assert } from '@ember/debug';
-import { CommentTypeUnion, IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
-import { baseCommentEditorOptions, newCommentEditorOptions } from 'wherehows-web/constants';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { CommentTypeUnion, IDatasetComment } from 'datahub-web/typings/api/datasets/comments';
+import { baseCommentEditorOptions, newCommentEditorOptions } from 'datahub-web/constants';
+import { noop } from 'lodash';
 import { action } from '@ember/object';
 import { classNames, tagName, className } from '@ember-decorators/component';
 import { alias } from '@ember/object/computed';
@@ -50,15 +49,6 @@ export default class CommentNew extends Component {
     set(this, 'comment', comment);
   }
 
-  didReceiveAttrs(): void {
-    // Assert that the createComment prop is a function
-    const typeOfCreateComment = typeof this.createComment;
-    assert(
-      `Expected action createComment to be an function (Ember action), got ${typeOfCreateComment}`,
-      typeOfCreateComment === 'function'
-    );
-  }
-
   /**
    * Applies the properties from a new instance of IDatasetComment to the comment property on the component
    */
@@ -72,7 +62,7 @@ export default class CommentNew extends Component {
    */
   click(): void {
     if (!this.isEditing) {
-      run(() => {
+      run((): void => {
         schedule('actions', this, 'toggleEdit');
         scheduleOnce('afterRender', this, 'focusEditor');
       });
@@ -104,10 +94,8 @@ export default class CommentNew extends Component {
     const createComment = this.createComment;
     const { type, text } = this.comment;
 
-    const didCreateComment = await createComment({ type, text });
-    if (didCreateComment) {
-      this.resetComment();
-    }
+    await createComment({ type, text });
+    this.resetComment();
   }
 
   /**

@@ -1,13 +1,10 @@
-{{#modal-dialog
-  overlayClass="avatars-detail-modal-overlay"
-  containerClassNames=containerClassNames
-  onClose=onClose
-}}
+<ModalDialog @overlayClass="avatars-detail-modal-overlay" @containerClassNames={{containerClassNames}} @onClose={{onClose}}>
   <header class="avatars-detail-modal__header">
     <h2>
       {{header}}
     </h2>
     <button
+      type="button"
       class="avatars-detail-modal__close"
       onclick={{action onClose}}
     >
@@ -18,4 +15,4 @@
   <section class="avatars-detail-modal__content">
     {{yield}}
   </section>
-{{/modal-dialog}}
+</ModalDialog>

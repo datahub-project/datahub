@@ -3,14 +3,17 @@ import { apiErrorStatusMessage, throwIfApiError, ApiError } from '@datahub/utils
 import { isNotFoundApiError } from '@datahub/utils/api/shared';
 import { IFetchConfig, IFetchOptions } from '@datahub/utils/types/api/fetcher';
 import { typeOf } from '@ember/utils';
+import getCSRFToken from '@datahub/utils/helpers/csrf-token';
 /**
  * Augments the user supplied headers with the default accept and content-type headers
- * @param {IFetchConfig.headers} headers
+ * @param {IFetchConfig.headers} headers additional headers to add onto the request
  */
 const withBaseFetchHeaders = (headers: IFetchConfig['headers']): { headers: IFetchConfig['headers'] } => ({
   headers: {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
+    // https://github.com/playframework/playframework/blob/9e9e26f40a4941fa306116471694d67040331b28/web/play-filters-helpers/src/main/scala/play/filters/csrf/csrf.scala#L99
+    Accept: '*/*',
+    'Content-Type': 'application/json', // Content-Type is required to prevent a unsupported media type exception
+    'Csrf-Token': getCSRFToken(),
     ...headers
   }
 });
@@ -19,11 +22,12 @@ const withBaseFetchHeaders = (headers: IFetchConfig['headers']): { headers: IFet
  * Sends a HTTP request and resolves with the JSON response
  * @template T
  * @param {string} url the url for the endpoint to request a response from
- * @param {object} fetchConfig
- * @returns {Promise<T>}
+ * @param {IFetchOptions} fetchConfig A configuration object with optional attributes for the Fetch object
  */
-const json = <T>(url: string = '', fetchConfig: IFetchOptions = {}): Promise<T> =>
-  fetch(url, fetchConfig).then<T>(response => throwIfApiError(response, response => response.json()));
+const json = <T>(url = '', fetchConfig: IFetchOptions = {}): Promise<T> =>
+  fetch(url, fetchConfig).then<T>(
+    (response: Response): Promise<T> => throwIfApiError<T>(response, (response): Promise<T> => response.json())
+  );
 
 /**
  * Conveniently gets a JSON response using the fetch api
@@ -145,8 +149,8 @@ const argToString = (arg: unknown): string => {
  */
 const argsToKey = (args: Array<unknown>): string =>
   args
-    .filter(arg => typeOf(arg) !== 'undefined')
-    .map(arg => argToString(arg))
+    .filter((arg): boolean => typeOf(arg) !== 'undefined')
+    .map((arg): string => argToString(arg))
     .join('.');
 
 /**
@@ -165,9 +169,9 @@ export const setCacheEnabled = (enabled: boolean): void => {
  * @param fn Fn that will call api, returns a promise.
  */
 export const cacheApi = <T, R>(fn: (...args: Array<T>) => Promise<R>): ((...args: Array<T>) => Promise<R>) => {
-  let cachedResult: Record<string, R> = {};
-  let promises: Record<string, Promise<R>> = {};
-  return async (...args: Array<T>) => {
+  const cachedResult: Record<string, R> = {};
+  const promises: Record<string, Promise<R>> = {};
+  return async (...args: Array<T>): Promise<R> => {
     const key = argsToKey(args);
     // We don't want to cache in test
     if (CACHE_ENABLED) {

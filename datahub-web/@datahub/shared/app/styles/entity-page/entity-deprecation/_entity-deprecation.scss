@@ -1,0 +1,68 @@
+/// TODO: [META-7082] This styling is common to many addons and should be included in either or artdeco macro
+/// components or some kind of DataHub shared styles.
+@mixin entity-deprecation-nacho-container {
+  border: 1px solid get-color(black, 0.05);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075);
+  padding: item-spacing(4);
+  background-color: get-color(white);
+  background-clip: padding-box;
+  border-radius: 2px;
+  transition: box-shadow 83ms;
+}
+
+.entity-deprecation {
+  // TODO: [META-7082] Change based on note above
+  @include entity-deprecation-nacho-container;
+  margin: item-spacing(3 0);
+
+  &__actions {
+    margin-top: item-spacing(2);
+  }
+
+  &__toggle-header {
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    margin-bottom: item-spacing(3);
+
+    &__label {
+      margin: item-spacing(0 2 0 0);
+    }
+  }
+
+  &__note-editor .ember-medium-editor__container {
+    min-height: item-spacing(6) * 4;
+    outline: none;
+    padding: item-spacing(1);
+    background-color: get-color(white);
+    box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  &__header {
+    margin-top: item-spacing(6);
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  &__decommission-calendar {
+    @include ember-power-calendar($cell-size: item-spacing(7), $primary-color: get-color(blue7));
+  }
+
+  &__cal-input-trigger {
+    padding: item-spacing(1);
+  }
+
+  &__cal-dropdown {
+    box-shadow: rgba(0, 0, 0, 0.172549) 0 6px 12px 0;
+    border: 1px solid get-color(black, 0.3);
+  }
+}
+
+.entity-decommission-date {
+  margin-top: item-spacing(4);
+
+  &--required {
+    color: get-color(red5);
+  }
+}

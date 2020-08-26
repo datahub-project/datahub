@@ -3,34 +3,41 @@ import Component from '@ember/component';
 import template from '../templates/components/more-info';
 import { tagName, classNames, layout } from '@ember-decorators/component';
 
+// Block class for the component
+const baseClass = 'more-info';
+
+/**
+ * Linkable tooltip typically used to guide the user to a help resource if a link is provided, or a tooltip otherwise
+ * @export
+ * @class MoreInfo
+ * @extends {Component}
+ */
 @tagName('span')
-@classNames('more-info')
 @layout(template)
+@classNames(baseClass)
 export default class MoreInfo extends Component {
   /**
-   * Proxies to anchor element target attribute
-   * @type {string}
-   * @memberOf MoreInfo
+   * Component baseClass used as block for BEM
    */
-  target: string = '_blank';
+  baseClass = baseClass;
+
+  /**
+   * Proxies to anchor element target attribute
+   */
+  target = '_blank';
 
   /**
    * Proxies to anchor element href attribute
-   * @type {string}
-   * @memberOf MoreInfo
    */
-  link: string = '#';
+  link = '#';
 
   /**
    * Renders the tool tip component, if present
-   * @type {string}
-   * @memberOf MoreInfo
    */
   tooltip?: string;
 
   /**
    * Disables DOM event propagation
-   * @return {boolean}
    */
-  click = () => false;
+  click = (): false => false;
 }

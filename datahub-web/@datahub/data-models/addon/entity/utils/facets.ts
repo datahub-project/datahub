@@ -1,23 +1,44 @@
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { typeOf } from '@ember/utils';
 import { IFacetsSelectionsMap, IFacetSelections } from '@datahub/data-models/types/entity/facets';
+import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
+import { KeyNamesWithValueType } from '@datahub/utils/types/base';
 
 /**
- * Will return an key value object with forced facets given a list of fields
+ * Filtering field names that returns array
  */
-export const getFacetDefaultValueForEntity = (
-  fields: Array<ISearchEntityRenderProps>
+type FieldNames = KeyNamesWithValueType<ISearchEntityRenderProps, Array<string> | undefined>;
+
+/**
+ * returns key/value pairs depending on key of field
+ * @param fields
+ * @param filterField
+ */
+const facetFilter = (
+  fields: Array<ISearchEntityRenderProps>,
+  filterField: FieldNames
 ): Record<string, Array<string>> => {
   return fields.reduce((facetsApiParams: Record<string, Array<string>>, field): Record<string, Array<string>> => {
-    if (typeOf(field.facetDefaultValue) !== 'undefined') {
+    if (filterField && typeOf(field[filterField]) !== 'undefined') {
       return {
         ...facetsApiParams,
-        [field.fieldName]: field.facetDefaultValue || []
+        [field.fieldName]: field[filterField] || []
       };
     }
     return facetsApiParams;
   }, {});
 };
+
+/**
+ * Will return an key value object with forced facets given a list of fields
+ */
+export const getFacetForcedValueForEntity = (fields: Array<ISearchEntityRenderProps>): Record<string, Array<string>> =>
+  facetFilter(fields, 'forcedFacetValue');
+
+/**
+ * Will return an key value object with deafult facets given a list of fields
+ */
+export const getFacetDefaultValueForEntity = (fields: Array<ISearchEntityRenderProps>): Record<string, Array<string>> =>
+  facetFilter(fields, 'facetDefaultValue');
 
 /**
  * Transforms an input like this:

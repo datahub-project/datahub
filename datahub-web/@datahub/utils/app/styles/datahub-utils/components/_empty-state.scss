@@ -4,8 +4,12 @@
   padding-top: 230px;
   max-width: 360px;
   text-align: center;
-  color: set-color(black, dune);
-  background: url($empty-state-link) no-repeat top center;
+  color: get-color(gray10);
+  background: url(image-resource(empty-state)) no-repeat top center;
+
+  &--success {
+    background: url(image-resource(empty-state-success)) no-repeat top center;
+  }
 
   &__header {
     line-height: item-spacing(6);
@@ -18,5 +22,9 @@
     line-height: item-spacing(5);
     font-size: 16px;
     margin: item-spacing(0 0 0 2);
+  }
+
+  &__container {
+    padding: item-spacing(4);
   }
 }

@@ -1,7 +1,6 @@
-import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
-import { encodeUrn } from '@datahub/utils/validators/urn';
+import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
 
 /**
  * Constructs the url to retrieve fabrics for a dataset
@@ -16,6 +15,6 @@ const datasetFabricsUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}
  * @return {Promise<Array<Fabric>>}
  */
 const readDatasetFabricsByUrn = (urn: string): Promise<Array<FabricType>> =>
-  getJSON<Array<FabricType>>({ url: datasetFabricsUrlByUrn(encodeUrn(urn)) });
+  getJSON<Array<FabricType>>({ url: datasetFabricsUrlByUrn(urn) });
 
 export { readDatasetFabricsByUrn };

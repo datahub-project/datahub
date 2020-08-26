@@ -1,6 +1,6 @@
 import EntityListsManager from '@datahub/lists/services/entity-lists-manager';
 import EmberObject from '@ember/object';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 
 /**
  * Return type for the Computed Property EntityListTrampoline

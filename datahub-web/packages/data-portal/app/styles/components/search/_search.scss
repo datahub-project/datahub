@@ -18,7 +18,7 @@ $search-result-label-width: 124px;
   }
 
   &__title {
-    font-weight: 400;
+    font-weight: fw(normal, 4);
     margin: 0;
   }
 
@@ -65,18 +65,14 @@ $search-result-label-width: 124px;
   &__title {
     display: flex;
     font-size: 18px;
-    font-weight: 400;
+    font-weight: fw(normal, 4);
     margin: 0;
     align-items: center;
-
-    &__icon {
-      color: $link-color;
-    }
 
     .nacho-pill--link {
       background: rgba(199, 209, 216, 0.45);
       color: rgba(0, 0, 0, 0.75);
-      font-size: 14px;
+      font-size: fs(standard);
       line-height: 20px;
       border: 0;
       cursor: auto;
@@ -103,14 +99,16 @@ $search-result-label-width: 124px;
 
   &__fields {
     margin-top: item-spacing(3);
-    display: flex;
-    flex-wrap: wrap;
+    display: table;
   }
 
   &__field {
     margin-top: item-spacing(1);
-    display: flex;
-    flex-basis: 100%;
+    display: table-row;
+  }
+
+  &__field-value {
+    display: table-cell;
   }
 
   &__field-value-list {
@@ -130,24 +128,16 @@ $search-result-label-width: 124px;
     &:last-child::after {
       content: '';
     }
-
-    // for 3 items or less, show as list
-    &:first-child:nth-last-child(1),
-    &:first-child:nth-last-child(2),
-    &:first-child:nth-last-child(2) ~ li,
-    &:first-child:nth-last-child(3),
-    &:first-child:nth-last-child(3) ~ li {
-      display: block;
-      &:after {
-        content: '';
-      }
-    }
   }
 
   &__field-name {
-    flex-basis: $search-result-label-width;
+    display: table-cell;
     min-width: $search-result-label-width;
-    font-weight: 400;
+
+    &-label {
+      font-weight: fw(normal, 4);
+      margin: item-spacing(1 4 0 0);
+    }
   }
 
   // Secondary actions for search results are contained within this element

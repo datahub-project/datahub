@@ -1,9 +1,9 @@
 import Component from '@ember/component';
 
-import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import { IOwner } from 'datahub-web/typings/api/datasets/owners';
+import { OwnerSource, OwnerType } from 'datahub-web/utils/api/datasets/owners';
 import { action, computed } from '@ember/object';
-import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
+import { OwnerWithAvatarRecord } from 'datahub-web/typings/app/datasets/owners';
 import { tagName, classNames, className } from '@ember-decorators/component';
 import { equal, not } from '@ember/object/computed';
 

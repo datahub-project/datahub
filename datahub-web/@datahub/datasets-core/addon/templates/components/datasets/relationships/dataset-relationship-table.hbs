@@ -1,0 +1,76 @@
+<NachoTable @fields={{filteredRelationships}} @class="relationship-table" as |relationTable|>
+  <relationTable.head as |head|>
+    <head.title @class="relationship-table__dataset">Dataset</head.title>
+    <head.title @class="relationship-table__type">
+
+      <Nacho::Dropdown::HoverDropdown @dropDownItems={{relationshipTypes}} @selectedDropDown={{selectedRelationshipType}} @onSelect={{action "onTypeSelect"}} as |dd|>
+        {{dd.content}}
+      </Nacho::Dropdown::HoverDropdown>
+
+    </head.title>
+    <head.title @class="relationship-table__platform">Platform</head.title>
+    <head.title @class="relationship-table__actor">Actor</head.title>
+    <head.title @class="relationship-table__modified">Last Modified</head.title>
+  </relationTable.head>
+
+  <relationTable.body as |body|>
+    {{#each relationTable.fields as |lineage|}}
+      <body.row @class="relationship-table__row" @field={{lineage}} as |row|>
+        <row.cell>
+          <LinkTo @route="datasets.dataset" @model={{lineage.dataset.uri}}>
+            <strong>
+              {{lineage.dataset.nativeName}}
+            </strong>
+          </LinkTo>
+        </row.cell>
+        <row.cell>
+          {{capitalize lineage.type}}
+        </row.cell>
+        <row.cell>
+          {{titleize lineage.dataset.platform}}
+        </row.cell>
+        <row.cell>
+          {{#with lineage.route as |actorRoute|}}
+            <LinkTo @route={{actorRoute}} @model={{lineage.actor}}>
+              {{lineage.actorType}}
+            </LinkTo>
+          {{else}}
+            {{lineage.actor}}
+          {{/with}}
+        </row.cell>
+        <row.cell>
+          {{moment-calendar lineage.dataset.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+        </row.cell>
+      </body.row>
+    {{/each}}
+  </relationTable.body>
+
+  {{#if hasMore}}
+    <relationTable.foot>
+      <td colspan="4" class="text-center">
+        <button
+          type="button"
+          class="nacho-button--large nacho-button--tertiary"
+          {{action "onToggleShowMore"}}
+        >
+          {{#if showAllRelationships}}
+
+            See Less
+            {{fa-icon
+              "caret-up"
+              aria-label="See less relationships"
+            }}
+          {{else}}
+
+            See More
+            {{fa-icon
+              "caret-down"
+              aria-label="See more relationships"
+            }}
+
+          {{/if}}
+        </button>
+      </td>
+    </relationTable.foot>
+  {{/if}}
+</NachoTable>

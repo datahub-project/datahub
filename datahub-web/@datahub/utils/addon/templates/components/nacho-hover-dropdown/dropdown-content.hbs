@@ -6,12 +6,11 @@
 }}
   <ul class="nacho-drop-down__options">
     {{#each @options as |option|}}
-      {{component
-        "nacho-hover-dropdown/dropdown-option"
-        option=option
-        onSelect=@onSelect
-        selectedOption=@selectedOption
-      }}
+      <NachoHoverDropdown::DropdownOption
+        @option={{option}}
+        @onSelect={{@onSelect}}
+        @selectedOption={{@selectedOption}}
+      />
     {{/each}}
   </ul>
 {{/component}}

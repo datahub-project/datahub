@@ -1,4 +1,3 @@
-import { assert } from '@ember/debug';
 import { datasetPlatformUrnPattern } from '@datahub/metadata-types/utils/entity/dataset/platform/urn';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
@@ -25,7 +24,7 @@ export const fabricsArray: Array<string> = Object.keys(FabricType).map((key: key
  * @return {boolean}
  */
 export const isDatasetFabric = (candidate: string): candidate is FabricType =>
-  Object.values(FabricType).includes(candidate.toUpperCase());
+  Object.values(FabricType).includes(candidate.toUpperCase() as FabricType);
 
 /**
  * Path segment in a urn. common btw WH and LI formats
@@ -105,8 +104,8 @@ export const getDatasetUrnParts = (urn: string): Partial<IDatasetGetUrnPartsResp
   };
 
   if (match) {
-    let [, platform, prefix, fabric] = match;
-    fabric = String(fabric).toUpperCase();
+    const [, platform, prefix, urnFabric] = match;
+    const fabric = String(urnFabric).toUpperCase();
 
     return {
       ...urnParts,
@@ -143,7 +142,7 @@ export const convertWhDatasetPathToLiPath = (platform: DatasetPlatform, path: st
  */
 export const buildDatasetLiUrn = (
   platform: DatasetPlatform,
-  path: string = '',
+  path = '',
   fabric: FabricType = FabricType.PROD
 ): string => {
   const formattedPath = convertWhDatasetPathToLiPath(platform, path);
@@ -156,7 +155,6 @@ export const buildDatasetLiUrn = (
  * @return {string}
  */
 export const convertWhUrnToLiUrn = (whUrn: string): string => {
-  assert(`Expected ${whUrn} to be in the WH urn format`, isWhUrn(whUrn));
   const [, platform = '', path = ''] = datasetUrnRegexWH.exec(whUrn) || [];
 
   return buildDatasetLiUrn(platform as DatasetPlatform, path);

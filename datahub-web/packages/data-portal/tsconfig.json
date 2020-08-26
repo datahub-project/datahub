@@ -5,44 +5,97 @@
     "rootDir": "../../",
     "alwaysStrict": false,
     "strictPropertyInitialization": false,
-    "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
+    "lib": [
+      "es2017.object",
+      "es2016",
+      "dom",
+      "dom.iterable",
+      "scripthost"
+    ],
     "listEmittedFiles": false,
     "paths": {
-      "wherehows-web/*": ["app/*", "node_modules/@datahub/entity-header"],
-      "wherehows-web/tests/*": ["tests/*"],
-      "wherehows-web/mirage/*": ["mirage/*"],
-      "ember-nearley": ["lib/ember-nearley/addon"],
-      "ember-nearley/*": ["lib/ember-nearley/addon/*"],
-      "ember-nearley/test-support": ["lib/ember-nearley/addon-test-support"],
-      "ember-nearley/test-support/*": ["lib/ember-nearley/addon-test-support/*"],
-      "@datahub/entity-deprecation": ["../../@datahub/entity-deprecation/addon"],
-      "@datahub/entity-deprecation/*": ["../../@datahub/entity-deprecation/addon/*"],
-      "@datahub/entity-header": ["../../@datahub/entity-header/addon"],
-      "@datahub/entity-header/*": ["../../@datahub/entity-header/addon/*"],
-      "@datahub/data-models": ["../../@datahub/data-models/addon"],
-      "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
-      "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
-      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
-      "@datahub/datasets-core": ["../../@datahub/datasets-core/addon"],
-      "@datahub/datasets-core/*": ["../../@datahub/datasets-core/addon/*"],
-      "@datahub/utils": ["../../@datahub/utils/addon"],
-      "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
-      "@datahub/lists": ["../../@datahub/lists/addon"],
-      "@datahub/lists/*": ["../../@datahub/lists/addon/*"],
-      "@datahub/shared": ["../../@datahub/shared/addon"],
-      "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
-      "@datahub/tracking": ["../../@datahub/tracking/addon"],
-      "@datahub/tracking/*": ["../../@datahub/tracking/addon/*"]
+      "datahub-web/*": [
+        "app/*"
+      ],
+      "datahub-web/tests/*": [
+        "tests/*"
+      ],
+      "datahub-web/mirage/*": [
+        "mirage/*"
+      ],
+      "ember-nearley": [
+        "lib/ember-nearley/addon"
+      ],
+      "ember-nearley/*": [
+        "lib/ember-nearley/addon/*"
+      ],
+      "ember-nearley/test-support": [
+        "lib/ember-nearley/addon-test-support"
+      ],
+      "ember-nearley/test-support/*": [
+        "lib/ember-nearley/addon-test-support/*"
+      ],
+      "@datahub/data-models": [
+        "../../@datahub/data-models/addon"
+      ],
+      "@datahub/data-models/*": [
+        "../../@datahub/data-models/addon/*"
+      ],
+      "@datahub/metadata-types": [
+        "../../@datahub/metadata-types/addon"
+      ],
+      "@datahub/metadata-types/*": [
+        "../../@datahub/metadata-types/addon/*"
+      ],
+      "@datahub/datasets-core": [
+        "../../@datahub/datasets-core/addon"
+      ],
+      "@datahub/datasets-core/*": [
+        "../../@datahub/datasets-core/addon/*"
+      ],
+      "@datahub/user": [
+        "../../@datahub/user/addon"
+      ],
+      "@datahub/user/*": [
+        "../../@datahub/user/addon/*"
+      ],
+      "@datahub/utils": [
+        "../../@datahub/utils/addon"
+      ],
+      "@datahub/utils/*": [
+        "../../@datahub/utils/addon/*"
+      ],
+      "@datahub/lists": [
+        "../../@datahub/lists/addon"
+      ],
+      "@datahub/lists/*": [
+        "../../@datahub/lists/addon/*"
+      ],
+      "@datahub/shared": [
+        "../../@datahub/shared/addon"
+      ],
+      "@datahub/shared/*": [
+        "../../@datahub/shared/addon/*"
+      ],
+      "@datahub/search": [
+        "../../@datahub/search/addon"
+      ],
+      "@datahub/search/*": [
+        "../../@datahub/search/addon/*"
+      ],
+      "@nacho-ui/core": [
+        "../../@nacho-ui/nacho-core/addon"
+      ],
+      "@nacho-ui/core/*": [
+        "../../@nacho-ui/nacho-core/addon/*"
+      ]
     }
   },
   "include": [
     "app/**/*",
     "tests/**/*",
     "mirage/**/*",
-    "../../@datahub/entity-deprecation/types/**/*",
-    "../../@datahub/entity-deprecation/addon/**/*",
-    "../../@datahub/entity-header/types/**/*",
-    "../../@datahub/entity-header/addon/**/*",
+    "../../@datahub/shared/types/entity-page/**/*",
     "../../@datahub/datasets-core/types/**/*",
     "../../@datahub/datasets-core/addon/**/*",
     "../../@datahub/metadata-types/addon/**/*",
@@ -51,9 +104,17 @@
     "../../@datahub/utils/types/**/*",
     "../../@datahub/lists/addon/**/*",
     "../../@datahub/lists/types/**/*",
+    "../../@datahub/search/addon/**/*",
+    "../../@datahub/search/types/**/*",
     "../../@datahub/shared/addon/**/*",
     "../../@datahub/shared/types/**/*",
-    "../../@datahub/tracking/addon/**/*",
-    "../../@datahub/tracking/types/**/*"
+    "../../@datahub/shared/tests/**/*",
+    "../../@datahub/user/addon/**/*",
+    "../../@datahub/user/types/**/*",
+    "../../@datahub/data-models/addon/**/*",
+    "../../@datahub/data-models/types/**/*",
+    "../../@datahub/data-models/tests/**/*",
+    "../../@nacho-ui/nacho-core/addon/**/*",
+    "../../@nacho-ui/nacho-core/types/**/*"
   ]
 }

@@ -1,9 +1,8 @@
 ---
 language: node_js
 node_js:
-  - "6"
+  - '10'
 
-sudo: false
 dist: trusty
 
 addons:
@@ -20,6 +19,10 @@ env:
 
 before_install:
   - npm config set spin false
+
+branches:
+  only:
+    - master
 
 script:
   - npm run lint:hbs

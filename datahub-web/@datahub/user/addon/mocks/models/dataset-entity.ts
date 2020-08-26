@@ -7,7 +7,7 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
  * environment
  */
 export class FakeDatasetEntity extends DatasetEntity {
-  savedName: string = '';
+  savedName = '';
 
   /**
    * Creates a blank name field for the object that we can fill in for mock data

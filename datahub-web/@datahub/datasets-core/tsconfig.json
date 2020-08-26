@@ -5,9 +5,14 @@
     "rootDir": "../../",
     "alwaysStrict": false,
     "paths": {
-      "dummy/mirage/*": ["tests/dummy/mirage/*"],
-      "dummy/tests/*": ["tests/*"],
-      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "dummy/mirage/*": ["tests/dummy/mirage/*", "../../@datahub/data-models/tests/dummy/mirage/*"],
+      "dummy/tests/*": ["tests/*", "../../@datahub/data-models/tests/*"],
+      "dummy/*": [
+        "tests/dummy/app/*",
+        "app/*",
+        "../../@datahub/data-models/tests/dummy/app/*",
+        "../../@datahub/data-models/tests/app/*"
+      ],
       "@datahub/datasets-core": ["addon"],
       "@datahub/datasets-core/*": ["addon/*"],
       "@datahub/datasets-core/test-support": ["addon-test-support"],
@@ -16,6 +21,12 @@
       "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
       "@datahub/data-models": ["../../@datahub/data-models/addon"],
       "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
+      "@datahub/data-models/tests": ["../../@datahub/data-models/tests/*"],
+      "@datahub/data-models/tests/*": ["../../@datahub/data-models/tests/*"],
+      "@datahub/search": ["../../@datahub/search/addon"],
+      "@datahub/search/*": ["../../@datahub/search/addon/*"],
+      "@datahub/shared": ["../../@datahub/shared/addon"],
+      "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
       "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
       "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
       "*": ["types/*"]
@@ -30,9 +41,15 @@
     "addon-test-support/**/*",
     "../../@datahub/data-models/addon/**/*",
     "../../@datahub/data-models/types/**/*",
+    "../../@datahub/data-models/tests/**/*",
+    "../../@datahub/search/addon/**/*",
+    "../../@datahub/search/types/**/*",
+    "../../@datahub/shared/addon/**/*",
+    "../../@datahub/shared/types/**/*",
+    "../../@datahub/shared/tests/**/*",
     "../../@datahub/metadata-types/addon/**/*",
     "../../@datahub/metadata-types/types/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*",
+    "../../@datahub/utils/types/**/*"
   ]
 }

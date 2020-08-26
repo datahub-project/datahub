@@ -3,7 +3,7 @@ import Component from '@ember/component';
 import template from '../../../templates/components/institutional-memory/wiki/url-list';
 import { layout, tagName, classNames } from '@ember-decorators/component';
 import { action, computed } from '@ember/object';
-import { noop } from '@datahub/utils/function/noop';
+import { noop } from 'lodash';
 import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
 import { set } from '@ember/object';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
@@ -73,7 +73,7 @@ export default class InstitutionalMemoryWikiUrlList extends Component {
    * Flag determining whether or not we are going to show the pop up modal related to adding
    * a link
    */
-  isShowingModal: boolean = false;
+  isShowingModal = false;
 
   /**
    * If we have a display name given for the entity for which this institutional memory component

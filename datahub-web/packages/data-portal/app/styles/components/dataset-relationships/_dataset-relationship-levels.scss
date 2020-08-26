@@ -41,13 +41,8 @@
   }
 
   &__node {
-    &,
-    &.search-result {
-      margin-left: -1 * item-spacing(4);
-      margin-right: -1 * item-spacing(4);
-      padding-left: item-spacing(4);
-      padding-right: item-spacing(4);
-    }
+    margin: 0 (-1 * item-spacing(4));
+    padding: item-spacing(4 4);
 
     &:hover {
       background: get-color(gray1);

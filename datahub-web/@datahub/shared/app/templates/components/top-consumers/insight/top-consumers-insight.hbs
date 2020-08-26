@@ -1,0 +1,57 @@
+{{#if this.showTopConsumers}}
+
+  <TopConsumers::Containers::TopConsumers
+    @entity={{@entity}}
+    as |container|
+  >
+    <ConcurrencyTaskStateHandler
+      @task={{container.containerTask}}
+      @handleAsyncStateOnly={{@options.isOptional}}
+    >
+      <div class="top-consumers-insight">
+        {{#if container.topUserUrns}}
+          {{component
+            @options.component
+            title="Top individual consumers"
+            topConsumers=container.topUserUrns
+            tooltipText=this.topUsersTooltipText
+            consumerType=this.topConsumer.USER
+            onClickShowMore=(fn this.showTopConsumersModal this.topConsumer.USER)
+          }}
+        {{/if}}
+
+        {{#if container.topGroupLinkParams}}
+          {{component
+            @options.component
+            title="Top group consumers"
+            topConsumers=container.topGroupLinkParams
+            tooltipText=this.topGroupsTooltipText
+            consumerType=this.topConsumer.GROUP
+            onClickShowMore=(fn this.showTopConsumersModal this.topConsumer.GROUP)
+          }}
+        {{/if}}
+      </div>
+    </ConcurrencyTaskStateHandler>
+
+    {{#if this.isShowingTopConsumersModal}}
+      <TopConsumers::Containers::TopConsumersModal
+        @topUserUrns={{container.topUserUrns}}
+        @topGroupUrns={{container.topGroupUrns}}
+        as |modalContainer|
+      >
+        <TopConsumers::Insight::TopConsumersModal
+          @topUsers={{modalContainer.topUsers}}
+          @topGroups={{modalContainer.topGroups}}
+          @topUserUrns={{container.topUserUrns}}
+          @topGroupLinkParams={{container.topGroupLinkParams}}
+          @tabSelected={{this.tabSelected}}
+          @tabSelectionDidChange={{fn this.tabSelectionDidChange}}
+          @onCloseTopConsumersModal={{fn this.closeTopConsumersModal}}
+          @containerTask={{modalContainer.containerTask}}
+        />
+      </TopConsumers::Containers::TopConsumersModal>
+    {{/if}}
+
+  </TopConsumers::Containers::TopConsumers>
+
+{{/if}}

@@ -1,5 +1,4 @@
 import { ApiVersion, getApiRoot } from '@datahub/utils/api/shared';
-import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { encodeUrn } from '@datahub/utils/validators/urn';
 
@@ -18,9 +17,7 @@ export const datasetUrlRoot = (version: ApiVersion): string => `${getApiRoot(ver
 export const datasetUrlByUrn = (urn: string): string => `${datasetUrlRoot(ApiVersion.v2)}/${encodeUrn(urn)}`;
 
 /**
- * Queries the Feature endpoint with the urn provided to retrieve entity information
- * @param {string} urn
- * @returns {Promise<IDatasetEntity>}
+ * Reads a dataset entity from api
  */
-export const readDataset = (urn: string): Promise<IDatasetEntity> =>
-  getJSON({ url: datasetUrlByUrn(urn) }).then(({ dataset }): IDatasetEntity => dataset);
+export const readDataset = (urn: string): Promise<Com.Linkedin.Dataset.Dataset> =>
+  getJSON({ url: datasetUrlByUrn(urn) });

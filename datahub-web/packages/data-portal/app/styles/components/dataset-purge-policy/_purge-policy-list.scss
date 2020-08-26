@@ -1,0 +1,24 @@
+.purge-policy-list {
+  margin: 0;
+  padding: 0;
+
+  &__item {
+    @include nacho-container;
+    list-style-type: none;
+
+    &--disabled {
+      color: get-color(gray5);
+      background-color: get-color(gray1);
+    }
+  }
+
+  &__platform {
+    &--unavailable {
+      @include tag(get-color(red8), get-color(white));
+    }
+  }
+
+  &__retry-platforms {
+    @include flex-column-center;
+  }
+}

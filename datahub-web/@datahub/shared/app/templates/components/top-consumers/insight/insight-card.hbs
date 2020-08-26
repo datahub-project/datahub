@@ -1,0 +1,51 @@
+<div class={{this.baseClass}}>
+  <section class="{{this.baseClass}}__insight-icon-container">
+    {{svg-jar "lightbulb" class="top-consumers-insight-card__insight-icon"}}
+  </section>
+
+  <section class="{{this.baseClass}}__content">
+    <div class="{{this.baseClass}}__title-container">
+      <span class="{{this.baseClass}}__title">{{@title}}</span>
+
+      <span class="{{this.baseClass}}__tooltip nacho-tooltip" data-title={{@tooltipText}}>
+        <FaIcon
+          @prefix="far"
+          @icon="question-circle"
+          class="{{this.baseClass}}__tooltip-icon"
+        />
+      </span>
+    </div>
+
+    <div class="{{this.baseClass}}__list">
+      {{#if (eq @consumerType this.topConsumer.USER)}}
+        <Avatar::Containers::AvatarMain @urn={{this.topConsumersPreview}} as |avatars|>
+          {{#each avatars as |avatar|}}
+            <div class="{{this.baseClass}}__item">
+              <Avatar::AvatarName class="{{this.baseClass}}__text {{this.baseClass}}__text--clickable" @avatar={{avatar}} />
+            </div>
+          {{/each}}
+        </Avatar::Containers::AvatarMain>
+      {{/if}}
+
+      {{#if (eq @consumerType this.topConsumer.GROUP)}}
+        {{#each this.topConsumersPreview as |linkParam|}}
+          <DynamicLink class="{{this.baseClass}}__item" @params={{linkParam}}>
+            <span class="{{this.baseClass}}__text {{this.baseClass}}__text--clickable">
+              {{linkParam.text}}
+            </span>
+          </DynamicLink>
+        {{/each}}
+      {{/if}}
+
+       {{#if this.numberOfTopConsumersHidden}}
+        <div class="{{this.baseClass}}__show-more">
+          <button onclick={{action this.onClickShowMore}} class="{{this.baseClass}}__show-more-button {{this.baseClass}}__text" type="button">
+            {{this.numberOfTopConsumersHidden}} more
+          </button>
+        </div>
+      {{/if}}
+    </div>
+
+  </section>
+
+</div>

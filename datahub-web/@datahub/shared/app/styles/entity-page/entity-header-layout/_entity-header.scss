@@ -1,0 +1,38 @@
+.wherehows-entity-header {
+  @include wherehows-container;
+  position: relative;
+  display: flex;
+  width: 100%;
+  padding: 0;
+  max-width: 100%;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+
+    .entity-pill {
+      margin-right: item-spacing(2);
+    }
+  }
+
+  &__column {
+    display: flex;
+    flex-basis: 50%;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-right: item-spacing(2);
+    min-width: 0;
+  }
+}
+
+.entity-header {
+  background-color: white;
+
+  &--no-tabs {
+    border-bottom: 1px solid get-color(gray2);
+    padding: item-spacing(3 0);
+    margin: item-spacing(0 0 3 0);
+  }
+}

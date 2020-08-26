@@ -1,0 +1,23 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "dummy/tests/*": ["tests/*"],
+      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "@nacho-ui/core": ["addon"],
+      "@nacho-ui/core/*": ["addon/*"],
+      "@nacho-ui/core/test-support": ["addon-test-support"],
+      "@nacho-ui/core/test-support/*": ["addon-test-support/*"],
+      "@nacho-ui/core/types/*": ["types/*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*"
+  ]
+}

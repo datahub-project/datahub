@@ -1,5 +1,5 @@
-import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IOwner } from 'datahub-web/typings/api/datasets/owners';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 
 /**
  * An IOwner instance augmented with an IAvatar Record keyed by 'avatar'

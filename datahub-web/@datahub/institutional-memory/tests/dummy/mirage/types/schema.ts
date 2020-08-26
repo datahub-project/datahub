@@ -1,4 +1,4 @@
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 
 type SchemaDb<T> = Array<T> & {
   where: (query: Partial<T>) => Array<T>;

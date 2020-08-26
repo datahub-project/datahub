@@ -1,0 +1,28 @@
+{{#if this.showDataConstructChangeManagement}}
+  <ChangeManagement::ChangeLogTable
+    @changeLogs={{this.changeLogs}}
+    @showChangeLogDetail={{this.showChangeLogDetail}}
+    @onSendEmail={{this.onSendEmail}}
+    @onAddLog={{this.onAddLog}}
+    @readOnly={{not this.isCurrentUserAnOwner}}
+  />
+
+  {{#if this.isAddingChangeLog}}
+    <ChangeManagement::AddChangeLogModal
+      @onCloseModal={{this.handleClosingOfAddChangeLogModal}}
+      @onSave={{this.onSave}}
+      @onSendEmailOnly={{this.onSendEmailOnly}}
+      @recipients={{this.recipients}}
+      @ownersCount={{this.owners.length}}
+      @isSendingEmailOnly={{this.isSendingEmailOnly}}
+      @currentChangeLog={{this.currentChangeLog}}
+    />
+  {{/if}}
+
+  {{#if this.isViewingChangeLog}}
+    <ChangeManagement::ViewChangeLogModal
+      @onCloseModal={{this.handleClosingOfViewChangeLogModal}}
+      @changeLog={{this.currentChangeLog}}
+    />
+  {{/if}}
+{{/if}}

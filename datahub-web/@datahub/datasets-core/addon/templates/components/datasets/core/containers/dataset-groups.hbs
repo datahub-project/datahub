@@ -1,0 +1,56 @@
+<ConcurrencyTaskStateHandler @task={{this.getContainerDataTask}}>
+  {{#if this.isEmpty}}
+  <NachoTable
+    @tableClass={{this.baseTableClass}}
+    as |Table|
+  >
+    <Table.global>
+      <header>
+        <h3 class="{{this.baseTableClass}}__title">
+          {{this.tableTitle}}
+        </h3>
+        <p class="{{this.baseTableClass}}__label">
+          {{component this.dynamicHeaderComponent.name options=this.dynamicHeaderComponent.options }}
+        </p>
+      </header>
+    </Table.global>
+    <Table.body as |Body|>
+      <Body.row as |Row|>
+        <Row.cell>
+          {{this.emptyStateDisplayText}}
+        </Row.cell>
+      </Body.row>
+    </Table.body>
+  </NachoTable>
+  {{else}}
+    <NachoTable
+      @tableClass={{this.baseTableCLass}} as |Table|
+    >
+      <Table.global>
+        <h2 class="{{this.baseTableClass}}__header">
+          Dataset Groups
+        </h2>
+      </Table.global>
+      <Table.head as |Head|>
+        <Head.title >
+          Namespace
+        </Head.title>
+        <Head.title>
+          Group Name
+        </Head.title>
+      </Table.head>
+      <Table.body as |Body|>
+        {{#each this.groups as |group|}}
+          <Body.row as |Row|>
+            <Row.cell>
+              {{group.namespace}}
+            </Row.cell>
+            <Row.cell>
+              {{group.name}}
+            </Row.cell>
+          </Body.row>
+        {{/each}}
+      </Table.body>
+    </NachoTable>
+  {{/if}}
+</ConcurrencyTaskStateHandler>

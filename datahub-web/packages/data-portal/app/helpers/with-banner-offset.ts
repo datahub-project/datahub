@@ -1,9 +1,10 @@
 import Helper from '@ember/component/helper';
 import { inject as service } from '@ember/service';
-import BannerService from 'wherehows-web/services/banners';
+import BannerService from 'datahub-web/services/banners';
 import { alias } from '@ember/object/computed';
 import { observes } from '@ember-decorators/object';
 
+// TODO [META-12344] Move this to shared
 /**
  * Stateful helper toggles off or on a provided / built-in modifier class name which offsets for baseClass with
  * values that respect the rendered banners
@@ -55,7 +56,7 @@ export default class WithBannerOffset extends Helper {
    * @link https://api.emberjs.com/ember/3.8/classes/Helper/methods/recompute?anchor=recompute
    * @link https://guides.emberjs.com/release/templates/writing-helpers/#toc_class-based-helpers
    */
-  @observes('banners.isShowingBanners')
+  @observes('banners.isShowingBanners') //eslint-disable-line ember/no-observers
   toggleOffsetClassIfNeeded(): void {
     this.recompute();
   }

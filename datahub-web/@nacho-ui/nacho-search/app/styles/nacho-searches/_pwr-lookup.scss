@@ -1,0 +1,63 @@
+.nacho-pwr-lookup {
+  &__auto-suggestion {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    box-sizing: border-box;
+
+    .ember-power-select-typeahead-input {
+      color: get-color(black, 0.5);
+      border: none;
+      box-sizing: border-box;
+    }
+  }
+
+  &__typeahead-container {
+    border: none;
+
+    .ember-power-select-typeahead-trigger {
+      background: transparent;
+      border: 1px solid get-color(gray4);
+
+      .ember-power-select-typeahead-input {
+        background: transparent;
+        border: none;
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+        }
+      }
+    }
+  }
+
+  &--focused {
+    &::after {
+      content: '\2b';
+      position: absolute;
+      top: 10px;
+      left: item-spacing(2);
+      z-index: z(default);
+      color: rgba(0, 0, 0, 0.5);
+      display: inline-block;
+      font-family: 'Glyphicons Halflings';
+      font-style: normal;
+      font-weight: normal;
+      line-height: 1;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .ember-power-select-typeahead-input {
+      padding-left: 24px;
+    }
+  }
+
+  .ember-power-select-trigger {
+    padding: 0 8px 0 0;
+
+    &:before {
+      content: '';
+    }
+  }
+}

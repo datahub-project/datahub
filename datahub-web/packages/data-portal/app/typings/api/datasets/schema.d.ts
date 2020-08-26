@@ -1,4 +1,4 @@
-import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
+import { IDatasetColumn } from 'datahub-web/typings/api/datasets/columns';
 
 /**
  * Describes the properties on a dataset schema object

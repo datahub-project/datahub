@@ -1,0 +1,110 @@
+{{! template-lint-disable }}
+{{!-- template lint is running into a strange non-templating error on this file. Temporary measure --}}
+<form {{action "onUpdateDeprecation" on="submit"}}>
+
+  <div class="entity-deprecation__toggle-header">
+    <p class="entity-deprecation__toggle-header__label">
+      Is this {{this.entityName}} deprecated?
+    </p>
+    {{input
+      id=(concat this.entityName "-is-deprecated")
+      type="checkbox"
+      title=(concat "Is this " this.entityName " deprecated?")
+      class="toggle-switch toggle-switch--light"
+      checked=(readonly this.isDeprecatedAlias)
+      change=(action "toggleDeprecatedStatus")
+    }}
+    <label for="{{this.entityName}}-is-deprecated" class="toggle-button">
+    </label>
+  </div>
+
+  {{#if this.isDeprecatedAlias}}
+
+    <MediumEditor
+      class="entity-deprecation__note-editor"
+      @value={{this.deprecationNoteAlias}}
+      @options={{this.editorOptions}}
+      @onInput={{action (mut this.deprecationNoteAlias)}} />
+
+    <h4 class="dataset-deprecation__header">When should this {{this.entityName}} be decommissioned?</h4>
+
+    {{#basic-dropdown as |dropdown|}}
+      <input
+        type="text"
+        placeholder="Enter Date"
+        data-ebd-id="{{dropdown.uniqueId}}-trigger"
+        class="entity-deprecation__cal-input-trigger"
+        value={{if this.decommissionTimeAlias (moment-format this.decommissionTimeAlias 'DD-MMM-YYYY')}}
+        onclick={{dropdown.actions.toggle}}
+        readonly>
+
+      {{#dropdown.content class="entity-deprecation__cal-dropdown"}}
+        <PowerCalendar
+          class="entity-deprecation__decommission-calendar"
+          @selected={{this.selectedDate}}
+          @center={{this.centeredDate}}
+          @onSelect={{action "onDecommissionDateChange" value="date"}}
+          @onCenterChange={{action (mut this.centeredDate) value="date"}} as |calendar|>
+
+          <nav class="ember-power-calendar-nav">
+
+            <button
+              type="button"
+              class="ember-power-calendar-nav-control"
+              onclick={{action calendar.actions.moveCenter -1 'month'}}>
+              &lt;
+            </button>
+            <div class="ember-power-calendar-nav-title">
+              {{moment-format calendar.center 'MMMM YYYY'}}
+            </div>
+            <button
+              type="button"
+              class="ember-power-calendar-nav-control"
+              onclick={{action calendar.actions.moveCenter 1 'month'}}>
+              &gt;
+            </button>
+          </nav>
+
+          <calendar.Days @minDate={{this.minSelectableDecommissionDate}}/>
+
+        </PowerCalendar>
+      {{/dropdown.content}}
+    {{/basic-dropdown}}
+
+    <p class="entity-decommission-date {{unless this.decommissionTimeAlias 'entity-decommission-date--required'}}">
+      {{#unless this.decommissionTimeAlias}}
+        Please specify a date when this {{entityName}} will be decommissioned
+      {{/unless}}
+
+      <strong>
+        {{if this.decommissionTimeAlias (concat 'Will be decommissioned on ' (moment-format this.decommissionTimeAlias 'MMMM DD YYYY')) ''}}
+      </strong>
+    </p>
+
+    <span>
+      {{input
+        type="checkbox"
+        name="deprecated.acknowledge"
+        id="acknowledge-deprecation"
+        checked=(readonly this.isDeprecationAcknowledged)
+        change=(action "onAcknowledgeDeprecationNotice")}}
+
+      <label for="acknowledge-deprecation">
+        {{partial deprecationAcknowledgementTemplate}}
+      </label>
+    </span>
+
+  {{/if}}
+
+  <div class="entity-deprecation__actions">
+    <button
+      type="submit"
+      class="nacho-button--large nacho-button--secondary"
+      disabled={{and this.isDeprecatedAlias (or (not this.decommissionTimeAlias) (not this.isDeprecationAcknowledged))}}>
+      Update Deprecation Status
+    </button>
+  </div>
+
+</form>
+
+{{yield}}
