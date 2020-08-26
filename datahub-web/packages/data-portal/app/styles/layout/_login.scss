@@ -2,8 +2,8 @@
   @include full-screen;
   @include flex-column-center;
   height: 100%;
-  background-color: set-color(blue, oxford);
-  color: set-color(white, base);
+  background-color: get-color(slate9);
+  color: get-color(white);
 }
 
 /**
@@ -21,13 +21,12 @@
 
   &__header {
     font-size: 24px;
-    letter-spacing: 7px;
   }
 
   &__login-error {
     margin-top: 10px;
-    font-size: 14px;
-    color: set-color(red, red5);
+    font-size: fs(standard);
+    color: get-color(red5);
   }
 }
 

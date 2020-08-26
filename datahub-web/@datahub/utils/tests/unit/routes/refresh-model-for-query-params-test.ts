@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
 
 module('Unit | Utility | route/refresh-model-for-query-params', function() {
-  test('it returns the expected object for a list of query params', function(assert) {
+  test('it returns the expected object for a list of query params', function(assert): void {
     const testParams = ['name', 'type', 'moveset'];
     const result = refreshModelForQueryParams(testParams);
 

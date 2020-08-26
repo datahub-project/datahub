@@ -1,0 +1,26 @@
+.browse-card-container {
+  @include aspect-ratio(264, 130);
+  margin-bottom: item-spacing(5);
+}
+
+.browse-card {
+  @include nacho-container;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+
+  &__title {
+    font-size: 21px;
+    line-height: 25px;
+    margin: 0;
+  }
+
+  &__description {
+    margin: 0;
+    font-size: 16px;
+    line-height: 19px;
+    color: get-color(black, 0.9);
+  }
+}

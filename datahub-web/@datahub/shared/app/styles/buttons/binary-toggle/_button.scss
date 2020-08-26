@@ -1,0 +1,34 @@
+/// Rules for the binary buttons, affirm / deny component states
+.binary-toggle-button {
+  background-color: get-color(white);
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.25;
+  }
+
+  &__affirm,
+  &__deny {
+    &:hover {
+      color: get-color(white);
+    }
+  }
+
+  &__affirm {
+    &:hover {
+      background-color: get-color(green5);
+      border-color: get-color(green5);
+    }
+
+    color: get-color(green5);
+  }
+
+  &__deny {
+    &:hover {
+      background-color: get-color(red5);
+      border-color: get-color(red5);
+    }
+
+    color: get-color(red5);
+  }
+}

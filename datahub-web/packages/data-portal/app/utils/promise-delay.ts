@@ -3,5 +3,4 @@
  * @param {number} seconds the duration to wait for
  * @return {Promise<void>}
  */
-export const delay = (seconds: number = 5): Promise<void> =>
-  new Promise(resolve => setTimeout(resolve, seconds * 1000));
+export const delay = (seconds = 5): Promise<void> => new Promise(resolve => setTimeout(resolve, seconds * 1000));

@@ -2,17 +2,14 @@
   <div class="container">
     <div class="dataset-meta-properties">
       <h3 class="dataset-name">
-        {{@model.nativeName}}
+        {{@entity.name}}
       </h3>
 
-      {{#if @model.removed}}
+      {{#if @entity.removed}}
         <span class="removed-dataset dataset-pill">
           REMOVED
 
-          {{tooltip-on-element
-            event="hover"
-            text="This dataset has been removed"
-          }}
+          <TooltipOnElement @event="hover" @text="This dataset has been removed" />
         </span>
       {{/if}}
 
@@ -20,40 +17,42 @@
         <span class="pii-dataset dataset-pill">
           PII
 
-          {{tooltip-on-element
-            event="hover"
-            side="right"
-            text="This dataset contains personally identifiable information"
-          }}
+          <TooltipOnElement @event="hover" @side="right" @text="This dataset contains personally identifiable information" />
         </span>
 
       {{/if}}
 
-      {{#if @model.deprecated}}
+      {{#if @entity.deprecated}}
 
         <span class="deprecated-dataset dataset-pill">
-          {{#link-to "datasets.dataset.tab" encodedUrn "properties"}}
+          <LinkTo @route="datasets.dataset.tab" @models={{array urn "properties"}}>
             DEPRECATED
 
-            {{tooltip-on-element
-              event="hover"
-              text="Click to view dataset properties"
-            }}
-          {{/link-to}}
+            <TooltipOnElement @event="hover" @text="Click to view dataset properties" />
+          </LinkTo>
         </span>
 
       {{/if}}
     </div>
 
-    {{#if @model.description}}
-      <span class="dataset-description">
-        {{@model.description}}
-      </span>
-    {{/if}}
+    <div class="dataset-header-meta">
+      <Datasets::Containers::DatasetFabrics @class="dataset-fabric-row-container" @urn={{@entity.urn}} as |fabricsContainer|>
+        <div class="dataset-fabric-entity-container">
+          <strong>Fabric:</strong>
+          <Datasets::DatasetFabricSwitcher @urn={{fabricsContainer.urn}} @fabrics={{fabricsContainer.fabrics}} />
+        </div>
+      </Datasets::Containers::DatasetFabrics>
+    </div>
 
-    {{datasets/containers/dataset-owner-list
-      urn=encodedUrn
-      avatarEntityProps=avatarEntityProps
-    }}
+    <Datasets::Containers::DatasetOwnerList @urn={{urn}} @avatarEntityProps={{@avatarEntityProps}} />
+
+    {{! Currently supported for just Dataset entity, other entities should used the pageComponent header if required }}
+    {{! TODO: META-11625 Use pageComponent when https://jira01.corp.linkedin.com:8443/browse/META-11622 is done }}
+    {{#each @entityClass.renderProps.entityPage.customHeaderComponents as |customComponent|}}
+      {{component customComponent.name options=customComponent.options entity=@entity}}
+    {{/each}}
+
+    {{! TODO: Move to Entity render props }}
+    <Social::Containers::SocialMetadata @entity={{@entity}} class="dataset-header__social-metadata"/>
   </div>
 </div>

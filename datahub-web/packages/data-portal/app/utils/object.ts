@@ -1,4 +1,4 @@
-import { arrayReduce } from 'wherehows-web/utils/array';
+import { arrayReduce } from '@datahub/utils/array/index';
 import { isObject } from '@datahub/utils/validators/object';
 
 /**
@@ -20,9 +20,9 @@ export type Nullify<T> = Record<keyof T, null>;
 /**
  * Checks that an object has it own enumerable props
  * @param {any} object the object to the be tested
- * @return {boolean} true if enumerable keys are present
  */
-const hasEnumerableKeys = (object: any): boolean => isObject(object) && !!Object.keys(object).length;
+export const hasEnumerableKeys = (object: object | unknown): boolean =>
+  Boolean(isObject(object) && Object.keys(object).length);
 
 /**
  * Non mutative object attribute deletion. Removes the specified keys from a copy of the object and returns the copy.
@@ -32,7 +32,7 @@ const hasEnumerableKeys = (object: any): boolean => isObject(object) && !!Object
  * @param {Array<K extends keyof T>} droppedKeys
  * @return {Pick<T, Exclude<keyof T, K extends keyof T>>}
  */
-const omit = <T, K extends keyof T>(o: T, droppedKeys: Array<K>): Omit<T, K> => {
+export const omit = <T, K extends keyof T>(o: T, droppedKeys: Array<K>): Omit<T, K> => {
   const partialResult = Object.assign({}, o);
 
   return arrayReduce((partial: T, key: K) => {
@@ -48,11 +48,11 @@ const omit = <T, K extends keyof T>(o: T, droppedKeys: Array<K>): Omit<T, K> => 
  * @param {Array<K extends keyof T>} pickedKeys
  * @return {Select<T extends object, K extends keyof T>}
  */
-const pick = <T, K extends keyof T>(o: T, pickedKeys: Array<K>): Pick<T, K> =>
+export const pick = <T, K extends keyof T>(o: T, pickedKeys: Array<K>): Pick<T, K> =>
   arrayReduce(
     (partial: T, key: K): Pick<T, K> =>
       pickedKeys.includes(key) ? Object.assign(partial, { [key]: o[key] }) : partial,
-    <T>{}
+    {} as T
   )(pickedKeys);
 
 /**
@@ -62,9 +62,8 @@ const pick = <T, K extends keyof T>(o: T, pickedKeys: Array<K>): Pick<T, K> =>
  * @param {T} o instance of T to be set to null
  * @returns {Nullify<T>}
  */
-const nullify = <T, K extends keyof T>(o: T): Nullify<T> => {
-  let nullObj = <Nullify<T>>{};
-  return arrayReduce((nullObj, key: K) => Object.assign(nullObj, { [key]: null }), nullObj)(<Array<K>>Object.keys(o));
+export const nullify = <T, K extends keyof T>(o: T): Nullify<T> => {
+  const nullObj = {} as Nullify<T>;
+  const keys = Object.keys(o) as Array<K>;
+  return arrayReduce((nullObj, key: K) => Object.assign(nullObj, { [key]: null }), nullObj)(keys);
 };
-
-export { isObject, hasEnumerableKeys, omit, pick, nullify };

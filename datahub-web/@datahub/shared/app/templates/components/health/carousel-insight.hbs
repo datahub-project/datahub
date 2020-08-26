@@ -1,0 +1,21 @@
+{{#if this.isHealthInsightEnabled}}
+  <Health::Containers::HealthMetadata
+    @urn={{@entity.urn}}
+    @entityName={{@entity.displayName}} as |metadata|
+  >
+    {{! Health insight card will instead handle missing health information with inline user message }}
+    <ConcurrencyTaskStateHandler
+      @task={{metadata.containerTask}}
+      @showLockup={{false}}
+      @handleAsyncStateOnly={{true}}
+    >
+      <Health::InsightCard
+        @health={{metadata.health}}
+        @onViewHealth={{metadata.onViewHealth}}
+        @isViewingHealth={{metadata.isViewingHealth}}
+        @metadataHealthHelp={{metadata.metadataHealthHelp}}
+        @onRecalculateHealthScore={{metadata.onRecalculateHealthScore}}
+      />
+    </ConcurrencyTaskStateHandler>
+  </Health::Containers::HealthMetadata>
+{{/if}}

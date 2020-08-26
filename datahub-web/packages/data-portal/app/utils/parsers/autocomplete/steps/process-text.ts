@@ -1,4 +1,4 @@
-import { ISuggestionBuilder } from 'wherehows-web/utils/parsers/autocomplete/types';
+import { ISuggestionBuilder } from 'datahub-web/utils/parsers/autocomplete/types';
 
 /**
  * In order to give suggestions we need to process the text to remove the last work

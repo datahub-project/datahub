@@ -1,12 +1,13 @@
-import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { datasetUrlById } from 'datahub-web/utils/api/datasets/shared';
 import {
   IDatasetColumn,
   IDatasetColumnsGetResponse,
   IDatasetColumnWithHtmlComments
-} from 'wherehows-web/typings/api/datasets/columns';
+} from 'datahub-web/typings/api/datasets/columns';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { ApiStatus } from '@datahub/utils/api/shared';
-import { arrayMap } from 'wherehows-web/utils/array';
+import { arrayMap } from '@datahub/utils/array/index';
+import { renderLinksAsAnchorTags } from '@datahub/utils/helpers/render-links-as-anchor-tags';
 
 // TODO:  DSS-6122 Create and move to Error module
 
@@ -31,13 +32,13 @@ const datasetColumnUrlById = (id: number): string => `${datasetUrlById(id)}/colu
  */
 const augmentWithHtmlComment = <T extends { comment: string }>(
   objectWithComment: T
-): T | T & { commentHtml: string } => {
+): T | (T & { commentHtml: string }) => {
   const { comment } = objectWithComment;
   // TODO: DSS-6122 Refactor global function reference to marked
   // not using spread operator here: https://github.com/Microsoft/TypeScript/issues/10727
   // current ts version: 2.5.3
   return comment
-    ? Object.assign({}, objectWithComment, { commentHtml: window.marked(comment).htmlSafe() })
+    ? Object.assign({}, objectWithComment, { commentHtml: renderLinksAsAnchorTags([comment]) })
     : objectWithComment;
 };
 

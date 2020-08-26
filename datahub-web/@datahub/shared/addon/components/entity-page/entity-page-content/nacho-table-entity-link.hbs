@@ -1,0 +1,7 @@
+<td class="nacho-table__cell">
+  {{#with (or @field @rowData) as |entity|}}
+    <DynamicLink @params={{entity.entityLink.link}} class={{this.linkClass}}>
+      {{split-text entity.entityLink.link.title 65}}
+    </DynamicLink>
+  {{/with}}
+</td>

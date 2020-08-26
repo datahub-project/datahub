@@ -1,0 +1,12 @@
+/// Sets equal width and height properties, and 50% border radius
+/// @param {Size} $size width and height for the image
+@mixin round-image($size) {
+  width: $size;
+  height: $size;
+  max-width: 100%;
+  border-radius: 50%;
+}
+
+@mixin round-avatar {
+  @include round-image(item-spacing(7));
+}

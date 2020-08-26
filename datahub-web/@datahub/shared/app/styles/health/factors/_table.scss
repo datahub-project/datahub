@@ -1,0 +1,49 @@
+// Defines rules applicable to the Health Factors block, which is represented by a table component
+.health-factors {
+  &__table {
+    @include nacho-table-border;
+    @include nacho-table-row-no-bottom-border-on-last-cell;
+    @include nacho-table-clear-title;
+
+    // Overrides vendor @nacho/ui selector rules
+    .nacho-table__cell {
+      padding: item-spacing(4);
+      vertical-align: top;
+
+      &:last-child {
+        text-align: right;
+      }
+    }
+  }
+
+  &-column {
+    &__factor {
+      width: item-spacing(9) * 2;
+    }
+
+    &__score {
+      width: item-spacing(9);
+    }
+
+    &__impact {
+      width: item-spacing(9) * 2;
+    }
+
+    &__description {
+      width: item-spacing(9) * 5;
+    }
+  }
+
+  &__title {
+    color: get-color(black, 0.9);
+    display: flex;
+
+    @include dot-separator();
+  }
+
+  &__recalculate {
+    &#{&} {
+      padding-left: 0;
+    }
+  }
+}

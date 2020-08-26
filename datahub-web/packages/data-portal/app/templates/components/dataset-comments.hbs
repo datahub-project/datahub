@@ -1,22 +1,15 @@
-{{#comment/comment-stream
-  comments=comments
-  commentTypes=commentTypes
-  updateCommentInStream=(action "handleStreamAction" streamActions.modify)
-  deleteCommentFromStream=(action "handleStreamAction" streamActions.destroy)
-  addCommentToStream=(action "handleStreamAction" streamActions.add)
-as |stream|
-}}
+<Comment::CommentStream @comments={{comments}} @commentTypes={{commentTypes}} @updateCommentInStream={{action "handleStreamAction" streamActions.modify}} @deleteCommentFromStream={{action "handleStreamAction" streamActions.destroy}} @addCommentToStream={{action "handleStreamAction" streamActions.add}} as |stream|>
 
   {{stream.header}}
 
-  {{#stream.new}}
+  <stream.new>
     + Add a comment...
-  {{/stream.new}}
+  </stream.new>
 
   {{#each stream.comments as |comment|}}
-    {{#stream.item comment=comment}}
+    <stream.item @comment={{comment}}>
       {{comment.text}}
-    {{/stream.item}}
+    </stream.item>
   {{/each}}
 
-{{/comment/comment-stream}}
+</Comment::CommentStream>

@@ -12,22 +12,26 @@
       <div class="dataset-relationship-levels__level-content">
         {{#each level.nodes as |node|}}
           {{#if (or (and level.collapsed node.selected) (not level.collapsed)) }}
-            <Search::SearchResult
-              @classNames={{concat "dataset-relationship-levels__node " (if node.selected "dataset-relationship-levels__node--selected")}}
-              @result={{node}}
-              @searchConfig={{this.searchConfig}}
-            >
-              <button
-                class="nacho-button nacho-button--tertiary dataset-relationship-levels__button"
-                {{action toggleNode node}}
-              >
-                {{node.payload.dataset.nativeName}}
-              </button>
 
-              {{#link-to "datasets.dataset" node.payload.dataset.uri}}
-                {{fa-icon "link"}}
-              {{/link-to}}
-            </Search::SearchResult>
+            <div class={{concat "dataset-relationship-levels__node " (if node.selected "dataset-relationship-levels__node--selected")}}>
+              <div>
+                <button
+                  type="button"
+                  class="nacho-button nacho-button--tertiary dataset-relationship-levels__button"
+                  {{on 'click' (fn toggleNode node)}}
+                >
+                  {{node.payload.dataset.nativeName}}
+                </button>
+
+                <LinkTo @route="datasets.dataset" @model={{node.payload.dataset.uri}}>
+                  {{fa-icon "link"}}
+                </LinkTo>
+              </div>
+              <div>
+                <Entity::PropertiesPanel @entity={{node}} @options={{this.propertiesPanelOptions}} />
+              </div>
+            </div>
+
           {{/if}}
         {{/each}}
       </div>

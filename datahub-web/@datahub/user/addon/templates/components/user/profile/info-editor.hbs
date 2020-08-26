@@ -1,4 +1,5 @@
-<ModalDialog @overlayClass="notification-overlay"
+<ModalDialog
+  @overlayClass="notification-overlay"
   @containerClassNames="{{this.baseInfoEditorClass}}__modal notification-confirm-modal"
   @onClose={{action this.onResetEditor}}>
   <header class="notification-confirm-modal__header {{this.baseInfoEditorClass}}__header">
@@ -60,12 +61,14 @@
 
   <section class="notification-confirm-modal__footer {{this.baseInfoEditorClass}}__actions">
     <button
+      type="button"
       class="nacho-button--large nacho-button--secondary {{this.baseInfoEditorClass}}__action"
       {{action this.onResetEditor}}
     >
       Cancel
     </button>
     <button
+      type="button"
       class="nacho-button--large nacho-button--inverse {{this.baseInfoEditorClass}}__action"
       {{action this.onSaveEditor}}
     >

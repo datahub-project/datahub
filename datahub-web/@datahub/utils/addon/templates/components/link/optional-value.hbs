@@ -1,0 +1,16 @@
+{{! route attribute is used as a guard to determine if the supplied value is parameters for DynamicLink component}}
+{{#if @value.route}}
+  <LinkTo
+    @route={{@value.route}}
+    @models={{this.models}}
+    @query={{@value.queryParams}}
+    class={{this.linkClass}}
+    target={{if @options.openNewTab "_blank"}}>
+    {{split-text @value.text 65}}
+    {{#if @options.openNewTab}}
+      <FaIcon @icon="external-link-alt" @class={{concat this.linkClass "__icon"}}/>
+    {{/if}}
+  </LinkTo>
+{{else}}
+  {{@value}}
+{{/if}}

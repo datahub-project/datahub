@@ -1,0 +1,38 @@
+<EntityPage::EntityPageContent::ContentPanel
+  @entity={{@entity}}
+  @options={{@options}}
+  as |ContentPanel|>
+  <ContentPanel.toolbar>
+    <section class="content-panel__actions">
+      {{#if this.toolbarComponent}}
+        {{component
+          this.toolbarComponent.name
+          entity=@entity
+          options=this.toolbarComponent.options
+          state=this.state
+          lastState=this.lastState
+          onStateChanged=(fn this.onStateChanged)}}
+      {{/if}}
+      <div class="content-panel__panel-toggle">
+        View as
+        <NachoHoverDropdown
+          @triggerClass="nacho-button nacho-button--small nacho-button--tertiary content-panel__toggle-button"
+          @dropDownItems={{@options.dropDownItems}}
+          @selectedDropDown={{this.optionSelected}}
+          @onSelect={{fn onSelect}} as |hd|
+        >
+          {{hd.content}}
+        </NachoHoverDropdown>
+      </div>
+    </section>
+  </ContentPanel.toolbar>
+  <ContentPanel.body>
+    {{component
+      this.contentComponent.name
+      entity=@entity
+      options=this.contentComponent.options
+      state=this.state
+      lastState=this.lastState
+      onStateChanged=(fn this.onStateChanged)}}
+  </ContentPanel.body>
+</EntityPage::EntityPageContent::ContentPanel>

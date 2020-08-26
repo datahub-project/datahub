@@ -3,14 +3,14 @@ import StorageArray from 'ember-local-storage/local/array';
 import { findEntityInList, serializeForStorage } from '@datahub/lists/utils';
 import { storageFor } from 'ember-local-storage';
 import { computed } from '@ember/object';
-import { supportedListEntities, SupportedListEntity } from '@datahub/lists/constants/entity/shared';
-import { noop } from '@datahub/utils/function/noop';
+import { supportedListEntities } from '@datahub/lists/constants/entity/shared';
+import { noop } from 'lodash';
 import { IStoredEntityAttrs } from '@datahub/lists/types/list';
-import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
-import { DataModelEntityInstance } from '@datahub/data-models/addon/constants/entity';
-
+import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity/index';
+import { Many } from '@datahub/utils/types/array';
 // Map of List Entity displayName to list of instances
-type ManagedListEntities = Record<SupportedListEntity['displayName'], ReadonlyArray<IStoredEntityAttrs>>;
+type ManagedListEntities = Record<string, ReadonlyArray<IStoredEntityAttrs>>;
 
 /**
  * Entity Lists Management service, handles operations, state management and shares state of Entity lists
@@ -42,17 +42,17 @@ export default class EntityListsManager extends Service {
   get entities(): ManagedListEntities {
     // Initialize with empty lists, these will be overridden in the reduction over supportedListEntities
     const entityMap = {
-      [PersonEntity.displayName]: []
+      [FeatureEntity.displayName]: []
     };
     const entityList = this.entityStorageProxy;
 
-    return this.supportedListEntities.reduce((entityMap, EntityType: SupportedListEntity): ManagedListEntities => {
+    return this.supportedListEntities.reduce((entityMap, entityTypeDisplayName: string): ManagedListEntities => {
       // entityList is a single list of all supported entity instances
       // Filter out entities that match the EntityType
       // Create a new instance to hydrate with the saved snapshot and baseEntity
-      const storedEntities = entityList.filter((storedEntity): boolean => storedEntity.type === EntityType.displayName);
+      const storedEntities = entityList.filter((storedEntity): boolean => storedEntity.type === entityTypeDisplayName);
 
-      return { ...entityMap, [EntityType.displayName]: Object.freeze(storedEntities) };
+      return { ...entityMap, [entityTypeDisplayName]: Object.freeze(storedEntities) };
     }, entityMap);
   }
 
@@ -61,10 +61,8 @@ export default class EntityListsManager extends Service {
    * @private
    * @memberof EntityListsManager
    */
-  private updateList(
-    updateType: 'add' | 'remove'
-  ): (entities: DataModelEntityInstance | Array<DataModelEntityInstance>) => this {
-    return (entities: DataModelEntityInstance | Array<DataModelEntityInstance>): this => {
+  private updateList(updateType: 'add' | 'remove'): (entities: Many<DataModelEntityInstance>) => this {
+    return (entities: Many<DataModelEntityInstance>): this => {
       const entitiesToUpdate: Array<DataModelEntityInstance> = [].concat.apply(entities);
       const storageProxy = this.entityStorageProxy;
 
@@ -72,7 +70,10 @@ export default class EntityListsManager extends Service {
         let updateStrategy: {
           filterMap: (arg: Array<DataModelEntityInstance>) => Array<IStoredEntityAttrs>;
           updater: (objects: Array<IStoredEntityAttrs>) => StorageArray<IStoredEntityAttrs>;
-        } = { filterMap: noop, updater: noop };
+        } = {
+          filterMap: () => [],
+          updater: noop as () => StorageArray<IStoredEntityAttrs>
+        };
 
         if (updateType === 'add') {
           updateStrategy = {
@@ -104,7 +105,7 @@ export default class EntityListsManager extends Service {
    * A list of contained / found entities is returned, if match(es) is/are found, if the list is empty then
    * no match or matches exist or a storage list does not exist
    */
-  findInList(entities: DataModelEntityInstance | Array<DataModelEntityInstance>): Array<DataModelEntityInstance> {
+  findInList(entities: Many<DataModelEntityInstance>): Array<DataModelEntityInstance> {
     const entitiesToFind: Array<DataModelEntityInstance> = [].concat.apply(entities);
     const storageProxy = this.entityStorageProxy;
 
@@ -120,15 +121,13 @@ export default class EntityListsManager extends Service {
    * Adds one or more DataModelEntityInstances to the DataModel list with a matching type
    * @memberof EntityListsManager
    */
-  addToList: (entities: DataModelEntityInstance | Array<DataModelEntityInstance>) => this = this.updateList('add');
+  addToList: (entities: Many<DataModelEntityInstance>) => this = this.updateList('add');
 
   /**
    * Removes one or more DataModelEntityInstances from the related DataModel list
    * @memberof EntityListsManager
    */
-  removeFromList: (entities: DataModelEntityInstance | Array<DataModelEntityInstance>) => this = this.updateList(
-    'remove'
-  );
+  removeFromList: (entities: Many<DataModelEntityInstance>) => this = this.updateList('remove');
 }
 
 declare module '@ember/service' {

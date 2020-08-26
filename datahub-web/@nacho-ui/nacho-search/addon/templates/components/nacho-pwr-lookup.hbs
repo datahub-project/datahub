@@ -1,0 +1,26 @@
+<section
+  class="ember-power-select-trigger ember-power-select-typeahead-trigger nacho-pwr-lookup__auto-suggestion"
+>
+  {{input
+    type="search"
+    role="combobox"
+    autocomplete="off"
+    class="ember-power-select-typeahead-input ember-power-select-search-input nacho-pwr-lookup__auto-suggestion__input"
+    placeholder=(if showPlaceholder searchPlaceholder)
+    value=suggestedText
+  }}
+</section>
+<section class="nacho-pwr-lookup__typeahead-container">
+  {{#power-select-typeahead
+    options=suggestionOptions
+    defaultHighlighted=highlight
+    search=(action "onSearch")
+    searchPlaceholder=searchPlaceholder
+    selected=selectedEntity
+    onchange=(action "onChangeSelection")
+    onkeydown=(action "onKeyPress")
+  as |name|
+  }}
+    {{name}}
+  {{/power-select-typeahead}}
+</section>

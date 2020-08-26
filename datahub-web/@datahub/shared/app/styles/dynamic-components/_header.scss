@@ -1,0 +1,12 @@
+.dynamic-header {
+  display: flex;
+  &__content {
+    display: flex;
+  }
+  & > * {
+    margin-right: 5px;
+  }
+  &__title {
+    display: flex;
+  }
+}

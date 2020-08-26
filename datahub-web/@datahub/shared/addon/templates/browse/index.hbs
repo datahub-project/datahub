@@ -1,0 +1,4 @@
+{{! container 'composes' the browse card components to group tasks related to all cards}}
+<Browser::Containers::CategoryContainer
+  @entities={{this.model.entities}}
+  @browseHeaderComponents={{this.model.browseHeaderComponents}}/>

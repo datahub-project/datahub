@@ -1,0 +1,18 @@
+// Defines rules applying to Health Entity Detail block
+// This represents the details of an entities health metadata
+.health-entity-detail {
+  $top-margin: item-spacing(6) + item-spacing(1);
+
+  &__header {
+    margin: $top-margin auto item-spacing(4);
+  }
+
+  &__title {
+    display: inline-flex;
+    margin: 0;
+  }
+
+  &__sub-title {
+    color: get-color(black, 0.6);
+  }
+}

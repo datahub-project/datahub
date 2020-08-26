@@ -5,7 +5,7 @@
     </h2>
 
     <p class="dataset-author__byline">
-      Please add at least <strong>2</strong> owners.
+      Please maintain at least <strong>2</strong> owners.
     </p>
   </header>
 
@@ -13,12 +13,26 @@
     <thead>
       <tr>
         <th class="dataset-author-column--extra-wide">
-          Username
+          LDAP Username
         </th>
         <th class="dataset-author-column--extra-wide">Full Name</th>
         <th class="dataset-author-column--narrow">ID Type</th>
         <th class="dataset-author-column--wide">
           Ownership Type
+
+          <a
+            rel="noreferrer noopener"
+            target="_blank"
+            href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership"
+          >
+            <sup>
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title="Link to more information"
+              >
+              </span>
+            </sup>
+          </a>
         </th>
         <th></th>
       </tr>
@@ -26,25 +40,20 @@
 
     <tbody>
       {{#each confirmedOwnersWithAvatars as |confirmedOwnerWithAvatar|}}
-        {{dataset-author
-          owner=confirmedOwnerWithAvatar
-          ownerTypes=ownerTypes
-          removeOwner=(action "removeOwner")
-          confirmSuggestedOwner=(action "confirmSuggestedOwner")
-          updateOwnerType=(action "updateOwnerType")
-        }}
+        <DatasetAuthor @owner={{confirmedOwnerWithAvatar}} @ownerTypes={{ownerTypes}} @removeOwner={{action "removeOwner"}} @confirmSuggestedOwner={{action "confirmSuggestedOwner"}} @updateOwnerType={{action "updateOwnerType"}} />
       {{/each}}
     </tbody>
 
     <tbody>
       <tr>
         <div class="dataset-owner-table__add-owner">
-          {{#if isAddingOwner}}
-            {{pwr-user-lookup didFindUser=(action "addOwner")}}
+          {{#if this.isAddingOwner}}
+            <PwrUserLookup @didFindUser={{fn this.addOwner}}/>
           {{else}}
             <button
+              type="button"
               class="nacho-button nacho-button--tertiary dataset-owner-table__trigger"
-              {{action (mut isAddingOwner) true}}
+              onclick={{action this.onClickAddOwner}}
             >
               {{fa-icon "plus"}} Add an owner
             </button>
@@ -55,9 +64,14 @@
   </table>
 </section>
 
+<section class="dataset-author">
+  <Datasets::Owners::SuggestedOwners @owners={{systemGeneratedOwnersWithAvatars}} @ownerTypes={{ownerTypes}} @commonOwners={{commonOwners}} @removeOwner={{action "removeOwner"}} @confirmSuggestedOwner={{action "confirmSuggestedOwner"}} @updateOwnerType={{action "updateOwnerType"}} />
+</section>
+
 <section class="action-bar">
   <div class="container action-bar__content">
     <button
+      type="button"
       class="nacho-button nacho-button--large-inverse action-bar__item dataset-authors-save"
       disabled={{requiredMinNotConfirmed}}
       onclick={{perform saveOwners}}
@@ -66,7 +80,7 @@
       {{#if saveOwners.isIdle}}
         Save
       {{else}}
-        {{pendulum-ellipsis-animation}}
+        <PendulumEllipsisAnimation />
       {{/if}}
 
     </button>
@@ -77,7 +91,7 @@
           {{fa-icon "times-circle" prefix="far" class="dataset-authors-save-error__icon"}}
           {{#if (eq changedState 1)}}
             {{#if (eq ownersRequiredCount 2)}}
-              Add at least 2 DataOwners.
+              Maintain at least 2 DataOwners.
             {{else}}
               Add at least {{ownersRequiredCount}} more DataOwner(s).
             {{/if}}

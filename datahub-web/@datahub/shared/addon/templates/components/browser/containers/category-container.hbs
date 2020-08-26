@@ -1,0 +1,22 @@
+<div class="container">
+  <h2 class="browse-category-container__title">
+    Browse
+  </h2>
+
+  {{#each @browseHeaderComponents as |browseComponent|}}
+    {{component browseComponent.name options=browseComponent.options}}
+  {{/each}}
+
+  <h3>Types of Entities</h3>
+  <div class="row">
+    {{#each @entities as |link|}}
+      <Browser::BrowseCard
+        @link={{link}}
+        @description={{link.text}}
+        @title={{nacho-core/titleize link.title}}
+        @didClickCard={{action this.onCardClick}}
+      />
+    {{/each}}
+  </div>
+</div>
+{{yield}}

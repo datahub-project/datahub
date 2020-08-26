@@ -1,0 +1,43 @@
+<IvyTabs class="multi-entity-search-tabs" @selection={{entity}} as |Tabs|>
+  <div class="entity-tabs {{with-banner-offset "entity-tabs"}}">
+
+    <div class="container">
+      <Tabs.tablist as |Tablist|>
+        {{#each this.availableEntities as |tab|}}
+          {{#let (get this.entitySearchCounts tab) as |count|}}
+
+            {{#let (or count (get this.aggretatedErrors tab)) as |tabHasInfo|}}
+              <Tablist.tab
+                class={{unless tabHasInfo  "entity-tabs__tab--disabled"}}
+                @model={{tab}}
+                @on-select={{if count (action this.onUpdateCurrentEntity)}}
+              >
+                {{nacho-core/titleize tab}}
+              </Tablist.tab>
+            {{/let}}
+
+          {{/let}}
+        {{/each}}
+      </Tabs.tablist>
+    </div>
+
+  </div>
+
+  <section class="container">
+  </section>
+
+  {{yield
+    (hash
+      result=this.decoratedResults
+      searchTask=this.getContainerDataTask
+      facetCounts=this.facetCounts
+      isSearchRunning=this.isSearchRunning
+      facetsSelections=this.facetsSelections
+      route=this.router.currentRouteName
+      dataModelEntity=this.dataModelEntity
+      pageSize=this.pageSize
+      onFacetsChange=(action this.onFacetsChange)
+    )
+  }}
+
+</IvyTabs>

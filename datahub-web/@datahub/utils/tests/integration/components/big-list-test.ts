@@ -3,6 +3,7 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render, waitFor, waitUntil } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { TestContext } from 'ember-test-helpers';
+import { noop } from 'lodash';
 
 interface IParams {
   nItems: number;
@@ -12,8 +13,8 @@ interface IParams {
 
 const testNItems = 100;
 const renderList = async (test: TestContext, params: IParams): Promise<void> => {
-  const { nItems, chunkSize = 1, onFinished = (): void => {} } = params;
-  const items: Array<number> = Array.apply(null, Array(nItems)).map((_: undefined, i: number) => i);
+  const { nItems, chunkSize = 1, onFinished = noop } = params;
+  const items: Array<number> = Array.from({ length: nItems }, (_: undefined, i: number): number => i);
 
   test.setProperties({
     items,
@@ -22,9 +23,11 @@ const renderList = async (test: TestContext, params: IParams): Promise<void> => 
   });
 
   await render(hbs`
-    <BigList @list={{items}} @chunkSize={{chunkSize}} @onFinished={{onFinished}} as |item|>
-      <span class="number">{{item}}</span>
-    </BigList>
+    <div>
+      <BigList @list={{items}} @chunkSize={{chunkSize}} @onFinished={{onFinished}} as |item|>
+        <span class="number">{{item}}</span>
+      </BigList>
+    </div>
   `);
 
   await waitFor('.number', { timeout: 10000, count: nItems });
@@ -36,20 +39,20 @@ const assertNumbers = (nItems: number, assert: Assert): void => {
   }
 };
 
-module('Integration | Component | big-list', function(hooks) {
+module('Integration | Component | big-list', function(hooks): void {
   setupRenderingTest(hooks);
 
-  test('Base use case', async function(assert) {
+  test('Base use case', async function(assert): Promise<void> {
     await renderList(this, { nItems: testNItems });
     assertNumbers(testNItems, assert);
   });
 
-  test('Chunk size', async function(assert) {
+  test('Chunk size', async function(assert): Promise<void> {
     await renderList(this, { nItems: testNItems, chunkSize: 7 });
     assertNumbers(testNItems, assert);
   });
 
-  test('OnFinished action', async function(assert) {
+  test('OnFinished action', async function(assert): Promise<void> {
     assert.expect(1);
     let finished = false;
     await renderList(this, {
@@ -63,7 +66,7 @@ module('Integration | Component | big-list', function(hooks) {
     await waitUntil(() => finished, { timeout: 10000 });
   });
 
-  test('OnFinished load more', async function(assert) {
+  test('OnFinished load more', async function(assert): Promise<void> {
     assert.expect(5);
     let finished = false;
     await renderList(this, {

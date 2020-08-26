@@ -29,7 +29,7 @@
     margin-top: 0;
     font-weight: fw(normal, 4);
     font-size: 24px;
-    color: set-color(grey, dark);
+    color: get-color(gray9);
   }
 
   &__footer {
@@ -65,5 +65,6 @@
   width: 100vw;
   align-items: center;
   justify-content: center;
+  overflow: auto;
   background-color: get-color(gray5, 0.25);
 }

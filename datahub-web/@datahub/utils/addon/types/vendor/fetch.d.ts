@@ -7,6 +7,6 @@
 declare module 'fetch' {
   export default function fetch(
     input: RequestInfo,
-    options?: { method?: string; body?: any; headers?: object | Headers; credentials?: RequestCredentials }
+    options?: { method?: string; body?: object; headers?: object | Headers; credentials?: RequestCredentials }
   ): Promise<Response>;
 }

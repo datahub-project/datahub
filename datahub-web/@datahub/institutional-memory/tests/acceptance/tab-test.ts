@@ -7,7 +7,7 @@ import { IMirageTestContext } from '@datahub/utils/types/vendor/ember-cli-mirage
 import { baseTableClass } from '@datahub/institutional-memory/components/institutional-memory/wiki/url-list';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
 
-module('Acceptance | tab', function(hooks) {
+module('Acceptance | tab', function(hooks): void {
   setupApplicationTest(hooks);
 
   setupMirage(hooks);
@@ -47,7 +47,8 @@ module('Acceptance | tab', function(hooks) {
       'Remaining author was the second one'
     );
 
-    await click(`${baseClass}__global-button`);
+    // Clicking on the "Add link" button
+    await click(`${baseClass}__footer-button`);
     await waitFor(modalClass);
 
     assert.equal(findAll(modalClass).length, 1, 'Renders a modal upon clicking the add more link');

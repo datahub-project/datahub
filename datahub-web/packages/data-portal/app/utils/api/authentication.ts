@@ -1,8 +1,7 @@
-import { getApiRoot } from 'wherehows-web/utils/api/shared';
-import { ApiStatus } from '@datahub/utils/api/shared';
-import { IAuthenticateResponse, ICurrentUserResponse } from 'wherehows-web/typings/api/authentication/user';
-import { IUser } from '@datahub/shared/api/user/authentication';
+import { ApiStatus, getApiRoot } from '@datahub/utils/api/shared';
+import { IAuthenticateResponse, ICurrentUserResponse } from 'datahub-web/typings/api/authentication/user';
 import $ from 'jquery';
+import { IUser } from '@datahub/metadata-types/types/common/user';
 
 const { getJSON, get } = $;
 const logoutUrl = '/logout';

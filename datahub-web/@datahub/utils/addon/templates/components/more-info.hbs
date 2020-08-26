@@ -1,12 +1,19 @@
 <a {{action "click" preventDefault=false}} target={{target}} href={{link}}>
   <sup>
     {{#if tooltip}}
-      <i data-title={{tooltip}} class="nacho-tooltip">
-        <span class="glyphicon glyphicon-question-sign"></span>
+      <i class="nacho-tooltip" data-title={{tooltip}}>
+        <FaIcon
+          @prefix="far"
+          @icon="question-circle"
+          class="{{this.baseClass}}__icon"
+        />
       </i>
     {{else}}
-      <span class="glyphicon glyphicon-question-sign"></span>
+      <FaIcon
+        @prefix="far"
+        @icon="question-circle"
+        class="{{this.baseClass}}__icon"
+      />
     {{/if}}
-
   </sup>
 </a>

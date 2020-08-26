@@ -1,0 +1,19 @@
+/// Core classes
+.dynamic-tooltip {
+  &__content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 240px;
+  }
+}
+
+/// Optional classes
+.dynamic-tooltip {
+  &__inline-trigger-icon {
+    width: 1em;
+    vertical-align: 0.75em;
+    display: inline-block;
+  }
+}

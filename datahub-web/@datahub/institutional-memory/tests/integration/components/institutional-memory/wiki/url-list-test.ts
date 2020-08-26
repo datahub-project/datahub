@@ -2,17 +2,17 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, find, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 import { baseTableClass } from '@datahub/institutional-memory/components/institutional-memory/wiki/url-list';
 import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
 
-module('Integration | Component | institutional-memory/wiki/url-list', function(hooks) {
+module('Integration | Component | institutional-memory/wiki/url-list', function(hooks): void {
   setupRenderingTest(hooks);
 
   const baseClass = `.${baseTableClass}`;
 
-  test('it renders data as intended', async function(assert) {
+  test('it renders data as intended', async function(assert): Promise<void> {
     assert.expect(5);
     stubService('notifications', {
       notify: null
@@ -34,7 +34,10 @@ module('Integration | Component | institutional-memory/wiki/url-list', function(
       }
     ];
 
-    this.set('listData', listData.map(item => new InstitutionalMemory(item)));
+    this.set(
+      'listData',
+      listData.map(item => new InstitutionalMemory(item))
+    );
     await render(hbs`{{institutional-memory/wiki/url-list
                        listData=listData
                      }}`);

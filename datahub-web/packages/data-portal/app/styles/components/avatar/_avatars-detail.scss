@@ -8,6 +8,7 @@
   width: 520px;
   display: flex;
   flex-direction: column;
+  overflow-y: scroll;
 
   &__header,
   &__content {

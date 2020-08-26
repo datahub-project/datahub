@@ -1,0 +1,10 @@
+{{#if @value}}
+  <label class="search-result__tag-icon">
+    {{fa-icon @options.iconName aria-label=@options.hoverText}}
+    {{#if @options.hoverText}}
+      {{tooltip-on-element
+        text=@options.hoverText
+      }}
+    {{/if}}
+  </label>
+{{/if}}

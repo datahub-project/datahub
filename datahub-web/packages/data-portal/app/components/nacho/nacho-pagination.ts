@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { computed } from '@ember/object';
+import { computed, action } from '@ember/object';
 import { tagName } from '@ember-decorators/component';
 import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 
@@ -17,7 +17,7 @@ interface IPage<T = unknown, P extends IQueryParamsWithPages = { page: number }>
   pageNumber: number;
   isCurrent: boolean;
   isSeparator: boolean;
-  link: IDynamicLinkNode<T, string, P>;
+  link?: IDynamicLinkNode<T, string, P>;
 }
 
 /**
@@ -75,12 +75,19 @@ export default class NachoPagination<T, P extends object> extends Component {
   /**
    * Number of pages to show before and after current page before we show ellipsis '...'.
    */
-  threshold: number = 3;
+  threshold = 3;
 
   /**
    * Dynamic link to generate page links
    */
-  linkTo: IDynamicLinkNode<T, string, P>;
+  linkTo?: IDynamicLinkNode<T, string, P>;
+
+  /**
+   * Optional external action that can be used to handle a page change action instead of deferring
+   * to the default behavior as a link. We leave it undefined if there is no given property as that
+   * is our signal to use the default behavior instead
+   */
+  updatePageHandler?: (newPage: number) => void;
 
   /**
    * Previous page number
@@ -140,16 +147,16 @@ export default class NachoPagination<T, P extends object> extends Component {
    * Generate previous page link
    */
   @computed('linkTo', 'previousPage')
-  get prevLink(): IDynamicLinkNode<T, string, WithPages<P>> {
-    return addPageToLink(this.linkTo, this.previousPage);
+  get prevLink(): IDynamicLinkNode<T, string, WithPages<P>> | undefined {
+    return this.linkTo && addPageToLink(this.linkTo, this.previousPage);
   }
 
   /**
    * Generate next page link
    */
   @computed('linkTo', 'nextPage')
-  get nextLink(): IDynamicLinkNode<T, string, WithPages<P>> {
-    return addPageToLink(this.linkTo, this.nextPage);
+  get nextLink(): IDynamicLinkNode<T, string, WithPages<P>> | undefined {
+    return this.linkTo && addPageToLink(this.linkTo, this.nextPage);
   }
 
   /**
@@ -170,7 +177,7 @@ export default class NachoPagination<T, P extends object> extends Component {
         pageNumber,
         isSeparator,
         isCurrent: pageNumber === currentPage,
-        link: addPageToLink(linkTo, pageNumber)
+        link: linkTo && addPageToLink(linkTo, pageNumber)
       });
     };
 
@@ -187,5 +194,17 @@ export default class NachoPagination<T, P extends object> extends Component {
     // 8
     totalPages > 1 && addPage({ pageNumber: totalPages });
     return pages;
+  }
+
+  /**
+   * If an external page update handler has been passed in, this function can be used to call on it
+   * with the proper page number that has been selected by the user. Useful in tandem with the
+   * dynamic-link component as we may not want to default to pagination using a link but rather an
+   * action
+   * @param {number} newPage - the selected page
+   */
+  @action
+  onCallExternalUpdatePageHandler(newPage: number): void {
+    this.updatePageHandler && this.updatePageHandler(newPage);
   }
 }

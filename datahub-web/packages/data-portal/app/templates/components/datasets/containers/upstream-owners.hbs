@@ -1,12 +1,9 @@
 {{#if getUpstreamPropertiesTask.isRunning}}
 
-  {{pendulum-ellipsis-animation}}
+  <PendulumEllipsisAnimation />
 
 {{else}}
 
-  {{datasets/upstream-owners
-    nativeName=nativeName
-    upstreamUrn=upstreamUrn
-  }}
+  <Datasets::UpstreamOwners @nativeName={{nativeName}} @upstreamUrn={{upstreamUrn}} />
 
 {{/if}}

@@ -5,11 +5,11 @@
     onMouseLeave=(action "hideFabrics")
   }}
 
-    <strong class="dataset-fabric-switcher__fabric">{{uppercase fabric}}</strong>
+    <strong class="dataset-fabric-switcher__fabric">{{uppercase this.fabric}}</strong>
 
-    {{#if fabric}}
-      <span class="dataset-fabric-switcher__fabric__toggle">
-        {{fa-icon (if isExpanded "caret-up" "caret-down")}}
+    {{#if this.fabric}}
+      <span class="dataset-fabric-switcher__icon">
+        {{fa-icon (if this.isExpanded "caret-up" "caret-down")}}
       </span>
     {{/if}}
 
@@ -19,22 +19,22 @@
     onMouseEnter=(action "showFabrics")
     onMouseLeave=(action "hideFabrics")
   }}
-    <ul class="dataset-fabric-switcher__fabrics">
+    <ul class="dataset-fabric-switcher__fabric-list">
       {{#each fabricUrns as |fabricOpt|}}
-        {{#link-to "datasets.dataset" fabricOpt.urn}}
+        <LinkTo @route="datasets.dataset" @model={{fabricOpt.urn}}>
           {{#let
-            (if (eq fabric fabricOpt.fabric) "dataset-fabric-switcher__fabrics__fabric--selected")
+            (if (eq fabric fabricOpt.fabric) "dataset-fabric-switcher__fabric-list-item--selected")
           as |selectedClass|
           }}
             <li
-              class="dataset-fabric-switcher__fabrics__fabric {{selectedClass}}"
+              class="dataset-fabric-switcher__fabric-list-item {{selectedClass}}"
             >
               <strong>
                 {{fabricOpt.fabric}}
               </strong>
             </li>
           {{/let}}
-        {{/link-to}}
+        </LinkTo>
       {{/each}}
     </ul>
   {{/switcher.content}}

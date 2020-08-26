@@ -1,0 +1,19 @@
+.wherehows-entity-header-title {
+  display: inline-flex;
+  padding: 5px 0;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 400;
+  margin-right: item-spacing(2);
+
+  &__tags {
+    display: flex;
+    align-items: center;
+
+    .nacho-pill {
+      &:first-child {
+        margin-left: item-spacing(2);
+      }
+    }
+  }
+}

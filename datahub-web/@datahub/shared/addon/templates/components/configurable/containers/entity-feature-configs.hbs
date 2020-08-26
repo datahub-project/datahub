@@ -1,0 +1,5 @@
+{{!-- TODO META-11238: Separate entity feature configs container with configurable feature wrapper --}}
+{{!-- This container should not contain render logic after being genericized --}}
+{{#if this.configs}}
+  {{yield this.configs}}
+{{/if}}
