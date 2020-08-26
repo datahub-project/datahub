@@ -117,8 +117,8 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   public <ASPECT extends RecordTemplate> void produceAspectSpecificMetadataAuditEvent(@Nonnull URN urn,
       @Nullable ASPECT oldValue, @Nonnull ASPECT newValue) {
     final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
-    if (!isValidateAspectSpecificTopic(topicKey)) {
-      log.error("The aspect specific topic {} is not registered.", topicKey);
+    if (!isValidAspectSpecificTopic(topicKey)) {
+      log.warn(makeUnregisteredMAEMessage(urn, newValue));
       return;
     }
 
@@ -164,7 +164,13 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
     return snapshot;
   }
 
-  static boolean isValidateAspectSpecificTopic(@Nonnull String topic) {
+  static boolean isValidAspectSpecificTopic(@Nonnull String topic) {
     return Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic));
+  }
+
+  @Nonnull
+  private String makeUnregisteredMAEMessage(@Nonnull URN urn, @Nonnull RecordTemplate value) {
+    return String.format("The MAEv5 event of entity %s with aspect %s has not been registered.",
+        urn.getClass().getCanonicalName(), value.getClass().getCanonicalName());
   }
 }
