@@ -1,17 +1,9 @@
-import { IOwner, IOwnerResponse, IOwnerTypeResponse } from 'wherehows-web/typings/api/datasets/owners';
-import {
-  IPartyEntity,
-  IPartyEntityResponse,
-  IPartyProps,
-  IUserEntityMap
-} from 'wherehows-web/typings/api/datasets/party-entities';
-import { isNotFoundApiError } from 'wherehows-web/utils/api';
-import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
+import { IOwner, IOwnerResponse, IOwnerTypeResponse } from 'datahub-web/typings/api/datasets/owners';
 import { getJSON, postJSON } from '@datahub/utils/api/fetcher';
-import { getApiRoot } from 'wherehows-web/utils/api/shared';
-import { ApiStatus } from '@datahub/utils/api/shared';
-import { arrayFilter, arrayMap } from 'wherehows-web/utils/array';
-import { omit } from 'wherehows-web/utils/object';
+import { getApiRoot, isNotFoundApiError } from '@datahub/utils/api/shared';
+import { arrayFilter, arrayMap } from '@datahub/utils/array/index';
+import { omit } from 'datahub-web/utils/object';
+import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
 
 /**
  * Defines a string enum for valid owner types
@@ -67,12 +59,6 @@ export const datasetOwnersUrlByUrn = (urn: string): string => `${datasetUrlByUrn
  * @param urn
  */
 export const datasetSuggestedOwnersUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/owners/suggestion`;
-
-/**
- * Returns the party entities url
- * @type {string}
- */
-export const partyEntitiesUrl = `${getApiRoot()}/party/entities`;
 
 /**
  * Returns the owner types url
@@ -153,20 +139,15 @@ export const readDatasetSuggestedOwnersByUrn = async (urn: string): Promise<IOwn
  * @param {string} urn
  * @param {string} csrfToken
  * @param {Array<IOwner>} updatedOwners
- * @return {Promise<void>}
  */
-export const updateDatasetOwnersByUrn = (
-  urn: string,
-  csrfToken: string = '',
-  updatedOwners: Array<IOwner>
-): Promise<{}> => {
-  const ownersWithoutModifiedTime = arrayMap((owner: IOwner) => omit(owner, ['modifiedTime']));
+export const updateDatasetOwnersByUrn = (urn: string, updatedOwners: Array<IOwner>): Promise<{}> => {
+  const ownersWithoutModifiedTime = arrayMap(
+    (owner: IOwner): Exclude<IOwner, 'modifiedTime'> => omit(owner, ['modifiedTime'])
+  );
 
   return postJSON<{}>({
     url: datasetOwnersUrlByUrn(urn),
-    headers: { 'csrf-token': csrfToken },
     data: {
-      csrfToken,
       owners: ownersWithoutModifiedTime(updatedOwners) // strips the modified time from each owner, remote is source of truth
     }
   });
@@ -174,12 +155,12 @@ export const updateDatasetOwnersByUrn = (
 
 /**
  * Reads the owner types list on a dataset
- * @return {Promise<Array<OwnerType>>}
  */
 export const readDatasetOwnerTypes = async (): Promise<Array<OwnerType>> => {
   const url = datasetOwnerTypesUrl();
   const { ownerTypes = [] } = await getJSON<IOwnerTypeResponse>({ url });
-  return ownerTypes.sort((a: string, b: string) => a.localeCompare(b));
+
+  return ownerTypes.sort((a: string, b: string): number => a.localeCompare(b));
 };
 
 /**
@@ -195,75 +176,3 @@ const isNotAConsumer = (ownerType: OwnerType): boolean => ownerType !== OwnerTyp
  */
 export const readDatasetOwnerTypesWithoutConsumer = async (): Promise<Array<OwnerType>> =>
   arrayFilter(isNotAConsumer)(await readDatasetOwnerTypes());
-
-/**
- * Requests party entities and if the response status is OK, resolves with an array of entities
- * @return {Promise<Array<IPartyEntity>>}
- */
-export const readPartyEntities = async (): Promise<Array<IPartyEntity>> => {
-  const { status, userEntities = [], msg } = await getJSON<IPartyEntityResponse>({ url: partyEntitiesUrl });
-  return status === ApiStatus.OK ? userEntities : Promise.reject(msg);
-};
-
-/**
- * Transforms a list of party entities into a map of entity label to displayName value
- * @param {Array<IPartyEntity>} partyEntities
- * @return {IUserEntityMap}
- */
-export const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMap =>
-  partyEntities.reduce(
-    (map: { [label: string]: string }, { label, displayName }: IPartyEntity) => ((map[label] = displayName), map),
-    {}
-  );
-
-/**
- * IIFE prepares the environment scope and returns a closure function that ensures that
- * there is ever only one inflight request for userEntities.
- * Resolves all subsequent calls with the result for the initial invocation.
- * userEntitiesSource property is also lazy evaluated and cached for app lifetime.
- * @type {() => Promise<IPartyProps>}
- */
-export const getUserEntities: () => Promise<IPartyProps> = (() => {
-  /**
-   * Memoized reference to the resolved value of a previous invocation to curried function in getUserEntities
-   * @type {{result: IPartyProps | null}}
-   */
-  const cache: { result: IPartyProps | null; userEntitiesSource: Array<Extract<keyof IUserEntityMap, string>> } = {
-    result: null,
-    userEntitiesSource: []
-  };
-  let inflightRequest: Promise<Array<IPartyEntity>>;
-
-  /**
-   * Invokes the requestor for party entities, and adds perf optimizations listed above
-   * @return {Promise<IPartyProps>}
-   */
-  return async (): Promise<IPartyProps> => {
-    // If a previous request has already resolved, return the cached value
-    if (cache.result) {
-      return cache.result;
-    }
-    // If we don't already have a previous api request for party entities,
-    // assign a new one to free variable
-    if (!inflightRequest) {
-      inflightRequest = readPartyEntities();
-    }
-
-    const userEntities: Array<IPartyEntity> = await inflightRequest;
-
-    return (cache.result = {
-      userEntities,
-      userEntitiesMaps: readPartyEntitiesMap(userEntities),
-      // userEntitiesSource is not usually needed immediately
-      // hence using a getter for lazy evaluation
-      get userEntitiesSource() {
-        const userEntitiesSource = cache.userEntitiesSource;
-        if (userEntitiesSource.length) {
-          return userEntitiesSource;
-        }
-
-        return (cache.userEntitiesSource = Object.keys(this.userEntitiesMaps));
-      }
-    });
-  };
-})();

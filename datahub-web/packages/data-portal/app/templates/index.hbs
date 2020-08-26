@@ -5,7 +5,7 @@
         <div class="col-md-4">
           <div class="feature-container">
             <article class="feature-card">
-              {{#link-to featureCard.route}}
+              <LinkTo @route={{featureCard.route}}>
                 <img
                   alt={{featureCard.alt}}
                   src={{featureCard.icon}}
@@ -17,7 +17,7 @@
                 <div class="feature-card__description">
                   {{featureCard.description}}
                 </div>
-              {{/link-to}}
+              </LinkTo>
             </article>
           </div>
         </div>

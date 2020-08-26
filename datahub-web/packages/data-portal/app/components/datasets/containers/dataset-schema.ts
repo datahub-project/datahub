@@ -1,14 +1,14 @@
 import Component from '@ember/component';
 import { setProperties } from '@ember/object';
 import { task } from 'ember-concurrency';
-import { IDatasetColumn, IDatasetColumnWithHtmlComments } from 'wherehows-web/typings/api/datasets/columns';
-import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
-import { augmentObjectsWithHtmlComments } from 'wherehows-web/utils/api/datasets/columns';
-import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
+import { IDatasetColumn, IDatasetColumnWithHtmlComments } from 'datahub-web/typings/api/datasets/columns';
+import { IDatasetSchema } from 'datahub-web/typings/api/datasets/schema';
+import { augmentObjectsWithHtmlComments } from 'datahub-web/utils/api/datasets/columns';
+import { readDatasetSchemaByUrn } from 'datahub-web/utils/api/datasets/schema';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
-@containerDataSource('getDatasetSchemaTask', ['urn'])
+@containerDataSource<DatasetSchemaContainer>('getDatasetSchemaTask', ['urn'])
 export default class DatasetSchemaContainer extends Component {
   /**
    * The urn identifier for the dataset
@@ -26,7 +26,7 @@ export default class DatasetSchemaContainer extends Component {
    * Stores the last modified date on the dataset schema as an utc time string
    * @type {string}
    */
-  lastModifiedString: string = '';
+  lastModifiedString = '';
 
   /**
    * List of schema properties for the dataset
@@ -37,18 +37,19 @@ export default class DatasetSchemaContainer extends Component {
   /**
    * If there is schema or not
    */
-  isEmpty: boolean = false;
+  isEmpty = false;
 
   /**
    * Reads the schema for the dataset
    */
   @task(function*(this: DatasetSchemaContainer): IterableIterator<Promise<IDatasetSchema>> {
-    let schemas,
-      { columns = [], rawSchema: json, lastModified }: IDatasetSchema = yield readDatasetSchemaByUrn(this.urn);
+    const { columns = [], rawSchema: json, lastModified } = ((yield readDatasetSchemaByUrn(
+      this.urn
+    )) as unknown) as IDatasetSchema;
 
-    let lastModifiedString = lastModified ? new Date(lastModified).toLocaleString() : '';
+    const lastModifiedString = lastModified ? new Date(lastModified).toLocaleString() : '';
 
-    schemas = augmentObjectsWithHtmlComments(columns);
+    const schemas = augmentObjectsWithHtmlComments(columns);
 
     setProperties(this, { schemas, json: json || '{}', lastModifiedString, isEmpty: !json });
   })

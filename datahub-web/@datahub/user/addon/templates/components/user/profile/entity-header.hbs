@@ -14,17 +14,18 @@
           {{@entity.name}}
         </h3>
 
-        {{#if (not @isActive)}}
+        {{#unless @isActive}}
           <NachoPill
             class="{{this.baseHeaderClass}}__inactive-label"
             @text="Inactive"
             @state="alert"
           />
-        {{/if}}
+        {{/unless}}
       </div>
 
       {{#if @isCurrentUser}}
         <button
+          type="button"
           class="{{this.baseHeaderClass}}__edit-profile nacho-button--secondary"
           {{action (mut this.isEditingProfile) true}}
         >
@@ -51,6 +52,7 @@
             {{/each}}
             {{#if this.renderViewAllSkillsButton}}
               <button
+                type="button"
                 class="nacho-button nacho-button--tertiary view-all__button"
                 {{action (mut this.isViewingAllSkills) true}}
               >
@@ -75,6 +77,7 @@
             {{/each}}
             {{#if this.renderViewAllTeamsButton}}
               <button
+                type="button"
                 class="nacho-button nacho-button--tertiary view-all__button"
                 {{action (mut this.isViewingAllTeams) true}}
               >
@@ -109,14 +112,14 @@
       </div>
       <div class="{{this.baseHeaderClass}}__connections">
         <div class="{{this.baseHeaderClass}}__connection">
-          <a href="mailto:{{@entity.email}}" class="{{this.baseHeaderClass}}__connection-link" target="__blank" rel="noopener">
+          <MailTo @mailHeader={{hash to=@entity.email}} class="{{this.baseHeaderClass}}__connection-link">
             {{fa-icon
               "envelope"
               class=(concat this.baseHeaderClass "__connection-icon")
               prefix="far"
             }}
             {{@entity.email}}
-          </a>
+          </MailTo>
         </div>
 
         {{#if @headerProperties.isConnectedToLinkedin}}
@@ -124,7 +127,7 @@
             <a
               href={{@entity.linkedinProfile}}
               target="_blank"
-              rel="noopener"
+              rel="noreferrer noopener"
               class="{{this.baseHeaderClass}}__connection-link"
             >
               <FaIcon
@@ -143,7 +146,7 @@
             <a
               href={{@entity.profileLink}}
               target="_blank"
-              rel="noopener"
+              rel="noreferrer noopener"
               class="{{this.baseHeaderClass}}__connection-link"
             >
               {{fa-icon

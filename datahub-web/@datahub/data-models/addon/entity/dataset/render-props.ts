@@ -1,7 +1,6 @@
-import { Tab } from '@datahub/data-models/constants/entity/shared/tabs';
+import { DatasetTab } from '@datahub/data-models/constants/entity/dataset/tabs';
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { fields } from '@datahub/data-models/entity/dataset/fields';
-import { getTabPropertiesFor } from '@datahub/data-models/entity/utils';
 
 /**
  * Class properties common across instances
@@ -11,27 +10,62 @@ import { getTabPropertiesFor } from '@datahub/data-models/entity/utils';
  * @type {IEntityRenderProps}
  */
 export const getRenderProps = (): IEntityRenderProps => {
-  // TODO: right now logic is in dataset-main.ts computed property datasetTabs
-  const tabIds: Array<Tab> = [];
-
+  const apiEntityName = 'dataset';
   return {
+    apiEntityName,
     search: {
       placeholder: 'Search for datasets...',
       attributes: fields,
-      apiName: 'dataset'
+      secondaryActionComponents: [],
+      customFooterComponents: [
+        {
+          name: 'top-consumers/insight/top-consumers-insight',
+          options: {
+            component: 'top-consumers/insight/insight-strip',
+            isOptional: true
+          }
+        },
+        { name: 'social/containers/social-metadata' }
+      ],
+      isEnabled: true
+    },
+    userEntityOwnership: {
+      attributes: fields
     },
     browse: {
-      // TODO META-8863 remove once dataset is migrated
-      showCount: true,
-      showHierarchySearch: false,
-      entityRoute: 'datasets.dataset'
+      showHierarchySearch: false
     },
     entityPage: {
-      tabIds,
       route: 'datasets.dataset',
-      tabProperties: getTabPropertiesFor(tabIds),
-      defaultTab: Tab.Schema,
-      attributePlaceholder: '-'
+      tabProperties: [],
+      defaultTab: DatasetTab.Schema,
+      attributePlaceholder: '-',
+      apiRouteName: 'datasets',
+      pageComponent: {
+        name: 'datasets/dataset-page'
+      },
+      customHeaderComponents: [
+        {
+          name: 'insight/carousel',
+          options: {
+            components: [
+              {
+                name: 'health/carousel-insight',
+                options: {
+                  priority: 1
+                }
+              },
+              {
+                name: 'top-consumers/insight/top-consumers-insight',
+                options: {
+                  isOptional: true,
+                  component: 'top-consumers/insight/insight-card'
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   };
 };

@@ -1,0 +1,66 @@
+<div class={{tableClasses.global}}>
+  {{!-- Placeholder for position of global actions and headers section for the table container --}}
+  {{#if hasBlock}}
+    {{yield (hash global=(component tableGlobalComponent))}}
+  {{/if}}
+</div>
+
+{{!-- This wraps around the table simply for styling purposes --}}
+<div class="nacho-table__wrapper">
+  {{!-- Template lint throws error here because it does not realize that our table yield can have table groups --}}
+  {{! template-lint-disable table-groups }}
+  <table class={{tableClasses.main}}>
+    {{!-- For the yielded statements below, we use a noconfigs or useblocks config instead of hasblock so that
+          the user can specifically determine which sections of the table they want to use blocks for and can mix
+          and match various states. If there are no table configs or user has specified useblocks, then hasblocks
+          is presumed to already be true
+      --}}
+    {{!-- Header --}}
+    {{#if (or noConfigs tableConfigs.useBlocks.header)}}
+      {{yield
+        (hash
+          tableConfigs=(readonly tableConfigs)
+          head=(component tableHeaderComponent)
+        )
+      }}
+    {{else}}
+      {{#unless tableConfigs.isHidingHeader}}
+        {{component
+          tableHeaderComponent
+          tableConfigs=(readonly tableConfigs)
+        }}
+      {{/unless}}
+    {{/if}}
+
+    {{!-- Body --}}
+    {{#if (or noConfigs tableConfigs.useBlocks.body)}}
+      {{yield
+        (hash
+          fields=(readonly fields)
+          tableConfigs=(readonly tableConfigs)
+          body=(component tableBodyComponent
+                tableRowComponent=tableRowComponent)
+        )
+      }}
+    {{else}}
+      {{component
+        tableBodyComponent
+        rows=(readonly fields)
+        tableConfigs=(readonly tableConfigs)
+      }}
+    {{/if}}
+
+    {{!-- Footer --}}
+    {{#if (or noConfigs tableConfigs.useBlocks.footer)}}
+      {{yield
+        (hash
+          fields=(readonly fields)
+          tableConfigs=(readonly tableConfigs)
+          foot=(component tableFooterComponent)
+        )
+      }}
+    {{else}}
+      {{!-- Placeholer for default non-yield-block footer behavior --}}
+    {{/if}}
+  </table>
+</div>

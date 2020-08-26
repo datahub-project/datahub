@@ -1,8 +1,8 @@
-import { IDatasetComment, IDatasetCommentsGetResponse } from 'wherehows-web/typings/api/datasets/comments';
-import { datasetColumnUrlById } from 'wherehows-web/utils/api/datasets/columns';
+import { IDatasetComment, IDatasetCommentsGetResponse } from 'datahub-web/typings/api/datasets/comments';
+import { datasetColumnUrlById } from 'datahub-web/utils/api/datasets/columns';
 import { ApiStatus } from '@datahub/utils/api/shared';
 import { getJSON, postJSON, deleteJSON, putJSON } from '@datahub/utils/api/fetcher';
-import { IDatasetSchemaCommentResponse } from 'wherehows-web/typings/api/datasets/schema-comments';
+import { IDatasetSchemaCommentResponse } from 'datahub-web/typings/api/datasets/schema-comments';
 
 /**
  *

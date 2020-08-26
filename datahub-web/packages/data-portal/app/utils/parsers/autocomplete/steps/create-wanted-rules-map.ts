@@ -1,4 +1,4 @@
-import { StateNodeMap, IState, ISuggestionBuilder } from 'wherehows-web/utils/parsers/autocomplete/types';
+import { StateNodeMap, IState, ISuggestionBuilder } from 'datahub-web/utils/parsers/autocomplete/types';
 
 /**
  * Will explore the expecte tree moving the nodes in a map structure, also, preventing infinite recursion.

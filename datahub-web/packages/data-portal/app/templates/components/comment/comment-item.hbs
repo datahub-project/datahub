@@ -52,6 +52,7 @@
 <section class="comment-item__actions">
   {{#if (and comment.isAuthor (not isEditing))}}
     <button
+      type="button"
       class="nacho-button nacho-button--small nacho-button--tertiary"
       title="Edit this comment"
       {{action "onEdit"}}
@@ -63,6 +64,7 @@
     </button>
 
     <button
+      type="button"
       class="nacho-button nacho-button--small nacho-button--tertiary"
       title="Delete this comment"
       {{action "onDelete"}}

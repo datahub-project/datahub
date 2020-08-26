@@ -1,0 +1,37 @@
+<NachoTable
+  @tableClass="{{this.baseClass}}__table"
+  @data={{this.healthProxy.validations}}
+  @tableConfigs={{this.tableConfigs}} as |Table|
+>
+  <Table.global>
+    <header>
+      <p class="{{this.baseClass}}__title">
+        {{! Each child sibling is separated by a middot between previous sibling
+            children are grouped logically using a wrapping element if the elements should not
+            be treated as direct children
+        }}
+        <span class="{{this.baseClass}}__title-group">
+          <strong>Overall Health:</strong>
+
+          <Health::HealthScoreValue @score={{this.healthProxy.score}}/>
+        </span>
+
+        {{! this is currently rendered as a single element so wrapping group (__title-group) not needed here }}
+        <Health::LastUpdated @lastUpdated={{this.healthProxy.lastUpdated}} />
+
+        <span class="{{this.baseClass}}__title-group">
+          <button
+            type="button"
+            class="nacho-button nacho-button--tertiary {{this.baseClass}}__recalculate"
+            {{on "click" this.onRecalculateHealthScore}}
+            {{track-control-interaction type="SHORT_PRESS" name="DataHubHealthScoreFactorsRecalculateScore"}}
+          >
+            Recalculate Score
+          </button>
+
+          <MoreInfo @link={{@moreInfo.wiki}} @tooltip={{@moreInfo.tooltip}} />
+        </span>
+      </p>
+    </header>
+  </Table.global>
+</NachoTable>

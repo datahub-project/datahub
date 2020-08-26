@@ -4,10 +4,10 @@ import { render, findAll } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 const dialogClassName = '.notification-confirm-modal';
-module('Integration | Component | notifications-confirm-dialog', function(hooks) {
+module('Integration | Component | notifications-confirm-dialog', function(hooks): void {
   setupRenderingTest(hooks);
 
-  test('Confirmation Dialog rendering', async function(assert) {
+  test('Confirmation Dialog rendering', async function(assert): Promise<void> {
     const header = 'Test Header';
     const content = 'Test Content';
     await render(hbs`<NotificationsConfirmDialog />`);

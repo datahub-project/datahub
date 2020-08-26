@@ -1,4 +1,4 @@
-import { ISuggestionBuilder } from 'wherehows-web/utils/parsers/autocomplete/types';
+import { ISuggestionBuilder } from 'datahub-web/utils/parsers/autocomplete/types';
 
 /**
  * Initialize a suggestion builder structure with a text

@@ -1,0 +1,9 @@
+<button
+  class="nacho-button nacho-button--tertiary {{@baseClass}}__button"
+  type="button"
+  {{on "click" @onRecalculateHealthScore}}
+  data-insight-action="recalculate"
+  {{track-control-interaction type="SHORT_PRESS" name="DataHubHealthScoreInsightRecalculateScore"}}
+>
+  Recalculate Score
+</button>

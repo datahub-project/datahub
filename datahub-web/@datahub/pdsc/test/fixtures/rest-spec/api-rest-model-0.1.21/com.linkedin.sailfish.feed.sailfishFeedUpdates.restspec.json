@@ -1,0 +1,29 @@
+{
+  "name" : "sailfishFeedUpdates",
+  "namespace" : "com.linkedin.sailfish.feed",
+  "path" : "/sailfishFeedUpdates",
+  "schema" : "com.linkedin.feed.AggregatedFeedItem",
+  "doc" : "generated from: com.linkedin.sailfish.feed.resources.FeedUpdatesResource",
+  "collection" : {
+    "identifier" : {
+      "name" : "updateUrn",
+      "type" : "com.linkedin.common.Urn"
+    },
+    "supports" : [ ],
+    "finders" : [ {
+      "name" : "feed",
+      "parameters" : [ {
+        "name" : "paginationToken",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "metadata" : {
+        "type" : "com.linkedin.voyager.feed.Metadata"
+      },
+      "pagingSupported" : true
+    } ],
+    "entity" : {
+      "path" : "/sailfishFeedUpdates/{updateUrn}"
+    }
+  }
+}

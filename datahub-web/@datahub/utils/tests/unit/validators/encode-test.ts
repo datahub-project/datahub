@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { encodeDot, decodeDot } from '@datahub/utils/validators/encode';
 
 module('Unit | Utility | validators/json', function() {
-  test('encodeDot and decodeDot works as expected', function(assert) {
+  test('encodeDot and decodeDot works as expected', function(assert): void {
     const testCaseA = 'pikachu.thunder';
     const testCaseB = 'pik.chu.thund.er';
 

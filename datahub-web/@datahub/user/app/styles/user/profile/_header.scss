@@ -141,7 +141,7 @@
   }
 
   &__connection {
-    font-size: 12px;
+    font-size: fs(small);
     margin-right: item-spacing(5);
     color: get-color(black, 0.9);
     cursor: pointer;

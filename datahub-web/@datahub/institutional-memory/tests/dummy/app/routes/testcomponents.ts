@@ -1,5 +1,5 @@
 import Route from '@ember/routing/route';
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
 
 export default class Testcomponents extends Route {
@@ -18,7 +18,7 @@ export default class Testcomponents extends Route {
     ];
 
     return {
-      linkList: testInstitutionalMemory.map(link => new InstitutionalMemory(link))
+      linkList: testInstitutionalMemory.map((link): InstitutionalMemory => new InstitutionalMemory(link))
     };
   }
 }

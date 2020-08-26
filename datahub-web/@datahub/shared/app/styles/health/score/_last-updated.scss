@@ -1,0 +1,11 @@
+.health-score-last-update {
+  color: get-color(gray5);
+
+  &--small {
+    font-size: fs(small);
+  }
+
+  &__full-time {
+    font-style: normal;
+  }
+}

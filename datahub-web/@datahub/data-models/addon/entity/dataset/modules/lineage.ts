@@ -2,6 +2,7 @@ import { DatasetEntity } from '../dataset-entity';
 import { IDatasetLineage } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { computed } from '@ember/object';
 import { oneWay } from '@ember/object/computed';
+import { fromLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
 
 /**
  * The dataset lineage object is a light wrapper around the dataset lineage API response to provide the
@@ -24,7 +25,7 @@ export class DatasetLineage {
   @computed('data')
   get dataset(): DatasetEntity {
     const { dataset } = this.data;
-    return new DatasetEntity(dataset.uri, dataset);
+    return new DatasetEntity(dataset.uri, fromLegacy(dataset));
   }
 
   /**

@@ -2,13 +2,13 @@ import Component from '@ember/component';
 import { get } from '@ember/object';
 import { task } from 'ember-concurrency';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';
-import { DatasetOrigins } from 'wherehows-web/typings/api/datasets/origins';
-import { readDatasetOriginsByUrn } from 'wherehows-web/utils/api/datasets/origins';
+import { DatasetOrigins } from 'datahub-web/typings/api/datasets/origins';
+import { readDatasetOriginsByUrn } from 'datahub-web/utils/api/datasets/origins';
 import { isArray } from '@ember/array';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
-@containerDataSource('getFabricsTask', ['urn'])
+@containerDataSource<DatasetFabricsContainer>('getFabricsTask', ['urn'])
 export default class DatasetFabricsContainer extends Component {
   /**
    * Urn string for the related dataset, supplied as an external attribute
@@ -30,7 +30,7 @@ export default class DatasetFabricsContainer extends Component {
    */
   @task(function*(this: DatasetFabricsContainer): IterableIterator<Promise<DatasetOrigins>> {
     if (isLiUrn(this.urn)) {
-      const dataOrigins: DatasetOrigins = yield readDatasetOriginsByUrn(this.urn);
+      const dataOrigins = ((yield readDatasetOriginsByUrn(this.urn)) as unknown) as DatasetOrigins;
 
       if (isArray(dataOrigins)) {
         get(this, 'fabrics').setObjects(dataOrigins);

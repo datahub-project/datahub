@@ -1,0 +1,118 @@
+$success-color: rgb(19, 158, 38);
+$reject-color: rgb(224, 0, 34);
+$gray-color: rgb(234, 234, 234);
+
+.acl-permission {
+  &__header {
+    display: flex;
+    align-items: center;
+    margin-top: item-spacing(3);
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    margin-left: item-spacing(2);
+
+    &__header {
+      font-size: 16px;
+    }
+  }
+
+  &__success {
+    color: $success-color;
+  }
+
+  &__reject {
+    color: $reject-color;
+  }
+
+  &__separator {
+    margin: item-spacing(5 0);
+  }
+}
+
+.acl-table {
+  &__header {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__ownership {
+    color: #bfc0c1;
+  }
+
+  .nacho-table__wrapper {
+    border: 0;
+  }
+}
+
+.disabled-button-hover-state-trap {
+  outline: none;
+  z-index: z('modal');
+}
+
+.acl-expiration-calendar {
+  @include ember-power-calendar($cell-size: item-spacing(7), $primary-color: get-color(blue7));
+}
+
+.acl-no-platform-access {
+  @include nacho-container;
+  margin-top: item-spacing(5);
+}
+
+.jit-acl-access-current {
+  $success-color: get-color(green5);
+  $reject-color: get-color(red5);
+
+  &__header {
+    background: get-color(white);
+    box-shadow: 0 0 0 1px get-color(black, 0.1);
+    padding: item-spacing(3 5);
+    display: flex;
+    align-items: center;
+    margin: item-spacing(6 0);
+  }
+
+  &__actions {
+    margin-left: auto;
+
+    &-button {
+      & + & {
+        margin-left: item-spacing(2);
+      }
+
+      &#{&} {
+        padding: item-spacing(1 3);
+      }
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    margin-left: item-spacing(2);
+
+    &__header {
+      font-size: item-spacing(4);
+      font-weight: fw(normal, 4);
+    }
+  }
+
+  &__icon {
+    font-size: 20px;
+    margin: item-spacing(0 1);
+  }
+
+  &__success {
+    color: $success-color;
+  }
+
+  &__reject {
+    color: $reject-color;
+  }
+
+  &__separator {
+    margin: item-spacing(5 0);
+  }
+}

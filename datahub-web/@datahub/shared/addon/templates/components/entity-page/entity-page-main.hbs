@@ -1,0 +1,149 @@
+<EntityPage::EntityBaseContainer
+  @urn={{@urn}}
+  @entityClass={{@entityClass}}
+  @currentTab={{@tabSelected}} as |container|
+>
+  <ConcurrencyTaskStateHandler @task={{container.dataTask}}>
+    {{#with container.entity as |entity|}}
+      <section class="entity-header">
+
+        {{#if container.entityClass.renderProps.browse}}
+          <span class="bread-crumb-spacer"></span>
+          <WaitPromiseContainer
+            class={{with-banner-offset "nacho-breadcrumbs-container"}}
+            @showLockup={{false}}
+            @customErrorComponent="browser/entity-breadcrumbs/breadcrumb-error"
+            @promise={{entity.readPath}} as |paths|>
+            <Browser::EntityBreadcrumbs
+              @tagName=""
+              @entity={{lowercase entity.displayName}}
+              @segments={{paths}}
+            />
+          </WaitPromiseContainer>
+        {{/if}}
+
+        <div
+          class="container
+            entity-page-main-header__content
+            entity-page-main-header__content--{{if container.entityClass.renderProps.browse "with-breadcrumbs" "without-breadcrumbs" }}">
+          <EntityPage::WherehowsEntityHeader as |EntityHeader|>
+            <EntityHeader.row>
+              <EntityHeader.entityType>
+                {{uppercase (humanize @entityClass.displayName)}}
+              </EntityHeader.entityType>
+            </EntityHeader.row>
+            <EntityHeader.row>
+              <EntityHeader.entityTitle>
+                {{entity.name}}
+
+                <div class="wherehows-entity-header-title__tags">
+                  {{#each this.header.properties as |headerProperty|}}
+                    {{#if headerProperty.tagComponent}}
+
+                      {{#let (get entity headerProperty.name) as |value|}}
+                        {{component
+                          headerProperty.tagComponent.name
+                          options=headerProperty.tagComponent.options
+                          value=value
+                        }}
+                      {{/let}}
+
+                    {{/if}}
+                  {{/each}}
+                </div>
+
+              </EntityHeader.entityTitle>
+              {{#with this.header.actionComponents as |actionComponents|}}
+                <div class="entity-page-main-header__actions">
+                  {{#each actionComponents as |actionComponent|}}
+                    {{component actionComponent.name options=actionComponent.options entity=entity}}
+                  {{/each}}
+                </div>
+              {{/with}}
+            </EntityHeader.row>
+            {{#with entity.description as |description|}}
+              <EntityHeader.row class="entity-page-main-header__description">
+                {{description}}
+              </EntityHeader.row>
+            {{/with}}
+            {{#with this.header.properties as |properties|}}
+              <EntityHeader.row>
+                <div class="entity-page-main-header__properties-container">
+                  {{#each properties as |property|}}
+                    {{#unless property.tagComponent}}
+
+                      {{#with (get entity property.name) as |value|}}
+                        <EntityHeader.entityProperty as |EntityProperty|>
+                          <EntityProperty.propertyName class="entity-page-main-header__property-name">
+                            {{property.displayName}}
+                          </EntityProperty.propertyName>
+                          <EntityProperty.propertyValue class="entity-page-main-header__property-value">
+                            <Properties::ValueRenderer @baseClass="entity-page-main-header" @value={{value}} @component={{property.component}} />
+                          </EntityProperty.propertyValue>
+                        </EntityHeader.entityProperty>
+                      {{/with}}
+
+                    {{/unless}}
+                  {{/each}}
+                </div>
+              </EntityHeader.row>
+            {{/with}}
+
+            {{#each this.header.customComponents as |customComponent|}}
+              <EntityHeader.row>
+                {{component customComponent.name options=customComponent.options entity=entity}}
+              </EntityHeader.row>
+            {{/each}}
+          </EntityPage::WherehowsEntityHeader>
+        </div>
+      </section>
+      <IvyTabs @selection={{container.currentTab}} as |Tabs|>
+        <nav
+          class={{with-banner-offset (if container.entityClass.renderProps.browse "entity-tabs" "entity-tabs entity-tabs-without-crumbs")}}
+          role="navigation"
+          aria-label="Entity Section"
+        >
+          <div class="container" aria-hidden="true">
+            <Tabs.tablist as |TabList|>
+              {{#each container.tabs as |tab|}}
+                <TabList.tab
+                  @model={{tab.id}}
+                  @on-select={{action container.tabSelectionDidChange}}
+                >
+                  {{tab.title}}
+                </TabList.tab>
+              {{/each}}
+            </Tabs.tablist>
+          </div>
+        </nav>
+        <div class="container entity-tab-container">
+          {{#each container.tabs as |tab|}}
+            <Tabs.tabpanel @model={{tab.id}}>
+              <Nacho::NachoTabCacher
+                @lazyRender={{tab.lazyRender}}
+                @id={{tab.id}}
+                @currentTab={{@tabSelected}}
+              >
+                {{component
+                  (or tab.contentComponent.name tab.contentComponent)
+                  entity=container.entity
+                  options=tab.contentComponent.options
+
+                  requestJitAccess=(hash
+                    jitAclConfig=container.jitAclConfig
+                    requestJitUrns=@requestJitUrns
+                    addRequestJitUrn=(fn @addRequestJitUrn)
+                    removeRequestJitUrn=(fn @removeRequestJitUrn)
+                    resetRequestJitUrns=(fn @resetRequestJitUrns)
+                  )
+                }}
+              </Nacho::NachoTabCacher>
+            </Tabs.tabpanel>
+          {{/each}}
+        </div>
+      </IvyTabs>
+    {{else}}
+      <EmptyState @heading={{or container.error "Entity not found"}}/>
+    {{/with}}
+  </ConcurrencyTaskStateHandler>
+</EntityPage::EntityBaseContainer>

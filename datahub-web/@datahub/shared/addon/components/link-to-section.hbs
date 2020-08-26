@@ -1,0 +1,6 @@
+<button
+  type="button"
+  class="link-to-section {{@baseClass}}"
+  {{on 'click' (fn this.scrollTo @sectionSelector)}}>
+  {{yield}}
+</button>

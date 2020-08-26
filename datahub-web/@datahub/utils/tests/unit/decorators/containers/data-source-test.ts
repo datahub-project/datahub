@@ -3,7 +3,7 @@ import TestForContainerDataSourceComponent from 'dummy/components/test-for/decor
 import { set } from '@ember/object';
 
 module('Unit | Utility | decorators/containers/data-source', function() {
-  test('it properly adds data source to component', async function(assert) {
+  test('it properly adds data source to component', async function(assert): Promise<void> {
     const mockContainer = new TestForContainerDataSourceComponent();
 
     assert.expect(2);

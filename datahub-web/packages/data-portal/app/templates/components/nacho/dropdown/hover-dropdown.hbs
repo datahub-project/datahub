@@ -1,11 +1,11 @@
-{{#basic-dropdown renderInPlace=@renderInPlace as |bd|}}
+<BasicDropdown @renderInPlace={{@renderInPlace}} as |bd|>
   {{#if (not-eq @wrappedTriggerComponent true)}}
-    {{#bd.trigger
-      class="nacho-drop-down__trigger"
-      onMouseDown=(action "prevent")
-      onMouseEnter=(action "showDropDown")
-      onMouseLeave=(action "hideDropDown")
-    }}
+    <bd.trigger
+      @class="nacho-drop-down__trigger"
+      {{on "mousedown" this.prevent}}
+      {{on "mouseenter" this.showDropDown}}
+      {{on "mouseleave" this.hideDropDown}}
+    >
       <strong class="nacho-drop-down__active">
         {{selectedDropDown.label}}
       </strong>
@@ -15,7 +15,7 @@
           {{fa-icon (if isExpanded "caret-up" "caret-down")}}
         </span>
       {{/if}}
-    {{/bd.trigger}}
+    </bd.trigger>
   {{/if}}
 
   {{yield
@@ -36,4 +36,4 @@
       )
     )
   }}
-{{/basic-dropdown}}
+</BasicDropdown>

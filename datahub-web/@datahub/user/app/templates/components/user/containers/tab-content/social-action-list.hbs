@@ -1,0 +1,11 @@
+<Search::SearchMain
+  @searchConfig={{this.searchConfig}}
+  @trackPrefix={{concat this.currentActionableEntity.displayName "i" this.currentSocialAction}}
+  @title={{concat (pluralize (capitalize this.currentActionableEntity.displayName)) " " @entity.name " " (capitalize this.currentSocialAction) "s"}}
+  @keyword={{concat this.filterByKeyword ":" @entity.username}}
+  @page={{this.currentPage}}
+  @entity={{this.currentActionableEntity.displayName}}
+  @noResultMsg={{concat @entity.name " doesn't " this.currentSocialAction " any entities"}}
+  @showFacets={{false}}
+  @updatePageHandler={{action this.onUpdatePage}}
+/>

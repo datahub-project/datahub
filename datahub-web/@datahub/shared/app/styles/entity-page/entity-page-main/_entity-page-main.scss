@@ -1,0 +1,67 @@
+.entity-page-main {
+  &-header {
+    &__content {
+      &--without-breadcrumbs {
+        padding-top: item-spacing(3);
+      }
+
+      &--with-breadcrumbs {
+        padding-top: item-spacing(3);
+      }
+
+      .wherehows-entity-header-title {
+        display: flex;
+        flex-grow: 1;
+      }
+    }
+
+    &__properties-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding-bottom: item-spacing(3);
+      margin-top: item-spacing(3);
+      width: 100%;
+
+      > .wherehows-entity-header-property {
+        flex-basis: 50%;
+      }
+    }
+
+    &__property-name {
+      font-weight: bold;
+    }
+
+    &__field-value-list {
+      display: flex;
+      flex-wrap: wrap;
+
+      &-item {
+        &:after {
+          content: ',';
+          margin-right: 5px;
+          margin-left: -3px;
+        }
+
+        &:last-child:after {
+          content: '';
+        }
+      }
+    }
+  }
+
+  .entity-tab-container {
+    padding-top: 0;
+  }
+
+  .entity-page-component {
+    &--top-spacing {
+      padding-top: item-spacing(6);
+    }
+  }
+
+  // TODO META-11859 Standardize Margin/Padding for Social Actions
+  .social-metadata-container {
+    margin-top: 0;
+    margin-bottom: item-spacing(3);
+  }
+}

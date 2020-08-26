@@ -1,0 +1,6 @@
+{{#each this.tagList as |tag|}}
+  <NachoPillInput @value={{tag}} @onDelete={{action this.removeTag tag}}/>
+{{/each}}
+<NachoPillInput @placeholder="Add Pokemon" @onComplete={{action this.addTag}}/>
+<NachoPillInput @placeholder="Add Pokemon max length {{this.maxlength}}" @maxlength={{this.maxlength}} @onOncomplete={{action this.addTag}} />
+{{yield}}

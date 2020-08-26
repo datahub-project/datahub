@@ -31,7 +31,7 @@
 
   &__type {
     margin-left: auto;
-    color: set-color(grey, mid);
+    color: get-color(gray5);
     align-self: flex-start;
 
     &::before {

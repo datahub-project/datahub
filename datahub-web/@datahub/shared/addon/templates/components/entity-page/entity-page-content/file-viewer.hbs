@@ -1,0 +1,16 @@
+{{#with (get this.entity this.propertyName) as |file|}}
+  {{!-- MaxLines affect performance as Ace do some kind of lazy load, similar to how apple renders tables --}}
+  <EmberAce
+    @value={{file.content}}
+    @readOnly={{true}}
+    @showLineNumbers={{true}}
+    @showPrintMargin={{false}}
+    @highlightActiveLine={{false}}
+    @minLines={{10}}
+    @maxLines={{100}}
+    @mode={{concat "ace/mode/" file.type}}
+    @worker={{concat "ace/mode/" file.type "_worker"}}
+  />
+{{else}}
+  <EmptyState @heading={{this.emptyStateMessage}} />
+{{/with}}

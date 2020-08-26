@@ -14,45 +14,29 @@
   <ul class="avatar-container__list">
     {{#each maxAvatars as |avatar|}}
       <li class="avatar-item avatar-item--stacked">
-        {{#nacho/dropdown/hover-dropdown
-          dropDownItems=avatar.avatarOptions
-          selectedDropDown=null
-          wrappedTriggerComponent=true
-          renderInPlace=true
-          onSelect=(action "onAvatarOptionSelected" avatar)
-        as |dd|
-        }}
+        <Nacho::Dropdown::HoverDropdown @dropDownItems={{avatar.avatarOptions}} @selectedDropDown={{null}} @wrappedTriggerComponent={{true}} @renderInPlace={{true}} @onSelect={{action "onAvatarOptionSelected" avatar}} as |dd|>
 
-          {{#dd.trigger class="avatar-item__trigger"}}
+          <dd.trigger @class="avatar-item__trigger">
             {{#if avatar.profileLink}}
-              <a href={{avatar.profileLink}}>
-                {{avatars/avatar-image
-                  avatar=avatar
-                  class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")
-                }}
+              <a href={{avatar.profileLink}} rel="noreferrer noopener" target="_blank">
+                <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
               </a>
             {{else}}
-              {{avatars/avatar-image
-                avatar=avatar
-                class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")
-              }}
+              <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
             {{/if}}
-          {{/dd.trigger}}
+          </dd.trigger>
 
           {{dd.content}}
-        {{/nacho/dropdown/hover-dropdown}}
+        </Nacho::Dropdown::HoverDropdown>
 
       </li>
     {{/each}}
   </ul>
 
   {{#if rollupAvatars}}
-    {{#avatars/rollup-avatars
-      avatars=avatars
-      avatarType=@avatarType
-    }}
+    <Avatars::RollupAvatars @avatars={{avatars}} @avatarType={{@avatarType}}>
       +{{rollupAvatars.length}}
-    {{/avatars/rollup-avatars}}
+    </Avatars::RollupAvatars>
   {{/if}}
 
 {{/if}}

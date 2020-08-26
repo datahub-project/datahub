@@ -1,4 +1,4 @@
-import { localFacetProcessor } from 'wherehows-web/utils/parsers/autocomplete/processors/facets/local-facet';
+import { localFacetProcessor } from 'datahub-web/utils/parsers/autocomplete/processors/facets/local-facet';
 import { fabricsArray } from '@datahub/data-models/entity/dataset/utils/urn';
 
 /**

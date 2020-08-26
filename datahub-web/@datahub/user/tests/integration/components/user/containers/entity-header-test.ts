@@ -25,7 +25,7 @@ module('Integration | Component | user/containers/entity-header', function(hooks
     this.set('entity', entity);
 
     await render(hbs`<User::Containers::EntityHeader @entity={{entity}} as |data|>
-                       <button class="test-button" onclick={{perform data.updateProfileTask}}>
+                       <button class="test-button" onclick={{perform data.updateProfileTask}} type="button">
                          Click ME!
                        </button>
                        <span class="test-span">{{data.entity.name}}</span>

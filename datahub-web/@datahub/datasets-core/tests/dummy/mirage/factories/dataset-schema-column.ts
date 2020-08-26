@@ -22,10 +22,10 @@ export default Factory.extend({
   dataType: 'DATATYPE',
   distributed: false,
   fieldName: faker.list.cycle(...fieldNames),
-  fullFieldPath() {
-    return this.fieldName;
+  fullFieldPath(): string {
+    return this.fieldName as string;
   },
-  id(id: number) {
+  id(id: number): number {
     return id;
   },
   indexed: false,

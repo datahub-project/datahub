@@ -1,0 +1,11 @@
+<span>{{@options.displayName}}</span>
+
+{{#with @options.tooltipText as |tooltipText|}}
+  <i class="nacho-tooltip" data-title={{tooltipText}}>
+    <FaIcon
+      @prefix="far"
+      @icon="question-circle"
+      class="properties-panel__tooltip-icon"
+    />
+  </i>
+{{/with}}

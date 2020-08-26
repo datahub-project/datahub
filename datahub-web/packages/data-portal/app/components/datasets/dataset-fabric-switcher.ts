@@ -7,9 +7,9 @@ import {
   datasetUrnRegexLI,
   getDatasetUrnParts
 } from '@datahub/data-models/entity/dataset/utils/urn';
-import { arrayMap, arrayReduce } from 'wherehows-web/utils/array';
+import { arrayMap, arrayReduce } from '@datahub/utils/array/index';
 import { TaskInstance, timeout, task } from 'ember-concurrency';
-import { DatasetOrigins, IDatasetOrigin } from 'wherehows-web/typings/api/datasets/origins';
+import { DatasetOrigins, IDatasetOrigin } from 'datahub-web/typings/api/datasets/origins';
 import { classNames } from '@ember-decorators/component';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
@@ -43,7 +43,7 @@ export default class DatasetFabricSwitcher extends Component {
    * @type {boolean}
    * @memberof DatasetFabricSwitcher
    */
-  isExpanded: boolean = false;
+  isExpanded = false;
 
   /**
    * Lists the Fabrics that are available for the dataset at this urn

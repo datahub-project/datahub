@@ -23,6 +23,6 @@
     "test-support/**/*",
     "addon-test-support/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*"
+    "../../@datahub/utils/types/**/*",
   ]
 }

@@ -1,0 +1,3 @@
+{{#each this.components as |dynamicComponent|}}
+  {{component dynamicComponent.name options=dynamicComponent.options entity=@entity}}
+{{/each}}

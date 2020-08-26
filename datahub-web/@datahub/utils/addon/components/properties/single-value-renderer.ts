@@ -3,6 +3,8 @@ import Component from '@ember/component';
 import template from '../../templates/components/properties/single-value-renderer';
 import { tagName, layout } from '@ember-decorators/component';
 import { IDynamicComponent } from '@datahub/shared/types/dynamic-component';
+import { computed } from '@ember/object';
+import { typeOf } from '@ember/utils';
 
 /**
  * will render a single value with a custom component (or not)
@@ -22,4 +24,12 @@ export default class PropertiesSingleValueRenderer extends Component {
    * if no component, then it will render the string
    */
   value: unknown | string;
+
+  /**
+   * Type of value to read from template
+   */
+  @computed('value')
+  get valueType(): string {
+    return typeOf(this.value);
+  }
 }

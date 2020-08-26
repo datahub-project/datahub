@@ -20,6 +20,11 @@ export default class ConcurrencyTaskStateHandler<T> extends Component {
   showLockup = true;
 
   /**
+   * A flag indicating that the state handler should only handle async states and not the error state
+   */
+  handleAsyncStateOnly = false;
+
+  /**
    * Ember concurrency task which is performed by this component on retry request, and the state derived from the task drives
    * component state. If the task is running a indication is shown in the ui, otherwise control is yielded to contextual content
    */

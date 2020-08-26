@@ -1,6 +1,6 @@
 import { CompiledRules } from 'nearley';
 import nearley from 'nearley';
-import { Parser } from 'wherehows-web/typings/modules/nearley';
+import { Parser } from 'datahub-web/typings/modules/nearley';
 
 /**
  * We will pre-process the string to remove extra spaces that will slow down the parser.

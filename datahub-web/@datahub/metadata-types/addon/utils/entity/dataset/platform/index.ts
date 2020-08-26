@@ -6,7 +6,7 @@ import { datasetPlatformRegExp } from '@datahub/metadata-types/utils/entity/data
  * @param {string} platform Standardized platform urn where a dataset is defined
  * @return string
  */
-export const getPlatformNameFromPlatformUrn = (platform: string = ''): string => {
+export const getPlatformNameFromPlatformUrn = (platform = ''): string => {
   const matchOrNull = datasetPlatformRegExp.exec(platform);
 
   if (matchOrNull) {

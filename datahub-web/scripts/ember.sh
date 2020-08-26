@@ -1,2 +1,2 @@
 #!/bin/bash
-./gradlew execEmber -PemberArgs="$*"
+ligradle whEmber -PemberArgs="$*"

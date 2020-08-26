@@ -1,6 +1,4 @@
-import { IEntityLinkAttrs } from '@datahub/data-models/types/entity/shared';
 import { IFacetsCounts } from '@datahub/data-models/types/entity/facets';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
 import { ArrayElement } from '@datahub/utils/types/array';
 
 /**
@@ -35,11 +33,8 @@ export type SearchResultDataItem<T> = ArrayElement<IDataModelEntitySearchResult<
  * @interface ISearchResultMetadata
  */
 export interface ISearchResultMetadata<T> {
-  entityLink: IEntityLinkAttrs;
+  // Position in search result
   resultPosition: number;
-  // Interim approach to provide secondary actions components with a required DataModelEntityInstance reference
-  // In the ideal case search results should be reified with the class
-  instance: DataModelEntityInstance | null;
 }
 
 /**

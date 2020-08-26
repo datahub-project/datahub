@@ -1,0 +1,18 @@
+<section class={{this.baseComponentClass}}>
+  <button
+    type="button"
+    class="{{this.baseComponentClass}}__button"
+    {{action "toggleExpanded"}}
+  >
+    <TruncatedTextWithTooltip @className="{{this.baseComponentClass}}__title" @text={{@title}} />
+    <FaIcon
+      class="{{this.baseComponentClass}}__icon"
+      @icon={{if isExpanded "chevron-up" "chevron-down"}}
+    />
+  </button>
+</section>
+{{#if this.isExpanded}}
+  <section class="{{this.baseComponentClass}}__expanded">
+    {{yield}}
+  </section>
+{{/if}}

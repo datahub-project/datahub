@@ -4,14 +4,14 @@ import { className, tagName } from '@ember-decorators/component';
 
 // RadioButton is a fragment, to allow DOM events, override with a DOM element
 @tagName('span')
-export default class RadioButtonComposer extends RadioButton {
+export default class RadioButtonComposer<T> extends RadioButton {
   /**
    * Specifies the className to be added to the component when the class has a disabled
    * property that evaluates to a truthy value
    * @type {string}
    * @memberof RadioButtonComposer
    */
-  disabledClass: string = '';
+  disabledClass = '';
 
   /**
    * Resolves the class name binding for a component instance that is disabled i.e.
@@ -90,7 +90,7 @@ export default class RadioButtonComposer extends RadioButton {
    * @param args
    */
   @action
-  changed(...args: Array<any>): void {
+  changed(...args: Array<T>): void {
     const { onChange } = this;
 
     if (typeof onChange === 'function') {

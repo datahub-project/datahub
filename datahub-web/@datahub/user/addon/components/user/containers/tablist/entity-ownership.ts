@@ -3,7 +3,7 @@ import Component from '@ember/component';
 import template from '../../../../templates/components/user/containers/tablist/entity-ownership';
 import { layout } from '@ember-decorators/component';
 import { alias } from '@ember/object/computed';
-import { ITabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
+import { ITabProperties } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 
 /**
  * This is the tablist menu component that we use to show the tablist items for the user entity

@@ -1,17 +1,15 @@
 import Component from '@ember/component';
-import { get, setProperties } from '@ember/object';
-import { task } from 'ember-concurrency';
+import { get } from '@ember/object';
 import { action } from '@ember/object';
 import Notifications from '@datahub/utils/services/notifications';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
-import { readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
-import { updateDatasetDeprecationByUrn } from 'wherehows-web/utils/api/datasets/properties';
+import { updateDatasetDeprecationByUrn } from 'datahub-web/utils/api/datasets/properties';
 import { inject as service } from '@ember/service';
-import { containerDataSource } from '@datahub/utils/api/data-source';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
-import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import { alias } from '@ember/object/computed';
 
-@containerDataSource('getDeprecationPropertiesTask', ['urn'])
+type DeprecationType = Exclude<Com.Linkedin.Dataset.Dataset['deprecation'], undefined>;
+
 export default class DatasetPropertiesContainer extends Component {
   /**
    * The urn identifier for the dataset
@@ -20,22 +18,27 @@ export default class DatasetPropertiesContainer extends Component {
   urn: string;
 
   /**
-   * Flag indicating that the dataset is deprecated
-   * @type {IDatasetView.deprecated}
+   * DatasetEntity instace passed down from the entity-page container
    */
-  deprecated: IDatasetView['deprecated'];
+  entity: DatasetEntity;
+
+  /**
+   * Flag indicating that the dataset is deprecated
+   */
+  @alias('entity.deprecated')
+  deprecated: DeprecationType['deprecated'] | undefined;
 
   /**
    * Text string, intended to indicate the reason for deprecation
-   * @type {IDatasetView.deprecationNote}
    */
-  deprecationNote: IDatasetView['deprecationNote'] = '';
+  @alias('entity.deprecationNote')
+  deprecationNote: DeprecationType['note'] | undefined = '';
 
   /**
    * Time when the dataset will be decommissioned
-   * @type {IDatasetView.decommissionTime}
    */
-  decommissionTime: IDatasetView['decommissionTime'];
+  @alias('entity.decommissionTime')
+  decommissionTime: DeprecationType['decommissionTime'] | undefined;
 
   /**
    * THe list of properties for the dataset, currently unavailable for v2
@@ -51,14 +54,6 @@ export default class DatasetPropertiesContainer extends Component {
   @service
   notifications: Notifications;
 
-  /**
-   * Reads the persisted deprecation properties for the dataset
-   */
-  @task(function*(this: DatasetPropertiesContainer): IterableIterator<Promise<IDatasetView>> {
-    const { deprecated, deprecationNote, decommissionTime }: IDatasetView = yield readDatasetByUrn(this.urn);
-    setProperties(this, { deprecated, deprecationNote, decommissionTime });
-  })
-  getDeprecationPropertiesTask!: ETaskPromise<IDatasetView>;
   /**
    * Persists the changes to the dataset deprecation properties upstream
    * @param {boolean} isDeprecated
@@ -92,10 +87,6 @@ export default class DatasetPropertiesContainer extends Component {
         type: NotificationEvent.error,
         content: `An error occurred: ${e.message}`
       });
-    } finally {
-      // set current state
-
-      this.getDeprecationPropertiesTask.perform();
     }
   }
 }

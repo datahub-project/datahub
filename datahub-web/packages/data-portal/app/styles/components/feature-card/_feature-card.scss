@@ -10,13 +10,13 @@ $feature-card-image-size: 50px !default;
 
   &__title {
     display: inline-flex;
-    color: set-color(blue, curious);
+    color: get-color(blue5);
     font-weight: fw(normal, 4);
     font-size: 20px;
   }
 
   &__description {
-    color: set-color(black, dune);
+    color: get-color(gray10);
   }
 
   /// Sets rules for displaying an image in a feature card component

@@ -13,7 +13,7 @@ ember install @datahub/metadata-types
 Once installed you may include types for the namespace that you are interested in consuming in your application.
 
 ```ts
-import { IDatasetView } from '@datahub/metadata-types/entity/dataset';
+import { IDatasetApiView } from '@datahub/metadata-types/entity/dataset';
 ```
 
 ## Contributing
@@ -22,7 +22,7 @@ import { IDatasetView } from '@datahub/metadata-types/entity/dataset';
 The folder structure is laid out similarly to how psdc models are namespaced.
 This is to aid in familiarity and ease of mental mapping between the TypeScript types defined here and the respective MP models.
 
-Please adhere to similar namespace and path structure when creating new types that are representative of PDL models.
+Please adhere to similar namespace and path structure when creating new types that are representative of pdsc models.
 
 For cases where a type is needed, for example, an alias for convenience, that is not a corollary with a MP defined model, these types should be defined in local-types if there is no js emit.
 
@@ -57,4 +57,4 @@ For more information on using ember-cli, visit [https://ember-cli.com/](https://
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE.md).
+This project is licensed under the [Apache License](LICENSE.md).

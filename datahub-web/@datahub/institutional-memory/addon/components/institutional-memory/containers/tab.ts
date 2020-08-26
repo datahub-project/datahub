@@ -4,15 +4,16 @@ import template from '../../../templates/components/institutional-memory/contain
 import { layout } from '@ember-decorators/component';
 import { action, computed } from '@ember/object';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
 import { isEqual } from 'lodash';
 import { InstitutionalMemory, InstitutionalMemories } from '@datahub/data-models/models/aspects/institutional-memory';
 import { run, schedule } from '@ember/runloop';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
+import { changeManagementEnabledEntityList } from '@datahub/shared/constants/change-management';
 
 @layout(template)
-@containerDataSource('getContainerDataTask', ['entity'])
+@containerDataSource<InstitutionalMemoryContainersTab>('getContainerDataTask', ['entity'])
 export default class InstitutionalMemoryContainersTab extends Component {
   /**
    * The entity for which we are instantiating this institutional memory tab. It is our method of
@@ -31,6 +32,14 @@ export default class InstitutionalMemoryContainersTab extends Component {
   }
 
   /**
+   * Flag that indicates if the current entity belongs to a whitelist that dictates if Change management is enabled or not.
+   */
+  @computed('entity.displayName')
+  get isChangeManagementEnabled(): boolean {
+    const { entity } = this;
+    return changeManagementEnabledEntityList.includes(entity?.displayName || '');
+  }
+  /**
    * This container data task runs when the component is initially rendered or if the entity given
    * to the component has changed
    */
@@ -45,12 +54,15 @@ export default class InstitutionalMemoryContainersTab extends Component {
     // where a rare timing issue can lead to institutional memory staying undefined and not
     // updating to the response, which leads to a blank tab. Runloop forces Ember to adhere to our
     // timing of a runloop start/end
-    run(() => {
-      schedule('actions', async () => {
-        // Assumes that the entity supports institutional memory, otherwise this will throw an error
-        // for not implemented yet.
-        await entity.readInstitutionalMemory();
-      });
+    run((): void => {
+      schedule(
+        'actions',
+        async (): Promise<void> => {
+          // Assumes that the entity supports institutional memory, otherwise this will throw an error
+          // for not implemented yet.
+          await entity.readInstitutionalMemory();
+        }
+      );
     });
   }).drop())
   getContainerDataTask!: ETaskPromise<InstitutionalMemories>;
@@ -99,7 +111,7 @@ export default class InstitutionalMemoryContainersTab extends Component {
   removeInstitutionalMemoryLink(linkObject: InstitutionalMemory): void {
     const { institutionalMemoryList } = this;
     if (institutionalMemoryList) {
-      const removalIndex = institutionalMemoryList.findIndex(link => isEqual(link, linkObject));
+      const removalIndex = institutionalMemoryList.findIndex((link): boolean => isEqual(link, linkObject));
 
       if (removalIndex > -1) {
         institutionalMemoryList.removeAt(removalIndex);

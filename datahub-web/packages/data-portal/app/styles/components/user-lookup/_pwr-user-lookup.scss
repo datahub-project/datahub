@@ -32,30 +32,27 @@
     }
   }
 
-  &--focused {
-    &::after {
-      content: '\2b';
-      position: absolute;
-      top: 10px;
-      left: item-spacing(2);
-      z-index: z(default);
-      color: rgba(0, 0, 0, 0.5);
-      display: inline-block;
-      font-family: 'Glyphicons Halflings';
-      font-style: normal;
-      font-weight: normal;
-      line-height: 1;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .ember-power-select-typeahead-input {
-      padding-left: 24px;
-    }
-  }
-
   .ember-power-select-trigger {
     &:before {
       content: '';
     }
+  }
+}
+
+.user-lookup {
+  margin: item-spacing(4 0);
+  position: relative;
+  width: 100%;
+
+  &__input {
+    width: 100%;
+    outline: none;
+    border-radius: 0;
+    border: 1px solid get-color(gray2);
+    padding: item-spacing(2 5 2 6);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    transition: box-shadow ease-in-out 0.15s;
+    line-height: 1.428;
+    font-size: fs(standard);
   }
 }

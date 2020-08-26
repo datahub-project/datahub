@@ -104,7 +104,7 @@ export interface IMirageDBQueryResult<T> {
 export interface IMirageDB<T> {
   all: () => IMirageDBQueryResult<T>;
   insert: (entries: Array<T>) => void;
-  where: (query: Partial<T>) => IMirageDBQueryResult<T>;
+  where: (query: Partial<T> | ((obj: T) => boolean)) => IMirageDBQueryResult<T>;
   first: () => IMirageDBQueryResult<T> | T;
   findBy: (query: Partial<T>) => IMirageDBQueryResult<T>;
 }

@@ -1,0 +1,16 @@
+// Defines rules for the representation of the Health Score across the application
+.health-score {
+  color: get-color(gray5);
+
+  &--negative {
+    color: get-color(red5);
+  }
+
+  &--neutral {
+    color: get-color(orange5);
+  }
+
+  &--positive {
+    color: get-color(green5);
+  }
+}

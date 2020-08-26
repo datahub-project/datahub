@@ -1,0 +1,9 @@
+{{#with this.data as |data|}}
+  <NachoTable
+    @class={{@options.className}}
+    @data={{data}}
+    @tableConfigs={{this.tableConfigs}}
+  />
+{{else}}
+  <EmptyState @heading={{this.emptyStateMessage}} />
+{{/with}}

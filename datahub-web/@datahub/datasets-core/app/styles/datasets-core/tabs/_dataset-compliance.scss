@@ -1,0 +1,18 @@
+.dataset-compliance {
+  &__loading-container {
+    padding-top: item-spacing(8);
+  }
+
+  &__tab-header {
+    display: flex;
+    justify-content: flex-end;
+    padding: item-spacing(4 5);
+    background-color: get-color(slate7, 0.1);
+    align-items: center;
+  }
+
+  &__tab-switch-label {
+    margin-left: item-spacing(3);
+    margin-top: item-spacing(1);
+  }
+}

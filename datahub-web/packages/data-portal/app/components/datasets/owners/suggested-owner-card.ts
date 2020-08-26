@@ -1,4 +1,4 @@
-import DatasetAuthorComponent from 'wherehows-web/components/dataset-author';
+import DatasetAuthorComponent from 'datahub-web/components/dataset-author';
 
 export default class DatasetsOwnersSuggestedOwnerCard extends DatasetAuthorComponent {
   /**

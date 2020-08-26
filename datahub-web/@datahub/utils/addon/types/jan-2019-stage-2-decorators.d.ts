@@ -22,9 +22,9 @@ export interface IReturnElementDescriptor extends IParameterElementDescriptor {
   extras: Array<DecoratorDescriptor>;
   // Hook, similar to field initializers except they do not result in defining a field
   // These can be used, e.g., to make a decorator which defines fields through [[Set]] rather than [[DefineOwnProperty]], or to store the field in some other place.
-  start?(): any;
-  replace?(): any;
-  finish?(): any;
+  start?(): unknown;
+  replace?(): unknown;
+  finish?(): unknown;
 }
 
 export interface IParameterClassDescriptor extends IDescriptorKind {

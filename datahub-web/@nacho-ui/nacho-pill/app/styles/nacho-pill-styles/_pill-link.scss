@@ -1,0 +1,29 @@
+.nacho-pill--link {
+  @include pill-color(transparent, get-color(slate7, 0.9), get-color(slate7, 0.9));
+
+  &:hover {
+    @include pill-color(transparent, get-color(slate8), get-color(slate8));
+  }
+
+  &--active {
+    @include pill-color(get-color(slate7), get-color(white, 0.9));
+  }
+
+  & {
+    > a {
+      @include on-event(true) {
+        color: inherit;
+
+        &,
+        &:hover,
+        &:visited,
+        &:visited:hover,
+        &:active {
+          color: inherit;
+          text-decoration: none;
+        }
+      }
+    }
+    margin-left: item-spacing(3);
+  }
+}

@@ -1,8 +1,8 @@
 import Component from '@ember/component';
 import { classNames } from '@ember-decorators/component';
 import vis, { Network, Node as VisNode, Options } from 'vis';
-import { IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
-import { INode, IEdge } from 'wherehows-web/utils/graph-db';
+import { IDatasetLineage } from '@datahub/metadata-types/types/entity/dataset/lineage';
+import { INode, IEdge } from 'datahub-web/utils/graph-db';
 import { set } from '@ember/object';
 import { computed, action } from '@ember/object';
 

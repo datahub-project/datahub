@@ -1,0 +1,126 @@
+/// Contains all application wide Sass functions.
+
+/// Native `url(..)` function wrapper
+/// @param {String} $base - base URL for the asset
+/// @param {String} $type - asset type folder (e.g. `fonts/`)
+/// @param {String} $path - asset path
+/// @return {Url}
+@function asset($base, $type, $path) {
+  @return url($base+$type+$path);
+}
+
+/// Returns URL to an image based on its path
+/// @param {String} $path - image path
+/// @param {String} $base [$base-url] - base URL
+/// @return {Url}
+/// @require $base-url
+@function image-res($path, $base: $base-url) {
+  @return asset($base, 'images/', $path);
+}
+
+/// Returns URL to a font based on its path
+/// @param {String} $path - font path
+/// @param {String} $base [$base-url] - base URL
+/// @return {Url}
+/// @require $base-url
+@function font($path, $base: $base-url) {
+  @return asset($base, 'fonts/', $path);
+}
+
+/// Get a z-index value from a layer name
+/// @access public
+/// @param {String} $layer - Layer’s name
+/// @return {Number}
+/// @require $z-indexes
+@function z($layer) {
+  @if map-has-key($z-indexes, $layer) {
+    @return map-get($z-indexes, $layer);
+  }
+
+  @warn '#{$layer} not found in `$z-indexes`';
+  @return null;
+}
+
+/// Get a font-weight from the $font-weight map
+/// @param {String} $style - the font-style to look up
+/// @param {Number} $weight - number for the previous style to be looked up
+/// @return {Number}
+/// @require $font-weights
+@function fw($style, $weight) {
+  @if map-has-key($font-weights, $style) {
+    @return map-get(map-get($font-weights, $style), $weight);
+  }
+
+  @warn '#{$style} not found in `$font-weights` list';
+  @return null;
+}
+
+/// Get a font-size from the $font-sizes map
+/// @param {String} $size name of size to be looked up
+/// @return {Number}
+/// @require $font-sizes
+@function fs($size) {
+  @if map-has-key($font-sizes, $size) {
+    @return map-get($font-sizes, $size);
+  }
+
+  @warn '#{$size} not found in `$font-sizes` list';
+  @return null;
+}
+
+/// Progressively add black as you decrease the proportion of the color
+/// Provides more subtle transitions than darken
+/// @param {Color} $color - color to shade
+/// @param {Number} $percentage - percentage of `$color` in output
+/// @return {Color}
+@function shade($color, $percentage) {
+  @return mix(black, $color, $percentage);
+}
+
+/// Progressively add white as you decrease the proportion of the color
+/// Provides more subtle transitions than lighten
+/// @param {Color} $color - color to tint
+/// @param {Number} $percentage - percentage of `$color` in output
+/// @return {Color}
+@function tint($color, $percentage) {
+  @return mix(white, $color, $percentage);
+}
+
+/// Gets the item spacing length value from the map $item-spacings
+/// @param {Number} @spacing-unit - the type of spacing to retrieve
+@function item-spacing($spacing-unit) {
+  /// item-spacing maps, defines the spaces between elements in application layout
+  /// @type Map
+  /// @prop {String} key - number representing a spacing type
+  /// @prop {Length} value - pixel length
+  $item-spacings: (
+    0: 0px,
+    1: 4px,
+    2: 8px,
+    3: 12px,
+    4: 16px,
+    5: 24px,
+    6: 32px,
+    7: 48px,
+    8: 64px,
+    9: 96px
+  );
+
+  // If item-spacing is passed a list, for example:
+  // padding: item-spacing(1 2 3 4)
+  // map item-spacing onto each element in the list and return it.
+  @if type-of($spacing-unit) == list {
+    $result: ();
+    @each $i in $spacing-unit {
+      $result: append($result, item-spacing($i));
+    }
+    @return $result;
+  }
+
+  // negative types
+  @if ($spacing-unit < 0) {
+    @return -1 * map-get($item-spacings, -1 * $spacing-unit);
+  }
+
+  @return map-get($item-spacings, $spacing-unit);
+}

@@ -1,13 +1,12 @@
-import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
-import { DatasetOrigins, IDatasetOriginsResponse } from 'wherehows-web/typings/api/datasets/origins';
+import { DatasetOrigins, IDatasetOriginsResponse } from 'datahub-web/typings/api/datasets/origins';
 import { getJSON, returnDefaultIfNotFound } from '@datahub/utils/api/fetcher';
-import { encodeUrn } from '@datahub/utils/validators/urn';
+import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
 
 /**
  * Constructs the url for a dataset's dataorigins endpoint
  * @param {string} urn the urn of the selected dataset
  */
-const datasetOriginsUrlByUrn = (urn: string): string => `${datasetUrlByUrn(encodeUrn(urn))}/dataorigins`;
+const datasetOriginsUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/dataorigins`;
 
 /**
  * Fetches the list of DatasetOrigins

@@ -1,0 +1,16 @@
+@mixin nacho-table-footer {
+  display: flex;
+  font-size: fs(standard);
+  padding-left: item-spacing(4);
+  height: 52px;
+  &-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: get-color(blue7);
+    font-weight: bold;
+  }
+  &-icon {
+    height: item-spacing(3);
+  }
+}
