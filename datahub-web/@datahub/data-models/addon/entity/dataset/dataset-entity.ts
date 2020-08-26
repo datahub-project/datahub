@@ -164,25 +164,25 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * Whether or not the dataset has been deprecated
    */
-  @alias('entity.deprecation.deprecated')
+  @alias('entity.dataset.deprecated')
   deprecated?: boolean;
 
   /**
    * Note attached to the deprecation process for this dataset
    */
-  @alias('entity.deprecation.note')
+  @alias('entity.dataset.deprecationNote')
   deprecationNote?: string;
 
   /**
    * Timestamp for when the dataset was deprecated
    */
-  @alias('entity.deprecation.decommissionTime')
+  @alias('entity.dataset.decommissionTime')
   decommissionTime?: number;
 
   /**
    * Last timestamp for the modification of this dataset
    */
-  @oneWay('entity.modifiedTime')
+  @oneWay('entity.dataset.modifiedTime')
   modifiedTime?: number;
 
   /**
@@ -190,7 +190,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    * Note: This overrides the BaseEntity implementation since DatasetEntity has a different behavior than
    * other entities
    */
-  @oneWay('entity.removed')
+  @oneWay('entity.dataset.removed')
   removed!: boolean;
 
   /**
@@ -212,7 +212,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * Reference to the data entity, is the data platform to which the dataset belongs
    */
-  @computed('entity.platform', 'urn')
+  @computed('entity.dataset.platform', 'urn')
   get platform(): DatasetPlatform | undefined {
     const { urn, entity } = this;
     const parts = getDatasetUrnParts(urn);

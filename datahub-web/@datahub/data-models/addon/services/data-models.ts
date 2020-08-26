@@ -10,6 +10,7 @@ import { isBaseEntity } from '@datahub/data-models/entity/base-entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { assignRelationshipGettersToClassObject } from '@datahub/data-models/relationships/creator';
 import { IDataModelEntity } from '@datahub/data-models/constants/entity';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Encapsulating Guards logic into this class so it is easier to move if data-models grow
@@ -29,7 +30,7 @@ export class Guards {
    * List of unguarded entities
    */
   get unGuardedEntitiesDisplayName(): Array<DataModelName> {
-    return [DatasetEntity.displayName];
+    return [DatasetEntity.displayName, PersonEntity.displayName];
   }
 
   /**
