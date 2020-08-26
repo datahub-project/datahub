@@ -1,0 +1,24 @@
+/// The palette layer is where we utilize, mix and match our colors from our bin into a usable scheme for an
+/// application.
+
+/// Gets a color from the color bin map and applies a provided opacity if value is less than 1
+@function get-color($colorKey, $opacity: 1) {
+  $color: map-get($color-bin, $colorKey);
+
+  @if ($color == null) {
+    @error '#{$colorKey} not found in `$color-bin`';
+  }
+
+  @if ($opacity < 1) {
+    $color: rgba($color, $opacity);
+  }
+
+  @return $color;
+}
+
+/// Details of what colors are needed in a color scheme are a WIP, below are examples of what might be included
+/// in a color palette
+/// TODO: [META-7147] Complete color palette when we have an available theme
+$nacho-color-primary: get-color(blue5) !default;
+$nacho-color-error: get-color(red6) !default;
+$nacho-color-secondary: get-color(purple7) !default;

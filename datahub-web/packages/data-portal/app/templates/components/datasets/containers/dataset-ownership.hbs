@@ -6,6 +6,7 @@
 
   <div class="dataset-owner__retry-owners">
     <button
+      type="button"
       class="nacho-button nacho-button--large-inverse"
       onclick={{perform getContainerDataTask}}
     >
@@ -13,7 +14,7 @@
       {{#if getContainerDataTask.isIdle}}
         Retry
       {{else}}
-        {{pendulum-ellipsis-animation}}
+        <PendulumEllipsisAnimation />
       {{/if}}
 
     </button>
@@ -23,31 +24,21 @@
 
   {{#if getContainerDataTask.isRunning}}
 
-    {{pendulum-ellipsis-animation}}
+    <PendulumEllipsisAnimation />
 
   {{else}}
 
     {{#if fromUpstream}}
 
-      {{datasets/containers/upstream-owners upstreamUrn=upstreamUrn}}
+      <Datasets::Containers::UpstreamOwners @upstreamUrn={{upstreamUrn}} />
 
     {{else}}
 
       <div class="last-saved-by-container">
-        {{last-saved-by
-          actor=ownershipMetadata.actor
-          time=ownershipMetadata.lastModified
-        }}
+        <LastSavedBy @actor={{ownershipMetadata.actor}} @time={{ownershipMetadata.lastModified}} />
       </div>
 
-      {{dataset-authors
-        owners=owners
-        suggestedOwners=suggestedOwners
-        avatarProperties=avatarProperties
-        ownerTypes=ownerTypes
-        setOwnershipRuleChange=setOwnershipRuleChange
-        save=(action "saveOwnerChanges")
-      }}
+      <DatasetAuthors @owners={{owners}} @suggestedOwners={{suggestedOwners}} @avatarProperties={{avatarProperties}} @ownerTypes={{ownerTypes}} @setOwnershipRuleChange={{setOwnershipRuleChange}} @save={{action "saveOwnerChanges"}} />
 
     {{/if}}
 

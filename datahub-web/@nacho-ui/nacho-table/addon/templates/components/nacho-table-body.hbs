@@ -1,0 +1,20 @@
+{{#if hasBlock}}
+  {{yield (hash row=(component tableRowComponent))}}
+
+{{else}}
+
+  {{#let tableConfigs.customRows as |rowConfig|}}
+    {{#each rows as |tableRow|}}
+
+      {{component
+        tableRowComponent
+        class=rowConfig.className
+        tableConfigs=(readonly tableConfigs)
+        rowData=tableRow
+      }}
+
+    {{/each}}
+  {{/let}}
+
+{{/if}}
+

@@ -1,0 +1,11 @@
+{{#if @options.component}}
+  <Avatar::Containers::AvatarMain @entity={{@value}} @shouldBuildAvatar={{@options.shouldBuildAvatar}} as |avatars|>
+    {{#if @options.avatarsAsList}}
+      {{component @options.component avatars=avatars class=@class}}
+    {{else}}
+      {{#each avatars as |avatar|}}
+        {{component @options.component avatar=avatar class=@class}}
+      {{/each}}
+    {{/if}}
+  </Avatar::Containers::AvatarMain>
+{{/if}}

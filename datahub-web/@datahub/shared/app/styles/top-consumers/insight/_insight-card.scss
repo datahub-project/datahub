@@ -1,0 +1,113 @@
+.top-consumers-insight-card {
+  $text-font-size: fs(standard);
+
+  @include insight-card;
+
+  &__content {
+    padding: item-spacing(3 4);
+    width: 280px;
+  }
+
+  &__insight-icon {
+    width: 48px;
+    height: 48px;
+
+    &-container {
+      border-right: 1px solid get-color(gray1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+    }
+  }
+
+  &__items {
+    display: flex;
+    &:last-child {
+      .top-consumers-entity-insight__item {
+        content: none;
+      }
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+
+    &::after {
+      content: ',';
+      margin-right: item-spacing(1);
+      color: get-color(black, 0.6);
+      font-size: $text-font-size;
+    }
+
+    &:last-child:after {
+      content: none;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  &__show-more {
+    display: flex;
+    align-items: center;
+
+    &::before {
+      content: 'and';
+      margin-right: item-spacing(1);
+      color: get-color(black, 0.6);
+      font-size: $text-font-size;
+    }
+
+    &-button {
+      background: none;
+      padding: 0;
+      border: none;
+      border-bottom: 0.5px solid get-color(black, 0.6);
+
+      &:hover {
+        color: get-color(blue5);
+        border-bottom-color: get-color(blue5);
+        cursor: pointer;
+      }
+
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+
+  &__title {
+    font-size: $text-font-size;
+    font-weight: fw(normal, 6);
+    line-height: 20px;
+  }
+
+  &__text {
+    font-size: $text-font-size;
+    font-weight: fw(normal, 4);
+    color: get-color(black, 0.6);
+
+    &--clickable {
+      border-bottom: 0.5px solid get-color(black, 0.6);
+
+      &:hover {
+        color: get-color(blue5);
+        border-bottom-color: get-color(blue5);
+        cursor: pointer;
+      }
+    }
+  }
+
+  &__tooltip {
+    margin-left: item-spacing(1);
+
+    &-icon {
+      color: get-color(black, 0.6);
+      margin-top: item-spacing(1);
+    }
+  }
+}

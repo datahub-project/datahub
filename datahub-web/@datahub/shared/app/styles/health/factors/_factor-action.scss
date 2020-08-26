@@ -1,0 +1,13 @@
+.health-factor-action {
+  &__wiki {
+    &#{&} {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-around;
+    }
+  }
+
+  &__icon {
+    margin-left: item-spacing(2);
+  }
+}

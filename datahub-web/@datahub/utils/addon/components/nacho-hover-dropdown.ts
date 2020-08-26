@@ -9,7 +9,6 @@ import { TaskInstance, timeout, task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import { classNames, layout } from '@ember-decorators/component';
 import { noop } from 'lodash';
-import { assert } from '@ember/debug';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
 import { ETask } from '@datahub/utils/types/concurrency';
 
@@ -31,10 +30,15 @@ interface IHideDropdownParams {
 @classNames('nacho-drop-down')
 export default class NachoHoverDropdown<T> extends Component {
   /**
+   * Desired trigger class
+   */
+  triggerClass?: string;
+
+  /**
    * Toggle state of the drop-down
    * @type {boolean}
    */
-  isExpanded: boolean = false;
+  isExpanded = false;
 
   /**
    * Lists the options for the drop down content
@@ -114,21 +118,13 @@ export default class NachoHoverDropdown<T> extends Component {
    * @param {INachoDropdownOption<T>} selected the selected drop-down option, an instance of INachoDropdownOption<T>
    */
   @action
-  onDropDownSelect(selected: INachoDropdownOption<T>): void {
+  onDropDownSelect(dd: IHideDropdownParams, selected: INachoDropdownOption<T>): void {
     if (typeof this.onSelect === 'function') {
       // selectedDropDown is not modified on dropdown class, this allows the external consumer to determine behavior after receiving selection
       // If the selectedDropDown option should be reflected on the dropdown, caller should update component attribute `selectedDropDown`
       this.onSelect(selected);
+
+      this.hideDropDown(dd);
     }
-  }
-
-  /**
-   * Checks instantiation state attributes
-   */
-  init(): void {
-    super.init();
-
-    const typeOfOnSelect = typeof this.onSelect;
-    assert(`Expected onSelect member to be a function, received ${typeOfOnSelect}`, typeOfOnSelect === 'function');
   }
 }

@@ -1,0 +1,56 @@
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      Dataset <span title="Personally Identifiable Information" class="define-text">PII</span> & Security Classification
+
+    </p>
+
+    {{#unless isEditing}}
+      <div class="compliance-entities-meta__secondary">
+        <button
+          type="button"
+          class="nacho-button nacho-button--tertiary"
+          {{action toggleEditing true ComplianceEdit.DatasetLevelPolicy}}
+        >
+          {{fa-icon
+            "pencil-alt"
+            aria-label="Edit Schemaless Classification"
+          }}
+          Edit
+        </button>
+      </div>
+    {{/unless}}
+  </header>
+</section>
+
+{{#if isEditing}}
+  <Datasets::Compliance::AnnotationsTable::ActionBar
+    @isEditing={{readonly isEditing}}
+    @saveCompliance={{action "saveCompliance"}}
+    @onCancel={{action "onCancel"}}
+  />
+{{/if}}
+
+<div class="schemaless-tagging__tag">
+  <h4 class="schemaless-tagging__prompt">
+    Dataset contains personally identifiable information?
+  </h4>
+
+  <div class="schemaless-tagging__input">
+    <Input @id={{concat elementId "-schemaless-checkbox"}} @type="checkbox" class="toggle-switch toggle-switch--light" @disabled={{not isEditing}} @checked={{readonly containsPersonalData}} @change={{action "onPersonalDataToggle" value="target.checked"}} />
+    <label for={{concat elementId "-schemaless-checkbox"}} class="toggle-button">
+    </label>
+  </div>
+</div>
+
+<div class="schemaless-tagging__tag">
+  <h4 class="schemaless-tagging__prompt">
+    Dataset security classification
+
+    <MoreInfo @link={{@classificationHelpLink}} @tooltip="information dataset security classification" />
+  </h4>
+
+  <div class="schemaless-tagging__input">
+    <EmberSelector @values={{classifiers}} @selected={{classification}} @disabled={{not isEditing}} @selectionDidChange={{action "onSecurityClassificationChange"}} />
+  </div>
+</div>

@@ -1,3 +1,4 @@
+import { PurgePolicy } from '@datahub/metadata-types/constants/entity/dataset/compliance/purge-policy';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 
 /**
@@ -6,6 +7,8 @@ import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/datase
  * @interface IDataPlatform
  */
 export interface IDataPlatform {
+  // Policies supported for this dataset
+  supportedPurgePolicies: Array<PurgePolicy>;
   // the type of the dataset platform with the given name e.g. DISTRIBUTED_FILE_SYSTEM, RELATIONAL_DB
   type: string;
   // the name of the dataset platform

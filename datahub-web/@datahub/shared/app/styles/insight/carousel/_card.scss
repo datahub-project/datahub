@@ -1,0 +1,16 @@
+// Insight cards in a carousel should include the mixin rules below to adhere to the standard card design treatment
+@mixin insight-card() {
+  $standard-card-height: 88px;
+  $standard-card-width: 360px;
+
+  display: flex;
+  height: $standard-card-height;
+  width: $standard-card-width;
+  border: 1px solid get-color(gray1);
+  border-radius: 4px;
+
+  // Insight cards preceded by others should be socially distanced
+  & + & {
+    margin-left: item-spacing(5);
+  }
+}

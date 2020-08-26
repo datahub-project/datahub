@@ -2,7 +2,7 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../templates/components/placeholder/nacho-toggle';
 import { layout, classNames } from '@ember-decorators/component';
-import { noop } from '@datahub/utils/function/noop';
+import { noop } from 'lodash';
 import { action } from '@ember/object';
 
 // TODO: [META-8566] This is a placeholder/test run for a nacho toggle component. If we like it as a standalone,

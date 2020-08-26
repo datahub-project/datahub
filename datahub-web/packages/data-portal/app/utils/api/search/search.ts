@@ -1,5 +1,3 @@
-import { getApiRoot, ApiVersion } from 'wherehows-web/utils/api/shared';
-import buildUrl from 'wherehows-web/utils/build-url';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { toRestli, fromRestli } from 'restliparams';
 import {
@@ -7,7 +5,9 @@ import {
   IFacetsSelectionsArray,
   IFacetSelections
 } from '@datahub/data-models/types/entity/facets';
-import { ISearchEntityApiParams, IEntitySearchResult } from 'wherehows-web/typings/api/search/entity';
+import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/search/types/api/entity';
+import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
+import buildUrl from '@datahub/utils/api/build-url';
 
 /**
  * Converts IFacetsSelectionsMap into IFacetsSelectionsArray
@@ -52,7 +52,7 @@ export const facetToParamUrl = (selections: IFacetsSelectionsMap): string => {
  * Transform (source:List(hive, hdfs)) into IFacetsSelectionsMap
  * @param selections
  */
-export const facetFromParamUrl = (value: string = ''): IFacetsSelectionsMap => {
+export const facetFromParamUrl = (value = ''): IFacetsSelectionsMap => {
   return toFacetSelectionsMap(fromRestli(value));
 };
 
@@ -61,7 +61,7 @@ export const facetFromParamUrl = (value: string = ''): IFacetsSelectionsMap => {
  */
 export const searchUrl = (
   { facets, ...params }: ISearchEntityApiParams,
-  version: ApiVersion = ApiVersion.v2
+  version: ApiVersion = ApiVersion.v1
 ): string => {
   return buildUrl(`${getApiRoot(version)}/search`, {
     ...params,
@@ -70,9 +70,10 @@ export const searchUrl = (
 };
 
 /**
+ * TODO META-11675 rename, remove V2 as there is no V1
  * Queries the search endpoint using the search params
- * @param params
- * @returns
+ * @param {ISearchApiParams} params
+ * @returns {Promise<ISearchResponse>}
  */
 export const readSearchV2 = <T>(params: ISearchEntityApiParams): Promise<IEntitySearchResult<T>> =>
   getJSON<IEntitySearchResult<T>>({ url: searchUrl(params, ApiVersion.v2) });

@@ -1,4 +1,8 @@
 import Service from '@ember/service';
+import {
+  ComplianceDataTypesList,
+  createComplianceDataTypesList
+} from '@datahub/data-models/entity/dataset/modules/compliance-data-types-list';
 import { set } from '@ember/object';
 import {
   DatasetPlatformsList,
@@ -12,7 +16,32 @@ import {
  * and cache its value here.
  */
 export default class DatasetsCoreService extends Service {
+  /**
+   * Cached version of compliance data types class. Makes sure we only need to instantiate one instance
+   * of this from one single API call
+   * @type {ComplianceDataTypesList}
+   */
+  readonly complianceDataTypes?: ComplianceDataTypesList;
+
   readonly dataPlatforms?: DatasetPlatformsList;
+
+  /**
+   * If we already have compliance data types available, then return it. Otherwise, await a new instance of
+   * the ComplianceDataTypes list
+   */
+  async getComplianceDataTypes(): Promise<ComplianceDataTypesList> {
+    const { complianceDataTypes } = this;
+
+    if (complianceDataTypes) {
+      return complianceDataTypes;
+    }
+
+    const dataTypes = await createComplianceDataTypesList();
+    if (dataTypes) {
+      set(this, 'complianceDataTypes', dataTypes);
+    }
+    return dataTypes;
+  }
 
   /**
    * If we already have data platforms available, then return it. Otherwise, await a new instance of the

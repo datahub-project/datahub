@@ -1,37 +1,37 @@
 {{! TODO: META-8742 Add this as a component in the Nacho Component library as part of NachoHoverDropdown }}
 {{#basic-dropdown renderInPlace=@renderInPlace as |bd|}}
   {{#if (not-eq @wrappedTriggerComponent true)}}
-    {{#bd.trigger
-      class="nacho-drop-down__trigger"
-      onMouseDown=(action this.prevent)
-      onMouseEnter=(action this.showDropDown)
-      onMouseLeave=(action this.hideDropDown)
-    }}
+    <bd.trigger
+      @class="nacho-drop-down__trigger {{@triggerClass}}"
+      {{on "mousedown" this.prevent}}
+      {{on "mouseenter" (fn this.showDropDown bd)}}
+      {{on "mouseleave" (fn this.hideDropDown bd)}}
+    >
       <strong class="nacho-drop-down__active">
         {{this.selectedDropDown.label}}
       </strong>
 
-      {{#if selectedDropDown}}
+      {{#if this.selectedDropDown}}
         <span class="nacho-drop-down__active__toggle">
           {{fa-icon (if this.isExpanded "caret-up" "caret-down")}}
         </span>
       {{/if}}
-    {{/bd.trigger}}
+    </bd.trigger>
   {{/if}}
 
   {{yield
     (hash
       trigger=(component bd.trigger
-        onMouseDown=(action this.prevent)
-        onMouseEnter=(action this.showDropDown)
-        onMouseLeave=(action this.hideDropDown)
+        onMouseDown=(fn this.prevent)
+        onMouseEnter=(fn this.showDropDown)
+        onMouseLeave=(fn this.hideDropDown)
       )
       isExpanded=this.isExpanded
       content=(component "nacho-hover-dropdown/dropdown-content"
         baseComponent=bd.content
-        onMouseEnter=(action this.showDropDown)
-        onMouseLeave=(action this.hideDropDown)
-        onSelect=(action this.onDropDownSelect)
+        onMouseEnter=(fn this.showDropDown bd)
+        onMouseLeave=(fn this.hideDropDown bd)
+        onSelect=(fn this.onDropDownSelect bd)
         selectedOption=this.selectedDropDown
         options=this.dropDownItems
       )

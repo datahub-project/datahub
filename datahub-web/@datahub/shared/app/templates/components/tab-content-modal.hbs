@@ -1,0 +1,56 @@
+<ModalDialog
+  @overlayClass="notification-overlay"
+  @containerClassNames="notification-confirm-modal {{this.modalClass}}"
+  @onClose={{fn this.onCloseTabContentModal}}
+>
+  <header class="{{this.modalClass}}__header">
+    <h3 class="{{this.modalClass}}__title">
+      {{@title}}
+    </h3>
+    <button
+      type="button"
+      class="{{this.modalClass}}__close"
+      {{action this.onCloseTabContentModal}}
+    >
+      &times;
+    </button>
+  </header>
+
+  <IvyTabs @selection={{@currentTab}} as |Tabs|>
+    <nav
+      role="navigation"
+      aria-label="Entity Section"
+    >
+      <div aria-hidden="true">
+        <Tabs.tablist class="{{this.modalClass}}__tab-list" as |TabList|>
+          {{#each @tabs as |tab|}}
+            <TabList.tab
+              @model={{tab.id}}
+              @on-select={{action this.tabSelectionDidChange}}
+            >
+              {{tab.title}}
+            </TabList.tab>
+          {{/each}}
+        </Tabs.tablist>
+      </div>
+    </nav>
+
+    <div class="{{this.modalClass}}__tab-container">
+      {{#each @tabs as |tab|}}
+        <Tabs.tabpanel @model={{tab.id}}>
+
+          {{#if hasBlock}}
+            {{yield (hash content=(component tab.contentComponent options=tab.options))}}
+          {{else}}
+            {{component
+              tab.contentComponent
+              options=tab.options
+            }}
+          {{/if}}
+
+        </Tabs.tabpanel>
+      {{/each}}
+    </div>
+  </IvyTabs>
+
+</ModalDialog>

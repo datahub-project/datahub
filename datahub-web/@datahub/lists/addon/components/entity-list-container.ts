@@ -212,13 +212,13 @@ export default class EntityListContainer extends WithEntityLists {
   ): IterableIterator<Promise<Array<Snapshot>> | Promise<Array<DataModelEntityInstance>>> {
     const { entity } = this;
     // Extract urns from the serialization list
-    const urns = this.list.map(({ urn }): string => urn);
+    const urns = (this.list || []).map(({ urn }): string => urn);
 
     if (entity && urns.length) {
       // Hydrate entity instances with Snapshot and IBaseEntity attributes
-      const snapshots: Array<Snapshot> = yield entity.readSnapshots(urns);
+      const snapshots = ((yield entity.readSnapshots(urns)) as unknown) as Array<Snapshot>;
       // IBaseEntity property (entity) hydration happens in an async iteration because attributes batch GET endpoint for entities is N/A currently
-      const instances: Array<DataModelEntityInstance> = yield Promise.all(
+      const instances = ((yield Promise.all(
         snapshots.map(
           async (snapshot): Promise<DataModelEntityInstance> => {
             const listEntity = new entity(snapshot.urn);
@@ -227,7 +227,7 @@ export default class EntityListContainer extends WithEntityLists {
             return listEntity;
           }
         )
-      );
+      )) as unknown) as Array<DataModelEntityInstance>;
 
       return set(this, 'instances', instances);
     }

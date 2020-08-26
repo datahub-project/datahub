@@ -9,9 +9,6 @@ export interface IAvatar {
   imageUrl: string;
   // Fallback url for avatar image on error
   imageUrlFallback: string;
-  // Alternate url for avatar image
-  pictureLink?: string;
-  // Email address for the associated entity if available
   email?: null | string;
   // Handle for the avatar
   userName?: string;

@@ -1,0 +1,19 @@
+.lineage-graph {
+  &__header {
+    margin-top: item-spacing(5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__container {
+    &--embedded {
+      @include nacho-container;
+    }
+  }
+
+  &__toolbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

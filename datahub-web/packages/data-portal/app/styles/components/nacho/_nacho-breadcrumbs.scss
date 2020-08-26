@@ -109,6 +109,7 @@ $nacho-breadcrumbs-arrow-padding: 20px;
   display: flex;
 
   &-container {
+    display: flex;
     background: $nacho-breadcrumbs-background-color;
     border-bottom: 1px solid get-color(black, 0.15);
     position: fixed;

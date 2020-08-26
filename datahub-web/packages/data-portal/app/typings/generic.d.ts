@@ -24,8 +24,3 @@ export interface IObject<T> {
  * @alias {R extends Record<string, infer A> ? A : never}
  */
 export type RecordValue<R extends Record<string, unknown>> = R extends Record<string, infer A> ? A : never;
-
-/**
- * Generic way to extract the type of result of a promise
- */
-export type UnWrapPromise<T> = T extends PromiseLike<infer U> ? U : T;

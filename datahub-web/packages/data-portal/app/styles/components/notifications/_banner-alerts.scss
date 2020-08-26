@@ -4,7 +4,7 @@
   width: 100vw;
   transition: height $banner-animation-speed ease;
   overflow: hidden;
-  z-index: 9001;
+  z-index: z('banner');
 
   &--show {
     height: $banner-alerts-height;

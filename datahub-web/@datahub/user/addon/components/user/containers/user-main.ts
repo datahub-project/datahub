@@ -8,8 +8,7 @@ import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { IPersonEntitySpecificConfigs } from '@datahub/data-models/entity/person/render-props';
-import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { ITabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
+import { IEntityRenderProps, ITabProperties } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { set, computed, action } from '@ember/object';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import CurrentUser from '@datahub/shared/services/current-user';
@@ -19,11 +18,22 @@ import { generateTabId } from '@datahub/user/utils/tabownership';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { capitalize } from '@ember/string';
 import { humanize } from 'ember-cli-string-helpers/helpers/humanize';
+import { IConfigurator } from '@datahub/shared/types/configurator/configurator';
+import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
+import { pastTense } from '@datahub/utils/helpers/past-tense';
+import { pendingSocialActions } from '@datahub/shared/constants/social/pending-actions';
+import { isOwnableEntity } from '@datahub/data-models/utils/ownership';
 
 @layout(template)
 @tagName('')
 @containerDataSource<UserMainContainer>('getContainerDataTask', ['personUrn'])
 export default class UserMainContainer extends Component {
+  /**
+   * Injection of the configurator service to read relevant user and social action configs
+   */
+  @service
+  configurator!: IConfigurator;
+
   /**
    * Injection of data modeling service to get the current implementation of the user's person
    * entity.
@@ -82,10 +92,18 @@ export default class UserMainContainer extends Component {
     }
 
     if (!renderProps) {
-      set(this, 'renderProps', this.appendOwnershipTab(PersonEntityClass.allRenderProps));
+      set(this, 'renderProps', this.userProfileTabs(PersonEntityClass.allRenderProps));
     }
   }).restartable())
   getContainerDataTask!: ETaskPromise<void>;
+
+  /**
+   * Generate the user profile tabs that are available for this entity
+   * @param allRenderProps
+   */
+  userProfileTabs(allRenderProps: typeof PersonEntity['allRenderProps']): typeof PersonEntity['allRenderProps'] {
+    return this.appendSocialTabs(this.appendOwnershipTab(allRenderProps));
+  }
 
   /**
    * Will append the dynamically generated ownership tabs to the the renderProps
@@ -94,16 +112,14 @@ export default class UserMainContainer extends Component {
   appendOwnershipTab(allRenderProps: typeof PersonEntity['allRenderProps']): typeof PersonEntity['allRenderProps'] {
     const { dataModels } = this;
     const unGuardedEntities = dataModels.guards.unGuardedEntities;
-    const ownershipEntities = unGuardedEntities
-      .filter((entity: DataModelEntity): boolean => entity.displayName !== PersonEntity.displayName)
-      .map(
-        (entity: DataModelEntity): ITabProperties => ({
-          id: generateTabId(entity),
-          title: capitalize(humanize([entity.displayName])),
-          contentComponent: 'user/containers/tab-content/entity-ownership',
-          lazyRender: true
-        })
-      );
+    const ownershipEntities = unGuardedEntities.filter(isOwnableEntity).map(
+      (entity: DataModelEntity): ITabProperties => ({
+        id: generateTabId(entity),
+        title: capitalize(humanize([entity.displayName])),
+        contentComponent: 'user/containers/tab-content/entity-ownership',
+        lazyRender: true
+      })
+    );
 
     return {
       ...allRenderProps,
@@ -111,7 +127,55 @@ export default class UserMainContainer extends Component {
         ...allRenderProps.userProfilePage,
         tablistMenuProperties: {
           ...allRenderProps.userProfilePage.tablistMenuProperties,
-          [PersonTab.UserOwnership]: [...ownershipEntities, ...getPersonTabPropertiesFor([PersonTab.UserUMPFlows])]
+          [PersonTab.UserOwnership]: [...ownershipEntities]
+        }
+      }
+    };
+  }
+
+  /**
+   * Will dynamically append the number of social action list tabs to the render props based on the
+   * available social actions (i.e. total number of actions minus those that are currently flag
+   * guarded in our configs)
+   * @param allRenderProps render props for person
+   */
+  appendSocialTabs(allRenderProps: typeof PersonEntity['allRenderProps']): typeof PersonEntity['allRenderProps'] {
+    const { configurator } = this;
+    const showSocialActions = configurator.getConfig('showSocialActions', { useDefault: true, default: false });
+    const showPendingSocialActions = configurator.getConfig('showPendingSocialActions', {
+      useDefault: true,
+      default: false
+    });
+
+    if (!showSocialActions) {
+      return allRenderProps;
+    }
+
+    const socialActions = [SocialAction.LIKE];
+
+    const unguardedSocialActions = showPendingSocialActions
+      ? [...socialActions, ...pendingSocialActions]
+      : [...socialActions];
+
+    const socialActionTabs = unguardedSocialActions.map(action => {
+      const [baseTabProperties] = getPersonTabPropertiesFor([PersonTab.UserSocialActionList]);
+      return {
+        ...baseTabProperties,
+        id: `${baseTabProperties.id}-${action}`,
+        title: `${capitalize(pastTense([action]))} Entities`
+      };
+    });
+
+    return {
+      ...allRenderProps,
+      userProfilePage: {
+        ...allRenderProps.userProfilePage,
+        tablistMenuProperties: {
+          ...allRenderProps.userProfilePage.tablistMenuProperties,
+          [PersonTab.UserLists]: [
+            ...(allRenderProps.userProfilePage.tablistMenuProperties[PersonTab.UserLists] || []),
+            ...socialActionTabs
+          ]
         }
       }
     };
@@ -121,13 +185,13 @@ export default class UserMainContainer extends Component {
    * Flags whether the currently logged in user is the same as the person whose entity is the
    * context given to this container
    */
-  @computed('entity', 'currentUser.currentUser')
+  @computed('entity', 'currentUser.entity')
   get isCurrentUser(): boolean {
     const { currentUser, entity } = this;
-    const loggedInUser = currentUser.currentUser || null;
+    const loggedInUser = currentUser.entity || null;
     const contextUser = (entity && entity.username) || '';
 
-    return !!loggedInUser && loggedInUser.userName === contextUser;
+    return !!loggedInUser && loggedInUser.username === contextUser;
   }
 
   /**

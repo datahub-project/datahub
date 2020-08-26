@@ -1,0 +1,21 @@
+// Simple Record component represents the entries in a record of key value pairs
+// The rules below modify how the NachoTable which the class extends is displayed
+.simple-record-table {
+  &#{&} {
+    border: 0;
+    box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    border-collapse: separate;
+  }
+
+  &__title {
+    margin-right: auto;
+    display: flex;
+  }
+
+  // Overrides vendor @nacho/ui selector
+  .nacho-table__cell {
+    border-bottom: 0;
+    height: item-spacing(6);
+    vertical-align: top;
+  }
+}

@@ -48,13 +48,13 @@
 
       &::after {
         border-radius: 50%;
-        background: set-color(white, base);
+        background: get-color(white);
         transition: all 0.2s ease;
       }
     }
 
     &:checked + .toggle-button {
-      background: set-color(green, green5);
+      background: get-color(green5);
     }
   }
 }

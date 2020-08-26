@@ -1,14 +1,15 @@
 import Component from '@ember/component';
 import { tagName } from '@ember-decorators/component';
-import Configurator from 'wherehows-web/services/configurator';
+import Configurator from 'datahub-web/services/configurator';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { inject as service } from '@ember/service';
 import CurrentUser from '@datahub/shared/services/current-user';
 import { computed } from '@ember/object';
 import { IAvatar } from '@datahub/utils/types/avatars';
 import { makeAvatar } from '@datahub/utils/function/avatar';
 import DataModelsService from '@datahub/data-models/services/data-models';
+import { AppName } from '@datahub/shared/constants/global';
+import { isOwnableEntity } from '@datahub/data-models/utils/ownership';
 
 // TODO: [META-10081] Current User avatar and profile link should be tested
 
@@ -17,6 +18,11 @@ import DataModelsService from '@datahub/data-models/services/data-models';
  */
 @tagName('')
 export default class Navbar extends Component {
+  /**
+   * Name of the app being displayed in the Navbar.
+   */
+  appName: string = AppName;
+
   /**
    * Injected service for current user to determine our user profile links and the avatar image
    * properties
@@ -39,23 +45,20 @@ export default class Navbar extends Component {
   /**
    * The list of entities available
    */
-  entities: Array<DataModelEntity> = this.dataModels.guards.unGuardedEntities.filter(
-    // Note: "People I Own" should never appear on the navbar regardless of context
-    (entity): boolean => entity.displayName !== PersonEntity.displayName
-  );
+  entities: Array<DataModelEntity> = this.dataModels.guards.unGuardedEntities.filter(isOwnableEntity);
 
   /**
    * Based on the current user, load an avatar properties object. Void if a currentUser is not
    * logged in or not loaded yet
    */
-  @computed('sessionUser.currentUser')
+  @computed('sessionUser.entity')
   get avatar(): IAvatar | void {
     const { configurator, sessionUser } = this;
 
-    if (sessionUser.currentUser) {
-      const { userName = '', email = '', name = '' } = sessionUser.currentUser;
+    if (sessionUser.entity) {
+      const { username = '', email = '', name = '' } = sessionUser.entity;
       const avatarEntityProps = configurator.getConfig('userEntityProps');
-      return makeAvatar(avatarEntityProps)({ userName, email, name });
+      return makeAvatar(avatarEntityProps)({ userName: username, email, name });
     }
   }
 
@@ -63,13 +66,8 @@ export default class Navbar extends Component {
    * Based on the current logged in user, create a urn. Void if a currentUser is not logged in or
    * not loaded yet
    */
-  @computed('sessionUser.currentUser')
+  @computed('sessionUser.entity')
   get userUrn(): string | void {
-    const { dataModels, sessionUser } = this;
-    const PersonEntityClass = dataModels.getModel('people') as typeof PersonEntity;
-
-    if (sessionUser.currentUser) {
-      return PersonEntityClass.urnFromUsername(sessionUser.currentUser.userName);
-    }
+    return this.sessionUser?.entity?.urn;
   }
 }

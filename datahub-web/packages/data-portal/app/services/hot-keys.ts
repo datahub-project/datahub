@@ -1,8 +1,7 @@
 import Service from '@ember/service';
-import { Keyboard } from 'wherehows-web/constants/keyboard';
+import { Keyboard } from 'datahub-web/constants/keyboard';
 import { get } from '@ember/object';
-import { assert } from '@ember/debug';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { noop } from 'lodash';
 
 export default class HotKeys extends Service {
   /**
@@ -19,7 +18,6 @@ export default class HotKeys extends Service {
    * @param action - function to bind to this key code
    */
   registerKeyMapping(keyCode: Keyboard, action: () => void): void {
-    assert('Global keys should be mapped to a function', typeof action === 'function');
     get(this, 'keyMappings')[keyCode] = action;
   }
 

@@ -1,0 +1,79 @@
+/// The canvas layer is where we bring our scheme that was mixed together in the palette and use it to paint
+/// the canvas of our application. This includes functions and mixins that will use the palette to actually
+/// connect the scheme to our components or custom consumer use cases
+
+/// Retrieves a color from our defined scheme. Can be used in custom cases when we didn't definitely define
+/// an element of the theme but the consuming application still wants to stick to that abstraction layer.
+/// TODO: [META-7147] Complete color palette when we have an available theme
+@function color-palette($paletteKey) {
+  $palette: (
+    primary: $nacho-color-primary,
+    error: $nacho-color-error,
+    secondary: $nacho-color-secondary
+  );
+
+  $color: map-get($palette, $colorKey);
+
+  @if ($color == null) {
+    @error '#{$colorKey} not found in `$color-palette`';
+  }
+
+  @return $color;
+}
+
+/// Retrieves data visualization colors based on our available palette. This is a slightly different
+/// process than our color-palette() function because it focuses specifically on the order of elements in
+/// datavisualization and data hierarchy
+/// TODO: [META-7147] Complete color palette when we have an available theme
+@function get-dataviz-color($value) {
+  $color-palette-dataviz: (
+    order: (
+      get-color(blue5),
+      get-color(teal7),
+      get-color(purple5),
+      get-color(slate3),
+      get-color(orange5),
+      get-color(pink7),
+      get-color(blue3),
+      get-color(teal5),
+      get-color(purple3),
+      get-color(slate7),
+      get-color(orange3),
+      get-color(pink5),
+      get-color(blue7),
+      get-color(teal3),
+      get-color(purple7),
+      get-color(slate5),
+      get-color(orange7),
+      get-color(pink3)
+    ),
+    positive: get-color(green6),
+    negative: get-color(red6)
+  );
+
+  $list: map-get($color-palette-dataviz, order);
+
+  @if (type-of($value) == 'number') {
+    $index: $value % length($list);
+
+    @if ($value < 1) {
+      @error 'get-dataviz-color requires a number greater than 0, got #{$value}.';
+    }
+
+    @if ($index == 0) {
+      @return nth($list, length($list));
+    }
+
+    @return nth($list, $index);
+  }
+
+  @if ($value == 'positive') {
+    @return map-get($color-palette-dataviz, positive);
+  }
+
+  @if ($value == 'negative') {
+    @return map-get($color-palette-dataviz, negative);
+  }
+
+  @error '#{$value} is not a valid data-visualization-color option';
+}

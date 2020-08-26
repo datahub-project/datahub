@@ -1,8 +1,15 @@
-{{#if (and @field.showInResultsPreview this.value)}}
+{{#if (and @field.showInResultsPreview (not (is-empty this.value)))}}
   <div class="search-result__field">
-    <div class="search-result__field-name">{{field.displayName}}</div>
+    <div class="search-result__field-name">
+      <label class="search-result__field-name-label">{{field.displayName}}</label>
+    </div>
     <div class="search-result__field-value">
-      <Properties::ValueRenderer @baseClass="search-result" @value={{this.value}} @component={{@field.component}} />
+      <Properties::ValueRenderer
+        @baseClass="search-result"
+        @value={{this.value}}
+        @component={{@field.component}}
+        @entity={{@entity}}
+      />
     </div>
   </div>
 {{/if}}

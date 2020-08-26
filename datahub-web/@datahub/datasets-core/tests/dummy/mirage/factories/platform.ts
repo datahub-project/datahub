@@ -1,5 +1,6 @@
 import { Factory, faker } from 'ember-cli-mirage';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
+import { PurgePolicy } from '@datahub/metadata-types/constants/entity/dataset/compliance/purge-policy';
 
 const platforms = Object.values(DatasetPlatform);
 
@@ -13,13 +14,15 @@ const PlatformsWithSlash: Partial<Record<DatasetPlatform, true>> = {
 };
 
 export default Factory.extend({
-  name(id: number) {
+  name(id: number): DatasetPlatform {
     return platforms[id];
   },
 
   type: faker.lorem.words(1),
 
-  datasetNameDelimiter() {
+  supportedPurgePolicies: Object.values(PurgePolicy),
+
+  datasetNameDelimiter(): string {
     return PlatformsWithSlash[this.name as DatasetPlatform] ? '/' : '.';
   }
 });

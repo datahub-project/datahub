@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 import { alias } from '@ember/object/computed';
 import { set } from '@ember/object';
 import { classNames, tagName, attribute } from '@ember-decorators/component';
@@ -48,7 +48,7 @@ export default class AvatarImage extends Component {
    * @memberof AvatarImage
    */
   @task(function*(this: AvatarImage): IterableIterator<void> {
-    set(this, 'src', this.avatar.imageUrlFallback);
+    set(this, 'src', this.avatar.imageUrlFallback || '/assets/images/default_avatar.png');
   })
   onImageFallback!: ETaskPromise<void>;
 }

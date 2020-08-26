@@ -1,0 +1,75 @@
+.graph-viewer-toolbar {
+  display: flex;
+  padding: item-spacing(0 2);
+  flex-shrink: 0;
+  align-items: center;
+  font-size: fs(standard);
+  margin: item-spacing(0 0 2 0);
+
+  @include dot-separator();
+
+  &__search-container {
+    display: flex;
+  }
+
+  &__searchbar {
+    width: 350px;
+    border-radius: 2px;
+  }
+  &__toolbar-button {
+    min-height: 33px;
+  }
+
+  &__toolbar-dropdown {
+    @include nacho-container();
+  }
+
+  &__toolbar-input {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: item-spacing(2);
+
+    &-text {
+      display: flex;
+      margin-right: item-spacing(2);
+    }
+
+    &-description {
+      font-size: fs(small);
+      color: get-color(gray5);
+      margin-bottom: item-spacing(2);
+    }
+
+    &-number {
+      width: item-spacing(8);
+    }
+
+    &-textarea {
+      width: 100%;
+    }
+
+    &--vertical-layout {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  &__toolbar-item {
+    display: flex;
+    align-items: center;
+
+    &-button {
+      &#{&}#{&} {
+        padding: item-spacing(0 0);
+        margin: item-spacing(0 1);
+      }
+    }
+  }
+
+  &__toolbar-submit {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: item-spacing(4);
+  }
+}

@@ -1,0 +1,7 @@
+<td class="nacho-table__cell">
+  <Avatar::Containers::AvatarMain @entity={{@field}} @shouldBuildAvatar={{false}} as |avatars|>
+    {{#each avatars as |avatar|}}
+      <Avatar::AvatarName @avatar={{avatar}} />
+    {{/each}}
+  </Avatar::Containers::AvatarMain>
+</td>

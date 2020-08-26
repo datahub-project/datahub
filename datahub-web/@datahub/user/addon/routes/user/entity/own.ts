@@ -53,11 +53,11 @@ export default class UserEntityOwn extends Route {
     const { entity } = this.modelFor('user.entity') as IUserEntityRouteModel;
     const { renderProps } = dataModels.getModel(entity);
     const { userEntityOwnership, search } = renderProps;
-    const { currentUser } = this.sessionUser;
+    const { entity: currentUserEntity } = this.sessionUser;
 
     return {
       entity,
-      userName: currentUser ? currentUser.userName : '',
+      userName: currentUserEntity?.username || '',
       page: Number(page || 1),
       facets,
       searchConfig: userEntityOwnership || search,

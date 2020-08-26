@@ -1,11 +1,12 @@
-{{#search/containers/entity-task-container
-  class="container"
+{{#component
+  (if @useMultiEntity "search/containers/multi-entity-task-container" "search/containers/entity-task-container")
   keyword=@keyword
   facets=@facets
   page=@page
-  fields=@fields
+  searchConfig=@searchConfig
   entity=@entity
   shouldCollectSearchTelemetry=@shouldCollectSearchTelemetry
+  onChangeEntity=@onChangeEntity
 as |dataContainer|
 }}
   <div class="container">
@@ -49,7 +50,7 @@ as |dataContainer|
           <section class="search-results page-section-container">
             <Search::SearchResults
               @trackPrefix={{@trackPrefix}}
-              @title={{or @title (capitalize dataContainer.dataModelEntity.displayName)}}
+              @title={{or @title (nacho-core/titleize dataContainer.dataModelEntity.displayName)}}
               @result={{dataContainer.result}}
               @searchConfig={{@searchConfig}}
               @route={{dataContainer.route}}
@@ -63,4 +64,4 @@ as |dataContainer|
     </div>
 
   </div>
-{{/search/containers/entity-task-container}}
+{{/component}}

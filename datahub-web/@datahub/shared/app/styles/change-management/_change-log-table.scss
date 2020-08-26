@@ -1,0 +1,75 @@
+$change-log-table-border-color: #e0e0e0;
+
+table.change-log-table {
+  border: 1px solid $change-log-table-border-color;
+}
+.change-log-table {
+  $created-by-column-width: 124px;
+  $date-column-width: 148px;
+  $subject-column-width: 450px;
+  $notification-status-column-width: 160px;
+  $general-line-height: 20px;
+  $general-font-size: fs(standard);
+  $title-font-size: 20px;
+
+  font-size: $general-font-size;
+  &__global + div {
+    border: none;
+  }
+  &__title {
+    font-weight: bold;
+    font-size: $title-font-size;
+    line-height: $general-line-height + 8;
+    margin-bottom: item-spacing(1);
+  }
+
+  &__label {
+    color: rgba(0, 0, 0, 0.6);
+    line-height: line-height;
+    margin-bottom: item-spacing(2);
+  }
+
+  thead {
+    border: none;
+  }
+  th.nacho-table__title,
+  td.nacho-table__cell {
+    background-color: white;
+    padding: item-spacing(2 5);
+    border-bottom: 1px solid $change-log-table-border-color;
+    font-size: $general-font-size;
+  }
+
+  &__created-by {
+    width: $created-by-column-width;
+  }
+
+  &__notification-status {
+    width: $notification-status-column-width;
+  }
+
+  &__subject {
+    width: $subject-column-width;
+  }
+
+  &__date {
+    width: $date-column-width;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  &__actions-button {
+    border: none;
+    color: get-color(blue7);
+    line-height: line-height;
+    font-weight: bold;
+  }
+
+  &__footer {
+    @include nacho-table-footer();
+  }
+}

@@ -4,7 +4,7 @@ import { render, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { capitalize } from '@ember/string';
 
-module('Integration | Component | placeholder/nacho-toggle', function(hooks) {
+module('Integration | Component | placeholder/nacho-toggle', function(hooks): void {
   setupRenderingTest(hooks);
 
   const baseClass = '.nacho-toggle';
@@ -13,7 +13,7 @@ module('Integration | Component | placeholder/nacho-toggle', function(hooks) {
   const leftButton = `${buttonClass}--left`;
   const rightButton = `${buttonClass}--right`;
 
-  test('it renders', async function(assert) {
+  test('it renders', async function(assert): Promise<void> {
     await render(hbs`{{placeholder/nacho-toggle}}`);
     assert.ok(this.element, 'Initial render is without errors');
 

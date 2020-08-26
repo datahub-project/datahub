@@ -14,7 +14,7 @@
 
 .dataset-author-record {
   &--disabled {
-    color: set-color(grey, mid);
+    color: get-color(gray5);
     font-weight: fw(italic, 2);
     pointer-events: none;
   }
@@ -25,11 +25,11 @@
 
   &#{&} &__indicator {
     &--disabled {
-      background-color: set-color(grey, mid);
+      background-color: get-color(gray5);
     }
 
     &--inactive {
-      background-color: set-color(red, red5);
+      background-color: get-color(red5);
       pointer-events: none;
       margin-left: 8px;
     }

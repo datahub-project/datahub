@@ -1,8 +1,10 @@
-import Component from '@ember/component';
+import EmberComponent from '@ember/component';
+import GlimmerComponent from '@glimmer/component';
 import { TestContext } from 'ember-test-helpers';
 import { render } from '@ember/test-helpers';
 import { dasherize } from '@ember/string';
 import { TemplateFactory } from 'htmlbars-inline-precompile';
+import { IConstructor } from '@datahub/utils/types/base';
 
 /**
  * Defines the argument shape to be passed to getRenderedComponent
@@ -12,7 +14,7 @@ import { TemplateFactory } from 'htmlbars-inline-precompile';
  */
 interface IArgs<T, C> {
   // Component class to be registered, rendered and instantiated
-  ComponentToRender: new (...args: Array<unknown>) => C;
+  ComponentToRender: IConstructor<C>;
   // Execution context for the running test
   testContext: T;
   // hbs template string for the component to be instantiated
@@ -23,10 +25,18 @@ interface IArgs<T, C> {
 }
 
 /**
+ * Discriminating type union guard between an Ember or Glimmer Component
+ * @param {(IConstructor<EmberComponent | GlimmerComponent>)} component A Glimmer or Ember component class
+ */
+const isEmberComponent = (
+  component: IConstructor<EmberComponent | GlimmerComponent>
+): component is IConstructor<EmberComponent> => component.prototype.hasOwnProperty('didInsertElement');
+
+/**
  * Testing helper to render an Ember component from a supplied hbs template and resolve with a reference to the
  * instantiated component post render
  */
-export const getRenderedComponent = async <C extends Component, T extends TestContext>({
+export const getRenderedComponent = async <C extends EmberComponent | GlimmerComponent, T extends TestContext>({
   ComponentToRender,
   testContext,
   template,
@@ -35,17 +45,21 @@ export const getRenderedComponent = async <C extends Component, T extends TestCo
   let component: C | undefined;
   componentName = componentName || dasherize(ComponentToRender.name).toLowerCase();
 
-  testContext.owner.register(
-    `component:${componentName}`,
-    // TS expects that the Base constructor return type C be statically known to extend safely. Since C is constrained to type Ember.Component
-    // @ts-ignore (2): and we are only using Component#didInsertElement element on the constraining class, this is a type safe extension
-    class extends ComponentToRender {
-      didInsertElement(this: C): void {
-        super.didInsertElement();
-        component = this;
+  const ComponentTestDouble = isEmberComponent(ComponentToRender)
+    ? class extends (ComponentToRender as IConstructor<EmberComponent>) {
+        didInsertElement(this: C): void {
+          super.didInsertElement();
+          component = this;
+        }
       }
-    }
-  );
+    : class extends (ComponentToRender as IConstructor<GlimmerComponent>) {
+        constructor(...args: Array<unknown>) {
+          super(...args);
+          component = (this as unknown) as C;
+        }
+      };
+
+  testContext.owner.register(`component:${componentName}`, ComponentTestDouble);
 
   await render(template);
 

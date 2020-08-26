@@ -1,9 +1,8 @@
 import Component from '@ember/component';
-import { assert } from '@ember/debug';
-import { CommentTypes } from 'wherehows-web/constants';
-import { StringUnionKeyToValue } from 'wherehows-web/typings/generic';
-import { DatasetStreamActionsUnion } from 'wherehows-web/constants';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { CommentTypes } from 'datahub-web/constants';
+import { StringUnionKeyToValue } from 'datahub-web/typings/generic';
+import { DatasetStreamActionsUnion } from 'datahub-web/constants';
+import { noop } from 'lodash';
 import { classNames } from '@ember-decorators/component';
 import { action } from '@ember/object';
 
@@ -57,17 +56,11 @@ export default class DatasetComments extends Component {
    * @return {Promise<boolean>}
    */
   @action
-  handleStreamAction(strategy: DatasetStreamActionsUnion): Promise<boolean> {
-    const [, ...args] = [...Array.from(arguments)];
-
-    // assert that handler is in CommentAction needed since we are calling from component template
-    // TS currently has no jurisdiction there
-    assert(`Expected action to be one of ${Object.keys(StreamActions)}`, strategy in StreamActions);
-
+  handleStreamAction(strategy: DatasetStreamActionsUnion, ...args: Array<unknown>): void {
     return {
-      add: (): Promise<boolean> => this.addDatasetComment(...args),
-      destroy: (): Promise<boolean> => this.deleteDatasetComment(...args),
-      modify: (): Promise<boolean> => this.updateDatasetComment(...args)
+      add: (): void => this.addDatasetComment(...args),
+      destroy: (): void => this.deleteDatasetComment(...args),
+      modify: (): void => this.updateDatasetComment(...args)
     }[strategy]();
   }
 }

@@ -1,0 +1,38 @@
+.dataset-groups-table {
+  border: none;
+  &#{&} td,
+  &#{&} th,
+  thead {
+    padding: item-spacing(5 4);
+    font-weight: fw(normal, 4);
+    border: none;
+  }
+
+  &#{&} &--wrap {
+    white-space: normal;
+  }
+
+  &__header {
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+    margin: item-spacing(5 0 5 0);
+  }
+
+  &__label {
+    color: rgba(0, 0, 0, 0.6);
+    line-height: line-height;
+    margin-bottom: 0px;
+  }
+
+  &__title {
+    font-weight: fw(normal, 7);
+    font-size: fs(x-large);
+    line-height: 28px;
+  }
+}
+
+.dataset-groups-column {
+  &--wide {
+    width: 15%;
+  }
+}

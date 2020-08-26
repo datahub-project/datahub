@@ -1,0 +1,11 @@
+.social-action-container {
+  &__icon {
+    -webkit-transform: scaleX(-1);
+    transform: scaleX(-1);
+  }
+
+  &--hidden {
+    // Since hidden is a vital property, we want to prevent any overrides
+    display: none !important;
+  }
+}

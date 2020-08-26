@@ -1,0 +1,26 @@
+<td class="nacho-table__cell">
+  {{! If cta is unknown, an action button will not be shown }}
+  {{#with this.cta as |cta|}}
+    {{#if cta.isWiki}}
+      <a
+        href={{@tableConfigs.options.wikiLink}}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="nacho-button nacho-button--tertiary health-factor-action__wiki"
+        title={{cta.text}}
+        {{track-control-interaction type="SHORT_PRESS" name=this.controlName}}
+      >
+        Wiki {{svg-jar "link-external-icon" class="health-factor-action__icon"}}
+      </a>
+    {{else}}
+      <button
+        type="button"
+        class="nacho-button nacho-button--tertiary"
+        {{on "click" (fn @labelConfig.componentAction @rowData)}}
+        {{track-control-interaction type="SHORT_PRESS" name=this.controlName}}
+      >
+        {{cta.text}}
+      </button>
+    {{/if}}
+  {{/with}}
+</td>

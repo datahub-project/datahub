@@ -1,0 +1,10 @@
+@mixin nacho-table-row-no-bottom-border-on-last-cell {
+  .nacho-table__row {
+    &:last-child {
+      // Remove the bottom border from the cells in the last row
+      .nacho-table__cell {
+        border-bottom: 0;
+      }
+    }
+  }
+}

@@ -1,14 +1,14 @@
 {{! alias the active notification on the service --}}
-{{#let @service.activeNotification as |notification|}}
+{{#let this.service.activeNotification as |notification|}}
   {{! Dialog Modals }}
-  {{#if (and @service.isShowingNotification (eq notification.type this.notificationType.Modal))}}
+  {{#if (and this.service.isShowingNotification (eq notification.type this.notificationType.Modal))}}
     <NotificationsConfirmDialog
       @dismissButtonText={{notification.props.dismissButtonText}}
       @confirmButtonText={{notification.props.confirmButtonText}}
       @toggleText={{notification.props.toggleText}}
-      @onDialogToggle={{action notification.props.onDialogToggle target=@service}}
-      @didConfirm={{action "confirmModal" target=@service}}
-      @didClose={{action "dismissModal" target=@service}} as |Dialog|
+      @onDialogToggle={{action notification.props.onDialogToggle target=this.service}}
+      @didConfirm={{action "confirmModal" target=this.service}}
+      @didClose={{action "dismissModal" target=this.service}} as |Dialog|
     >
       <Dialog.header @header={{notification.props.header}} />
 
@@ -21,12 +21,12 @@
 
   <div class="notifications__toast-wrapper">
     {{! Toasts are hidden or show based on the flag, allows for css animation between states}}
-    {{#let (if @service.isShowingToast "--visible" "--hidden") as |classModifier|}}
+    {{#let (if this.service.isShowingToast "--visible" "--hidden") as |classModifier|}}
       <NotificationsToast
         class={{concat "notifications__toast" classModifier}}
         @toast={{notification}}
-        @onDismiss={{action @service.dismissToast}}
-        @onShowDetail={{action @service.showContentDetail}}
+        @onDismiss={{action this.service.dismissToast}}
+        @onShowDetail={{action this.service.showContentDetail}}
       />
     {{/let}}
   </div>

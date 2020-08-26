@@ -1,0 +1,30 @@
+<header class="{{this.baseClass}}__header">
+  <h4 class="{{this.baseClass}}__title">
+    <strong>Health Factors</strong>
+  </h4>
+  {{#with this.healthFactorsWiki as |wiki|}}
+    <MoreInfo @link={{wiki}} @tooltip={{this.tooltip}} />
+  {{/with}}
+  <p class="{{this.baseClass}}__sub-title">How is the health score computed?</p>
+</header>
+
+<Health::Containers::HealthMetadata
+  @urn={{@entity.urn}}
+  @entityName={{@entity.displayName}} as |metadata|
+>
+  <ConcurrencyTaskStateHandler
+    @task={{metadata.containerTask}}
+    @showLockup={{false}}
+    @errorHeading={{"There was an error getting the Health Score metadata"}}
+    @customErrorComponent="health/health-metadata-error"
+  >
+    <Health::HealthFactors
+      @health={{metadata.health}}
+      @onHealthFactorAction={{metadata.onHealthFactorAction}}
+      @entity={{@entity}}
+      @factorActionWiki={{this.healthScoresWiki}}
+      @onRecalculateHealthScore={{metadata.onRecalculateHealthScore}}
+      @moreInfo={{hash wiki=this.healthFactorsWiki tooltip=this.recalculationTooltip}}
+    />
+  </ConcurrencyTaskStateHandler>
+</Health::Containers::HealthMetadata>

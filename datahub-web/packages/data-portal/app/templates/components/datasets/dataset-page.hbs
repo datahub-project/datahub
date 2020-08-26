@@ -1,0 +1,112 @@
+<Datasets::Containers::DatasetMain
+  @urn={{readonly @urn}}
+  @tabSelected={{readonly @tabSelected}}
+  as |container|
+>
+  {{#if container.error.isNotFoundApiError}}
+
+    <EmptyState
+      @heading="404 Not Found"
+      @subHead="Looks like the dataset you are looking for is not here"
+    />
+
+  {{else if container.error}}
+
+    <EmptyState
+      @heading="Error"
+      @subHead="Looks like there was some unexpected error trying to load the dataset, please try again later."
+    />
+
+  {{else}}
+    <div id="dataset" class="entity-header">
+      <WaitPromiseContainer
+        class={{with-banner-offset "nacho-breadcrumbs-container"}}
+        @promise={{container.paths}} as |paths|>
+        <Browser::EntityBreadcrumbs
+          @tagName=""
+          @entity={{or (lowercase container.entity.displayName) "--"}}
+          @segments={{paths}}
+        />
+      </WaitPromiseContainer>
+
+      {{!-- TODO META-11235: Allow for entity feature configs container to batch targets --}}
+      <Configurable::Containers::EntityFeatureConfigs
+        @entity={{container.entity}}
+        @targetFeature="appworx-deprecation"
+      >
+        {{!-- TODO META-11238: Separate entity feature configs container with configurable feature wrapper --}}
+        <EntityAlertBanner />
+      </Configurable::Containers::EntityFeatureConfigs>
+
+      <div class="container">
+        <Datasets::DatasetHeader
+          @entityClass={{container.entityClass}}
+          @entity={{readonly container.entity}}
+          @fields={{container.fields}}
+          @datasetContainsPersonalData={{container.datasetContainsPersonalData}}
+          @urn={{container.urn}}
+          @avatarEntityProps={{container.avatarEntityProps}}
+          @wikiLinks={{container.wikiLinks}}
+        />
+      </div>
+    </div>
+
+    <IvyTabs @selection={{container.tabSelected}} as |tabs|>
+      <div
+        class="entity-tabs {{if banners.isShowingBanners "entity-tabs--with-banner-offset"}}"
+      >
+        <div class="container">
+          <tabs.tablist as |tablist|>
+            {{#each container.datasetTabs as |tabComponent|}}
+              {{#tablist.tab
+                tabComponent.id
+                on-select=(action container.tabSelectionChanged)
+              }}
+                {{tabComponent.title}}
+                {{#if (get container.notifications tabComponent.id)}}
+                  <span
+                    class="notification-dot notification-dot--on-tab"
+                    aria-hidden="true"
+                  >
+                  </span>
+                {{/if}}
+              {{/tablist.tab}}
+            {{/each}}
+          </tabs.tablist>
+        </div>
+      </div>
+
+      <div class="container">
+        {{#each container.datasetTabs as |tabComponent|}}
+          {{#tabs.tabpanel tabComponent.id}}
+            <Nacho::NachoTabCacher @lazyRender={{tabComponent.lazyRender}} @id={{tabComponent.id}} @currentTab={{container.tabSelected}}>
+              {{component
+                tabComponent.contentComponent
+                entity=(readonly container.entity)
+                dataset=(readonly container.entity.legacyDataset)
+                snapshot=(readonly container.entity.snapshot)
+                urn=(readonly container.urn)
+                avatarProperties=container.avatarEntityProps
+                jitAclConfig=container.jitAclConfig
+                currentUsername=@userName
+                wikiLinks=container.wikiLinks
+                datasetName=container.entity.name
+                aclMoreInfoLink=container.wikiLinks.jitAcl
+                notifyPiiStatus=(action container.onNotifyPiiStatus)
+                setOwnershipRuleChange=(action container.setOwnershipRuleChange)
+                requestJitAccess=(hash
+                  jitAclConfig=container.jitAclConfig
+                  requestJitUrns=@requestJitUrns
+                  addRequestJitUrn=(fn @addRequestJitUrn)
+                  removeRequestJitUrn=(fn @removeRequestJitUrn)
+                  resetRequestJitUrns=(fn @resetRequestJitUrns)
+                )
+              }}
+            </Nacho::NachoTabCacher>
+          {{/tabs.tabpanel}}
+        {{/each}}
+      </div>
+    </IvyTabs>
+  {{/if}}
+
+</Datasets::Containers::DatasetMain>

@@ -1,0 +1,148 @@
+$profile-picture-border-radius: 1000px;
+$profile-picture-height: 48px;
+$profile-picture-width: 48px;
+$profile-content-width: 662px;
+
+.people-entity-profile-list {
+  &__profile {
+    height: 105px;
+    display: flex;
+    justify-content: space-between;
+    padding-top: item-spacing(3) + 4;
+
+    &:last-child {
+      .people-entity-profile-list__content {
+        border-bottom: none;
+      }
+    }
+
+    &-picture {
+      border-radius: $profile-picture-border-radius;
+      height: $profile-picture-height;
+      width: $profile-picture-width;
+    }
+  }
+
+  &__content {
+    border-bottom: 1px solid get-color(gray1);
+    width: $profile-content-width;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__name {
+    font-size: fs(standard);
+    line-height: 20px;
+    font-weight: fw(normal, 6);
+    color: get-color(black);
+
+    &:after {
+      content: none;
+    }
+
+    &:hover {
+      color: get-color(blue5);
+    }
+  }
+
+  &__title {
+    font-size: fs(standard);
+    line-height: 20px;
+    margin-bottom: item-spacing(3);
+    color: get-color(black, 0.6);
+  }
+
+  &__connections {
+    display: flex;
+    width: 100%;
+  }
+
+  &__connection {
+    font-size: fs(small);
+    margin-right: item-spacing(5);
+    cursor: pointer;
+
+    &-link {
+      color: get-color(black, 0.6);
+      &:hover {
+        color: get-color(blue6);
+      }
+    }
+
+    &-icon:hover,
+    &:hover {
+      color: get-color(blue6);
+    }
+
+    &-icon {
+      color: get-color(blue6);
+      margin-right: item-spacing(1);
+      transform: scale(1.25);
+    }
+  }
+}
+
+.grid-group-entity-profile-list {
+  &__profile {
+    height: 74px;
+    display: flex;
+    justify-content: space-between;
+    padding-top: item-spacing(4) + 2;
+
+    &:last-child {
+      .external-entity-profile-list__content {
+        border-bottom: none;
+      }
+    }
+
+    &-icon {
+      color: white;
+    }
+
+    &-picture {
+      border-radius: $profile-picture-border-radius;
+      height: $profile-picture-height;
+      width: $profile-picture-width;
+      background: get-color(gray5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  &__name {
+    font-size: fs(standard);
+    font-weight: fw(normal, 6);
+  }
+
+  &__link {
+    &-text {
+      text-decoration: underline;
+      color: get-color(black, 0.6);
+      font-size: fs(small);
+      margin-right: 2px;
+
+      &:hover {
+        color: get-color(blue6);
+      }
+    }
+
+    &-icon {
+      font-size: fs(small);
+      color: get-color(black, 0.6);
+
+      &:hover {
+        color: get-color(blue6);
+      }
+    }
+  }
+
+  &__content {
+    border-bottom: 1px solid get-color(gray1);
+    width: $profile-content-width;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}

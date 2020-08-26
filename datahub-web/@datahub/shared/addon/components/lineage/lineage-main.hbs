@@ -1,0 +1,37 @@
+<Lineage::LineageContainer @urn={{@urn}} @fullscreenMode={{@fullscreenMode}} as |container|>
+  {{#if @fullscreenMode}}
+    <section class="entity-header entity-header--no-tabs">
+      <div class="container">
+        <EntityPage::WherehowsEntityHeader as |EntityHeader|>
+          <EntityHeader.row>
+            <EntityHeader.entityTitle>
+              Lineage Graph (Beta)
+            </EntityHeader.entityTitle>
+          </EntityHeader.row>
+          <EntityHeader.row>
+            <Entity::PropertiesPanel
+              @entity={{container.entity}}
+              @options={{container.propertiesPanelOptions}} />
+          </EntityHeader.row>
+        </EntityPage::WherehowsEntityHeader>
+      </div>
+    </section>
+  {{else}}
+    <h4 class="lineage-graph__header">
+      <span>Lineage Graph (Beta)</span>
+      <LinkTo @route="lineage.urn" @model={{@urn}} @target="_blank" class="nacho-button nacho-button--tertiary">
+        View in full screen
+        <FaIcon @icon="external-link-alt" />
+      </LinkTo>
+    </h4>
+  {{/if}}
+  <section
+    class="lineage-graph__container lineage-graph__container--{{if @fullscreenMode 'fullscreen' 'embedded'}}">
+    <ConcurrencyTaskStateHandler @task={{container.concurrencyTask}}>
+      <section class="lineage-graph__toolbar">
+        <Graph::Toolbar @state={{container.state}} @lastState={{container.lastState}} @onStateChanged={{container.onStateChanged}} />
+      </section>
+      <Graph::GraphViewer @state={{container.state}} @lastState={{container.lastState}} @onStateChanged={{container.onStateChanged}}/>
+    </ConcurrencyTaskStateHandler>
+  </section>
+</Lineage::LineageContainer>
