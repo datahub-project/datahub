@@ -43,7 +43,7 @@
         {{/if}}
       </ul>
 
-      <ListCount @entityType={{@listEntity}} />
+      <Lists::ListCount @entityType={{@listEntity}} />
 
       <ul class="nav navbar-nav navbar-right">
         <li class="dropdown">
@@ -77,6 +77,17 @@
                 {{nacho-core/titleize (humanize entity.displayName)}} I Own
               </NavLink>
             {{/each}}
+
+            <Application::Navbar::AdditionalLinks @userUrn={{this.userUrn}} />
+
+            {{#if this.showVirtualAssistant}}
+              <li role="separator" class="divider"></li>
+
+              <li>
+                <Foxie::Navbar::ToggleComponent />
+              </li>
+
+            {{/if}}
 
             <li role="separator" class="divider"></li>
 

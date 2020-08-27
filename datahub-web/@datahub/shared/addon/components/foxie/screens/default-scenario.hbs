@@ -1,0 +1,21 @@
+<div class="foxie__screen-container">
+  {{#if this.showWhatsNew}}
+
+    <div>Did you know that we just released a new process for getting JIT Access for Datasets?</div>
+    <a class="foxie__link-button" href="http://go/jmv" target="_blank" rel="noopener noreferrer">Learn More</a>
+
+  {{else}}
+
+    <Foxie::DynamicComponents::Header @options={{hash text="Hey __USERNAME__, how can I help you?"}} />
+    <Foxie::DynamicComponents::LinkButton
+      @options={{hash text="Check my ACL access" linkTo="user.profile" linkModel="me"}}
+    />
+    <Foxie::DynamicComponents::LinkButton
+      @options={{hash text="Find datasets I own" linkTo="user.profile.tab" linkModels=(array "me" "userownership-datasets")}}
+    />
+    <button class="foxie__link-button" type="button" onclick={{this.toggleWhatsNew}}>
+      Show me what's new
+    </button>
+
+  {{/if}}
+</div>

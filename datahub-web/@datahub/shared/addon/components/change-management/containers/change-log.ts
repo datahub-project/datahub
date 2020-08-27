@@ -262,25 +262,29 @@ export default class ChangeLogContainer extends Component {
   async onSendEmailOnly(
     recipients: Array<Com.Linkedin.DataConstructChangeManagement.NotificationRecipient>
   ): Promise<void> {
-    const changeLogToBeUpdated: ChangeLog = Object.assign(
-      {},
-      this.currentChangeLog,
-      { recipients },
-      { sendEmail: true }
-    );
-    try {
-      await this.updateChangeLog.perform(changeLogToBeUpdated);
-      this.notifications.notify({
-        content: 'Notification sent out successfully.',
-        type: NotificationEvent.success
-      });
-    } catch (e) {
-      this.notifications.notify({
-        content: `We could not send out the notification. ${e}`,
-        type: NotificationEvent.error
-      });
+    const { currentChangeLog } = this;
+    if (currentChangeLog) {
+      const translatedChangeLog = Object.assign({}, currentChangeLog, { content: currentChangeLog.content.toString() });
+      const changeLogToBeUpdated: ChangeLog = Object.assign(
+        {},
+        translatedChangeLog,
+        { recipients },
+        { sendEmail: true }
+      );
+      try {
+        await this.updateChangeLog.perform(changeLogToBeUpdated);
+        this.notifications.notify({
+          content: 'Notification sent out successfully.',
+          type: NotificationEvent.success
+        });
+      } catch (e) {
+        this.notifications.notify({
+          content: `We could not send out the notification. ${e}`,
+          type: NotificationEvent.error
+        });
+      }
+      this.onSaveComplete();
     }
-    this.onSaveComplete();
   }
 
   /**

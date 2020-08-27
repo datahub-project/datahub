@@ -84,6 +84,9 @@ export interface IAppConfig {
 
   // Specifies the user authentication workflow the application should use for login
   authenticationWorkflow: AuthenticationType;
+
+  // Whether or not to show our foxie virtual assistant contents
+  showFoxie?: boolean;
 }
 
 /**

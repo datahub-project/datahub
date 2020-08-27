@@ -86,7 +86,6 @@
     "@datahub/data-models": "0.0.0",
     "@datahub/datasets-core": "0.0.1",
     "@datahub/institutional-memory": "0.0.0",
-    "@datahub/lists": "0.0.0",
     "@datahub/metadata-types": "0.0.0",
     "@datahub/search": "0.0.0",
     "@datahub/shared": "0.0.0",

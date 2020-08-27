@@ -1,4 +1,4 @@
-import { Server } from 'ember-cli-mirage';
+import { Server, Request } from 'ember-cli-mirage';
 import { setup } from '@datahub/shared/mirage-addon/mirage-config';
 
 /**
@@ -8,4 +8,12 @@ import { setup } from '@datahub/shared/mirage-addon/mirage-config';
  */
 export default function(this: Server): void {
   setup(this);
+
+  this.get('/features/:urn', function(_schema: unknown, request: Request) {
+    return { urn: request.params.urn };
+  });
+
+  this.get('/features/snapshots/:urns', function(_schema: unknown, request: Request) {
+    return (request.params.urns as string).split(';').map((urn: string) => ({ urn }));
+  });
 }

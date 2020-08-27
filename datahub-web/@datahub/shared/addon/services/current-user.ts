@@ -1,11 +1,11 @@
 import Service from '@ember/service';
 import { get, set } from '@ember/object';
-import { currentUser } from '@datahub/shared/api/user/authentication';
+import { currentUserDeprecated } from '@datahub/shared/api/user/authentication';
 import Session from 'ember-simple-auth/services/session';
 import { inject as service } from '@ember/service';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
-import { ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
+import { IUser } from '@datahub/metadata-types/types/common/user';
 
 /**
  * Indicates that the current user has already been tracked in the current session
@@ -50,15 +50,12 @@ export default class CurrentUser extends Service {
     // If we have a valid session, get the currently logged in user, and set the currentUser attribute,
     // otherwise raise an exception
     if (session.isAuthenticated) {
-      const userV2: ICorpUserInfo = await currentUser();
-      // TODO: Current midtier is falling behind, requiring us to make adjustments in open source to accommodate
-      // Since we actually are calling v1 endpoint here, ICorpUserInfo is not appropriate typing. This temp workaround
-      // will let us have parity with current OS while we make the fix to push out from internal
-      const tempFixUserInfo = (userV2 as unknown) as { user: { userName: string } };
-
+      // NOTE: Open source is currently using an outdated version of the /me endpoint, which requires a separated
+      // logic in the open source version of current-user
+      const userV1: IUser = await currentUserDeprecated();
       const PersonEntityClass = dataModels.getModel(PersonEntity.displayName);
-      const urn = PersonEntityClass.urnFromUsername(tempFixUserInfo.user.userName);
-      const entity = await dataModels.createInstance(PersonEntityClass.displayName, urn);
+      const urn = PersonEntityClass.urnFromUsername(userV1.userName);
+      const entity = dataModels.createPartialInstance(PersonEntityClass.displayName, { ...userV1, urn });
 
       set(this, 'entity', entity);
     }

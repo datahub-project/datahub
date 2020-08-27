@@ -24,6 +24,8 @@
     "@fortawesome/ember-fontawesome": "^0.1.13",
     "@nacho-ui/core": "^0.0.38",
     "@types/ember-resolver": "^5.0.7",
+    "@types/dompurify": "2.0.3",
+    "dompurify": "^2.0.12",
     "dynamic-link": "^0.2.3",
     "ember-auto-import": "^1.5.3",
     "ember-basic-dropdown": "^1.1.3",
