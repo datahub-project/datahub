@@ -1,5 +1,5 @@
 import { ApiStatus } from '@datahub/utils/api/shared';
-import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'datahub-web/utils/api/datasets/owners';
 
 /**
  * Describes the interface for an Owner entity

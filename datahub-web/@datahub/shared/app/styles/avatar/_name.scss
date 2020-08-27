@@ -1,0 +1,12 @@
+.avatar-name {
+  &:after {
+    color: get-color(black);
+    content: ',';
+  }
+
+  &:last-child {
+    &:after {
+      content: '';
+    }
+  }
+}

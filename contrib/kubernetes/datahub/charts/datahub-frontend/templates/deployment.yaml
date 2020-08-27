@@ -21,6 +21,10 @@ spec:
       serviceAccountName: {{ include "datahub-frontend.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | indent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -41,18 +45,25 @@ spec:
               port: http
           env:
             - name: DATAHUB_GMS_HOST
-              value: "{{ .Values.global.datahub.gms.host }}"
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: DATAHUB_GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
             - name: DATAHUB_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "datahub-frontend.fullname" . }}-secret
+                  name: {{ printf "%s-gms-secret" .Release.Name }}
                   key: datahub.gms.secret
             - name: DATAHUB_APP_VERSION
               value: "{{ .Values.global.datahub.appVersion }}"
             - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
               value: "{{ .Values.datahub.play.mem.buffer.size }}"
+          {{- if .Values.extraEnvs }}
+            {{ toYaml .Values.extraEnvs | indent 10 }}
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

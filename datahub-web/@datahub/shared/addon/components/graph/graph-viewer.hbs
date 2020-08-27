@@ -1,0 +1,19 @@
+<ConcurrencyTaskStateHandler @task={{this.renderGraphTask}} />
+
+<div class="{{this.baseClass}}-icon-resources">
+  <FaIcon @icon="external-link-alt" id="icon-external-link" {{did-insert (fn this.cleanIconSvg)}} />
+</div>
+{{!-- template-lint-disable no-invalid-interactive --}}
+{{!-- The section below acts as a top level handler catching all children click events.
+      This is necesary as the SVG contains many child that can be clicked --}}
+<section class="{{this.baseClass}}
+  {{if @state.lineageMode (concat this.baseClass "--lineage-mode")}}
+  {{if @state.fullscreenMode (concat this.baseClass "--fullscreen-mode")}}
+  {{with-banner-offset this.baseClass}}
+  "
+  {{did-insert (perform this.renderGraphTask)}}
+  {{did-update this.onUpdatedState @state}}
+  {{will-destroy this.clearResources}}
+  {{on 'click' (fn this.click)}}>
+
+</section>

@@ -1,0 +1,9 @@
+{{#if hasBlock}}
+  {{yield}}
+{{else}}
+  {{#if this.segments}}
+    <DynamicLink @params={{link}} @class="data-search-hierarchy nacho-button nacho-button--tertiary">
+      {{this.cta}}
+    </DynamicLink>
+  {{/if}}
+{{/if}}

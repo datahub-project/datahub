@@ -1,0 +1,63 @@
+.nacho-table {
+  @include nacho-container();
+  $border-color: get-color(gray2);
+  border-color: $border-color;
+  border-collapse: collapse;
+  border-spacing: 0;
+  text-align: left;
+  width: 100%;
+  table-layout: fixed;
+  background-color: get-color(white);
+
+  &__wrapper {
+    /// Adds additional depth to the table
+    @include nacho-container();
+    padding: 0;
+  }
+
+  &__title {
+    font-size: 16px;
+    min-height: 36px;
+    padding: 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+
+  &__header--with-filter,
+  &__title--with-filter {
+    background-color: get-color(slate1);
+  }
+
+  &__title,
+  &__header {
+    border-bottom: 2px solid get-color(gray2, 80);
+  }
+
+  &__title,
+  &__cell {
+    padding: 16px 24px;
+  }
+
+  &__cell {
+    box-sizing: border-box;
+    min-height: 52px;
+    border-bottom: 1px solid $border-color;
+    vertical-align: middle;
+    word-wrap: break-word;
+  }
+
+  &--bordered {
+    border: 1px solid $border-color;
+  }
+
+  &--striped {
+    tr:nth-child(odd) {
+      background-color: get-color(gray0);
+    }
+  }
+
+  &--dynamic {
+    table-layout: auto;
+  }
+}

@@ -1,0 +1,35 @@
+{{#nacho-table
+  data=basicData
+as |table|
+}}
+  {{#table.global}}
+    <h1>Starter Pokemon</h1>
+  {{/table.global}}
+  {{#table.head as |head|}}
+    {{#head.title}}
+      Name
+    {{/head.title}}
+    {{#head.title}}
+      Type
+    {{/head.title}}
+    {{#head.title}}
+      Nature
+    {{/head.title}}
+  {{/table.head}}
+
+  {{#table.body as |body|}}
+    {{#each table.fields as |field|}}
+      {{#body.row as |row|}}
+        {{#row.cell}}
+          {{field.name}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{field.type}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{field.nature}}
+        {{/row.cell}}
+      {{/body.row}}
+    {{/each}}
+  {{/table.body}}
+{{/nacho-table}}

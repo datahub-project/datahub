@@ -3,7 +3,7 @@ import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 import { InstitutionalMemories, InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
 import { getJSON, postJSON } from '@datahub/utils/api/fetcher';
 import { set } from '@ember/object';
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 
 export interface IPokemon extends IBaseEntity {
   urn: string;
@@ -16,8 +16,6 @@ const getPokemonIMUrlByUrn = (urn: string): string => `/pokemons/${urn.replace(/
 
 export class Pokemon extends BaseEntity<IPokemon> {
   urn: string;
-
-  institutionalMemories?: InstitutionalMemories;
 
   get displayName(): string {
     return 'pokemons';

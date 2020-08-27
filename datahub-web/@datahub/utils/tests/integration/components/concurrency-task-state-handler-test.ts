@@ -28,7 +28,7 @@ const createMockTask = ({ isRunning = false, isError = false }: IMockTaskParams 
   }
 });
 
-module('Integration | Component | concurrency-task-state-handler', function(hooks) {
+module('Integration | Component | concurrency-task-state-handler', function(hooks): void {
   setupRenderingTest(hooks);
 
   test('should yield when task is done', async function(this: IMyTest, assert) {

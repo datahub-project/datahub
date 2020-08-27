@@ -1,0 +1,20 @@
+<Search::Containers::EntityTaskContainer
+  @keyword={{this.keyword}}
+  @entity={{this.entityDisplayName}}
+  @pageSize={{this.pageSize}}
+  @searchConfig={{this.searchConfig}}
+  @shouldCollectSearchTelemetry={{true}}
+as |dataContainer|
+>
+  <ConcurrencyTaskStateHandler
+    @task={{this.getContainerDataTask}}
+    @showLockup={{false}}
+    @errorHeading="An error occurred while fetching ChangeLogs."
+  >
+    <ChangeManagement::Containers::ChangeLog
+      @results={{dataContainer.result}}
+      @entity={{@entity}}
+      @onSuccessfulSave={{perform dataContainer.searchTask}}
+    />
+  </ConcurrencyTaskStateHandler>
+</Search::Containers::EntityTaskContainer>

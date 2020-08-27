@@ -1,1 +1,34 @@
 apply plugin: 'java'
+
+configurations {
+  avroOriginal
+}
+
+dependencies {
+  compile project(':metadata-events:mxe-avro-1.7')
+  compile project(':metadata-models')
+  compile spec.product.pegasus.dataAvro1_6
+
+  testCompile project(':metadata-dao')
+  testCompile project(':metadata-testing:metadata-test-utils')
+
+  avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')
+}
+
+// copy original MXE avro schema from metadata-models to resources
+task copyOriginalMXESchemas(type: Copy) {
+  dependsOn configurations.avroOriginal
+
+  from { // use of closure defers evaluation until execution time
+    configurations.avroOriginal.collect { zipTree(it) }
+  }
+  into("src/main/resources/")
+  include("avro/com/linkedin/mxe/")
+}
+
+compileJava.dependsOn copyOriginalMXESchemas
+processResources.dependsOn copyOriginalMXESchemas
+
+clean {
+  project.delete("src/main/resources/avro")
+}

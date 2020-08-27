@@ -3,7 +3,7 @@ import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-rout
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
 import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
 import { capitalize } from '@ember/string';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
+import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 
 const queryParamsKeys: Array<string> = ['page', 'facets', 'path'];
 
@@ -21,7 +21,7 @@ interface IBrowseSearchEntityParams {
  * Route model return type. It will contain enough fields to perform a search query
  */
 interface IBrowseSearchEntityModel {
-  fields: Array<ISearchEntityRenderProps>;
+  searchConfig: IEntityRenderCommonPropsSearch;
   trackPrefix: string;
   title: string;
   keyword: string;
@@ -42,7 +42,7 @@ export default class BrowseSearchEntity extends Route.extend(AuthenticatedRouteM
     const { displayName, renderProps } = entityDataModel;
     const segments = path.split('/');
     return {
-      fields: renderProps.search.attributes,
+      searchConfig: renderProps.search,
       trackPrefix: `${displayName}path${path}`,
       title: `${capitalize(entity)} > ${segments.join(' > ')}`,
       keyword: `${entityDataModel.getQueryForHierarchySegments(segments)}`,

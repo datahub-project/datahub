@@ -1,5 +1,5 @@
-import { INodeFacetProcessor, ISuggestionBuilder } from 'wherehows-web/utils/parsers/autocomplete/types';
-import { RecordValue } from 'wherehows-web/typings/generic';
+import { INodeFacetProcessor, ISuggestionBuilder } from 'datahub-web/utils/parsers/autocomplete/types';
+import { RecordValue } from 'datahub-web/typings/generic';
 
 export const localFacetProcessor = (facetName: string, values: Array<string>): RecordValue<INodeFacetProcessor> => {
   /**

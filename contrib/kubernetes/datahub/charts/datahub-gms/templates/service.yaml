@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "datahub-gms.fullname" . }}
+  name: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
   labels:
     {{- include "datahub-gms.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ .Values.global.datahub.gms.port }}
       targetPort: http
       protocol: TCP
       name: http

@@ -12,10 +12,16 @@
         {{partial banner.content}}
       {{else}}
         {{banner.content}}
+        {{#if banner.link}}
+          <p>
+            For more information, please visit the following link:
+            <a href={{banner.link}} target="_blank" rel="noreferrer noopener" class="banner-alert__link">{{banner.link}}</a>
+          </p>
+        {{/if}}
       {{/if}}
     </div>
     {{#if banner.isDismissable}}
-      <button {{action "onDismissBanner" banner}} class="banner-alert__dismiss">
+      <button {{action "onDismissBanner" banner}} class="banner-alert__dismiss" type="button">
         {{fa-icon "times"}}
       </button>
     {{/if}}

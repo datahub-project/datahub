@@ -9,7 +9,6 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseQueryDAO;
-import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.entity.DatasetEntity;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
@@ -62,7 +61,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
   @RestMethod.Get
   public Task<DownstreamLineage> get(@PathKeysParam @Nonnull PathKeys keys) {
     final DatasetUrn datasetUrn = getUrn(keys);
-    final Filter filter = SearchUtils.getFilter(Collections.singletonMap("upstreams", datasetUrn.toString()));
+    final Filter filter = newFilter(Collections.singletonMap("upstreams", datasetUrn.toString()));
 
     return RestliUtils.toTask(() -> {
       final List<DatasetUrn> downstreamDatasets = _queryDAO

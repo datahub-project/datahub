@@ -1,47 +1,41 @@
 import Route from '@ember/routing/route';
 import { run } from '@ember/runloop';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
-import Configurator, { getConfig } from 'wherehows-web/services/configurator';
-import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
+import { feedback } from 'datahub-web/constants';
+import Configurator, { getConfig } from 'datahub-web/services/configurator';
 import { inject as service } from '@ember/service';
-import { UnWrapPromise } from 'wherehows-web/typings/generic';
+import { UnWrapPromise } from '@datahub/utils/types/async';
 import CurrentUser from '@datahub/shared/services/current-user';
-import BannerService from 'wherehows-web/services/banners';
+import BannerService from 'datahub-web/services/banners';
 import Controller from '@ember/controller';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import UnifiedTracking from '@datahub/shared/services/unified-tracking';
+import DataModelsService from '@datahub/data-models/services/data-models';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
-import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
+import { NotificationEvent } from '@datahub/utils/constants/notifications';
+import { IMailHeaderRecord } from '@datahub/utils/helpers/email';
+import AvatarService from '@datahub/shared/services/avatar';
 
 /**
  * Quick alias of the type of the return of the model hook
  */
 type Model = UnWrapPromise<ReturnType<ApplicationRoute['model']>>;
 
+const { subject, title } = feedback;
 const { scheduleOnce } = run;
 
-/**
- * Will initialize Marked which is a global (and probably from legacy code) library.
- * @param marked Marked Library
- */
-const initMarked = (marked: Window['marked']): void => {
-  const markedRendererOverride = new marked.Renderer();
-
-  markedRendererOverride.link = (href: string, title: string, text: string): string =>
-    `<a href='${href}' title='${title || text}' target='_blank'>${text}</a>`;
-
-  marked.setOptions({
-    gfm: true,
-    tables: true,
-    renderer: markedRendererOverride
-  });
-};
-
 interface IApplicationRouteModel {
+  // Email attributes a user to contact support to provide feedback
+  feedbackMail: IMailHeaderRecord & { title: string };
+  // Configuration for additional help links the user can access
   helpResources: Array<{ label: string; link: string }>;
+  // Flag for showing whether or not we are in a staging environment
   showStagingBanner: boolean;
+  // Flag for warning a user that they are in a testing environment with access to production data
   showLiveDataWarning: boolean;
+  // Flag for showing a banner that the app is undergoing some kind of maintenance
   showChangeManagement: boolean;
-  avatar: IAvatar;
+  // Configurations for if we have a custom banner to display
+  customBanner: IAppConfig['customBanner'];
 }
 
 export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin) {
@@ -59,6 +53,18 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
   trackingService: UnifiedTracking;
 
   /**
+   * Injected service to access the data models related to our various entities.
+   */
+  @service('data-models')
+  dataModels: DataModelsService;
+
+  /**
+   * Injected service to load the avatars with necessary config information
+   */
+  @service
+  avatar: AvatarService;
+
+  /**
    * Banner alert service
    */
   @service
@@ -71,9 +77,8 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * Attempt to load the current user and application configuration options
    * @returns {Promise}
    */
-  beforeModel(): Promise<[void, IAppConfig]> {
-    super.beforeModel.apply(this, arguments);
-
+  beforeModel(...args: Array<unknown>): Promise<[void, IAppConfig]> {
+    super.beforeModel.apply(this, args);
     return Promise.all([this._loadCurrentUser(), this._loadConfig()]);
   }
 
@@ -83,22 +88,51 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * @override
    */
   model(): IApplicationRouteModel {
-    const [showStagingBanner, showLiveDataWarning, showChangeManagement, avatarEntityProps, wikiLinks] = [
+    const [
+      showStagingBanner,
+      showLiveDataWarning,
+      showChangeManagement,
+      avatarEntityProps,
+      wikiLinks,
+      customBanner,
+      applicationSupportEmail
+    ] = [
       getConfig('isStagingBanner', { useDefault: true, default: false }),
       getConfig('isLiveDataWarning', { useDefault: true, default: false }),
       getConfig('showChangeManagement', { useDefault: true, default: false }),
       getConfig('userEntityProps'),
-      getConfig('wikiLinks')
+      getConfig('wikiLinks'),
+      getConfig('customBanner'),
+      getConfig('applicationSupportEmail', { useDefault: true, default: '' })
     ];
-    const sessionUser = this.sessionUser || {};
-    const { userName = '', email = '', name = '', pictureLink = '' } = sessionUser.currentUser || {};
-    const avatar = makeAvatar(avatarEntityProps)({ userName, email, name, imageUrl: pictureLink });
+
+    const { dataModels: dataModelsService, avatar: avatarService } = this;
+    const PersonEntityClass = dataModelsService.getModel('people');
+
+    /**
+     * properties for the navigation link to allow a user to provide feedback
+     */
+    const feedbackMail: IMailHeaderRecord & { title: string } = {
+      title,
+      subject,
+      to: applicationSupportEmail
+    };
+
+    // These properties are saved on the person entity class, but are gotten through a config so
+    // they need to be loaded here to be used in the future.
+    // Note: This is now deprecated in favor of using the Avatar class and will be removed as we
+    // finish implementing avatars
+    PersonEntityClass.aviUrlPrimary = avatarEntityProps.aviUrlPrimary;
+    PersonEntityClass.aviUrlFallback = avatarEntityProps.aviUrlFallback;
+
+    avatarService.initWithConfigs(avatarEntityProps);
 
     return {
+      feedbackMail,
       showStagingBanner,
       showLiveDataWarning,
       showChangeManagement,
-      avatar,
+      customBanner,
       helpResources: [{ link: wikiLinks['appHelp'], label: 'DataHub Wiki' }]
     };
   }
@@ -107,8 +141,8 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * Perform post model operations
    * @return {Promise}
    */
-  afterModel(): Promise<[void, false | void]> {
-    super.afterModel.apply(this, arguments);
+  afterModel(...args: Array<unknown>): Promise<[void, false | void]> {
+    super.afterModel.apply(this, args);
 
     return Promise.all([this._setupMetricsTrackers(), this._trackCurrentUser()]);
   }
@@ -117,9 +151,9 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * Augments sessionAuthenticated.
    * @override ApplicationRouteMixin.sessionAuthenticated
    */
-  async sessionAuthenticated(): Promise<void> {
+  async sessionAuthenticated(...args: Array<unknown>): Promise<void> {
     // @ts-ignore waiting for this be solved: https://github.com/simplabs/ember-simple-auth/issues/1619
-    super.sessionAuthenticated.apply(this, arguments);
+    super.sessionAuthenticated.apply(this, args);
     await this._loadCurrentUser();
   }
 
@@ -167,30 +201,22 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
     this.trackingService.setCurrentUser(tracking);
   }
 
-  init(): void {
-    super.init.apply(this, arguments);
-    scheduleOnce('afterRender', this, 'processLegacyDomOperations');
-  }
-
   /**
    * At a more granular level, initializing the banner before the render loop of the entire page ends will results in the
    * render loop of the application breaking the css transition animation for our initial banners. This hook is being used
    * to schedule banners only after initial render has taken place in order to allow users see the banner animation
    * on entry
    */
-  renderTemplate(_: Controller, model: Model): void {
-    super.renderTemplate.apply(this, arguments);
-    const { showStagingBanner, showLiveDataWarning, showChangeManagement } = model;
+  renderTemplate(controller: Controller, model: Model): void {
+    super.renderTemplate.apply(this, [controller, model]);
+    const { showStagingBanner, showLiveDataWarning, showChangeManagement, customBanner } = model;
     const { banners } = this;
-    scheduleOnce('afterRender', this, (): void =>
-      banners.appInitialBanners([showStagingBanner, showLiveDataWarning, showChangeManagement])
-    );
-  }
-
-  processLegacyDomOperations(): void {
-    // As marked is a legacy global variable, lets ignore the type
-    if (window.marked) {
-      initMarked(window.marked);
-    }
+    scheduleOnce('afterRender', this, (): void => {
+      banners.appInitialBanners([showStagingBanner, showLiveDataWarning, showChangeManagement]);
+      if (customBanner && customBanner.showCustomBanner) {
+        const { content, type, icon, link } = customBanner;
+        banners.addCustomBanner(content, type as NotificationEvent, icon, link);
+      }
+    });
   }
 }

@@ -1,0 +1,27 @@
+<div class="col-md-3">
+  <Tracking::TrackableLinkTo
+    @params={{@link}}
+    @bubbles={{true}}
+    @contentName="Browse Index Page Card"
+    @contentPiece={{title}}
+    @onClick={{action this.onClick}}
+    class={{concat "browse-card-entity-" (dasherize title)}}
+  >
+    <div class="browse-card-container">
+      <div class="browse-card">
+        <p class="browse-card__title">
+          <strong>
+            {{title}}
+          </strong>
+        </p>
+        <p class="browse-card__description">
+          {{#if @showSpinner}}
+            <PendulumEllipsisAnimation />
+          {{else}}
+            {{description}}
+          {{/if}}
+        </p>
+      </div>
+    </div>
+  </Tracking::TrackableLinkTo>
+</div>

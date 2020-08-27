@@ -1,0 +1,8 @@
+@mixin nacho-table-border() {
+  &#{&} {
+    border: 0;
+    padding: 0;
+    box-shadow: 0 1px 1px 0 get-color(black, 0.16), 0 0 0 1px get-color(black, 0.08);
+    border-collapse: separate;
+  }
+}

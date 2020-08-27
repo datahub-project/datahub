@@ -1,7 +1,7 @@
 /**
  * <select> primary color, borders, icons, etcetera...
  */
-$color: set-color(grey, light);
+$color: get-color(gray1);
 $default-border: (1px solid shade($color, 20%));
 
 .nacho-select {
@@ -12,7 +12,7 @@ $default-border: (1px solid shade($color, 20%));
   max-width: 300px;
   border: $default-border;
   border-radius: 2px;
-  background-color: set-color(white, base);
+  background-color: get-color(white);
   padding: 0 14px;
 
   select {

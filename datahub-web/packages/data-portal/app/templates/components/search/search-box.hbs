@@ -2,55 +2,55 @@
   <label for="search-input" class="sr-only">Search</label>
   <div class="nacho-global-search__layout">
 
-    {{nacho-dropdown-basic
-      id="nacho-global-search__entity-select"
-      class="nacho-global-search__entity-select"
-      options=entities
-      selected=selectedEntity
-      selectionDidChange=(action onSelectedEntityChange)
-    }}
-    {{tooltip-on-element
-      target="#nacho-global-search__entity-select"
-      isShown=showSelectEntityTooltip
-      event="none"
-      side="bottom"
-      text="Please select an entity"
-    }}
+    <NachoDropdownBasic
+      @id="nacho-global-search__entity-select"
+      @class="nacho-global-search__entity-select"
+      @options={{this.entities}}
+      @selected={{this.selectedEntity}}
+      @selectionDidChange={{fn this.onSelectedEntityChange}}
+    />
+    <TooltipOnElement
+      @target="#nacho-global-search__entity-select"
+      @isShown={{this.showSelectEntityTooltip}}
+      @event="none"
+      @side="bottom"
+      @text="Please select an entity"
+    />
 
     <div class="nacho-global-search__input-container">
       {{#if searchDisabled}}
         <input
           disabled
-          placeholder={{placeholder}}
-          class="form-control nacho-global-search__text-input {{triggerClassName}}"
+          placeholder={{this.placeholder}}
+          class="form-control nacho-global-search__text-input"
         >
       {{else}}
-        {{#power-select-typeahead
-          options=initialSuggestions
-          disabled=searchDisabled
-          selected=text
-          closeOnSelect=false
-          placeholder=placeholder
-          defaultHighlighted=(action defaultHighlighted)
-          searchMessage=""
-          loadingMessage="Loading..."
-          noMatchesMessage=""
-          renderInPlace=true
-          search=(perform onTypeaheadTask)
-          oninput=(action onInput)
-          onchange=(action onChange)
-          onblur=(action onBlur)
-          onfocus=(action onFocus)
-          onclose=(action onClose)
-          dropdownClass="nacho-global-search__dropdown"
-          triggerClass=(concat "form-control nacho-global-search__text-input " triggerClassName)
-        as |suggestion|
-        }}
+        <PowerSelectTypeahead
+          @options={{this.initialSuggestions}}
+          @disabled={{this.searchDisabled}}
+          @selected={{this.text}}
+          @closeOnSelect={{false}}
+          @placeholder={{this.placeholder}}
+          @defaultHighlighted={{fn this.defaultHighlighted}}
+          @searchMessage=""
+          @loadingMessage="Loading..."
+          @noMatchesMessage=""
+          @renderInPlace={{true}}
+          @search={{perform this.onTypeaheadTask}}
+          @oninput={{fn this.onInput}}
+          @onchange={{fn this.onChange}}
+          @onblur={{fn this.onBlur}}
+          @onfocus={{fn this.onFocus}}
+          @onclose={{fn this.onClose}}
+          @dropdownClass="nacho-global-search__dropdown"
+          @triggerClass="form-control nacho-global-search__text-input"
+          as |suggestion|
+        >
           <h6 class="nacho-global-search__suggestion-title">{{suggestion.title}}</h6>
           {{#if suggestion.description}}
             <p class="nacho-global-search__suggestion-description">{{suggestion.description}}</p>
           {{/if}}
-        {{/power-select-typeahead}}
+        </PowerSelectTypeahead>
       {{/if}}
     </div>
 

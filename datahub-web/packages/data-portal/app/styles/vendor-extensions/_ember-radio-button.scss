@@ -24,11 +24,11 @@
   }
 
   &:before {
-    border: 1px solid set_color(grey, mid);
+    border: 1px solid get-color(gray5);
   }
 
   &:after {
-    border: 0 solid set-color(blue, curious);
+    border: 0 solid get-color(blue5);
     transition: border-width 167ms cubic-bezier(0, 0, 0.2, 1);
     border-width: 0px;
   }

@@ -1,0 +1,18 @@
+// Rules for the FormsActionDrawer component
+.form-action-drawer {
+  background-color: get-color(white);
+  box-shadow: 0 0 0 1px get-color(black, 0.1), 0 2px 3px 0 get-color(black, 0.2);
+  z-index: z(dropdown) - 1; // Ensure drawer is stacked behind dropdowns
+  height: item-spacing(8);
+  padding: item-spacing(3 0);
+  position: fixed;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  display: flex;
+
+  &--open {
+    height: auto;
+    max-height: 50vh;
+  }
+}

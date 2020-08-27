@@ -1,0 +1,5 @@
+<section class="insight-carousel">
+  {{#each this.sortedInsights as |insight|}}
+    {{component insight.name options=insight.options entity=@entity }}
+  {{/each}}
+</section>

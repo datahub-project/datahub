@@ -1,0 +1,12 @@
+<div class= "{{this.baseStylingClassname}} {{@options.className}}">
+  <section class="{{this.baseStylingClassname}}__title">
+    <div>
+      {{component this.dynamicTextComponent.name options=this.dynamicTextComponent.options}}
+    </div>
+  </section>
+  <section class="{{this.baseStylingClassname}}__content">
+    {{#each @options.contentComponents as |contentComponent|}}
+      {{component contentComponent.name options=contentComponent.options}}
+    {{/each}}
+  </section>
+</div>

@@ -1,0 +1,48 @@
+.tab-content-modal {
+  width: 775px;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    padding: item-spacing(3 5);
+    align-content: center;
+  }
+
+  &__title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+  }
+
+  &__close {
+    font-size: item-spacing(6);
+    line-height: item-spacing(6);
+    background-color: transparent;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    box-sizing: border-box;
+    color: get-color(black, 0.7);
+    border: 0;
+  }
+
+  &__tab {
+    &-list {
+      padding: item-spacing(0 5);
+
+      &#{&} {
+        margin: 0;
+      }
+    }
+
+    &-container {
+      padding: item-spacing(3 5);
+      height: 540px;
+      overflow-y: auto;
+    }
+  }
+}

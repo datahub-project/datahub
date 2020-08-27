@@ -1,0 +1,41 @@
+{{#if this.isEditing}}
+  <Input
+    class="{{this.baseClass}}__input"
+    @value={{this.tagValue}}
+    @enter={{fn this.userConfirmedEntry}}
+    {{on "focusout" (fn this.userFocusedOut)}}
+    {{on "keydown" (fn this.userKeyDown)}}
+    @maxlength={{@maxlength}}
+  />
+  <button
+    type="button"
+    class="{{this.baseClass}}__action"
+    {{on "click" (fn this.userConfirmedEntry)}}
+  >
+    <FaIcon @icon="plus" class="{{this.baseClass}}__icon" />
+  </button>
+{{else}}
+  {{!-- Tag has value and should be a basic display --}}
+  {{#if @value}}
+    {{@value}}
+    <button
+      type="button"
+      class="{{this.baseClass}}__action"
+      {{on "click" (fn this.userDeletedTag)}}
+    >
+      <FaIcon @icon="times" class="{{this.baseClass}}__icon" />
+    </button>
+
+    {{!-- Tag does not have value and is meant to let user enter editng mode --}}
+  {{else}}
+    {{@placeholder}}
+    <button
+      type="button"
+      class="{{this.baseClass}}__action"
+      {{action (mut isEditing) true}}
+    >
+      <FaIcon @icon="plus" class="{{this.baseClass}}__icon" />
+    </button>
+  {{/if}}
+{{/if}}
+{{yield}}

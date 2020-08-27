@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 import { set } from '@ember/object';
 import { action, computed } from '@ember/object';
 import { singularize, pluralize } from 'ember-inflector';
@@ -24,7 +24,7 @@ export default class RollupAvatars extends Component {
    * The type of avatars being shown
    * @type {string}
    */
-  avatarType: string = 'entity';
+  avatarType = 'entity';
 
   /**
    * Returns the text to be shown in the avatar detail page header

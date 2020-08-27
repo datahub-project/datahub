@@ -1,0 +1,23 @@
+{
+  "name" : "dataPlatforms",
+  "namespace" : "com.linkedin.dataplatform",
+  "path" : "/dataPlatforms",
+  "schema" : "com.linkedin.dataplatform.DataPlatformInfo",
+  "doc" : "Resource provides information about various data platforms.\n\ngenerated from: com.linkedin.metadata.resources.dataplatform.DataPlatforms",
+  "collection" : {
+    "identifier" : {
+      "name" : "platformName",
+      "type" : "string"
+    },
+    "supports" : [ "get", "get_all" ],
+    "methods" : [ {
+      "method" : "get"
+    }, {
+      "method" : "get_all",
+      "pagingSupported" : true
+    } ],
+    "entity" : {
+      "path" : "/dataPlatforms/{platformName}"
+    }
+  }
+}

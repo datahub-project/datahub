@@ -1,0 +1,82 @@
+{
+  "urn:li:dataPlatform:adlsGen1": {
+    "datasetNameDelimiter": "/",
+    "name": "adlsGen1",
+    "type": "FILE_SYSTEM"
+  },
+  "urn:li:dataPlatform:adlsGen2": {
+    "datasetNameDelimiter": "/",
+    "name": "adlsGen2",
+    "type": "FILE_SYSTEM"
+  },
+  "urn:li:dataPlatform:ambry": {
+    "datasetNameDelimiter": ".",
+    "name": "ambry",
+    "type": "OBJECT_STORE"
+  },
+  "urn:li:dataPlatform:couchbase": {
+    "datasetNameDelimiter": ".",
+    "name": "couchbase",
+    "type": "KEY_VALUE_STORE"
+  },
+  "urn:li:dataPlatform:external": {
+    "datasetNameDelimiter": ".",
+    "name": "external",
+    "type": "OTHERS"
+  },
+  "urn:li:dataPlatform:hdfs": {
+    "datasetNameDelimiter": "/",
+    "name": "hdfs",
+    "type": "FILE_SYSTEM"
+  },
+  "urn:li:dataPlatform:hive": {
+    "datasetNameDelimiter": ".",
+    "name": "hive",
+    "type": "FILE_SYSTEM"
+  },
+  "urn:li:dataPlatform:kafka": {
+    "datasetNameDelimiter": ".",
+    "name": "kafka",
+    "type": "MESSAGE_BROKER"
+  },
+  "urn:li:dataPlatform:kusto": {
+    "datasetNameDelimiter": ".",
+    "name": "kusto",
+    "type": "OLAP_DATASTORE"
+  },
+  "urn:li:dataPlatform:mongo": {
+    "datasetNameDelimiter": ".",
+    "name": "mongo",
+    "type": "KEY_VALUE_STORE"
+  },
+  "urn:li:dataPlatform:mysql": {
+    "datasetNameDelimiter": ".",
+    "name": "mysql",
+    "type": "RELATIONAL_DB"
+  },
+  "urn:li:dataPlatform:oracle": {
+    "datasetNameDelimiter": ".",
+    "name": "oracle",
+    "type": "RELATIONAL_DB"
+  },
+  "urn:li:dataPlatform:pinot": {
+    "datasetNameDelimiter": ".",
+    "name": "pinot",
+    "type": "OLAP_DATASTORE"
+  },
+  "urn:li:dataPlatform:presto": {
+    "datasetNameDelimiter": ".",
+    "name": "presto",
+    "type": "QUERY_ENGINE"
+  },
+  "urn:li:dataPlatform:teradata": {
+    "datasetNameDelimiter": ".",
+    "name": "teradata",
+    "type": "RELATIONAL_DB"
+  },
+  "urn:li:dataPlatform:voldemort": {
+    "datasetNameDelimiter": ".",
+    "name": "voldemort",
+    "type": "KEY_VALUE_STORE"
+  }
+}

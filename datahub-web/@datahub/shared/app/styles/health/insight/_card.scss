@@ -1,0 +1,35 @@
+// Rules for rendering the Health Insight card block and it's elements
+.health-insight-card {
+  @include insight-card;
+
+  padding: item-spacing(3 4);
+
+  &__title {
+    margin: 0;
+  }
+
+  &__score {
+    display: flex;
+    flex-direction: column;
+
+    &-value {
+      font-size: item-spacing(5);
+    }
+  }
+
+  &__action {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+  }
+
+  &__menu-trigger {
+    outline: none;
+  }
+
+  &__button {
+    &#{&} {
+      font-size: 15px;
+    }
+  }
+}

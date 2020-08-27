@@ -43,7 +43,7 @@ const keyValueHasMatch = (object: Record<string, unknown>) => (metadataType: IMe
   const innerType = metadataType['@props'];
 
   if (!isRootValueEquiv) {
-    throw new Error(`Expected "${name}" to be a key on object`);
+    throw new Error(`Expected "${name}" to be a key on object with the identifierField: "${object.identifierField}`);
   }
 
   if (type.includes('object') && isObject(value)) {

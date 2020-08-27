@@ -1,0 +1,35 @@
+.social-metadata-container {
+  margin-top: item-spacing(3);
+  display: flex;
+  align-items: center;
+
+  &--hidden {
+    display: none;
+  }
+
+  &__like {
+    & .social-action-container__icon {
+      color: get-color(green5);
+      -webkit-transform: scaleX(-1);
+      transform: scaleX(-1);
+    }
+  }
+
+  &__save {
+    color: get-color(orange5);
+  }
+
+  &__follow {
+    & .social-action-container__icon {
+      color: get-color(blue5);
+    }
+  }
+
+  &__entry {
+    margin-left: item-spacing(4);
+
+    &:first-child {
+      margin-left: item-spacing(0);
+    }
+  }
+}

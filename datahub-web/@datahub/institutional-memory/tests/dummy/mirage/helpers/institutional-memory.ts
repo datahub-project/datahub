@@ -1,6 +1,6 @@
 import { IFunctionRouteHandler, IMirageRequest } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
 import { IMirageInstitutionalMemorySchema } from '../types/schema';
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
+import { IInstitutionalMemory } from '@datahub/metadata-types/types/aspects/institutional-memory';
 
 /**
  * Gets all the institutional memory objects available

@@ -46,6 +46,11 @@ public abstract class BaseBrowsableEntityResource<
     super(snapshotClass, aspectUnionClass);
   }
 
+  public BaseBrowsableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Class<URN> urnClass) {
+    super(snapshotClass, aspectUnionClass, urnClass);
+  }
+
   /**
    * Returns a {@link BaseBrowseDAO}.
    */

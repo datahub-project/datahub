@@ -15,11 +15,8 @@
 
   <header class="upstream-owners-banner__title">
     Parent Dataset Name:
-    {{#link-to
-      "datasets.dataset"
-      upstreamUrn
-    }}
+    <LinkTo @route="datasets.dataset" @model={{upstreamUrn}}>
       <strong>{{nativeName}}</strong>
-    {{/link-to}}
+    </LinkTo>
   </header>
 </section>

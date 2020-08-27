@@ -1,0 +1,13 @@
+{{#with @lastUpdated as |lastUpdated|}}
+  <span
+    class="health-score-last-update {{if this.classModifier (concat "health-score-last-update--" this.classModifier)}}"
+    {{did-insert this.updateRelativeTimeAtInterval}}
+    {{did-update this.updateRelativeTimeAtInterval}}
+    >
+    {{#with this.timeFromNow as |timeFromNow|}}
+      <i class="health-score-last-update__full-time nacho-tooltip" data-title={{moment-format lastUpdated "dddd, MMMM Do YYYY, h:mm a"}}>
+        Last calculated {{timeFromNow}}
+      </i>
+    {{/with}}
+  </span>
+{{/with}}

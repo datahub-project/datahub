@@ -1,5 +1,5 @@
 import { ApiStatus } from '@datahub/utils/api/shared';
-import { IUser } from '@datahub/shared/api/user/authentication';
+import { IUser } from '@datahub/metadata-types/types/common/user';
 
 /**
  * Describes the current user endpoint response

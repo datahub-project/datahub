@@ -2,5 +2,5 @@
 
 module.exports = {
   name: require('./package').name,
-  isDevelopingAddon: () => false
+  isDevelopingAddon: () => true
 };

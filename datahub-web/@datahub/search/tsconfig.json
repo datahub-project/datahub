@@ -1,0 +1,48 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "../../",
+    "paths": {
+      "dummy/mirage/*": ["tests/dummy/mirage/*", "../../@datahub/data-models/tests/dummy/mirage/*"],
+      "dummy/tests/*": ["tests/*", "../../@datahub/data-models/tests/*"],
+      "dummy/*": [
+        "tests/dummy/app/*",
+        "app/*",
+        "../../@datahub/data-models/tests/dummy/app/*",
+        "../../@datahub/data-models/tests/app/*"
+      ],
+      "@datahub/search": ["addon"],
+      "@datahub/search/*": ["addon/*"],
+      "@datahub/search/test-support": ["addon-test-support"],
+      "@datahub/search/test-support/*": ["addon-test-support/*"],
+      "@datahub/data-models": ["../../@datahub/data-models/addon"],
+      "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
+      "@datahub/metadata-types/": ["../../@datahub/metadata-types/addon"],
+      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "@datahub/shared/": ["../../@datahub/shared/addon"],
+      "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
+      "@datahub/utils/": ["../../@datahub/utils/addon"],
+      "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "*": ["types/*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*",
+    "../../@datahub/utils/addon/**/*",
+    "../../@datahub/utils/types/**/*",
+    "../../@datahub/data-models/addon/**/*",
+    "../../@datahub/data-models/tests/**/*",
+    "../../@datahub/data-models/types/**/*",
+    "../../@datahub/metadata-types/addon/**/*",
+    "../../@datahub/metadata-types/types/**/*",
+    "../../@datahub/shared/addon/**/*",
+    "../../@datahub/shared/types/**/*",
+    "../../@datahub/shared/tests/**/*"
+  ]
+}

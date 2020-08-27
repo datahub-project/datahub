@@ -1,0 +1,63 @@
+.properties-panel {
+  $margin-spacing: 10px;
+
+  &__wrapper {
+    display: table;
+    margin-left: -1 * $margin-spacing;
+    margin-right: -1 * $margin-spacing;
+  }
+
+  &__property {
+    display: table-row;
+    padding: 0;
+
+    &-name {
+      display: table-cell;
+
+      &-label {
+        margin: 0 $margin-spacing;
+        font-weight: fw(normal, 4);
+        line-height: item-spacing(5);
+      }
+    }
+
+    &-value {
+      display: table-cell;
+      word-break: break-word;
+      white-space: normal;
+      flex-shrink: 1;
+      margin-right: $margin-spacing;
+    }
+
+    &-item-value {
+      &:after {
+        content: ',';
+        color: get-color(black);
+      }
+
+      &:last-child:after {
+        content: '';
+      }
+    }
+  }
+
+  &__tooltip-icon {
+    color: get-color(black, 0.6);
+    margin: item-spacing(0 1);
+  }
+
+  $columns: 1, 2, 3, 4, 5;
+  @each $column in $columns {
+    &[data-columns='#{$column}'] {
+      .properties-panel__property {
+        $percent: 100% / $column;
+        $final-margin: ($margin-spacing * 2);
+        width: calc(#{$percent} - #{$final-margin});
+      }
+    }
+  }
+
+  &[data-standalone='true'] {
+    @include nacho-container;
+  }
+}

@@ -1,4 +1,4 @@
-import { ISharedOwner } from 'wherehows-web/typings/api/ownership/owner';
+import { ISharedOwner } from '@datahub/metadata-types/types/common/shared-owner';
 
 /**
  * Information of a resolved dataset owner

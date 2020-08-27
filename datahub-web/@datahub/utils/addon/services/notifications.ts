@@ -9,8 +9,9 @@ import {
   notificationHandlers,
   isAConfirmationModal
 } from '@datahub/utils/lib/notifications';
-import { noop } from '@datahub/utils/function/noop';
+import { noop } from 'lodash';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { getOwner } from '@ember/application';
 
 /**
  * Defines the Notifications Service which handles the co-ordination and manages rendering of notification components in the
@@ -61,12 +62,18 @@ export default class Notifications extends Service {
    */
   @(task(function*(this: Notifications, notification: INotification): IterableIterator<Promise<void>> {
     const { props } = notification;
+    const {
+      APP: { notificationsTimeout }
+    } = getOwner(this).resolveRegistration('config:environment');
 
     setProperties(this, { activeNotification: notification, isShowingNotification: true });
 
     if (!isAConfirmationModal(props)) {
       const { duration = 5 } = props;
-      const toastDelay = timeout(duration * 1000);
+      // If an alternate delay is available, use this instead of default duration above, this is useful in scenarios where timing is important, such as testing
+      // This can also be modified in tests that assert this behaviour
+      const delay = notificationsTimeout ? notificationsTimeout : duration * 1000;
+      const toastDelay = timeout(delay);
 
       // Before dismissal, wait for timeout if the toast is not sticky
       if (!props.isSticky) {
@@ -105,30 +112,34 @@ export default class Notifications extends Service {
    */
   asyncDequeue(notificationsQueue: Array<INotification>): void {
     if (!this.isBuffering) {
-      this.flushBuffer(notificationsQueue);
+      this.flushBuffer.perform(notificationsQueue);
     }
   }
 
   /**
-   * Recursively helper to dequeue the notifications queue async while there are pending notifications
+   * Recursive helper task to dequeue the notifications queue async while there are pending notifications
    * @private
    */
-  private async flushBuffer(notificationsQueue: Array<INotification>): Promise<void> {
+  @(task(function*(
+    this: Notifications,
+    notificationsQueue: Array<INotification>
+  ): IterableIterator<Promise<INotification>> {
     const notification = notificationsQueue.pop();
 
     // Queue has been emptied or is empty
     if (notification) {
       try {
         set(this, 'isBuffering', true);
-        await this.consumeNotification(notification);
+        yield this.consumeNotification(notification);
       } finally {
         set(this, 'isBuffering', false);
-        this.flushBuffer(notificationsQueue);
+        this.flushBuffer.perform(notificationsQueue);
       }
     }
 
     set(this, 'isBuffering', false);
-  }
+  }).enqueue())
+  private flushBuffer!: ETaskPromise<INotification, Array<INotification>>;
 
   /**
    * Takes a notification and invokes a handler for that NotificationEvent, then enqueues the notification
@@ -191,7 +202,7 @@ export default class Notifications extends Service {
   dismissModal(): void {
     const { activeNotification } = this;
     if (activeNotification) {
-      this.performModal(activeNotification, 'didDismiss');
+      this.modalAction(activeNotification, 'didDismiss');
     }
   }
 
@@ -202,14 +213,14 @@ export default class Notifications extends Service {
   confirmModal(): void {
     const { activeNotification } = this;
     if (activeNotification) {
-      this.performModal(activeNotification, 'didConfirm');
+      this.modalAction(activeNotification, 'didConfirm');
     }
   }
 
   /**
    * DRY method to perform a dismissal or confirm a modal interaction
    */
-  performModal(
+  modalAction(
     { props, notificationResolution: { onComplete = noop } }: INotification,
     action: 'didDismiss' | 'didConfirm'
   ): void {

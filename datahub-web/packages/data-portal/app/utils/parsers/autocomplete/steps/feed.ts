@@ -1,7 +1,7 @@
-import { ISuggestionBuilder } from 'wherehows-web/utils/parsers/autocomplete/types';
-import autocomplete from 'wherehows-web/parsers/autocomplete';
-import { parse } from 'wherehows-web/utils/parsers/parser';
-import { createSuggestionsFromError } from 'wherehows-web/utils/parsers/helpers';
+import { ISuggestionBuilder } from 'datahub-web/utils/parsers/autocomplete/types';
+import autocomplete from 'datahub-web/parsers/autocomplete';
+import { parse } from 'datahub-web/utils/parsers/parser';
+import { createSuggestionsFromError } from 'datahub-web/utils/parsers/helpers';
 
 /**
  * This step will call the parser with the text, and save the results in the builder.

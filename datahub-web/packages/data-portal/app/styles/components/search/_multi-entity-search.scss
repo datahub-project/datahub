@@ -1,0 +1,10 @@
+.multi-entity-search-tabs {
+  .entity-tabs {
+    $entity-tab-offset: $application-navbar-static-height;
+    top: $entity-tab-offset;
+
+    &--with-banner-offset {
+      top: $banner-alerts-height + $entity-tab-offset;
+    }
+  }
+}

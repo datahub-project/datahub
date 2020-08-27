@@ -1,17 +1,13 @@
-import {
-  IGrammarProcessFn,
-  ISuggestionBuilder,
-  ISuggestionGroup
-} from 'wherehows-web/utils/parsers/autocomplete/types';
-import { init } from 'wherehows-web/utils/parsers/autocomplete/steps/init';
-import { processText } from 'wherehows-web/utils/parsers/autocomplete/steps/process-text';
-import { feed } from 'wherehows-web/utils/parsers/autocomplete/steps/feed';
-import { createWantedRulesMap } from 'wherehows-web/utils/parsers/autocomplete/steps/create-wanted-rules-map';
-import { filterWantedRulesMap } from 'wherehows-web/utils/parsers/autocomplete/steps/filter-wanted-rules-map';
-import { processRules } from 'wherehows-web/utils/parsers/autocomplete/steps/process-rules';
-import { generateGroups } from 'wherehows-web/utils/parsers/autocomplete/steps/generate-groups';
-import { arrayReduce } from 'wherehows-web/utils/array';
-import { createSuggestionsFromError } from 'wherehows-web/utils/parsers/helpers';
+import { IGrammarProcessFn, ISuggestionBuilder, ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';
+import { init } from 'datahub-web/utils/parsers/autocomplete/steps/init';
+import { processText } from 'datahub-web/utils/parsers/autocomplete/steps/process-text';
+import { feed } from 'datahub-web/utils/parsers/autocomplete/steps/feed';
+import { createWantedRulesMap } from 'datahub-web/utils/parsers/autocomplete/steps/create-wanted-rules-map';
+import { filterWantedRulesMap } from 'datahub-web/utils/parsers/autocomplete/steps/filter-wanted-rules-map';
+import { processRules } from 'datahub-web/utils/parsers/autocomplete/steps/process-rules';
+import { generateGroups } from 'datahub-web/utils/parsers/autocomplete/steps/generate-groups';
+import { arrayReduce } from '@datahub/utils/array/index';
+import { createSuggestionsFromError } from 'datahub-web/utils/parsers/helpers';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 

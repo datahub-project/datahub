@@ -6,12 +6,29 @@ import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/sear
 export const fields: Array<ISearchEntityRenderProps> = [
   {
     showInAutoCompletion: true,
-    fieldName: 'origin',
+    fieldName: 'dataorigin',
     showInResultsPreview: true,
-    displayName: 'Origin',
+    displayName: 'Data Origin',
     showInFacets: true,
-    desc: 'The origin of the dataset',
-    example: 'origin:PROD'
+    desc: 'The data origin of the dataset',
+    example: 'dataorigin:PROD',
+    headerComponent: {
+      name: 'dynamic-components/header',
+      options: {
+        className: 'search-facet__dynamic-header',
+        title: 'Data Origin',
+        contentComponents: [
+          {
+            name: 'dynamic-components/composed/user-assistance/help-tooltip-with-link',
+            options: {
+              text: 'The environment where the source data lives and the metadata is extracted from',
+              wikiKey: 'terminologies',
+              wikiLinkText: 'Learn more'
+            }
+          }
+        ]
+      }
+    }
   },
   {
     showInAutoCompletion: true,
@@ -29,7 +46,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     displayName: 'owners',
     showInFacets: false,
     desc: 'The confirmed owners for the dataset',
-    example: 'owners:sweaver'
+    example: 'owners:jweiner'
   },
   {
     showInAutoCompletion: true,
@@ -39,5 +56,17 @@ export const fields: Array<ISearchEntityRenderProps> = [
     showInFacets: true,
     desc: 'The platform of the dataset',
     example: 'platform:kafka'
+  },
+  {
+    showInAutoCompletion: false,
+    fieldName: 'healthScore',
+    showInResultsPreview: true,
+    displayName: 'Health',
+    showInFacets: false,
+    desc: 'The health score of the dataset which is a signal for the quality of the dataset',
+    example: 'N/A',
+    component: {
+      name: 'health/search-score'
+    }
   }
 ];

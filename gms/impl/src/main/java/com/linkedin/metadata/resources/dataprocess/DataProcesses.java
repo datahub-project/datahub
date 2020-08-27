@@ -139,7 +139,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<DataProcess> get(@Nonnull ComplexResourceKey<DataProcessKey, EmptyRecord> key,
-                                 @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+                                 @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.get(key, aspectNames);
     }
 
@@ -148,14 +148,14 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Nonnull
     public Task<Map<ComplexResourceKey<DataProcessKey, EmptyRecord>, DataProcess>> batchGet(
             @Nonnull Set<ComplexResourceKey<DataProcessKey, EmptyRecord>> keys,
-            @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+            @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.batchGet(keys, aspectNames);
     }
 
     @RestMethod.GetAll
     @Nonnull
     public Task<List<DataProcess>> getAll(@PagingContextParam @Nonnull PagingContext pagingContext,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
         return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
@@ -165,7 +165,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<CollectionResult<DataProcess, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-                                                                            @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+                                                                            @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
                                                                             @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
                                                                             @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                             @PagingContextParam @Nonnull PagingContext pagingContext) {
@@ -191,7 +191,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<DataProcessSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
-                                                 @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+                                                 @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.getSnapshot(urnString, aspectNames);
     }
 
@@ -199,7 +199,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-                                   @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+                                   @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.backfill(urnString, aspectNames);
     }
 }

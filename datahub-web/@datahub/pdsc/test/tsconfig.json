@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "module": "commonjs",
+        "removeComments": true,
+        "outDir": "dist",
+        "types": [
+            "chai",
+            "mocha"
+        ]
+    },
+    "include": [
+        "**/*.spec.ts"
+    ]
+}

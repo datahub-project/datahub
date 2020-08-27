@@ -1,5 +1,6 @@
 package com.linkedin.datahub.dao.table;
 
+import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.dataset.client.Deprecations;
 import com.linkedin.dataset.client.InstitutionalMemory;
@@ -23,6 +24,7 @@ public class GmsDao {
   private final Deprecations _deprecations;
   private final Schemas _schemas;
   private final Lineages _lineages;
+  private final DataPlatforms _dataPlatforms;
 
   public GmsDao(@Nonnull Client restClient) {
     _corpUsers = new CorpUsers(restClient);
@@ -32,6 +34,7 @@ public class GmsDao {
     _deprecations = new Deprecations(restClient);
     _schemas = new Schemas(restClient);
     _lineages = new Lineages(restClient);
+    _dataPlatforms = new DataPlatforms(restClient);
   }
 
   public GmsDao(@Nonnull String restliHostName, @Nonnull int restliHostPort) {

@@ -45,6 +45,21 @@ public class TestEventSchemaComposer {
             + TEST_GENERATED_PDL)));
   }
 
+  @Test
+  public void testMAESchemaRender() throws Exception {
+    final String testMAE =
+        GENERATED_MXE_PATH + TEST_NAMESPACE + File.separator + METADATA_AUDIT_EVENT + PDL_SUFFIX;
+    final File metadataAuditEventBar = new File(testMAE);
+
+    populateEvents();
+
+    assertTrue(metadataAuditEventBar.exists());
+    assertEquals(IOUtils.toString(new FileInputStream(testMAE)), IOUtils.toString(this.getClass()
+        .getClassLoader()
+        .getResourceAsStream(
+            "com/linkedin/mxe" + TEST_NAMESPACE + File.separator + METADATA_AUDIT_EVENT + PDL_SUFFIX)));
+  }
+
   private void populateEvents() throws Exception {
     SchemaAnnotationRetriever schemaAnnotationRetriever =
         new SchemaAnnotationRetriever(TEST_METADATA_MODELS_RESOLVED_PATH);

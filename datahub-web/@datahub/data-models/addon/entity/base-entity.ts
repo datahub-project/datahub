@@ -1,16 +1,16 @@
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
-import { computed } from '@ember/object';
+import { computed, set } from '@ember/object';
 import { MetadataAspect } from '@datahub/metadata-types/types/metadata/aspect';
 import { getMetadataAspect } from '@datahub/metadata-types/constants/metadata/aspect';
-import { IOwner } from '@datahub/metadata-types/types/common/owner';
-import { map } from '@ember/object/computed';
+import { map, mapBy } from '@ember/object/computed';
 import {
   IEntityLinkAttrs,
   EntityLinkNode,
   IBrowsePath,
   IEntityLinkAttrsWithCount,
-  AppRoute
+  AppRoute,
+  EntityPageRoute
 } from '@datahub/data-models/types/entity/shared';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared/index';
 import { readBrowse, readBrowsePath } from '@datahub/data-models/api/browse';
@@ -18,6 +18,44 @@ import { getFacetDefaultValueForEntity } from '@datahub/data-models/entity/utils
 import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
 import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 import { readEntity } from '@datahub/data-models/api/entity';
+import { relationship } from '@datahub/data-models/relationships/decorator';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
+import { ILikeAction, IFollowerType } from '@datahub/metadata-types/types/aspects/social-actions';
+import {
+  readLikesForEntity,
+  addLikeForEntity,
+  removeLikeForEntity,
+  readFollowsForEntity,
+  addFollowForEntity,
+  removeFollowForEntity
+} from '@datahub/data-models/api/common/social-actions';
+import { DataModelName } from '@datahub/data-models/constants/entity';
+import { isArray } from '@ember/array';
+import { noop } from 'lodash';
+
+/**
+ * Options for get category method
+ */
+interface IGetCategoryOptions {
+  // Page number to fetch from BE starting from 0
+  page?: number;
+  // number of items per page that the BE should return
+  count?: number;
+}
+
+/**
+ * Parameters for the BaseEntity static method, getLinkForEntity
+ * @interface IGetLinkForEntityParams
+ */
+interface IGetLinkForEntityParams {
+  // The display text for the generated entity link, not related to BaseEntity['displayName']
+  displayName: string;
+  // The URN for the specific entity instance
+  entityUrn: string;
+  // Optional text for the title attribute in the consuming anchor element
+  title?: string;
+}
 
 /**
  * Interfaces and abstract classes define the "instance side" of a type / class,
@@ -28,7 +66,7 @@ import { readEntity } from '@datahub/data-models/api/entity';
  * @template T {T extends new (...args: Array<any>) => void} constrains T to constructor interfaces
  * @type {() => ClassDecorator}
  */
-export const statics = <T extends new (...args: Array<unknown>) => void>(): ((c: T) => void) => (_ctor: T): void => {};
+export const statics = <T extends new (...args: Array<unknown>) => void>(): ((c: T) => void) => noop;
 
 /**
  * Defines the interface for the static side or constructor of a class that extends BaseEntity<T>
@@ -56,15 +94,7 @@ export interface IBaseEntityStatics<T> {
    * Queries the entity's endpoint to retrieve the list of nodes that are contained in the hierarchy
    * @param {(Array<string>)} args list of string values corresponding to the different hierarchical categories for the entity
    */
-  readCategories(...args: Array<string>): Promise<IBrowsePath>;
-
-  /**
-   * Queries the entity's endpoint to get the count for categories. This call will be made if 'showCount' is true and
-   * only will be available in the card layout.
-   * @param args list fo segments in the entity hierarchy, maybe be culled from the entity, entity urn, or query (user entered url)
-   */
-  // TODO META-8863 remove once dataset is migrated
-  readCategoriesCount(...segments: Array<string>): Promise<number>;
+  readCategories(args: Array<string>, options?: IGetCategoryOptions): Promise<IBrowsePath>;
 
   /**
    * Queries the batch GET endpoint for snapshots for the supplied urns
@@ -108,6 +138,7 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
   entity?: T;
 
   /**
+   * TODO META-10097: We should be consistent with entity and use a generic type
    * References the Snapshot for the related Entity
    * @type {Snapshot}
    */
@@ -116,7 +147,19 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
   /**
    * References the wiki related documents and objects related to this entity
    */
-  institutionalMemories?: Array<InstitutionalMemory>;
+  _institutionalMemories?: Array<InstitutionalMemory>;
+
+  /**
+   * Getter and setter for institutional memories
+   */
+  @computed('_institutionalMemories')
+  get institutionalMemories(): Array<InstitutionalMemory> | undefined {
+    return this._institutionalMemories;
+  }
+
+  set institutionalMemories(institutionalMemories: Array<InstitutionalMemory> | undefined) {
+    set(this, '_institutionalMemories', institutionalMemories);
+  }
 
   /**
    * Hook for custom fetching operations after entity is created
@@ -148,14 +191,14 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * Selects the list of owners from the ownership aspect attribute of the entity
    * All entities have an ownership aspect have this property exists on the base and is inherited
    *
-   * This provides the full IOwnership objects in a list, if what is needed is just the list of
+   * This provides the full Owner objects in a list, if what is needed is just the list of
    * owner urns, the macro value ownerUrns provides that immediately
    * @readonly
    * @type {Array<IOwner>}
    * @memberof BaseEntity
    */
   @computed('snapshot')
-  get owners(): Array<IOwner> {
+  get owners(): Array<Com.Linkedin.Common.Owner> {
     const ownership = getMetadataAspect(this.snapshot)(
       'com.linkedin.common.Ownership'
     ) as MetadataAspect['com.linkedin.common.Ownership'];
@@ -169,7 +212,7 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * @type {Array<string>}
    * @memberof BaseEntity
    */
-  @map('owners.[]', ({ owner }: IOwner): string => owner)
+  @map('owners.[]', ({ owner }: Com.Linkedin.Common.Owner): string => owner)
   ownerUrns!: Array<string>;
 
   /**
@@ -182,19 +225,10 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
   }
 
   /**
-   * Statically accessible Base entity kind discriminant
+   * Base Ember route reference for entity pages
    * @static
    */
-  static kind = 'BaseEntity';
-
-  /**
-   * Discriminant to allow the construction of discriminated / tagged union types
-   * @type {string}
-   */
-  get kind(): string {
-    // Expected to be implemented in concrete class
-    throw new Error(NotImplementedError);
-  }
+  static entityBaseRoute: EntityPageRoute = 'entity-type.urn';
 
   /**
    * Base entity display name
@@ -226,7 +260,7 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    */
   get readPath(): Promise<Array<string>> {
     const { urn, staticInstance } = this;
-    const entityName = staticInstance.renderProps.search.apiName;
+    const entityName = staticInstance.renderProps.apiEntityName;
     return readBrowsePath({
       type: entityName,
       urn
@@ -244,8 +278,8 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    */
   get readEntity(): Promise<T> | Promise<undefined> {
     const { entityPage } = this.staticInstance.renderProps;
-    if (entityPage && entityPage.apiName) {
-      return readEntity<T>(this.urn, entityPage.apiName);
+    if (entityPage && entityPage.apiRouteName) {
+      return readEntity<T>(this.urn, entityPage.apiRouteName);
     }
     // Implemented in concrete class, if it exists for the entity
     throw new Error(NotImplementedError);
@@ -255,6 +289,8 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * Asynchronously resolves with the Snapshot for the entity
    * This should be implemented on the concrete class and is enforced to be available with the
    * abstract modifier
+   *
+   * Backend is moving away from snapshot api. UI won't enforce implementing this fn.
    * @readonly
    * @type {Promise<Snapshot>}
    */
@@ -283,6 +319,25 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
   }
 
   /**
+   * Constructs a link to a specific entity tab using the supplied tab name
+   * @param {string} tabName the name of the tab to generate a link for
+   */
+  entityTabLink(tabName: string): this['entityLink'] {
+    const { entityLink } = this;
+
+    if (entityLink) {
+      const {
+        link,
+        link: { model = [], route }
+      } = entityLink;
+
+      return { ...entityLink, link: { ...link, route: `${route}.tab` as AppRoute, model: [...model, tabName] } };
+    }
+
+    return entityLink;
+  }
+
+  /**
    * Class properties common across instances
    * Dictates how visual ui components should be rendered
    * Implemented as a getter to ensure that reads are idempotent
@@ -295,40 +350,63 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * Queries the entity's endpoint to retrieve the list of nodes that are contained in the hierarchy
    * @param {(Array<string>)} args list of string values corresponding to the different hierarchical categories for the entity
    */
-  static async readCategories(...segments: Array<string>): Promise<IBrowsePath> {
-    const cleanSegments: Array<string> = segments.filter(Boolean) as Array<string>;
-    const defaultFacets = this.renderProps.browse.attributes
-      ? getFacetDefaultValueForEntity(this.renderProps.browse.attributes)
-      : [];
-    const { elements, metadata } = await readBrowse({
-      type: this.renderProps.search.apiName,
-      path: cleanSegments.length > 0 ? `/${cleanSegments.join('/')}` : '',
-      count: 100,
-      start: 0,
-      ...defaultFacets
-    });
-    const entityLinks: Array<IEntityLinkAttrs> = elements.map(
-      (element): IEntityLinkAttrs =>
-        this.getLinkForEntity({
-          displayName: element.name,
-          entityUrn: element.urn
-        })
-    );
-    const categoryLinks: Array<IEntityLinkAttrsWithCount> = metadata.groups.map(
-      (group): IEntityLinkAttrsWithCount => {
-        return this.getLinkForCategory({
-          segments: [...cleanSegments, group.name],
-          count: group.count,
-          displayName: group.name
-        });
-      }
-    );
+  static async readCategories(
+    segments: Array<string>,
+    { page = 0, count = 100 }: IGetCategoryOptions = {}
+  ): Promise<IBrowsePath> {
+    const { browse } = this.renderProps;
+    if (browse) {
+      const cleanSegments: Array<string> = segments.filter(Boolean) as Array<string>;
+      const defaultFacets: Record<string, Array<string>> = browse.attributes
+        ? getFacetDefaultValueForEntity(browse.attributes)
+        : {};
+      const { elements, metadata, total } = await readBrowse({
+        type: this.renderProps.apiEntityName,
+        path: cleanSegments.length > 0 ? `/${cleanSegments.join('/')}` : '',
+        count,
+        start: page * count,
+        ...defaultFacets
+      });
+      // List of entities
+      // Create links for the entities for the current category
+      const entityLinks: Array<IEntityLinkAttrs> = elements
+        .map((element): IEntityLinkAttrs | void =>
+          this.getLinkForEntity({
+            displayName: element.name,
+            entityUrn: element.urn
+          })
+        )
+        .filter((link): boolean => Boolean(link)) as Array<IEntityLinkAttrs>; // filter removed undefined
+
+      // List of folders
+      // For this category will append and create a link for the next category (the one that you can potentially go)
+      const categoryLinks: Array<IEntityLinkAttrsWithCount> = metadata.groups.map(
+        (group): IEntityLinkAttrsWithCount => {
+          return this.getLinkForCategory({
+            segments: [...cleanSegments, group.name],
+            count: group.count,
+            displayName: group.name
+          });
+        }
+      );
+      return {
+        segments,
+        title: segments[segments.length - 1] || this.displayName,
+        totalNumEntities: metadata.totalNumEntities,
+        entitiesPaginationCount: total,
+        entities: entityLinks,
+        groups: categoryLinks
+      };
+    }
+
+    // if no browse available return empty
     return {
-      segments,
-      title: segments[segments.length - 1] || this.displayName,
-      count: metadata.totalNumEntities,
-      entities: entityLinks,
-      groups: categoryLinks
+      segments: [],
+      title: '',
+      totalNumEntities: 0,
+      entitiesPaginationCount: 0,
+      entities: [],
+      groups: []
     };
   }
 
@@ -339,19 +417,25 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * @static
    * @param {IGetLinkForEntityParams} params parameters for generating the link object matching the IEntityLinkAttrs interface
    */
-  static getLinkForEntity(params: { entityUrn: string; displayName: string }): IEntityLinkAttrs {
-    const { displayName, entityUrn } = params;
-    const link: EntityLinkNode = {
-      title: displayName || '',
-      text: displayName || '',
-      route: this.renderProps.browse.entityRoute,
-      model: [entityUrn || '']
-    };
+  static getLinkForEntity(params: IGetLinkForEntityParams): IEntityLinkAttrs | void {
+    const entityPage = this.renderProps.entityPage;
+    const { displayName = this.displayName, entityUrn, title = displayName } = params;
 
-    return {
-      link,
-      entity: this.displayName
-    };
+    if (entityPage && entityUrn) {
+      const model = entityPage.route === 'entity-type.urn' ? [this.displayName, entityUrn] : [entityUrn];
+
+      const link: EntityLinkNode = {
+        route: entityPage.route,
+        text: displayName,
+        title,
+        model
+      };
+
+      return {
+        entity: this.displayName,
+        link
+      };
+    }
   }
 
   /**
@@ -377,11 +461,6 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
     };
   }
 
-  // TODO META-8863 this can be removed once dataset is migrated
-  static readCategoriesCount(..._args: Array<string>): Promise<number> {
-    throw new Error(NotImplementedError);
-  }
-
   /**
    * Reads the snapshots for the entity
    * @static
@@ -396,9 +475,12 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * @param {Array<string>} [segments=[]] the list of hierarchy segments to generate the keyword for
    */
   static getQueryForHierarchySegments(segments: Array<string> = []): string {
-    return `browsePaths:\\\\/${segments.join('\\\\/').replace(/\s/gi, '\\\\ ')}`;
+    return `browsePaths:\\/${segments.join('\\/').replace(/\s/gi, '\\ ')}`;
   }
 
+  // TODO META-12149 this should be part of an Aspect. This fns can't live under BaseEntity as
+  // then we would have a circular dependency:
+  // BaseEntity -> InstitutionalMemory -> PersonEntity -> BaseEntity
   /**
    * Retrieves a list of wiki documents related to the particular entity instance
    * @readonly
@@ -407,12 +489,146 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
     throw new Error(NotImplementedError);
   }
 
+  // TODO META-12149 this should be part of an Aspect. This fns can't live under BaseEntity as
+  // then we would have a circular dependency:
+  // BaseEntity -> InstitutionalMemory -> PersonEntity -> BaseEntity
   /**
    * Writes a list of wiki documents related to a particular entity instance to the api layer
    */
   writeInstitutionalMemory(): Promise<void> {
     throw new Error(NotImplementedError);
   }
+
+  /**
+   * For social features, we flag whether or not the entity is opted into social actions
+   * @default true
+   */
+  allowedSocialActions: Record<SocialAction, boolean> = {
+    like: true,
+    follow: true,
+    save: true
+  };
+
+  /**
+   * For this particular entity, get the list of like actions related to the entity,
+   * effectively getting the number of people that have upvoted the entity
+   */
+  async readLikes(): Promise<void> {
+    if (this.allowedSocialActions.like) {
+      const likeActions = await readLikesForEntity(this.displayName as DataModelName, this.urn).catch(() => []);
+      set(this, 'likedByActions', likeActions || []);
+    }
+  }
+
+  /**
+   * For this particular entity, add the user's like action to the entity
+   */
+  async addLike(): Promise<void> {
+    if (this.allowedSocialActions.like) {
+      const updatedLikeActions = await addLikeForEntity(this.displayName as DataModelName, this.urn);
+
+      if (isArray(updatedLikeActions)) {
+        set(this, 'likedByActions', updatedLikeActions);
+      }
+    }
+  }
+
+  /**
+   * For this particular entity, remove the user's like action from the entity
+   */
+  async removeLike(): Promise<void> {
+    if (this.allowedSocialActions.like) {
+      const updatedLikeActions = await removeLikeForEntity(this.displayName as DataModelName, this.urn);
+
+      if (isArray(updatedLikeActions)) {
+        set(this, 'likedByActions', updatedLikeActions);
+      }
+    }
+  }
+
+  /**
+   * For this particular entity, get the list of follow actions related to the entity,
+   * effectively getting the number of people that have subscribed to notifications for metadata
+   * changes in the entity
+   */
+  async readFollows(): Promise<void> {
+    if (this.allowedSocialActions.follow) {
+      const followActions = await readFollowsForEntity(this.displayName as DataModelName, this.urn).catch(() => []);
+
+      set(this, 'followedByActions', followActions || []);
+    }
+  }
+
+  /**
+   * For this particular entity, add the user's follow action to the entity, subscribing them to
+   * updates for metadata changes
+   */
+  async addFollow(): Promise<void> {
+    if (this.allowedSocialActions.follow) {
+      const updatedFollowActions = await addFollowForEntity(this.displayName as DataModelName, this.urn);
+
+      if (isArray(updatedFollowActions)) {
+        set(this, 'followedByActions', updatedFollowActions);
+      }
+    }
+  }
+
+  /**
+   * For this particular entity, remove the user's follow action from the entity, unsubscribing
+   * them from changes
+   */
+  async removeFollow(): Promise<void> {
+    if (this.allowedSocialActions.follow) {
+      const updatedFollowActions = await removeFollowForEntity(this.displayName as DataModelName, this.urn);
+
+      if (isArray(updatedFollowActions)) {
+        set(this, 'followedByActions', updatedFollowActions);
+      }
+    }
+  }
+
+  /**
+   * Actions representing a like from a specific user
+   */
+  likedByActions: Array<ILikeAction> = [];
+
+  /**
+   * For social features, we add the concept of "liking" an entity which implies that the data
+   * related to the entity is useful or of importance
+   */
+  @mapBy('likedByActions', 'likedBy')
+  likedByUrns!: Array<string>;
+
+  /**
+   * For social features, we translate the urn ids of the people who have liked an entity into
+   * the related PersonEntity instances
+   */
+  @relationship('people', 'likedByUrns')
+  likedBy!: Array<PersonEntity>;
+
+  /**
+   * Action objects representing a follow from a specific user
+   */
+  followedByActions: Array<IFollowerType> = [];
+
+  /**
+   * For social features, we add the concept of "following" an entity, which means that the person
+   * (current user) has opted into notifications of updates regarding this entity's metadata
+   */
+  @computed('followedByActions')
+  get followedByUrns(): Array<string> {
+    const { followedByActions } = this;
+    // corpUser || corpGroup is guaranteed to be a string as one of them MUST be defined, as
+    // dictated by our API interface
+    return followedByActions.map(({ corpGroup, corpUser }): string => (corpUser || corpGroup) as string);
+  }
+
+  /**
+   * For social features, we translate the urn ids of the people who have followed an entity into
+   * the related PersonEntity instances
+   */
+  @relationship('people', 'followedByUrns')
+  followedBy!: Array<PersonEntity>;
 
   /**
    * Creates an instance of BaseEntity concrete class

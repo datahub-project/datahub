@@ -1,4 +1,5 @@
 <button
+  type="button"
   class="nacho-button nacho-button--tertiary"
   onclick={{action "showComments"}}
 >
@@ -10,38 +11,27 @@
 
 {{#if isShowingFieldComment}}
   {{#if getComments.last.isRunning}}
-    {{#modal-dialog
-      overlayClass="notification-overlay"
-      containerClassNames=containerClassNames
-      onClose=(action "hideComments")
-    }}
+    <ModalDialog @overlayClass="notification-overlay" @containerClassNames={{containerClassNames}} @onClose={{action "hideComments"}}>
 
-      {{#comment/comment-stream
-        comments=comments
-        commentTypes=commentTypes
-        updateCommentInStream=(action "handleSchemaComment" SchemaCommentActions.Modify)
-        deleteCommentFromStream=(action "handleSchemaComment" SchemaCommentActions.Destroy)
-        addCommentToStream=(action "handleSchemaComment" SchemaCommentActions.Add)
-      as |stream|
-      }}
+      <Comment::CommentStream @comments={{comments}} @commentTypes={{commentTypes}} @updateCommentInStream={{action "handleSchemaComment" SchemaCommentActions.Modify}} @deleteCommentFromStream={{action "handleSchemaComment" SchemaCommentActions.Destroy}} @addCommentToStream={{action "handleSchemaComment" SchemaCommentActions.Add}} as |stream|>
 
-        {{#stream.header}}
+        <stream.header>
           Comments for <strong>{{schema.fieldName}}</strong>
-        {{/stream.header}}
+        </stream.header>
 
-        {{#stream.new}}
+        <stream.new>
           + Add a comment...
-        {{/stream.new}}
+        </stream.new>
 
         {{#each stream.comments as |comment|}}
-          {{#stream.item comment=comment}}
+          <stream.item @comment={{comment}}>
             {{comment.html}}
-          {{/stream.item}}
+          </stream.item>
         {{/each}}
 
-      {{/comment/comment-stream}}
-    {{/modal-dialog}}
+      </Comment::CommentStream>
+    </ModalDialog>
   {{else}}
-    {{pendulum-ellipsis-animation}}
+    <PendulumEllipsisAnimation />
   {{/if}}
 {{/if}}

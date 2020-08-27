@@ -6,6 +6,7 @@ import com.linkedin.common.EmailAddress
 /**
  * Linkedin corp user information
  */
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserInfo {
 
   /**

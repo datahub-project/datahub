@@ -1,15 +1,12 @@
-import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
-
-// Alias for a DataModelEntity type in the list of supportedListEntities
-export type SupportedListEntity = Exclude<DataModelEntity, typeof DatasetEntity>;
+import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
+import { DataModelName } from '@datahub/data-models/constants/entity/index';
+import { MockEntity } from '@datahub/data-models/entity/mock/mock-entity';
 
 /**
  * Lists entities that have Entity List support
  * note: DatasetEntity is excluded from type pending mid-tier support for urn attribute, support for uri would be throw away
  */
-export const supportedListEntities: Array<SupportedListEntity> = [PersonEntity];
+export const supportedListEntities: Array<DataModelName | typeof MockEntity.displayName> = [FeatureEntity.displayName];
 
 /**
  * Enumerates the cta text for toggling an Entity off or onto a list for action triggers where List toggle actions are called

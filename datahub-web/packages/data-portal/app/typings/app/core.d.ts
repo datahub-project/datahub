@@ -9,4 +9,4 @@ export type Maybe<T> = T | undefined;
  * @template T the type to be recast
  * @template U the result of the type recast
  */
-export type Recast<T, U> = T & U | U;
+export type Recast<T, U> = (T & U) | U;

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.dao;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -12,14 +14,26 @@ import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.producer.BaseMetadataEventProducer;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
+import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
+import com.linkedin.metadata.dao.utils.BarUrnPathExtractor;
+import com.linkedin.metadata.dao.utils.BazUrnPathExtractor;
+import com.linkedin.metadata.dao.utils.FooUrnPathExtractor;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.IndexCriterion;
+import com.linkedin.metadata.query.IndexCriterionArray;
+import com.linkedin.metadata.query.IndexFilter;
+import com.linkedin.metadata.query.IndexPathParams;
+import com.linkedin.metadata.query.IndexValue;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.testing.AspectBar;
 import com.linkedin.testing.AspectFoo;
 import com.linkedin.testing.AspectInvalid;
 import com.linkedin.testing.EntityAspectUnion;
+import com.linkedin.testing.urn.BarUrn;
+import com.linkedin.testing.urn.BazUrn;
+import com.linkedin.testing.urn.FooUrn;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.Transaction;
@@ -27,18 +41,21 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.persistence.RollbackException;
 import org.mockito.InOrder;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.dao.BaseReadDAO.*;
+import static com.linkedin.metadata.dao.utils.RegisteredUrnPathExtractors.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
@@ -50,6 +67,13 @@ public class EbeanLocalDAOTest {
   private EbeanServer _server;
   private BaseMetadataEventProducer _mockProducer;
   private AuditStamp _dummyAuditStamp;
+
+  @BeforeClass
+  public void setupClass() {
+    registerUrnPathExtractor(BarUrn.class, new BarUrnPathExtractor());
+    registerUrnPathExtractor(BazUrn.class, new BazUrnPathExtractor());
+    registerUrnPathExtractor(FooUrn.class, new FooUrnPathExtractor());
+  }
 
   @BeforeMethod
   public void setupTest() {
@@ -364,6 +388,7 @@ public class EbeanLocalDAOTest {
   public void testBackfill() {
     EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
     Urn urn = makeUrn(1);
+
     AspectFoo expected = new AspectFoo().setValue("foo");
     addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, expected);
 
@@ -372,6 +397,82 @@ public class EbeanLocalDAOTest {
     assertEquals(foo.get(), expected);
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, expected, expected);
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testLocalSecondaryIndexBackfill() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+
+    FooUrn urn = makeFooUrn(1);
+    AspectFoo expected = new AspectFoo().setValue("foo");
+    addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, expected);
+
+    // Check if backfilled: _writeToLocalSecondary = false and _backfillLocalSecondaryIndex = false
+    dao.backfill(AspectFoo.class, urn);
+    assertEquals(getAllRecordsFromLocalSecondaryIndex(urn).size(), 0);
+
+    // Check if backfilled: _writeToLocalSecondary = true and _backfillLocalSecondaryIndex = false
+    dao.enableLocalSecondaryIndex(true);
+    dao.backfill(AspectFoo.class, urn);
+    assertEquals(getAllRecordsFromLocalSecondaryIndex(urn).size(), 0);
+
+    // Check if backfilled: _writeToLocalSecondary = true and _backfillLocalSecondaryIndex = true
+    dao.setBackfillLocalSecondaryIndex(true);
+    dao.backfill(AspectFoo.class, urn);
+    List<EbeanMetadataIndex> fooRecords = getAllRecordsFromLocalSecondaryIndex(urn);
+    assertEquals(fooRecords.size(), 1);
+    EbeanMetadataIndex fooRecord = fooRecords.get(0);
+    assertEquals(fooRecord.getUrn(), urn.toString());
+    assertEquals(fooRecord.getAspect(), FooUrn.class.getCanonicalName());
+    assertEquals(fooRecord.getPath(), "/fooId");
+    assertEquals(fooRecord.getLongVal().longValue(), 1L);
+  }
+
+  @Test
+  public void testBatchBackfill() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    List<Urn> urns = ImmutableList.of(makeUrn(1), makeUrn(2), makeUrn(3));
+
+    Map<Urn, Map<Class<? extends RecordTemplate>, RecordTemplate>> aspects = new HashMap<>();
+
+    urns.forEach(urn -> {
+      AspectFoo aspectFoo = new AspectFoo().setValue("foo");
+      AspectBar aspectBar = new AspectBar().setValue("bar");
+      aspects.put(urn, ImmutableMap.of(AspectFoo.class, aspectFoo, AspectBar.class, aspectBar));
+      addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, aspectFoo);
+      addMetadata(urn, AspectBar.class.getCanonicalName(), 0, aspectBar);
+    });
+
+    // Backfill single aspect for set of urns
+    Map<Urn, Optional<AspectFoo>> backfilledAspects1 = dao.backfill(AspectFoo.class, new HashSet<>(urns));
+    for (Urn urn: urns) {
+      RecordTemplate aspect = aspects.get(urn).get(AspectFoo.class);
+      assertEquals(backfilledAspects1.get(urn).get(), aspect);
+      verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
+    }
+    clearInvocations(_mockProducer);
+
+    // Backfill set of aspects for a single urn
+    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> backfilledAspects2 =
+        dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), urns.get(0));
+    for (Class<? extends RecordTemplate> clazz: aspects.get(urns.get(0)).keySet()) {
+      RecordTemplate aspect = aspects.get(urns.get(0)).get(clazz);
+      assertEquals(backfilledAspects2.get(clazz).get(), aspect);
+      verify(_mockProducer, times(1)).produceMetadataAuditEvent(urns.get(0), aspect, aspect);
+    }
+    clearInvocations(_mockProducer);
+
+    // Backfill set of aspects for set of urns
+    Map<Urn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects3 =
+        dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), new HashSet<>(urns));
+    for (Urn urn: urns) {
+      for (Class<? extends RecordTemplate> clazz: aspects.get(urn).keySet()) {
+        RecordTemplate aspect = aspects.get(urn).get(clazz);
+        assertEquals(backfilledAspects3.get(urn).get(clazz).get(), aspect);
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
+      }
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -503,6 +604,28 @@ public class EbeanLocalDAOTest {
   }
 
   @Test
+  void testStrongConsistentIndexPaths() {
+    // construct LocalDAOStorageConfig object
+    LocalDAOStorageConfig.PathStorageConfig pathStorageConfig = LocalDAOStorageConfig.PathStorageConfig.builder().strongConsistentSecondaryIndex(true).build();
+    Map<String, LocalDAOStorageConfig.PathStorageConfig> pathStorageConfigMap = new HashMap<>();
+    pathStorageConfigMap.put("/value", pathStorageConfig);
+    LocalDAOStorageConfig.AspectStorageConfig aspectStorageConfig =
+        LocalDAOStorageConfig.AspectStorageConfig.builder().pathStorageConfigMap(pathStorageConfigMap).build();
+    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
+    aspectStorageConfigMap.put(AspectFoo.class, aspectStorageConfig);
+    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().aspectStorageConfigMap(aspectStorageConfigMap).build();
+
+    EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig);
+    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectToPaths = dao.getStrongConsistentIndexPaths();
+
+    assertNotNull(aspectToPaths);
+    Set<Class<? extends RecordTemplate>> setAspects = aspectToPaths.keySet();
+    assertEquals(setAspects, new HashSet<>(Arrays.asList(AspectFoo.class)));
+    LocalDAOStorageConfig.AspectStorageConfig config = aspectToPaths.get(AspectFoo.class);
+    assertTrue(config.getPathStorageConfigMap().get("/value").isStrongConsistentSecondaryIndex());
+  }
+
+  @Test
   public void testListAspectsForAllUrns() {
     EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
     for (int i = 0; i < 3; i++) {
@@ -579,6 +702,232 @@ public class EbeanLocalDAOTest {
     assertEquals(id3, 1);
   }
 
+  @Test
+  void testSaveSingleEntryToLocalSecondaryIndex() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    BarUrn urn = makeBarUrn(0);
+
+    // Test indexing integer typed value
+    long recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/intFoo", 0);
+    EbeanMetadataIndex record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/intFoo");
+    assertEquals(record.getLongVal().longValue(), 0L);
+
+    // Test indexing long typed value
+    recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/longFoo", 1L);
+    record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/longFoo");
+    assertEquals(record.getLongVal().longValue(), 1L);
+
+    // Test indexing boolean typed value
+    recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/boolFoo", true);
+    record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/boolFoo");
+    assertEquals(record.getStringVal(), "true");
+
+    // Test indexing float typed value
+    recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/floatFoo", 12.34f);
+    record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/floatFoo");
+    assertEquals(record.getDoubleVal(), 12.34);
+
+    // Test indexing double typed value
+    recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/doubleFoo", 23.45);
+    record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/doubleFoo");
+    assertEquals(record.getDoubleVal(), 23.45);
+
+    // Test indexing string typed value
+    recordId = dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/stringFoo", "valFoo");
+    record = getRecordFromLocalSecondaryIndex(recordId);
+    assertNotNull(record);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/stringFoo");
+    assertEquals(record.getStringVal(), "valFoo");
+  }
+
+  @Test
+  void testExistsInLocalSecondaryIndex() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    BarUrn urn = makeBarUrn(0);
+
+    assertFalse(dao.existsInLocalSecondaryIndex(urn));
+
+    dao.saveSingleRecordToLocalSecondaryIndex(urn, BarUrn.class.getCanonicalName(), "/barId", 0);
+    assertTrue(dao.existsInLocalSecondaryIndex(urn));
+  }
+
+  @Test
+  void testProcessAndSaveUrnToLocalSecondaryIndex() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    BarUrn barUrn = makeBarUrn(1);
+    BazUrn bazUrn = makeBazUrn(2);
+
+    dao.processAndSaveUrnToLocalSecondaryIndex(barUrn);
+    dao.processAndSaveUrnToLocalSecondaryIndex(bazUrn);
+
+    List<EbeanMetadataIndex> barRecords = getAllRecordsFromLocalSecondaryIndex(barUrn);
+    assertEquals(barRecords.size(), 1);
+    EbeanMetadataIndex barRecord = barRecords.get(0);
+    assertEquals(barRecord.getUrn(), barUrn.toString());
+    assertEquals(barRecord.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(barRecord.getPath(), "/barId");
+    assertEquals(barRecord.getLongVal().longValue(), 1L);
+
+    List<EbeanMetadataIndex> bazRecords = getAllRecordsFromLocalSecondaryIndex(bazUrn);
+    assertEquals(bazRecords.size(), 1);
+    EbeanMetadataIndex bazRecord = bazRecords.get(0);
+    assertEquals(bazRecord.getUrn(), bazUrn.toString());
+    assertEquals(bazRecord.getAspect(), BazUrn.class.getCanonicalName());
+    assertEquals(bazRecord.getPath(), "/bazId");
+    assertEquals(bazRecord.getLongVal().longValue(), 2L);
+
+    // Test if new record is inserted with an existing urn
+    dao.processAndSaveUrnToLocalSecondaryIndex(barUrn);
+    assertEquals(getAllRecordsFromLocalSecondaryIndex(barUrn).size(), 1);
+  }
+
+  @Test
+  void testSaveToLocalSecondaryIndex() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    BarUrn urn = makeBarUrn(1);
+    AspectFoo aspect = new AspectFoo();
+
+    dao.saveToLocalSecondaryIndex(urn, aspect, 0);
+    List<EbeanMetadataIndex> barRecords = getAllRecordsFromLocalSecondaryIndex(urn);
+    assertEquals(barRecords.size(), 1);
+    EbeanMetadataIndex barRecord = barRecords.get(0);
+    assertEquals(barRecord.getUrn(), urn.toString());
+    assertEquals(barRecord.getAspect(), BarUrn.class.getCanonicalName());
+    assertEquals(barRecord.getPath(), "/barId");
+    assertEquals(barRecord.getLongVal().longValue(), 1L);
+
+    // Test if new record is inserted with an aspect version different than 0
+    dao.saveToLocalSecondaryIndex(urn, aspect, 1);
+    assertEquals(getAllRecordsFromLocalSecondaryIndex(urn).size(), 1);
+  }
+
+  @Test
+  void testGetGMAIndexPair() {
+    IndexValue indexValue = new IndexValue();
+    // 1. IndexValue pair corresponds to boolean
+    indexValue.setBoolean(false);
+    EbeanLocalDAO.GMAIndexPair gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.STRING_COLUMN, gmaIndexPair.valueType);
+    assertEquals("false", gmaIndexPair.value);
+    // 2. IndexValue pair corresponds to double
+    double dVal = 0.000001;
+    indexValue.setDouble(dVal);
+    gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.DOUBLE_COLUMN, gmaIndexPair.valueType);
+    assertEquals(dVal, gmaIndexPair.value);
+    // 3. IndexValue pair corresponds to float
+    float fVal = 0.0001f;
+    indexValue.setFloat(fVal);
+    gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.DOUBLE_COLUMN, gmaIndexPair.valueType);
+    assertEquals(fVal, gmaIndexPair.value);
+    // 4. IndexValue pair corresponds to int
+    int iVal = 100;
+    indexValue.setInt(iVal);
+    gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.LONG_COLUMN, gmaIndexPair.valueType);
+    assertEquals(iVal, gmaIndexPair.value);
+    // 5. IndexValue pair corresponds to long
+    long lVal = 1L;
+    indexValue.setLong(lVal);
+    gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.LONG_COLUMN, gmaIndexPair.valueType);
+    assertEquals(lVal, gmaIndexPair.value);
+    // 6/ IndexValue pair corresponds to string
+    String sVal = "testVal";
+    indexValue.setString(sVal);
+    gmaIndexPair = EbeanLocalDAO.getGMAIndexPair(indexValue);
+    assertEquals(EbeanMetadataIndex.STRING_COLUMN, gmaIndexPair.valueType);
+    assertEquals(sVal, gmaIndexPair.value);
+  }
+
+  @Test
+  void testListUrnsFromIndex() {
+    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server);
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
+    FooUrn urn3 = makeFooUrn(3);
+    addIndex(urn1, "aspect1", "/path1", "val1");
+    addIndex(urn1, "aspect1", "/path2", "val2");
+    addIndex(urn1, "aspect1", "/path3", "val3");
+    addIndex(urn2, "aspect1", "/path1", "val1");
+    addIndex(urn3, "aspect1", "/path1", "val1");
+
+    // 1. local secondary index is not enabled, should throw exception
+    IndexCriterion indexCriterion = new IndexCriterion().setAspect("aspect1");
+    final IndexFilter indexFilter1 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
+    dao.enableLocalSecondaryIndex(false);
+
+    assertThrows(UnsupportedOperationException.class, () -> dao.listUrns(indexFilter1, null, 2));
+
+    // for the remaining tests, enable writes to local secondary index
+    dao.enableLocalSecondaryIndex(true);
+
+    // 2. index criterion array is empty, should throw exception
+    final IndexFilter indexFilter2 = new IndexFilter().setCriteria(new IndexCriterionArray());
+
+    assertThrows(UnsupportedOperationException.class, () -> dao.listUrns(indexFilter2, null, 2));
+
+    // 3. index criterion array contains more than 1 criterion, should throw an exception
+    IndexCriterion indexCriterion1 = new IndexCriterion().setAspect("aspect1");
+    IndexCriterion indexCriterion2 = new IndexCriterion().setAspect("aspect2");
+    final IndexFilter indexFilter3 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion1, indexCriterion2));
+
+    assertThrows(UnsupportedOperationException.class, () -> dao.listUrns(indexFilter3, null, 2));
+
+    // 4. only aspect is provided in Index Filter
+    indexCriterion = new IndexCriterion().setAspect("aspect1");
+    final IndexFilter indexFilter4 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
+
+    ListResult<Urn> urns = dao.listUrns(indexFilter4, null, 2);
+
+    assertEquals(urns.getValues(), Arrays.asList(urn1, urn2));
+    assertEquals(urns.getTotalCount(), 3);
+
+    // 5. aspect with path and value is provided in index filter
+    IndexValue indexValue = new IndexValue();
+    indexValue.setString("val1");
+    IndexPathParams indexPathParams = new IndexPathParams().setPath("/path1").setValue(indexValue);
+    indexCriterion = new IndexCriterion().setAspect("aspect1").setPathParams(indexPathParams);
+    final IndexFilter indexFilter5 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
+
+    urns = dao.listUrns(indexFilter5, urn1, 2);
+
+    assertEquals(urns.getValues(), Arrays.asList(urn2, urn3));
+
+    // 6. aspect with correct path but incorrect value
+    indexValue.setString("valX");
+    indexPathParams = new IndexPathParams().setPath("/path1").setValue(indexValue);
+    indexCriterion = new IndexCriterion().setAspect("aspect1").setPathParams(indexPathParams);
+    final IndexFilter indexFilter6 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion));
+
+    urns = dao.listUrns(indexFilter6, urn1, 2);
+
+    assertEquals(urns.getTotalCount(), 0);
+  }
+
   private void addMetadata(Urn urn, String aspectName, long version, RecordTemplate metadata) {
     EbeanMetadataAspect aspect = new EbeanMetadataAspect();
     aspect.setKey(new EbeanMetadataAspect.PrimaryKey(urn.toString(), aspectName, version));
@@ -587,6 +936,25 @@ public class EbeanLocalDAOTest {
     aspect.setCreatedBy("urn:li:corpuser:foo");
     aspect.setCreatedFor("urn:li:corpuser:bar");
     _server.save(aspect);
+  }
+
+  private EbeanMetadataIndex getRecordFromLocalSecondaryIndex(long id) {
+    return _server.find(EbeanMetadataIndex.class, id);
+  }
+
+  private <URN extends Urn> List<EbeanMetadataIndex> getAllRecordsFromLocalSecondaryIndex(URN urn) {
+    return _server.find(EbeanMetadataIndex.class).where()
+        .eq(EbeanMetadataIndex.URN_COLUMN, urn.toString())
+        .findList();
+  }
+
+  private void addIndex(Urn urn, String aspectName, String pathName, String sVal) {
+    EbeanMetadataIndex index = new EbeanMetadataIndex();
+    index.setUrn(urn.toString())
+        .setAspect(aspectName)
+        .setPath(pathName)
+        .setStringVal(sVal);
+    _server.save(index);
   }
 
   private EbeanMetadataAspect getMetadata(Urn urn, String aspectName, long version) {

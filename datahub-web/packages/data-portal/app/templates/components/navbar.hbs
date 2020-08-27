@@ -8,6 +8,7 @@
   <div class="container">
     <div class="navbar-header">
       <button
+        type="button"
         class="navbar-toggle collapsed"
         aria-expanded="false"
         aria-controls="navbar"
@@ -18,14 +19,10 @@
         <span class="icon-bar"></span>
       </button>
 
-      {{#link-to
-        "index"
-        (query-params keyword=null platform=null prefix=null)
-        class="navbar-brand"
-      }}
+      <LinkTo @route="index" @query={{hash keyword=null platform=null prefix=null}} class="navbar-brand">
         {{svg-jar "inbug" width="34px" height="34px"}}
-        <span class="navbar-brand-text">DataHub</span>
-      {{/link-to}}
+        <span class="navbar-brand-text">{{this.appName}}</span>
+      </LinkTo>
     </div>
 
     <div
@@ -38,7 +35,6 @@
           as |keyword dataModelEntity onSearchInputTask onSearch|
           >
             <Search::SearchBox
-              @selectedEntity={{readonly dataModelEntity.displayName}}
               @text={{readonly keyword}}
               @onTypeahead={{onSearchInputTask}}
               @onSearch={{action onSearch}}
@@ -46,9 +42,9 @@
           </Search::Containers::SearchBox>
         {{/if}}
       </ul>
-      {{#if @listEntity}}
-        <ListCount @entityType={{@listEntity}} />
-      {{/if}}
+
+      <ListCount @entityType={{@listEntity}} />
+
       <ul class="nav navbar-nav navbar-right">
         <li class="dropdown">
           <a
@@ -57,12 +53,10 @@
             role="button"
             aria-haspopup="true"
             aria-expanded="false"
+            href="#"
           >
-            <i class="caret" />
-            {{avatars/avatar-image
-              avatar=this.avatar
-              class="navbar-avatar-image"
-            }}
+            <i class="caret"></i>
+            <Avatars::AvatarImage @avatar={{this.avatar}} @class="navbar-avatar-image" />
           </a>
 
 
@@ -80,7 +74,7 @@
                 @models={{array this.userUrn (concat "userownership-" entity.displayName)}}
                 @tagName="li"
               >
-                {{capitalize (humanize entity.displayName)}} I Own
+                {{nacho-core/titleize (humanize entity.displayName)}} I Own
               </NavLink>
             {{/each}}
 
@@ -99,13 +93,32 @@
                 <a
                   href={{applicationHelpResource.link}}
                   title={{applicationHelpResource.label}}
-                  rel="noopener"
+                  rel="noreferrer noopener"
                   target="_blank"
                 >
                   {{or applicationHelpResource.label applicationHelpResource.link}}
                 </a>
               </li>
             {{/each}}
+
+            <li>
+              {{! TODO: DSS-6716 }}
+              {{! DRY out with wrapper component that takes the link as an attribute }}
+              <a
+                href="http://go/metadata/origins"
+                title="Metadata Origins"
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                See Metadata Origins
+              </a>
+            </li>
+            {{!-- TODO: [META-9126] Change this to use generic link --}}
+            <li>
+              <MailTo @mailHeader={{@feedbackMail}}>
+                {{@feedbackMail.title}}
+              </MailTo>
+            </li>
 
             <li role="separator" class="divider"></li>
 

@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { computed } from '@ember/object';
 import { empty } from '@ember/object/computed';
 import { classNames } from '@ember-decorators/component';
-import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
+import { OwnerWithAvatarRecord } from 'datahub-web/typings/app/datasets/owners';
 
 @classNames('dataset-authors-suggested')
 export default class DatasetsOwnersSuggestedOwners extends Component {

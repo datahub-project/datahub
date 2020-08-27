@@ -2,7 +2,7 @@ datahub-frontend
 ================
 A Helm chart for datahub-frontend
 
-Current chart version is `0.1.0`
+Current chart version is `0.2.0`
 
 ## Chart Values
 
@@ -10,10 +10,11 @@ Current chart version is `0.1.0`
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
 | datahub.play.mem.buffer.size | string | `"10MB"` |  |
+| extraEnvs | Extra [environment variables][] which will be appended to the `env:` definition for the container | `[]` |
+| extraVolumes | Templatable string of additional `volumes` to be passed to the `tpl` function | "" |
+| extraVolumeMounts | Templatable string of additional `volumeMounts` to be passed to the `tpl` function | "" |
 | fullnameOverride | string | `"datahub-frontend"` |  |
-| global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
-| global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-frontend"` |  |
 | image.tag | string | `"latest"` |  |

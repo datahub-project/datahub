@@ -11,6 +11,7 @@
 /.ember-cli
 /.eslintignore
 /.eslintrc.js
+/.git/
 /.gitignore
 /.watchmanconfig
 /.travis.yml

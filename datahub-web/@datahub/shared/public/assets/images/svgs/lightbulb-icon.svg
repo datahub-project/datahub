@@ -1,0 +1,11 @@
+<svg viewBox="0 0 24 24" width="18" height="22" x="0" y="0" preserveAspectRatio="xMinYMin meet" focusable="false">
+  <g class="large-icon" style="fill: currentColor">
+    <rect x="8.28" y="0.36" width="2" height="3" transform="translate(-0.16 2.47) rotate(-15)"></rect>
+    <rect x="3.58" y="3.08" width="2" height="3" transform="translate(-1.9 4.58) rotate(-45)"></rect>
+    <rect x="13.22" y="0.86" width="3" height="2" transform="translate(9.11 15.59) rotate(-75)"></rect>
+    <rect x="17.92" y="3.58" width="3" height="2" transform="translate(2.45 15.08) rotate(-45)"></rect>
+    <path d="M12,5A6,6,0,0,0,8.25,15.68,2,2,0,0,1,9,17.23V18a1,1,0,0,0,1,1h4a1,1,0,0,0,1-1V17.23a2,2,0,0,1,.75-1.55A6,6,0,0,0,12,5Zm2.66,9.31A3.71,3.71,0,0,0,13.28,17H10.72a3.71,3.71,0,0,0-1.38-2.69A4.25,4.25,0,1,1,14.66,14.31Z"
+    />
+    <path d="M10.22,21.45a1,1,0,0,0,.89.55h1.76a1,1,0,0,0,.89-0.55L14.5,20h-5Z"></path>
+  </g>
+</svg>

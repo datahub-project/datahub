@@ -6,8 +6,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.dao.ListResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.IndexCriterion;
+import com.linkedin.metadata.query.IndexCriterionArray;
+import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.ResourceContext;
@@ -19,6 +23,7 @@ import com.linkedin.testing.EntityAspectUnionArray;
 import com.linkedin.testing.EntityKey;
 import com.linkedin.testing.EntitySnapshot;
 import com.linkedin.testing.EntityValue;
+import com.linkedin.testing.urn.FooUrn;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,7 +51,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
   class TestResource extends BaseEntityResource<EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion> {
 
     public TestResource() {
-      super(EntitySnapshot.class, EntityAspectUnion.class);
+      super(EntitySnapshot.class, EntityAspectUnion.class, Urn.class);
     }
 
     @Nonnull
@@ -128,7 +133,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.get(new HashSet<>(Arrays.asList(aspect1Key, aspect2Key)))).thenReturn(
         Collections.singletonMap(aspect1Key, Optional.of(foo)));
 
-    EntityValue value = runAndWait(_resource.get(makeResourceKey(urn), new String[0]));
+    EntityValue value = runAndWait(_resource.get(makeResourceKey(urn), null));
 
     assertEquals(value.getFoo(), foo);
     assertFalse(value.hasBar());
@@ -201,7 +206,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
         ImmutableMap.of(aspectFooKey1, Optional.of(foo), aspectFooKey2, Optional.of(bar)));
 
     Map<EntityKey, EntityValue> keyValueMap = runAndWait(
-        _resource.batchGet(ImmutableSet.of(makeResourceKey(urn1), makeResourceKey(urn2)), new String[0])).entrySet()
+        _resource.batchGet(ImmutableSet.of(makeResourceKey(urn1), makeResourceKey(urn2)), null)).entrySet()
         .stream()
         .collect(Collectors.toMap(e -> e.getKey().getKey(), e -> e.getValue()));
 
@@ -283,7 +288,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     Set<AspectKey<Urn, ? extends RecordTemplate>> aspectKeys = ImmutableSet.of(fooKey, barKey);
     when(_mockLocalDAO.get(aspectKeys)).thenReturn(ImmutableMap.of(fooKey, Optional.of(foo), barKey, Optional.of(bar)));
 
-    EntitySnapshot snapshot = runAndWait(_resource.getSnapshot(urn.toString(), new String[0]));
+    EntitySnapshot snapshot = runAndWait(_resource.getSnapshot(urn.toString(), null));
 
     assertEquals(snapshot.getUrn(), urn);
 
@@ -323,7 +328,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     when(_mockLocalDAO.backfill(AspectBar.class, urn)).thenReturn(Optional.of(bar));
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), new String[0]));
+    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), null));
 
     assertEquals(ImmutableSet.copyOf(backfilledAspects),
         ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class), ModelUtils.getAspectName(AspectBar.class)));
@@ -339,5 +344,66 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     }
 
     fail("No exception thrown");
+  }
+
+  @Test
+  public void testBatchBackfill() {
+    Urn urn1 = makeUrn(1);
+    Urn urn2 = makeUrn(2);
+
+    runAndWait(_resource.batchBackfill(new String[]{urn1.toString(), urn2.toString()},
+        new String[] {"com.linkedin.testing.AspectFoo", "com.linkedin.testing.AspectBar"}));
+
+    verify(_mockLocalDAO, times(1))
+        .backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), ImmutableSet.of(urn1, urn2));
+  }
+
+  @Test
+  public void testListUrnsFromIndex() {
+    // case 1: indexFilter is non-null
+    IndexCriterion indexCriterion1 = new IndexCriterion().setAspect("aspect1");
+    IndexFilter indexFilter1 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion1));
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
+    FooUrn urn3 = makeFooUrn(3);
+    List<Urn> urns1 = Arrays.asList(urn2, urn3);
+    ListResult<Urn> listResult1 = ListResult.<Urn>builder().values(urns1).totalCount(100).build();
+
+    when(_mockLocalDAO.listUrns(indexFilter1, urn1, 2)).thenReturn(listResult1);
+    String[] actual = runAndWait(_resource.listUrnsFromIndex(indexFilter1, urn1.toString(), 2));
+    assertEquals(actual, new String[] {urn2.toString(), urn3.toString()});
+
+    // case 2: indexFilter is null
+    IndexCriterion indexCriterion2 = new IndexCriterion().setAspect("com.linkedin.common.urn.Urn");
+    IndexFilter indexFilter2 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion2));
+    when(_mockLocalDAO.listUrns(indexFilter2, urn1, 2)).thenReturn(listResult1);
+    actual = runAndWait(_resource.listUrnsFromIndex(null, urn1.toString(), 2));
+    assertEquals(actual, new String[] {urn2.toString(), urn3.toString()});
+
+    // case 3: lastUrn is null
+    List<Urn> urns3 = Arrays.asList(urn1, urn2);
+    ListResult<Urn> listResult3 = ListResult.<Urn>builder().values(urns3).totalCount(100).build();
+    when(_mockLocalDAO.listUrns(indexFilter2, null, 2)).thenReturn(listResult3);
+    actual = runAndWait(_resource.listUrnsFromIndex(null, null, 2));
+    assertEquals(actual, new String[] {urn1.toString(), urn2.toString()});
+  }
+
+  @Test
+  public void testParseAspectsParam() {
+    // Only 1 aspect
+    Set<Class<? extends RecordTemplate>> aspectClasses = _resource
+        .parseAspectsParam(new String[] {AspectFoo.class.getCanonicalName()});
+    assertEquals(aspectClasses.size(), 1);
+    assertTrue(aspectClasses.contains(AspectFoo.class));
+
+    // No aspect
+    aspectClasses = _resource.parseAspectsParam(new String[] {});
+    assertEquals(aspectClasses.size(), 0);
+
+    // All aspects
+    aspectClasses = _resource.parseAspectsParam(null);
+    assertEquals(aspectClasses.size(), 2);
+    assertTrue(aspectClasses.contains(AspectFoo.class));
+    assertTrue(aspectClasses.contains(AspectBar.class));
   }
 }
