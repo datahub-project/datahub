@@ -50,7 +50,7 @@ record CorpUserInfoDocument includes BaseDocument {
 Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
 ```json
-curl http://localhost:8080/corpuserinfodocument/doc/_mapping? --data '
+curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
     "courses": {
