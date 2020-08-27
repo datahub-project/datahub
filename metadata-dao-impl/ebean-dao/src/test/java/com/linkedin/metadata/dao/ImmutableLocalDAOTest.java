@@ -1,8 +1,8 @@
 package com.linkedin.metadata.dao;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.testing.AspectFoo;
 import com.linkedin.testing.EntityAspectUnion;
+import com.linkedin.testing.urn.FooUrn;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -20,20 +20,20 @@ public class ImmutableLocalDAOTest {
 
   @Test
   public void testLoadAspects() {
-    Map<Urn, AspectFoo> aspects = loadAspectsFromResource("immutable.json");
+    Map<FooUrn, AspectFoo> aspects = loadAspectsFromResource("immutable.json");
 
     assertEquals(aspects.size(), 3);
-    assertTrue(aspects.containsKey(makeUrn(1)));
-    assertTrue(aspects.containsKey(makeUrn(2)));
-    assertTrue(aspects.containsKey(makeUrn(3)));
+    assertTrue(aspects.containsKey(makeFooUrn(1)));
+    assertTrue(aspects.containsKey(makeFooUrn(2)));
+    assertTrue(aspects.containsKey(makeFooUrn(3)));
   }
 
   @Test
   public void testGet() {
-    ImmutableLocalDAO<EntityAspectUnion, Urn> dao =
-        new ImmutableLocalDAO<>(EntityAspectUnion.class, loadAspectsFromResource("immutable.json"), true);
+    ImmutableLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new ImmutableLocalDAO<>(EntityAspectUnion.class, loadAspectsFromResource("immutable.json"), true, FooUrn.class);
 
-    Optional<AspectFoo> foo1 = dao.get(AspectFoo.class, makeUrn(1));
+    Optional<AspectFoo> foo1 = dao.get(AspectFoo.class, makeFooUrn(1));
 
     assertTrue(foo1.isPresent());
     assertEquals(foo1.get(), new AspectFoo().setValue("1"));
@@ -41,21 +41,21 @@ public class ImmutableLocalDAOTest {
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testAdd() {
-    ImmutableLocalDAO<EntityAspectUnion, Urn> dao =
-        new ImmutableLocalDAO<>(EntityAspectUnion.class, new HashMap<>(), true);
+    ImmutableLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new ImmutableLocalDAO<>(EntityAspectUnion.class, new HashMap<>(), true, FooUrn.class);
 
-    dao.add(makeUrn(1), new AspectFoo().setValue("1"), makeAuditStamp("foo"));
+    dao.add(makeFooUrn(1), new AspectFoo().setValue("1"), makeAuditStamp("foo"));
   }
 
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testNewNumericId() {
-    ImmutableLocalDAO<EntityAspectUnion, Urn> dao =
-        new ImmutableLocalDAO<>(EntityAspectUnion.class, new HashMap<>(), true);
+    ImmutableLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new ImmutableLocalDAO<>(EntityAspectUnion.class, new HashMap<>(), true, FooUrn.class);
 
     dao.newNumericId();
   }
 
-  private Map<Urn, AspectFoo> loadAspectsFromResource(String name) {
+  private Map<FooUrn, AspectFoo> loadAspectsFromResource(String name) {
     try {
       return ImmutableLocalDAO.loadAspects(AspectFoo.class, getClass().getClassLoader().getResourceAsStream(name));
     } catch (ParseException | IOException | URISyntaxException e) {
