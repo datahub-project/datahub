@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
@@ -252,12 +253,13 @@ public abstract class BaseEntityResource<
    */
   @Action(name = ACTION_BACKFILL)
   @Nonnull
-  public Task<BackfillResult> backfill(@ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
-                                       @ActionParam(PARAM_URN) @Optional @Nullable String lastUrn,
-                                       @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_MODE) @Nonnull BackfillMode mode,
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @ActionParam(PARAM_URN) @Optional @Nullable String lastUrn,
+      @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() ->
-            buildBackfillResult(getLocalDAO().backfill(parseAspectsParam(aspectNames),
+            buildBackfillResult(getLocalDAO().backfill(mode, parseAspectsParam(aspectNames),
                     _urnClass,
                     parseUrnParam(lastUrn),
                     limit)));
