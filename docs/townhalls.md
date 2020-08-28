@@ -5,11 +5,11 @@ Currently it's held on the last Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - August 28th, 2020 @ 9 AM US Pacific (GMT-7)
+# Coming up - September 25th, 2020 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
-**NEW!** We're now using Zoom! You can join with this link, or see the full invite below. https://linkedin.zoom.us/j/95617940722
+You can join with this link, or see the full invite below. https://linkedin.zoom.us/j/95617940722
 
 [Sign up sheet](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/edit#gid=57816078)
 
@@ -20,7 +20,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 John Plaisted is inviting you to a scheduled Zoom meeting.
 
 Topic: DataHub Town Hall
-Time: Aug 28, 2020 09:00 AM Pacific Time (US and Canada)
+Time: Sep 25, 2020 09:00 AM Pacific Time (US and Canada)
 
 Join Zoom Meeting
 https://linkedin.zoom.us/j/95617940722
@@ -51,7 +51,8 @@ Join by H.323
 221.122.88.195 (China)
 115.114.131.7 (India Mumbai)
 115.114.115.7 (India Hyderabad)
-213.19.144.110 (EMEA)
+213.19.144.110 (Amsterdam Netherlands)
+213.244.140.110 (Germany)
 103.122.166.55 (Australia)
 209.9.211.110 (Hong Kong SAR)
 64.211.144.160 (Brazil)
@@ -67,11 +68,7 @@ https://linkedin.zoom.us/skype/95617940722
 
 ## Agenda
 
-- Quick intro - 5 mins
-- [Presentation] Data Governance look for a Digital Bank - by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank (20 mins)
-- [Demo] Column level lineage for datasets - by [Nagarjuna](https://www.linkedin.com/in/nagarjunak/) from LinkedIn (15 mins)
-- General Q&A from sign up sheet and participants - 15 mins
-- Closing remarks - 5 mins
+Coming soon!
 
 # Past Meetings
 
