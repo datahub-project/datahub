@@ -183,6 +183,15 @@ $button-text-color: get-color(white);
     }
   }
 
+  &--no-graphic {
+    background: transparent;
+    border: none;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
   &--secondary-inverse {
     @include restyle(secondary button with a border);
 

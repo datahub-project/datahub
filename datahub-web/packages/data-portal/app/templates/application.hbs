@@ -1,6 +1,7 @@
 <Notifications::BannerAlerts />
 {{#if session.isAuthenticated}}
   <Hotkeys::GlobalHotkeys />
+  <Foxie::FoxieMain />
   <Navbar
     @applicationHelpResources={{this.model.helpResources}}
     @feedbackMail={{this.model.feedbackMail}}

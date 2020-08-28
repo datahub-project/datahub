@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { set, setProperties, computed, action } from '@ember/object';
-import { IPowerSelectAPI } from 'datahub-web/typings/modules/power-select';
+import { IPowerSelectAPI } from '@nacho-ui/search/types/nacho-search';
 import { ISuggestion, ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';
 import { inject as service } from '@ember/service';
 import HotKeys from 'datahub-web/services/hot-keys';

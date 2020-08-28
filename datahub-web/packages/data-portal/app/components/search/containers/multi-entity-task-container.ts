@@ -5,10 +5,13 @@ import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { IDataModelEntitySearchResult } from '@datahub/data-models/types/entity/search';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { action, setProperties, computed } from '@ember/object';
+import { inject as service } from '@ember/service';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { noop } from 'lodash';
 import { isSearchable } from '@datahub/search/utils/entities';
 import { zipObject, mapValues } from 'lodash';
+import FoxieService from '@datahub/shared/services/foxie';
+import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-type';
 
 // TODO: [META-12059] MES is missing proper component and acceptance testing
 // Specifically, that hidden tabs do not generate a search track event
@@ -36,6 +39,9 @@ type GenericSearchResult = IDataModelEntitySearchResult<DataModelEntityInstance>
  */
 @containerDataSource<SearchMultiEntityTaskContainer>('getContainerDataTask', ['entity', 'keyword', 'page', 'facets'])
 export default class SearchMultiEntityTaskContainer extends SearchEntityTaskContainer {
+  @service
+  foxie!: FoxieService;
+
   /**
    * External action provided to allow us to change the current entity to a new one
    */
@@ -111,6 +117,14 @@ export default class SearchMultiEntityTaskContainer extends SearchEntityTaskCont
     const resultForPriorityEntity = ((yield this.readResultsForEntity(
       priorityEntity
     )) as unknown) as IDataModelEntitySearchResult<DataModelEntityInstance>;
+
+    if (resultForPriorityEntity && resultForPriorityEntity.data.length < 10) {
+      this.foxie.launchUFO({
+        functionType: UserFunctionType.ApiResponse,
+        functionTarget: 'search',
+        functionContext: `empty ${entity} result`
+      });
+    }
 
     const trackingParams = this.getEntitySearchTrackingParams(resultForPriorityEntity);
     trackingParams && this.trackEntitySearch(trackingParams);

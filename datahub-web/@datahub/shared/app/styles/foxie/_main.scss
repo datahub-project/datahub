@@ -1,0 +1,130 @@
+@keyframes pulse-sprite {
+  0% {
+    transform: scale(0.95);
+    background: get-color(green5, 0.25);
+    box-shadow: 0 0 0 0 get-color(green5, 0.7);
+  }
+
+  23% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px get-color(green5, 0);
+  }
+
+  33% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 get-color(green5, 0);
+  }
+
+  35% {
+    transform: scale(0.95);
+    background: get-color(gold5, 0.25);
+    box-shadow: 0 0 0 0 get-color(gold5, 0.7);
+  }
+
+  58% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px get-color(gold5, 0);
+  }
+
+  67% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 get-color(gold5, 0);
+  }
+
+  69% {
+    transform: scale(0.95);
+    background: get-color(purple5, 0.25);
+    box-shadow: 0 0 0 0 get-color(purple5, 0.7);
+  }
+
+  93% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px get-color(purple5, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 get-color(purple5, 0);
+  }
+}
+
+.foxie {
+  position: fixed;
+  z-index: z(toast) * 2;
+  bottom: item-spacing(5);
+  right: item-spacing(6);
+  height: 64px;
+  width: 64px;
+
+  &__sprite {
+    border-radius: 50%;
+    background-color: get-color(white, 0.9);
+    border: 1px solid get-color(black, 0.2);
+    padding: item-spacing(2);
+    height: 64px;
+    width: 64px;
+    cursor: pointer;
+  }
+
+  &__sprite-wrapper {
+    position: relative;
+    height: 64px;
+    width: 64px;
+  }
+
+  &__sprite-pulse-blob {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: get-color(green5, 0.25);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 1);
+    height: 64px;
+    width: 64px;
+    transform: scale(1);
+    animation: pulse-sprite 6s infinite;
+  }
+
+  &__screen-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background-color: get-color(white, 0.9);
+    width: 310px;
+    max-width: 310px;
+    flex-wrap: wrap;
+    box-shadow: 0 0 0 0 get-color(black, 0.1);
+    border: 1px solid get-color(black, 0.2);
+    padding: item-spacing(3 4);
+  }
+
+  &__content {
+    position: relative;
+  }
+
+  &__content-wrapper {
+    position: absolute;
+    left: -284px;
+    bottom: 48px;
+  }
+
+  &__dismiss-button {
+    position: absolute;
+    top: -(item-spacing(3));
+    right: -(item-spacing(3));
+    border-radius: 50%;
+    padding: item-spacing(1 2);
+    border: 1px solid get-color(black, 0.2);
+    color: get-color(black, 0.5);
+    z-index: z(above);
+    background-color: get-color(white);
+  }
+}
+
+.foxie-screen {
+  &__header {
+    font-size: fs(large);
+    font-weight: fw(normal, 6);
+    margin: item-spacing(1);
+  }
+}

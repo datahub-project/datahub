@@ -26,12 +26,31 @@
     }
   }
 
+  &__modal &__preview-markdown-button {
+    padding-left: 0px;
+    color: get-color(blue7);
+    border: none;
+  }
+
   &__content {
     height: $add-change-log-modal-content-height;
+    display: flex;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  &__content-user-input {
+    display: flex;
+    flex-direction: column;
   }
 
   &__title {
     margin: 0;
+  }
+
+  &__preview-markdown-icon {
+    margin-right: item-spacing(2);
+    width: 16px;
   }
 
   &__label {
@@ -52,7 +71,6 @@
   &__item {
     display: flex;
     flex-direction: column;
-    margin-bottom: item-spacing(4);
     width: $add-change-log-modal-item-width;
   }
 
@@ -80,7 +98,7 @@
     }
 
     &-content {
-      height: item-spacing(7) * 5;
+      height: item-spacing(7) * 7;
     }
     &-subject {
       height: item-spacing(4) * 2;
@@ -88,7 +106,7 @@
   }
 
   &__actions {
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   &__tag-input {
@@ -102,5 +120,13 @@
 
   &__pill {
     margin: item-spacing(1 1 0 0);
+  }
+
+  &__action {
+    margin-left: item-spacing(4);
+    // Pull only back button to far left
+    &-back {
+      margin-right: auto;
+    }
   }
 }

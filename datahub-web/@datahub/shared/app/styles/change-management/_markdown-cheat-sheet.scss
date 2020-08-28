@@ -1,0 +1,21 @@
+.markdown-cheat-sheet {
+  background-color: get-color(slate0);
+  margin-left: item-spacing(4);
+  overflow-x: hidden;
+  padding: item-spacing(4);
+
+  section {
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    color: get-color(black, 0.9);
+  }
+  &__label {
+    color: get-color(black, 0.6);
+    font-weight: fw(normal, 7);
+  }
+  &__item {
+    color: get-color(black, 0.6);
+  }
+}

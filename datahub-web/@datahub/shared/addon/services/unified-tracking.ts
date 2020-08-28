@@ -19,7 +19,9 @@ import {
   ICustomEventData,
   IPageViewEventTrackingParams
 } from '@datahub/shared/types/tracking/event-tracking';
-import { PageType } from '@datahub/shared/constants/tracking/event-tracking';
+import { PageType, TrackingEventCategory } from '@datahub/shared/constants/tracking/event-tracking';
+import FoxieService from '@datahub/shared/services/foxie';
+import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-type';
 
 /**
  * Defines the base and full api for the analytics / tracking module in DataHub
@@ -33,6 +35,13 @@ export default class UnifiedTracking extends Service {
    */
   @service
   metrics!: Metrics;
+
+  /**
+   * Injection of the foxie service to trigger events from all tracked items as well, saves some effort in firing foxie
+   * events
+   */
+  @service
+  foxie!: FoxieService;
 
   /**
    * Injected reference to the shared CurrentUser service, user here to inform the analytics service of the currently logged in
@@ -71,23 +80,22 @@ export default class UnifiedTracking extends Service {
       const metrics = this.metrics;
       const { trackers } = tracking;
       const { piwikSiteId, piwikUrl } = trackers.piwik;
-      // TODO: More graceful way to handle this. Currently our configs return empty string "" and site id 0, which are
-      // both read as falsy by the metrics adapter and throws a blocking error
-      const fallbackPiwikUrl = 'www.google.com';
-      const fallbackSiteId = 575600;
       const trackingAdaptersToActivate: Array<IAdapterOptions> = [
         ...adapterOptions,
         {
           name: 'Piwik',
           environments: ['all'],
           config: {
-            piwikUrl: piwikUrl || fallbackPiwikUrl,
-            siteId: piwikSiteId || fallbackSiteId
+            piwikUrl,
+            siteId: piwikSiteId
           }
         }
       ];
 
-      metrics.activateAdapters(trackingAdaptersToActivate);
+      if (piwikSiteId && piwikUrl) {
+        // Only activate adapters if the above two parameters are defined, otherwise ember metrics will throw an error
+        metrics.activateAdapters(trackingAdaptersToActivate);
+      }
 
       return trackingAdaptersToActivate;
     }
@@ -125,6 +133,14 @@ export default class UnifiedTracking extends Service {
    */
   trackEvent<T extends IBaseTrackingEvent, O extends ICustomEventData>(eventDetails: T, options?: O): void {
     this.metrics.trackEvent(this.buildEvent(eventDetails, options));
+    this.foxie.launchUFO({
+      functionType:
+        eventDetails.category === TrackingEventCategory.ControlInteraction
+          ? UserFunctionType.Interaction
+          : UserFunctionType.Tracking,
+      functionTarget: eventDetails.action,
+      functionContext: (eventDetails.name || '') + (eventDetails.value || '')
+    });
   }
 
   /**
@@ -189,6 +205,11 @@ export default class UnifiedTracking extends Service {
           userName
         };
         metrics.trackPage(pageViewEventParams);
+        this.foxie.launchUFO({
+          functionType: UserFunctionType.Navigation,
+          functionTarget: page,
+          functionContext: title
+        });
       }
 
       getPiwikActivityQueue().push(['enableHeartBeatTimer']);
