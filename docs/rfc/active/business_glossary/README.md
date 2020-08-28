@@ -6,7 +6,7 @@
 
 ## Summary
 
-Adding Support for Business Glossary enhances the value of metadata and brings the business view. This helps to document the bsuiness terms used across the business and provides teh common vocabulary to entire data stakeholders/community. This encourages/motivates the business community to interact with Data Catalog to discsover the relevant data asets of interest. This also enables find teh relationship in teh data assets through business terms that belong to them. This following link illisutates the importance of business glossary [article](https://dataedo.com/blog/business-glossary-vs-data-dictionary).
+Adding Support for Business Glossary enhances the value of metadata and brings the business view. This helps to document the bsuiness terms used across the business and provides the common vocabulary to entire data stakeholders/community. This encourages/motivates the business community to interact with Data Catalog to discsover the relevant data asets of interest. This also enables find the relationship in the data assets through business terms that belong to them. This following link illisutates the importance of business glossary [article](https://dataedo.com/blog/business-glossary-vs-data-dictionary).
 
 ## Motivation
 
@@ -21,7 +21,7 @@ We need to model Business Glossary, where business team can define the business 
 ### What is Business Glossary 
 **Business Glossary**, is a list of business terms with their definitions. It defines business concepts for an organization or industry and is independent from any specific database or platform or vendor.
 
-**Data Dictionary** is a description of a data set, provides teh details about the attributes and data types
+**Data Dictionary** is a description of a data set, provides the details about the attributes and data types
 
 ### Relationship 
 Even though Data Dictionary and Business Glossary are separate entities, they work nicely together to describe different aspects and levels of abstraction of the data environment of an organization.
@@ -80,10 +80,10 @@ It's important to make businessTerm as a top level entity because it can exist w
   - sourceURI : source URI 
   - sourceRef : URL of the business term external reference
   - namespace : Helps to organize the business terms as groups (e.g: domain can be defined as namespace)
-  - Ownership : This provides teh owenership to business terms (to track who manages/owner of the business term). 
+  - Ownership : This provides the owenership to business terms (to track who manages/owner of the business term). 
 
-### extending SchemaField 
-Need to extend the SchemaField type to capture additional businessTerm relation. Listing teh fields including the existing elements
+### Extending SchemaField 
+Need to extend the SchemaField type to capture additional businessTerm relation. Listing the fields including the existing elements
 - fieldPath: SchemaFieldPath
 - jsonPath: optional string
 - nullable: boolean = false
@@ -94,14 +94,6 @@ Need to extend the SchemaField type to capture additional businessTerm relation.
 - businessTerm: Urn
 
 
-### ML Feature metadata
-- Feature Properties: Basic information about the ML Feature
-  - Description of the feature
-  - Data type of the feature i.e. boolean, text, etc
-- Ownership: Owners of the ML Feature.
-- Institutional Memory: Institutional knowledge for easy search and discovery.
-- Status: Captures if the feature has been soft deleted or not.
-- Deprecation: Captures if the feature has been deprecated or not.
 
 ### Metadata graph
 
@@ -124,7 +116,7 @@ We should create/update user guides to educate users for:
 
 The design is supposed to be generic enough that any user of DataHub should easily be able to onboard their Business Glossary (list of terms and definitions) to DataHub irrespective of their industry. Some organizations can subscribe/download industry stadard taxanomy with slight modelling and integration should be able to bring the bsuiness glossary quickly
 
-While onboarding datasets, business/tech teams need to link the business terms to teh data elements, once users see the value of this will be motivated to link the elements with appropriate business terms.
+While onboarding datasets, business/tech teams need to link the business terms to the data elements, once users see the value of this will be motivated to link the elements with appropriate business terms.
 
 ## Unresolved questions
 
