@@ -301,7 +301,9 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   private <ASPECT extends RecordTemplate> void updateAspectInLocalIndex(@Nonnull URN urn, @Nonnull ASPECT newValue) {
 
-    if (_storageConfig.getAspectStorageConfigMap() == null || !_storageConfig.getAspectStorageConfigMap().containsKey(newValue.getClass())) {
+    if (!_storageConfig.getAspectStorageConfigMap().containsKey(newValue.getClass())
+        || _storageConfig.getAspectStorageConfigMap().get(newValue.getClass()) == null
+    ) {
       return;
     }
     // step1: remove all rows from the index table corresponding to <urn, aspect> pair

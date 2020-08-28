@@ -977,6 +977,56 @@ public class EbeanLocalDAOTest {
     assertEquals(getAllRecordsFromLocalIndex(barUrn).size(), 1);
   }
 
+  @Test(expectedExceptions = NullPointerException.class)
+  void testNullAspectStorageConfigMap() {
+    // null aspect storage config map should throw an exception
+    LocalDAOStorageConfig.builder().aspectStorageConfigMap(null).build();
+  }
+
+  @Test
+  void testEmptyAspectStorageConfigMap() {
+    FooUrn urn = makeFooUrn(1);
+
+    // default storage config constructed, resulting in empty aspect storage config map
+    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().build();
+    EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig, FooUrn.class);
+    dao.enableLocalSecondaryIndex(true);
+    AspectFoo aspect = new AspectFoo().setValue("val1");
+
+    // only urn is updated, aspect isn't
+    dao.updateLocalIndex(urn, aspect, 0);
+    List<EbeanMetadataIndex> fooRecords = getAllRecordsFromLocalIndex(urn);
+    assertEquals(fooRecords.size(), 1);
+    EbeanMetadataIndex record = fooRecords.get(0);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), FooUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/fooId");
+    assertEquals(record.getLongVal().longValue(), 1L);
+  }
+
+  @Test
+  void testNullPathStorageConfigMap() {
+    FooUrn urn = makeFooUrn(2);
+
+    // path storage config map is manually set as null
+    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
+    aspectStorageConfigMap.put(AspectFoo.class, null);
+    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().aspectStorageConfigMap(aspectStorageConfigMap).build();
+    EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig, FooUrn.class);
+    dao.enableLocalSecondaryIndex(true);
+    AspectFoo aspect = new AspectFoo().setValue("val2");
+
+    // only urn is updated, aspect isn't
+    dao.updateLocalIndex(urn, aspect, 0);
+    List<EbeanMetadataIndex> fooRecords = getAllRecordsFromLocalIndex(urn);
+    assertEquals(fooRecords.size(), 1);
+    EbeanMetadataIndex record = fooRecords.get(0);
+    assertEquals(record.getUrn(), urn.toString());
+    assertEquals(record.getAspect(), FooUrn.class.getCanonicalName());
+    assertEquals(record.getPath(), "/fooId");
+    assertEquals(record.getLongVal().longValue(), 2L);
+  }
+
   @Test
   void testUpdateUrnAndAspectInLocalIndex() {
     EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, makeLocalDAOStorageConfig(AspectFooEvolved.class,
