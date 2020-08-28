@@ -52,6 +52,8 @@
     "ember-cli-string-helpers": "^4.0.5",
     "ember-cli-typescript": "^3.1.3",
     "ember-concurrency": "^1.1.2",
+    "ember-inflector": "^3.0.0",
+    "ember-local-storage": "^1.7.0",
     "ember-medium-editor-fix": "^0.0.3",
     "ember-metrics": "^0.14.0",
     "ember-modifier": "^1.0.3",

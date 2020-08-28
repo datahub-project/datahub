@@ -20,7 +20,7 @@ const statusFieldCommon: ISearchEntityRenderProps = {
   showInResultsPreview: false,
   showInFacets: true,
   tagComponent: {
-    name: 'feature-status'
+    name: 'features/feature-status'
   }
 };
 /**
@@ -29,7 +29,7 @@ const statusFieldCommon: ISearchEntityRenderProps = {
  * Implemented as a getter to ensure that reads are idempotent
  */
 export const getRenderProps = (): IEntityRenderProps => {
-  const secondaryActionComponents = [{ name: 'toggle-on-list' }, { name: 'download-config' }];
+  const secondaryActionComponents = [{ name: 'lists/toggle-on-list' }, { name: 'features/download-config' }];
   return {
     apiEntityName: 'feature',
     search: {

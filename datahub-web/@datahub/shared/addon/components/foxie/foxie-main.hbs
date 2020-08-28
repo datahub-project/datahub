@@ -1,0 +1,32 @@
+{{#if (and this.showFoxieFlag this.isFoxieActive)}}
+
+  <div class="foxie">
+    <div class="foxie__sprite-wrapper foxie__sprite-wrapper--{{this.currentImageState}}" {{did-insert this.initEventListener}}>
+      {{component this.imageSource}}
+      {{#if (eq this.currentImageState "active")}}
+        <div class="foxie__sprite-pulse-blob"></div>
+      {{/if}}
+    </div>
+
+    {{#if this.isExpanded}}
+      <div class="foxie__content-wrapper">
+        <div class="foxie__content">
+          <button class="foxie__dismiss-button" type="button" onclick={{this.onDismiss}}>
+            <FaIcon @icon="times" @prefix="fas" />
+          </button>
+          {{#if this.currentTriggeredAction}}
+
+            {{component this.currentTriggeredAction.init.name options=this.currentTriggeredAction.init.options}}
+
+          {{else}}
+            <Foxie::Screens::DefaultScenario />
+          {{/if}}
+        </div>
+      </div>
+    {{else}}
+
+    {{/if}}
+
+  </div>
+
+{{/if}}

@@ -1,4 +1,4 @@
-<FeatureEntityContainer
+<Features::FeatureEntityContainer
   @urn={{this.model.urn}}
   @loggedInUserName={{this.model.userName}}
   @currentTab={{this.model.tab_selected}} as |container|
@@ -19,15 +19,15 @@
       </WaitPromiseContainer>
 
       <div class="container">
-        <FeatureHeader
+        <Features::FeatureHeader
           @isOwner={{container.isOwner}}
           @feature={{readonly container.entity}}
           @didUpdateStatus={{action container.onUpdateFeatureStatus}}
         >
           {{#if (and container.entity container.entity.isPublished)}}
-            <ToggleOnList @entity={{container.entity}} class="nacho-button--large" />
+            <Lists::ToggleOnList @entity={{container.entity}} class="nacho-button--large" />
           {{/if}}
-        </FeatureHeader>
+        </Features::FeatureHeader>
       </div>
     </section>
 
@@ -81,4 +81,4 @@
     </IvyTabs>
   {{/if}}
 
-</FeatureEntityContainer>
+</Features::FeatureEntityContainer>

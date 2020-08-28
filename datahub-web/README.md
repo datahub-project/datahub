@@ -1,13 +1,19 @@
 DataHub Web Client
 ==============================================================================
 
-##About
+## About
 This mono-repository is for the portal web-client and related packages for DataHub, LinkedIn's premier
 data search and discovery tool, connecting users to the data that matters to them.
 
-##Entities
+## Entities
 
 TBD
+
+## Security
+
+### HTML Sanitizer
+(Dom Purify)[https://www.npmjs.com/package/dompurify] is used in conjunction with ember-auto-import to transform the npm package into an ember consumable format.
+DOMPurify is a DOM-only XSS sanitizer for HTML, MathML and SVG.You can feed DOMPurify with string full of dirty HTML and it will return a string (unless configured otherwise) with clean HTML.
 
 ## Creating a new package
 

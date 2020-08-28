@@ -12,6 +12,8 @@ import { validateLength } from 'ember-changeset-validations/validators';
 import lookupValidator from 'ember-changeset-validations';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { OwnerUrnNamespace } from '@datahub/data-models/constants/entity/dataset/ownership';
+import { htmlSafe } from '@ember/string';
+import { markdownAndSanitize } from '@datahub/utils/helpers/render-links-as-anchor-tags';
 
 /**
  * Interface meant for assembling the different recipient types' count
@@ -139,11 +141,6 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
   currentModalState: ModalState = this.args.isSendingEmailOnly ? ModalState.EmailOnly : ModalState.SaveOnly;
 
   /**
-   * The text for the `Save` button of the modal
-   */
-  saveOrNextButtonText = this.args.isSendingEmailOnly ? 'Next' : 'Save';
-
-  /**
    * Flag indicating if the modal is in Preview mode or not
    */
   @tracked
@@ -154,6 +151,12 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
    */
   @tracked
   isSendingEmailOnly = this.args.isSendingEmailOnly || false;
+
+  /**
+   * to indicate if the markdown preview is being displayed or not. when false , editable text area is displayed
+   */
+  @tracked
+  isInMarkdownPreviewMode = false;
 
   /**
    * Ember changeset Validations for the subject and content text input fields
@@ -174,6 +177,15 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
     lookupValidator(this.validators()),
     this.validators()
   );
+
+  /**
+   * Converts content field of the changeset to markdown that is html safe.
+   */
+  @computed('editableChangeset.content')
+  get contentMarkdownTranslated(): ReturnType<typeof htmlSafe> {
+    const userEnteredContent = this.editableChangeset.get('content').toString();
+    return markdownAndSanitize(userEnteredContent);
+  }
 
   /**
    * Returns the default editable properties for the modal.
@@ -272,16 +284,15 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
    */
   modalStateHandler(state: ModalState): void {
     switch (state) {
+      // Save log and send email
       case ModalState.SaveAndNotify:
         setProperties(this, {
-          saveOrNextButtonText: 'Save log & send Email',
           currentModalState: ModalState.SaveAndNotify,
           isDisplayingPreviewModal: true
         });
         break;
       case ModalState.Transition:
         setProperties(this, {
-          saveOrNextButtonText: 'Next',
           currentModalState: ModalState.Transition,
           isDisplayingPreviewModal: false
         });
@@ -289,16 +300,15 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
         break;
       case ModalState.SaveOnly:
         setProperties(this, {
-          saveOrNextButtonText: 'Save',
           currentModalState: ModalState.SaveOnly,
           isSendingEmailOnly: false,
           isDisplayingPreviewModal: false
         });
         this.editableChangeset.set('sendEmail', false);
         break;
+      // only sending email for existing saved log
       case ModalState.EmailOnly:
         setProperties(this, {
-          saveOrNextButtonText: 'Next',
           currentModalState: ModalState.EmailOnly,
           isDisplayingPreviewModal: false,
           isSendingEmailOnly: true
@@ -323,9 +333,10 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
    * Async task responsible for handing off the user entered information to the container component
    */
   @(task(function*(this: AddChangeLogModal): IterableIterator<Promise<void>> {
-    const subject = this.editableChangeset.get('subject');
-    const content = this.editableChangeset.get('content');
-    const sendEmail = this.editableChangeset.get('sendEmail');
+    const { contentMarkdownTranslated, editableChangeset } = this;
+    const content = contentMarkdownTranslated.toString();
+    const subject = editableChangeset.get('subject');
+    const sendEmail = editableChangeset.get('sendEmail');
     const recipients = this.constructRecipients();
     ((yield this.args.onSave({ subject, content, sendEmail, recipients })) as unknown) as void;
     this.onResetModal();
@@ -363,30 +374,43 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
   }
 
   /**
-   * Transitions state over to SaveAndNotify and also performs calling of the `SaveChangeLogTask`
+   * Toggles if markdown preview is on or off.
    */
   @action
-  async handleSaveOrNextClick(): Promise<void> {
+  toggleIsInMarkdownPreviewMode(): void {
+    this.isInMarkdownPreviewMode = !this.isInMarkdownPreviewMode;
+  }
+
+  /**
+   * Manages modal state and actions when user decides to save log and send email.
+   */
+  @action
+  async handleSaveAndSendEmailClick(): Promise<void> {
     const { currentModalState } = this;
-    if (currentModalState === ModalState.Transition || currentModalState === ModalState.EmailOnly) {
-      this.modalStateHandler(ModalState.SaveAndNotify);
-    } else if (currentModalState === ModalState.SaveAndNotify && this.isSendingEmailOnly) {
-      await this.sendEmailOnlyTask.perform();
-      this.onResetModal();
-    } else {
+    // when in preview modal view where all the recipients are listed
+    if (currentModalState === ModalState.SaveAndNotify) {
       await this.saveChangeLogTask.perform();
       this.onResetModal();
+    }
+    // when sending an email to a previously saved change log
+    else if (currentModalState === ModalState.EmailOnly) {
+      await this.sendEmailOnlyTask.perform();
+      this.onResetModal();
+    }
+    // When in initial page where content is being typed
+    else {
+      this.editableChangeset.set('sendEmail', true);
+      this.modalStateHandler(ModalState.SaveAndNotify);
     }
   }
 
   /**
-   * Handles the modal state when `onSendEmail` button is selected
+   * Performs the action of saving a change log and resetting a modal.
    */
   @action
-  onSendEmailSelected(): void {
-    this.currentModalState === ModalState.SaveOnly
-      ? this.modalStateHandler(ModalState.Transition)
-      : this.modalStateHandler(ModalState.SaveOnly);
+  async handleSaveOnlyClick(): Promise<void> {
+    await this.saveChangeLogTask.perform();
+    this.onResetModal();
   }
 
   /**

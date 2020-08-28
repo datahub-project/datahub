@@ -1,4 +1,5 @@
 import { IAddChangeLogModalProps } from '@datahub/shared/types/change-management/change-log';
+import marked from 'marked';
 
 /**
  * The local attributes of the class. They mirror the UI representation of how a changeLog looks.
@@ -39,7 +40,7 @@ export class ChangeLog implements IChangeLogProperties {
     this.createdBy = createdBy;
     this.dateAdded = dateAdded;
     this.subject = subject;
-    this.content = content;
+    this.content = marked(content).htmlSafe();
     this.sendEmail = sendEmail;
     this.recipients = recipients;
     this.owningEntity = owningEntity;

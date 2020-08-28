@@ -1,0 +1,16 @@
+.foxie__link-button {
+  padding: item-spacing(2 3);
+  border: 1px solid get-color(black, 0.25);
+  color: get-color(black, 0.5);
+  margin-top: item-spacing(3);
+  background: transparent;
+  text-align: left;
+
+  &:hover {
+    color: get-color(black, 0.5);
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
