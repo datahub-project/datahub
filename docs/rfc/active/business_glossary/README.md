@@ -29,13 +29,13 @@ Business terms can be linked to specific entities/tables and columns in a data a
 
 
 ### Sample Business Glossary Definition
-|URN|Business Term |Definition  | Domain | Owner | Ext Source| URI |
-|--|--|--|--|--|--|--|
-|urn:li:businessTerm:(instrument.cashInstrument) | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | fibo-fnd-dt-fd:DateTime|https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime|
-|urn:li:businessTerm:(common.dateTime) | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | fibo-fbc-fi-fi:CashInstrument|https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument|
-|urn:li:businessTerm:(market.bidSize) | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - |-|
-|--|--|--|--|--|--|--|
-| | | | | | | |
+|URN|Business Term |Definition  | Domain | Owner | Ext Source| URI | Ext Reference |
+|--|--|--|--|--|--|--|--|
+|urn:li:businessTerm:(instrument.cashInstrument) | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | fibo-fnd-dt-fd:DateTime|https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
+|urn:li:businessTerm:(common.dateTime) | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | fibo-fbc-fi-fi:CashInstrument|https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
+|urn:li:businessTerm:(market.bidSize) | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - |- | - |
+|--|--|--|--|--|--|--|--|
+| | | | | | | | |
 
 ### Business Term  & Dataset - Relationship
 
