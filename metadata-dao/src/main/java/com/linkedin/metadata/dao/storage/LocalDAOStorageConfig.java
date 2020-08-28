@@ -1,8 +1,10 @@
 package com.linkedin.metadata.dao.storage;
 
 import com.linkedin.data.template.RecordTemplate;
+import java.util.HashMap;
 import java.util.Map;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 
@@ -16,7 +18,9 @@ public final class LocalDAOStorageConfig {
   /**
    * Map of corresponding {@link Class} of metadata aspect to {@link AspectStorageConfig} config
    */
-  Map<Class<? extends RecordTemplate>, AspectStorageConfig> aspectStorageConfigMap;
+  @NonNull
+  @Builder.Default
+  private final Map<Class<? extends RecordTemplate>, AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
 
   /**
    * Immutable class that holds the storage config of different pegasus paths of a given metadata aspect
@@ -28,7 +32,7 @@ public final class LocalDAOStorageConfig {
     /**
      * Map of string representation of Pegasus Path to {@link PathStorageConfig} config
      */
-    Map<String, PathStorageConfig> pathStorageConfigMap;
+    private final Map<String, PathStorageConfig> pathStorageConfigMap;
   }
 
   /**
@@ -42,6 +46,6 @@ public final class LocalDAOStorageConfig {
      * Whether to index the pegasus path to local secondary index
      */
     @Builder.Default
-    boolean strongConsistentSecondaryIndex = false;
+    private final boolean strongConsistentSecondaryIndex = false;
   }
 }
