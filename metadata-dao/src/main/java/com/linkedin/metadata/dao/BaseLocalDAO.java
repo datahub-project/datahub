@@ -10,6 +10,7 @@ import com.linkedin.data.schema.validation.ValidationOptions;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.equality.DefaultEqualityTester;
 import com.linkedin.metadata.dao.equality.EqualityTester;
 import com.linkedin.metadata.dao.exception.ModelValidationException;
@@ -482,97 +483,98 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn, @Nonnull TimeBasedRetention retention, long currentTime);
 
   /**
-   * Emits backfill MAE for the latest version of an aspect of an entity and also backfills local secondary index if
-   * writes & backfill enabled.
+   * Emits backfill MAE for the latest version of an aspect and also backfills SCSI (if it exists and is enabled).
    *
    * @param aspectClass the type of aspect to backfill
-   * @param urn {@link Urn} for the entity
+   * @param urn urn for the entity
    * @param <ASPECT> must be a supported aspect type in {@code ASPECT_UNION}.
-   * @return the aspect emitted in the backfill message
+   * @return backfilled aspect
+   * @deprecated Use {@link #backfill(Set, Set)} instead
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull URN urn) {
+  public <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
+    return backfill(BackfillMode.BACKFILL_ALL, aspectClass, urn);
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, URN)} but does a scoped backfill.
+   *
+   * @param mode backfill mode to scope the backfill process
+   */
+  @Nonnull
+  private <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull BackfillMode mode,
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
     checkValidAspect(aspectClass);
     Optional<ASPECT> aspect = get(aspectClass, urn, LATEST_VERSION);
-    aspect.ifPresent(value -> backfill(value, urn));
+    aspect.ifPresent(value -> backfill(mode, value, urn));
     return aspect;
   }
 
   /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and do a batch backfill.
-   */
-  @Nonnull
-  public Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> backfill(
-      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull URN urn) {
-    checkValidAspects(aspectClasses);
-    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspects = get(aspectClasses, urn);
-    aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
-    return aspects;
-  }
-
-  /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of urns and do a batch backfill.
-   */
-  @Nonnull
-  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> backfill(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Set<URN> urns) {
-    checkValidAspect(aspectClass);
-    final Map<URN, Optional<ASPECT>> urnToAspects = get(aspectClass, urns);
-    urnToAspects.forEach((urn, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
-    return urnToAspects;
-  }
-
-  /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and a set of URNs and do a batch
-   * backfill.
+   * Emits backfill MAE for the latest version of a set of aspects for a set of urns and also backfills SCSI (if it exists and is enabled).
+   *
+   * @param aspectClasses set of aspects to backfill
+   * @param urns set of urns to backfill
+   * @return map of urn to their backfilled aspect values
    */
   @Nonnull
   public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Set<URN> urns) {
+    return backfill(BackfillMode.BACKFILL_ALL, aspectClasses, urns);
+  }
+
+  /**
+   * Similar to {@link #backfill(Set, Set)} but does a scoped backfill.
+   *
+   * @param mode backfill mode to scope the backfill process
+   */
+  @Nonnull
+  private Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
+      @Nonnull BackfillMode mode, @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Set<URN> urns) {
     checkValidAspects(aspectClasses);
     final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnToAspects = get(aspectClasses, urns);
     urnToAspects.forEach((urn, aspects) -> {
-      aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
+      aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(mode, value, urn)));
     });
     return urnToAspects;
   }
 
   /**
-   * Similar to {@link #backfill(Class, Set)} but fetches the set of URNs to backfill using local secondary index.
-   */
-  @Nonnull
-  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> backfill(
-          @Nonnull Class<ASPECT> aspectClass, @Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
-    final ListResult<URN> urnList = listUrns(urnClazz, lastUrn, pageSize);
-    return backfill(aspectClass, new HashSet(urnList.getValues()));
-  }
-
-  /**
-   * Similar to {@link #backfill(Set, Set)} but fetches the set of URNs to backfill using local secondary index.
+   * Emits backfill MAE for the latest version of a set of aspects for a set of urns
+   * and also backfills SCSI (if it exists and is enabled) depending on the backfill mode.
+   *
+   * @param mode backfill mode to scope the backfill process
+   * @param aspectClasses set of aspects to backfill
+   * @param urnClazz the type of urn to backfill - needed to list urns using SCSI
+   * @param lastUrn last urn of the previous backfilled page - needed to list urns using SCSI
+   * @param pageSize the number of entities to backfill
+   * @return map of urn to their backfilled aspect values
    */
   @Nonnull
   public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
-          @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Class<URN> urnClazz,
-          @Nullable URN lastUrn, int pageSize) {
+      @Nonnull BackfillMode mode, @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses,
+      @Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
+
     final ListResult<URN> urnList = listUrns(urnClazz, lastUrn, pageSize);
-    return backfill(aspectClasses, new HashSet(urnList.getValues()));
+    return backfill(mode, aspectClasses, new HashSet(urnList.getValues()));
   }
 
   /**
-   * Emits backfill MAE for an aspect of an entity and also backfills local secondary index if writes & backfill
-   * enabled.
+   * Emits backfill MAE for an aspect of an entity and/or backfills SCSI depending on the backfill mode.
    *
+   * @param mode backfill mode
    * @param aspect aspect to backfill
    * @param urn {@link Urn} for the entity
    * @param <ASPECT> must be a supported aspect type in {@code ASPECT_UNION}.
    */
-  private <ASPECT extends RecordTemplate> void backfill(@Nonnull ASPECT aspect, @Nonnull URN urn) {
-    // Backfill local secondary index as well if writes & backfill enabled
-    if (_enableLocalSecondaryIndex && _backfillLocalSecondaryIndex) {
+  private <ASPECT extends RecordTemplate> void backfill(@Nonnull BackfillMode mode,  @Nonnull ASPECT aspect, @Nonnull URN urn) {
+    if (_enableLocalSecondaryIndex && (mode == BackfillMode.SCSI_ONLY || mode == BackfillMode.BACKFILL_ALL)) {
       updateLocalIndex(urn, aspect, FIRST_VERSION);
     }
-    _producer.produceMetadataAuditEvent(urn, aspect, aspect);
+
+    if (mode == BackfillMode.MAE_ONLY || mode == BackfillMode.BACKFILL_ALL) {
+      _producer.produceMetadataAuditEvent(urn, aspect, aspect);
+    }
   }
 
   /**

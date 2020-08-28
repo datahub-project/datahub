@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.ListResult;
@@ -393,11 +394,11 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     AspectBar bar1 = new AspectBar().setValue("bar1");
     AspectBar bar2 = new AspectBar().setValue("bar2");
     String[] aspects = new String[] {"com.linkedin.testing.AspectFoo", "com.linkedin.testing.AspectBar"};
-    when(_mockLocalDAO.backfill(_resource.parseAspectsParam(aspects), Urn.class, null, 10))
+    when(_mockLocalDAO.backfill(BackfillMode.BACKFILL_ALL, _resource.parseAspectsParam(aspects), Urn.class, null, 10))
             .thenReturn(ImmutableMap.of(urn1, ImmutableMap.of(AspectFoo.class, Optional.of(foo1), AspectBar.class, Optional.of(bar1)),
                     urn2, ImmutableMap.of(AspectBar.class, Optional.of(bar2))));
 
-    BackfillResult backfillResult = runAndWait(_resource.backfill(aspects, null, 10));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(BackfillMode.BACKFILL_ALL, aspects, null, 10));
     assertEquals(backfillResult.getEntities().size(), 2);
 
     // Test first entity

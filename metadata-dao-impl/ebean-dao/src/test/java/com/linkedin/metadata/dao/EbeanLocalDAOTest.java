@@ -7,6 +7,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.equality.AlwaysFalseEqualityTester;
 import com.linkedin.metadata.dao.equality.DefaultEqualityTester;
 import com.linkedin.metadata.dao.exception.InvalidMetadataType;
@@ -412,17 +413,12 @@ public class EbeanLocalDAOTest {
     AspectFoo expected = new AspectFoo().setValue("foo");
     addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, expected);
 
-    // Check if backfilled: _writeToLocalSecondary = false and _backfillLocalSecondaryIndex = false
+    // Check if backfilled: _writeToLocalSecondary = false
     dao.backfill(AspectFoo.class, urn);
     assertEquals(getAllRecordsFromLocalIndex(urn).size(), 0);
 
-    // Check if backfilled: _writeToLocalSecondary = true and _backfillLocalSecondaryIndex = false
+    // Check if backfilled: _writeToLocalSecondary = true
     dao.enableLocalSecondaryIndex(true);
-    dao.backfill(AspectFoo.class, urn);
-    assertEquals(getAllRecordsFromLocalIndex(urn).size(), 0);
-
-    // Check if backfilled: _writeToLocalSecondary = true and _backfillLocalSecondaryIndex = true
-    dao.setBackfillLocalSecondaryIndex(true);
     dao.backfill(AspectFoo.class, urn);
     List<EbeanMetadataIndex> fooRecords = getAllRecordsFromLocalIndex(urn);
     assertEquals(fooRecords.size(), 1);
@@ -434,7 +430,7 @@ public class EbeanLocalDAOTest {
   }
 
   @Test
-  public void testBatchBackfill() {
+  public void testBackfillWithUrns() {
     EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
     List<FooUrn> urns = ImmutableList.of(makeFooUrn(1), makeFooUrn(2), makeFooUrn(3));
 
@@ -449,31 +445,30 @@ public class EbeanLocalDAOTest {
     });
 
     // Backfill single aspect for set of urns
-    Map<FooUrn, Optional<AspectFoo>> backfilledAspects1 = dao.backfill(AspectFoo.class, new HashSet<>(urns));
-    for (FooUrn urn: urns) {
+    Map<Urn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects =
+        dao.backfill(Collections.singleton(AspectFoo.class), new HashSet<>(urns));
+    for (Urn urn: urns) {
       RecordTemplate aspect = aspects.get(urn).get(AspectFoo.class);
-      assertEquals(backfilledAspects1.get(urn).get(), aspect);
+      assertEquals(backfilledAspects.get(urn).get(AspectFoo.class).get(), aspect);
       verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
     }
     clearInvocations(_mockProducer);
 
     // Backfill set of aspects for a single urn
-    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> backfilledAspects2 =
-        dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), urns.get(0));
+    backfilledAspects = dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), Collections.singleton(urns.get(0)));
     for (Class<? extends RecordTemplate> clazz: aspects.get(urns.get(0)).keySet()) {
       RecordTemplate aspect = aspects.get(urns.get(0)).get(clazz);
-      assertEquals(backfilledAspects2.get(clazz).get(), aspect);
+      assertEquals(backfilledAspects.get(urns.get(0)).get(clazz).get(), aspect);
       verify(_mockProducer, times(1)).produceMetadataAuditEvent(urns.get(0), aspect, aspect);
     }
     clearInvocations(_mockProducer);
 
     // Backfill set of aspects for set of urns
-    Map<Urn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects3 =
-        dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), new HashSet<>(urns));
+    backfilledAspects = dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), new HashSet<>(urns));
     for (Urn urn: urns) {
       for (Class<? extends RecordTemplate> clazz: aspects.get(urn).keySet()) {
         RecordTemplate aspect = aspects.get(urn).get(clazz);
-        assertEquals(backfilledAspects3.get(urn).get(clazz).get(), aspect);
+        assertEquals(backfilledAspects.get(urn).get(clazz).get(), aspect);
         verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
       }
     }
@@ -482,7 +477,9 @@ public class EbeanLocalDAOTest {
 
   @Test
   public void testBackfillUsingSCSI() {
-    EbeanLocalDAO dao = new EbeanLocalDAO(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    LocalDAOStorageConfig storageConfig = makeLocalDAOStorageConfig(AspectFoo.class, Collections.singletonList("/value"),
+        AspectBar.class, Collections.singletonList("/value"));
+    EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig, FooUrn.class);
     dao.enableLocalSecondaryIndex(true);
 
     List<FooUrn> urns = ImmutableList.of(makeFooUrn(1), makeFooUrn(2), makeFooUrn(3));
@@ -492,32 +489,51 @@ public class EbeanLocalDAOTest {
     urns.forEach(urn -> {
       AspectFoo aspectFoo = new AspectFoo().setValue("foo");
       AspectBar aspectBar = new AspectBar().setValue("bar");
+
+      // update metadata_aspects table
       aspects.put(urn, ImmutableMap.of(AspectFoo.class, aspectFoo, AspectBar.class, aspectBar));
       addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, aspectFoo);
       addMetadata(urn, AspectBar.class.getCanonicalName(), 0, aspectBar);
-      dao.updateLocalIndex(urn, aspectFoo, 0);
+
+      // only index urn
+      addIndex(urn, FooUrn.class.getCanonicalName(), "/fooId", urn.getId());
     });
 
-    // Backfill single aspect
-    Map<FooUrn, Optional<AspectFoo>> backfilledAspects1 = dao.backfill(AspectFoo.class, FooUrn.class, null, 3);
-    for (FooUrn urn: urns) {
+    // Backfill in SCSI_ONLY mode
+    Map<Urn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects =
+        dao.backfill(BackfillMode.SCSI_ONLY, Collections.singleton(AspectFoo.class), FooUrn.class, null, 3);
+    for (int index = 0; index < 3; index++) {
+      Urn urn = urns.get(index);
       RecordTemplate aspect = aspects.get(urn).get(AspectFoo.class);
-      assertEquals(backfilledAspects1.get(urn).get(), aspect);
+      assertEquals(backfilledAspects.get(urn).get(AspectFoo.class).get(), aspect);
+      verify(_mockProducer, times(0)).produceMetadataAuditEvent(urn, aspect, aspect);
+    }
+    IndexFilter indexFilter = new IndexFilter().setCriteria(new IndexCriterionArray(new IndexCriterion().setAspect(AspectFoo.class.getCanonicalName())));
+    assertEquals(dao.listUrns(indexFilter, null, 3).getValues().size(), 3);
+
+    // Backfill in MAE_ONLY mode
+    backfilledAspects = dao.backfill(BackfillMode.MAE_ONLY, Collections.singleton(AspectBar.class), FooUrn.class, null, 3);
+    for (int index = 0; index < 3; index++) {
+      Urn urn = urns.get(index);
+      RecordTemplate aspect = aspects.get(urn).get(AspectBar.class);
+      assertEquals(backfilledAspects.get(urn).get(AspectBar.class).get(), aspect);
       verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
     }
     clearInvocations(_mockProducer);
 
-    // Backfill set of aspects
-    Map<FooUrn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfilledAspects2 =
-            dao.backfill(ImmutableSet.of(AspectFoo.class, AspectBar.class), FooUrn.class, null, 3);
-    for (FooUrn urn: urns) {
-      for (Class<? extends RecordTemplate> clazz: aspects.get(urn).keySet()) {
-        RecordTemplate aspect = aspects.get(urn).get(clazz);
-        assertEquals(backfilledAspects2.get(urn).get(clazz).get(), aspect);
-        verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
-      }
+    indexFilter = new IndexFilter().setCriteria(new IndexCriterionArray(new IndexCriterion().setAspect(AspectBar.class.getCanonicalName())));
+    assertEquals(dao.listUrns(indexFilter, null, 3).getValues().size(), 0);
+
+    // Backfill in BACKFILL_ALL mode
+    backfilledAspects = dao.backfill(BackfillMode.BACKFILL_ALL, ImmutableSet.of(AspectBar.class), FooUrn.class, null, 3);
+    for (int index = 0; index < 3; index++) {
+      Urn urn = urns.get(index);
+      RecordTemplate aspect = aspects.get(urn).get(AspectBar.class);
+      assertEquals(backfilledAspects.get(urn).get(AspectBar.class).get(), aspect);
+      verify(_mockProducer, times(1)).produceMetadataAuditEvent(urn, aspect, aspect);
     }
     verifyNoMoreInteractions(_mockProducer);
+    assertEquals(dao.listUrns(indexFilter, null, 3).getValues().size(), 3);
   }
 
   @Test
@@ -768,15 +784,26 @@ public class EbeanLocalDAOTest {
   }
 
   private static LocalDAOStorageConfig makeLocalDAOStorageConfig(Class<? extends RecordTemplate> aspectClass, List<String> pegasusPaths) {
+    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
+    aspectStorageConfigMap.put(aspectClass, getAspectStorageConfig(pegasusPaths));
+    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().aspectStorageConfigMap(aspectStorageConfigMap).build();
+    return storageConfig;
+  }
+
+  private static LocalDAOStorageConfig makeLocalDAOStorageConfig(Class<? extends RecordTemplate> aspectClass1, List<String> pegasusPaths1,
+      Class<? extends RecordTemplate> aspectClass2, List<String> pegasusPaths2) {
+    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
+    aspectStorageConfigMap.put(aspectClass1, getAspectStorageConfig(pegasusPaths1));
+    aspectStorageConfigMap.put(aspectClass2, getAspectStorageConfig(pegasusPaths2));
+    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().aspectStorageConfigMap(aspectStorageConfigMap).build();
+    return storageConfig;
+  }
+
+  private static LocalDAOStorageConfig.AspectStorageConfig getAspectStorageConfig(List<String> pegasusPaths) {
     Map<String, LocalDAOStorageConfig.PathStorageConfig> pathStorageConfigMap = new HashMap<>();
     pegasusPaths.forEach(path -> pathStorageConfigMap.put(path,
         LocalDAOStorageConfig.PathStorageConfig.builder().strongConsistentSecondaryIndex(true).build()));
-    LocalDAOStorageConfig.AspectStorageConfig aspectStorageConfig =
-        LocalDAOStorageConfig.AspectStorageConfig.builder().pathStorageConfigMap(pathStorageConfigMap).build();
-    Map<Class<? extends RecordTemplate>, LocalDAOStorageConfig.AspectStorageConfig> aspectStorageConfigMap = new HashMap<>();
-    aspectStorageConfigMap.put(aspectClass, aspectStorageConfig);
-    LocalDAOStorageConfig storageConfig = LocalDAOStorageConfig.builder().aspectStorageConfigMap(aspectStorageConfigMap).build();
-    return storageConfig;
+    return LocalDAOStorageConfig.AspectStorageConfig.builder().pathStorageConfigMap(pathStorageConfigMap).build();
   }
 
   @Test
