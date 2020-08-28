@@ -5,7 +5,7 @@ import {
   IFacetsSelectionsArray,
   IFacetSelections
 } from '@datahub/data-models/types/entity/facets';
-import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/search/types/api/entity';
+import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/shared/types/search/entity';
 import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
 import buildUrl from '@datahub/utils/api/build-url';
 

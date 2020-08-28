@@ -5,34 +5,29 @@
         {{@entity.name}}
       </h3>
 
-      {{#if @entity.removed}}
-        <span class="removed-dataset dataset-pill">
-          REMOVED
+      <EntityPage::EntityHeader::Tag @value={{@entity.platformNativeType}} @options={{hash
+        tooltip="Native Type."
+        state="neutral-inverse"
+      }}/>
 
-          <TooltipOnElement @event="hover" @text="This dataset has been removed" />
-        </span>
-      {{/if}}
+      <EntityPage::EntityHeader::Tag @value={{@entity.removed}} @options={{hash
+        text="REMOVED"
+        tooltip="This dataset has been removed."
+        state="alert"
+      }}/>
 
-      {{#if datasetContainsPersonalData}}
-        <span class="pii-dataset dataset-pill">
-          PII
+      <EntityPage::EntityHeader::Tag @value={{@entity.deprecated}} @options={{hash
+        text="DEPRECATED"
+        tooltip="This dataset has been deprecated. Check Status Tab for more information."
+        state="alert"
+      }}/>
 
-          <TooltipOnElement @event="hover" @side="right" @text="This dataset contains personally identifiable information" />
-        </span>
+      <EntityPage::EntityHeader::Tag @value={{datasetContainsPersonalData}} @options={{hash
+        text="PII"
+        tooltip="This dataset contains personally identifiable information."
+        state="warning"
+      }}/>
 
-      {{/if}}
-
-      {{#if @entity.deprecated}}
-
-        <span class="deprecated-dataset dataset-pill">
-          <LinkTo @route="datasets.dataset.tab" @models={{array urn "properties"}}>
-            DEPRECATED
-
-            <TooltipOnElement @event="hover" @text="Click to view dataset properties" />
-          </LinkTo>
-        </span>
-
-      {{/if}}
     </div>
 
     <div class="dataset-header-meta">

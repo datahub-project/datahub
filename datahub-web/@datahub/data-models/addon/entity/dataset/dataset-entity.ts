@@ -209,6 +209,12 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   }
 
   /**
+   * Platform native type, for example it can be TABLE or VIEW for Hive.
+   */
+  @reads('entity.platformNativeType')
+  platformNativeType?: Com.Linkedin.Dataset.Dataset['platformNativeType'];
+
+  /**
    * Reference to the data entity's native name, should not be something that is editable but gives us a
    * more human readable form for the dataset vs the urn
    */

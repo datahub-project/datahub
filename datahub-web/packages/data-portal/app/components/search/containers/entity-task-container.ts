@@ -14,7 +14,7 @@ import { debounce } from '@ember/runloop';
 import { IDataModelEntitySearchResult, ISearchDataWithMetadata } from '@datahub/data-models/types/entity/search';
 import { DataModelEntity, DataModelName, DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/search/types/api/entity';
+import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/shared/types/search/entity';
 import { alias } from '@ember/object/computed';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { inject as service } from '@ember/service';
@@ -33,7 +33,7 @@ import {
   searchResultItemIndex,
   searchResultMetasToFacetCounts,
   withResultMetadata
-} from '@datahub/search/utils/search-results';
+} from '@datahub/shared/utils/search/search-results';
 import { assertComponentPropertyNotUndefined } from '@datahub/utils/decorators/assert';
 
 @containerDataSource<SearchEntityTaskContainer>('searchTask', ['keyword', 'page', 'facets', 'entity'])
