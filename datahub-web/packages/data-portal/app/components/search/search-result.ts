@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { classNames } from '@ember-decorators/component';
 import { inject as service } from '@ember/service';
-import Search from '@datahub/search/services/search';
+import Search from '@datahub/shared/services/search';
 import { action, computed } from '@ember/object';
 import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { ISearchResultMetadata } from '@datahub/data-models/types/entity/search';

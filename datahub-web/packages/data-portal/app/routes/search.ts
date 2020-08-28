@@ -3,7 +3,7 @@ import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-rout
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
 import { action, setProperties, set } from '@ember/object';
 import { inject as service } from '@ember/service';
-import SearchService from '@datahub/search/services/search';
+import SearchService from '@datahub/shared/services/search';
 import SearchController from 'datahub-web/controllers/search';
 import Transition from '@ember/routing/-private/transition';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';

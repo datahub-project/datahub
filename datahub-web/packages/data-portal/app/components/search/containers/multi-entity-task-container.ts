@@ -8,7 +8,7 @@ import { action, setProperties, computed } from '@ember/object';
 import { inject as service } from '@ember/service';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { noop } from 'lodash';
-import { isSearchable } from '@datahub/search/utils/entities';
+import { isSearchable } from '@datahub/shared/utils/search/entities';
 import { zipObject, mapValues } from 'lodash';
 import FoxieService from '@datahub/shared/services/foxie';
 import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-type';

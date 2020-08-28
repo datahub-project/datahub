@@ -81,7 +81,7 @@ export const getRenderProps = (): IEntityRenderProps & { entityPage: IEntityRend
           desc: '',
           example: '',
           tagComponent: {
-            name: 'custom-search-result-property-component/tag',
+            name: 'search/custom-search-result-property-component/tag',
             options: {
               state: 'alert',
               text: 'Inactive'

@@ -2,7 +2,7 @@
  * Interface for component that renders a tag
  */
 export interface ICustomSearchResultPropertyComponentTag {
-  name: 'custom-search-result-property-component/tag';
+  name: 'search/custom-search-result-property-component/tag';
   options: {
     // should be type PillState but it is not exposed in nacho-ui
     state: string;

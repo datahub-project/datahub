@@ -15,7 +15,7 @@ import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { isNotFoundApiError } from '@datahub/utils/api/shared';
-import Search from '@datahub/search/services/search';
+import Search from '@datahub/shared/services/search';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
 import { IAppConfig, IConfigurator } from '@datahub/shared/types/configurator/configurator';
 import { TabProperties, DatasetTab } from '@datahub/data-models/constants/entity/dataset/tabs';

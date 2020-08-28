@@ -31,6 +31,7 @@ import {
   removeFollowForEntity
 } from '@datahub/data-models/api/common/social-actions';
 import { DataModelName } from '@datahub/data-models/constants/entity';
+import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
 import { isArray } from '@ember/array';
 import { noop } from 'lodash';
 
@@ -515,7 +516,9 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    */
   async readLikes(): Promise<void> {
     if (this.allowedSocialActions.like) {
-      const likeActions = await readLikesForEntity(this.displayName as DataModelName, this.urn).catch(() => []);
+      const likeActions = await readLikesForEntity(this.displayName as DataModelName, this.urn).catch(
+        getDefaultIfNotFoundError([])
+      );
       set(this, 'likedByActions', likeActions || []);
     }
   }
@@ -553,7 +556,9 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    */
   async readFollows(): Promise<void> {
     if (this.allowedSocialActions.follow) {
-      const followActions = await readFollowsForEntity(this.displayName as DataModelName, this.urn).catch(() => []);
+      const followActions = await readFollowsForEntity(this.displayName as DataModelName, this.urn).catch(
+        getDefaultIfNotFoundError([])
+      );
 
       set(this, 'followedByActions', followActions || []);
     }
