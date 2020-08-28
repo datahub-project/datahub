@@ -2,7 +2,7 @@
  * Interface for component that renders a formatted date
  */
 export interface ICustomSearchResultPropertyComponentDate {
-  name: 'custom-search-result-property-component/date';
+  name: 'search/custom-search-result-property-component/date';
   options: {
     // moment format
     format: string;

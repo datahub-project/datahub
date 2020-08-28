@@ -15,6 +15,7 @@ module('Integration | Component | lineage/lineage-main', function(hooks) {
   setupHandlerRegistrations(hooks);
 
   test('error case', async function(this: MirageTestContext, assert) {
+    this.server.namespace = '/api/v2';
     this.server.get('/lineage/graph/:urn', () => 'failure', 500); // force Mirage to error
 
     await render(hbs`<Lineage::LineageMain @urn="reallydoesnotmatter"/>`);

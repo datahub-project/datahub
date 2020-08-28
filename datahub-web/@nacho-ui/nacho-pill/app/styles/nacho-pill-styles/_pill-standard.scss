@@ -3,6 +3,10 @@
   line-height: item-spacing(5);
   cursor: pointer;
 
+  .ember-tooltip {
+    font-weight: fw(normal, 3);
+  }
+
   &--small {
     font-size: fs(small);
     line-height: 18px;

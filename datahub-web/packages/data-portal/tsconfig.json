@@ -71,12 +71,6 @@
       "@datahub/shared/*": [
         "../../@datahub/shared/addon/*"
       ],
-      "@datahub/search": [
-        "../../@datahub/search/addon"
-      ],
-      "@datahub/search/*": [
-        "../../@datahub/search/addon/*"
-      ],
       "@nacho-ui/core": [
         "../../@nacho-ui/nacho-core/addon"
       ],
@@ -96,8 +90,6 @@
     "../../@datahub/metadata-types/types/**/*",
     "../../@datahub/utils/addon/**/*",
     "../../@datahub/utils/types/**/*",
-    "../../@datahub/search/addon/**/*",
-    "../../@datahub/search/types/**/*",
     "../../@datahub/shared/addon/**/*",
     "../../@datahub/shared/types/**/*",
     "../../@datahub/shared/tests/**/*",

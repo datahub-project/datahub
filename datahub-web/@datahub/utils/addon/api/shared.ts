@@ -34,6 +34,7 @@ export enum ApiStatus {
  */
 export enum ApiResponseStatus {
   Ok = 200,
+  BadRequest = 400,
   NotFound = 404,
   UnAuthorized = 401,
   InternalServerError = 500
@@ -58,7 +59,8 @@ const isApiStatusError = (e: Error) => (apiResponseStatus: ApiResponseStatus): b
  * @param {Error} e
  * @return {boolean}
  */
-export const isNotFoundApiError = (e: Error): boolean => isApiStatusError(e)(ApiResponseStatus.NotFound);
+export const isNotFoundApiError = (e: Error): boolean =>
+  isApiStatusError(e)(ApiResponseStatus.NotFound) || isApiStatusError(e)(ApiResponseStatus.BadRequest);
 
 /**
  * Checks that a server response status is a server exception

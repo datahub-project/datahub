@@ -38,13 +38,10 @@ export default class DatasetRelationshipLevels extends Component {
   ): IterableIterator<Promise<DatasetLineageList>> {
     const currentNode = this.graphDb.nodesById[id];
     if (currentNode) {
-      let payload: IDatasetEntity | undefined = currentNode.payload?.dataset;
-      if (payload?.hasOwnProperty('dataset')) {
-        payload = ((payload as unknown) as { dataset: IDatasetEntity }).dataset;
-      }
-
       const method = upstream ? readUpstreamDatasetsByUrn : readDownstreamDatasetsByUrn;
-      const nodes = ((yield method(payload?.uri || '')) as unknown) as Array<IDatasetLineage>;
+      const nodes = ((yield method(
+        (currentNode.payload && currentNode.payload.dataset.uri) || ''
+      )) as unknown) as Array<IDatasetLineage>;
       nodes.forEach((node): INode<IDatasetLineage> => this.graphDb.addNode(node, currentNode, upstream));
       this.graphDb.setNodeAttrs(id, {
         loaded: true
