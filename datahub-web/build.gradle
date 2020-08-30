@@ -1,5 +1,5 @@
 apply plugin: 'distribution'
-apply plugin: 'com.moowork.node'
+apply plugin: 'com.github.node-gradle.node'
 
 node {
   // Version of node to use.
