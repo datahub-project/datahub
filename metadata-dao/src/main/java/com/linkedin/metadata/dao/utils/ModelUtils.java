@@ -531,4 +531,28 @@ public class ModelUtils {
   public static boolean isCommonAspect(@Nonnull Class<? extends RecordTemplate> clazz) {
     return clazz.getPackage().getName().startsWith("com.linkedin.common");
   }
+
+  /**
+   * Creates an entity union with a specific entity set.
+   *
+   * @param entityUnionClass the type of entity union to create
+   * @param entity the entity to set
+   * @param <ENTITY_UNION> must be a valid enity union defined in com.linkedin.metadata.entity
+   * @param <ENTITY> must be a supported entity in entity union
+   * @return the created entity union
+   */
+  @Nonnull
+  public static <ENTITY_UNION extends UnionTemplate, ENTITY extends RecordTemplate> ENTITY_UNION newEntityUnion(
+      @Nonnull Class<ENTITY_UNION> entityUnionClass, @Nonnull ENTITY entity) {
+
+    EntityValidator.validateEntityUnionSchema(entityUnionClass);
+
+    try {
+      ENTITY_UNION entityUnion = entityUnionClass.newInstance();
+      RecordUtils.setSelectedRecordTemplateInUnion(entityUnion, entity);
+      return entityUnion;
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }
