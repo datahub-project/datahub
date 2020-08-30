@@ -4,6 +4,7 @@
 * [The evolution of metadata: LinkedIn’s story @ Strata Data Conference 2019](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 * [LinkedIn Datahub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
+* [Datahub - RPubs](https://rpubs.com/Priya_Shaji/dataHub)
 * [A Dive Into Metadata Hubs](https://www.holistics.io/blog/a-dive-into-metadata-hubs/)
 * [How LinkedIn, Uber, Lyft, Airbnb and Netflix are Solving Data Management and Discovery for Machine Learning Solutions](https://towardsdatascience.com/how-linkedin-uber-lyft-airbnb-and-netflix-are-solving-data-management-and-discovery-for-machine-9b79ee9184bb)
 * [Data Discovery in 2020](https://medium.com/@torokyle/data-discovery-in-2020-3c907383caa0)
@@ -19,9 +20,9 @@
 * [Metadata Management And Integration At LinkedIn With DataHub @ Data Engineering Podcase](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
 
 # Non-English Articles
-* [LinkedIn元数据之旅的最新进展—Data Hub](https://zhuanlan.zhihu.com/p/80459081)
+* [LinkedIn元数据之旅的最新进展—Data Hub](https://blog.csdn.net/DataPipeline/article/details/100155781)
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
-* [DataHub——实时数据治理平台](https://www.cnblogs.com/tree1123/p/12840871.html)
+* [DataHub——实时数据治理平台](https://segmentfault.com/a/1190000022563622)
 * [数据治理工具-元数据管理](https://blog.csdn.net/weixin_42526352/article/details/105371012)
 * [元数据管理框架的独舞](https://mp.weixin.qq.com/s/J6xtX3js70brdN3c_7ZkNg)
 * [【DataHub】DataHub QuickStart](https://www.jianshu.com/p/eb34e7088c77)
