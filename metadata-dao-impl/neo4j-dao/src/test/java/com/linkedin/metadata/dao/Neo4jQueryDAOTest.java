@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import org.javatuples.Triplet;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Record;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -588,6 +589,30 @@ public class Neo4jQueryDAOTest {
 
     assertEquals(paths.size(), 3);
     paths.forEach(p -> assertEquals(p.size(), 7));
+  }
+
+  @Test
+  public void testRunFreeFormQuery() throws Exception {
+    FooUrn urn1 = makeFooUrn(1);
+    FooUrn urn2 = makeFooUrn(2);
+    EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
+    EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo");
+    _writer.addEntity(entity1);
+    _writer.addEntity(entity2);
+
+    String cypherQuery = "MATCH (n {value:\"foo\"}) RETURN n ORDER BY n.urn";
+    List<Record> result = _dao.runFreeFormQuery(cypherQuery);
+    List<EntityFoo> nodes = result.stream()
+        .map(record -> _dao.nodeRecordToEntity(EntityFoo.class, record))
+        .collect(Collectors.toList());
+    assertEquals(nodes.size(), 2);
+    assertEquals(nodes.get(0), entity1);
+    assertEquals(nodes.get(1), entity2);
+
+    cypherQuery = "MATCH (n {value:\"foo\"}) RETURN count(n)";
+    result = _dao.runFreeFormQuery(cypherQuery);
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).values().get(0).asInt(), 2);
   }
 
   private void createFooRelationship(FooUrn f1, FooUrn f2) throws Exception {
