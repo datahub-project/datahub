@@ -1,7 +1,7 @@
 package com.linkedin.metadata.dao.utils;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.Ownership;
+import com.linkedin.common.CommonTestAspect;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityUnion;
@@ -281,7 +281,7 @@ public class ModelUtilsTest {
     boolean result = ModelUtils.isCommonAspect(AspectFoo.class);
     assertFalse(result);
 
-    result = ModelUtils.isCommonAspect(Ownership.class);
+    result = ModelUtils.isCommonAspect(CommonTestAspect.class);
     assertTrue(result);
   }
 

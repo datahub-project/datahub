@@ -1,8 +1,8 @@
-package com.linkedin.metadata.testing;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -24,7 +24,11 @@ public final class AuditStamps {
 
   @Nonnull
   public static AuditStamp makeAuditStamp(@Nonnull String actorLdap, long time) {
-    return makeAuditStamp(new CorpuserUrn(actorLdap), null, time);
+    try {
+      return makeAuditStamp(new Urn("urn:li:testActor:" + actorLdap), null, time);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Nonnull
