@@ -58,6 +58,11 @@ Then extending the Dataset's aspect SchemaMetadata, that will be extending the S
 
 The above diagram illustrates how business glossaries will be connected to other entities. Business terms are modelled as BusinessTerm entities and example business terms are `Term-1`, `Term-2`, .. `Term-n`. In the above diagram from the dataset (`DS-1`) element `e11` is linked to business term `Term-2` and `e12` is linked to `Term-1`. At the same time from Dataset (`DS-2`) element `e24` linked the business term `Term-2`, `e22` with `Term-3` and `e24` with `Term-4`.
 
+## Metadata Model Enhancements 
+
+There will be 1 top level GMA [entities](../../../what/entity.md) in the design: businessTerm (Business Glossary).
+It's important to make businessTerm as a top level entity because it can exist without a Dataset and can be defined independently by the business team.
+
 ### URN Representation
 We'll define a [URNs](../../../what/urn.md): `BusinessTermUrn`.
 These URNs should allow for unique identification of business term.  
@@ -67,36 +72,131 @@ A business term  URN will look like below:
 urn:li:businessTerm:(<<namespace>>,<<name>>)
 ```
 
+### New Snapshot Object
+There will be new snapshot object will be definied to onboard business terms along with definitions
 
-### Entities
-There will be 1 top level GMA [entities](../../../what/entity.md) in the design: businessTerm (Business Glossary).
-It's important to make businessTerm as a top level entity because it can exist without a Dataset and can be defined independently by the business team.
+```
+/**
+ * A metadata snapshot for a specific BusinessTerm entity.
+ */
+record BusinessTermSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: BusinessTermUrn
+
+  /**
+   * The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[BusinessTermAspect]
+}
+```
+### BusinessTermAspect
+There will be new aspect defined to capture the required attributes & ownership information
+
+```
+/**
+ * A union of all supported metadata aspects for a BusinessTerm
+ */
+typeref BusinessTermAspect = union[
+  BusinessTermProperties,
+  Ownership
+]
+```
+
+### Entity BusinessTermProperties
+
+```
+/**
+ * Properties associated with a BusinessTerm
+ */
+record BusinessTermProperties {
+
+  /**
+   * Name of business term
+   */
+  name: string
+
+  /**
+   * Definition of business term
+   */
+  name: string
+
+  /**
+   * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
+   */
+  name: EnumType
+
+  /**
+   * External Reference to the business-term (URL)
+   */
+  sourceRef: optional string
+
+ /**
+   * URI of the external source when the term is borrowed from external
+   */
+  sourceURI: optional string
+
+  /**
+   * The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
+   */
+  uri: optional Uri
+
+}
+
+```
+
+### Extension to SchemaField entity
+
+```
+record SchemaField {
+
+  /**
+   * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
+   */
+  fieldPath: SchemaFieldPath
+
+  /**
+   * Flattened name of a field in JSON Path notation.
+   */
+  jsonPath: optional string
+
+  /**
+   * Indicates if this field is optional or nullable
+   */
+  nullable: boolean = false
+
+  /**
+   * Description
+   */
+  description: optional string
+
+  /**
+   * Platform independent field type of the field.
+   */
+  type: SchemaFieldDataType
+
+  /**
+   * The native type of the field in the dataset's platform as declared by platform schema.
+   */
+  nativeDataType: string
+
+  /**
+   * There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.
+   */
+  recursive: boolean = false
+
+  /**
+   * The Urn of the business term to be linked
+   */
+  businessTerm: Urn  
+}
+```
 
 
-### Business Term metadata
-- Model properties: Basic information about the ML Business Term
-  - name : name of the business term
-  - definition : definition of the Business Term
-  - sourceType : enum type (Internal or External], source of the Business Term
-  - sourceURI : source URI 
-  - sourceRef : URL of the business term external reference
-  - namespace : Helps to organize the business terms as groups (e.g: domain can be defined as namespace)
-  - Ownership : This provides the ownership to business terms (to track who manages/owner of the business term). 
 
-### Extending SchemaField 
-Need to extend the SchemaField type to capture additional businessTerm relation. Listing the fields including the existing elements
-- fieldPath: SchemaFieldPath
-- jsonPath: optional string
-- nullable: boolean = false
-- description: optional string
-- type: SchemaFieldDataType
-- nativeDataType: string
-- recursive: boolean = false
-- businessTerm: Urn
-
-
-
-### Metadata graph
+## Metadata graph
 
 This might not be a crtical requirement, but nice to have.
 
