@@ -37,7 +37,7 @@ the application directly from command line after a successful [build](#build):
 ➜ curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects": [{"com.linkedin.identity.CorpUserInfo":{"active": true, "displayName": "Foo Bar", "fullName": "Foo Bar", "email": "fbar@linkedin.com"}}, {"com.linkedin.identity.CorpUserEditableInfo":{}}], "urn": "urn:li:corpuser:fbar"}}'
 ```
 
-### Create user
+### Create group
 ```
 ➜ curl 'http://localhost:8080/corpGroups?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects": [{"com.linkedin.identity.CorpGroupInfo":{"email": "dev@linkedin.com", "admins": ["urn:li:corpUser:jdoe"], "members": ["urn:li:corpUser:datahub", "urn:li:corpUser:jdoe"], "groups": []}}], "urn": "urn:li:corpGroup:dev"}}'
 ```
