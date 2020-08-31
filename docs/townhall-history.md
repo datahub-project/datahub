@@ -5,7 +5,8 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 
 ## 08/28/2020
 
-Recording: Coming soon
+[Recording](https://linkedin.zoom.us/rec/share/vMBfcb31825IBZ3T71_wffM_GNv3T6a8hicf8_dcfzQlhfFxl5i_CPVKcmYaZA)
+
 
 Agenda
 - Quick intro - 5 mins
