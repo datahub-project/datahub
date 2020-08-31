@@ -74,7 +74,7 @@ public class KafkaConfig {
     props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
 
     KafkaTemplate<String, GenericRecord> template =
-        new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(properties.buildProducerProperties()));
+        new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(props));
 
     log.info("KafkaTemplate built successfully");
 
