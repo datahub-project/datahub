@@ -9,7 +9,8 @@ Recording: Coming soon
 
 Agenda
 - Quick intro - 5 mins
-- [Presentation] Data Governance look for a Digital Bank - by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank (20 mins)
+- [Presentation] [Data Governance look for a Digital Bank](demo/saxo_bank_data_workbench.pdf)
+ - by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank (20 mins)
 - [Demo] Column level lineage for datasets - by [Nagarjuna](https://www.linkedin.com/in/nagarjunak/) from LinkedIn (15 mins)
 - General Q&A from sign up sheet and participants - 15 mins
 - Closing remarks - 5 mins
