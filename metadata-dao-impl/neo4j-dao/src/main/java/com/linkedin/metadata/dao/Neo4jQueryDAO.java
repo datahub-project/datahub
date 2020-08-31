@@ -250,6 +250,20 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     }
   }
 
+
+  /**
+   * Runs a free-form Cypher query.
+   *
+   * @param query Cypher query to be executed
+   * @return query result as a list of {@link Record}
+   */
+  @Nonnull
+  public List<Record> runFreeFormQuery(@Nonnull String query) {
+    try (final Session session = _driver.session()) {
+      return session.run(query).list();
+    }
+  }
+
   @Nonnull
   private <ENTITY extends RecordTemplate> Statement findNodes(@Nonnull Class<ENTITY> entityClass,
       @Nonnull Filter filter, int offset, int count) {
@@ -308,7 +322,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   @Nonnull
-  private <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
+  <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
       @Nonnull Record nodeRecord) {
     return nodeToEntity(entityClass, nodeRecord.values().get(0).asNode());
   }
