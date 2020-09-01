@@ -6,8 +6,8 @@ import javax.annotation.Nonnull;
 import lombok.Data;
 
 
-/***
- *  Getter & setter class for schema event metadata.
+/**
+ * Getter & setter class for schema event metadata.
  */
 @Data
 public class EventSpec {

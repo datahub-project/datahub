@@ -8,7 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
-public class DeltaValidator {
+/**
+ * Utility class to validate delta event schemas.
+ */
+public final class DeltaValidator {
 
   // A cache of validated classes
   private static final Set<Class<? extends RecordTemplate>> VALIDATED = ConcurrentHashMap.newKeySet();

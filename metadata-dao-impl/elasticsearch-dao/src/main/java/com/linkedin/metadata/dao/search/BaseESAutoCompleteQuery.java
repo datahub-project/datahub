@@ -18,20 +18,21 @@ public abstract class BaseESAutoCompleteQuery {
   }
 
   /**
-   * Constructs the search query for auto complete request
+   * Constructs the search query for auto complete request.
+   *
+   * <p>TODO: merge this with regular search query construction to take filters as context for suggestions
    *
    * @param field the field name for the auto complete
    * @param input the type ahead query text
    * @param requestParams the request map as filters
    * @return a valid search request
-   * TODO: merge this with regular search query construction to take filters as context for suggestions
    */
   @Nonnull
   abstract SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
       @Nullable Filter requestParams);
 
   /**
-   * Gets a list of suggestions out of raw search hits
+   * Gets a list of suggestions out of raw search hits.
    *
    * @param searchResponse the raw search response from search engine
    * @param field the field name for the auto complete
