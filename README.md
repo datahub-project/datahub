@@ -77,6 +77,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 Here is a list of companies that are currently building POC or seriously evaluating DataHub.
 * [Booking.com](https://www.booking.com)
 * [Experian](https://www.experian.com)
+* [FlixBus](https://www.flixbus.com)
 * [Geotab](https://www.geotab.com)
 * [Kindred Group](https://www.kindredgroup.com)
 * [Instructure](https://www.instructure.com)
