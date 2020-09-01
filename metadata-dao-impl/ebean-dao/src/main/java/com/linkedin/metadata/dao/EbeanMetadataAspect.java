@@ -17,6 +17,9 @@ import lombok.NonNull;
 import lombok.Setter;
 
 
+/**
+ * Schema definition for the metadata aspect table.
+ */
 @Getter
 @Setter
 @Entity
@@ -35,6 +38,9 @@ public class EbeanMetadataAspect extends Model {
   public static final String CREATED_BY_COLUMN = "createdBy";
   public static final String CREATED_FOR_COLUMN = "createdFor";
 
+  /**
+   * Key for an aspect in the table.
+   */
   @Embeddable
   @Getter
   @AllArgsConstructor

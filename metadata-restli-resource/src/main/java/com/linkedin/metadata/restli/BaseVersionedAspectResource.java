@@ -31,7 +31,7 @@ import static com.linkedin.metadata.dao.BaseReadDAO.*;
 /**
  * A base class for an aspect rest.li subresource with versioning support.
  *
- * See http://go/gma for more details
+ * <p>See http://go/gma for more details
  *
  * @param <URN> must be a valid {@link Urn} type
  * @param <ASPECT_UNION> must be a valid union of aspect models defined in com.linkedin.metadata.aspect
@@ -112,7 +112,7 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   }
 
   /**
-   * Similar to {@link #create(RecordTemplate)} but uses a create lambda instead
+   * Similar to {@link #create(RecordTemplate)} but uses a create lambda instead.
    */
   @Nonnull
   public Task<CreateResponse> create(@Nonnull Class<ASPECT> aspectClass,
@@ -126,7 +126,8 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   }
 
   /**
-   * Similar to {@link #create(Class, Function)} but returns {@link CreateKVResponse} containing latest version and created aspect
+   * Similar to {@link #create(Class, Function)} but returns {@link CreateKVResponse} containing latest version and
+   * created aspect.
    */
   @RestMethod.Create
   @ReturnEntity
@@ -142,7 +143,7 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
   }
 
   /**
-   * Creates using the provided default value only if the aspect is not set already
+   * Creates using the provided default value only if the aspect is not set already.
    *
    * @param defaultValue provided default value
    * @return {@link CreateKVResponse} containing lastest version and created aspect

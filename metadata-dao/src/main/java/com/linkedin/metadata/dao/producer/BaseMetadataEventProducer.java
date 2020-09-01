@@ -11,7 +11,7 @@ import javax.annotation.Nullable;
 /**
  * A base class for all metadata event producers.
  *
- * See http://go/gma for more details.
+ *<p>See http://go/gma for more details.
  */
 public abstract class BaseMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn> {
 
