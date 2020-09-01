@@ -8,8 +8,8 @@ import javax.annotation.Nonnull;
 /**
  * A base class for all Remote DAO.
  *
- * Remote DAO is a standardized interface to fetch aspects stored on a remote service.
- * See http://go/gma for more details.
+ * <p>Remote DAO is a standardized interface to fetch aspects stored on a remote service. See http://go/gma for more
+ * details.
  *
  * @param <ASPECT_UNION> must be an aspect union type defined in com.linkedin.metadata.aspect
  */

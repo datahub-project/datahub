@@ -7,6 +7,9 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 
+/**
+ * Maps schema paths to values for DatasetUrns.
+ */
 public class DatasetUrnPathExtractor implements UrnPathExtractor<DatasetUrn> {
   @Override
   public Map<String, Object> extractPaths(@Nonnull DatasetUrn urn) {

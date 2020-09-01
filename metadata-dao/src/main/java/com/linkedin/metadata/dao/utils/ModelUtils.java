@@ -103,7 +103,7 @@ public class ModelUtils {
   }
 
   /**
-   * Gets a snapshot class given its FQCN
+   * Gets a snapshot class given its FQCN.
    *
    * @param className FQCN of snapshot class
    * @return snapshot class that extends {@link RecordTemplate}, associated with className
@@ -116,7 +116,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a snapshot
+   * Extracts the "urn" field from a snapshot.
    *
    * @param snapshot the snapshot to extract urn from
    * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
@@ -129,7 +129,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead
+   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead.
    */
   @Nonnull
   public static Urn getUrnFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
@@ -137,7 +137,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a delta
+   * Extracts the "urn" field from a delta.
    *
    * @param delta the delta to extract urn from
    * @param <DELTA> must be a valid delta model defined in com.linkedin.metadata.delta
@@ -150,7 +150,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead.
    */
   @Nonnull
   public static Urn getUrnFromDeltaUnion(@Nonnull UnionTemplate deltaUnion) {
@@ -158,7 +158,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a search document
+   * Extracts the "urn" field from a search document.
    *
    * @param document the document to extract urn from
    * @param <DOCUMENT> must be a valid document model defined in com.linkedin.metadata.search
@@ -171,7 +171,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from an entity
+   * Extracts the "urn" field from an entity.
    *
    * @param entity the entity to extract urn from
    * @param <ENTITY> must be a valid entity model defined in com.linkedin.metadata.entity
@@ -184,7 +184,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the fields with type urn from a relationship
+   * Extracts the fields with type urn from a relationship.
    *
    * @param relationship the relationship to extract urn from
    * @param <RELATIONSHIP> must be a valid relationship model defined in com.linkedin.metadata.relationship
@@ -200,7 +200,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
    */
   @Nonnull
   public static <RELATIONSHIP extends RecordTemplate> Urn getSourceUrnFromRelationship(
@@ -209,7 +209,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
    */
   @Nonnull
   public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(
@@ -251,7 +251,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead
+   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead.
    */
   @Nonnull
   public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
@@ -270,7 +270,7 @@ public class ModelUtils {
   }
 
   /**
-   * Creates a snapshot with its urn field set
+   * Creates a snapshot with its urn field set.
    *
    * @param snapshotClass the type of snapshot to create
    * @param urn value for the urn field
@@ -492,7 +492,7 @@ public class ModelUtils {
   }
 
   /**
-   * Returns all entity classes
+   * Returns all entity classes.
    */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllEntities() {
@@ -503,7 +503,7 @@ public class ModelUtils {
   }
 
   /**
-   * Get entity type from urn class
+   * Get entity type from urn class.
    */
   @Nonnull
   public static String getEntityTypeFromUrnClass(@Nonnull Class<? extends Urn> urnClass) {
@@ -526,7 +526,7 @@ public class ModelUtils {
   }
 
   /**
-   * Return true if the aspect is defined in common namespace
+   * Return true if the aspect is defined in common namespace.
    */
   public static boolean isCommonAspect(@Nonnull Class<? extends RecordTemplate> clazz) {
     return clazz.getPackage().getName().startsWith("com.linkedin.common");

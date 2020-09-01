@@ -145,10 +145,11 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
 
   /**
    * Gets all {@link VALUE} objects from DB for an entity with single aspect
-   * Warning: this works only if the aspect is not shared with other entities.
    *
-   * It paginates over the latest version of a specific aspect for all Urns
-   * By default the list is sorted in ascending order of urn
+   * <p>Warning: this works only if the aspect is not shared with other entities.
+   *
+   * <p>It paginates over the latest version of a specific aspect for all Urns. By default the list is sorted in
+   * ascending order of urn
    *
    * @param pagingContext Paging context.
    * @return collection of latest resource(s).
