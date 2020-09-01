@@ -112,3 +112,7 @@ Supported data sources are listed [here](https://github.com/linkedin/datahub/tre
 
 ## How is metadata ingested in DataHub? Is it real-time?
 You can call the [rest.li](https://github.com/linkedin/rest.li) API to ingest metadata in DataHub directly instead of using Kafka event. Metadata ingestion is real-time if you're updating via rest.li API. It's near real-time in the case of Kafka events due to the asynchronous nature of Kafka processing.
+
+## Does Kafka support SSL? If so, how?
+
+Yes. We are using the Spring Boot framework to start our apps, including setting up Kafka. You can (use environment variables to set system properties)[https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-relaxed-binding-from-environment-variables], including (Kafka properties)[https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties]. From there you can set your SSL configuration for Kafka.
