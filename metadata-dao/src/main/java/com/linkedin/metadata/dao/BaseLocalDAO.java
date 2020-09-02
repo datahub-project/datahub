@@ -26,6 +26,7 @@ import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -37,6 +38,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
@@ -401,20 +403,49 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Retrieves multiple aspects latest versions associated with list of urns returned from local secondary index that satisfy given filter conditions.
+   * Retrieves {@link ListResult} of {@link UrnAspectEntry} containing latest version of aspects along with the urn for the list of urns
+   * returned from local secondary index that satisfy given filter conditions.
    *
    * @param aspectClasses aspect classes whose latest versions need to be retrieved
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pageSize maximum number of distinct urns whose aspects need to be retrieved
-   * @return latest versions of multiple aspects associated with urns returned from local secondary index that satisfy given filter conditions
+   * @return {@link ListResult} containing latest versions of aspects along with urns returned from local secondary index satisfying given filter conditions
    */
   @Nonnull
-  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> get(
-      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull IndexFilter indexFilter,
-      @Nullable URN lastUrn, int pageSize) {
-    final Set<URN> urns = new HashSet<>(listUrns(indexFilter, lastUrn, pageSize).getValues());
-    return get(aspectClasses, urns);
+  public ListResult<UrnAspectEntry<URN>> getAspects(@Nonnull Set<Class<? extends RecordTemplate>> aspectClasses,
+      @Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize) {
+
+    final ListResult<URN> urns = listUrns(indexFilter, lastUrn, pageSize);
+    final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnAspectMap =
+        get(aspectClasses, new HashSet<>(urns.getValues()));
+
+    final Map<URN, List<RecordTemplate>> urnListAspectMap = new HashMap<>();
+    for (Map.Entry<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> entry : urnAspectMap.entrySet()) {
+      final Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = entry.getValue();
+      urnListAspectMap.compute(entry.getKey(), (k, v) -> {
+        if (v == null) {
+          v = new ArrayList<>();
+        }
+        return v;
+      });
+      for (Optional<? extends RecordTemplate> aspect : aspectMap.values()) {
+        aspect.ifPresent(record -> urnListAspectMap.get(entry.getKey()).add(record));
+      }
+    }
+
+    final List<UrnAspectEntry<URN>> urnAspectEntries = urnListAspectMap.entrySet()
+        .stream()
+        .map(entry -> new UrnAspectEntry<>(entry.getKey(), entry.getValue()))
+        .collect(Collectors.toList());
+
+    return ListResult.<UrnAspectEntry<URN>>builder().values(urnAspectEntries)
+        .havingMore(urns.isHavingMore())
+        .nextStart(urns.getNextStart())
+        .pageSize(urns.getPageSize())
+        .totalCount(urns.getTotalCount())
+        .totalPageCount(urns.getTotalPageCount())
+        .build();
   }
 
   /**

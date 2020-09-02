@@ -9,6 +9,7 @@ import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.ListResult;
+import com.linkedin.metadata.dao.UrnAspectEntry;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -319,7 +321,7 @@ public abstract class BaseEntityResource<
    * @param limit maximum number of distinct urns to return
    * @return Array of urns represented as string
    *
-   * @deprecated Use {@link #filter(IndexFilter, String, PagingContext)}  instead
+   * @deprecated Use {@link #filter(IndexFilter, String[], String, PagingContext)} instead
    */
   @Action(name = ACTION_LIST_URNS_FROM_INDEX)
   @Nonnull
@@ -339,12 +341,80 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value
-   * does not contain any metadata aspect. {@link ListResultMetadata} contains relevant list of urns.
+   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
+   * {@link ListResultMetadata} contains relevant list of urns.
+   *
+   * @param aspectClasses set of aspect classes that needs to be populated in the values
+   * @param filter {@link IndexFilter} that defines the filter conditions
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pagingContext {@link PagingContext} defining the paging parameters of the request
+   * @return {@link CollectionResult} containing the values of multiple entities
+   */
+  @Nonnull
+  private CollectionResult<VALUE, ListResultMetadata> filterAspects(
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull IndexFilter filter,
+      @Nullable String lastUrn, @Nonnull PagingContext pagingContext) {
+
+    final ListResult<UrnAspectEntry<URN>> urnAspectEntries =
+        getLocalDAO().getAspects(aspectClasses, filter, parseUrnParam(lastUrn), pagingContext.getCount());
+
+    final Map<URN, List<UnionTemplate>> urnAspectsMap = new HashMap<>();
+    for (UrnAspectEntry<URN> entry : urnAspectEntries.getValues()) {
+      urnAspectsMap.compute(entry.getUrn(), (k, v) -> {
+        if (v == null) {
+          v = new ArrayList<>();
+        }
+        v.addAll(entry.getAspects()
+            .stream()
+            .map(recordTemplate -> ModelUtils.newAspectUnion(_aspectUnionClass, recordTemplate))
+            .collect(Collectors.toList()));
+        return v;
+      });
+    }
+
+    final List<VALUE> values = urnAspectsMap.entrySet()
+        .stream()
+        .map(e -> toValue(newSnapshot(e.getKey(), e.getValue())))
+        .collect(Collectors.toList());
+    final ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
+        urnAspectsMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
+
+    return new CollectionResult<>(new ArrayList<>(values), urnAspectEntries.getTotalCount(), resultMetadata);
+  }
+
+  /**
+   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
+   * Here the value does not contain any metadata aspect, only parts of the urn (if applicable). {@link ListResultMetadata} contains relevant list of urns.
+   *
+   * @param filter {@link IndexFilter} that defines the filter conditions
+   * @param lastUrn last urn of the previous fetched page
+   * @param pagingContext {@link PagingContext} defining the paging parameters of the request
+   * @return {@link CollectionResult} containing the values of multiple entities
+   */
+  @Nonnull
+  private CollectionResult<VALUE, ListResultMetadata> filterUrns(@Nonnull IndexFilter filter, @Nullable String lastUrn,
+      @Nonnull PagingContext pagingContext) {
+
+    final ListResult<URN> urns = getLocalDAO().listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount());
+    final Map<URN, VALUE> urnValueMap = urns.getValues()
+        .stream()
+        .distinct()
+        .collect(Collectors.toMap(Function.identity(), urn -> toValue(newSnapshot(urn))));
+    ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
+        urnValueMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
+
+    return new CollectionResult<>(new ArrayList<>(urnValueMap.values()), urns.getTotalCount(), resultMetadata);
+  }
+
+  /**
+   * Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value is
+   * made up of latest versions of specified aspects. If no aspects are provided, value model will not contain any metadata aspect.
+   * {@link ListResultMetadata} contains relevant list of urns.
    *
    * <p>If no filter conditions are provided, then it returns values of given entity type.
    *
    * @param indexFilter {@link IndexFilter} that defines the filter conditions
+   * @param aspectNames list of aspects to be returned in the VALUE model
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
    * @return {@link CollectionResult} containing values along with the associated urns in {@link ListResultMetadata}
@@ -353,20 +423,19 @@ public abstract class BaseEntityResource<
   @Nonnull
   public Task<CollectionResult<VALUE, ListResultMetadata>> filter(
       @QueryParam(PARAM_FILTER) @Optional @Nullable IndexFilter indexFilter,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
 
     final IndexFilter filter = indexFilter == null ? getDefaultIndexFilter() : indexFilter;
 
     return RestliUtils.toTask(() -> {
-      final ListResult<URN> urns = getLocalDAO().listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount());
-      final Map<URN, VALUE> urnValueMap = urns.getValues()
-          .stream()
-          .distinct()
-          .collect(Collectors.toMap(Function.identity(), urn -> toValue(newSnapshot(urn))));
-      return new CollectionResult<>(new ArrayList<>(urnValueMap.values()), urns.getTotalCount(),
-          new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
-              urnValueMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList()))));
+      final Set<Class<? extends RecordTemplate>> aspectClasses = parseAspectsParam(aspectNames);
+      if (aspectClasses.isEmpty()) {
+        return filterUrns(filter, lastUrn, pagingContext);
+      } else {
+        return filterAspects(aspectClasses, filter, lastUrn, pagingContext);
+      }
     });
   }
 
