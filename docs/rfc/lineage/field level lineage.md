@@ -1,7 +1,7 @@
 - Start Date: 2020-08-28
-- RFC PR: (after opening the RFC PR, update this with a link to it and update the file name)
-- Discussion Issue: https://github.com/linkedin/datahub/issues/1731
-- Implementation PR(s): (leave this empty)
+- RFC PR: #1841
+- Discussion Issue: #1731
+- Implementation PR(s):
 
 # RFC - Field Level Lineage
 
@@ -22,7 +22,7 @@ In this RFC, we will discuss below and get consensus on the modelling involved.
 
 
 ### DatasetFieldURN
-A unique identifier for a field in a dataset will be introduced in the form of DatasetFieldUrn. A sample is as below.
+A unique identifier for a field in a dataset will be introduced in the form of DatasetFieldUrn. And this urn will be the key for DatasetField entity. A sample is as below.
  
 > urn:li:datasetField:(urn:li:dataset:(urn:li:dataPlatform:kafka,demo.orders,PROD),/restaurant)
 
@@ -87,6 +87,7 @@ It contains two parts
 - Field Path -> Represents the field of a dataset
 
 FieldPath in most typical cases is the fieldName or column name of the dataset. Where the fields are nested in nature this will be a path to reach the leaf node.
+To standardize the field paths for different formats, there is a need to build standardized `schema normalizers`.
   
 ```json
 {
@@ -173,6 +174,7 @@ record DatasetFieldMapping{
 
 ### DataFlow in DataHub for Field Level Lineage
 
+As part of the POC we did, we used the below workflow. Essentially, DatasetFieldUrn is introduced paving the path for that being the first class entity.
 ![Field-Level-Lineage-GraphBuilders](Graph-Builders.png)
 
 1. GraphBuilder on receiving MAE for `SchemaMetadata` aspect, will do below 
@@ -208,12 +210,25 @@ Two new relationships can be introduced to represent the relationships in graph.
 - `DataDerivedFrom` relationship model represents the data in destination dataset field derived from source dataset fields. 
 
 
+### DataFlow When DatasetField is First Class Entity
+Once we decide to make dataset field as a first class entity, producers can start emitting MCEs for dataset fields.
+Below represents the end to end flow of dataset field entity will look like in the larger picture.
+
+![Field-Level-Lineage-GraphBuilders](Dataset-Field-Entity-DataFlow.png)
+
+- Schema Normalizers as a utility will be developed.
+- `DatasetField` entity will be introduced with aspect `FieldInfo`
+- Producers can use Schema Normalizers and send emit `DatasetField` MCEs for every field in the schema.
+- Producers will still emit the `SchemaMetadata` as an aspect of `Dataset` entity. This aspect serves as the metadata for the relationship `HasField` between `Dataset` and `DatasetField` entities.
+- An aspect with name `DatasetUpstreamLineage` will be introduced to capture field level lineage. Technically coarse grained is already captured with fine-grained lineage.
+
+
 ## How we teach this
-We are introducing the capability of field level lineage in DataHub. As part of this, below are the salient features one should know 
+We are introducing the capability of field level lineage in DataHub. As part of this, below are the salient features one should know
 1. `Schema Normalizers` will be defined to standardize the field paths in a schema. Once this is done, field level lineage will be relation between two standardized field paths of source and destination paths.  
-2. `Dataset Field URN` will be introduced to have its presence in neo4j. This provides a natural extension for it to become a first class entity. 
+2. `Dataset Field URN` will be introduced and `DatasetField` will be a first class entity in DataHub.
 3. `HasField` relations will be populated in graph db between `Dataset` and `DatasetField`
-4. `DataDerived` relations will be populated at the field level
+4. `DataDerived` relations will be populated at the field level.
 5. `SchemaMetadata` will still serve the schema information of a dataset. But, it is uses as a SOT for presence of dataset field entities. 
 
 This is an extension to the current support of coarse grained lineage by DataHub.  
