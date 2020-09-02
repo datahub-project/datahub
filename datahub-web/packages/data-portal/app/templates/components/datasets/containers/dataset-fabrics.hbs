@@ -1,9 +1,22 @@
 {{#if getFabricsTask.isRunning}}
   <PendulumEllipsisAnimation />
 {{else}}
-  {{yield
-    (hash
-      fabrics=fabrics
-      urn=urn)
-  }}
+  {{#if hasBlock}}
+    {{yield
+      (hash
+        fabrics=fabrics
+        urn=urn)
+    }}
+  {{else}}
+
+    {{!-- Allows the container to have default behavior. This is especially useful when using containers inside
+          configurably rendered entities such as render props
+      --}}
+
+    <div class="dataset-fabric-entity-container">
+      <strong>Fabric:</strong>
+      <Datasets::DatasetFabricSwitcher @urn={{dataOriginsUrn}} @fabrics={{fabrics}} />
+    </div>
+
+  {{/if}}
 {{/if}}

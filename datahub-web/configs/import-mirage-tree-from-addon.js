@@ -8,23 +8,25 @@ const Funnel = require('broccoli-funnel');
 
 const productionEnv = 'production';
 const mirageOptionsKey = 'mirage-from-addon';
-const mirageDirectoryName = 'mirage';
+const srcMirageDirectoryName = path.join('addon', 'mirage-addon');
+const destMirageDirectoryName = path.join('mirage');
+const defaultOptions = {
+  includeAll: true,
+  exclude: [/scenarios\/default/, /config/]
+};
 
 /**
  * Determines if the Mirage addon files should be included in the application tree, in production
  * Mirage is unused therefore we exclude them by default unless specified via the normal env build options
  * @returns Boolean
  */
-const shouldIncludeAddonFiles = ({ env, name, mirageOptions = {} }) => {
+const shouldIncludeAddonFiles = ({ env, _name, mirageOptions = {} }) => {
   // For prod env, check if addon file inclusion is explicitly enabled in production
   const isEnabledInProd = env === productionEnv && mirageOptions.enabled;
-  // Files are already in dummy app path and do not need to be included
-  const isDummyApp = name === 'dummy';
   // For other non prod envs, check if addon files are explicitly excluded, otherwise include
   const isNotExcludedInNonProd = env !== productionEnv && mirageOptions.excludeFilesFromBuild !== true;
-
   // Inclusion is enabled if this is not the dummy app, or production or in other envs, not explicitly excluded from build
-  return !isDummyApp || isEnabledInProd || isNotExcludedInNonProd;
+  return isEnabledInProd || isNotExcludedInNonProd;
 };
 
 /**
@@ -45,19 +47,24 @@ module.exports = {
    * Name of the directory where mirage addon file are found and also where they exist in the app
    * @type {string}
    */
-  mirageDirectoryName,
-
+  srcMirageDirectoryName,
   /**
-   * Path to the mirage addon directory
+   * Complete path for the source mirage folder
    * @type {string}
    */
-  mirageAddonDirectory: '',
+  srcMirageDirectoryNameComplete: '',
+
+  /**
+   * Path for the destination directory
+   * @type {string}
+   */
+  destMirageDirectoryName,
 
   included(app) {
     // Properties are only necessary for use when addon is in an Ember app
     if (isInApp(this)) {
-      this.mirageAddonDirectory = path.join(this.root, 'tests', 'dummy', this.mirageDirectoryName);
       this.mirageEnvConfig = this.app.project.config(app.env)['ember-cli-mirage'] || {};
+      this.srcMirageDirectoryNameComplete = path.resolve(this.root, this.srcMirageDirectoryName);
     }
     this._super.included.call(this, app);
   },
@@ -73,31 +80,32 @@ module.exports = {
       const {
         app: { env, name, options },
         mirageOptionsKey,
-        mirageAddonDirectory
+        srcMirageDirectoryNameComplete,
+        destMirageDirectoryName
       } = this;
-      const mirageOptions = options[mirageOptionsKey];
+      const mirageOptions = options[mirageOptionsKey] || defaultOptions;
       let trees = [appTree];
 
       // only include Mirage files when necessary
       if (mirageOptions && shouldIncludeAddonFiles({ env, name, mirageOptions })) {
-        const destDir = this.mirageDirectoryName;
         const { include, exclude } = mirageOptions;
 
         // if the expected config options are found in config
         if (mirageOptions.includeAll) {
           trees = [
             ...trees,
-            new Funnel(mirageAddonDirectory, {
+            new Funnel(srcMirageDirectoryNameComplete, {
               exclude: Array.isArray(exclude) ? exclude : [],
-              destDir
+              destDir: destMirageDirectoryName
             })
           ];
+
           // otherwise, if only include is specified, add requested files
         } else if (Array.isArray(include)) {
           trees = [
             ...trees,
-            new Funnel(mirageAddonDirectory, {
-              destDir,
+            new Funnel(srcMirageDirectoryNameComplete, {
+              destDir: destMirageDirectoryName,
               include
             })
           ];

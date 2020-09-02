@@ -31,20 +31,19 @@
     </div>
 
     <div class="dataset-header-meta">
-      <Datasets::Containers::DatasetFabrics @class="dataset-fabric-row-container" @urn={{@entity.urn}} as |fabricsContainer|>
-        <div class="dataset-fabric-entity-container">
-          <strong>Fabric:</strong>
-          <Datasets::DatasetFabricSwitcher @urn={{fabricsContainer.urn}} @fabrics={{fabricsContainer.fabrics}} />
-        </div>
-      </Datasets::Containers::DatasetFabrics>
     </div>
-
-    <Datasets::Containers::DatasetOwnerList @urn={{urn}} @avatarEntityProps={{@avatarEntityProps}} />
 
     {{! Currently supported for just Dataset entity, other entities should used the pageComponent header if required }}
     {{! TODO: META-11625 Use pageComponent when https://jira01.corp.linkedin.com:8443/browse/META-11622 is done }}
     {{#each @entityClass.renderProps.entityPage.customHeaderComponents as |customComponent|}}
-      {{component customComponent.name options=customComponent.options entity=@entity}}
+      {{!-- TODO: [META-12887] Once we build the new avatars this should not need to be passed the props anymore--}}
+      {{component
+        customComponent.name
+        class=customComponent.options.className
+        options=customComponent.options
+        avatarEntityProps=@avatarEntityProps
+        entity=@entity
+      }}
     {{/each}}
 
     {{! TODO: Move to Entity render props }}
