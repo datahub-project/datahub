@@ -2,7 +2,6 @@ namespace com.linkedin.chart
 
 import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChangeAuditStamps
-import com.linkedin.common.DatasetUrn
 import com.linkedin.common.Time
 
 /**
@@ -29,11 +28,6 @@ record ChartInfo {
    * Data sources for the chart
    */
   inputs: optional array[ChartDataSourceType]
-
-  /**
-   * Query to build a chart from input datasets
-   */
-  query: optional ChartQuery
 
   /**
    * Type of the chart

@@ -1,5 +1,6 @@
 namespace com.linkedin.metadata.search
 
+import com.linkedin.common.ChartUrn
 import com.linkedin.common.DashboardUrn
 
 /**
@@ -21,6 +22,16 @@ record DashboardDocument includes BaseDocument {
    * Detailed description about the dashboard
    */
   description: optional string
+
+  /**
+   * Dashboard tool ex: Looker, Redash
+   */
+  tool: optional string
+
+  /**
+   * Ids of the charts in the dashboard
+   */
+  chartIds: optional array[string]
 
   /**
    * LDAP usernames of corp users who are the owners of this dashboard

@@ -24,6 +24,11 @@ record ChartDocument includes BaseDocument {
   description: optional string
 
   /**
+   * Dashboard tool ex: Looker, Redash
+   */
+  tool: optional string
+
+  /**
    * Input datasets for the chart
    */
   inputs: optional array[DatasetUrn]
