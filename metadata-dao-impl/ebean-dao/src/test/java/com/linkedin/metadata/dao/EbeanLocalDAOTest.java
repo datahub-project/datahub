@@ -773,24 +773,36 @@ public class EbeanLocalDAOTest {
   }
 
   @Test
-  public void testGetWithIndexFilter() {
+  public void testGetAspectsWithIndexFilter() {
     LocalDAOStorageConfig storageConfig = makeLocalDAOStorageConfig(AspectFoo.class, Collections.singletonList("/value"));
     EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig, FooUrn.class);
     dao.enableLocalSecondaryIndex(true);
 
-    FooUrn urn = makeFooUrn(1);
-    AspectFoo foo0 = new AspectFoo().setValue("val1");
-    addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, foo0);
-    AspectFoo foo1 = new AspectFoo().setValue("val2");
-    addMetadata(urn, AspectFoo.class.getCanonicalName(), 1, foo1);
-    AspectBar bar0 = new AspectBar().setValue("val1");
-    addMetadata(urn, AspectBar.class.getCanonicalName(), 0, bar0);
-    AspectBar bar1 = new AspectBar().setValue("val2");
-    addMetadata(urn, AspectBar.class.getCanonicalName(), 1, bar1);
+    FooUrn urn1 = makeFooUrn(1);
+    AspectFoo e1foo1 = new AspectFoo().setValue("val1");
+    addMetadata(urn1, AspectFoo.class.getCanonicalName(), 0, e1foo1);
+    AspectFoo e1foo2 = new AspectFoo().setValue("val2");
+    addMetadata(urn1, AspectFoo.class.getCanonicalName(), 1, e1foo2);
+    AspectBar e1bar1 = new AspectBar().setValue("val1");
+    addMetadata(urn1, AspectBar.class.getCanonicalName(), 0, e1bar1);
+    AspectBar e1bar2 = new AspectBar().setValue("val2");
+    addMetadata(urn1, AspectBar.class.getCanonicalName(), 1, e1bar2);
+    FooUrn urn2 = makeFooUrn(2);
+    AspectFoo e2foo1 = new AspectFoo().setValue("val1");
+    addMetadata(urn2, AspectFoo.class.getCanonicalName(), 0, e2foo1);
+    AspectFoo e2foo2 = new AspectFoo().setValue("val2");
+    addMetadata(urn2, AspectFoo.class.getCanonicalName(), 1, e2foo2);
+    AspectBar e2bar1 = new AspectBar().setValue("val1");
+    addMetadata(urn2, AspectBar.class.getCanonicalName(), 0, e2bar1);
+    AspectBar e2bar2 = new AspectBar().setValue("val2");
+    addMetadata(urn2, AspectBar.class.getCanonicalName(), 1, e2bar2);
 
-    dao.updateLocalIndex(urn, foo0, 0);
+    dao.updateLocalIndex(urn1, e1foo1, 0);
+    dao.updateLocalIndex(urn1, e1bar1, 0);
+    dao.updateLocalIndex(urn2, e2foo1, 0);
+    dao.updateLocalIndex(urn2, e2bar1, 0);
+
     Set<Class<? extends RecordTemplate>> aspectClasses = ImmutableSet.of(AspectFoo.class, AspectBar.class);
-
     IndexValue indexValue = new IndexValue();
     indexValue.setString("val1");
     IndexCriterion criterion = new IndexCriterion().setAspect(AspectFoo.class.getCanonicalName())
@@ -798,13 +810,16 @@ public class EbeanLocalDAOTest {
     IndexCriterionArray indexCriterionArray = new IndexCriterionArray(Collections.singletonList(criterion));
     IndexFilter indexFilter = new IndexFilter().setCriteria(indexCriterionArray);
 
-    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = new HashMap<>();
-    aspectMap.put(AspectFoo.class, Optional.of(foo0));
-    aspectMap.put(AspectBar.class, Optional.of(bar0));
-    Map<FooUrn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> expected = new HashMap<>();
-    expected.put(urn, aspectMap);
+    ListResult<UrnAspectEntry<FooUrn>> actual = dao.getAspects(aspectClasses, indexFilter, null, 5);
 
-    assertEquals(dao.get(aspectClasses, indexFilter, null, 2), expected);
+    UrnAspectEntry<FooUrn> entry1 = new UrnAspectEntry<>(urn1, Arrays.asList(e1foo1, e1bar1));
+    UrnAspectEntry<FooUrn> entry2 = new UrnAspectEntry<>(urn2, Arrays.asList(e2foo1, e2bar1));
+
+    assertEquals(actual.getValues(), Arrays.asList(entry1, entry2));
+    assertEquals(actual.getPageSize(), 5);
+    assertEquals(actual.getTotalPageCount(), 1);
+    assertEquals(actual.getTotalCount(), 2);
+    assertNull(actual.getMetadata());
   }
 
   @Test
