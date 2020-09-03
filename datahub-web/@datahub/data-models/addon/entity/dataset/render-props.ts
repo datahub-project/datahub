@@ -46,25 +46,10 @@ export const getRenderProps = (): IEntityRenderProps => {
       },
       customHeaderComponents: [
         {
-          name: 'insight/carousel',
-          options: {
-            components: [
-              {
-                name: 'health/carousel-insight',
-                options: {
-                  priority: 1
-                }
-              },
-              {
-                name: 'top-consumers/insight/top-consumers-insight',
-                options: {
-                  isOptional: true,
-                  component: 'top-consumers/insight/insight-card'
-                }
-              }
-            ]
-          }
-        }
+          name: 'dynamic-components/entity/field',
+          options: { className: 'dataset-header__description', fieldName: 'description' }
+        },
+        { name: 'datasets/containers/dataset-owner-list' }
       ]
     }
   };

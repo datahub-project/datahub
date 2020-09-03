@@ -1,5 +1,4 @@
-Using mirage-addon
-==============================================================================
+# Using mirage-addon
 
 This guide is intended to provide notes for using mirage-from-addon in the individual packages and the
 potential gachas that may occur.
@@ -25,17 +24,18 @@ Your folder structure needs to be the following:
 ```
 addon-root
 \_addon
-    \_mirage-addon
+    \_mirage-addon // shareable mirage files
+        \_factories
+        \_fixtures
+        \_models
         \_scenarios
             \_default.ts
         \_test-helpers
         \_config.ts
 \_tests
     \_dummy
-        \_mirage
-            \_factories
-            \_fixtures
-            \_models
+        \_mirage // specific mirage files
+            ...
 ```
 
 In short, the items from `mirage-addon` will be ultimately merged with `tests/dummy/mirage` inside
@@ -46,7 +46,7 @@ In the host application, we will import the factories like this:
 ```js
 // data-portal/mirage/scenarios/default.ts
 ...
-import dataConceptsScenario from '@linkedin/data-concept/mirage-from-addon/scenarios/data-concepts';
+import dataConceptsScenario from '@linkedin/data-concept/mirage-addon/scenarios/data-concepts';
 import topConsumersScenario from '@datahub/shared/mirage-addon/scenarios/top-consumers';
 
 export default function(server: Server): void {
@@ -60,7 +60,7 @@ And route handlers will be handled as:
 
 ```js
 import { setup as setupSharedConfig } from '@datahub/shared/mirage-addon/mirage-config';
-import { setupDataConceptsConfig } from '@linkedin/data-concept/mirage-from-addon/mirage-config';
+import { setupDataConceptsConfig } from '@linkedin/data-concept/mirage-addon/mirage-config';
 import { setup as setupMetrics } from '@linkedin/metric/mirage-addon/mirage-config';
 
 export default function(): void {
@@ -81,7 +81,7 @@ Fixtures has an issue being imported normally through this method. We have found
 
 ```js
 import { Server } from 'ember-cli-mirage';
-import dataConceptsFixture from '@linkedin/data-concept/mirage-from-addon/fixtures/data-concepts';
+import dataConceptsFixture from '@linkedin/data-concept/mirage-addon/fixtures/data-concepts';
 
 export default function(server: Server): void {
   // Note: Using loadData() as currently we are facing issues with loadFixtures() from addon
@@ -93,6 +93,8 @@ export default function(server: Server): void {
 This logic already exists in our host application, but to use the mirage factories from an addon
 in another addon (for example, in an addon for an entity that is the internal counterpart to an
 external addon) we need to modify the `ember-cli-build.js` of the consuming addon:
+
+EDIT: This step is no longer needed as we will provide this configuration by default.
 
 ```js
 const EmberAddon = require('ember-cli/lib/broccoli/ember-addon');

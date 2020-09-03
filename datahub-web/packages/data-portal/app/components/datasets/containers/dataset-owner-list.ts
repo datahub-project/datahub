@@ -17,16 +17,22 @@ import { decodeUrn } from '@datahub/utils/validators/urn';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
+import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 
 @classNames('dataset-owner-list')
-@containerDataSource<DatasetOwnerListContainer>('getOwnersTask', ['urn'])
+@containerDataSource<DatasetOwnerListContainer>('getOwnersTask', ['urn', 'entity'])
 export default class DatasetOwnerListContainer extends Component {
   /**
-   * Urn for the related dataset
-   * @type {string}
-   * @memberof DatasetOwnerListContainer
+   * Reference to the passed in entity for this component to provide context
    */
-  urn!: string;
+  entity?: DatasetEntity;
+
+  /**
+   * Urn for the related dataset
+   */
+  get urn(): string {
+    return this.entity?.urn || '';
+  }
 
   /**
    * The owners for the dataset
@@ -80,10 +86,11 @@ export default class DatasetOwnerListContainer extends Component {
    * Reads the owners for this dataset
    */
   @(task(function*(this: DatasetOwnerListContainer): IterableIterator<Promise<IOwnerResponse>> {
-    const { urn } = this;
+    const { urn, entity } = this;
+    const ownersUrn = urn || entity?.urn || '';
 
-    if (isLiUrn(decodeUrn(urn))) {
-      const { owners = [] } = ((yield readDatasetOwnersByUrn(urn)) as unknown) as IOwnerResponse;
+    if (isLiUrn(decodeUrn(ownersUrn))) {
+      const { owners = [] } = ((yield readDatasetOwnersByUrn(ownersUrn)) as unknown) as IOwnerResponse;
 
       set(this, 'owners', confirmedOwners(owners));
     }
