@@ -70,7 +70,8 @@
     "ivy-tabs": "^3.3.0",
     "minimatch": "^3.0.4",
     "sass": "^1.21.0",
-    "svg-pan-zoom": "^3.6.1"
+    "svg-pan-zoom": "^3.6.1",
+    "faker": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.8.4",
@@ -105,7 +106,6 @@
     "ember-source": "~3.16.3",
     "ember-source-channel-url": "^2.0.1",
     "ember-try": "^1.4.0",
-    "faker": "^4.1.0",
     "loader.js": "^4.7.0",
     "qunit-dom": "^0.9.1",
     "typescript": "^3.9.3"

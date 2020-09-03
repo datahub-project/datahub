@@ -143,7 +143,9 @@ export default class DatasetMainContainer extends Component {
   /**
    * Reference to the entity class for use by downstream components, for example, to access the Entity's render props
    */
-  entityClass: typeof DatasetEntity = DatasetEntity;
+  get entityClass(): typeof DatasetEntity {
+    return this.dataModels.getModel(DatasetEntity.displayName);
+  }
 
   /**
    * Indicate if the container is in a error state and what error ocurred
@@ -223,12 +225,12 @@ export default class DatasetMainContainer extends Component {
     return entity.readPath;
   }
   /**
-   * Array of tabs that are available for this entity
+   * Array of tabs that are available for this entity. Is a computed property as there is a possibility the dataset
+   * entity is initially undefined and will be applied following first render
    */
   @computed('entity')
   get datasetTabs(): Array<ITabProperties> {
     const { entity } = this;
-
     if (!entity) {
       return [];
     }

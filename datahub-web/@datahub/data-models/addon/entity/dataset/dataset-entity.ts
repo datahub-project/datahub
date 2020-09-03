@@ -185,6 +185,12 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   healthScore?: number;
 
   /**
+   * Description for the dataset that contains more information about the nature of the data or metadata
+   */
+  @oneWay('entity.dataset.description')
+  description?: string;
+
+  /**
    * gets the dataorigin field (needed from search)
    * from the urn
    */

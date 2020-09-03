@@ -1,0 +1,7 @@
+{{#if @entity}}
+  {{#if hasblock}}
+    {{yield (hash field=(get @entity @options.fieldName))}}
+  {{else}}
+    <span class={{@options.className}}>{{get @entity @options.fieldName}}</span>
+  {{/if}}
+{{/if}}
