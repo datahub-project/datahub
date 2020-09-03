@@ -21,6 +21,7 @@ import com.linkedin.metadata.dao.utils.BazUrnPathExtractor;
 import com.linkedin.metadata.dao.utils.FooUrnPathExtractor;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
@@ -496,7 +497,7 @@ public class EbeanLocalDAOTest {
       addMetadata(urn, AspectBar.class.getCanonicalName(), 0, aspectBar);
 
       // only index urn
-      addIndex(urn, FooUrn.class.getCanonicalName(), "/fooId", urn.getFooIdEntity());
+      addIndex(urn, FooUrn.class.getCanonicalName(), "/fooId", urn.getId());
     });
 
     // Backfill in SCSI_ONLY mode
@@ -632,6 +633,30 @@ public class EbeanLocalDAOTest {
     indexValue6.setString("val");
     IndexCriterion criterion6 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path6").setValue(indexValue6));
 
+    // cover CONDITION other than EQUAL
+    // GREATER_THAN
+    IndexValue indexValue7 = new IndexValue();
+    indexValue7.setInt(100);
+    IndexCriterion criterion7 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path4").setValue(indexValue7)
+        .setCondition(Condition.GREATER_THAN));
+
+    // GREATER_THAN_EQUAL_TO
+    IndexValue indexValue8 = new IndexValue();
+    indexValue8.setFloat(100.2f);
+    IndexCriterion criterion8 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path3").setValue(indexValue8)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO));
+
+    // LESS_THAN
+    IndexValue indexValue9 = new IndexValue();
+    indexValue9.setDouble(1.894e2);
+    IndexCriterion criterion9 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path2").setValue(indexValue9)
+        .setCondition(Condition.LESS_THAN));
+
+    // LESS_THAN_EQUAL_TO
+    IndexValue indexValue10 = new IndexValue();
+    indexValue10.setLong(1111L);
+    IndexCriterion criterion10 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path5").setValue(indexValue10));
+
     // 1. with two filter conditions
     IndexCriterionArray indexCriterionArray1 = new IndexCriterionArray(Arrays.asList(criterion1, criterion2));
     final IndexFilter indexFilter1 = new IndexFilter().setCriteria(indexCriterionArray1);
@@ -660,6 +685,50 @@ public class EbeanLocalDAOTest {
     assertEquals(urns3.getTotalPageCount(), 1);
     assertEquals(urns3.getPageSize(), 5);
     assertFalse(urns3.isHavingMore());
+
+    // 4. GREATER_THAN criterion
+    IndexCriterionArray indexCriterionArray4 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion2, criterion3, criterion4, criterion5, criterion6, criterion7));
+    final IndexFilter indexFilter4 = new IndexFilter().setCriteria(indexCriterionArray4);
+    ListResult<Urn> urns4 = dao.listUrns(indexFilter4, null, 5);
+    assertEquals(urns4.getValues(), Arrays.asList(urn1, urn3));
+    assertEquals(urns4.getTotalCount(), 2);
+    assertEquals(urns4.getTotalPageCount(), 1);
+    assertEquals(urns4.getPageSize(), 5);
+    assertFalse(urns4.isHavingMore());
+
+    // 5. GREATER_THAN_EQUAL_TO criterion
+    IndexCriterionArray indexCriterionArray5 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion2, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8));
+    final IndexFilter indexFilter5 = new IndexFilter().setCriteria(indexCriterionArray5);
+    ListResult<Urn> urns5 = dao.listUrns(indexFilter5, null, 10);
+    assertEquals(urns5.getValues(), Arrays.asList(urn1, urn3));
+    assertEquals(urns5.getTotalCount(), 2);
+    assertEquals(urns5.getTotalPageCount(), 1);
+    assertEquals(urns5.getPageSize(), 10);
+    assertFalse(urns5.isHavingMore());
+
+    // 6. LESS_THAN criterion
+    IndexCriterionArray indexCriterionArray6 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8, criterion9));
+    final IndexFilter indexFilter6 = new IndexFilter().setCriteria(indexCriterionArray6);
+    ListResult<Urn> urns6 = dao.listUrns(indexFilter6, urn1, 8);
+    assertEquals(urns6.getValues(), Collections.singletonList(urn3));
+    assertEquals(urns6.getTotalCount(), 1);
+    assertEquals(urns6.getTotalPageCount(), 1);
+    assertEquals(urns6.getPageSize(), 8);
+    assertFalse(urns6.isHavingMore());
+
+    // 7. LESS_THAN_EQUAL_TO
+    IndexCriterionArray indexCriterionArray7 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8, criterion9, criterion10));
+    final IndexFilter indexFilter7 = new IndexFilter().setCriteria(indexCriterionArray7);
+    ListResult<Urn> urns7 = dao.listUrns(indexFilter7, null, 4);
+    assertEquals(urns7.getValues(), Collections.emptyList());
+    assertEquals(urns7.getTotalCount(), 0);
+    assertEquals(urns7.getTotalPageCount(), 0);
+    assertEquals(urns7.getPageSize(), 4);
+    assertFalse(urns7.isHavingMore());
   }
 
   @Test

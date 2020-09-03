@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.IndexCriterion;
@@ -63,11 +64,24 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   protected final EbeanServer _server;
   protected final Class<URN> _urnClass;
 
+  private static final int INDEX_QUERY_TIMEOUT_IN_SEC = 5;
+
   @Value
   static class GMAIndexPair {
     public String valueType;
     public Object value;
   }
+
+  private static final Map<Condition, String> CONDITION_STRING_MAP =
+      Collections.unmodifiableMap(new HashMap<Condition, String>() {
+        {
+          put(Condition.EQUAL, "=");
+          put(Condition.LESS_THAN, "<");
+          put(Condition.LESS_THAN_OR_EQUAL_TO, "<=");
+          put(Condition.GREATER_THAN, ">");
+          put(Condition.GREATER_THAN_OR_EQUAL_TO, ">=");
+        }
+      });
 
   /**
    * Constructor for EbeanLocalDAO.
@@ -649,6 +663,14 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     }
   }
 
+  @Nonnull
+  private static String getStringForOperator(@Nonnull Condition condition) {
+    if (!CONDITION_STRING_MAP.containsKey(condition)) {
+      throw new UnsupportedOperationException(condition.toString() + " condition is not supported in local secondary index");
+    }
+    return CONDITION_STRING_MAP.get(condition);
+  }
+
   /**
    * Constructs SQL query that contains positioned parameters (with `?`), based on whether {@link IndexCriterion} of
    * a given condition has field `pathParams`.
@@ -664,10 +686,17 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final StringBuilder whereClause = new StringBuilder("WHERE t0.urn > ?");
     IntStream.range(0, indexCriterionArray.size()).forEach(i -> {
       final IndexCriterion criterion = indexCriterionArray.get(i);
+
       whereClause.append(" AND t").append(i).append(".aspect = ?");
       if (criterion.hasPathParams()) {
-        whereClause.append(" AND t").append(i).append(".path = ?").append(" AND t").append(i).append(".")
-            .append(getGMAIndexPair(criterion.getPathParams().getValue()).valueType).append(" = ?");
+        whereClause.append(" AND t")
+            .append(i)
+            .append(".path = ? AND t")
+            .append(i)
+            .append(".")
+            .append(getGMAIndexPair(criterion.getPathParams().getValue()).valueType)
+            .append(getStringForOperator(criterion.getPathParams().getCondition()))
+            .append("?");
       }
     });
     return selectClause + " " + whereClause;
@@ -708,7 +737,8 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
     addEntityTypeFilter(indexFilter);
 
-    final Query<EbeanMetadataIndex> query = _server.findNative(EbeanMetadataIndex.class, constructSQLQuery(indexCriterionArray));
+    final Query<EbeanMetadataIndex> query = _server.findNative(EbeanMetadataIndex.class, constructSQLQuery(indexCriterionArray))
+        .setTimeout(INDEX_QUERY_TIMEOUT_IN_SEC);
     setParameters(indexCriterionArray, query, lastUrn == null ? "" : lastUrn.toString());
 
     final PagedList<EbeanMetadataIndex> pagedList = query
