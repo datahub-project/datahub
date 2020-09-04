@@ -79,10 +79,9 @@ def consume(conf, schema_record):
 
 
 def convert_config_to_dict(file_location):
-    #print("converting: " + file_location)
     result = {}
     f = open(file_location, "r")
-    fl =f.readlines()
+    fl = f.readlines()
     for line in fl:
         if line[0] == '#' or line == '\n':
             continue
