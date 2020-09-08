@@ -9,11 +9,14 @@ import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.ListResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
+import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.ResourceContext;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -453,26 +456,32 @@ public class BaseEntityResourceTest extends BaseEngineTest {
     FooUrn urn1 = makeFooUrn(1);
     FooUrn urn2 = makeFooUrn(2);
     FooUrn urn3 = makeFooUrn(3);
+
     List<FooUrn> urns1 = Arrays.asList(urn2, urn3);
     ListResult<FooUrn> listResult1 = ListResult.<FooUrn>builder().values(urns1).totalCount(100).build();
 
     when(_mockLocalDAO.listUrns(indexFilter1, urn1, 2)).thenReturn(listResult1);
-    String[] actual = runAndWait(_resource.filter(indexFilter1, urn1.toString(), new PagingContext(1, 2)));
-    assertEquals(actual, new String[] {urn2.toString(), urn3.toString()});
+    CollectionResult<EntityValue, ListResultMetadata>
+        actual = runAndWait(_resource.filter(indexFilter1, urn1.toString(), new PagingContext(1, 2)));
 
-    // case 2: indexFilter is null, uses default index filter
+    assertEquals(actual.getElements().size(), 2);
+    assertEquals(actual.getElements().get(0), new EntityValue());
+    assertEquals(actual.getElements().get(1), new EntityValue());
+    assertEquals(actual.getTotal().intValue(), 100);
+    assertEquals(actual.getMetadata().getExtraInfos().stream().map(ExtraInfo::getUrn).collect(Collectors.toList()), Arrays.asList(urn2, urn3));
+
+    // case 2: lastUrn is null
+    List<FooUrn> urns2 = Arrays.asList(urn1, urn2);
     IndexCriterion indexCriterion2 = new IndexCriterion().setAspect(FooUrn.class.getCanonicalName());
     IndexFilter indexFilter2 = new IndexFilter().setCriteria(new IndexCriterionArray(indexCriterion2));
-    when(_mockLocalDAO.listUrns(indexFilter2, urn1, 2)).thenReturn(listResult1);
-    actual = runAndWait(_resource.filter(null, urn1.toString(), new PagingContext(1, 2)));
-    assertEquals(actual, new String[] {urn2.toString(), urn3.toString()});
-
-    // case 3: lastUrn is null
-    List<FooUrn> urns3 = Arrays.asList(urn1, urn2);
-    ListResult<FooUrn> listResult3 = ListResult.<FooUrn>builder().values(urns3).totalCount(100).build();
-    when(_mockLocalDAO.listUrns(indexFilter2, null, 2)).thenReturn(listResult3);
+    ListResult<FooUrn> listResult2 = ListResult.<FooUrn>builder().values(urns2).totalCount(500).build();
+    when(_mockLocalDAO.listUrns(indexFilter2, null, 2)).thenReturn(listResult2);
     actual = runAndWait(_resource.filter(null, null, new PagingContext(0, 2)));
-    assertEquals(actual, new String[] {urn1.toString(), urn2.toString()});
+    assertEquals(actual.getElements().size(), 2);
+    assertEquals(actual.getElements().get(0), new EntityValue());
+    assertEquals(actual.getElements().get(1), new EntityValue());
+    assertEquals(actual.getTotal().intValue(), 500);
+    assertEquals(actual.getMetadata().getExtraInfos().stream().map(ExtraInfo::getUrn).collect(Collectors.toList()), Arrays.asList(urn1, urn2));
   }
 
   @Test
