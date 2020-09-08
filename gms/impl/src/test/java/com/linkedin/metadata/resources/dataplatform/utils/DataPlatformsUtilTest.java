@@ -35,6 +35,7 @@ public class DataPlatformsUtilTest {
     assertPlatformType("oracle", PlatformType.RELATIONAL_DB);
     assertPlatformType("pinot", PlatformType.OLAP_DATASTORE);
     assertPlatformType("presto", PlatformType.QUERY_ENGINE);
+    assertPlatformType("postgres", PlatformType.RELATIONAL_DB);
     assertPlatformType("teradata", PlatformType.RELATIONAL_DB);
     assertPlatformType("voldemort", PlatformType.KEY_VALUE_STORE);
   }
@@ -70,6 +71,7 @@ public class DataPlatformsUtilTest {
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("oracle").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("pinot").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("presto").get(), ".");
+    assertEquals(DataPlatformsUtil.getPlatformDelimiter("postgres").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("teradata").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("voldemort").get(), ".");
     assertFalse(DataPlatformsUtil.getPlatformDelimiter("fake").isPresent());

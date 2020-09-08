@@ -64,6 +64,11 @@
     "name": "pinot",
     "type": "OLAP_DATASTORE"
   },
+  "urn:li:dataPlatform:postgres": {
+    "datasetNameDelimiter": ".",
+    "name": "postgres",
+    "type": "RELATIONAL_DB"
+  },
   "urn:li:dataPlatform:presto": {
     "datasetNameDelimiter": ".",
     "name": "presto",
