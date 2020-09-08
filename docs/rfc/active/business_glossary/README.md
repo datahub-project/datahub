@@ -121,12 +121,12 @@ record BusinessTermProperties {
   /**
    * Definition of business term
    */
-  name: string
+  definition: string
 
   /**
    * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
    */
-  name: EnumType
+  termSource: EnumType
 
   /**
    * External Reference to the business-term (URL)
