@@ -8,13 +8,18 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.AspectKey;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.dao.ListResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
+import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -314,7 +319,7 @@ public abstract class BaseEntityResource<
    * @param limit maximum number of distinct urns to return
    * @return Array of urns represented as string
    *
-   * @deprecated Use {@link #filterUrns(IndexFilter, String, PagingContext)}  instead
+   * @deprecated Use {@link #filter(IndexFilter, String, PagingContext)}  instead
    */
   @Action(name = ACTION_LIST_URNS_FROM_INDEX)
   @Nonnull
@@ -334,32 +339,35 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Retrieves entity urns after filtering from local secondary index.
+   * Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value
+   * does not contain any metadata aspect. {@link ListResultMetadata} contains relevant list of urns.
    *
-   * <p>If no filter conditions are provided, then it returns all urns of given entity type.
+   * <p>If no filter conditions are provided, then it returns values of given entity type.
    *
    * @param indexFilter {@link IndexFilter} that defines the filter conditions
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
-   * @return array of urns represented as string
+   * @return {@link CollectionResult} containing values along with the associated urns in {@link ListResultMetadata}
    */
   @Finder(FINDER_FILTER)
   @Nonnull
-  public Task<String[]> filter(
+  public Task<CollectionResult<VALUE, ListResultMetadata>> filter(
       @QueryParam(PARAM_FILTER) @Optional @Nullable IndexFilter indexFilter,
       @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
 
     final IndexFilter filter = indexFilter == null ? getDefaultIndexFilter() : indexFilter;
 
-    return RestliUtils.toTask(() ->
-        getLocalDAO()
-            .listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount())
-            .getValues()
-            .stream()
-            .map(Urn::toString)
-            .collect(Collectors.toList())
-            .toArray(new String[0]));
+    return RestliUtils.toTask(() -> {
+      final ListResult<URN> urns = getLocalDAO().listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount());
+      final Map<URN, VALUE> urnValueMap = urns.getValues()
+          .stream()
+          .distinct()
+          .collect(Collectors.toMap(Function.identity(), urn -> toValue(newSnapshot(urn))));
+      return new CollectionResult<>(new ArrayList<>(urnValueMap.values()), urns.getTotalCount(),
+          new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
+              urnValueMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList()))));
+    });
   }
 
   @Nonnull
@@ -421,6 +429,14 @@ public abstract class BaseEntityResource<
   @Nonnull
   private SNAPSHOT newSnapshot(@Nonnull URN urn, @Nonnull List<UnionTemplate> aspects) {
     return ModelUtils.newSnapshot(_snapshotClass, urn, aspects);
+  }
+
+  /**
+   * Creates a snapshot of the entity with no aspects set, just the URN.
+   */
+  @Nonnull
+  private SNAPSHOT newSnapshot(@Nonnull URN urn) {
+    return ModelUtils.newSnapshot(_snapshotClass, urn, Collections.emptyList());
   }
 
   @Nullable
