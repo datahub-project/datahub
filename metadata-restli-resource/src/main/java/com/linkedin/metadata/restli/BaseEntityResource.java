@@ -15,9 +15,12 @@ import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.Finder;
 import com.linkedin.restli.server.annotations.Optional;
+import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.ComplexKeyResourceTaskTemplate;
@@ -310,6 +313,8 @@ public abstract class BaseEntityResource<
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param limit maximum number of distinct urns to return
    * @return Array of urns represented as string
+   *
+   * @deprecated Use {@link #filterUrns(IndexFilter, String, PagingContext)}  instead
    */
   @Action(name = ACTION_LIST_URNS_FROM_INDEX)
   @Nonnull
@@ -321,6 +326,35 @@ public abstract class BaseEntityResource<
     return RestliUtils.toTask(() ->
         getLocalDAO()
             .listUrns(filter, parseUrnParam(lastUrn), limit)
+            .getValues()
+            .stream()
+            .map(Urn::toString)
+            .collect(Collectors.toList())
+            .toArray(new String[0]));
+  }
+
+  /**
+   * Retrieves entity urns after filtering from local secondary index.
+   *
+   * <p>If no filter conditions are provided, then it returns all urns of given entity type.
+   *
+   * @param indexFilter {@link IndexFilter} that defines the filter conditions
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pagingContext {@link PagingContext} defining the paging parameters of the request
+   * @return array of urns represented as string
+   */
+  @Finder(FINDER_FILTER)
+  @Nonnull
+  public Task<String[]> filter(
+      @QueryParam(PARAM_FILTER) @Optional @Nullable IndexFilter indexFilter,
+      @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
+      @PagingContextParam @Nonnull PagingContext pagingContext) {
+
+    final IndexFilter filter = indexFilter == null ? getDefaultIndexFilter() : indexFilter;
+
+    return RestliUtils.toTask(() ->
+        getLocalDAO()
+            .listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount())
             .getValues()
             .stream()
             .map(Urn::toString)
