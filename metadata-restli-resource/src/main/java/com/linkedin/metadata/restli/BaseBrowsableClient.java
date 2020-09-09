@@ -11,7 +11,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Base client that all entities supporting browse as well as search should implement in their respective restli MPs
+ * Base client that all entities supporting browse as well as search should implement in their respective restli MPs.
+ *
  * @param <VALUE> the client's value type
  * @param <URN> urn type of the entity
  */
@@ -37,7 +38,7 @@ public abstract class BaseBrowsableClient<VALUE extends RecordTemplate, URN exte
       throws RemoteInvocationException;
 
   /**
-   * Returns a list of paths for a given urn
+   * Returns a list of paths for a given urn.
    *
    * @param urn Urn of the entity
    * @return all paths that are related to the urn

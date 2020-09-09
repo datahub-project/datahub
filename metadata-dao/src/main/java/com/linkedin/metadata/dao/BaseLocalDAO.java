@@ -10,6 +10,7 @@ import com.linkedin.data.schema.validation.ValidationOptions;
 import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.backfill.BackfillMode;
 import com.linkedin.metadata.dao.equality.DefaultEqualityTester;
 import com.linkedin.metadata.dao.equality.EqualityTester;
 import com.linkedin.metadata.dao.exception.ModelValidationException;
@@ -20,9 +21,12 @@ import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.metadata.query.IndexCriterion;
+import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +44,7 @@ import lombok.Value;
 /**
  * A base class for all Local DAOs.
  *
- * Local DAO is a standardized interface to store and retrieve aspects from a document store.
+ * <p>Local DAO is a standardized interface to store and retrieve aspects from a document store.
  *
  * @param <ASPECT_UNION> must be a valid aspect union type defined in com.linkedin.metadata.aspect
  * @param <URN> must be the entity URN type in {@code ASPECT_UNION}
@@ -97,9 +101,10 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   private Clock _clock = Clock.systemUTC();
 
   /**
-   * Constructor for BaseLocalDAO
+   * Constructor for BaseLocalDAO.
    *
-   * @param aspectUnionClass containing union of all supported aspects. Must be a valid aspect union defined in com.linkedin.metadata.aspect
+   * @param aspectUnionClass containing union of all supported aspects. Must be a valid aspect union defined in
+   *     com.linkedin.metadata.aspect
    * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
    */
   public BaseLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseMetadataEventProducer producer) {
@@ -109,7 +114,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Constructor for BaseLocalDAO
+   * Constructor for BaseLocalDAO.
    *
    * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
    * @param storageConfig {@link LocalDAOStorageConfig} containing storage config of full list of supported aspects
@@ -121,7 +126,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * For tests to override the internal clock
+   * For tests to override the internal clock.
    */
   public void setClock(@Nonnull Clock clock) {
     _clock = clock;
@@ -148,8 +153,8 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   /**
    * Registers a post-update hook for a specific aspect.
    *
-   * The hook will be invoked with the latest value of an aspect after it's updated. There's no guarantee on the order
-   * of invocation when multiple hooks are added for a single aspect. Adding the same hook again will result in
+   * <p>The hook will be invoked with the latest value of an aspect after it's updated. There's no guarantee on the
+   * order of invocation when multiple hooks are added for a single aspect. Adding the same hook again will result in
    * {@link IllegalArgumentException} thrown. Hooks are invoked in the order they're registered.
    */
   public <URN extends Urn, ASPECT extends RecordTemplate> void addPostUpdateHook(@Nonnull Class<ASPECT> aspectClass,
@@ -210,7 +215,8 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Sets if writes to local secondary index enabled
+   * Sets if writes to local secondary index enabled.
+   *
    * @deprecated Use {@link #enableLocalSecondaryIndex(boolean)} instead
    */
   public void setWriteToLocalSecondaryIndex(boolean writeToLocalSecondaryIndex) {
@@ -218,21 +224,21 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Enables reads from and writes to local secondary index
+   * Enables reads from and writes to local secondary index.
    */
   public void enableLocalSecondaryIndex(boolean enableLocalSecondaryIndex) {
     _enableLocalSecondaryIndex = enableLocalSecondaryIndex;
   }
 
   /**
-   * Gets if reads and writes to local secondary index are enabled
+   * Gets if reads and writes to local secondary index are enabled.
    */
   public boolean isLocalSecondaryIndexEnabled() {
     return _enableLocalSecondaryIndex;
   }
 
   /**
-   * Sets if local secondary index backfilling is enabled
+   * Sets if local secondary index backfilling is enabled.
    */
   public void setBackfillLocalSecondaryIndex(boolean backfillLocalSecondaryIndex) {
     _backfillLocalSecondaryIndex = backfillLocalSecondaryIndex;
@@ -241,9 +247,9 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   /**
    * Adds a new version of aspect for an entity.
    *
-   * The new aspect will have an automatically assigned version number, which is guaranteed to be positive and
-   * monotonically increasing. Older versions of aspect will be purged automatically based on the retention setting.
-   * A MetadataAuditEvent is also emitted if there's an actual update.
+   * <p>The new aspect will have an automatically assigned version number, which is guaranteed to be positive and
+   * monotonically increasing. Older versions of aspect will be purged automatically based on the retention setting. A
+   * MetadataAuditEvent is also emitted if there's an actual update.
    *
    * @param urn the URN for the entity the aspect is attached to
    * @param auditStamp the audit stamp for the operation
@@ -284,7 +290,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
 
       // 5. Save to local secondary index
       if (_enableLocalSecondaryIndex) {
-        saveToLocalSecondaryIndex(urn, newValue, largestVersion);
+        updateLocalIndex(urn, newValue, largestVersion);
       }
 
       return new AddResult<>(oldValue, newValue);
@@ -348,7 +354,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Saves the latest aspect
+   * Saves the latest aspect.
    *
    * @param urn the URN for the entity the aspect is attached to
    * @param aspectClass the aspectClass of the aspect being saved
@@ -356,20 +362,20 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param oldAuditStamp the audit stamp of the previous latest aspect, null if new value is the first version
    * @param newEntry {@link RecordTemplate} of the new latest value of aspect
    * @param newAuditStamp the audit stamp for the operation
-   * @return the largestVersion
+   * @return the largest version
    */
   protected abstract <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass, @Nullable ASPECT oldEntry, @Nullable AuditStamp oldAuditStamp,
       @Nonnull ASPECT newEntry, @Nonnull AuditStamp newAuditStamp);
 
   /**
-   * Saves the new value of an aspect to local secondary index
+   * Saves the new value of an aspect to local secondary index.
    *
    * @param urn the URN for the entity the aspect is attached to
    * @param newValue {@link RecordTemplate} of the new value of aspect
    * @param version version of the aspect
    */
-  protected abstract <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull URN urn,
+  protected abstract <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull URN urn,
       @Nullable ASPECT newValue, long version);
 
   /**
@@ -381,7 +387,34 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @return {@link ListResult} of urns from local secondary index that satisfy the given filter conditions
    */
   @Nonnull
-  public abstract ListResult<Urn> listUrns(@Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize);
+  public abstract ListResult<URN> listUrns(@Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize);
+
+  /**
+   * Similar to {@link #listUrns(IndexFilter, URN, int)}. This is to get all urns with type URN.
+   */
+  @Nonnull
+  public ListResult<URN> listUrns(@Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
+    final IndexFilter indexFilter = new IndexFilter()
+            .setCriteria(new IndexCriterionArray(new IndexCriterion().setAspect(urnClazz.getCanonicalName())));
+    return listUrns(indexFilter, lastUrn, pageSize);
+  }
+
+  /**
+   * Retrieves multiple aspects latest versions associated with list of urns returned from local secondary index that satisfy given filter conditions.
+   *
+   * @param aspectClasses aspect classes whose latest versions need to be retrieved
+   * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pageSize maximum number of distinct urns whose aspects need to be retrieved
+   * @return latest versions of multiple aspects associated with urns returned from local secondary index that satisfy given filter conditions
+   */
+  @Nonnull
+  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> get(
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull IndexFilter indexFilter,
+      @Nullable URN lastUrn, int pageSize) {
+    final Set<URN> urns = new HashSet<>(listUrns(indexFilter, lastUrn, pageSize).getValues());
+    return get(aspectClasses, urns);
+  }
 
   /**
    * Runs the given lambda expression in a transaction with a limited number of retries.
@@ -395,7 +428,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   protected abstract <T> T runInTransactionWithRetry(@Nonnull Supplier<T> block, int maxTransactionRetry);
 
   /**
-   * Gets the latest version of a specific aspect type for an entity
+   * Gets the latest version of a specific aspect type for an entity.
    *
    * @param urn {@link Urn} for the entity
    * @param aspectClass the type of aspect to get
@@ -428,7 +461,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       long version, boolean insert);
 
   /**
-   * Applies version-based retention against a specific aspect type for an entity
+   * Applies version-based retention against a specific aspect type for an entity.
    *
    * @param aspectClass the type of aspect to apply retention to
    * @param urn {@link Urn} for the entity
@@ -439,7 +472,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn, @Nonnull VersionBasedRetention retention, long largestVersion);
 
   /**
-   * Applies time-based retention against a specific aspect type for an entity
+   * Applies time-based retention against a specific aspect type for an entity.
    *
    * @param aspectClass the type of aspect to apply retention to
    * @param urn {@link Urn} for the entity
@@ -450,74 +483,98 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn, @Nonnull TimeBasedRetention retention, long currentTime);
 
   /**
-   * Emits backfill MAE for the latest version of an aspect of an entity and also backfills local
-   * secondary index if writes & backfill enabled
+   * Emits backfill MAE for the latest version of an aspect and also backfills SCSI (if it exists and is enabled).
    *
    * @param aspectClass the type of aspect to backfill
-   * @param urn {@link Urn} for the entity
+   * @param urn urn for the entity
    * @param <ASPECT> must be a supported aspect type in {@code ASPECT_UNION}.
-   * @return the aspect emitted in the backfill message
+   * @return backfilled aspect
+   * @deprecated Use {@link #backfill(Set, Set)} instead
    */
   @Nonnull
-  public <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull URN urn) {
+  public <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
+    return backfill(BackfillMode.BACKFILL_ALL, aspectClass, urn);
+  }
+
+  /**
+   * Similar to {@link #backfill(Class, URN)} but does a scoped backfill.
+   *
+   * @param mode backfill mode to scope the backfill process
+   */
+  @Nonnull
+  private <ASPECT extends RecordTemplate> Optional<ASPECT> backfill(@Nonnull BackfillMode mode,
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
     checkValidAspect(aspectClass);
     Optional<ASPECT> aspect = get(aspectClass, urn, LATEST_VERSION);
-    aspect.ifPresent(value -> backfill(value, urn));
+    aspect.ifPresent(value -> backfill(mode, value, urn));
     return aspect;
   }
 
   /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and do a batch backfill
-   */
-  @Nonnull
-  public Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> backfill(
-      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull URN urn) {
-    checkValidAspects(aspectClasses);
-    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspects = get(aspectClasses, urn);
-    aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
-    return aspects;
-  }
-
-  /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of urns and do a batch backfill
-   */
-  @Nonnull
-  public <ASPECT extends RecordTemplate> Map<URN, Optional<ASPECT>> backfill(@Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Set<URN> urns) {
-    checkValidAspect(aspectClass);
-    final Map<URN, Optional<ASPECT>> urnToAspects = get(aspectClass, urns);
-    urnToAspects.forEach((urn, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
-    return urnToAspects;
-  }
-
-  /**
-   * Similar to {@link #backfill(Class, URN)} but gets a set of aspect classes and a set of URNs and do a batch backfill
+   * Emits backfill MAE for the latest version of a set of aspects for a set of urns and also backfills SCSI (if it exists and is enabled).
+   *
+   * @param aspectClasses set of aspects to backfill
+   * @param urns set of urns to backfill
+   * @return map of urn to their backfilled aspect values
    */
   @Nonnull
   public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Set<URN> urns) {
+    return backfill(BackfillMode.BACKFILL_ALL, aspectClasses, urns);
+  }
+
+  /**
+   * Similar to {@link #backfill(Set, Set)} but does a scoped backfill.
+   *
+   * @param mode backfill mode to scope the backfill process
+   */
+  @Nonnull
+  private Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
+      @Nonnull BackfillMode mode, @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull Set<URN> urns) {
     checkValidAspects(aspectClasses);
     final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnToAspects = get(aspectClasses, urns);
     urnToAspects.forEach((urn, aspects) -> {
-      aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(value, urn)));
+      aspects.forEach((aspectClass, aspect) -> aspect.ifPresent(value -> backfill(mode, value, urn)));
     });
     return urnToAspects;
   }
 
   /**
-   * Emits backfill MAE for an aspect of an entity and also backfills local secondary index if writes & backfill enabled
+   * Emits backfill MAE for the latest version of a set of aspects for a set of urns
+   * and also backfills SCSI (if it exists and is enabled) depending on the backfill mode.
    *
+   * @param mode backfill mode to scope the backfill process
+   * @param aspectClasses set of aspects to backfill
+   * @param urnClazz the type of urn to backfill - needed to list urns using SCSI
+   * @param lastUrn last urn of the previous backfilled page - needed to list urns using SCSI
+   * @param pageSize the number of entities to backfill
+   * @return map of urn to their backfilled aspect values
+   */
+  @Nonnull
+  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> backfill(
+      @Nonnull BackfillMode mode, @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses,
+      @Nonnull Class<URN> urnClazz, @Nullable URN lastUrn, int pageSize) {
+
+    final ListResult<URN> urnList = listUrns(urnClazz, lastUrn, pageSize);
+    return backfill(mode, aspectClasses, new HashSet(urnList.getValues()));
+  }
+
+  /**
+   * Emits backfill MAE for an aspect of an entity and/or backfills SCSI depending on the backfill mode.
+   *
+   * @param mode backfill mode
    * @param aspect aspect to backfill
    * @param urn {@link Urn} for the entity
    * @param <ASPECT> must be a supported aspect type in {@code ASPECT_UNION}.
    */
-  private <ASPECT extends RecordTemplate> void backfill(@Nonnull ASPECT aspect, @Nonnull URN urn) {
-    // Backfill local secondary index as well if writes & backfill enabled
-    if (_enableLocalSecondaryIndex && _backfillLocalSecondaryIndex) {
-      saveToLocalSecondaryIndex(urn, aspect, FIRST_VERSION);
+  private <ASPECT extends RecordTemplate> void backfill(@Nonnull BackfillMode mode,  @Nonnull ASPECT aspect, @Nonnull URN urn) {
+    if (_enableLocalSecondaryIndex && (mode == BackfillMode.SCSI_ONLY || mode == BackfillMode.BACKFILL_ALL)) {
+      updateLocalIndex(urn, aspect, FIRST_VERSION);
     }
-    _producer.produceMetadataAuditEvent(urn, aspect, aspect);
+
+    if (mode == BackfillMode.MAE_ONLY || mode == BackfillMode.BACKFILL_ALL) {
+      _producer.produceMetadataAuditEvent(urn, aspect, aspect);
+    }
   }
 
   /**
@@ -544,7 +601,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @return a {@link ListResult} containing a list of URN and other pagination information
    */
   @Nonnull
-  public abstract <ASPECT extends RecordTemplate> ListResult<Urn> listUrns(@Nonnull Class<ASPECT> aspectClass,
+  public abstract <ASPECT extends RecordTemplate> ListResult<URN> listUrns(@Nonnull Class<ASPECT> aspectClass,
       int start, int pageSize);
 
   /**
@@ -562,7 +619,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       @Nonnull URN urn, int start, int pageSize);
 
   /**
-   * Paginates over a specific version of a specific aspect for all Urns
+   * Paginates over a specific version of a specific aspect for all Urns.
    *
    * @param aspectClass the type of the aspect to query
    * @param version the version of the aspect
@@ -576,7 +633,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       long version, int start, int pageSize);
 
   /**
-   * Paginates over the latest version of a specific aspect for all Urns
+   * Paginates over the latest version of a specific aspect for all Urns.
    *
    * @param aspectClass the type of the aspect to query
    * @param start the starting offset of the page
@@ -609,7 +666,7 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Similar to {@link #newNumericId(String, int)} but uses a single global namespace
+   * Similar to {@link #newNumericId(String, int)} but uses a single global namespace.
    */
   public long newNumericId() {
     return newNumericId(DEFAULT_ID_NAMESPACE);

@@ -29,4 +29,14 @@ public final class BazUrn extends Urn {
   public int hashCode() {
     return super.hashCode();
   }
+
+  public static BazUrn createFromString(String rawUrn) throws URISyntaxException {
+    final Urn urn = Urn.createFromString(rawUrn);
+
+    if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Can't cast Urn to BazUrn, not same ENTITY");
+    }
+
+    return new BazUrn(urn.getIdAsInt());
+  }
 }

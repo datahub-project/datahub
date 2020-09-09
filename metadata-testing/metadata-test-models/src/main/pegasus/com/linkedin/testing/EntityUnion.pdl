@@ -1,0 +1,6 @@
+namespace com.linkedin.testing
+
+/**
+ * For unit testing
+ */
+typeref EntityUnion = union[EntityFoo, EntityBar]

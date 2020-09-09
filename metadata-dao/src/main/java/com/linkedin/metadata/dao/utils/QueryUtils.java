@@ -68,7 +68,7 @@ public class QueryUtils {
   }
 
   /**
-   * Calculates the total page count
+   * Calculates the total page count.
    *
    * @param totalCount total count
    * @param size page size
@@ -82,7 +82,7 @@ public class QueryUtils {
   }
 
   /**
-   * Calculates whether there is more results
+   * Calculates whether there is more results.
    *
    * @param from offset from the first result you want to fetch
    * @param size page size

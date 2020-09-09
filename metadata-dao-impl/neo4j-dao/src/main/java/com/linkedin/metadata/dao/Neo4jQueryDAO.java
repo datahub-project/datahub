@@ -60,6 +60,18 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     return runQuery(queryStatement, this::nodeRecordToEntity);
   }
 
+  /**
+   * Similar to other free form APIs, such as findEntities, findRelationships, findMixedTypesEntities, etc.
+   * findPaths should be used when there is a specific need to query the graph DB and no existing APIs could be used.
+   *
+   * @param queryStatement
+   * @return A list of paths, each of which should be [Node1, Edge1, Node2, Edge2, ....]
+   */
+  @Nonnull
+  public List<List<RecordTemplate>> findPaths(@Nonnull Statement queryStatement) {
+    return runQuery(queryStatement, this::pathRecordToPathList);
+  }
+
   @Nonnull
   @Override
   public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate> List<RecordTemplate> findEntities(
@@ -185,7 +197,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
   @Nonnull
   public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate>
-  List<List<RecordTemplate>> getTraversedPaths(
+  List<List<RecordTemplate>> findPaths(
       @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
       @Nullable Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
       @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull RelationshipFilter relationshipFilter,
@@ -225,16 +237,30 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   /**
-   * Runs a query statement with parameters and return StatementResult
+   * Runs a query statement with parameters and return StatementResult.
    *
    * @param statement a statement with parameters to be executed
    * @param mapperFunction lambda to transform query result
-   * @return List<T> list of elements in the query result
+   * @return list of elements in the query result
    */
   @Nonnull
   private <T> List<T> runQuery(@Nonnull Statement statement, @Nonnull Function<Record, T> mapperFunction) {
     try (final Session session = _driver.session()) {
       return session.run(statement.getCommandText(), statement.getParams()).list(mapperFunction);
+    }
+  }
+
+
+  /**
+   * Runs a free-form Cypher query.
+   *
+   * @param query Cypher query to be executed
+   * @return query result as a list of {@link Record}
+   */
+  @Nonnull
+  public List<Record> runFreeFormQuery(@Nonnull String query) {
+    try (final Session session = _driver.session()) {
+      return session.run(query).list();
     }
   }
 
@@ -296,7 +322,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   @Nonnull
-  private <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
+  <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
       @Nonnull Record nodeRecord) {
     return nodeToEntity(entityClass, nodeRecord.values().get(0).asNode());
   }

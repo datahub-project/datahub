@@ -15,9 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 
 
 /**
- * This class holds method for taking a snapshot to generate relevant documents
+ * This class holds method for taking a snapshot to generate relevant documents.
  */
-
 @Slf4j
 public final class SnapshotProcessor {
 
@@ -25,7 +24,7 @@ public final class SnapshotProcessor {
   private final Set<? extends BaseIndexBuilder> _registeredBuilders;
 
   /**
-   * Constructor
+   * Constructor.
    *
    * @param registerdBuilders Set of document index builders who are interested in parsing metadata snapshot
    */
@@ -53,16 +52,16 @@ public final class SnapshotProcessor {
   /**
    * Constructs documents to update from a snapshot.
    *
-   * <p> Given a snapshot which is a union of metadata snapshot types, this function returns list of documents to update
+   * <p>Given a snapshot which is a union of metadata snapshot types, this function returns list of documents to update
    * from parsing non-empty metadata aspects.
    *
-   * <p> A given metadata snapshot type will contain metadata aspects, each such aspect could be used by multiple
+   * <p>A given metadata snapshot type will contain metadata aspects, each such aspect could be used by multiple
    * document index builders to construct a document.
    *
-   * <p> Each document index builder will subscribe to certain snapshot types whose aspects they are interested in, by
+   * <p>Each document index builder will subscribe to certain snapshot types whose aspects they are interested in, by
    * providing the list of snapshot types in function snapshotsInterested()
    *
-   * <p> Each document index builder will parse relevant aspects from a metadata snapshot type it has subscribed to and
+   * <p>Each document index builder will parse relevant aspects from a metadata snapshot type it has subscribed to and
    * return documents to update.
    *
    * @param snapshot Snapshot from which the document needs to be parsed

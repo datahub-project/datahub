@@ -2,7 +2,9 @@ package com.linkedin.metadata.dao.utils;
 
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.template.AbstractArrayTemplate;
 import com.linkedin.data.template.DataTemplate;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -15,17 +17,46 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.apache.commons.lang.StringUtils;
 
 
 public class RecordUtils {
 
   private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec();
+  private static final String ARRAY_WILDCARD = "*";
+  private static final Pattern LEADING_SPACESLASH_PATTERN = Pattern.compile("^[/ ]+");
+  private static final Pattern TRAILING_SPACESLASH_PATTERN = Pattern.compile("[/ ]+$");
+  private static final Pattern SLASH_PATERN = Pattern.compile("/");
+
+  /**
+   * Using in-memory hash map to store the get/is methods of the schema fields of RecordTemplate.
+   * Here map has RecordTemplate class as key, value being another map of field name with the associated get/is method
+   */
+  private static final ConcurrentHashMap<Class<? extends RecordTemplate>, Map<String, Method>> METHOD_CACHE = new ConcurrentHashMap<>();
 
   private RecordUtils() {
     // Util class
+  }
+
+  @Nonnull
+  static String capitalizeFirst(@Nonnull String name) {
+    if (name.length() > 0) {
+      return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+    return name;
   }
 
   /**
@@ -44,7 +75,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from a serialized JSON string
+   * Creates a {@link RecordTemplate} object from a serialized JSON string.
    *
    * @param type the type of {@link RecordTemplate} to create
    * @param jsonString a JSON string serialized using {@link JacksonDataTemplateCodec}
@@ -64,7 +95,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from a {@link DataMap}
+   * Creates a {@link RecordTemplate} object from a {@link DataMap}.
    *
    * @param type the type of {@link RecordTemplate} to create
    * @param dataMap a {@link DataMap} of the record
@@ -88,7 +119,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from class FQCN and a {@link DataMap}
+   * Creates a {@link RecordTemplate} object from class FQCN and a {@link DataMap}.
    *
    * @param className FQCN of the record class extending RecordTemplate
    * @param dataMap a {@link DataMap} of the record
@@ -311,5 +342,115 @@ public class RecordUtils {
     } finally {
       method.setAccessible(false);
     }
+  }
+
+  @Nonnull
+  private static Map<String, Method> getMethodsFromRecordTemplate(@Nonnull RecordTemplate recordTemplate) {
+    final HashMap<String, Method> methodMap = new HashMap<>();
+    for (RecordDataSchema.Field field : recordTemplate.schema().getFields()) {
+      final String capitalizedName = capitalizeFirst(field.getName());
+      final String getMethodName =
+          (field.getType().getType().equals(RecordDataSchema.Type.BOOLEAN) ? "is" : "get") + capitalizedName;
+      try {
+        methodMap.put(field.getName(), recordTemplate.getClass().getMethod(getMethodName));
+      } catch (NoSuchMethodException e) {
+        throw new RuntimeException(String.format("Failed to get method [%s], for class [%s], field [%s]",
+            getMethodName, recordTemplate.getClass().getCanonicalName(), field.getName()), e);
+      }
+    }
+    return Collections.unmodifiableMap(methodMap);
+  }
+
+  /**
+   * Given a {@link RecordTemplate} and field name, this will find and execute getFieldName/isFieldName and return the result
+   * If neither getFieldName/isFieldName has been called for any of the fields of the RecordTemplate, then the get/is method
+   * for all schema fields of the record will be found and subsequently cached.
+   *
+   * @param record {@link RecordTemplate} whose field has to be referenced
+   * @param fieldName field name of the record that has to be referenced
+   * @return value of the field in the record
+   */
+  @Nullable
+  private static Object invokeMethod(@Nonnull RecordTemplate record, @Nonnull String fieldName) {
+    METHOD_CACHE.putIfAbsent(record.getClass(), getMethodsFromRecordTemplate(record));
+    try {
+      return METHOD_CACHE.get(record.getClass()).get(fieldName).invoke(record);
+    } catch (IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(String.format("Failed to execute method for class [%s], field [%s]",
+          record.getClass().getCanonicalName(), fieldName), e);
+    }
+  }
+
+  /**
+   * Helper method for referencing array of RecordTemplate objects. Referencing a particular index or range of indices of an array is not supported.
+   *
+   * @param reference {@link AbstractArrayTemplate} corresponding to array of {@link RecordTemplate} which needs to be referenced
+   * @param ps {@link PathSpec} for the entire path inside the array that needs to be referenced
+   * @return {@link List} of objects from the array, referenced using the PathSpec
+   */
+  @Nonnull
+  @SuppressWarnings("rawtypes")
+  private static List<Object> getReferenceForAbstractArray(@Nonnull AbstractArrayTemplate<RecordTemplate> reference, @Nonnull PathSpec ps) {
+    if (!reference.isEmpty()) {
+      return Arrays.stream((reference).toArray())
+          .map(x -> getFieldValue(((RecordTemplate) x), ps))
+          .flatMap(o -> o.map(Stream::of).orElseGet(Stream::empty))
+          .collect(Collectors.toList());
+    }
+    return Collections.emptyList();
+  }
+
+  /**
+   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as
+   * input.
+   */
+  @Nonnull
+  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull String pathSpecAsString) {
+    pathSpecAsString = LEADING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
+    pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
+
+    if (!pathSpecAsString.isEmpty()) {
+      return getFieldValue(recordTemplate, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Given a {@link RecordTemplate} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
+   * This handles only RecordTemplate, fields of which can be primitive types, typeRefs, arrays of primitive types or array of records.
+   * Fetching of values in a RecordTemplate where the field has a default value will return the field default value.
+   * Referencing field corresponding to a particular index or range of indices of an array is not supported.
+   * Fields corresponding to 1) multi-dimensional array 2) UnionTemplate 3) AbstractMapTemplate 4) FixedTemplate are currently not supported.
+   *
+   * @param recordTemplate {@link RecordTemplate} whose field specified by the pegasus path has to be accessed
+   * @param ps {@link PathSpec} representing the path whose value needs to be returned
+   * @return Referenced object of the RecordTemplate corresponding to the PathSpec
+   */
+  @Nonnull
+  @SuppressWarnings("rawtypes")
+  public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull PathSpec ps) {
+    Object reference = recordTemplate;
+    final int pathSize = ps.getPathComponents().size();
+    for (int i = 0; i < pathSize; i++) {
+      final String part = ps.getPathComponents().get(i);
+      if (part.equals(ARRAY_WILDCARD)) {
+        continue;
+      }
+      if (StringUtils.isNumeric(part)) {
+        throw new UnsupportedOperationException(String.format("Array indexing is not supported for %s (%s from %s)", part, ps, reference));
+      }
+      if (reference instanceof RecordTemplate) {
+        reference = invokeMethod((RecordTemplate) reference, part);
+        if (reference == null) {
+          return Optional.empty();
+        }
+      } else if (reference instanceof AbstractArrayTemplate) {
+        return Optional.of(getReferenceForAbstractArray(
+            (AbstractArrayTemplate<RecordTemplate>) reference, new PathSpec(ps.getPathComponents().subList(i, pathSize))));
+      } else {
+        throw new UnsupportedOperationException(String.format("Failed at extracting %s (%s from %s)", part, ps, recordTemplate));
+      }
+    }
+    return Optional.of(reference);
   }
 }

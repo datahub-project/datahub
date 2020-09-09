@@ -14,7 +14,7 @@ import javax.annotation.Nonnull;
 /**
  * A rest.li implementation of {@link BaseRemoteWriterDAO}.
  *
- * Uses rest.li snapshot endpoints to update metadata on remote services.
+ * <p>Uses rest.li snapshot endpoints to update metadata on remote services.
  */
 public class RestliRemoteWriterDAO extends BaseRemoteWriterDAO {
 

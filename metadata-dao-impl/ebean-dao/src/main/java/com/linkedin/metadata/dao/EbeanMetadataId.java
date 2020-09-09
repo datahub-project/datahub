@@ -12,6 +12,9 @@ import lombok.NonNull;
 import lombok.Setter;
 
 
+/**
+ * Unique ID for a piece of metadata stored in MySQL.
+ */
 @Getter
 @Setter
 @AllArgsConstructor

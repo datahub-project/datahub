@@ -1,7 +1,6 @@
 package com.linkedin.metadata.dao;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.producer.BaseMetadataEventProducer;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
@@ -50,7 +49,7 @@ public class BaseLocalDAOTest {
     }
 
     @Override
-    protected <ASPECT extends RecordTemplate> void saveToLocalSecondaryIndex(@Nonnull FooUrn urn,
+    protected <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull FooUrn urn,
         @Nullable ASPECT newValue, long version) {
 
     }
@@ -94,13 +93,13 @@ public class BaseLocalDAOTest {
     }
 
     @Override
-    public <ASPECT extends RecordTemplate> ListResult<Urn> listUrns(Class<ASPECT> aspectClass, int start,
+    public <ASPECT extends RecordTemplate> ListResult<FooUrn> listUrns(Class<ASPECT> aspectClass, int start,
         int pageSize) {
       return null;
     }
 
     @Override
-    public ListResult<Urn> listUrns(@Nonnull IndexFilter indexFilter, @Nullable FooUrn lastUrn, int pageSize) {
+    public ListResult<FooUrn> listUrns(@Nonnull IndexFilter indexFilter, @Nullable FooUrn lastUrn, int pageSize) {
       return null;
     }
 

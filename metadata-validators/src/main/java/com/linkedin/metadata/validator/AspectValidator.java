@@ -9,7 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
-public class AspectValidator {
+/**
+ * Utility class to validate aspects are part of the union schemas.
+ */
+public final class AspectValidator {
 
   // A cache of validated classes
   private static final Set<Class<? extends UnionTemplate>> VALIDATED = ConcurrentHashMap.newKeySet();
