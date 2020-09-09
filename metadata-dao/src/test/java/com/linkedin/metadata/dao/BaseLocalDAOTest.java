@@ -25,6 +25,7 @@ import org.mockito.stubbing.OngoingStubbing;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.testing.AuditStamps.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
