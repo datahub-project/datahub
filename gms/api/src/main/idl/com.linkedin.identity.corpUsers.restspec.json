@@ -91,7 +91,7 @@
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
         "optional" : true
       } ],
-      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      "returns" : "com.linkedin.metadata.restli.BackfillResult"
     }, {
       "name" : "getSnapshot",
       "parameters" : [ {

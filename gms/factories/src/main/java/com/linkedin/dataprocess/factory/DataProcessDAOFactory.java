@@ -15,21 +15,21 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
+
 @Configuration
 @ComponentScan(basePackages = "com.linkedin")
 public class DataProcessDAOFactory {
-    @Autowired
-    ApplicationContext applicationContext;
+  @Autowired
+  ApplicationContext applicationContext;
 
-    @Bean(name = "dataProcessDAO")
-    @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
-    protected EbeanLocalDAO<DataProcessAspect, DataProcessUrn> createInstance() {
-        KafkaMetadataEventProducer<DataProcessSnapshot, DataProcessAspect, DataProcessUrn> producer =
-                new KafkaMetadataEventProducer(DataProcessSnapshot.class,
-                        DataProcessAspect.class,
-                        applicationContext.getBean(Producer.class),
-                        new KafkaProducerCallback());
+  @Bean(name = "dataProcessDAO")
+  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
+  protected EbeanLocalDAO<DataProcessAspect, DataProcessUrn> createInstance() {
+    KafkaMetadataEventProducer<DataProcessSnapshot, DataProcessAspect, DataProcessUrn> producer =
+        new KafkaMetadataEventProducer(DataProcessSnapshot.class, DataProcessAspect.class,
+            applicationContext.getBean(Producer.class), new KafkaProducerCallback());
 
-        return new EbeanLocalDAO<>(DataProcessAspect.class, producer, applicationContext.getBean(ServerConfig.class));
-    }
+    return new EbeanLocalDAO<>(DataProcessAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        DataProcessUrn.class);
+  }
 }

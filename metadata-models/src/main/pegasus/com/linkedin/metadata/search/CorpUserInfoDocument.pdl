@@ -51,4 +51,9 @@ record CorpUserInfoDocument includes BaseDocument {
    * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
    */
   active: optional boolean
+
+  /**
+   * The user's full email(s).
+   */
+  emails: optional array[string]
 }
