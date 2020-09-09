@@ -511,17 +511,90 @@ public class Neo4jQueryDAOTest {
     // Get reports roll-up - 2 levels
     Filter sourceFilter = newFilter("urn", urn1.toString());
     RelationshipFilter relationshipFilter = createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING);
-    List<List<RecordTemplate>> paths = _dao.getTraversedPaths(EntityFoo.class, sourceFilter, null,
+    List<List<RecordTemplate>> paths = _dao.findPaths(EntityFoo.class, sourceFilter, null,
         EMPTY_FILTER, RelationshipFoo.class, relationshipFilter, 1, 2, -1, -1);
     assertEquals(paths.size(), 5);
     assertEquals(paths.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 2);
     assertEquals(paths.stream().filter(l -> l.size() == 5).collect(Collectors.toList()).size(), 3);
 
     // Get reports roll-up - 1 level
-    paths = _dao.getTraversedPaths(EntityFoo.class, sourceFilter, null,
+    paths = _dao.findPaths(EntityFoo.class, sourceFilter, null,
         EMPTY_FILTER, RelationshipFoo.class, relationshipFilter, 1, 1, -1, -1);
     assertEquals(paths.size(), 2);
     assertEquals(paths.stream().filter(l -> l.size() == 3).collect(Collectors.toList()).size(), 2);
     assertEquals(paths.stream().filter(l -> l.size() == 5).collect(Collectors.toList()).size(), 0);
+  }
+
+  @Test
+  public void testFindPaths() throws Exception {
+    BarUrn srcUrn = makeBarUrn(0);
+    BarUrn des1Urn = makeBarUrn(1);
+    BarUrn des2Urn = makeBarUrn(2);
+
+    FooUrn srcField1Urn = makeFooUrn(1);
+    FooUrn srcField2Urn = makeFooUrn(2);
+    FooUrn des1Field1Urn = makeFooUrn(11);
+    FooUrn des1Field2Urn = makeFooUrn(12);
+    FooUrn des2Field1Urn = makeFooUrn(21);
+
+    EntityBar src = new EntityBar().setUrn(srcUrn);
+    EntityBar des1 = new EntityBar().setUrn(des1Urn);
+    EntityBar des2 = new EntityBar().setUrn(des2Urn);
+    EntityFoo srcField1 = new EntityFoo().setUrn(srcField1Urn);
+    EntityFoo srcField2 = new EntityFoo().setUrn(srcField2Urn);
+    EntityFoo des1Field1 = new EntityFoo().setUrn(des1Field1Urn);
+    EntityFoo des1Field2 = new EntityFoo().setUrn(des1Field2Urn);
+    EntityFoo des2Field1 = new EntityFoo().setUrn(des2Field1Urn);
+
+    _writer.addEntity(src);
+    _writer.addEntity(des1);
+    _writer.addEntity(des2);
+    _writer.addEntity(srcField1);
+    _writer.addEntity(srcField2);
+    _writer.addEntity(des1Field1);
+    _writer.addEntity(des1Field2);
+    _writer.addEntity(des2Field1);
+
+    String commandText = "MATCH p=(n1 {urn:$src})-"
+        + "[r1]->(n2)-[r2:`com.linkedin.testing.RelationshipFoo`*0..100]->(n3)<-[r3]-() return p";
+    Map<String, Object> params = new HashMap<>();
+    params.put("src", srcUrn.toString());
+    Statement statement = new Statement(commandText, params);
+
+    // Test one path
+    createBarRelationship(srcUrn, srcField1Urn);
+    createBarRelationship(des1Urn, des1Field1Urn);
+    createFooRelationship(srcField1Urn, des1Field1Urn);
+
+    List<List<RecordTemplate>> paths = _dao.findPaths(statement);
+    assertEquals(paths.size(), 1);
+
+    List<RecordTemplate> path = paths.get(0);
+    assertEquals(path.size(), 7);
+
+    assertEquals(path.get(0), src);
+    assertEquals(path.get(2), srcField1);
+    assertEquals(path.get(4), des1Field1);
+    assertEquals(path.get(6), des1);
+
+    // Test multiple paths
+    createBarRelationship(des1Urn, des1Field2Urn);
+    createBarRelationship(des2Urn, des2Field1Urn);
+    createBarRelationship(srcUrn, srcField2Urn);
+    createFooRelationship(srcField2Urn, des1Field2Urn);
+    createFooRelationship(srcField2Urn, des2Field1Urn);
+
+    paths = _dao.findPaths(statement);
+
+    assertEquals(paths.size(), 3);
+    paths.forEach(p -> assertEquals(p.size(), 7));
+  }
+
+  private void createFooRelationship(FooUrn f1, FooUrn f2) throws Exception {
+    _writer.addRelationship(new RelationshipFoo().setSource(f1).setDestination(f2));
+  }
+
+  private void createBarRelationship(BarUrn d1, FooUrn f1) throws Exception {
+    _writer.addRelationship(new RelationshipBar().setSource(d1).setDestination(f1));
   }
 }
