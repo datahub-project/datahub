@@ -35,7 +35,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts ENTITY to node (field:value map).
+   * Converts ENTITY to node (field:value map)
    *
    * @param entity ENTITY defined in models
    * @return unmodifiable field value map
@@ -51,7 +51,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts RELATIONSHIP to edge (field:value map), excluding source and destination.
+   * Converts RELATIONSHIP to edge (field:value map), excluding source and destination
    *
    * @param relationship RELATIONSHIP defined in models
    * @return unmodifiable field value map
@@ -72,7 +72,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key: "value"}.
+   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key: "value"}
    *
    * @param relationship RELATIONSHIP defined in models
    * @return Criteria String, or "" if no additional fields in relationship
@@ -113,7 +113,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
+   * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL
    *
    * @param filter Query Filter
    * @return Neo4j criteria string
@@ -124,7 +124,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts {@link CriterionArray} to neo4j query string.
+   * Converts {@link CriterionArray} to neo4j query string
    *
    * @param criterionArray CriterionArray in a Filter
    * @return Neo4j criteria string
@@ -143,7 +143,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts node (field:value map) to ENTITY.
+   * Converts node (field:value map) to ENTITY
    *
    * @param entityClass Class of Entity
    * @param node Neo4j Node of entityClass type
@@ -156,7 +156,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts node (field:value map) to ENTITY RecordTemplate.
+   * Converts node (field:value map) to ENTITY RecordTemplate
    *
    * @param node Neo4j Node of entityClass type
    * @return RecordTemplate
@@ -169,9 +169,10 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts path segment (field:value map) list of {@link RecordTemplate}s of nodes & edges.
+   * Converts path segment (field:value map) list of {@link RecordTemplate}s of nodes & edges
    *
    * @param segment The segment of a path containing nodes & edges
+   * @return List<RecordTemplate>
    */
   @Nonnull
   public static List<RecordTemplate> pathSegmentToRecordList(@Nonnull Path.Segment segment) {
@@ -187,7 +188,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts edge (source-relationship->destination) to RELATIONSHIP.
+   * Converts edge (source-relationship->destination) to RELATIONSHIP
    *
    * @param relationshipClass Class of RELATIONSHIP
    * @param source Neo4j source Node
@@ -205,7 +206,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts edge (source-relationship->destination) to RELATIONSHIP RecordTemplate.
+   * Converts edge (source-relationship->destination) to RELATIONSHIP RecordTemplate
    *
    * @param source Neo4j source Node
    * @param destination Neo4j destination Node
@@ -250,7 +251,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Create {@link RelationshipFilter} using filter and relationship direction.
+   * Create {@link RelationshipFilter} using filter and relationship direction
    *
    * @param filter {@link Filter} filter
    * @param relationshipDirection {@link RelationshipDirection} relationship direction
@@ -263,7 +264,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Create {@link RelationshipFilter} using filter conditions and relationship direction.
+   * Create {@link RelationshipFilter} using filter conditions and relationship direction
    *
    * @param field field to create a filter on
    * @param value field value to be filtered

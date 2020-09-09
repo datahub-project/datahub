@@ -16,7 +16,7 @@ public abstract class BaseRelationshipBuilder<ASPECT extends RecordTemplate> {
   }
 
   /**
-   * Returns the aspect class this {@link BaseRelationshipBuilder} supports.
+   * Returns the aspect class this {@link BaseRelationshipBuilder} supports
    */
   @Nonnull
   public Class<ASPECT> supportedAspectClass() {
@@ -24,7 +24,7 @@ public abstract class BaseRelationshipBuilder<ASPECT extends RecordTemplate> {
   }
 
   /**
-   * Returns a list of corresponding relationship updates for the given metadata aspect.
+   * Returns a list of corresponding relationship updates for the given metadata aspect
    */
   @Nonnull
   public abstract <URN extends Urn> List<GraphBuilder.RelationshipUpdates> buildRelationships(@Nonnull URN urn,

@@ -18,10 +18,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-/**
- * Utility class for schema validation classes.
- */
-public final class ValidationUtils {
+public class ValidationUtils {
 
   public static final Set<DataSchema.Type> PRIMITIVE_TYPES =
       Collections.unmodifiableSet(new HashSet<DataSchema.Type>() {
@@ -93,7 +90,7 @@ public final class ValidationUtils {
   }
 
   /**
-   * Returns the Java class for an URN typeref field.
+   * Returns the Java class for an URN typeref field
    */
   public static Class getUrnClass(@Nonnull RecordDataSchema.Field field) {
     try {
@@ -111,7 +108,7 @@ public final class ValidationUtils {
   }
 
   /**
-   * Returns all the non-whitelisted, non-optional fields in a {@link RecordDataSchema}.
+   * Returns all the non-whitelisted, non-optional fields in a {@link RecordDataSchema}
    */
   @Nonnull
   public static List<RecordDataSchema.Field> nonOptionalFields(@Nonnull RecordDataSchema schema,
@@ -127,7 +124,7 @@ public final class ValidationUtils {
   }
 
   /**
-   * Returns all the non-whitelisted, optional fields in a {@link RecordDataSchema}.
+   * Returns all the non-whitelisted, optional fields in a {@link RecordDataSchema}
    */
   @Nonnull
   public static List<RecordDataSchema.Field> optionalFields(@Nonnull RecordDataSchema schema,

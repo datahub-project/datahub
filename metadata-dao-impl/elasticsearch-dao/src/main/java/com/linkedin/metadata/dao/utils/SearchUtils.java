@@ -24,7 +24,7 @@ public class SearchUtils {
   }
 
   /**
-   * Validates the request params and create a request map out of it.
+   * Validates the request params and create a request map out of it
    *
    * @param requestParams the search request with fields and values
    * @return a request map
@@ -45,7 +45,7 @@ public class SearchUtils {
   }
 
   /**
-   * Builds search query using criterion.
+   * Builds search query using criterion
    *
    * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
    * @return QueryBuilder

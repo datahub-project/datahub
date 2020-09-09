@@ -14,7 +14,8 @@ import javax.annotation.Nullable;
 /**
  * A base class for all Search DAOs.
  *
- * <p>A search DAO is a standardized interface to search metadata. See http://go/gma for more details.
+ * A search DAO is a standardized interface to search metadata.
+ * See http://go/gma for more details.
  *
  * @param <DOCUMENT> must be a search document type defined in com.linkedin.metadata.search
  */
@@ -55,9 +56,9 @@ public abstract class BaseSearchDAO<DOCUMENT extends RecordTemplate> {
   public abstract SearchResult<DOCUMENT> filter(@Nullable Filter filters, @Nullable SortCriterion sortCriterion, int from, int size);
 
   /**
-   * Returns a list of suggestions given type ahead query.
+   * Returns a list of suggestions given type ahead query
    *
-   * <p>The advanced auto complete can take filters and provides suggestions based on filtered context.
+   * The advanced auto complete can take filters and provides suggestions based on filtered context
    *
    * @param query the type ahead query text
    * @param field the field name for the auto complete

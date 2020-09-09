@@ -7,9 +7,6 @@ import javax.annotation.Nonnull;
 import org.rythmengine.Rythm;
 
 
-/**
- * Generates MXE schemas.
- */
 public class SchemaGenerator {
 
   private final DataSchemaParser _dataSchemaParser;

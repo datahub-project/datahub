@@ -51,7 +51,7 @@ public abstract class BaseClient implements AutoCloseable {
   }
 
   /**
-   * Similar to {@link #get(GetRequest)} but takes a @{link GetRequestBuilderBase} instead.
+   * Similar to {@link #get(GetRequest)} but takes a @{link GetRequestBuilderBase} instead
    */
   protected <K, ASPECT extends RecordTemplate, RB extends GetRequestBuilderBase<K, ASPECT, RB>>
   ASPECT get(@Nonnull GetRequestBuilderBase<K, ASPECT, RB> requestBuilder) throws RemoteInvocationException {
@@ -82,8 +82,8 @@ public abstract class BaseClient implements AutoCloseable {
   }
 
   /**
-   * Similar to {@link #batchGet(BatchGetEntityRequest, Function)} but takes a {@link BatchGetEntityRequestBuilder}
-   * instead.
+   * Similar to {@link #batchGet(BatchGetEntityRequest, Function)} but
+   * takes a @{link BatchGetEntityRequestBuilder} instead
    */
   protected <URN, KEY extends RecordTemplate, ASPECT extends RecordTemplate> Map<URN, ASPECT> batchGet(
       @Nonnull BatchGetEntityRequestBuilder<ComplexResourceKey<KEY, EmptyRecord>, ASPECT> requestBuilder,
@@ -102,7 +102,7 @@ public abstract class BaseClient implements AutoCloseable {
   }
 
   /**
-   * Similar to {@link #batchGet(BatchGetEntityRequest)} but takes a @{link BatchGetEntityRequestBuilder} instead.
+   * Similar to {@link #batchGet(BatchGetEntityRequest)} but takes a @{link BatchGetEntityRequestBuilder} instead
    */
   protected <KEY extends RecordTemplate, ASPECT extends RecordTemplate> Map<KEY, ASPECT> batchGet(
       @Nonnull BatchGetEntityRequestBuilder<ComplexResourceKey<KEY, EmptyRecord>, ASPECT> requestBuilder
@@ -125,7 +125,7 @@ public abstract class BaseClient implements AutoCloseable {
   }
 
   /**
-   * Similar to {@link #getAll(GetAllRequest)} but takes a @{link GetAllRequestBuilderBase} instead.
+   * Similar to {@link #getAll(GetAllRequest)} but takes a @{link GetAllRequestBuilderBase} instead
    */
   protected <K, ASPECT extends RecordTemplate, RB extends GetAllRequestBuilderBase<K, ASPECT, RB>>
   CollectionResponse<ASPECT> getAll(@Nonnull GetAllRequestBuilderBase<K, ASPECT, RB> requestBuilder)
@@ -148,7 +148,7 @@ public abstract class BaseClient implements AutoCloseable {
   }
 
   /**
-   * Similar to {@link #doAction(ActionRequest)} but takes a @{link ActionRequestBuilderBase} instead.
+   * Similar to {@link #doAction(ActionRequest)} but takes a @{link ActionRequestBuilderBase} instead
    */
   protected <K, ASPECT extends RecordTemplate, RB extends ActionRequestBuilderBase<K, ASPECT, RB>>
   ASPECT doAction(@Nonnull ActionRequestBuilderBase<K, ASPECT, RB> requestBuilder) throws RemoteInvocationException {

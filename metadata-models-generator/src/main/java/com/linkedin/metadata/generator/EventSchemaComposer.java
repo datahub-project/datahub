@@ -13,7 +13,7 @@ import static com.linkedin.metadata.generator.SchemaGeneratorConstants.*;
 import static com.linkedin.metadata.generator.SchemaGeneratorUtil.*;
 
 
-/**
+/***
  * Render the property annotations to the MXE pdl schema.
  */
 @Slf4j

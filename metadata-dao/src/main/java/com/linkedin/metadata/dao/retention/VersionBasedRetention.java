@@ -9,7 +9,7 @@ import lombok.Value;
 public class VersionBasedRetention implements Retention {
 
   /**
-   * Constructs a {@link VersionBasedRetention} object.
+   * Constructs a {@link VersionBasedRetention} object
    *
    * @param maxVersionsToRetain maximal number of versions to retain. Must be greater than 0.
    */

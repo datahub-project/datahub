@@ -83,7 +83,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Constructs the base query string given input.
+   * Constructs the base query string given input
    *
    * @param input the search input text
    * @return built query
@@ -131,8 +131,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to
-   * search results.
+   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to search results
    *
    * @param filters {@link Filter} list of conditions with fields and values
    * @param sortCriterion {@link SortCriterion} to be applied to the search results
@@ -163,15 +162,14 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Constructs the search query based on the query request.
-   *
-   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
+   * Constructs the search query based on the query request
    *
    * @param input the search input text
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a valid search request
+   * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
    */
   @Nonnull
   public SearchRequest constructSearchQuery(@Nonnull String input, @Nullable Filter filter,
@@ -194,9 +192,9 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Constructs the aggregations and sub-aggregations by adding other facets' filters if they are set in request.
+   * Constructs the aggregations and sub-aggregations by adding other facets' filters if they are set in request
    *
-   * <p>Retrieves dynamic aggregation bucket values when the selections change on the fly
+   * Retrieves dynamic aggregation bucket values when the selections change on the fly
    *
    * @param searchSourceBuilder the builder to build search source for search request
    * @param filter the search filters
@@ -220,7 +218,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Extracts a list of documents from the raw search response.
+   * Extracts a list of documents from the raw search response
    *
    * @param searchResponse the raw search response from search engine
    * @param from offset from the first result you want to fetch
@@ -246,7 +244,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Gets list of documents from search hits.
+   * Gets list of documents from search hits
    *
    * @param searchResponse the raw search response from search engine
    * @return List of documents
@@ -258,7 +256,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Builds data map for documents.
+   * Builds data map for documents
    *
    * @param objectMap an object map represents one raw search hit
    * @return a data map
@@ -307,7 +305,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Extracts SearchResultMetadata section.
+   * Extracts SearchResultMetadata section
    *
    * @param searchResponse the raw {@link SearchResponse} as obtained from the search engine
    * @return {@link SearchResultMetadata} with aggregation and list of urns obtained from {@link SearchResponse}
@@ -346,7 +344,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Extracts term aggregations give a parsed term.
+   * Extracts term aggregations give a parsed term
    *
    * @param terms an abstract parse term, input can be either ParsedStringTerms ParsedLongTerms
    * @return a map with aggregation key and corresponding doc counts
@@ -371,7 +369,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   }
 
   /**
-   * Extracts sub aggregations from one term bucket.
+   * Extracts sub aggregations from one term bucket
    *
    * @param bucket a term bucket
    * @return a parsed filter if exist
@@ -397,4 +395,5 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
       throw new RuntimeException("Invalid urn in search document " + e);
     }
   }
+
 }

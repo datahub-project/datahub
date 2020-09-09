@@ -237,11 +237,11 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   /**
-   * Runs a query statement with parameters and return StatementResult.
+   * Runs a query statement with parameters and return StatementResult
    *
    * @param statement a statement with parameters to be executed
    * @param mapperFunction lambda to transform query result
-   * @return list of elements in the query result
+   * @return List<T> list of elements in the query result
    */
   @Nonnull
   private <T> List<T> runQuery(@Nonnull Statement statement, @Nonnull Function<Record, T> mapperFunction) {

@@ -44,7 +44,7 @@ public class ESAutoCompleteQueryForHighCardinalityFields extends BaseESAutoCompl
   }
 
   /**
-   * Constructs auto complete query given request.
+   * Constructs auto complete query given request
    *
    * @param input the type ahead query text
    * @param field the field name for the auto complete
