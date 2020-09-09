@@ -15,18 +15,20 @@ import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.Nonnull;
 
+
 @Configuration
 public class CorpUserDaoFactory {
-    @Autowired
-    ApplicationContext applicationContext;
+  @Autowired
+  ApplicationContext applicationContext;
 
-    @Bean(name = "corpUserDao")
-    @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
-    @Nonnull
-    protected EbeanLocalDAO createInstance() {
-        KafkaMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, CorpuserUrn> producer =
-                new KafkaMetadataEventProducer(CorpUserSnapshot.class, CorpUserAspect.class,
-                        applicationContext.getBean(Producer.class));
-        return new EbeanLocalDAO<>(CorpUserAspect.class, producer, applicationContext.getBean(ServerConfig.class));
-    }
+  @Bean(name = "corpUserDao")
+  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
+  @Nonnull
+  protected EbeanLocalDAO createInstance() {
+    KafkaMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, CorpuserUrn> producer =
+        new KafkaMetadataEventProducer(CorpUserSnapshot.class, CorpUserAspect.class,
+            applicationContext.getBean(Producer.class));
+    return new EbeanLocalDAO<>(CorpUserAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        CorpuserUrn.class);
+  }
 }

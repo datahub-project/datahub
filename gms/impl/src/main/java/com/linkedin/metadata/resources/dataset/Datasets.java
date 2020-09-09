@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
@@ -237,7 +238,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Action(name = ACTION_BACKFILL)
   @Override
   @Nonnull
-  public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.backfill(urnString, aspectNames);
   }

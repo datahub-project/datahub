@@ -24,11 +24,10 @@ public class DatasetDaoFactory {
   @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
   protected EbeanLocalDAO<DatasetAspect, DatasetUrn> createInstance() {
     KafkaMetadataEventProducer<DatasetSnapshot, DatasetAspect, DatasetUrn> producer =
-        new KafkaMetadataEventProducer(DatasetSnapshot.class,
-                DatasetAspect.class,
-                applicationContext.getBean(Producer.class),
-                new KafkaProducerCallback());
+        new KafkaMetadataEventProducer(DatasetSnapshot.class, DatasetAspect.class,
+            applicationContext.getBean(Producer.class), new KafkaProducerCallback());
 
-    return new EbeanLocalDAO<>(DatasetAspect.class, producer, applicationContext.getBean(ServerConfig.class));
+    return new EbeanLocalDAO<>(DatasetAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        DatasetUrn.class);
   }
 }

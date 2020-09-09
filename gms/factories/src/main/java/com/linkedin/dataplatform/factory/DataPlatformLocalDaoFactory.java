@@ -1,5 +1,6 @@
 package com.linkedin.dataplatform.factory;
 
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.metadata.aspect.DataPlatformAspect;
 import com.linkedin.metadata.dao.ImmutableLocalDAO;
 import com.linkedin.metadata.resources.dataplatform.utils.DataPlatformsUtil;
@@ -16,6 +17,7 @@ public class DataPlatformLocalDaoFactory {
 
   @Bean(name = "dataPlatformLocalDAO")
   protected ImmutableLocalDAO createInstance() {
-    return new ImmutableLocalDAO<>(DataPlatformAspect.class, DataPlatformsUtil.getDataPlatformInfoMap());
+    return new ImmutableLocalDAO<>(DataPlatformAspect.class, DataPlatformsUtil.getDataPlatformInfoMap(),
+        DataPlatformUrn.class);
   }
 }

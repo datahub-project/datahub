@@ -5,6 +5,7 @@ dependencies {
   compile project(':metadata-validators')
   compile externalDependency.javatuples
   compile externalDependency.reflections
+  compile externalDependency.commonsLang
 
   dataModel project(':li-utils')
 

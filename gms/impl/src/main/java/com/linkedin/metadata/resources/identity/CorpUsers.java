@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -185,9 +186,8 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Action(name = ACTION_BACKFILL)
   @Override
   @Nonnull
-  public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.backfill(urnString, aspectNames);
   }
-
 }
