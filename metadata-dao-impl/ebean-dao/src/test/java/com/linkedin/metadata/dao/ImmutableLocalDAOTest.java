@@ -11,6 +11,7 @@ import java.util.Optional;
 import org.json.simple.parser.ParseException;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.testing.AuditStamps.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.testng.Assert.*;
