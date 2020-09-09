@@ -498,7 +498,7 @@ public class EbeanLocalDAOTest {
       addMetadata(urn, AspectBar.class.getCanonicalName(), 0, aspectBar);
 
       // only index urn
-      addIndex(urn, FooUrn.class.getCanonicalName(), "/fooId", urn.getId());
+      addIndex(urn, FooUrn.class.getCanonicalName(), "/fooId", urn.getFooIdEntity());
     });
 
     // Backfill in SCSI_ONLY mode
