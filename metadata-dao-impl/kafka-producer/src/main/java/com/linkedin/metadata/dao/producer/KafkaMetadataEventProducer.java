@@ -40,7 +40,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   private final Optional<Callback> _callback;
 
   /**
-   * Constructor.
+   * Constructor
    *
    * @param snapshotClass The snapshot class for the produced events
    * @param aspectUnionClass The aspect union in the snapshot
@@ -54,7 +54,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   }
 
   /**
-   * Constructor.
+   * Constructor
    *
    * @param snapshotClass The snapshot class for the produced events
    * @param aspectUnionClass The aspect union in the snapshot

@@ -18,7 +18,7 @@ import static com.linkedin.metadata.dao.BaseReadDAO.*;
 /**
  * A base class for the single aspect entity rest.li resource that supports CRUD + search methods.
  *
- * <p>See http://go/gma for more details.
+ * See http://go/gma for more details
  *
  * @param <KEY> the resource's key type
  * @param <VALUE> the resource's value type

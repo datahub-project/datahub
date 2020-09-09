@@ -9,10 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 
 
-/**
- * Utility class to validate search document schemas.
- */
-public final class DocumentValidator {
+public class DocumentValidator {
 
   // Allowed non-optional fields. All other fields must be optional.
   private static final Set<String> NON_OPTIONAL_FIELDS = Collections.unmodifiableSet(new HashSet<String>() {

@@ -38,7 +38,7 @@ public class ImmutableLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends U
   private static final String GMA_CREATE_ALL_SQL = "gma-create-all.sql";
 
   /**
-   * Constructs an {@link ImmutableLocalDAO} from a hard-coded URN-Aspect map.
+   * Constructs an {@link ImmutableLocalDAO} from a hard-coded URN-Aspect map
    */
   public ImmutableLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass,
       @Nonnull Map<URN, ? extends RecordTemplate> urnAspectMap) {
@@ -60,7 +60,7 @@ public class ImmutableLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends U
   /**
    * Loads a map of URN to aspect values from an {@link InputStream}.
    *
-   * <p>The InputStream is expected to contain a JSON map where the keys are a specific type of URN and values are a
+   * The InputStream is expected to contain a JSON map where the keys are a specific type of URN and values are a
    * specific type of metadata aspect.
    */
   @Nonnull

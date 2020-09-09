@@ -56,9 +56,9 @@ public class SnapshotValidator {
   }
 
   /**
-   * Validates that the URN class is unique across all snapshots.
+   * Validates that the URN class is unique across all snapshots
    *
-   * @param snapshotClasses a collection of snapshot classes.
+   * @param classes a collection of snapshot classes.
    */
   public static void validateUniqueUrn(@Nonnull Collection<? extends Class> snapshotClasses) {
     Set<Class> urnClasses = new HashSet<>();

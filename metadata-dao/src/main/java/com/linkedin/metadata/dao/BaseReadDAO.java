@@ -72,7 +72,7 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
   /**
    * Similar to {@link #get(Class, Urn)} but retrieves multiple aspects latest versions associated with multiple URNs.
    *
-   * <p>The returned {@link Map} contains all the .
+   * The returned {@link Map} contains all the .
    */
   @Nonnull
   public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> get(
