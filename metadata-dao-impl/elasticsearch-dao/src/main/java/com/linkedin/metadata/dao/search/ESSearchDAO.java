@@ -11,10 +11,10 @@ import com.linkedin.metadata.dao.SearchResult;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
-import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.query.AggregationMetadata;
 import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -58,14 +59,14 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
   private static final String URN_FIELD = "urn";
 
   private RestHighLevelClient _client;
-  private BaseSearchConfig _config;
+  private BaseSearchConfig<DOCUMENT> _config;
   private BaseESAutoCompleteQuery _autoCompleteQueryForLowCardFields;
   private BaseESAutoCompleteQuery _autoCompleteQueryForHighCardFields;
 
   // TODO: Currently takes elastic search client, in future, can take other clients such as galene
   // TODO: take params and settings needed to create the client
   public ESSearchDAO(@Nonnull RestHighLevelClient esClient, @Nonnull Class<DOCUMENT> documentClass,
-      @Nonnull BaseSearchConfig config) {
+      @Nonnull BaseSearchConfig<DOCUMENT> config) {
     super(documentClass);
     _client = esClient;
     _config = config;
@@ -164,27 +165,25 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    * Constructs the search query based on the query request
    *
    * @param input the search input text
-   * @param requestParams the request map with fields and values
+   * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a valid search request
    * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
    */
   @Nonnull
-  public SearchRequest constructSearchQuery(@Nonnull String input, @Nullable Filter requestParams,
+  public SearchRequest constructSearchQuery(@Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int from, int size) {
 
     SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
-
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
 
     searchSourceBuilder.query(buildQueryString(input));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(requestMap));
-    buildAggregations(searchSourceBuilder, requestMap);
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
+    buildAggregations(searchSourceBuilder, filter);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
 
     searchRequest.source(searchSourceBuilder);
@@ -198,24 +197,22 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    * Retrieves dynamic aggregation bucket values when the selections change on the fly
    *
    * @param searchSourceBuilder the builder to build search source for search request
-   * @param requestMap the search request map with fields and its values
+   * @param filter the search filters
    */
   private void buildAggregations(@Nonnull SearchSourceBuilder searchSourceBuilder,
-      @Nonnull Map<String, String> requestMap) {
+      @Nullable Filter filter) {
     Set<String> facetFields = _config.getFacetFields();
     for (String facet : facetFields) {
       AggregationBuilder aggBuilder = AggregationBuilders.terms(facet).field(facet).size(DEFAULT_TERM_BUCKETS_SIZE_100);
-
-      for (Map.Entry<String, String> entry : requestMap.entrySet()) {
-        if (!facetFields.contains(entry.getKey()) || entry.getKey().equals(facet) || entry.getValue() == null) {
-          continue;
+      Optional.ofNullable(filter).map(Filter::getCriteria).ifPresent(criteria -> {
+        for (Criterion criterion : criteria) {
+          if (!facetFields.contains(criterion.getField()) || criterion.getField().equals(facet)) {
+            continue;
+          }
+          QueryBuilder filterQueryBuilder = ESUtils.getQueryBuilderFromCriterionForSearch(criterion);
+          aggBuilder.subAggregation(AggregationBuilders.filter(criterion.getField(), filterQueryBuilder));
         }
-        BoolQueryBuilder oFilters = new BoolQueryBuilder();
-        Arrays.stream(entry.getValue().split(","))
-            .forEach(elem -> oFilters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
-
-        aggBuilder.subAggregation(AggregationBuilders.filter(entry.getKey(), oFilters));
-      }
+      });
       searchSourceBuilder.aggregation(aggBuilder);
     }
   }

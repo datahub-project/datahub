@@ -1,11 +1,14 @@
 package com.linkedin.metadata.dao.utils;
 
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import java.util.Arrays;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -32,19 +35,40 @@ public class ESUtils {
    *
    * Multiple values can be selected for a filter, and it is currently modeled as string separated by comma
    *
-   * @param requestMap the search request map with fields and its values
-   * @return built filters
+   * @param filter the search filter
+   * @return built filter query
    */
   @Nonnull
-  public static BoolQueryBuilder buildFilterQuery(@Nonnull Map<String, String> requestMap) {
+  public static BoolQueryBuilder buildFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder boolFilter = new BoolQueryBuilder();
-    for (Map.Entry<String, String> entry : requestMap.entrySet()) {
-      BoolQueryBuilder filters = new BoolQueryBuilder();
-      Arrays.stream(entry.getValue().split(","))
-          .forEach(elem -> filters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
-      boolFilter.must(filters);
+    if (filter == null) {
+      return boolFilter;
+    }
+    for (Criterion criterion : filter.getCriteria()) {
+      boolFilter.must(getQueryBuilderFromCriterionForSearch(criterion));
     }
     return boolFilter;
+  }
+
+  /**
+   * Builds search query using criterion.
+   * This method is similar to SearchUtils.getQueryBuilderFromCriterion().
+   * The only difference is this method use match query instead of term query for EQUAL.
+   *
+   * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
+   * @return QueryBuilder
+   */
+  @Nonnull
+  public static QueryBuilder getQueryBuilderFromCriterionForSearch(@Nonnull Criterion criterion) {
+    final Condition condition = criterion.getCondition();
+    if (condition == Condition.EQUAL) {
+      BoolQueryBuilder filters = new BoolQueryBuilder();
+      Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
+          .forEach(elem -> filters.should(QueryBuilders.matchQuery(criterion.getField(), elem)));
+      return filters;
+    } else {
+      return SearchUtils.getQueryBuilderFromCriterion(criterion);
+    }
   }
 
   /**
