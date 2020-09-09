@@ -25,8 +25,8 @@ import javax.annotation.Nonnull;
  * A base resource class for serving a versioned single-aspect entity values as sub resource. This resource class is
  * meant to be used as a child resource for classes extending from {@link BaseSingleAspectEntitySimpleKeyResource}.
  *
- * <p>The key for the sub-resource is typically a version field which is a Long value. The versioned resources are
- * retrieved using {@link #get(Long)} and {@link #getAllWithMetadata(PagingContext)}.
+ * The key for the sub-resource is typically a version field which is a Long value. The versioned resources
+ * are retrieved using {@link #get(Long)} and {@link #getAllWithMetadata(PagingContext)}.
  *
  * @param <VALUE> the resource's value type
  * @param <URN> must be a valid {@link Urn} type
@@ -40,7 +40,7 @@ public abstract class BaseSingleAspectEntitySimpleKeyVersionedSubResource<
     ASPECT extends RecordTemplate,
     ASPECT_UNION extends UnionTemplate>
     extends CollectionResourceTaskTemplate<Long, VALUE> {
-  // @formatter:on
+   // @formatter:on
 
   private final Class<ASPECT> _aspectClass;
   private final Class<VALUE> _valueClass;

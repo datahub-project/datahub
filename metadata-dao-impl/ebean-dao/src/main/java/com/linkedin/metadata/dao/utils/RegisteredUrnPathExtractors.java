@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 /**
  * A class that holds all the registered {@link UrnPathExtractor}s.
  *
- * <p>Register new type of urn path extractors by adding them to {@link #REGISTERED_URN_PATH_EXTRACTORS}.
+ * Register new type of urn path extractors by adding them to {@link #REGISTERED_URN_PATH_EXTRACTORS}.
  */
 public class RegisteredUrnPathExtractors {
 

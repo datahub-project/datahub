@@ -75,7 +75,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from a serialized JSON string.
+   * Creates a {@link RecordTemplate} object from a serialized JSON string
    *
    * @param type the type of {@link RecordTemplate} to create
    * @param jsonString a JSON string serialized using {@link JacksonDataTemplateCodec}
@@ -95,7 +95,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from a {@link DataMap}.
+   * Creates a {@link RecordTemplate} object from a {@link DataMap}
    *
    * @param type the type of {@link RecordTemplate} to create
    * @param dataMap a {@link DataMap} of the record
@@ -119,7 +119,7 @@ public class RecordUtils {
   }
 
   /**
-   * Creates a {@link RecordTemplate} object from class FQCN and a {@link DataMap}.
+   * Creates a {@link RecordTemplate} object from class FQCN and a {@link DataMap}
    *
    * @param className FQCN of the record class extending RecordTemplate
    * @param dataMap a {@link DataMap} of the record
@@ -401,8 +401,7 @@ public class RecordUtils {
   }
 
   /**
-   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as
-   * input.
+   * Similar to {@link #getFieldValue(RecordTemplate, PathSpec)} but takes string representation of Pegasus PathSpec as input
    */
   @Nonnull
   public static Optional<Object> getFieldValue(@Nonnull RecordTemplate recordTemplate, @Nonnull String pathSpecAsString) {

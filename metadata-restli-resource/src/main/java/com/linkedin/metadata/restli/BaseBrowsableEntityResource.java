@@ -19,9 +19,9 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 
 
 /**
- * A base class for the entity rest.li resource that supports CRUD + search + browse methods.
+ * A base class for the entity rest.li resource that supports CRUD + search + browse methods
  *
- * <p>See http://go/gma for more details
+ * See http://go/gma for more details
  *
  * @param <KEY> the resource's key type
  * @param <VALUE> the resource's value type

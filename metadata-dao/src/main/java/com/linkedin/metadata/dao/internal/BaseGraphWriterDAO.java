@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 /**
  * A base class for all Graph Writer DAOs.
  *
- * <p>Graph Writer DAO is a standardized interface to update a centralized graph DB.
+ * Graph Writer DAO is a standardized interface to update a centralized graph DB.
  */
 public abstract class BaseGraphWriterDAO {
 
@@ -74,7 +74,7 @@ public abstract class BaseGraphWriterDAO {
   }
 
   /**
-   * Adds a relationship in the graph, with removal operations before adding.
+   * Adds a relationship in the graph, with removal operations before adding
    *
    * @param relationship the relationship to be persisted
    * @param removalOption whether to remove existing relationship of the same type
@@ -99,7 +99,7 @@ public abstract class BaseGraphWriterDAO {
   }
 
   /**
-   * Adds a batch of relationships in the graph, with removal operations before adding.
+   * Adds a batch of relationships in the graph, with removal operations before adding
    *
    * @param relationships the list of relationships to be persisted
    * @param removalOption whether to remove existing relationship of the same type

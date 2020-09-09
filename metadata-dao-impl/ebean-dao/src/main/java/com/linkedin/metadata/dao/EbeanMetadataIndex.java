@@ -14,9 +14,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 
-/**
- * Index definition for MySQL metadata.
- */
 @Getter
 @Setter
 // define composite indexes
