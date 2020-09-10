@@ -1,0 +1,32 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized MLModel identifier.
+ */
+@java.class = "com.linkedin.common.urn.MLModelUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "mlModel",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "MlModel",
+  "doc" : "Standardized model identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "platform",
+    "type" : "com.linkedin.common.urn.DataPlatformUrn",
+    "doc" : "Standardized platform urn for the MLModel."
+  }, {
+    "name" : "mlModelName",
+    "doc" : "Name of the MLModel",
+    "type" : "string",
+    "maxLength" : 210
+  }, {
+    "name" : "origin",
+    "type" : "com.linkedin.common.FabricType",
+    "doc" : "Fabric type where model belongs to or where it was generated."
+  } ],
+  "maxLength" : 284
+}
+typeref MLModelUrn = string
