@@ -1,5 +1,6 @@
 package com.linkedin.metadata.dao;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -9,6 +10,8 @@ import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.producer.BaseMetadataEventProducer;
 import com.linkedin.metadata.dao.retention.TimeBasedRetention;
 import com.linkedin.metadata.dao.retention.VersionBasedRetention;
+import com.linkedin.metadata.dao.scsi.EmptyPathExtractor;
+import com.linkedin.metadata.dao.scsi.UrnPathExtractor;
 import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -49,7 +52,6 @@ import javax.persistence.RollbackException;
 import lombok.Value;
 
 import static com.linkedin.metadata.dao.EbeanMetadataAspect.*;
-import static com.linkedin.metadata.dao.utils.RegisteredUrnPathExtractors.*;
 
 
 /**
@@ -63,6 +65,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   protected final EbeanServer _server;
   protected final Class<URN> _urnClass;
+  private UrnPathExtractor<URN> _urnPathExtractor;
 
   private static final int INDEX_QUERY_TIMEOUT_IN_SEC = 5;
 
@@ -83,6 +86,15 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
         }
       });
 
+  @VisibleForTesting
+  EbeanLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseMetadataEventProducer producer,
+      @Nonnull EbeanServer server, @Nonnull Class<URN> urnClass) {
+    super(aspectUnionClass, producer);
+    _server = server;
+    _urnClass = urnClass;
+    _urnPathExtractor = new EmptyPathExtractor<>();
+  }
+
   /**
    * Constructor for EbeanLocalDAO.
    *
@@ -93,9 +105,23 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
    */
   public EbeanLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseMetadataEventProducer producer,
       @Nonnull ServerConfig serverConfig, @Nonnull Class<URN> urnClass) {
-    super(aspectUnionClass, producer);
-    _server = createServer(serverConfig);
+    this(aspectUnionClass, producer, createServer(serverConfig), urnClass);
+  }
+
+  @VisibleForTesting
+  EbeanLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull EbeanServer server,
+      @Nonnull LocalDAOStorageConfig storageConfig, @Nonnull Class<URN> urnClass,
+      @Nonnull UrnPathExtractor<URN> urnPathExtractor) {
+    super(producer, storageConfig);
+    _server = server;
     _urnClass = urnClass;
+    _urnPathExtractor = urnPathExtractor;
+  }
+
+  @VisibleForTesting
+  EbeanLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull EbeanServer server,
+      @Nonnull LocalDAOStorageConfig storageConfig, @Nonnull Class<URN> urnClass) {
+    this(producer, server, storageConfig, urnClass, new EmptyPathExtractor<>());
   }
 
   /**
@@ -104,17 +130,30 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
    * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
    * @param serverConfig {@link ServerConfig} that defines the configuration of EbeanServer instances
    * @param storageConfig {@link LocalDAOStorageConfig} containing storage config of full list of supported aspects
-   * @param urnClass Class of the entity URN
+   * @param urnClass class of the entity URN
+   * @param urnPathExtractor path extractor to index parts of URNs to the secondary index
+   */
+  public EbeanLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull ServerConfig serverConfig,
+      @Nonnull LocalDAOStorageConfig storageConfig, @Nonnull Class<URN> urnClass,
+      @Nonnull UrnPathExtractor<URN> urnPathExtractor) {
+    this(producer, createServer(serverConfig), storageConfig, urnClass, urnPathExtractor);
+  }
+
+  /**
+   * Constructor for EbeanLocalDAO.
+   *
+   * @param producer {@link BaseMetadataEventProducer} for the metadata event producer
+   * @param serverConfig {@link ServerConfig} that defines the configuration of EbeanServer instances
+   * @param storageConfig {@link LocalDAOStorageConfig} containing storage config of full list of supported aspects
+   * @param urnClass class of the entity URN
    */
   public EbeanLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull ServerConfig serverConfig,
       @Nonnull LocalDAOStorageConfig storageConfig, @Nonnull Class<URN> urnClass) {
-    super(producer, storageConfig);
-    _server = createServer(serverConfig);
-    _urnClass = urnClass;
+    this(producer, createServer(serverConfig), storageConfig, urnClass, new EmptyPathExtractor<>());
   }
 
   @Nonnull
-  private EbeanServer createServer(@Nonnull ServerConfig serverConfig) {
+  private static EbeanServer createServer(@Nonnull ServerConfig serverConfig) {
     // Make sure that the serverConfig includes the package that contains DAO's Ebean model.
     if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
       serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
@@ -125,27 +164,15 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     return EbeanServerFactory.create(serverConfig);
   }
 
-  // For testing purpose
-  EbeanLocalDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseMetadataEventProducer producer,
-      @Nonnull EbeanServer server, @Nonnull Class<URN> urnClass) {
-    super(aspectUnionClass, producer);
-    _server = server;
-    _urnClass = urnClass;
-  }
-
-  // For testing purpose
-  EbeanLocalDAO(@Nonnull BaseMetadataEventProducer producer, @Nonnull EbeanServer server, @Nonnull LocalDAOStorageConfig storageConfig,
-      @Nonnull Class<URN> urnClass) {
-    super(producer, storageConfig);
-    _server = server;
-    _urnClass = urnClass;
-  }
-
   /**
    * Return the {@link EbeanServer} server instance used for customized queries.
    */
   public EbeanServer getServer() {
     return _server;
+  }
+
+  public void setUrnPathExtractor(@Nonnull UrnPathExtractor<URN> urnPathExtractor) {
+    _urnPathExtractor = urnPathExtractor;
   }
 
   /**
@@ -232,6 +259,9 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   @Override
   protected <ASPECT extends RecordTemplate> void updateLocalIndex(@Nonnull URN urn,
       @Nonnull ASPECT newValue, long version) {
+    if (!isLocalSecondaryIndexEnabled()) {
+      throw new UnsupportedOperationException("Local secondary index isn't supported");
+    }
 
     // Process and save URN
     // Only do this with the first version of each aspect
@@ -307,7 +337,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
       return;
     }
 
-    final Map<String, Object> pathValueMap = getUrnPathExtractor(urn.getClass()).extractPaths(urn);
+    final Map<String, Object> pathValueMap = _urnPathExtractor.extractPaths(urn);
     pathValueMap.forEach(
         (path, value) -> saveSingleRecordToLocalIndex(urn, urn.getClass().getCanonicalName(), path, value)
     );

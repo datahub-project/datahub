@@ -1,5 +1,6 @@
 package com.linkedin.metadata.dao.utils;
 
+import com.linkedin.metadata.dao.scsi.UrnPathExtractor;
 import com.linkedin.testing.urn.BarUrn;
 import java.util.Collections;
 import java.util.HashMap;
