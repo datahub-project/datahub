@@ -123,6 +123,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', dest="data_file", default="bootstrap_mce.dat",
                         help="MCE data file; required if running 'producer' mode")
     parser.add_argument('-c', dest="command_config",
-                        default="None", help="Kafka SSL details")
+                        default=None, help="Kafka SSL details")
     main(parser.parse_args())
 
