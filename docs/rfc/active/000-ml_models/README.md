@@ -29,7 +29,7 @@ could be shared across different machine learning models. In the example sketche
 
 ### URN Representation
 We'll define two [URNs](../../../what/urn.md): `MLModelUrn` and `MLFeatureUrn`.
-These URNs should allow for unique identification of machine learning models and features, respectively. Machine learning models, like datasets, will be identified by combination of standardized platform urn, name of the model and the fabric type where the model belongs to or where it was generated. 
+These URNs should allow for unique identification of machine learning models and features, respectively. Machine learning models, like datasets, will be identified by combination of standardized platform urn, name of the model and the fabric type where the model belongs to or where it was generated. Here platform urn corresponds to the data platform for ML Models (like TensorFlow) - representing the platform as an urn enables us to attach platform-specific metadata to it.
 
 A machine learning model URN will look like below:
 ```
@@ -68,6 +68,7 @@ It's important to make ML features as a top level entity because ML features cou
   - Motivation behind choosing these datasets
   - Preprocessing steps involved: crucial for reproducibility
   - Link to the process/job that captures training execution
+  - Link to the training pipeline source code
 - Evaluation Data: Mirrors Training Data.
 - Quantitative Analyses: Provides the results of evaluating the model according to the chosen metrics by linking to relevant dashboard.
 - Ethical Considerations: Demonstrate the ethical considerations that went into model development, surfacing ethical challenges and solutions to stakeholders.
@@ -84,7 +85,7 @@ It's important to make ML features as a top level entity because ML features cou
 ### ML Feature metadata
 - Feature Properties: Basic information about the ML Feature
   - Description of the feature
-  - Data type of the feature i.e. boolean, text, etc
+  - Data type of the feature i.e. boolean, text, etc. These also include [data types](https://towardsdatascience.com/7-data-types-a-better-way-to-think-about-data-types-for-machine-learning-939fae99a689#:~:text=In%20the%20machine%20learning%20world,groups%20are%20often%20called%20out.) particularly for Machine Learning practitioners. 
 - Ownership: Owners of the ML Feature.
 - Institutional Memory: Institutional knowledge for easy search and discovery.
 - Status: Captures if the feature has been soft deleted or not.
@@ -94,8 +95,8 @@ It's important to make ML features as a top level entity because ML features cou
 ![ml_model_graph](ml_model_graph.png)
 
 An example metadata graph with complete data lineage picture is shown above. Below are the main edges of the graph
-1. Evaluation dataset contains data used for quantitative analyses hence ML Model is connected to the evaluation dataset(s) through `DownstreamOf` edge
-2. Training dataset(s) contain the training data hence ML Model is connected to the training dataset(s) through `DownstreamOf` edge.
+1. Evaluation dataset contains data used for quantitative analyses and is used for evaluating ML Model hence ML Model is connected to the evaluation dataset(s) through `EvaluatedOn` edge
+2. Training dataset(s) contain the training data and is used for training ML Model hence ML Model is connected to the training dataset(s) through `TrainedOn` edge.
 3. ML Model is connected to `DataProcess` entity which captures the training execution through a (newly proposed) `TrainedBy` edge.
 4. `DataProcess` entity itself uses the training dataset(s) (mentioned in 2) as it's input and hence is connected to the training datasets through `Consumes` edge.
 5. ML Model is connected to ML Feature(s) through `Contains` edge.
@@ -117,7 +118,8 @@ to onboard their ML model and ML feature metadata to DataHub irrespective of the
 
 Only thing users will need to do is to write an ETL script customized for their machine learning platform (if it's not already provided in DataHub repo). This ETL script will construct and emit ML model and ML feature metadata in the form of [MCEs](../../../what/MXE.md).
 
-## Unresolved questions
+## Future Work
 
+- This RFC does not cover model evolution/versions, linking related models together and how we will handle it. That will require it's own RFC.
 - This RFC does not cover the UI design of ML Model and ML Feature.
 - This RFC does not cover social features like subscribe and follow on ML Model and/or ML Feature.
