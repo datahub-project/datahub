@@ -1,0 +1,12 @@
+namespace com.linkedin.ml.metadata
+
+/**
+ * Source Code
+ */
+record SourceCode {
+
+    /**
+     * Source Code along with types
+     */
+    sourceCode: array[SourceCodeUrl]
+}

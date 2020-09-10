@@ -1,0 +1,46 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.MLFeatureUrn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+
+/**
+ * Properties associated with a ML Model
+ */
+record MLModelProperties {
+
+  /**
+   * Documentation of the MLModel
+   */
+  description: optional string
+
+  /**
+   * Date when the MLModel was developed
+   */
+  date: optional Time
+
+  /**
+   * Version of the MLModel
+   */
+  version: optional VersionTag
+
+  /**
+   * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
+   */
+  type: optional string
+
+  /**
+   * Hyper Parameters of the MLModel
+   */
+  hyperParameters: optional map[string, HyperParameterValueType]
+
+  /**
+   * List of features used for MLModel training
+   */
+  mlFeatures: optional array[MLFeatureUrn]
+
+  /**
+   * Tags for the MLModel
+   */
+  tags: array[string] = [ ]
+}

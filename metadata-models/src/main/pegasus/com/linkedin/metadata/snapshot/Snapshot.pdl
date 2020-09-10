@@ -8,4 +8,6 @@ typeref Snapshot = union[
   CorpUserSnapshot,
   DatasetSnapshot,
   DataProcessSnapshot,
+  MLModelSnapshot,
+  MLFeatureSnapshot
 ]

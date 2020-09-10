@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/*
+* Cost Details for an Entity
+*/
+record Cost {
+
+    /*
+    * Type of Cost Code
+    */
+    costType: CostType
+
+    /*
+    * Code to which the     Cost of this entity should be attributed to
+    */
+    cost: CostValue
+}
