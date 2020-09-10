@@ -52,7 +52,7 @@ export const apiErrorStatusMessage = (status: ApiResponseStatus): string => {
 export const throwIfApiError = async <T>(response: Response, cb: (response: Response) => Promise<T>): Promise<T> => {
   const { status, ok } = response;
 
-  if (!ok && status !== 400 && status !== 404) {
+  if (!ok) {
     const { msg = apiErrorStatusMessage(status) } = await response.json();
     throw new ApiError(status, msg);
   }

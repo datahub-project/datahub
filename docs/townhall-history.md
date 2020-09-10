@@ -2,6 +2,19 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+
+## 08/28/2020
+
+[Recording](https://linkedin.zoom.us/rec/share/vMBfcb31825IBZ3T71_wffM_GNv3T6a8hicf8_dcfzQlhfFxl5i_CPVKcmYaZA)
+
+
+Agenda
+- Quick intro - 5 mins
+- [Presentation] [Data Governance look for a Digital Bank](demo/saxo_bank_data_workbench.pdf) by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank (20 mins)
+- [Demo] Column level lineage for datasets - by [Nagarjuna](https://www.linkedin.com/in/nagarjunak/) from LinkedIn (15 mins)
+- General Q&A from sign up sheet and participants - 15 mins
+- Closing remarks - 5 mins
+
 ## 07/31/20
 
 [Recording](https://bluejeans.com/s/wjnDRJevi5z/)

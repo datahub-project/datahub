@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { get, set, setProperties, action } from '@ember/object';
 import { typeOf } from '@ember/utils';
 import { suggestionLimit } from 'datahub-web/constants/typeahead';
-import { IPowerSelectAPI } from 'datahub-web/typings/modules/power-select';
+import { IPowerSelectAPI } from '@nacho-ui/search/types/nacho-search';
 import { noop } from 'lodash';
 import { fetchFacetValue } from 'datahub-web/utils/parsers/helpers';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';

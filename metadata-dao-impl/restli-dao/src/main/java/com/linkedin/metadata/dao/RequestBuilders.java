@@ -18,6 +18,7 @@ public class RequestBuilders {
   private static final Set<BaseRequestBuilder> REQUEST_BUILDERS =
       Collections.unmodifiableSet(new HashSet<BaseRequestBuilder>() {
         {
+          add(new CorpGroupActionRequestBuilder());
           add(new CorpUserActionRequestBuilder());
           add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());

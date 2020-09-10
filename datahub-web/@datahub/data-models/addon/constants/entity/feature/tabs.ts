@@ -14,7 +14,7 @@ export enum FeatureTab {
 export const FeatureStatisticTab = {
   id: FeatureTab.Statistics,
   title: 'Statistics',
-  contentComponent: 'feature-statistics'
+  contentComponent: 'features/feature-statistics'
 };
 
 /**
@@ -24,6 +24,6 @@ export const TabProperties: Array<ITabProperties> = [
   {
     id: FeatureTab.Metadata,
     title: 'Metadata',
-    contentComponent: 'feature-attributes'
+    contentComponent: 'features/feature-attributes'
   }
 ];

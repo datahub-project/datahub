@@ -7,7 +7,10 @@ Normally, you'd rebuild your images from scratch with `docker-compose build` (or
 this takes way too long for development. It has to copy the entire repo to each image and rebuild it there.
 
 The `docker-compose.dev.yml` file bypasses this problem by mounting binaries, startup scripts, and other data to
-special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`).
+special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`). 
+
+These dev images will use your _locally built code_, so you'll need to build locally with gradle first
+(and every time you want to update the instance). Building locally should be much faster than building on Docker.
 
 We highly recommend you just invoke the `docker/dev.sh` script we've included. It is pretty small if you want to read it
 to see what it does, but it ends up using our `docker-compose.dev.yml` file.

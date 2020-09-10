@@ -36,6 +36,11 @@ export default class NachoPill extends Component {
   state!: PillState;
 
   /**
+   * tooltip message if needed for a tooltip
+   */
+  tooltip?: string;
+
+  /**
    * Determines the CSS classes that must be applied to the pill based on the determination of
    * various properties passed into this component
    * @type {string}

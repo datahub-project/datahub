@@ -3,7 +3,7 @@ import CurrentUser from '@datahub/shared/services/current-user';
 import Metrics from 'ember-metrics';
 import BannerService from 'datahub-web/services/banners';
 import HotKeys from 'datahub-web/services/hot-keys';
-import Search from '@datahub/search/services/search';
+import Search from '@datahub/shared/services/search';
 
 declare module '@ember/service' {
   // eslint-disable-next-line @typescript-eslint/interface-name-prefix

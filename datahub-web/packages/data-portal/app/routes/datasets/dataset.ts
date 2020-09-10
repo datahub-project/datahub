@@ -2,7 +2,7 @@ import Route from '@ember/routing/route';
 import Notifications from '@datahub/utils/services/notifications';
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
 import { inject as service } from '@ember/service';
-import Search from '@datahub/search/services/search';
+import Search from '@datahub/shared/services/search';
 import { getDatasetUrnParts } from '@datahub/data-models/entity/dataset/utils/urn';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 /**

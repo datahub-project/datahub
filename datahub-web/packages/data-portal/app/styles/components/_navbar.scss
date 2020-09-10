@@ -1,5 +1,6 @@
 $item-spacing: 10px;
 $navbar-transition-speed: $banner-animation-speed;
+$navbar-dropdown-width: 310px;
 
 /**
  * Override Bootstrap navigation class, .navbar, ruleset
@@ -31,6 +32,48 @@ $navbar-transition-speed: $banner-animation-speed;
       }
     }
   }
+
+  .dropdown-menu {
+    width: $navbar-dropdown-width;
+
+    li > a {
+      display: flex;
+      align-items: center;
+    }
+
+    /// Allows us to have non-links in the dropdown menu in this navbar, extends original styling
+    li > div {
+      display: flex;
+      align-items: center;
+      padding: 3px 20px;
+      clear: both;
+      font-weight: fw(normal, 4);
+      line-height: 1.42857;
+      color: get-color(dropdown-menu-grey1);
+      white-space: nowrap;
+
+      &:hover,
+      &:focus {
+        color: get-color(dropdown-menu-focus-black);
+        text-decoration: none;
+        background-color: get-color(dropdown-menu-focus-white);
+      }
+    }
+
+    .virtual-assistant-toggle {
+      border: none;
+    }
+
+    /// Override default behavior for toggle to match app styling
+    .toggle-switch--light:checked + .toggle-button {
+      background-color: get-color(blue7);
+    }
+  }
+
+  &__dropdown-label {
+    margin-right: item-spacing(3);
+  }
+
   /// Offset is meant to accomodate for the animation that slides everything in the app-view down for the
   /// sake of the banner alerts
   &.navbar-top-offset {

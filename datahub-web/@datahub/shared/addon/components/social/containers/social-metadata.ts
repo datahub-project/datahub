@@ -113,8 +113,9 @@ export default class SocialMetadataContainer extends Component {
    * Task defined to get the data necessary for this container to operate.
    */
   @(task(function*(this: SocialMetadataContainer): IterableIterator<Promise<Array<void>>> {
-    const { entity } = this;
-    if (entity) {
+    const { entity, hideSocialActions } = this;
+    // Prevents making unnecessary calls to the API if we are already flag guarding this feature anyway
+    if (entity && !hideSocialActions) {
       yield Promise.all([
         entity.readLikes(),
         entity.readFollows()

@@ -10,7 +10,6 @@ import { TestContext } from 'ember-test-helpers';
 const modalClassSelector = `.${baseModalClass}__modal`;
 const subjectClassSelector = `.${baseModalClass}__text-input-subject`;
 const contentClassSelector = `.${baseModalClass}__text-input-content`;
-const emailClassSelector = `#send-change-log-email`;
 
 module('Integration | Component | change-management/add-change-log-modal', function(hooks): void {
   setupRenderingTest(hooks);
@@ -37,7 +36,6 @@ module('Integration | Component | change-management/add-change-log-modal', funct
     assert.dom(modalClassSelector).exists();
     assert.dom(subjectClassSelector).hasText('');
     assert.dom(contentClassSelector).hasText('');
-    assert.dom(emailClassSelector).isNotChecked();
   });
 
   test('Saving to log happens as intended', async function(assert): Promise<void> {
@@ -54,8 +52,7 @@ module('Integration | Component | change-management/add-change-log-modal', funct
       'Hereby the common folks of Velen are summoned to heed their presence to the great Geralt of Rivia!'
     );
     const actions = findAll(`.${baseModalClass}__action`);
-
-    assert.dom(actions[1]).hasText('Save', 'SaveorNext button text is rendered as expected');
+    assert.dom(actions[1]).hasText('Continue to send email', 'button text is rendered as expected');
   });
 
   test('Preview mode displays as expected', async function(assert): Promise<void> {
@@ -72,12 +69,11 @@ module('Integration | Component | change-management/add-change-log-modal', funct
       contentClassSelector,
       'Hereby the common folks of Velen are summoned to heed their presence to the great Geralt of Rivia!'
     );
-    await click(emailClassSelector);
-    const actions = findAll(`.${baseModalClass}__action`);
-    assert.dom(actions[1]).hasText('Next', 'SaveorNext button text rendered as expected');
-    await click(`.${baseModalClass}__action:nth-child(2)`);
 
-    // Add a new Distributed list
+    const actions = findAll(`.${baseModalClass}__action`);
+    assert.dom(actions[1]).hasText('Continue to send email', 'button text is rendered as expected');
+    await click(actions[1]);
+
     await click('.nacho-pill-input:nth-child(1)');
     await fillIn('.nacho-pill-input__input:nth-child(1)', 'testGroup1');
     await triggerKeyEvent('.nacho-pill-input__input:nth-child(1)', 'keyup', 13);
@@ -107,6 +103,5 @@ module('Integration | Component | change-management/add-change-log-modal', funct
         'Individual email recipients (1)',
         'Individual recipients are included in prompt with the right count'
       );
-    assert.dom(actions[1]).hasText('Save log & send Email', 'SaveorNext button text rendered as expected');
   });
 });

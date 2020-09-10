@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { inject as service } from '@ember/service';
-import SearchService from '@datahub/search/services/search';
+import SearchService from '@datahub/shared/services/search';
 import { alias } from '@ember/object/computed';
 import { grammarProcessingSteps, typeaheadQueryProcessor } from 'datahub-web/utils/parsers/autocomplete';
 import { ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';

@@ -124,7 +124,7 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   @computed('entity.info.fullName', 'fullName', 'username')
   get name(): string {
     const { entity } = this;
-    return (entity && entity.info.fullName) || this.fullName || this.username;
+    return entity?.info?.fullName || this.fullName || this.username;
   }
 
   set name(value: string) {
@@ -141,7 +141,6 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    * Url link to the person's profile picture
    */
   get profilePictureUrl(): string {
-    // A not implemented error breaks the build, so we have a default instead
     const fallbackImgUrl = PersonEntity.aviUrlFallback || '/assets/images/default_avatar.png';
     const baseUrl = PersonEntity.aviUrlPrimary;
 

@@ -135,7 +135,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     example: 'Public, Private, Deprecated, Public_Production',
     minAutocompleteFetchLength: 0,
     tagComponent: {
-      name: 'custom-search-result-property-component/tag',
+      name: 'search/custom-search-result-property-component/tag',
       options: {
         state: 'neutral-inverse',
         titleize: true

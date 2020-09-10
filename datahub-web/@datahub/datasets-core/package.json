@@ -23,7 +23,6 @@
   "dependencies": {
     "@datahub/data-models": "0.0.0",
     "@datahub/metadata-types": "0.0.0",
-    "@datahub/search": "0.0.0",
     "@datahub/utils": "0.0.0",
     "@fortawesome/ember-fontawesome": "^0.1.13",
     "@fortawesome/free-regular-svg-icons": "^5.9.0",

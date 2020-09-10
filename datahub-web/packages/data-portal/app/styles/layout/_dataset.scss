@@ -8,6 +8,10 @@
   align-items: center;
   margin-top: item-spacing(5);
   margin-bottom: item-spacing(5);
+
+  .nacho-pill {
+    margin-right: item-spacing(1);
+  }
 }
 
 .dataset-name {

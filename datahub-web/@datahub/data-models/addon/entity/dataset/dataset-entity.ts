@@ -1,17 +1,8 @@
 import { BaseEntity, IBaseEntityStatics, statics } from '@datahub/data-models/entity/base-entity';
-import {
-  saveDatasetCompliance,
-  readDatasetExportPolicy,
-  readDatasetRetention,
-  saveDatasetExportPolicy,
-  saveDatasetRetention,
-  saveDatasetComplianceSuggestionFeedbackByUrn
-} from '@datahub/data-models/api/dataset/compliance';
-import DatasetComplianceInfo from '@datahub/data-models/entity/dataset/modules/compliance-info';
+import { saveDatasetComplianceSuggestionFeedbackByUrn } from '@datahub/data-models/api/dataset/compliance';
 import { readDatasetSchema } from '@datahub/data-models/api/dataset/schema';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
 import { set, setProperties, computed } from '@ember/object';
-import DatasetComplianceAnnotation from '@datahub/data-models/entity/dataset/modules/compliance-annotation';
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { DatasetExportPolicy } from '@datahub/data-models/entity/dataset/modules/export-policy';
 import { DatasetPurgePolicy } from '@datahub/data-models/entity/dataset/modules/purge-policy';
@@ -127,13 +118,6 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   }
 
   /**
-   * Holds the classified data retrieved from the API layer for the compliance information as a compliance
-   * info class
-   * @type {DatasetComplianceInfo}
-   */
-  compliance?: DatasetComplianceInfo;
-
-  /**
    * Holds the classified data retrieved from the API layer for the schema information as a DatasetSchema
    * class
    * @type {DatasetSchema}
@@ -201,6 +185,12 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   healthScore?: number;
 
   /**
+   * Description for the dataset that contains more information about the nature of the data or metadata
+   */
+  @oneWay('entity.dataset.description')
+  description?: string;
+
+  /**
    * gets the dataorigin field (needed from search)
    * from the urn
    */
@@ -225,6 +215,12 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   }
 
   /**
+   * Platform native type, for example it can be TABLE or VIEW for Hive.
+   */
+  @reads('entity.platformNativeType')
+  platformNativeType?: Com.Linkedin.Dataset.Dataset['platformNativeType'];
+
+  /**
    * Reference to the data entity's native name, should not be something that is editable but gives us a
    * more human readable form for the dataset vs the urn
    */
@@ -232,22 +228,6 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
     const { entity } = this;
     const name = (entity && entity.name) || '';
     return name || getDatasetUrnParts(this.urn).prefix || this.urn;
-  }
-
-  // TODO: [META-9120] This logic should not exist on the UI and is a temporary fix that will hopefully one day
-  // get changed and read from API level instead. Also it won't matter once we fully migrate to new compliance
-  /**
-   * Calculates whether or not to show this dataset compliance as inherited from parents based on the nature
-   * of the upstream relationships
-   * @type {boolean}
-   */
-  @computed('upstreams', 'compliance')
-  get hasInheritedCompliance(): boolean | void {
-    const compliance = this.compliance;
-
-    if (compliance) {
-      return DatasetEntity.hasInheritedCompliance(this.upstreams) && compliance.resolvedFrom !== this.rawUrn;
-    }
   }
 
   /**
@@ -287,36 +267,6 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   }
 
   /**
-   * Is a promise that retrieves the dataset export policy information and sets the policy information to the class
-   * as a property
-   */
-  async readExportPolicy(): Promise<DatasetExportPolicy> {
-    const exportPolicy = await readDatasetExportPolicy(this.urn).catch(
-      // Handling for an expected possibility of receiving a 404 error for this export policy, which would require
-      // us to actually use a factory generator for the export policy
-      getDefaultIfNotFoundError(undefined)
-    );
-    const datasetExportPolicy = new DatasetExportPolicy(exportPolicy);
-    set(this, 'exportPolicy', datasetExportPolicy);
-    return datasetExportPolicy;
-  }
-
-  /**
-   * Is a promise that retrieves the purge policy information and sets this to the class as a property
-   */
-  async readPurgePolicy(): Promise<DatasetPurgePolicy> {
-    const purgePolicy = await readDatasetRetention(this.urn).catch(
-      // Handling for an expected possibility of receiving a 404 error for this purge policy, which would require
-      // us to actually use a factory generator for the purge policy
-      getDefaultIfNotFoundError(undefined)
-    );
-
-    const datasetPurgePolicy = new DatasetPurgePolicy(purgePolicy);
-    set(this, 'purgePolicy', datasetPurgePolicy);
-    return datasetPurgePolicy;
-  }
-
-  /**
    * Asynchronously retrieves the upstream datasets for this dataset and assigns to the upstreams property
    */
   async readUpstreams(): Promise<Array<DatasetLineage>> {
@@ -329,61 +279,6 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
     const upstreams = lineageList.map((lineage): DatasetLineage => new DatasetLineage(lineage));
     set(this, 'upstreams', upstreams);
     return upstreams;
-  }
-
-  /**
-   * Processes a request to save compliance data by row or overall compliance. This allows us to save compliance
-   * information for a single row or as a bulk edit. We know already that bulk edits affect the working copy in
-   * the compliance object directly, but row edits have their own working copy for the specific field. In the case
-   * of the latter, we have optional parameters to signify that we should be applying a row edit
-   * @param {string} fieldName - optional, signifies the field to edit
-   * @param {Array<DatasetComplianceAnnotation>} fieldDiff - optional, overwriting diffs for the field
-   * @returns {boolean} whether or not the application was successful
-   */
-  async saveCompliance(fieldName?: string, fieldDiff?: Array<DatasetComplianceAnnotation>): Promise<void> {
-    const { compliance, schema, urn } = this;
-
-    if (compliance) {
-      if (fieldName && fieldDiff) {
-        compliance.applyAnnotationsByField(fieldName, fieldDiff);
-      }
-
-      const workingCopy = compliance.readWorkingCopy({
-        withoutNullFields: true,
-        schema
-      });
-      await saveDatasetCompliance(urn, workingCopy);
-    }
-  }
-
-  /**
-   * Processes a request to save the export policy working copy. Returns this in a thennable format so that any
-   * responses or issues can be handled on the component side
-   */
-  async saveExportPolicy(): Promise<void> {
-    const { exportPolicy, urn } = this;
-
-    if (exportPolicy) {
-      const workingCopy = exportPolicy.readWorkingCopy();
-      await saveDatasetExportPolicy(urn, workingCopy);
-    }
-  }
-
-  /**
-   * Processes a request to save the purge policy working copy. Returns this in a thennable format so that any
-   * responses or issues can be handled on the component side
-   */
-  async savePurgePolicy(): Promise<void> {
-    const { purgePolicy, urn } = this;
-
-    if (purgePolicy) {
-      const workingCopy = purgePolicy.readWorkingCopy();
-      await saveDatasetRetention(urn, {
-        ...workingCopy,
-        datasetUrn: decodeUrn(urn),
-        datasetId: null
-      });
-    }
   }
 
   /**

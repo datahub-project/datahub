@@ -1,7 +1,7 @@
 import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { DataModelName } from '@datahub/data-models/constants/entity';
-import { supportedListEntities } from '@datahub/lists/constants/entity/shared';
+import { supportedListEntities } from '@datahub/shared/constants/lists/shared';
 import Transition from '@ember/routing/-private/transition';
 import { inject as service } from '@ember/service';
 import DataModelsService from '@datahub/data-models/services/data-models';
