@@ -17,12 +17,13 @@ import com.linkedin.ml.metadata.TrainingData
 import com.linkedin.ml.metadata.QuantitativeAnalyses
 import com.linkedin.ml.metadata.EthicalConsiderations
 import com.linkedin.ml.metadata.CaveatsAndRecommendations
+import com.linkedin.ml.metadata.SourceCode
 
 
 /**
  * MlModel spec. for a model store. A collection of MlModel metadata schema that can evolve over time.
  */
-record MLModel includes MLModelKey, ChangeAuditStamps, VersionTag {
+record MLModel includes MLModelKey, ChangeAuditStamps {
 
   /**
    * Ownership Info
@@ -78,6 +79,11 @@ record MLModel includes MLModelKey, ChangeAuditStamps, VersionTag {
    * Institutional Memory
    */
   institutionalMemory: optional InstitutionalMemory
+
+  /**
+   * Source Code
+   */
+  sourceCode: optional SourceCode
 
   /**
    * Status

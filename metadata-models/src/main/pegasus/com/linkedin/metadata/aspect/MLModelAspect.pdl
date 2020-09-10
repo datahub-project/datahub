@@ -14,6 +14,7 @@ import com.linkedin.ml.metadata.QuantitativeAnalyses
 import com.linkedin.ml.metadata.TrainingData
 import com.linkedin.common.Cost
 import com.linkedin.common.Deprecation
+import com.linkedin.ml.metadata.SourceCode
 
 /**
  * A union of all supported metadata aspects for a ML Model
@@ -30,6 +31,7 @@ typeref MLModelAspect = union[
   EthicalConsiderations,
   CaveatsAndRecommendations,
   InstitutionalMemory,
+  SourceCode,
   Status,
   Cost,
   Deprecation

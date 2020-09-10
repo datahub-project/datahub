@@ -12,7 +12,7 @@ import com.linkedin.ml.metadata.MLFeatureProperties
 /**
  * MLFeature spec. for a feature store. A collection of MLFeature metadata schema that can evolve over time.
  */
-record MLFeature includes MLFeatureKey, ChangeAuditStamps, VersionTag {
+record MLFeature includes MLFeatureKey, ChangeAuditStamps {
 
   /**
    * Ownership Info
