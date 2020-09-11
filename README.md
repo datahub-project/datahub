@@ -46,7 +46,7 @@ Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy o
 * [Frontend](datahub-frontend)
 * [Web App](datahub-web)
 * [Generalized Metadata Service](gms)
-* [Metadata Ingestion](metadata-ingestion)
+* [Metadata Ingestion](metadata-ingestion-examples)
 * [Metadata Processing Jobs](metadata-jobs)
 
 ## Releases

@@ -1,0 +1,20 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  compile project(':metadata-dao-impl:kafka-producer')
+
+  compile externalDependency.javaxInject
+  compile externalDependency.kafkaAvroSerde
+  compile externalDependency.kafkaSerializers
+  compile externalDependency.lombok
+  compile externalDependency.springBeans
+  compile externalDependency.springBootAutoconfigure
+  compile externalDependency.springCore
+  compile externalDependency.springKafka
+
+  annotationProcessor externalDependency.lombok
+
+  runtime externalDependency.logbackClassic
+}

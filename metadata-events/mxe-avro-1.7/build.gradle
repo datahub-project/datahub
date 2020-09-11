@@ -12,19 +12,24 @@ dependencies {
   avsc project(':metadata-events:mxe-schemas')
 }
 
+def genDir = file("src/generated/java")
+
 task avroCodeGen(type: com.commercehub.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
   source("$rootDir/metadata-events/mxe-schemas/src/renamed/avro")
-  outputDir = file("src/generated/java")
+  outputDir = genDir
+  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
 }
 
 compileJava.source(avroCodeGen.outputs)
-build.dependsOn avroCodeGen
 
-clean {
-  project.delete('src/generated')
+idea {
+  module {
+    sourceDirs += genDir
+    generatedSourceDirs += genDir
+  }
 }
 
-avroCodeGen.dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+project.rootProject.tasks.idea.dependsOn(avroCodeGen)
 
 // Exclude classes from avro-schemas
 jar {
