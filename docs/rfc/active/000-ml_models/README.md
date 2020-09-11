@@ -68,7 +68,6 @@ It's important to make ML features as a top level entity because ML features cou
   - Motivation behind choosing these datasets
   - Preprocessing steps involved: crucial for reproducibility
   - Link to the process/job that captures training execution
-  - Link to the training pipeline source code
 - Evaluation Data: Mirrors Training Data.
 - Quantitative Analyses: Provides the results of evaluating the model according to the chosen metrics by linking to relevant dashboard.
 - Ethical Considerations: Demonstrate the ethical considerations that went into model development, surfacing ethical challenges and solutions to stakeholders.
@@ -77,6 +76,7 @@ It's important to make ML features as a top level entity because ML features cou
   - Relevant groups that were not represented in the evaluation dataset
   - Recommendations for model use
   - Ideal characteristics of an evaluation dataset
+- Source Code: Contains training and evaluation pipeline source code, along with the source code where the ML Model is defined.
 - Institutional Memory: Institutional knowledge for easy search and discovery.
 - Status: Captures if the model has been soft deleted or not.
 - Cost: Cost associated with the model based on the project/component this model belongs to.
@@ -109,7 +109,7 @@ We should create/update user guides to educate users for:
  - Lineage experience (how to find different entities connected to the machine learning model)
 
 ## Alternatives
-A machine learning model could as well store a model ID which uniquely identifies a machine learning model in the machine learning model lifecycle management system. This can then be the only component of `MLModelUrn`. However we chose the approach of modeling `MLModelUrn` similar to `DatasetUrn`.
+A machine learning model could as well store a model ID which uniquely identifies a machine learning model in the machine learning model lifecycle management system. This can then be the only component of `MLModelUrn` however we would then need a system to retrieve model name given the model ID. Hence we chose the approach of modeling `MLModelUrn` similar to `DatasetUrn`.
 
 ## Rollout / Adoption Strategy
 
