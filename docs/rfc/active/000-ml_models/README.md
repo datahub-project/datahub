@@ -120,6 +120,6 @@ Only thing users will need to do is to write an ETL script customized for their 
 
 ## Future Work
 
-- This RFC does not cover model evolution/versions, linking related models together and how we will handle it. That will require it's own RFC.
+- This RFC does not cover model evolution/versions, linking related models together and how we will handle it - that will require it's own RFC.
 - This RFC does not cover the UI design of ML Model and ML Feature.
 - This RFC does not cover social features like subscribe and follow on ML Model and/or ML Feature.
