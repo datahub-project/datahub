@@ -12,7 +12,6 @@ dependencies {
 
   compile externalDependency.javaxInject
   compile externalDependency.kafkaAvroSerde
-  compile externalDependency.kafkaSerializers
   compile externalDependency.lombok
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
