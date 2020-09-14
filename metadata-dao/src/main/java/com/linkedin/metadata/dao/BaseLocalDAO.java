@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -644,6 +645,46 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   @Nonnull
   public abstract <ASPECT extends RecordTemplate> ListResult<ASPECT> list(@Nonnull Class<ASPECT> aspectClass, int start,
       int pageSize);
+
+  /**
+   * Batch retrieves metadata aspects along with {@link ExtraInfo} using multiple {@link AspectKey}s.
+   *
+   * @param keys set of keys for the metadata to retrieve
+   * @return a mapping of given keys to the corresponding metadata aspect and {@link ExtraInfo}.
+   */
+  @Nonnull
+  public abstract Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> getWithExtraInfo(
+      @Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys);
+
+  /**
+   * Similar to {@link #getWithExtraInfo(Set)} but only using only one {@link AspectKey}.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull AspectKey<URN, ASPECT> key) {
+    if (getWithExtraInfo(Collections.singleton(key)).containsKey(key)) {
+      return Optional.of((AspectWithExtraInfo<ASPECT>) getWithExtraInfo(Collections.singleton(key)).get(key));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Similar to {@link #getWithExtraInfo(AspectKey)} but with each component of the key broken out as arguments.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn, long version) {
+    return getWithExtraInfo(new AspectKey<>(aspectClass, urn, version));
+  }
+
+  /**
+   * Similar to {@link #getWithExtraInfo(Class, Urn, long)} but always retrieves the latest version.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
+    return getWithExtraInfo(aspectClass, urn, LATEST_VERSION);
+  }
 
   /**
    * Generates a new string ID that's guaranteed to be globally unique.
