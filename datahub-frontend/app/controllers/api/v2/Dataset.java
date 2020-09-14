@@ -58,7 +58,7 @@ public class Dataset extends Controller {
       return internalServerError(ControllerUtil.errorResponse(e));
     }
 
-    return ok(Json.newObject().set("dataset", Json.toJson(view)));
+    return ok(Json.toJson(view));
   }
 
   @Security.Authenticated(Secured.class)
