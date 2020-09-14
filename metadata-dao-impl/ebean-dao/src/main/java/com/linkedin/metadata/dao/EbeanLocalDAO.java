@@ -395,6 +395,26 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
             .map(record -> toRecordTemplate(key.getAspectClass(), record))));
   }
 
+  @Override
+  @Nonnull
+  public Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> getWithExtraInfo(
+      @Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys) {
+    if (keys.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    final List<EbeanMetadataAspect> records = batchGet(keys);
+
+    final Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> result =
+        new HashMap<>();
+    keys.forEach(key -> records.stream()
+        .filter(record -> matchKeys(key, record.getKey()))
+        .findFirst()
+        .map(record -> result.put(key, toRecordTemplateWithExtraInfo(key.getAspectClass(), record))));
+    return result;
+  }
+
+
   public boolean existsInLocalIndex(@Nonnull URN urn) {
     return _server.find(EbeanMetadataIndex.class)
         .where().eq(URN_COLUMN, urn.toString())
@@ -496,7 +516,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final List<ASPECT> aspects =
         pagedList.getList().stream().map(a -> toRecordTemplate(aspectClass, a)).collect(Collectors.toList());
     final ListResultMetadata listResultMetadata =
-        makeListResultMetadata(pagedList.getList().stream().map(this::toExtraInfo).collect(Collectors.toList()));
+        makeListResultMetadata(pagedList.getList().stream().map(EbeanLocalDAO::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
@@ -521,7 +541,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final List<ASPECT> aspects =
         pagedList.getList().stream().map(a -> toRecordTemplate(aspectClass, a)).collect(Collectors.toList());
     final ListResultMetadata listResultMetadata =
-        makeListResultMetadata(pagedList.getList().stream().map(this::toExtraInfo).collect(Collectors.toList()));
+        makeListResultMetadata(pagedList.getList().stream().map(EbeanLocalDAO::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
@@ -549,6 +569,13 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Nonnull
+  private static <ASPECT extends RecordTemplate> AspectWithExtraInfo<ASPECT> toRecordTemplateWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull EbeanMetadataAspect aspect) {
+    return new AspectWithExtraInfo<>(RecordUtils.toRecordTemplate(aspectClass, aspect.getMetadata()),
+        toExtraInfo(aspect));
+  }
+
+  @Nonnull
   private <T> ListResult<T> toListResult(@Nonnull List<T> values, @Nullable ListResultMetadata listResultMetadata,
       @Nonnull PagedList<?> pagedList, @Nullable Integer start) {
     final int nextStart = (start != null && pagedList.hasNext()) ? start.intValue() + pagedList.getList().size() : ListResult.INVALID_NEXT_START;
@@ -565,7 +592,21 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Nonnull
-  private ExtraInfo toExtraInfo(@Nonnull EbeanMetadataAspect aspect) {
+  private static ExtraInfo toExtraInfo(@Nonnull EbeanMetadataAspect aspect) {
+    final ExtraInfo extraInfo = new ExtraInfo();
+    extraInfo.setVersion(aspect.getKey().getVersion());
+    extraInfo.setAudit(makeAuditStamp(aspect));
+    try {
+      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
+    } catch (URISyntaxException e) {
+      throw new ModelConversionException(e.getMessage());
+    }
+
+    return extraInfo;
+  }
+
+  @Nonnull
+  private static AuditStamp makeAuditStamp(@Nonnull EbeanMetadataAspect aspect) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(aspect.getCreatedOn().getTime());
 
@@ -577,17 +618,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
-
-    final ExtraInfo extraInfo = new ExtraInfo();
-    extraInfo.setVersion(aspect.getKey().getVersion());
-    extraInfo.setAudit(auditStamp);
-    try {
-      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
-    } catch (URISyntaxException e) {
-      throw new ModelConversionException(e.getMessage());
-    }
-
-    return extraInfo;
+    return auditStamp;
   }
 
   @Nonnull

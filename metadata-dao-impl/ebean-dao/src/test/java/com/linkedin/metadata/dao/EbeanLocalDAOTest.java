@@ -1387,6 +1387,96 @@ public class EbeanLocalDAOTest {
     assertThrows(IllegalArgumentException.class, () -> dao.getUrn(urn3));
   }
 
+  @Test
+  public void testGetWithExtraInfoLatestVersion() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    AspectFoo v0 = new AspectFoo().setValue("foo");
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, v0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo v1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, v1, 456, creator2.toString(),
+        impersonator2.toString());
+
+    Optional<AspectWithExtraInfo<AspectFoo>> foo = dao.getWithExtraInfo(AspectFoo.class, urn);
+
+    assertTrue(foo.isPresent());
+    assertEquals(foo.get(), new AspectWithExtraInfo<>(v0,
+        new ExtraInfo().setAudit(makeAuditStamp(creator1, impersonator1, 123)).setUrn(urn).setVersion(0)));
+  }
+
+  @Test
+  public void testGetWithExtraInfoSpecificVersion() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    AspectFoo v0 = new AspectFoo().setValue("foo");
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, v0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo v1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, v1, 456, creator2.toString(),
+        impersonator2.toString());
+
+    Optional<AspectWithExtraInfo<AspectFoo>> foo = dao.getWithExtraInfo(AspectFoo.class, urn, 1);
+
+    assertTrue(foo.isPresent());
+    assertEquals(foo.get(), new AspectWithExtraInfo<>(v1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+  }
+
+  @Test
+  public void testGetWithExtraInfoMultipleKeys() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    CorpuserUrn creator3 = new CorpuserUrn("testCreator3");
+    CorpuserUrn impersonator3 = new CorpuserUrn("testImpersonator3");
+    AspectFoo fooV0 = new AspectFoo().setValue("foo");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, fooV0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo fooV1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, fooV1, 456, creator2.toString(),
+        impersonator2.toString());
+    AspectBar barV0 = new AspectBar().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectBar.class.getCanonicalName(), 0, barV0, 1234, creator3.toString(),
+        impersonator3.toString());
+
+    // both aspect keys exist
+    AspectKey<FooUrn, AspectFoo> aspectKey1 = new AspectKey<>(AspectFoo.class, urn, 1L);
+    AspectKey<FooUrn, AspectBar> aspectKey2 = new AspectKey<>(AspectBar.class, urn, 0L);
+
+    Map<AspectKey<FooUrn, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> result =
+        dao.getWithExtraInfo(new HashSet<>(Arrays.asList(aspectKey1, aspectKey2)));
+
+    assertEquals(result.keySet().size(), 2);
+    assertEquals(result.get(aspectKey1), new AspectWithExtraInfo<>(fooV1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+    assertEquals(result.get(aspectKey2), new AspectWithExtraInfo<>(barV0,
+        new ExtraInfo().setAudit(makeAuditStamp(creator3, impersonator3, 1234)).setVersion(0).setUrn(urn)));
+
+    // one of the aspect keys does not exist
+    AspectKey<FooUrn, AspectBar> aspectKey3 = new AspectKey<>(AspectBar.class, urn, 1L);
+
+    result = dao.getWithExtraInfo(new HashSet<>(Arrays.asList(aspectKey1, aspectKey3)));
+
+    assertEquals(result.keySet().size(), 1);
+    assertEquals(result.get(aspectKey1), new AspectWithExtraInfo<>(fooV1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+  }
+
   private void addMetadata(Urn urn, String aspectName, long version, RecordTemplate metadata) {
     EbeanMetadataAspect aspect = new EbeanMetadataAspect();
     aspect.setKey(new EbeanMetadataAspect.PrimaryKey(urn.toString(), aspectName, version));
@@ -1394,6 +1484,17 @@ public class EbeanLocalDAOTest {
     aspect.setCreatedOn(new Timestamp(1234));
     aspect.setCreatedBy("urn:li:corpuser:foo");
     aspect.setCreatedFor("urn:li:corpuser:bar");
+    _server.save(aspect);
+  }
+
+  private void addMetadataWithAuditStamp(Urn urn, String aspectName, long version, RecordTemplate metadata,
+      long timeStamp, String creator, String impersonator) {
+    EbeanMetadataAspect aspect = new EbeanMetadataAspect();
+    aspect.setKey(new EbeanMetadataAspect.PrimaryKey(urn.toString(), aspectName, version));
+    aspect.setMetadata(RecordUtils.toJsonString(metadata));
+    aspect.setCreatedOn(new Timestamp(timeStamp));
+    aspect.setCreatedBy(creator);
+    aspect.setCreatedFor(impersonator);
     _server.save(aspect);
   }
 
