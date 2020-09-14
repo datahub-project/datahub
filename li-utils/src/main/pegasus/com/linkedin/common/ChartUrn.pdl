@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized chart identifier
+ */
+@java.class = "com.linkedin.common.urn.ChartUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "chart",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Chart",
+  "doc" : "Standardized chart identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "dashboardTool",
+    "doc" : "The name of the dashboard tool such as looker, redash etc.",
+    "type" : "string",
+    "maxLength" : 20
+  },
+    {
+      "name" : "chartId",
+      "doc" : "Unique id of the chart assigned by the specific dashboard tool",
+      "type" : "string",
+      "maxLength" : 20
+    }],
+  "maxLength" : 36
+}
+typeref ChartUrn = string

@@ -1,0 +1,45 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.ChartUrn
+import com.linkedin.common.DashboardUrn
+
+/**
+ * Data model for Chart entity search
+ */
+record DashboardDocument includes BaseDocument {
+
+  /**
+   * Urn for the Dashboard
+   */
+  urn: DashboardUrn
+
+  /**
+   * Title of the dashboard
+   */
+  title: optional string
+
+  /**
+   * Detailed description about the dashboard
+   */
+  description: optional string
+
+  /**
+   * Dashboard tool ex: Looker, Redash
+   */
+  tool: optional string
+
+  /**
+   * Ids of the charts in the dashboard
+   */
+  chartIds: optional array[string]
+
+  /**
+   * LDAP usernames of corp users who are the owners of this dashboard
+   */
+  owners: optional array[string]
+
+  /**
+   * Access level for the dashboard
+   */
+  access: optional string
+}
