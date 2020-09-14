@@ -91,6 +91,14 @@ public class Urn {
     return createFromString(rawUrn);
   }
 
+  public static void validateUrn(@Nonnull Urn urn, @Nonnull String entityType)
+      throws URISyntaxException {
+    if (!entityType.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(),
+          String.format("This is not a valid %s urn", entityType));
+    }
+  }
+
   static {
     Custom.registerCoercer(new DirectCoercer<Urn>() {
       public Object coerceInput(Urn object) throws ClassCastException {
