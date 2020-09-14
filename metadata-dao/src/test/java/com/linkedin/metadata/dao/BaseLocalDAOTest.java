@@ -12,6 +12,7 @@ import com.linkedin.testing.EntityAspectUnion;
 import com.linkedin.testing.urn.FooUrn;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,9 +127,17 @@ public class BaseLocalDAOTest {
     }
 
     @Override
+    @Nonnull
     public Map<AspectKey<FooUrn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
         Set<AspectKey<FooUrn, ? extends RecordTemplate>> aspectKeys) {
-      return null;
+      return Collections.emptyMap();
+    }
+
+    @Override
+    @Nonnull
+    public Map<AspectKey<FooUrn, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> getWithExtraInfo(
+        @Nonnull Set<AspectKey<FooUrn, ? extends RecordTemplate>> keys) {
+      return Collections.emptyMap();
     }
   }
 
