@@ -249,6 +249,11 @@ public class Dataset extends Controller {
     try {
       upstreams = _lineageDao.getUpstreamLineage(datasetUrn);
     } catch (Exception e) {
+      if (ControllerUtil.checkErrorCode(e, 404)) {
+        int[] emptyUpstreams = new int[0];
+        return ok(Json.toJson(emptyUpstreams));
+      }
+
       Logger.error("Fetch Dataset upstreams error", e);
       return internalServerError(ControllerUtil.errorResponse(e));
     }
