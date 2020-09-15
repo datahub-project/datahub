@@ -148,25 +148,25 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * Whether or not the dataset has been deprecated
    */
-  @alias('entity.dataset.deprecated')
+  @alias('entity.deprecated')
   deprecated?: boolean;
 
   /**
    * Note attached to the deprecation process for this dataset
    */
-  @alias('entity.dataset.deprecationNote')
+  @alias('entity.deprecationNote')
   deprecationNote?: string;
 
   /**
    * Timestamp for when the dataset was deprecated
    */
-  @alias('entity.dataset.decommissionTime')
+  @alias('entity.decommissionTime')
   decommissionTime?: number;
 
   /**
    * Last timestamp for the modification of this dataset
    */
-  @oneWay('entity.dataset.modifiedTime')
+  @oneWay('entity.modifiedTime')
   modifiedTime?: number;
 
   /**
@@ -174,7 +174,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    * Note: This overrides the BaseEntity implementation since DatasetEntity has a different behavior than
    * other entities
    */
-  @oneWay('entity.dataset.removed')
+  @oneWay('entity.removed')
   removed!: boolean;
 
   /**
@@ -187,7 +187,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * Description for the dataset that contains more information about the nature of the data or metadata
    */
-  @oneWay('entity.dataset.description')
+  @oneWay('entity.description')
   description?: string;
 
   /**
@@ -202,7 +202,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * Reference to the data entity, is the data platform to which the dataset belongs
    */
-  @computed('entity.dataset.platform', 'urn')
+  @computed('entity.platform', 'urn')
   get platform(): DatasetPlatform | undefined {
     const { urn, entity } = this;
     const parts = getDatasetUrnParts(urn);
