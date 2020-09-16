@@ -1,36 +1,18 @@
-import { getApiRoot, ApiStatus } from '@datahub/utils/api/shared';
+import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
 import { getJSON } from '@datahub/utils/api/fetcher';
+import { ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
+import { IUser } from '@datahub/metadata-types/types/common/user';
 
-const currentUserUrl = `${getApiRoot()}/user/me`;
-
-/**
- * Describes the interface for the user json returned
- * from the current user endpoint
- */
-export interface IUser {
-  departmentNum: number;
-  email: string;
-  id: number;
-  name: string;
-  userName: string;
-  pictureLink: string;
-  userSetting: null | {
-    defaultWatch: string;
-    detailDefaultView: string;
-  };
-}
+const currentUserUrl = `${getApiRoot(ApiVersion.v2)}/user/me`;
 
 /**
- * Requests the currently logged in user and if the response is ok,
- * returns the user, otherwise throws
+ * Requests the currently logged in user and returns that user
  */
-export const currentUser = async (): Promise<IUser> => {
-  const response = (await getJSON({ url: currentUserUrl })) as { user: IUser; status: ApiStatus };
-  const { status = ApiStatus.FAILED, user } = response;
+export const currentUser = (): Promise<ICorpUserInfo> => getJSON({ url: currentUserUrl });
 
-  if (status === ApiStatus.OK) {
-    return user;
-  }
-
-  throw new Error(`Exception: ${status}`);
-};
+/**
+ * Because the open source midtier is currently lagging behind, we need to have a handler for the previous /user/me
+ * endpoint as otherwise it causes an issue with logging in on the open source frontend
+ */
+export const currentUserDeprecated = (): Promise<IUser> =>
+  getJSON({ url: `${getApiRoot(ApiVersion.v1)}/user/me` }).then(({ user }: { user: IUser }): IUser => user);

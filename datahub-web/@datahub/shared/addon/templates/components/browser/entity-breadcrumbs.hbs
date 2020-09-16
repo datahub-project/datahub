@@ -1,0 +1,32 @@
+<div class="container nacho-breadcrumbs-container-wrapper">
+  <ul class="nacho-breadcrumbs">
+    <li class="nacho-breadcrumbs__crumb">
+      <LinkTo @route="browse.entity" @model={{@entity}} @query={{hash page=1 path=undefined platform=undefined}} class="nacho-breadcrumbs__crumb-grain">
+        <span class="nacho-breadcrumbs__crumb-text">
+          {{nacho-core/titleize @entity}}
+        </span>
+      </LinkTo>
+    </li>
+
+    {{#each affix.prefix as |crumb|}}
+      <Browser::EntityBreadcrumbs::Crumb @entity={{@entity}} @categoryPath={{this.categoryPath}} @crumb={{crumb}} />
+    {{/each}}
+
+    {{#if affix.infix}}
+      <li class="nacho-breadcrumbs__crumb">
+        <span class="nacho-breadcrumbs__crumb-grain nacho-breadcrumbs__crumb-grain--no-focus">
+          <span>
+            <TooltipOnElement @side="bottom" @text={{join ", " (map-by "label" affix.infix)}} />
+            ...
+          </span>
+        </span>
+      </li>
+
+      {{#each affix.suffix as |crumb|}}
+        <Browser::EntityBreadcrumbs::Crumb @entity={{@entity}} @categoryPath={{this.categoryPath}} @crumb={{crumb}} />
+      {{/each}}
+    {{/if}}
+  </ul>
+
+  {{yield}}
+</div>

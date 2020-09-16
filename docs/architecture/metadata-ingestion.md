@@ -1,10 +1,13 @@
 # Metadata Ingestion Architecture
 
-## MCE Consumer Job [WIP]
+## MCE Consumer Job
+
+Metadata providers communicate changes in metadata by emitting [MCE]s, which are consumed by a Kafka Streams job, [mce-consumer-job].
+The job converts the AVRO-based MCE into the equivalent [Pegasus Data Template] and saves it into the database by calling a special GMS ingest API.
 
 ## MAE Consumer Job
 
-All the emitted [MAE] will be consumed by a Kafka streams job, [mae-consumer-job], which updates the [graph] and [search index] accordingly. 
+All the emitted [MAE] will be consumed by a Kafka Streams job, [mae-consumer-job], which updates the [graph] and [search index] accordingly. 
 The job itself is entity-agnostic and will execute corresponding graph & search index builders, which will be invoked by the job when a specific metadata aspect is changed. 
 The builder should instruct the job how to update the graph and search index based on the metadata change. 
 The builder can optionally use [Remote DAO] to fetch additional metadata from other sources to help compute the final update.
@@ -51,9 +54,12 @@ public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
 }
 ```
 
+[MCE]: ../what/mxe.md#metadata-change-event-mce
 [MAE]: ../what/mxe.md#metadata-audit-event-mae
+[Pegasus Data Template]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
 [graph]: ../what/graph.md
 [search index]: ../what/search-index.md
+[mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
 [mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
 [Remote DAO]: ../architecture/metadata-serving.md#remote-dao
 [URN]: ../what/urn.md

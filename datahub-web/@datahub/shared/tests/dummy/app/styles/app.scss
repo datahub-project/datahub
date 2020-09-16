@@ -1,0 +1,16 @@
+@import 'ember-power-calendar';
+@import 'ember-basic-dropdown';
+@import 'nacho-core';
+@import 'nacho-table';
+@import 'nacho-button';
+@import 'datahub-utils';
+@import 'datahub-shared';
+
+.dummy-graph-toolbar {
+  display: flex;
+  justify-content: space-between;
+}
+
+.test-container {
+  width: $max-container-width;
+}

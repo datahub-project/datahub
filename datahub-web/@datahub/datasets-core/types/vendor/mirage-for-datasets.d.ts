@@ -1,6 +1,11 @@
+import { IMirageDB } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
+import { IComplianceFieldAnnotation } from '@datahub/metadata-types/constants/entity/dataset/compliance-field-annotation';
+import { IComplianceDataType } from '@datahub/metadata-types/types/entity/dataset/compliance-data-types';
 import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/scehma';
-import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { IDatasetComplianceInfo } from '@datahub/metadata-types/types/entity/dataset/compliance/info';
+import { IDatasetExportPolicy } from '@datahub/metadata-types/types/entity/dataset/compliance/export-policy';
 import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
+import { IDatasetRetentionPolicy } from '@datahub/metadata-types/types/entity/dataset/compliance/retention';
 
 type SchemaDb<T> = Array<T> & {
   where: (query: Partial<T>) => Array<T>;
@@ -15,9 +20,14 @@ type SchemaDb<T> = Array<T> & {
  * the available interfaces, and mapping them here specifically for this addon.
  */
 export interface IMirageDatasetCoreSchema {
+  complianceDataTypes: IMirageDB<IComplianceDataType>;
   db: {
+    datasetComplianceAnnotationTags: SchemaDb<IComplianceFieldAnnotation & { isSuggestion: boolean }>;
     datasetSchemaColumns: SchemaDb<IDatasetSchemaColumn>;
-    datasetViews: SchemaDb<IDatasetEntity>;
+    datasets: SchemaDb<Com.Linkedin.Dataset.Dataset>;
+    datasetComplianceInfos: SchemaDb<IDatasetComplianceInfo>;
+    datasetExportPolicies: SchemaDb<IDatasetExportPolicy>;
+    datasetPurgePolicies: SchemaDb<IDatasetRetentionPolicy>;
     platforms: SchemaDb<IDataPlatform>;
   };
 }

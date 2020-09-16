@@ -1,4 +1,5 @@
-type ICustomSearchResultPropertyComponent = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+import { ICustomSearchResultPropertyComponent } from '@datahub/data-models/types/search/custom-search-result-property-component';
+import { IDynamicComponent } from '@datahub/shared/types/dynamic-component';
 
 export interface IEntityRenderCommonPropsSearch {
   // Lists a set of render properties that indicate how search attributes for an entity are rendered in the ui
@@ -9,8 +10,7 @@ export interface IEntityRenderCommonPropsSearch {
   // actions are rendered in the order they are presented, this may evolve to include options for rendering such as properties e.t.c
   secondaryActionComponents?: Array<ICustomSearchResultPropertyComponent>;
   // Lists the optional search result item footer component string references
-  // Footer components are rendered in the order they are presented, this may evolve to include
-  // options for rendering
+  // Footer components are rendered in the order they are presented, this may evolve to include options for rendering
   customFooterComponents?: Array<ICustomSearchResultPropertyComponent>;
   searchResultEntityFields?: {
     // Field that returns the name of the entity, by default is 'name'
@@ -20,6 +20,12 @@ export interface IEntityRenderCommonPropsSearch {
     // Field that returns the entity picture of the entity, it won't be shown by default
     pictureUrl?: string;
   };
+  // Whether or not this entity is searchable through conventional means in the application. One
+  // can still have search props but have isEnabled set to false if the entity relies on search but
+  // is not necessary available in the global search functionality for the app
+  // Note: Though this parameter is optional, items that rely on listing entities that are searchable
+  // will default this to false
+  isEnabled?: boolean;
 }
 /**
  * This interface should live in search addon, but search addon depends on data-models and
@@ -30,12 +36,8 @@ export interface IEntityRenderCommonPropsSearch {
 export interface IEntityRenderPropsSearch extends IEntityRenderCommonPropsSearch {
   // Placeholder text describing call to action for search input
   placeholder: string;
-  // API use a specific name to refer to an entity. For example, 'features' in api is 'feature'.
-  apiName: string;
   // By default autocomplete field is `name`, but some entities maybe need some other field
   autocompleteNameField?: string;
-  // Flag indicating that this entity should be searchable, by default all entities are searchable so this attribute is optional
-  isEnabled?: boolean;
 }
 
 /**
@@ -71,11 +73,14 @@ export interface ISearchEntityRenderProps {
   facetDefaultValue?: Array<string>;
   // browse may require to filter by some facets on some cases
   browseFiltersValue?: Array<string>;
-  // minimun query length to fetch suggestions for backend
+  // minimum query length to fetch suggestions for backend
   minAutocompleteFetchLength?: number;
   // Optional text that is shown over hovering of the element, to provide more meaning and context
   hoverText?: string;
   // Component that can serve different purposes when default rendering options are not enough
   // attributes is an optional object used to provide additional rendering information about the component
   component?: ICustomSearchResultPropertyComponent;
+  // Optional dynamic component(s) that are supplied as a way to flexibly control what and how components work
+  // An implementation of this interface would contain custom `DynamicComponent` names and custom options on a per component basis
+  headerComponent?: IDynamicComponent;
 }

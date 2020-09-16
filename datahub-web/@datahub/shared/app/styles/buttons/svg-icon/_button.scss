@@ -1,0 +1,16 @@
+.svg-icon-button {
+  $size: item-spacing(6);
+
+  border: 1px solid get-color(gray5);
+  border-radius: 50%;
+  height: $size;
+  width: $size;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+
+  // Adjacent sibling buttons should be socially distanced
+  & + & {
+    margin-left: item-spacing(3);
+  }
+}

@@ -1,0 +1,85 @@
+.browse-category-container {
+  // Browse categories page will feature a contained breadcrumbs component, offset its height to prevent overlapping content
+  margin-top: $application-navigation-breadcrumbs-static-height;
+
+  &--no-breadcrumbs {
+    margin-top: 0;
+  }
+
+  &__ul,
+  &__li {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__ul {
+    margin-top: item-spacing(3);
+  }
+
+  &__header {
+    display: flex;
+    align-content: center;
+    margin-top: item-spacing(3);
+
+    // Call to action components for the browse page header
+    &__actions {
+      margin-left: auto;
+    }
+  }
+
+  &__title {
+    margin: 0;
+  }
+
+  &__list-loading {
+    display: flex;
+    margin: item-spacing(0 6);
+  }
+}
+
+.browse-categories {
+  padding: 0;
+  margin-top: item-spacing(5);
+}
+
+.browse-category {
+  @include nacho-container;
+  padding: item-spacing(2 5);
+  display: flex;
+  font-size: fs(standard);
+  line-height: 17px;
+  height: 44px;
+
+  &__link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  &:hover {
+    background-color: get-color(blue0);
+  }
+
+  & + & {
+    border-top: 0;
+    border-radius: 0;
+  }
+
+  &__node-name {
+    margin-left: item-spacing(3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
+  }
+
+  &__count,
+  &__chevron {
+    color: get-color(gray5);
+  }
+
+  &__count {
+    margin-right: item-spacing(2);
+  }
+}

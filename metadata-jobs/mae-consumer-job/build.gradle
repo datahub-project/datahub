@@ -28,8 +28,6 @@ dependencies {
     compile externalDependency.neo4jJavaDriver
 
     compile externalDependency.kafkaAvroSerde
-    compile externalDependency.kafkaStreams
-    compile externalDependency.kafkaSerializers
 
     compile (externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"

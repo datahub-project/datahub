@@ -8,6 +8,8 @@
 
   &__previous-btn,
   &__next-btn {
+    background: transparent;
+    border: 0;
     display: block;
     padding: item-spacing(5);
     font-weight: 400;
@@ -42,6 +44,7 @@
 
   &__page,
   &__page-link {
+    background: transparent;
     padding: item-spacing(1 2);
     border-radius: 2px;
     font-weight: 400;

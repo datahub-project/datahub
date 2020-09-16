@@ -8,14 +8,17 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ClassUtils;
 import org.neo4j.driver.types.Node;
+import org.neo4j.driver.types.Path;
 import org.neo4j.driver.types.Relationship;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
@@ -32,7 +35,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts ENTITY to node (field:value map)
+   * Converts ENTITY to node (field:value map).
    *
    * @param entity ENTITY defined in models
    * @return unmodifiable field value map
@@ -48,7 +51,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts RELATIONSHIP to edge (field:value map), excluding source and destination
+   * Converts RELATIONSHIP to edge (field:value map), excluding source and destination.
    *
    * @param relationship RELATIONSHIP defined in models
    * @return unmodifiable field value map
@@ -69,7 +72,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key: "value"}
+   * Converts RELATIONSHIP to cypher matching criteria, excluding source and destination, e.g. {key: "value"}.
    *
    * @param relationship RELATIONSHIP defined in models
    * @return Criteria String, or "" if no additional fields in relationship
@@ -110,7 +113,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL
+   * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be EQUAL.
    *
    * @param filter Query Filter
    * @return Neo4j criteria string
@@ -121,7 +124,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts {@link CriterionArray} to neo4j query string
+   * Converts {@link CriterionArray} to neo4j query string.
    *
    * @param criterionArray CriterionArray in a Filter
    * @return Neo4j criteria string
@@ -140,7 +143,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts node (field:value map) to ENTITY
+   * Converts node (field:value map) to ENTITY.
    *
    * @param entityClass Class of Entity
    * @param node Neo4j Node of entityClass type
@@ -153,7 +156,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts node (field:value map) to ENTITY RecordTemplate
+   * Converts node (field:value map) to ENTITY RecordTemplate.
    *
    * @param node Neo4j Node of entityClass type
    * @return RecordTemplate
@@ -166,7 +169,25 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts edge (source-relationship->destination) to RELATIONSHIP
+   * Converts path segment (field:value map) list of {@link RecordTemplate}s of nodes & edges.
+   *
+   * @param segment The segment of a path containing nodes & edges
+   */
+  @Nonnull
+  public static List<RecordTemplate> pathSegmentToRecordList(@Nonnull Path.Segment segment) {
+    final Node startNode = segment.start();
+    final Node endNode = segment.end();
+    final Relationship edge = segment.relationship();
+
+    return Arrays.asList(
+        nodeToEntity(startNode),
+        edgeToRelationship(startNode, endNode, edge),
+        nodeToEntity(endNode)
+    );
+  }
+
+  /**
+   * Converts edge (source-relationship->destination) to RELATIONSHIP.
    *
    * @param relationshipClass Class of RELATIONSHIP
    * @param source Neo4j source Node
@@ -184,7 +205,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Converts edge (source-relationship->destination) to RELATIONSHIP RecordTemplate
+   * Converts edge (source-relationship->destination) to RELATIONSHIP RecordTemplate.
    *
    * @param source Neo4j source Node
    * @param destination Neo4j destination Node
@@ -229,7 +250,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Create {@link RelationshipFilter} using filter and relationship direction
+   * Create {@link RelationshipFilter} using filter and relationship direction.
    *
    * @param filter {@link Filter} filter
    * @param relationshipDirection {@link RelationshipDirection} relationship direction
@@ -242,7 +263,7 @@ public class Neo4jUtil {
   }
 
   /**
-   * Create {@link RelationshipFilter} using filter conditions and relationship direction
+   * Create {@link RelationshipFilter} using filter conditions and relationship direction.
    *
    * @param field field to create a filter on
    * @param value field value to be filtered

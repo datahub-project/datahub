@@ -5,7 +5,7 @@ import { layout, classNames } from '@ember-decorators/component';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { computed, set, action, setProperties } from '@ember/object';
 import { baseInfoEditorClass } from '@datahub/user/components/user/profile/entity-header';
-import { noop } from '@datahub/utils/function/noop';
+import { noop } from 'lodash';
 import { IPersonEntityEditableProperties } from '@datahub/data-models/types/entity/person/props';
 import { alias } from '@ember/object/computed';
 
@@ -54,7 +54,7 @@ export default class UserProfileInfoEditor extends Component {
   /**
    * Whether or not we are in an await - saving state
    */
-  isSaving: boolean = false;
+  isSaving = false;
 
   /**
    * External action used to trigger a parent component that the user has desired to close the
@@ -179,7 +179,11 @@ export default class UserProfileInfoEditor extends Component {
    */
   @action
   removeTag(key: 'skills' | 'teamTags', valueIndex: number): void {
-    set(this, key, this[key].filter((_tag, idx): boolean => idx !== valueIndex));
+    set(
+      this,
+      key,
+      this[key].filter((_tag, idx): boolean => idx !== valueIndex)
+    );
   }
 
   /**

@@ -25,6 +25,10 @@ spec:
       serviceAccountName: {{ include "datahub-mae-consumer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | indent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -33,45 +37,31 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.bootstrap.server
+              value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.schemaregistry.url
+              value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: ELASTICSEARCH_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: elasticsearch.host
+              value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: elasticsearch.port
+              value: "{{ .Values.global.elasticsearch.port }}"
             - name: NEO4J_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: neo4j.host
+              value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: neo4j.uri
+              value: "{{ .Values.global.neo4j.uri }}"
             - name: NEO4J_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: datahub-gms-deployment-secret
-                  key: neo4j.username
+              value: "{{ .Values.global.neo4j.username }}"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: datahub-gms-deployment-secret
-                  key: neo4j.password
+                  name: "{{ .Values.global.neo4j.password.secretRef }}"
+                  key: "{{ .Values.global.neo4j.password.secretKey }}"
+          {{- if .Values.extraEnvs }}
+            {{ toYaml .Values.extraEnvs | indent 10 }}
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

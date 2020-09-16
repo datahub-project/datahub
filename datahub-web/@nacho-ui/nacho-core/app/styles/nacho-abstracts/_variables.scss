@@ -1,0 +1,34 @@
+/// Breakpoints map
+/// @prop {String} keys - Keys are identifiers mapped to a given length
+/// @prop {Map} values - Values are actual breakpoints expressed in pixels
+$breakpoints: (
+  'small': (
+    min-width: 320px
+  ),
+  'medium': (
+    min-width: 768px
+  ),
+  'large': (
+    min-width: 979px
+  ),
+  'huge': (
+    min-width: 1024px
+  )
+) !default;
+
+/// Z-indexes map, gathering all Z layers of the application
+/// @type Map
+/// @prop {String} key - Layer’s name
+/// @prop {Number} value - Z value mapped to the key
+$z-indexes: (
+  'toast': 6000,
+  'dropdown': 5000,
+  'modal': 4000,
+  'banner': 3000,
+  'nav': 1000,
+  'above': +1,
+  'default': 0,
+  'below': -1
+) !default;
+
+$max-container-width: 1128px;

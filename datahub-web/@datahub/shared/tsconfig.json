@@ -4,15 +4,25 @@
     "baseUrl": ".",
     "rootDir": "../../",
     "paths": {
-      "dummy/tests/*": ["tests/*"],
-      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "dummy/mirage/*": ["tests/dummy/mirage/*", "../../@datahub/data-models/tests/dummy/mirage/*"],
+      "dummy/tests/*": ["tests/*", "../../@datahub/data-models/tests/*"],
+      "dummy/*": [
+        "tests/dummy/app/*",
+        "app/*",
+        "../../@datahub/data-models/tests/dummy/app/*",
+        "../../@datahub/data-models/tests/app/*"
+      ],
       "@datahub/shared": ["addon"],
       "@datahub/shared/*": ["addon/*"],
       "@datahub/shared/test-support": ["addon-test-support"],
       "@datahub/shared/test-support/*": ["addon-test-support/*"],
+      "@datahub/data-models": ["../../@datahub/data-models/addon"],
+      "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
       "@datahub/utils": ["../../@datahub/utils/addon"],
       "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
-      "*": ["types/*"],
+      "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
+      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "*": ["types/*"]
     }
   },
   "include": [
@@ -22,7 +32,12 @@
     "types/**/*",
     "test-support/**/*",
     "addon-test-support/**/*",
+    "../../@datahub/data-models/addon/**/*",
+    "../../@datahub/data-models/types/**/*",
+    "../../@datahub/data-models/tests/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*"
+    "../../@datahub/utils/types/**/*",
+    "../../@datahub/metadata-types/addon/**/*",
+    "../../@datahub/metadata-types/types/**/*"
   ]
 }

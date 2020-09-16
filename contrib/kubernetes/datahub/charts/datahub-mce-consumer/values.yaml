@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: linkedin/datahub-mce-consumer
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets: []
@@ -50,6 +50,22 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+# Extra environment variables
+# This will be appended to the current 'env:' key. You can use any of the kubernetes env
+# syntax here
+extraEnvs: []
+  # - name: MY_ENVIRONMENT_VAR
+  #   value: the_value_goes_here
+
+extraVolumes: []
+  # - name: extras
+  #   emptyDir: {}
+
+extraVolumeMounts: []
+  # - name: extras
+  #   mountPath: /usr/share/extras
+  #   readOnly: true
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -69,11 +85,16 @@ tolerations: []
 affinity: {}
 
 global:
+  kafka:
+    bootstrap:
+      server: "broker:29092"
+    schemaregistry:
+      url: "http://schema-registry:8081"
+
   datahub:
     gms:
-      host: "datahub-gms-deployment"
       port: "8080"
-      secret: "YouKnowNothing"
+
   hostAliases:
     - ip: "192.168.0.104"
       hostnames:

@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.BaseReadDAO.*;
 import static com.linkedin.metadata.restli.RestliConstants.*;
@@ -33,7 +34,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * A base class for the entity rest.li resource where the key is of a primitive (simple) type.
  *
- * See http://go/gma for more details
+ * <p>See http://go/gma for more details
  *
  * @param <KEY> the resource's simple key type
  * @param <VALUE> the resource's value type
@@ -117,7 +118,7 @@ public abstract class BaseEntitySimpleKeyResource<
   @Nonnull
   public Task<VALUE> get(
       @Nonnull KEY id,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
       final URN urn = toUrn(id);
@@ -136,7 +137,7 @@ public abstract class BaseEntitySimpleKeyResource<
   @Nonnull
   public Task<Map<KEY, VALUE>> batchGet(
       @Nonnull Set<KEY> ids,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
       final Map<URN, KEY> urnIdMap = ids.stream()
@@ -177,7 +178,7 @@ public abstract class BaseEntitySimpleKeyResource<
   @Nonnull
   public Task<SNAPSHOT> getSnapshot(
       @ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
       final URN urn = parseUrnParam(urnString);
@@ -205,7 +206,7 @@ public abstract class BaseEntitySimpleKeyResource<
   @Action(name = ACTION_BACKFILL)
   @Nonnull
   public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
       final URN urn = parseUrnParam(urnString);
@@ -218,8 +219,8 @@ public abstract class BaseEntitySimpleKeyResource<
   }
 
   @Nonnull
-  protected Set<Class<? extends RecordTemplate>> parseAspectsParam(@Nonnull String[] aspectNames) {
-    if (aspectNames.length == 0) {
+  protected Set<Class<? extends RecordTemplate>> parseAspectsParam(@Nullable String[] aspectNames) {
+    if (aspectNames == null) {
       return _supportedAspectClasses;
     }
     return Arrays.stream(aspectNames)
@@ -228,7 +229,7 @@ public abstract class BaseEntitySimpleKeyResource<
   }
 
   /**
-   * Returns a map of {@link VALUE} models given the collection of {@link URN}s and set of aspect classes
+   * Returns a map of {@link VALUE} models given the collection of {@link URN}s and set of aspect classes.
    *
    * @param urns collection of urns
    * @param aspectClasses set of aspect classes

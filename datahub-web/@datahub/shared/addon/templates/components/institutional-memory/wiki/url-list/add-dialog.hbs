@@ -1,0 +1,56 @@
+{{#modal-dialog
+  overlayClass="notification-overlay"
+  containerClassNames=containerClassNames
+  onClose=(action "onCancel")
+}}
+  <header class="notification-confirm-modal__header {{baseModalClass}}__header">
+    <h3 class="{{baseModalClass}}__title">
+      Add link
+    </h3>
+
+    <button
+      type="button"
+      class="{{baseModalClass}}__close-button"
+      {{action "onCancel"}}
+    >
+      {{fa-icon "times"}}
+    </button>
+  </header>
+
+  <section class="notification-confirm-modal__content">
+    <div class="{{baseModalClass}}__form">
+      <h4>URL</h4>
+      {{input
+        class=(concat baseModalClass "__url")
+        value=url
+        placeholder="URL to wiki, documentation"
+      }}
+      <h4>Description</h4>
+      {{textarea
+        class=(concat baseModalClass "__description")
+        value=description
+        placeholder="Provide some description for others to understand the context of this link"
+      }}
+      <p class="{{baseModalClass}}__description-limit">{{description.length}}/500</p>
+    </div>
+  </section>
+
+  <footer class="notification-confirm-modal__footer">
+    <button
+      type="button"
+      class="nacho-button--large nacho-button--secondary {{baseModalClass}}__cancel"
+      {{action "onCancel"}}
+    >
+      Cancel
+    </button>
+
+    <button
+      type="button"
+      class="nacho-button nacho-button--large-inverse {{baseModalClass}}__save"
+      {{action "onSaveLink"}}
+    >
+      Save
+    </button>
+  </footer>
+
+{{/modal-dialog}}

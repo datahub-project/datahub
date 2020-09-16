@@ -2,8 +2,8 @@ import {
   ISuggestionGroup,
   ISuggestionBuilder,
   AutocompleteRuleNames
-} from 'wherehows-web/utils/parsers/autocomplete/types';
-import { capitalize } from '@ember/string';
+} from 'datahub-web/utils/parsers/autocomplete/types';
+import titleize from '@nacho-ui/core/utils/strings/titleize';
 
 /**
  * Will generate suggestion groups
@@ -15,7 +15,7 @@ export const generateGroups = (builder: ISuggestionBuilder): ISuggestionBuilder 
   const expectedEntityName = !!builder.wantedRulesMap[AutocompleteRuleNames.EntityName];
   const lastWordLength = typeof builder.textLastWord === 'string' ? builder.textLastWord.trim().length : -1;
   const entityModel = builder.entity;
-  const entityDisplayName = capitalize(entityModel.displayName);
+  const entityDisplayName = titleize(entityModel.displayName);
 
   if (isEntityNamesEmpty && expectedEntityName && lastWordLength < 3) {
     groups.push({

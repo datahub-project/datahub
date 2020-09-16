@@ -1,0 +1,48 @@
+.entity-alert-banner {
+  display: flex;
+
+  &-container {
+    background-color: get-color(red6, 0.75);
+  }
+
+  &__icon {
+    color: get-color(white);
+    margin: item-spacing(4 4 0 0);
+    font-size: 20px;
+  }
+
+  &__banner {
+    padding: item-spacing(3);
+  }
+
+  &__message {
+    display: flex;
+    flex-direction: column;
+    color: get-color(white);
+    width: 100%;
+    margin: item-spacing(4 0);
+  }
+
+  &__subject {
+    font-weight: fw(normal, 4);
+    font-size: fs(standard);
+    margin: item-spacing(0 0 2);
+  }
+
+  &__body {
+    font-size: fs(standard);
+    margin: 0;
+  }
+
+  &__link {
+    &-text {
+      text-decoration: underline get-color(white);
+      color: get-color(white);
+
+      &:hover {
+        color: get-color(blue5);
+        text-decoration-color: get-color(blue5);
+      }
+    }
+  }
+}

@@ -16,14 +16,14 @@
       "parameters" : [ {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-        "default" : "[]"
+        "optional" : true
       } ]
     }, {
       "method" : "batch_get",
       "parameters" : [ {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-        "default" : "[]"
+        "optional" : true
       } ]
     } ],
     "finders" : [ {
@@ -34,7 +34,7 @@
       }, {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-        "default" : "[]"
+        "optional" : true
       }, {
         "name" : "filter",
         "type" : "com.linkedin.metadata.query.Filter",
@@ -73,9 +73,9 @@
       }, {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-        "default" : "[]"
+        "optional" : true
       } ],
-      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      "returns" : "com.linkedin.metadata.restli.BackfillResult"
     }, {
       "name" : "getSnapshot",
       "parameters" : [ {
@@ -84,7 +84,7 @@
       }, {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-        "default" : "[]"
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot"
     }, {

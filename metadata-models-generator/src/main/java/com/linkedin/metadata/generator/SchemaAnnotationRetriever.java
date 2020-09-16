@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.metadata.generator.SchemaGeneratorConstants.*;
 
 
-/***
+/**
  * Parse the property annotations from the pdl schema.
  */
 @Slf4j
@@ -53,13 +53,11 @@ public class SchemaAnnotationRetriever {
     specs.add(eventSpec);
     if (annotationInfo != null && annotationInfo.containsKey(ENTITY_URNS)) {
       eventSpec.setUrnSet(new HashSet<>((List) annotationInfo.get(ENTITY_URNS)));
-    } else {
-      log.debug(String.format("No recognized urn annotation is presented in %s.", schema.getFullName()));
+    }
+    if (annotationInfo != null && annotationInfo.containsKey(DELTA)) {
+      eventSpec.setDelta((String) annotationInfo.get(DELTA));
     }
     eventSpec.setNamespace(schema.getNamespace());
     eventSpec.setValueType(schema.getFullName());
-    if (schema.getDoc() != null) {
-      eventSpec.setDoc(schema.getDoc());
-    }
   }
 }

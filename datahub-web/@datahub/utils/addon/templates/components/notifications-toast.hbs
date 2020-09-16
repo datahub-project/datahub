@@ -15,6 +15,7 @@
 
   {{#if (and (not hasBlock) (gt @toast.props.content.length this.maxToastCharLength))}}
     <button
+      type="button"
       class="nacho-button nacho-button--tertiary notifications__toast__content-detail"
       onclick={{action @onShowDetail}}
     >
@@ -24,6 +25,7 @@
 </div>
 
 <button
+  type="button"
   class="notifications__toast__dismiss"
   onclick={{action @onDismiss}}
 >

@@ -1,0 +1,64 @@
+<div class="{{this.baseClass}}">
+  <section class="{{this.baseClass}}__score">
+    <p class="{{this.baseClass}}__title">
+      <strong>Health</strong>
+      {{#with @metadataHealthHelp as |link|}}
+        <MoreInfo @tooltip={{this.tooltip}} @link={{link}}/>
+      {{/with}}
+    </p>
+
+    <Health::LastUpdated @lastUpdated={{this.healthProxy.lastUpdated}} @small={{true}} />
+
+    {{#with this.healthProxy.score as |score|}}
+      <span class="{{this.baseClass}}__score-value">
+        <Health::HealthScoreValue @score={{score}}/>
+      </span>
+    {{else}}
+      No health score available
+    {{/with}}
+  </section>
+
+  <aside class="{{this.baseClass}}__action">
+    {{! If we are already viewing the health tab then don't show the option to navigate there
+        also display the recalculation option as a button instead of a dropdown menu if the health score available
+        otherwise show the recalculation action as a button
+    }}
+    {{#if @isViewingHealth}}
+      <Health::HealthInsightRecalculationButton
+        @onRecalculateHealthScore={{this.onRecalculateHealthScore}}
+        @baseClass={{this.baseClass}}
+      />
+    {{else}}
+
+      {{#if this.healthProxy.score}}
+        <button
+          class="nacho-button nacho-button--tertiary {{this.baseClass}}__button"
+          type="button"
+          {{on "click" this.onViewHealthClicked}}
+          data-insight-action="view"
+          {{track-control-interaction type="SHORT_PRESS" name="DataHubHealthScoreInsightViewScore"}}
+        >
+          See Details
+        </button>
+
+        <NachoHoverDropdown
+          @class="nacho-button nacho-button--small nacho-button--tertiary"
+          @dropDownItems={{this.menuOptions}}
+          @wrappedTriggerComponent={{true}}
+          @onSelect={{this.onRecalculateHealthScore}} as |hd|
+        >
+          <hd.trigger class="{{this.baseClass}}__menu-trigger">
+            {{svg-jar "ellipsis-vertical-icon"}}
+          </hd.trigger>
+
+          {{hd.content}}
+        </NachoHoverDropdown>
+      {{else}}
+        <Health::HealthInsightRecalculationButton
+          @onRecalculateHealthScore={{this.onRecalculateHealthScore}}
+          @baseClass={{this.baseClass}}
+        />
+      {{/if}}
+    {{/if}}
+  </aside>
+</div>

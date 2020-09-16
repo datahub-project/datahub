@@ -5,6 +5,7 @@ dependencies {
   compile project(':metadata-models')
 
   compile externalDependency.elasticSearchRest
+  compile externalDependency.elasticSearchTransport
   compile externalDependency.guava
   compile externalDependency.lombok
   compile externalDependency.commonsIo

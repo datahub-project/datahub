@@ -21,7 +21,7 @@ import { layout } from '@ember-decorators/component';
  * should show '3' as the promise resolved '3'
  */
 @layout(template)
-@containerDataSource('getContainerDataTask', ['promise'])
+@containerDataSource<WaitPromiseContainer<unknown>>('getContainerDataTask', ['promise'])
 export default class WaitPromiseContainer<T> extends Component {
   /**
    * Input promise that we want to wait
@@ -34,12 +34,18 @@ export default class WaitPromiseContainer<T> extends Component {
   resolved?: T;
 
   /**
+   * Flag indicating if the lockup image and retry button should be shown in the ui
+   * Disabling allows this component to be used in interfaces that are not suitable to render a full error lockup
+   */
+  showLockup = true;
+
+  /**
    * Will fetch and transform api data into status table input format
    */
   @task(function*(this: WaitPromiseContainer<T>): IterableIterator<Promise<T>> {
     const { promise } = this;
     if (promise) {
-      const resolved: T = yield promise;
+      const resolved = yield promise;
       set(this, 'resolved', resolved);
     }
   })

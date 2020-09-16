@@ -24,8 +24,6 @@ dependencies {
     compile spec.product.pegasus.restliCommon
     compile externalDependency.elasticSearchRest
     compile externalDependency.kafkaAvroSerde
-    compile externalDependency.kafkaStreams
-    compile externalDependency.kafkaSerializers
     compile (externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }

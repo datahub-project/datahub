@@ -1,0 +1,241 @@
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "filter": {
+          "autocomplete_filter": {
+            "type": "edge_ngram",
+            "min_gram": "3",
+            "max_gram": "50"
+          },
+          "custom_delimiter": {
+            "split_on_numerics": "false",
+            "split_on_case_change": "false",
+            "type": "word_delimiter",
+            "preserve_original": "true",
+            "catenate_words": "false"
+          }
+        },
+        "char_filter": {
+          "dataset_pattern": {
+            "pattern": "[.]",
+            "type": "pattern_replace",
+            "replacement": "/"
+          }
+        },
+        "normalizer": {
+          "my_normalizer": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom"
+          }
+        },
+        "analyzer": {
+          "whitespace_lowercase": {
+            "filter": [
+              "lowercase"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "slash_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "slash_tokenizer"
+          },
+          "dataset_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "dataset_pattern"
+          },
+          "comma_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "custom_browse": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "path_hierarchy_tokenizer"
+          },
+          "custom_ngram": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "custom_ngram"
+          },
+          "custom_keyword": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          },
+          "comma_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "delimit": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "dataset_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "dataset_pattern"
+          },
+          "custom_browse_slash": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "path_hierarchy"
+          }
+        },
+        "tokenizer": {
+          "path_hierarchy_tokenizer": {
+            "type": "path_hierarchy",
+            "replacement": "/",
+            "delimiter": "."
+          },
+          "custom_ngram": {
+            "type": "ngram",
+            "min_gram": "3",
+            "max_gram": "50"
+          },
+          "slash_tokenizer": {
+            "pattern": "[/]",
+            "type": "pattern"
+          },
+          "comma_tokenizer": {
+            "pattern": ",",
+            "type": "pattern"
+          },
+          "dataset_pattern": {
+            "pattern": "[./]",
+            "type": "pattern"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "doc": {
+      "properties": {
+        "browsePaths": {
+          "type": "text",
+          "fields": {
+            "length": {
+              "type": "token_count",
+              "analyzer": "slash_pattern"
+            }
+          },
+          "analyzer": "custom_browse_slash",
+          "fielddata": true
+        },
+        "origin": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "hasOwners": {
+          "type": "boolean"
+        },
+        "hasSchema": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "keyword",
+          "fields": {
+            "dataset_pattern_ngram": {
+              "type": "text",
+              "analyzer": "dataset_pattern_ngram"
+            },
+            "delimited": {
+              "type": "text",
+              "analyzer": "delimit"
+            },
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            },
+            "pattern": {
+              "type": "text",
+              "analyzer": "dataset_pattern"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
+        "num_downstream_datasets": {
+          "type": "long"
+        },
+        "owners": {
+          "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "comma_pattern_ngram"
+            }
+          },
+          "analyzer": "comma_pattern"
+        },
+        "platform": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
+        "removed": {
+          "type": "boolean"
+        },
+        "urn": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        },
+        "upstreams": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
+        }
+      }
+    }
+  }
+}

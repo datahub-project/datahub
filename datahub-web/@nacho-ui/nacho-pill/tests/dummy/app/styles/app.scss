@@ -1,0 +1,21 @@
+@import 'nacho-core';
+@import 'nacho-pill';
+
+.test-pills-table {
+  table-layout: fixed;
+
+  th,
+  td {
+    padding: 0px 16px;
+  }
+}
+
+.test-pill-input {
+  display: flex;
+  width: 420px;
+  flex-wrap: wrap;
+
+  .nacho-pill-input {
+    margin-left: item-spacing(2);
+  }
+}

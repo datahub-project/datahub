@@ -1,7 +1,7 @@
 import { getJSON } from '@datahub/utils/api/fetcher';
-import { getApiRoot, ApiVersion } from 'wherehows-web/utils/api/shared';
-import buildUrl from 'wherehows-web/utils/build-url';
-import { FieldValuesRequestV2, IFieldValuesResponseV2 } from 'wherehows-web/typings/app/search/fields-v2';
+import { FieldValuesRequestV2, IFieldValuesResponseV2 } from 'datahub-web/typings/app/search/fields-v2';
+import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
+import buildUrl from '@datahub/utils/api/build-url';
 
 /**
  * Autocomplete field values for suggestions

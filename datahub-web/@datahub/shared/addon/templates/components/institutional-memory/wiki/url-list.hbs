@@ -1,0 +1,75 @@
+{{#if isShowingModal}}
+  <InstitutionalMemory::Wiki::UrlList::AddDialog
+    @saveLink={{fn this.onSaveLink}}
+    @cancelAddLink={{fn (mut this.isShowingModal) false}}
+  />
+{{/if}}
+
+<NachoTable
+  @tableConfigs={{tableConfigs}}
+  @tableClass={{baseTableClass}}
+as |Table|
+>
+  <Table.global>
+    <header>
+      <h3 class="{{baseTableClass}}__title">
+        Documentation
+      </h3>
+      <p class="{{this.baseTableClass}}__label">
+        Note down documentation or wiki link to help the community better leverage the context
+      </p>
+    </header>
+  </Table.global>
+  <Table.body as |Body|>
+    {{#each listData as |docLink|}}
+      <Body.row as |Row|>
+        <Row.cell class="{{baseTableClass}}__author-info">
+          {{#let docLink.actor as |actor|}}
+            <Avatar::Containers::AvatarMain @entity={{actor}} as |avatars|>
+              <Avatar::AvatarName @avatar={{avatars.[0]}} />
+            </Avatar::Containers::AvatarMain>
+          {{/let}}
+        </Row.cell>
+        <Row.cell class="{{baseTableClass}}__date-info">
+          {{moment-format (unix docLink.timestamp) "MM/DD/YYYY"}}
+        </Row.cell>
+        <Row.cell class="{{baseTableClass}}__link-info">
+          <a href={{docLink.url}} target="_blank" rel="noreferrer noopener">
+            {{docLink.url}}
+          </a>
+        </Row.cell>
+        <Row.cell class="{{baseTableClass}}__description-info">
+          {{docLink.description}}
+        </Row.cell>
+        <Row.cell class="{{baseTableClass}}__actions">
+          {{#unless @isReadOnly}}
+            <button
+              type="button"
+              class="{{baseTableClass}}__actions-button"
+              {{on "click" (fn this.onRemoveLink docLink)}}
+            >
+              <FaIcon
+                @icon="trash-alt"
+              />
+            </button>
+          {{/unless}}
+        </Row.cell>
+      </Body.row>
+    {{/each}}
+  </Table.body>
+  {{#unless @isReadOnly}}
+    <Table.foot @class="{{baseTableClass}}__footer">
+      <button
+        type="button"
+        class="{{baseTableClass}}__footer-button"
+        {{action "onAddLink"}}
+      >
+        <FaIcon
+          @class="{{baseTableClass}}__footer-icon"
+          @icon="plus"
+        />
+        Add link
+      </button>
+    </Table.foot>
+  {{/unless}}
+</NachoTable>

@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IAvatar } from 'datahub-web/typings/app/avatars';
 
 export default class AvatarMetadata extends Component {
   tagName: 'span';

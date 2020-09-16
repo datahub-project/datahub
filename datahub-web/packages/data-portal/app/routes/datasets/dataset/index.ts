@@ -1,16 +1,14 @@
 import Route from '@ember/routing/route';
-import { IDatasetRouteModel } from 'wherehows-web/routes/datasets/dataset';
-import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import { IDatasetRouteModel } from 'datahub-web/routes/datasets/dataset';
 
 export default class DatasetIndexRoute extends Route {
-  model(): void {
-    const { dataset } = this.modelFor('datasets.dataset') as IDatasetRouteModel;
+  redirect(): void {
+    const { datasetUrn } = this.modelFor('datasets.dataset') as IDatasetRouteModel;
 
     // if no dataset was read then, do nothing
-    if (!dataset) {
+    if (!datasetUrn) {
       return;
     }
-
-    this.transitionTo('datasets.dataset.tab', DatasetEntity.renderProps.entityPage.defaultTab);
+    this.transitionTo('entity-type.urn', 'datasets', datasetUrn);
   }
 }

@@ -1,6 +1,6 @@
-import { IDatasetSchema, IDatasetSchemaGetResponse } from 'wherehows-web/typings/api/datasets/schema';
-import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
+import { IDatasetSchema, IDatasetSchemaGetResponse } from 'datahub-web/typings/api/datasets/schema';
 import { getJSON } from '@datahub/utils/api/fetcher';
+import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
 
 /**
  * Returns the url for a dataset schema by urn

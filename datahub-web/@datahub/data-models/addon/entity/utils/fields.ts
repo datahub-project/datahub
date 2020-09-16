@@ -1,4 +1,4 @@
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
+import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
 
 /**
  * Default sorting fn for ISearchEntityRenderProps

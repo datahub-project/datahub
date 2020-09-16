@@ -1,0 +1,28 @@
+namespace com.linkedin.chart
+
+/**
+ * Information for chart query which is used for getting data of the chart
+ */
+record ChartQuery {
+
+  /**
+   * Raw query to build a chart from input datasets
+   */
+  rawQuery: string
+
+  /**
+   * Chart query type
+   */
+  type: enum ChartQueryType {
+
+    /**
+     * LookML queries
+     */
+    LOOKML
+
+    /**
+     * SQL type queries
+     */
+    SQL
+  }
+}

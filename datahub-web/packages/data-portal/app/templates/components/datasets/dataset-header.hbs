@@ -2,58 +2,51 @@
   <div class="container">
     <div class="dataset-meta-properties">
       <h3 class="dataset-name">
-        {{@model.nativeName}}
+        {{@entity.name}}
       </h3>
 
-      {{#if @model.removed}}
-        <span class="removed-dataset dataset-pill">
-          REMOVED
+      <EntityPage::EntityHeader::Tag @value={{@entity.platformNativeType}} @options={{hash
+        tooltip="Native Type."
+        state="neutral-inverse"
+      }}/>
 
-          {{tooltip-on-element
-            event="hover"
-            text="This dataset has been removed"
-          }}
-        </span>
-      {{/if}}
+      <EntityPage::EntityHeader::Tag @value={{@entity.removed}} @options={{hash
+        text="REMOVED"
+        tooltip="This dataset has been removed."
+        state="alert"
+      }}/>
 
-      {{#if datasetContainsPersonalData}}
-        <span class="pii-dataset dataset-pill">
-          PII
+      <EntityPage::EntityHeader::Tag @value={{@entity.deprecated}} @options={{hash
+        text="DEPRECATED"
+        tooltip="This dataset has been deprecated. Check Status Tab for more information."
+        state="alert"
+      }}/>
 
-          {{tooltip-on-element
-            event="hover"
-            side="right"
-            text="This dataset contains personally identifiable information"
-          }}
-        </span>
+      <EntityPage::EntityHeader::Tag @value={{datasetContainsPersonalData}} @options={{hash
+        text="PII"
+        tooltip="This dataset contains personally identifiable information."
+        state="warning"
+      }}/>
 
-      {{/if}}
-
-      {{#if @model.deprecated}}
-
-        <span class="deprecated-dataset dataset-pill">
-          {{#link-to "datasets.dataset.tab" encodedUrn "properties"}}
-            DEPRECATED
-
-            {{tooltip-on-element
-              event="hover"
-              text="Click to view dataset properties"
-            }}
-          {{/link-to}}
-        </span>
-
-      {{/if}}
     </div>
 
-    {{#if @model.description}}
-      <span class="dataset-description">
-        {{@model.description}}
-      </span>
-    {{/if}}
+    <div class="dataset-header-meta">
+    </div>
 
-    {{datasets/containers/dataset-owner-list
-      urn=encodedUrn
-      avatarEntityProps=avatarEntityProps
-    }}
+    {{! Currently supported for just Dataset entity, other entities should used the pageComponent header if required }}
+    {{! TODO: META-11625 Use pageComponent when https://jira01.corp.linkedin.com:8443/browse/META-11622 is done }}
+    {{#each @entityClass.renderProps.entityPage.customHeaderComponents as |customComponent|}}
+      {{!-- TODO: [META-12887] Once we build the new avatars this should not need to be passed the props anymore--}}
+      {{component
+        customComponent.name
+        class=customComponent.options.className
+        options=customComponent.options
+        avatarEntityProps=@avatarEntityProps
+        entity=@entity
+      }}
+    {{/each}}
+
+    {{! TODO: Move to Entity render props }}
+    <Social::Containers::SocialMetadata @entity={{@entity}} class="dataset-header__social-metadata"/>
   </div>
 </div>

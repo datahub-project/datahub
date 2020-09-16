@@ -1,0 +1,8 @@
+namespace com.linkedin.chart
+
+import com.linkedin.common.DatasetUrn
+
+/**
+ * Input source type for a chart such as dataset or metric
+ */
+typeref ChartDataSourceType = union[DatasetUrn]

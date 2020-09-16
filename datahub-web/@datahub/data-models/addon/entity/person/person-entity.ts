@@ -1,27 +1,26 @@
 import getActorFromUrn from '@datahub/data-models/utils/get-actor-from-urn';
 import { computed, set } from '@ember/object';
+import { profileLinkBase } from '@datahub/data-models/constants/entity/person/links';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared';
 import {
   getRenderProps,
   IPersonEntitySpecificConfigs,
   getPersonEntitySpecificRenderProps
 } from '@datahub/data-models/entity/person/render-props';
+import { AclAccess } from '@datahub/data-models/entity/person/modules/acl';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { BaseEntity, statics, IBaseEntityStatics } from '@datahub/data-models/entity/base-entity';
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { IPersonEntityEditableProperties } from '@datahub/data-models/types/entity/person/props';
-import { ICorpUserEditableInfo, ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
+import { ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
 import { readPerson, saveEditablePersonalInfo } from '@datahub/data-models/api/person/entity';
 import { alias, not } from '@ember/object/computed';
+import { relationship } from '@datahub/data-models/relationships/decorator';
+import { ListEntity } from '@datahub/data-models/entity/list/list-entity';
+import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
+import { corpUserUrnBasePrefix } from '@datahub/data-models/config/urn/base-prefix';
 
-/**
- * Base for all actor/user urns. A person's username is appended to this base
- */
-const corpUserUrnBasePrefix = 'urn:li:corpuser:';
-
-// TODO: [META-9699] Temporarily using IBaseEntity until we have a proposed API structure for
-// IPersonEntity
 @statics<IBaseEntityStatics<ICorpUserInfo>>()
 export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   /**
@@ -59,7 +58,8 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    * @static
    */
   static urnFromUsername(username: string): string {
-    return typeof username === 'string' ? `${corpUserUrnBasePrefix}${username}` : username;
+    // TODO: [META-11362] Temporarily identity function until we have urn class
+    return `${corpUserUrnBasePrefix}${username}`;
   }
 
   /**
@@ -70,7 +70,7 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    * TODO: [META-9698] Migrate to using LiPersonEntity
    */
   static profileLinkFromUsername(username: string): string {
-    return `${username}`;
+    return `${profileLinkBase}${username}`;
   }
 
   /**
@@ -84,10 +84,9 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
     return getRenderProps();
   }
 
-  static ownershipEntities: Array<{
-    entity: DataModelEntity;
-    getter: keyof PersonEntity;
-  }> = [{ entity: DatasetEntity, getter: 'readDatasetOwnership' }];
+  static ownershipEntities: Array<{ entity: DataModelEntity; getter: keyof PersonEntity }> = [
+    { entity: DatasetEntity, getter: 'readDatasetOwnership' }
+  ];
 
   /**
    * Properties for render props that are only applicable to the person entity. Dictates how UI
@@ -113,9 +112,10 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   }
 
   /**
-   * The person's human readable name
+   * Manually saved fullname, useful for when we have the name available but don't want to waste a
+   * full api call on readEntity
    */
-  fullName: string = '';
+  fullName = '';
 
   /**
    * The person's display name
@@ -124,7 +124,7 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   @computed('entity.info.fullName', 'fullName', 'username')
   get name(): string {
     const { entity } = this;
-    return (entity && entity.info.fullName) || this.fullName || this.username;
+    return entity?.info?.fullName || this.fullName || this.username;
   }
 
   set name(value: string) {
@@ -138,10 +138,10 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   title!: string;
 
   /**
-   * Retrieves a link to a person's basic profile picture url based on the base url provided to us
+   * Url link to the person's profile picture
    */
   get profilePictureUrl(): string {
-    const fallbackImgUrl = this.pictureLink ? this.pictureLink : '/assets/images/default_avatar.png';
+    const fallbackImgUrl = PersonEntity.aviUrlFallback || '/assets/images/default_avatar.png';
     const baseUrl = PersonEntity.aviUrlPrimary;
 
     return baseUrl ? baseUrl.replace('[username]', (): string => this.username) : fallbackImgUrl;
@@ -154,9 +154,23 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   reportsToUrn?: string;
 
   /**
+   * Defines the relationship for the person that this person reports to
+   */
+  @relationship('people', 'reportsToUrn')
+  manager?: PersonEntity;
+
+  /**
    * Actual reference to related entity for this person
    */
-  reportsTo?: PersonEntity;
+  @computed('entity')
+  get reportsTo(): PersonEntity | void {
+    const { entity, manager } = this;
+    if (entity && manager) {
+      const managerEntity = manager;
+      set(managerEntity, 'name', entity.info.managerName || '');
+      return managerEntity;
+    }
+  }
 
   /**
    * User's email address
@@ -164,11 +178,6 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   @alias('entity.info.email')
   email!: string;
 
-  /**
-   * References the pictureLink on the editableInfo for the Person Entity
-   */
-  @alias('entity.editableInfo.pictureLink')
-  pictureLink!: ICorpUserEditableInfo['pictureLink'];
   /**
    * A list of skills that this particular person entity has declared to own.
    */
@@ -181,7 +190,10 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   /**
    * A link to the user's linkedin profile
    */
-  linkedinProfile?: string;
+  @computed()
+  get linkedinProfile(): string | void {
+    throw new Error(NotImplementedError);
+  }
 
   /**
    * A link to the user through slack
@@ -191,7 +203,7 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   /**
    * The datasets for which the specified PersonEntity has access to the underlying data
    */
-  datasetsWithAclAccess: Array<unknown> = [];
+  datasetsWithAclAccess?: Array<AclAccess<DatasetEntity>>;
 
   /**
    * List of datasets owned by this particular user entity
@@ -229,9 +241,10 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
    * Should be removed in favor of adding this to internal version of the class
    * TODO: [META-9698] Migrate to using LiPersonEntity
    */
-  @computed('urn')
+  @computed('urn', 'entity')
   get username(): string {
-    return getActorFromUrn(this.urn);
+    const { entity } = this;
+    return entity ? entity.username : getActorFromUrn(this.urn);
   }
 
   /**
@@ -292,8 +305,84 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
     return saveEditablePersonalInfo(this.urn, {
       teams: props.teamTags,
       aboutMe: props.focusArea,
-      skills: props.skills,
-      pictureLink: this.pictureLink
+      skills: props.skills
     });
   }
+
+  /**
+   * The urns of the direct reports of this person, if they have any
+   *
+   * Note: Defined as a getter as the expectation is this property will be dependent on some
+   * other base proeprty on this class
+   */
+  get directReportUrns(): Array<string> {
+    // Note: The is intentionally left as a blank array, implementation pending
+    return [];
+  }
+
+  /**
+   * This person's direct reports, expressed as other instances of person entity
+   */
+  @relationship('people', 'directReportUrns')
+  directReports!: Array<PersonEntity>;
+
+  /**
+   * The urns of the peers (same team, same level) as the person, if they have any
+   *
+   * Note: Defined as a getter as the expectation is this property will be dependent on some
+   * other base proeprty on this class*
+   */
+  get peersUrns(): Array<string> {
+    // Note: The is intentionally left as a blank array, implementation pending
+    return [];
+  }
+
+  /**
+   * This person's peers, expressed as other instances of person entity
+   */
+  @relationship('people', 'peersUrns')
+  peers!: Array<PersonEntity>;
+
+  /**
+   * Opts out any PersonEntity from BEING liked, followed, or saved to a list
+   */
+  allowedSocialActions = {
+    [SocialAction.LIKE]: false,
+    [SocialAction.FOLLOW]: false,
+    [SocialAction.SAVE]: false
+  };
+
+  /**
+   * Reference by id to the list of lists that this person has publisher access to
+   * Note: Refer to IMPORTANT WORDAGE in ListEntity for definition of publisher
+   */
+  publishedListUrns: Array<string> = [];
+
+  /**
+   * This person's published lists, expressed as the list entity instances
+   */
+  @relationship('lists', 'publishedListUrns')
+  publishedLists!: Array<ListEntity>;
+
+  /**
+   * Urns for the entities that this person has liked
+   */
+  likedEntityUrns: Array<string> = [];
+
+  /**
+   * Urns for the entities that this person has followed
+   */
+  followedEntityUrns: Array<string> = [];
+
+  /**
+   * Placeholder function for the method that will trigger a follow function for an entity
+   * @param _entityUrn - urn for the entity that we want to follow
+   */
+  followEntity(_entityUrn: string): void {}
+
+  /**
+   * Placeholder function for the method that will trigger a like function for an entity
+   * @param _entityUrn - urn for the entity that we want to like
+   */
+  likeEntity(_entityUrn: string): void {}
 }

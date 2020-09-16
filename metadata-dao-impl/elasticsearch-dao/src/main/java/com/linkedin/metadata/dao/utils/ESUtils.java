@@ -1,11 +1,14 @@
 package com.linkedin.metadata.dao.utils;
 
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import java.util.Arrays;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -18,37 +21,58 @@ public class ESUtils {
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
 
   /*
-  * TODO: we might need to extend this list if need be, below link has the complete list
-  * https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
-  * */
-  private static final char[] ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = {'*'};
+   * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
+   * characters in an Elasticsearch regular expression.
+   */
+  private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()";
 
   private ESUtils() {
 
   }
 
   /**
-   * Constructs the filter query given filter map
+   * Constructs the filter query given filter map.
    *
-   * Multiple values can be selected for a filter, and it is currently modeled as string separated by comma
+   * <p>Multiple values can be selected for a filter, and it is currently modeled as string separated by comma
    *
-   * @param requestMap the search request map with fields and its values
-   * @return built filters
+   * @param filter the search filter
+   * @return built filter query
    */
   @Nonnull
-  public static BoolQueryBuilder buildFilterQuery(@Nonnull Map<String, String> requestMap) {
+  public static BoolQueryBuilder buildFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder boolFilter = new BoolQueryBuilder();
-    for (Map.Entry<String, String> entry : requestMap.entrySet()) {
-      BoolQueryBuilder filters = new BoolQueryBuilder();
-      Arrays.stream(entry.getValue().split(","))
-          .forEach(elem -> filters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
-      boolFilter.must(filters);
+    if (filter == null) {
+      return boolFilter;
+    }
+    for (Criterion criterion : filter.getCriteria()) {
+      boolFilter.must(getQueryBuilderFromCriterionForSearch(criterion));
     }
     return boolFilter;
   }
 
   /**
-   * Populates source field of search query with the sort order as per the criterion provided
+   * Builds search query using criterion.
+   * This method is similar to SearchUtils.getQueryBuilderFromCriterion().
+   * The only difference is this method use match query instead of term query for EQUAL.
+   *
+   * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
+   * @return QueryBuilder
+   */
+  @Nonnull
+  public static QueryBuilder getQueryBuilderFromCriterionForSearch(@Nonnull Criterion criterion) {
+    final Condition condition = criterion.getCondition();
+    if (condition == Condition.EQUAL) {
+      BoolQueryBuilder filters = new BoolQueryBuilder();
+      Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
+          .forEach(elem -> filters.should(QueryBuilders.matchQuery(criterion.getField(), elem)));
+      return filters;
+    } else {
+      return SearchUtils.getQueryBuilderFromCriterion(criterion);
+    }
+  }
+
+  /**
+   * Populates source field of search query with the sort order as per the criterion provided.
    *
    * <p>
    * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
@@ -74,14 +98,14 @@ public class ESUtils {
   }
 
   /**
-   * Escapes the Elasticsearch reserved characters in the given input string
+   * Escapes the Elasticsearch reserved characters in the given input string.
    *
    * @param input input string
    * @return input string in which reserved characters are escaped
    */
   @Nonnull
   public static String escapeReservedCharacters(@Nonnull String input) {
-    for (char reservedChar : ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS) {
+    for (char reservedChar : ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS.toCharArray()) {
       input = input.replace(String.valueOf(reservedChar), "\\" + reservedChar);
     }
     return input;

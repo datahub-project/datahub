@@ -1,19 +1,14 @@
-@datahub/datasets-core
-==============================================================================
+# @datahub/datasets-core
 
-"The handler for datasets as an entity under DataHub Data Hub"
+"The handler for datasets as an entity under DataHub"
 
-
-Installation
-------------------------------------------------------------------------------
+## Installation
 
 ```
 ember install @datahub/datasets-core
 ```
 
-
-Usage & Development
-------------------------------------------------------------------------------
+## Usage & Development
 
 This addon is meant to be used within the context of the DataHub application and exists to house our dataset as an entity
 related components and utilities.
@@ -47,7 +42,9 @@ General outline of the table overview is here:
 <!-- nacho/table -->
 <table>
   <!-- datasets/core/tables/compliance-annotations/header -->
-  <thead>Title...sorting...filters</thead>
+  <thead>
+    Title...sorting...filters
+  </thead>
   <!-- datasets/core/tables/compliance-annotations/body -->
   <tbody>
     <!-- datasets/core/tables/compliance-annotations/row -->
@@ -56,7 +53,7 @@ General outline of the table overview is here:
       <!-- datasets/core/tables/compliance-annotations/tags-cell
            Useful because there's too much logic that goes into this tag already -->
       <td>
-       <div>{{tag}}</div>
+        <div>{{tag}}</div>
         <!-- Edit mode with datasets/core/tables/compliance-annotations/annotation-dropdown
              Useful because this tag component is already complex enough on its own -->
         <div>Dropdown menu for annotation tagging</div>
@@ -67,35 +64,33 @@ General outline of the table overview is here:
 </table>
 ```
 
-Contributing
-------------------------------------------------------------------------------
+## Contributing
 
 ### Installation
 
-* `git clone <repository-url>`
-* `cd datasets-core`
-* `yarn install`
+- `git clone <repository-url>`
+- `cd datasets-core`
+- `yarn install`
 
 ### Linting
 
-* `yarn lint:hbs`
-* `yarn lint:js`
-* `yarn lint:js --fix`
+- `yarn lint:hbs`
+- `yarn lint:js`
+- `yarn lint:js --fix`
 
 ### Running tests
 
-* `ember test` – Runs the test suite on the current Ember version
-* `ember test --server` – Runs the test suite in "watch mode"
-* `ember try:each` – Runs the test suite against multiple Ember versions
+- `ember test` – Runs the test suite on the current Ember version
+- `ember test --server` – Runs the test suite in "watch mode"
+- `ember try:each` – Runs the test suite against multiple Ember versions
 
 ### Running the dummy application
 
-* `ember serve`
-* Visit the dummy application at [http://localhost:4200](http://localhost:4200).
+- `ember serve`
+- Visit the dummy application at [http://localhost:4200](http://localhost:4200).
 
 For more information on using ember-cli, visit [https://ember-cli.com/](https://ember-cli.com/).
 
-License
-------------------------------------------------------------------------------
+## License
 
-This project is licensed under the [MIT License](LICENSE.md).
+This project is licensed under the [Apache License](LICENSE.md).

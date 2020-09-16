@@ -1,0 +1,51 @@
+<ConcurrencyTaskStateHandler
+  @task={{this.getContainerDataTask}}
+  @errorHeading="Unable to retrieve social metadata"
+  @showLockup={{false}}
+>
+
+  {{!-- Metadata for likes --}}
+  <span class="{{this.baseClass}}__entry nacho-tooltip" data-title="I find it helpful">
+    <Social::SocialAction
+      {{track-control-interaction type="SHORT_PRESS" name="DatahubLikeButton"}}
+      @entity={{@entity}}
+      @type="like"
+      class="{{this.baseClass}}__like"
+    />
+    <label class="{{this.baseClass}}__count" name="likes-count">
+      {{or @entity.likedByUrns.length 0}}
+    </label>
+  </span>
+
+  {{#if showPendingSocialActions}}
+
+    {{!-- Metadata for saves --}}
+    <span class="{{this.baseClass}}__entry nacho-tooltip" data-title="Saved to Lists">
+      <button class="nacho-button nacho-button--tertiary" type="button" disabled>
+        <FaIcon
+          class="{{this.baseClass}}__icon {{this.baseClass}}__save"
+          @prefix="far"
+          @icon="bookmark"
+        />
+      </button>
+      <label class="{{this.baseClass}}__count" name="saves-count">
+        {{!-- Currently not in our data modeling --}}
+        &ndash;
+      </label>
+    </span>
+
+    {{!-- Metadata for follows --}}
+    <span class="{{this.baseClass}}__entry nacho-tooltip" data-title="Follow">
+      <Social::SocialAction @entity={{@entity}} @type="follow" class="{{this.baseClass}}__follow" />
+      <label class="{{this.baseClass}}__count" name="follows-count">
+        {{or @entity.followedByUrns.length 0}}
+      </label>
+    </span>
+
+  {{/if}}
+
+  {{#if moreInfoLink}}
+    {{component this.socialActionsTooltipProps.name options=this.socialActionsTooltipProps.options}}
+  {{/if}}
+
+</ConcurrencyTaskStateHandler>

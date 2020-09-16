@@ -1,0 +1,23 @@
+<div class="properties-panel" data-columns="{{or @options.columnNumber 2}}" data-standalone="{{or @options.standalone false}}">
+  <div class="properties-panel__wrapper" >
+    {{#each @options.properties as |property|}}
+      {{#let (get @entity property.name) as |value|}}
+        <div class="properties-panel__property">
+          <div class="properties-panel__property-name">
+            <span class="properties-panel__property-name-label">
+              {{#if property.labelComponent}}
+                {{component property.labelComponent.name options=property.labelComponent.options property=property}}
+              {{else}}
+                {{property.displayName}}
+              {{/if}}
+            </span>
+          </div>
+
+          <div class="properties-panel__property-value">
+            <Properties::ValueRenderer @baseClass="properties-panel" @value={{value}} @component={{property.component}} />
+          </div>
+        </div>
+      {{/let}}
+    {{/each}}
+  </div>
+</div>

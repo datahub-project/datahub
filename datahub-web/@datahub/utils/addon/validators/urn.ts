@@ -58,3 +58,9 @@ export const encodeWildcard = (urn: string): string => urn.replace(/\*/g, encode
  * @return {string}
  */
 export const decodeWildcard = (urn: string): string => urn.replace(encodedWildcardRegExp, decodeURIComponent('*'));
+
+/**
+ * Will extract the entity type from a urn
+ * @param urn
+ */
+export const extractEntityType = (urn: string): string | undefined => urn.split(':')[2];

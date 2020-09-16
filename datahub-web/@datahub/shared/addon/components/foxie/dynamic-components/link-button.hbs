@@ -1,0 +1,12 @@
+{{#if @options.linkModels}}
+  <LinkTo class="foxie__link-button" @route={{@options.linkTo}} @models={{@options.linkModels}}>
+    {{@options.text}}
+  </LinkTo>
+{{else}}
+  {{!-- Needed to be completely separated since even having the parameter defined as undefined will throw an error
+        because of how ember handles LinkTo
+    --}}
+  <LinkTo class="foxie__link-button" @route={{@options.linkTo}} @model={{@options.linkModel}}>
+    {{@options.text}}
+  </LinkTo>
+{{/if}}

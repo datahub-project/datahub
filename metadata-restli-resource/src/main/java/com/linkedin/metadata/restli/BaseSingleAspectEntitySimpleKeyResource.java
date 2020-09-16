@@ -5,8 +5,18 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.dao.AspectKey;
+import com.linkedin.metadata.dao.ListResult;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.validator.ValidationUtils;
+import com.linkedin.parseq.Task;
+import com.linkedin.restli.server.CollectionResult;
+import com.linkedin.restli.server.PagingContext;
+import com.linkedin.restli.server.annotations.PagingContextParam;
+import com.linkedin.restli.server.annotations.RestMethod;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,11 +53,9 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
 
   /**
    * Constructor.
-   * */
-  public BaseSingleAspectEntitySimpleKeyResource(
-      @Nonnull Class<ASPECT> aspectClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass,
-      @Nonnull Class<VALUE> valueClass,
+   */
+  public BaseSingleAspectEntitySimpleKeyResource(@Nonnull Class<ASPECT> aspectClass,
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Class<VALUE> valueClass,
       @Nonnull Class<SNAPSHOT> snapshotClass) {
 
     super(aspectUnionClass, snapshotClass);
@@ -62,7 +70,7 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
    * @param partialEntity the partial entity.
    * @param urn urn of the entity.
    * @return the complete entity.
-   * */
+   */
   @Nonnull
   protected abstract VALUE createEntity(@Nonnull VALUE partialEntity, @Nonnull URN urn);
 
@@ -70,20 +78,18 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
    * Override {@link BaseEntitySimpleKeyResource}'s method to override the default logic of returning entity values
    * for each urn. The base classes assumes that the aspects are fields in the entity value whereas in this class
    * the aspect is included in the value.
-   * */
+   */
   @Override
   @Nonnull
-  protected Map<URN, VALUE> getUrnEntityMap(
-      @Nonnull Collection<URN> urns,
+  protected Map<URN, VALUE> getUrnEntityMap(@Nonnull Collection<URN> urns,
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
     return getUrnEntityMapInternal(urns);
   }
 
   @Nonnull
   private Map<URN, VALUE> getUrnEntityMapInternal(@Nonnull Collection<URN> urns) {
-    final Set<AspectKey<URN, ? extends RecordTemplate>> aspectKeys = urns.stream()
-        .map(urn -> new AspectKey<>(_aspectClass, urn, LATEST_VERSION))
-        .collect(Collectors.toSet());
+    final Set<AspectKey<URN, ? extends RecordTemplate>> aspectKeys =
+        urns.stream().map(urn -> new AspectKey<>(_aspectClass, urn, LATEST_VERSION)).collect(Collectors.toSet());
 
     final Map<AspectKey<URN, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectKeyOptionalAspects =
         getLocalDAO().get(aspectKeys);
@@ -91,20 +97,18 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
     return aspectKeyOptionalAspects.entrySet()
         .stream()
         .filter(entry -> entry.getValue().isPresent())
-        .collect(Collectors.toMap(
-            entry -> entry.getKey().getUrn(),
-            entry -> {
-              final URN urn = entry.getKey().getUrn();
-              @SuppressWarnings("unchecked")
-              ASPECT aspect = (ASPECT) entry.getValue().get();
-              return createEntity(createPartialEntityFromAspect(aspect), urn);
-            }));
+        .collect(Collectors.toMap(entry -> entry.getKey().getUrn(), entry -> {
+          final URN urn = entry.getKey().getUrn();
+          @SuppressWarnings("unchecked")
+          ASPECT aspect = (ASPECT) entry.getValue().get();
+          return createEntity(createPartialEntityFromAspect(aspect), urn);
+        }));
   }
 
-  /***
+  /**
    * Creates a partial entity value from the aspect. The other fields in the value are set using
    * the {@link #createEntity(ASPECT, URN)} method.
-   * */
+   */
   @Nonnull
   private VALUE createPartialEntityFromAspect(@Nonnull ASPECT aspect) {
     try {
@@ -121,7 +125,7 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
    * Throwing an exception with a `not implemented` error message as this method is only required
    * by parent class {@link BaseEntitySimpleKeyResource} method- {@link #getUrnEntityMap(Collection, Set)},
    * which has been overridden here.
-   * */
+   */
   @Override
   @Nonnull
   protected VALUE toValue(@Nonnull SNAPSHOT snapshot) {
@@ -132,10 +136,44 @@ public abstract class BaseSingleAspectEntitySimpleKeyResource<
    * Throwing an exception with a `not implemented` error message as this method is only required
    * by parent class {@link BaseEntitySimpleKeyResource} method- {@link #getUrnEntityMap(Collection, Set)},
    * which has been overridden here.
-   * */
+   */
   @Override
   @Nonnull
   protected SNAPSHOT toSnapshot(@Nonnull VALUE value, @Nonnull URN urn) {
     throw new RuntimeException("Not implemented.");
+  }
+
+  /**
+   * Gets all {@link VALUE} objects from DB for an entity with single aspect
+   *
+   * <p>Warning: this works only if the aspect is not shared with other entities.
+   *
+   * <p>It paginates over the latest version of a specific aspect for all Urns. By default the list is sorted in
+   * ascending order of urn
+   *
+   * @param pagingContext Paging context.
+   * @return collection of latest resource(s).
+   */
+  @RestMethod.GetAll
+  @Nonnull
+  public Task<CollectionResult<VALUE, ListResultMetadata>> getAllWithMetadata(
+      @PagingContextParam @Nonnull PagingContext pagingContext) {
+
+    if (ModelUtils.isCommonAspect(_aspectClass)) {
+      ValidationUtils.invalidSchema("Aspect '%s' is a common aspect that could be shared between multiple entities."
+              + "Please use BaseSingleAspectSearchableEntitySimpleKeyResource's GetAll method instead",
+          _aspectClass.getCanonicalName());
+    }
+
+    return RestliUtils.toTask(() -> {
+
+      final ListResult<ASPECT> aspects =
+          getLocalDAO().list(_aspectClass, pagingContext.getStart(), pagingContext.getCount());
+
+      final List<VALUE> entities =
+          aspects.getValues().stream().map(this::createPartialEntityFromAspect).collect(Collectors.toList());
+
+      return new CollectionResult<>(entities, aspects.getMetadata());
+    });
   }
 }

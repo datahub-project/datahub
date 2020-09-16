@@ -1,0 +1,46 @@
+namespace com.linkedin.chart
+
+import com.linkedin.common.AccessLevel
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.Time
+
+/**
+ * Information about a chart
+ */
+record ChartInfo {
+
+  /**
+   * Title of the chart
+   */
+  title: string
+
+  /**
+   * Detailed description about the chart
+   */
+  description: string
+
+  /**
+   * Captures information about who created/last modified/deleted this chart and when
+   */
+  lastModified: ChangeAuditStamps
+
+  /**
+   * Data sources for the chart
+   */
+  inputs: optional array[ChartDataSourceType]
+
+  /**
+   * Type of the chart
+   */
+  type: optional ChartType
+
+  /**
+   * Access level for the chart
+   */
+  access: optional AccessLevel
+
+  /**
+   * The time when this chart last refreshed
+   */
+  lastRefreshed: optional Time
+}

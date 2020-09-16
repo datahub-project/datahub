@@ -1,0 +1,84 @@
+<Features::FeatureEntityContainer
+  @urn={{this.model.urn}}
+  @loggedInUserName={{this.model.userName}}
+  @currentTab={{this.model.tab_selected}} as |container|
+>
+  {{#if container.dataTask.isRunning}}
+    <NachoAnimation::PendulumEllipsis />
+  {{else}}
+    <span class="bread-crumb-spacer"></span>
+    <section class="entity-header">
+      <WaitPromiseContainer
+        class={{with-banner-offset "nacho-breadcrumbs-container"}}
+        @promise={{container.entity.readPath}} as |paths|>
+        <Browser::EntityBreadcrumbs
+          @tagName=""
+          @entity={{or container.entity.displayName "--"}}
+          @segments={{paths}}
+        />
+      </WaitPromiseContainer>
+
+      <div class="container">
+        <Features::FeatureHeader
+          @isOwner={{container.isOwner}}
+          @feature={{readonly container.entity}}
+          @didUpdateStatus={{action container.onUpdateFeatureStatus}}
+        >
+          {{#if (and container.entity container.entity.isPublished)}}
+            <Lists::ToggleOnList @entity={{container.entity}} class="nacho-button--large" />
+          {{/if}}
+        </Features::FeatureHeader>
+      </div>
+    </section>
+
+    <IvyTabs @selection={{container.currentTab}} as |Tabs|>
+      <nav
+        class={{with-banner-offset "entity-tabs"}}
+        role="navigation"
+        aria-label="Entity Section"
+      >
+        <div class="container" aria-hidden="true">
+          <Tabs.tablist as |TabList|>
+            {{#each container.tabs as |tab|}}
+              <TabList.tab
+                @model={{tab.id}}
+                @on-select={{action container.tabSelectionDidChange}}
+              >
+                {{tab.title}}
+              </TabList.tab>
+            {{/each}}
+          </Tabs.tablist>
+        </div>
+      </nav>
+
+      <div class="container entity-tab-container">
+        {{#each container.tabs as |tab|}}
+          <Tabs.tabpanel @model={{tab.id}}>
+            {{! TODO: META-9309 Reduce arguments passed into tab component to hashes for shared including container, and component specific args}}
+            {{!
+              shared=(hash
+                container=container
+                hostConfig=this.model.hostConfig
+                containerActionHandlerFor=(action container.onTabComponentAction tab.id)
+              )
+
+            }}
+            {{component
+              tab.contentComponent
+              entity=container.entity
+              isOwner=container.isOwner
+              hostConfig=this.model.hostConfig
+              jitAclsTask=container.jitAclsTask
+              loggedInUserName=this.model.userName
+              userAccessEntries=container.userAccessEntries
+              editableConfigChangeset=container.editableConfigChangeset
+              tierConfigChangeset=container.tierConfigChangeset
+              containerActionHandlerFor=(action container.onTabComponentAction tab.id)
+            }}
+          </Tabs.tabpanel>
+        {{/each}}
+      </div>
+    </IvyTabs>
+  {{/if}}
+
+</Features::FeatureEntityContainer>

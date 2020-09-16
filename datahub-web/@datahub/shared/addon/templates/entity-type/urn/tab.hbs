@@ -1,0 +1,17 @@
+{{#with this.model.entityClass.renderProps.entityPage.pageComponent as |pageComponent|}}
+  {{component
+    pageComponent.name
+    options=pageComponent.options
+    entityClass=this.model.entityClass
+    urn=this.model.urn
+    tabSelected=this.model.tabSelected
+    userName=this.userName
+
+    requestJitUrns=this.model.requestJitUrns
+    addRequestJitUrn=this.addRequestJitUrn
+    removeRequestJitUrn=this.removeRequestJitUrn
+    resetRequestJitUrns=this.resetRequestJitUrns
+  }}
+{{else}}
+  <PageNotFound />
+{{/with}}

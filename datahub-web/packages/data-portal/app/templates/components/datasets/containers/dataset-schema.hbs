@@ -1,13 +1,16 @@
-<ConcurrencyTaskStateHandler @task={{getDatasetSchemaTask}}>
-  {{#if isEmpty}}
+<ConcurrencyTaskStateHandler
+  @task={{getDatasetSchemaTask}}
+  @errorHeading="An error occurred while fetching the schema. Please try again shortly."
+>
+  {{#if this.isEmpty}}
     <EmptyState
-      @heading="There is no schema on this dataset"
+      @heading="We could not find a schema for this dataset"
     />
   {{else}}
-    {{dataset-schema
-      json=json
-      schemas=schemas
-      lastModified=lastModifiedString
-    }}
+    <DatasetSchema
+      @json={{this.json}}
+      @schemas={{this.schemas}}
+      @lastModified={{this.lastModifiedString}}
+    />
   {{/if}}
 </ConcurrencyTaskStateHandler>

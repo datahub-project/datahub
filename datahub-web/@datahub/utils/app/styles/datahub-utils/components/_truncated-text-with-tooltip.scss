@@ -1,0 +1,15 @@
+.truncated-text-with-tooltip {
+  display: block;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+
+  &__tooltip {
+    overflow-wrap: break-word;
+
+    // Allows component to correctly render tooltips on hover for modals
+    &#{&} {
+      z-index: z('modal');
+    }
+  }
+}

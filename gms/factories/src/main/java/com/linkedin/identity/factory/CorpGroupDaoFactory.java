@@ -27,6 +27,7 @@ public class CorpGroupDaoFactory {
         KafkaMetadataEventProducer<CorpGroupSnapshot, CorpGroupAspect, CorpGroupUrn> producer =
                 new KafkaMetadataEventProducer(CorpGroupSnapshot.class, CorpGroupAspect.class,
                         applicationContext.getBean(Producer.class));
-        return new EbeanLocalDAO<>(CorpGroupAspect.class, producer, applicationContext.getBean(ServerConfig.class));
+        return new EbeanLocalDAO<>(CorpGroupAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+            CorpGroupUrn.class);
     }
 }

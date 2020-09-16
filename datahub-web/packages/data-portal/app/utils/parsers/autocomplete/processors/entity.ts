@@ -3,8 +3,8 @@ import {
   AutocompleteRuleNames,
   ISuggestionBuilder,
   ISuggestion
-} from 'wherehows-web/utils/parsers/autocomplete/types';
-import { fetchFacetValue } from 'wherehows-web/utils/parsers/helpers';
+} from 'datahub-web/utils/parsers/autocomplete/types';
+import { fetchFacetValue } from 'datahub-web/utils/parsers/helpers';
 
 /**
  * When dataset node is encounter, we will process it by making an api call to the backend to fetch

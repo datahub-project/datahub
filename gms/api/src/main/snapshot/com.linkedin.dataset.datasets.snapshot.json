@@ -126,32 +126,6 @@
       "PROD" : "Designates production fabrics"
     }
   }, {
-    "type" : "typeref",
-    "name" : "FabricUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.FabricUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
-        "entityType" : "fabric",
-        "fields" : [ {
-          "doc" : "",
-          "maxLength" : 36,
-          "name" : "fabricName",
-          "type" : "string"
-        } ],
-        "maxLength" : 50,
-        "name" : "Fabric",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:Tools"
-      }
-    }
-  }, {
     "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
@@ -297,30 +271,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "DataLocation",
-    "namespace" : "com.linkedin.dataset",
-    "doc" : "DataLocation describes where dataset is located within LinkedIn environment. Location is identified with fabric:cluster pair.",
-    "fields" : [ {
-      "name" : "fabricGroup",
-      "type" : "com.linkedin.common.FabricType",
-      "doc" : "Fabric group type of Linkedin internal data center fabrics."
-    }, {
-      "name" : "fabric",
-      "type" : "com.linkedin.common.FabricUrn",
-      "doc" : "Designated fabric where dataset is located such as prod-ltx1, ei-lva1 etc.",
-      "optional" : true
-    }, {
-      "name" : "cluster",
-      "type" : "string",
-      "doc" : "Designated cluster where dataset is located such as kafka-tracking-cluster, queuing, etc."
-    }, {
-      "name" : "region",
-      "type" : "string",
-      "doc" : "Standardized geographical region where dataset is deployed.",
-      "optional" : true
-    } ]
-  }, {
-    "type" : "record",
     "name" : "Dataset",
     "namespace" : "com.linkedin.dataset",
     "doc" : "Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent",
@@ -386,31 +336,6 @@
       "type" : "com.linkedin.common.Uri",
       "doc" : "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
       "optional" : true
-    }, {
-      "name" : "deploymentInfos",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "DeploymentInfo",
-          "doc" : "Deployment information of a dataset. Locations were dataset is deployed.",
-          "fields" : [ {
-            "name" : "dataLocation",
-            "type" : "DataLocation",
-            "doc" : "Deployment location"
-          }, {
-            "name" : "additionalDeploymentInfo",
-            "type" : {
-              "type" : "map",
-              "values" : "string"
-            },
-            "doc" : "Additional deployment info, such as Zookeeper, Connection, Graphite URL, native reference ID or KEY",
-            "optional" : true
-          } ]
-        }
-      },
-      "doc" : "List of dataset instances for this dataset",
-      "default" : [ ]
     }, {
       "name" : "tags",
       "type" : {
@@ -504,7 +429,7 @@
       "doc" : "A key-value map to capture any other non-standardized properties for the dataset",
       "default" : { }
     } ]
-  }, "com.linkedin.dataset.DeploymentInfo", {
+  }, {
     "type" : "record",
     "name" : "Downstream",
     "namespace" : "com.linkedin.dataset",
@@ -1123,6 +1048,34 @@
     } ]
   }, "com.linkedin.metadata.query.SortOrder", {
     "type" : "record",
+    "name" : "BackfillResult",
+    "namespace" : "com.linkedin.metadata.restli",
+    "doc" : "The model for the result of a backfill",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BackfillResultEntity",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the backfilled entity"
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : "string"
+            },
+            "doc" : "List of the aspects backfilled for the entity"
+          } ]
+        }
+      },
+      "doc" : "List of backfilled entities"
+    } ]
+  }, "com.linkedin.metadata.restli.BackfillResultEntity", {
+    "type" : "record",
     "name" : "DatasetSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
     "doc" : "A metadata snapshot for a specific dataset entity.",
@@ -1166,14 +1119,14 @@
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       }, {
         "method" : "batch_get",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       } ],
       "finders" : [ {
@@ -1184,7 +1137,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
@@ -1223,9 +1176,9 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
-        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+        "returns" : "com.linkedin.metadata.restli.BackfillResult"
       }, {
         "name" : "browse",
         "parameters" : [ {
@@ -1258,7 +1211,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
       }, {

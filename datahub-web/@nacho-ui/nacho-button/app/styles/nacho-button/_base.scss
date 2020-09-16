@@ -1,0 +1,248 @@
+@import 'restyle';
+
+@function shade-color($color) {
+  @return (background-color: shade($color, 5%));
+}
+
+$main-button-color: get-color(blue5);
+$button-text-color: get-color(white);
+
+@include restyle-define(
+  button,
+  (
+    // Button Component Variables
+      restyle-var(active-animation-duration): 140ms,
+    restyle-var(active-font-reduction): 0.95,
+    restyle-var(active-text-color): get-color(white),
+    restyle-var(animated-bg-active-color): restyle-var(main-color-active),
+    restyle-var(animated-bg-active-opacity): 1,
+    restyle-var(animated-bg-active-opacity-default): 0.2,
+    restyle-var(animated-bg-hover-color): restyle-var(main-color-hover),
+    restyle-var(animated-bg-hover-opacity): 1,
+    restyle-var(animated-bg-hover-opacity-default): 0.1,
+    restyle-var(animation-timing): cubic-bezier(0, 0, 0.2, 1),
+    restyle-var(animation-timing-ease-in): cubic-bezier(0.4, 0, 1, 1),
+    restyle-var(background-color): restyle-var(main-color),
+    restyle-var(disabled-bg-opacity): 1,
+    restyle-var(disabled-box-shadow-opacity): null,
+    restyle-var(disabled-opacity): 0.25,
+    restyle-var(disabled-text-opacity): 0.7,
+    //restyle-var(height): 32px,
+      restyle-var(horizontal-padding): 16px,
+    restyle-var(hover-animation-duration): 167ms,
+    restyle-var(hover-text-color): get-color(white),
+    restyle-var(font-size): 1.7rem,
+    restyle-var(font-weight): 600,
+    restyle-var(icon-animation-timing): restyle-var(animation-timing-ease-in),
+    restyle-var(icon-left): 0,
+    restyle-var(icon-margin): -12px 0 0 -6px,
+    restyle-var(icon-padding): 0 6px 0 0,
+    restyle-var(icon-position): relative,
+    restyle-var(icon-size): 16px,
+    restyle-var(icon-top-offset): 2px,
+    restyle-var(is-round): false,
+    restyle-var(main-color): get-color(blue5),
+    restyle-var(main-color-active): get-color(blue5),
+    restyle-var(main-color-hover): get-color(blue5),
+    restyle-var(normal-text-color): get-color(white),
+    background-color: restyle-var(background-color),
+    border: 0,
+    border-radius: 2px,
+    box-sizing: border-box,
+    color: restyle-var(normal-text-color),
+    cursor: pointer,
+    display: inline-block,
+    font-size: restyle-var(font-size),
+    font-weight: restyle-var(font-weight),
+    font-family: inherit,
+    overflow: hidden,
+    outline-width: 2px,
+    padding: 0 restyle-var(horizontal-padding),
+    position: relative,
+    text-align: center,
+    text-decoration: none,
+    transition-duration: restyle-var(hover-animation-duration),
+    transition-property: (background-color, box-shadow, color),
+    transition-timing-function: restyle-var(animation-timing),
+    vertical-align: middle,
+    z-index: 0,
+    '&:hover': (restyle-function(shade-color): restyle-var(background-color)),
+    '&:disabled': (cursor: not-allowed, opacity: restyle-var(disabled-opacity)),
+    restyle-modifiers: (
+      'with a border': (
+        border: 1px solid restyle-var(main-color)
+      ),
+      small: (
+        restyle-var(font-size): 1.5rem,
+        restyle-var(height): 24px,
+        restyle-var(horizontal-padding): 16px,
+        restyle-var(icon-size): 16px,
+        restyle-var(icon-top-offset): 1px,
+        height: restyle-var(height),
+        line-height: restyle-var(height)
+      ),
+      medium: (
+        // Default
+          restyle-var(height): 32px,
+        height: restyle-var(height),
+        line-height: restyle-var(height)
+      ),
+      large: (
+        restyle-var(font-size): 1.7rem,
+        restyle-var(height): 40px,
+        restyle-var(horizontal-padding): 24px,
+        restyle-var(icon-margin): -12px 0 0 -4px,
+        restyle-var(icon-size): 24px,
+        restyle-var(icon-top-offset): 5px,
+        height: restyle-var(height),
+        line-height: restyle-var(height)
+      ),
+      x-large: (
+        restyle-var(font-size): 2.1rem,
+        restyle-var(height): 48px,
+        restyle-var(horizontal-padding): 32px,
+        restyle-var(icon-margin): -12px 0 0 -4px,
+        restyle-var(icon-size): 24px,
+        restyle-var(icon-top-offset): 5px,
+        restyle-var(font-weight): normal,
+        height: restyle-var(height),
+        line-height: restyle-var(height)
+      ),
+      primary: (
+        // This is the default.
+      ),
+      tertiary: (
+        restyle-var(active-text-color): restyle-var(main-color-active),
+        restyle-var(animated-bg-active-opacity): restyle-var(animated-bg-active-opacity-default),
+        restyle-var(animated-bg-hover-color): restyle-var(main-color-active),
+        restyle-var(animated-bg-hover-opacity): restyle-var(animated-bg-hover-opacity-default),
+        restyle-var(background-color): transparent,
+        restyle-var(disabled-opacity): null,
+        restyle-var(disabled-text-opacity): 0.4,
+        restyle-var(horizontal-padding): 8px,
+        restyle-var(hover-text-color): restyle-var(main-color-hover),
+        restyle-var(normal-text-color): restyle-var(main-color)
+      ),
+      secondary: (
+        restyle-var(active-text-color): restyle-var(main-color-active),
+        restyle-var(animated-bg-active-opacity): restyle-var(animated-bg-active-opacity-default),
+        restyle-var(animated-bg-hover-opacity): restyle-var(animated-bg-hover-opacity-default),
+        restyle-var(background-color): transparent,
+        restyle-var(box-shadow-size): inset 0 0 0 1px,
+        restyle-var(box-shadow-size-hover): inset 0 0 0 2px,
+        restyle-var(box-shadow-size-active): inset 0 0 0 3px,
+        restyle-var(disabled-box-shadow-opacity): restyle-var(disabled-text-opacity),
+        restyle-var(disabled-opacity): null,
+        restyle-var(disabled-text-opacity): 0.4,
+        restyle-var(hover-text-color): restyle-var(main-color-hover),
+        restyle-var(normal-text-color): restyle-var(main-color),
+        box-shadow: (
+          restyle-var(box-shadow-size) restyle-var(main-color),
+          restyle-var(box-shadow-size-hover) transparent,
+          restyle-var(box-shadow-size-active) transparent
+        )
+      )
+    )
+  )
+);
+
+.nacho-button {
+  @include restyle(button);
+
+  &--x-large {
+    @include restyle(x-large button);
+  }
+
+  &--large {
+    @include restyle(large button);
+  }
+
+  &--large-inverse {
+    @include restyle(large button with a border);
+  }
+
+  &--small {
+    @include restyle(small button);
+  }
+
+  &--secondary {
+    @include restyle(secondary button);
+
+    &.nacho-button {
+      &--x-large {
+        @include restyle(x-large secondary button);
+      }
+
+      &--large {
+        @include restyle(large secondary button);
+      }
+
+      &--small {
+        @include restyle(small secondary button);
+      }
+    }
+  }
+
+  &--no-graphic {
+    background: transparent;
+    border: none;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &--secondary-inverse {
+    @include restyle(secondary button with a border);
+
+    &.nacho-button {
+      &--x-large {
+        @include restyle(x-large secondary button with a border);
+      }
+
+      &--large {
+        @include restyle(large secondary button with a border);
+      }
+
+      &--small {
+        @include restyle(small secondary button with a border);
+      }
+    }
+  }
+
+  &--tertiary {
+    @include restyle(tertiary button);
+
+    &.nacho-button {
+      &--x-large {
+        @include restyle(x-large tertiary button);
+      }
+
+      &--large {
+        @include restyle(large tertiary button);
+      }
+
+      &--small {
+        @include restyle(small tertiary button);
+      }
+    }
+  }
+
+  &--inverse {
+    @include restyle(tertiary button with a border);
+
+    &.nacho-button {
+      &--x-large {
+        @include restyle(x-large tertiary button with a border);
+      }
+
+      &--large {
+        @include restyle(large tertiary button with a border);
+      }
+
+      &--small {
+        @include restyle(small tertiary button with a border);
+      }
+    }
+  }
+}

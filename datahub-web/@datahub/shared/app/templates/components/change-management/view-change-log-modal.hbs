@@ -1,0 +1,54 @@
+<ModalDialog
+  @overlayClass="notification-overlay"
+  @containerClassNames="{{this.baseModalClass}}__modal notification-confirm-modal"
+  @onClose={{action @onCloseModal}}
+>
+  <header class="notification-confirm-modal__header {{this.baseModalClass}}__header">
+    <h3 class="{{this.baseModalClass}}__title">
+      View change log
+    </h3>
+    <button
+      type="button"
+      class="{{this.baseModalClass}}__close"
+      {{action @onCloseModal}}
+    >
+      &times;
+    </button>
+  </header>
+  <section class="notification-confirm-modal__content {{this.baseModalClass}}__content">
+      <div class="{{this.baseModalClass}}__main">
+        <p class="{{this.baseModalClass}}__item">
+          <strong>Created By</strong>
+        </p>
+        <p class="{{this.baseModalClass}}__item">
+          <strong>Date Added</strong>
+        </p>
+        <p class="{{this.baseModalClass}}__item">
+          <strong>Notification</strong>
+        </p>
+        <p class="{{this.baseModalClass}}__item">
+          <strong>Audience</strong>
+        </p>
+      </div>
+      <div class="{{this.baseModalClass}}__main">
+        <p class="{{this.baseModalClass}}__item">
+          {{@changeLog.createdBy}}
+        </p>
+        <p class="{{this.baseModalClass}}__item">
+          {{moment-format (unix @changeLog.dateAdded) "MM/DD/YYYY"}}
+        </p>
+        <p class="{{this.baseModalClass}}__item">
+          {{this.notificationText}}
+        </p>
+        <p class="{{this.baseModalClass}}__item {{this.baseModalClass}}__item-highlighted">
+          {{this.audienceText}}
+        </p>
+      </div>
+  </section>
+  <hr class="{{this.baseModalClass}}__divider"/>
+  <ChangeManagement::ReadOnlyEmailContent
+    @type={{@changeLog.type}}
+    @subject={{@changeLog.subject}}
+    @content={{@changeLog.content}}
+  />
+</ModalDialog>

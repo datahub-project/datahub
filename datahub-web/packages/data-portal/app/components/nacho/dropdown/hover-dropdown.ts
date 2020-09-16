@@ -28,7 +28,7 @@ export default class HoverDropDown<T> extends Component {
    * @type {boolean}
    * @memberof HoverDropDown
    */
-  isExpanded: boolean = false;
+  isExpanded = false;
 
   /**
    * Lists the options for the drop down content

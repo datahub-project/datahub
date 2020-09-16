@@ -1,0 +1,22 @@
+/// Applies rules to render an element with a pill color scheme
+@mixin pill {
+  border-radius: 32px;
+  display: inline-block;
+  line-height: item-spacing(3);
+  padding: 1px 10px;
+  font-weight: 600;
+}
+
+/// Applies rules to render an element with a pill color scheme
+/// @param {Color} $bg-color the background color for the pill
+/// @param {Color} $color font/text color
+/// @param {Color} $border-color=$bg-color the color to apply to the pill border
+///@example - Usage
+/// .foo {
+///   @include pill-color(get-color(gray1), get-color(gray6));
+/// }
+@mixin pill-color($bg-color, $color, $border-color: $bg-color) {
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  color: $color;
+}

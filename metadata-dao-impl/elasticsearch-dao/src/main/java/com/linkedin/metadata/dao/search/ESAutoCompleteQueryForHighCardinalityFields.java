@@ -2,7 +2,6 @@ package com.linkedin.metadata.dao.search;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.utils.ESUtils;
-import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.query.Filter;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -31,23 +30,21 @@ public class ESAutoCompleteQueryForHighCardinalityFields extends BaseESAutoCompl
 
   @Nonnull
   SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
-      @Nullable Filter requestParams) {
+      @Nullable Filter filter) {
 
     SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
-
     searchSourceBuilder.size(DEFAULT_AUTOCOMPLETE_QUERY_SIZE);
     searchSourceBuilder.query(buildAutoCompleteQueryString(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(requestMap));
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
     searchRequest.source(searchSourceBuilder);
     log.debug("Auto complete request is: " + searchRequest.toString());
     return searchRequest;
   }
 
   /**
-   * Constructs auto complete query given request
+   * Constructs auto complete query given request.
    *
    * @param input the type ahead query text
    * @param field the field name for the auto complete

@@ -7,7 +7,7 @@ import { getContext } from '@ember/test-helpers';
  * @param {string} name the name of the service without the service: prefix e.g. 'location-data'
  * @param {*} [props={}] properties to be stubbed on the service interface
  */
-export const stubService = (name: string, props = {}) => {
+export const stubService = (name: string, props = {}): void => {
   const serviceStub = Service.extend(props);
   const { owner } = getContext() as TestContext; // getContext return type is object, assert TestContext
 

@@ -1,0 +1,9 @@
+{{#if hasBlock}}
+  {{yield (hash pill=this)}}
+{{else}}
+  {{text}}
+
+  {{#if @tooltip}}
+    <TooltipOnElement @event="hover" @text={{@tooltip}} />
+  {{/if}}
+{{/if}}

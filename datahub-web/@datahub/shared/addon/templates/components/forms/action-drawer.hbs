@@ -1,0 +1,8 @@
+<div class="container">
+  {{yield
+    (hash
+      onDrawerToggle=this.onDrawerToggle
+      isDrawerOpen=(readonly this.isExpanded)
+    )
+  }}
+</div>

@@ -1,4 +1,4 @@
-import { Parser, State } from 'wherehows-web/typings/modules/nearley';
+import { Parser, State } from 'datahub-web/typings/modules/nearley';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 
 /**

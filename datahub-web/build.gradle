@@ -1,9 +1,9 @@
 apply plugin: 'distribution'
-apply plugin: 'com.moowork.node'
+apply plugin: 'com.github.node-gradle.node'
 
 node {
   // Version of node to use.
-  version = '10.6.0'
+  version = '12.8.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.13.0'
@@ -25,7 +25,7 @@ node {
   nodeModulesDir = file("${project.projectDir}")
 }
 
-def yarnMainProject = 'wherehows-web'
+def yarnMainProject = 'datahub-web'
 
 task execYarn(type: YarnTask) {
   if (project.hasProperty('yarnArgs')) {
@@ -40,19 +40,11 @@ task execEmber(type: NodeTask, dependsOn: execYarn) {
   }
 }
 
-task emberLintJs(type: YarnTask, dependsOn: execYarn) {
-  args = ['run', 'lint:js']
-}
-
-task emberLintHbs(type: YarnTask, dependsOn: emberLintJs) {
-  args = ['run', 'lint:hbs']
-}
-
-task emberServe(type: YarnTask, dependsOn: emberLintHbs) {
+task emberServe(type: YarnTask, dependsOn: execEmber) {
   args = ['workspace', yarnMainProject, 'run', 'start',  '--proxy', 'http://localhost:9001', '--secure-proxy=false']
 }
 
-task emberWorkspaceTest(type: YarnTask, dependsOn: emberLintHbs) {
+task emberWorkspaceTest(type: YarnTask, dependsOn: execEmber) {
   args = ['run', 'test']
 }
 
@@ -60,11 +52,11 @@ task emberBuild(type: YarnTask, dependsOn: emberWorkspaceTest) {
   args = ['workspace', yarnMainProject, 'run', 'build', '--environment', 'production']
 }
 
-task emberTest(type: YarnTask, dependsOn: emberLintHbs) {
+task emberTest(type: YarnTask, dependsOn: execEmber) {
   args = ['workspace', yarnMainProject, 'run', 'test']
 }
 
-task emberCoverage(type: YarnTask, dependsOn: emberLintHbs) {
+task emberCoverage(type: YarnTask, dependsOn: execEmber) {
   args = ['workspace', yarnMainProject, 'run', 'coverage']
 }
 

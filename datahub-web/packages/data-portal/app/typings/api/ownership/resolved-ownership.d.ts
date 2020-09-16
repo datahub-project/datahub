@@ -1,4 +1,4 @@
-import { IResolvedOwner } from 'wherehows-web/typings/api/ownership/resolved-owner';
+import { IResolvedOwner } from 'datahub-web/typings/api/ownership/resolved-owner';
 
 export interface IResolvedOwnership {
   // Dataset this ownership metadata is associated with.

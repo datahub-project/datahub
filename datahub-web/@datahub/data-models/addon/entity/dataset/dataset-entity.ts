@@ -1,52 +1,86 @@
 import { BaseEntity, IBaseEntityStatics, statics } from '@datahub/data-models/entity/base-entity';
-import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
-import { readDataset } from '@datahub/data-models/api/dataset/dataset';
+import { saveDatasetComplianceSuggestionFeedbackByUrn } from '@datahub/data-models/api/dataset/compliance';
 import { readDatasetSchema } from '@datahub/data-models/api/dataset/schema';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
-import { set } from '@ember/object';
-import { isNotFoundApiError } from '@datahub/utils/api/shared';
+import { set, setProperties, computed } from '@ember/object';
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { oneWay } from '@ember/object/computed';
+import { DatasetExportPolicy } from '@datahub/data-models/entity/dataset/modules/export-policy';
+import { DatasetPurgePolicy } from '@datahub/data-models/entity/dataset/modules/purge-policy';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 import { decodeUrn } from '@datahub/utils/validators/urn';
-import { readCategories } from '@datahub/data-models/entity/dataset/read-categories';
-import { getPrefix } from '@datahub/data-models/entity/dataset/utils/segments';
-import { readDatasetsCount } from '@datahub/data-models/api/dataset/count';
-import { setProperties } from '@ember/object';
+import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
 import { DatasetLineage } from '@datahub/data-models/entity/dataset/modules/lineage';
 import { readUpstreamDatasets } from '@datahub/data-models/api/dataset/lineage';
 import { DatasetLineageList } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { getRenderProps } from '@datahub/data-models/entity/dataset/render-props';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared';
 import { IDatasetSnapshot } from '@datahub/metadata-types/types/metadata/dataset-snapshot';
-import { IBrowsePath, IEntityLinkAttrsWithCount, IEntityLinkAttrs } from '@datahub/data-models/types/entity/shared';
-import { IInstitutionalMemory } from '@datahub/data-models/types/entity/common/wiki/institutional-memory';
-import { readDatasetInstitutionalMemory, writeDatasetInstitutionalMemory } from '@datahub/data-models/api/dataset/wiki';
-import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
-import { returnDefaultIfNotFound } from '@datahub/utils/api/fetcher';
-
-/**
- * Common function used here for the read operation for datasets. If an item is not found we often have to
- * default to a UI provided factory value, which can be inserted here to be run as part of the catch
- * function in a promise situation
- * @type {<T>(value: T): (e: Error) => T}
- */
-const returnValueIfNotFound = <T>(value: T): ((e: Error) => T) => (e: Error): T => {
-  if (isNotFoundApiError(e)) {
-    return value;
-  }
-  throw e;
-};
+import { every } from 'lodash';
+import DatasetComplianceSuggestion from '@datahub/data-models/entity/dataset/modules/compliance-suggestion';
+import { SuggestionIntent } from '@datahub/data-models/constants/entity/dataset/compliance-suggestions';
+import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
+import { getDatasetUrnParts } from '@datahub/data-models/entity/dataset/utils/urn';
+import { readDataPlatforms } from '@datahub/data-models/api/dataset/platforms';
+import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
+import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
+import { oneWay, alias, reads } from '@ember/object/computed';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+// import { toLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
+import { readDatasetOwnersByUrn } from '@datahub/data-models/api/dataset/ownership';
+import { transformOwnersResponseIntoOwners } from '@datahub/data-models/entity/dataset/utils/owner';
+import { readInstitutionalMemory, writeInstitutionalMemory } from '@datahub/data-models/entity/institutional-memory';
+import { relationship } from '@datahub/data-models/relationships/decorator';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Defines the data model for the Dataset entity.
  */
-@statics<IBaseEntityStatics<IDatasetEntity>>()
-export class DatasetEntity extends BaseEntity<IDatasetEntity> {
+@statics<IBaseEntityStatics<Com.Linkedin.Dataset.Dataset>>()
+export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   /**
    * The human friendly alias for Dataset entities
    */
   static displayName: 'datasets' = 'datasets';
+
+  // TODO: [META-9120] This logic should not exist on the UI and is a temporary fix that will hopefully one day
+  // get changed and read from API level instead. Also it won't matter once we fully migrate to new compliance
+  /**
+   * Calculates whether or not to show this dataset compliance as inherited from parents based on the nature
+   * of the upstream releationships
+   * @param upstreams - representation of upstream lineage information. Typing can change if used in data-portal
+   */
+  static hasInheritedCompliance<T extends { type: string }>(upstreams: Array<T> = []): boolean {
+    if (!upstreams.length) {
+      return false;
+    }
+    // Rule 1: If all upstreams are transformed, then we don't want to show this as inherited compliance
+    const upstreamsAreAllTransformed: boolean = every(
+      upstreams,
+      (upstream): boolean => upstream.type === 'TRANSFORMED'
+    );
+    return !upstreamsAreAllTransformed;
+  }
+
+  /**
+   * There is no snapshot for datasets, returning undefined but
+   * implementing since, framework may call it
+   */
+  get readSnapshot(): Promise<undefined> | Promise<Snapshot> {
+    return Promise.resolve(undefined);
+  }
+
+  /**
+   * Additional hook to fetch the platforms needed for some operation in datasets
+   */
+  async onAfterCreate(): Promise<void> {
+    const dataPlatforms: Array<IDataPlatform> = await readDataPlatforms();
+    const currentDataPlatform = dataPlatforms.find((platform): boolean => platform.name === this.platform);
+    // Reads dataset owner information from the resolved ownership endpoint
+    const ownersResponse = await readDatasetOwnersByUrn(this.urn);
+    // Transforms the owners response into a more generic owners response and sets it on the entity
+    const owners = transformOwnersResponseIntoOwners(ownersResponse);
+    setProperties(this, { owners, currentDataPlatform });
+  }
 
   get displayName(): 'datasets' {
     return DatasetEntity.displayName;
@@ -69,14 +103,10 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   }
 
   /**
-   * Creates a link for this specific entity instance, useful for generating a dynamic link from a
-   * single particular dataset entity
+   * Returns the fabric/environment for this particular dataset entity
    */
-  get linkForEntity(): IEntityLinkAttrs {
-    return DatasetEntity.getLinkForEntity({
-      entityUrn: this.urn,
-      displayName: this.name
-    });
+  get fabric(): FabricType | undefined {
+    throw new Error(NotImplementedError);
   }
 
   /**
@@ -95,6 +125,20 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   schema?: DatasetSchema;
 
   /**
+   * Holds the classified data retrieved from the API layer for the export policy as a DatasetExportPolicy
+   * class
+   * @type {DatasetExportPolicy}
+   */
+  exportPolicy?: DatasetExportPolicy;
+
+  /**
+   * Holds the classified data retrieved from the API layer for the purge policy as a DatasetPurgePOlicy
+   * class
+   * @type {DatasetPurgePolicy}
+   */
+  purgePolicy?: DatasetPurgePolicy;
+
+  /**
    * Holds the classified data retrieved from the API layer for the upstream datasets list as an array of
    * DatasetLineage classes
    * @type {Array<DatasetLineage>}
@@ -102,32 +146,94 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   upstreams?: Array<DatasetLineage>;
 
   /**
-   * Holds the raw data from the API layer for the institutional memory wiki links related to this dataset
-   * entity by urn
+   * Whether or not the dataset has been deprecated
    */
-  institutionalMemories?: Array<InstitutionalMemory>;
+  @alias('entity.deprecated')
+  deprecated?: boolean;
+
+  /**
+   * Note attached to the deprecation process for this dataset
+   */
+  @alias('entity.deprecationNote')
+  deprecationNote?: string;
+
+  /**
+   * Timestamp for when the dataset was deprecated
+   */
+  @alias('entity.decommissionTime')
+  decommissionTime?: number;
+
+  /**
+   * Last timestamp for the modification of this dataset
+   */
+  @oneWay('entity.modifiedTime')
+  modifiedTime?: number;
+
+  /**
+   * Whether or not the entity has been removed.
+   * Note: This overrides the BaseEntity implementation since DatasetEntity has a different behavior than
+   * other entities
+   */
+  @oneWay('entity.removed')
+  removed!: boolean;
+
+  /**
+   * References the value of the healthScore from the underlying IDatasetEntity object
+   * used in search results where the Health Score is shown as an attribute
+   */
+  @reads('entity.health.score')
+  healthScore?: number;
+
+  /**
+   * Description for the dataset that contains more information about the nature of the data or metadata
+   */
+  @oneWay('entity.description')
+  description?: string;
+
+  /**
+   * gets the dataorigin field (needed from search)
+   * from the urn
+   */
+  @computed('urn')
+  get dataorigin(): FabricType | undefined {
+    return getDatasetUrnParts(this.urn).fabric;
+  }
 
   /**
    * Reference to the data entity, is the data platform to which the dataset belongs
-   * @type {DatasetPlatform}
    */
-  @oneWay('entity.platform')
-  platform?: DatasetPlatform;
+  @computed('entity.platform', 'urn')
+  get platform(): DatasetPlatform | undefined {
+    const { urn, entity } = this;
+    const parts = getDatasetUrnParts(urn);
+    const platform = (entity && entity.platform) || parts.platform;
+    // New API return platform with urn:li:dataPlatform:, in order to
+    // make it compatible, we manually remove that part.
+    const platformName = platform?.replace('urn:li:dataPlatform:', '');
+
+    return platformName as DatasetPlatform | undefined;
+  }
+
+  /**
+   * Platform native type, for example it can be TABLE or VIEW for Hive.
+   */
+  @reads('entity.platformNativeType')
+  platformNativeType?: Com.Linkedin.Dataset.Dataset['platformNativeType'];
 
   /**
    * Reference to the data entity's native name, should not be something that is editable but gives us a
    * more human readable form for the dataset vs the urn
    */
   get name(): string {
-    return this.entity ? this.entity.nativeName : '';
+    const { entity } = this;
+    const name = (entity && entity.name) || '';
+    return name || getDatasetUrnParts(this.urn).prefix || this.urn;
   }
 
   /**
-   * Retrieves the value of the Dataset entity identified by this.urn
+   * Reference to the constructed data platform once it is fetched from api
    */
-  get readEntity(): Promise<IDatasetEntity> {
-    return readDataset(this.urn);
-  }
+  currentDataPlatform?: IDataPlatform;
 
   /**
    * Class properties common across instances
@@ -142,10 +248,11 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   }
 
   /**
-   * Builds a search query keyword from a list of segments for the a DatasetEntity instance
+   * Is a promise that retrieves the compliance information (if it doesn't exist yet) and returns whether or not
+   * the dataset contains personally identifiable information
    */
-  static getQueryForHierarchySegments(_segments: Array<string>): never {
-    throw new Error(NotImplementedError);
+  readPiiStatus(): Promise<boolean> {
+    return Promise.resolve().then(() => false);
   }
 
   /**
@@ -166,7 +273,7 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
     const lineageList = await readUpstreamDatasets(this.urn).catch(
       // Handling for an expected possibility of receiving a 404 error for this upstream dataset response, which
       // would require us to replace error with just an empty list
-      returnValueIfNotFound([] as DatasetLineageList)
+      getDefaultIfNotFoundError([] as DatasetLineageList)
     );
 
     const upstreams = lineageList.map((lineage): DatasetLineage => new DatasetLineage(lineage));
@@ -175,83 +282,33 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   }
 
   /**
-   * Reads the institutional memory wiki links related to this dataset and stores it on the entity as well as returning
-   * it as a value from this function
+   * Processes a save request to save the suggestion feedback given by the user, or inferred from the user action.
+   * Since this is a background task, we do not await for a response from the server
+   * @param suggestion - suggestion for which we are saving the feedback
+   * @param feedback - whether the user has accepted or rejected the suggestion as accurate
    */
-  async readInstitutionalMemory(): Promise<Array<InstitutionalMemory>> {
-    // Handling for expected possibility of receiving a 404 for institutional memory for this dataset, which would
-    // likely mean nothing has been added yet and we should allow the user to be the first to add something
-    const { elements: institutionalMemories } = await returnDefaultIfNotFound(
-      readDatasetInstitutionalMemory(this.urn),
-      {
-        elements: [] as Array<IInstitutionalMemory>
-      }
-    );
-
-    const institutionalMemoriesMap = institutionalMemories.map(
-      (link): InstitutionalMemory => new InstitutionalMemory(link)
-    );
-    set(this, 'institutionalMemories', institutionalMemoriesMap);
-    return institutionalMemoriesMap;
+  saveSuggestionFeedback(suggestion: DatasetComplianceSuggestion, feedback: SuggestionIntent): void {
+    const { uid } = suggestion;
+    saveDatasetComplianceSuggestionFeedbackByUrn(this.urn, uid, feedback);
   }
 
   /**
-   * Writes the institutional memory wiki links back to the backend to save any user changes (add/delete)
+   * TODO META-11674
+   * Interim method until IDatasetEntity is removed
    */
-  async writeInstitutionalMemory(): Promise<void> {
-    const { institutionalMemories } = this;
-    institutionalMemories &&
-      (await writeDatasetInstitutionalMemory(
-        this.urn,
-        institutionalMemories.map((link): IInstitutionalMemory => link.readWorkingCopy())
-      ));
+  get legacyDataset(): IDatasetEntity | void {
+    if (this.entity) {
+      return (this.entity as unknown) as IDatasetEntity;
+    }
   }
 
-  /**
-   * Interim implementation to read categories for datasets
-   * TODO META-8863
-   */
-  static async readCategories(...args: Array<string>): Promise<IBrowsePath> {
-    const [category, ...rest] = args;
-    const prefix = await getPrefix(category || '', rest || []);
-    const entitiesOrCategories = await readCategories(category || '', prefix);
-    const groups = entitiesOrCategories
-      .filter(({ entityUrn }): boolean => !entityUrn)
-      .map(
-        ({ segments = [], displayName }): IEntityLinkAttrsWithCount<unknown> =>
-          this.getLinkForCategory({
-            segments,
-            displayName,
-            count: 0
-          })
-      );
-    const entities = entitiesOrCategories
-      .filter(({ entityUrn }): boolean => Boolean(entityUrn))
-      .map(
-        ({ entityUrn = '', displayName }): IEntityLinkAttrs<unknown> =>
-          this.getLinkForEntity({
-            entityUrn,
-            displayName
-          })
-      );
+  // TODO META-12149 this should be part of an Aspect. This fns can't live under BaseEntity as
+  // then we would have a circular dependency:
+  // BaseEntity -> InstitutionalMemory -> PersonEntity -> BaseEntity
+  readInstitutionalMemory = readInstitutionalMemory;
+  writeInstitutionalMemory = writeInstitutionalMemory;
 
-    return {
-      segments: args,
-      title: rest[rest.length - 1] || category || this.displayName,
-      count: 0,
-      entities,
-      groups
-    };
-  }
-
-  // TODO META-8863 remove once dataset is migrated
-  static async readCategoriesCount(...args: Array<string>): Promise<number> {
-    const [category, ...rest] = args;
-    const prefix = await getPrefix(category || '', rest || []);
-    return await readDatasetsCount({ platform: category || '', prefix });
-  }
-
-  constructor(readonly urn: string, entityData?: IDatasetEntity) {
+  constructor(readonly urn: string, entityData?: Com.Linkedin.Dataset.Dataset) {
     super(urn);
     // Sometimes we do not need readEntity to get this information as it was already provided by another entity
     // and we can just instantiate the class with it
@@ -259,21 +316,7 @@ export class DatasetEntity extends BaseEntity<IDatasetEntity> {
       set(this, 'entity', entityData);
     }
   }
+
+  @relationship('people', 'ownerUrns')
+  datasetOwners?: Array<PersonEntity>;
 }
-
-/**
- * Custom factory for the dataset entity. We don't use the base entity factory as the dataset behavior currently
- * does not match the expectations of the base entity. Moving forward, when the backend response matches with the
- * expected dataset behavior, we may find a use case to rely on that function rather than use of this custom one
- * @param {string} urn - provides the context for what dataset entity to create by its urn identifier
- */
-export const createDatasetEntity = async (urn: string, fetchedEntity?: IDatasetEntity): Promise<DatasetEntity> => {
-  const dataset = new DatasetEntity(urn);
-  const entity = fetchedEntity || (await dataset.readEntity);
-
-  setProperties(dataset, {
-    entity
-  });
-
-  return dataset;
-};

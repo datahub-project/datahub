@@ -1,0 +1,19 @@
+// generated from: com.linkedin.sailfish.feed.resources.FeedUpdatesResource
+
+export type Entity = Linkedin.Feed.AggregatedFeedItem;
+export type Result = Custom.CollectionResult<Entity>;
+
+export const resourceUrl = 'sailfishFeedUpdates';
+
+export const Finder = {
+
+  feed: {
+    name: 'feed',
+    parameters: [
+      {
+        name: 'paginationToken',
+        type: 'string',
+      },
+    ],
+  },
+};

@@ -25,6 +25,10 @@ spec:
       serviceAccountName: {{ include "datahub-mce-consumer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | indent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -33,19 +37,20 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.bootstrap.server
+              value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: datahub-gms-deployment-configmap
-                  key: kafka.schemaregistry.url
+              value: "{{ .Values.global.kafka.schemaregistry.url }}"
             - name: GMS_HOST
-              value: "{{ .Values.global.datahub.gms.host }}"
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
+          {{- if .Values.extraEnvs }}
+            {{ toYaml .Values.extraEnvs | indent 10 }}
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

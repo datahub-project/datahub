@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -125,7 +126,7 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   public Task<CorpUser> get(@Nonnull ComplexResourceKey<CorpUserKey, EmptyRecord> key,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.get(key, aspectNames);
   }
 
@@ -134,14 +135,14 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Nonnull
   public Task<Map<ComplexResourceKey<CorpUserKey, EmptyRecord>, CorpUser>> batchGet(
       @Nonnull Set<ComplexResourceKey<CorpUserKey, EmptyRecord>> keys,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.batchGet(keys, aspectNames);
   }
 
   @RestMethod.GetAll
   @Nonnull
   public Task<List<CorpUser>> getAll(@PagingContextParam @Nonnull PagingContext pagingContext,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
     return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
@@ -151,7 +152,7 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   public Task<CollectionResult<CorpUser, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-      @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
@@ -178,16 +179,15 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   public Task<CorpUserSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.getSnapshot(urnString, aspectNames);
   }
 
   @Action(name = ACTION_BACKFILL)
   @Override
   @Nonnull
-  public Task<String[]> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-      @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+  public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
+      @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.backfill(urnString, aspectNames);
   }
-
 }

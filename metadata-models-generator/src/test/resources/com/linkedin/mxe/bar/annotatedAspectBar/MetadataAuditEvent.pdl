@@ -1,0 +1,32 @@
+namespace com.linkedin.mxe.bar.annotatedAspectBar
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import com.linkedin.testing.BarUrn
+import com.linkedin.testing.AnnotatedAspectBar
+
+/**
+ * MetadataAuditEvent for the BarUrn with AnnotatedAspectBar aspect.
+ */
+@MetadataAuditEvent
+record MetadataAuditEvent {
+
+  /**
+   * Kafka audit header for the MetadataAuditEvent.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * BarUrn as the key for the MetadataAuditEvent.
+   */
+  urn: BarUrn
+
+  /**
+   * Aspect of the AnnotatedAspectBar before the update.
+   */
+  oldValue: optional AnnotatedAspectBar
+
+  /**
+   * Aspect of the AnnotatedAspectBar after the update.
+   */
+  newValue: AnnotatedAspectBar
+}

@@ -1,0 +1,29 @@
+<tr>
+  {{#if hasBlock}}
+    {{yield
+      (hash
+        title=(component tableTitleComponent)
+        tableConfigs=(readonly tableConfigs)
+      )
+    }}
+  {{else}}
+
+    {{#each tableConfigs.headers as |header|}}
+      {{#if header.component}}
+        {{component
+          header.component
+          class=header.className
+          tableConfigs=(readonly tableConfigs)
+          header=header
+        }}
+      {{else}}
+        {{#component tableTitleComponent class=header.className}}
+          {{header.title}}
+        {{/component}}
+      {{/if}}
+    {{else}}
+      {{!-- Placeholder to do something else here --}}
+    {{/each}}
+
+  {{/if}}
+</tr>

@@ -1,0 +1,14 @@
+<ConcurrencyTaskStateHandler @task={{getContainerDataTask}}>
+  <InstitutionalMemory::Wiki::UrlList
+    @listData={{this.institutionalMemoryList}}
+    @entityDisplayName={{this.entity.displayName}}
+    @addInstitutionalMemoryLink={{fn this.addInstitutionalMemoryLink}}
+    @removeInstitutionalMemoryLink={{fn this.removeInstitutionalMemoryLink}}
+  />
+</ConcurrencyTaskStateHandler>
+
+{{#if this.isChangeManagementEnabled}}
+  <ChangeManagement::ChangeLogSearchProvider
+    @entity={{this.entity}}
+  />
+{{/if}}

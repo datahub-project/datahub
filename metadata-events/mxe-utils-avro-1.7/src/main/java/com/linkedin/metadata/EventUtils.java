@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.linkedin.data.avro.DataTranslator;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -22,6 +23,7 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificRecord;
 
 
 public class EventUtils {
@@ -51,7 +53,7 @@ public class EventUtils {
 
   @Nonnull
   private static Schema getAvroSchemaFromResource(@Nonnull String resourcePath) {
-    URL url = Resources.getResource(resourcePath);
+    URL url = EventUtils.class.getClassLoader().getResource(resourcePath);
     try {
       return Schema.parse(Resources.toString(url, Charsets.UTF_8));
     } catch (IOException e) {
@@ -114,6 +116,24 @@ public class EventUtils {
   }
 
   /**
+   * Converts a Pegasus aspect specific MXE into the equivalent Avro model as a {@link GenericRecord}.
+   *
+   * @param event the Pegasus aspect specific MXE model
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @throws IOException if the conversion fails
+   */
+
+  @Nonnull
+  public static <MXE extends GenericRecord, T extends SpecificRecord> MXE pegasusToAvroAspectSpecificMXE(
+      @Nonnull Class<T> clazz, @Nonnull RecordTemplate event)
+      throws NoSuchFieldException, IOException, IllegalAccessException {
+    final Schema newSchema = (Schema) clazz.getField("SCHEMA$").get(null);
+    final Schema originalSchema = getAvroSchemaFromResource(getAvroResourcePath(clazz));
+    final GenericRecord original = DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), originalSchema);
+    return (MXE) renameSchemaNamespace(original, originalSchema, newSchema);
+  }
+
+  /**
    * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param failedMetadataChangeEvent the Pegasus {@link FailedMetadataChangeEvent} model
@@ -169,5 +189,19 @@ public class EventUtils {
         return reader.read(null, decoder);
       }
     }
+  }
+
+  /**
+   * Get Pegasus class from Avro class.
+   * @param clazz the aspect specific MXE avro class
+   * @return the Pegasus aspect specific MXE class
+   * @throws Exception
+   */
+  public static Class<?> getPegasusClass(@Nonnull Class<?> clazz) throws ClassNotFoundException {
+    return Class.forName(clazz.getCanonicalName().replace(".pegasus2avro", ""));
+  }
+
+  private static String getAvroResourcePath(@Nonnull Class<?> clazz) {
+    return String.format("avro/%s.avsc", clazz.getCanonicalName().replace(".pegasus2avro", "").replace(".", "/"));
   }
 }

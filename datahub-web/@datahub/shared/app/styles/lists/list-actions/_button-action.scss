@@ -1,0 +1,13 @@
+.entity-list-toggle {
+  &#{&} {
+    display: flex;
+    align-items: center;
+    font-size: fs(standard);
+    line-height: 20px;
+
+    // create space between text content in span and element
+    span {
+      margin-left: item-spacing(2);
+    }
+  }
+}

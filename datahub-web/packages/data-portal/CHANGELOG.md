@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Fixed
 
-- Import of styles from @datahub/entity-header component
+- Import of styles from @datahub/entity-page component
 
 ## [2018-11-05]
 

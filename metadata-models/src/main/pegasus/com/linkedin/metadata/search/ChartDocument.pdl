@@ -1,0 +1,55 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.ChartUrn
+import com.linkedin.common.DatasetUrn
+
+/**
+ * Data model for Chart entity search
+ */
+record ChartDocument includes BaseDocument {
+
+  /**
+   * Urn for the Chart
+   */
+  urn: ChartUrn
+
+  /**
+   * Title of the chart
+   */
+  title: optional string
+
+  /**
+   * Detailed description about the chart
+   */
+  description: optional string
+
+  /**
+   * Dashboard tool ex: Looker, Redash
+   */
+  tool: optional string
+
+  /**
+   * Input datasets for the chart
+   */
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * Chart query type
+   */
+  queryType: optional string
+
+  /**
+   * LDAP usernames of corp users who are the owners of this chart
+   */
+  owners: optional array[string]
+
+  /**
+   * Type of the chart
+   */
+  type: optional string
+
+  /**
+   * Access level for the chart
+   */
+  access: optional string
+}

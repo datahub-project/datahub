@@ -1,0 +1,46 @@
+.nacho-pill {
+  @include pill();
+  line-height: item-spacing(5);
+  cursor: pointer;
+
+  .ember-tooltip {
+    font-weight: fw(normal, 3);
+  }
+
+  &--small {
+    font-size: fs(small);
+    line-height: 18px;
+  }
+
+  &--light-neutral {
+    @include pill-color(get-color(black), get-color(slate2, 0.45));
+  }
+
+  &--alert {
+    @include pill-color(get-color(red5), get-color(white));
+  }
+
+  &--neutral {
+    @include pill-color(transparent, get-color(slate7, 0.9), get-color(slate7, 0.9));
+  }
+
+  &--neutral-inverse {
+    @include pill-color(get-color(slate7), get-color(white, 0.9));
+  }
+
+  &--warning {
+    @include pill-color(get-color(orange4), get-color(white));
+  }
+
+  &--action {
+    @include pill-color(get-color(blue6), get-color(white));
+  }
+
+  &--good {
+    @include pill-color(get-color(green6), get-color(white));
+  }
+
+  &--good-inverse {
+    @include pill-color(transparent, get-color(green6), get-color(green6));
+  }
+}

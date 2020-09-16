@@ -2,7 +2,7 @@ import { arrayEvery } from '@datahub/utils/array/every';
 import { module, test } from 'qunit';
 
 module('Unit | Utility | array/every', function() {
-  test('it specifies whether every element meets given test', function(assert) {
+  test('it specifies whether every element meets given test', function(assert): void {
     const operationalArray = ['pikachu', 'charmander', 'squirtle', 'bulbasaur'];
     const types: Record<string, string> = {
       pikachu: 'electric',

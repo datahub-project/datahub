@@ -1,43 +1,78 @@
 package com.linkedin.metadata.dao;
 
-import com.google.common.collect.ImmutableMap;
-import com.linkedin.metadata.dao.utils.ESUtils;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Map;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.dao.utils.ESUtils.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
 import static org.testng.Assert.*;
 
+
 public class ESUtilsTest {
+
   @Test
-  public void testBuildFilterQuery() throws Exception {
-    // Test empty request map
-    Map<String, String> requestMap = Collections.emptyMap();
-    BoolQueryBuilder queryBuilder = ESUtils.buildFilterQuery(requestMap);
+  public void testBuildFilterQueryWithEmptyFilter() throws Exception {
+    // Test null filter
+    BoolQueryBuilder queryBuilder = buildFilterQuery(null);
     assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/EmptyFilterQuery.json"));
 
-    // Test and filters
-    requestMap = ImmutableMap.of("key1", "value1", "key2", "value2");
-    queryBuilder = ESUtils.buildFilterQuery(requestMap);
+    // Test empty filter
+    Filter filter = new Filter().setCriteria(new CriterionArray());
+    queryBuilder = buildFilterQuery(filter);
+    assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/EmptyFilterQuery.json"));
+  }
+
+  @Test
+  public void testBuildFilterQueryWithAndFilter() throws IOException {
+    Filter filter = new Filter().setCriteria(new CriterionArray(
+        Arrays.asList(new Criterion().setField("key1").setValue("value1").setCondition(Condition.EQUAL),
+            new Criterion().setField("key2").setValue("value2").setCondition(Condition.EQUAL))));
+    QueryBuilder queryBuilder = buildFilterQuery(filter);
     assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/AndFilterQuery.json"));
+  }
 
-    // Test or filters
-    requestMap = ImmutableMap.of("key1", "value1,value2");
-    queryBuilder = ESUtils.buildFilterQuery(requestMap);
+  @Test
+  public void testBuildFilterQueryWithOrFilter() throws IOException {
+    Filter filter = new Filter().setCriteria(new CriterionArray(Collections.singletonList(
+        new Criterion().setField("key1").setValue("value1,value2").setCondition(Condition.EQUAL))));
+    QueryBuilder queryBuilder = buildFilterQuery(filter);
     assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/OrFilterQuery.json"));
+  }
 
-    // Test complex filter
-    requestMap = ImmutableMap.of("key1", "value1,value2", "key2", "value2");
-    queryBuilder = ESUtils.buildFilterQuery(requestMap);
+  @Test
+  public void testBuildFilterQueryWithComplexFilter() throws IOException {
+    Filter filter = new Filter().setCriteria(new CriterionArray(
+        Arrays.asList(new Criterion().setField("key1").setValue("value1,value2").setCondition(Condition.EQUAL),
+            new Criterion().setField("key2").setValue("value2").setCondition(Condition.EQUAL))));
+    QueryBuilder queryBuilder = buildFilterQuery(filter);
     assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/ComplexFilterQuery.json"));
+  }
+
+  @Test
+  public void testBuildFilterQueryWithRangeFilter() throws IOException {
+    Filter filter = new Filter().setCriteria(new CriterionArray(
+        Arrays.asList(new Criterion().setField("key1").setValue("value1").setCondition(Condition.GREATER_THAN),
+            new Criterion().setField("key1").setValue("value2").setCondition(Condition.LESS_THAN),
+            new Criterion().setField("key2").setValue("value3").setCondition(Condition.GREATER_THAN_OR_EQUAL_TO),
+            new Criterion().setField("key3").setValue("value4").setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+            )));
+    QueryBuilder queryBuilder = buildFilterQuery(filter);
+    assertEquals(queryBuilder.toString(), loadJsonFromResource("filterQuery/RangeFilterQuery.json"));
   }
 
   @Test
   public void testEscapeReservedCharacters() {
     assertEquals(escapeReservedCharacters("foobar"), "foobar");
     assertEquals(escapeReservedCharacters("**"), "\\*\\*");
+    assertEquals(escapeReservedCharacters("()"), "\\(\\)");
+    assertEquals(escapeReservedCharacters("{}"), "\\{\\}");
   }
 }

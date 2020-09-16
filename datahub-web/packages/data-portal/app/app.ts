@@ -1,17 +1,14 @@
 import Application from '@ember/application';
-import Resolver from './resolver';
+import Resolver from 'ember-resolver';
 import loadInitializers from 'ember-load-initializers';
 import config from './config/environment';
 
-const App = Application.extend({
-  Resolver,
-
-  modulePrefix: config.modulePrefix,
-
-  podModulePrefix: config.podModulePrefix,
-
-  init() {
-    this._super(...arguments);
+export default class App extends Application {
+  modulePrefix = config.modulePrefix;
+  podModulePrefix = config.podModulePrefix;
+  Resolver = Resolver;
+  init(): void {
+    super.init();
 
     /**
      * disable touch events in ember's event dispatcher (Chrome scrolling fix)
@@ -25,8 +22,6 @@ const App = Application.extend({
       touchcancel: null
     };
   }
-});
+}
 
 loadInitializers(App, config.modulePrefix);
-
-export default App;

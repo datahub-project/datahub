@@ -1,79 +1,46 @@
+DataHub Web Client
+==============================================================================
 
-# DataHub Web
-The DataHub web application is written in [TypeScript](https://www.typescriptlang.org/) and [EmberJs](https://emberjs.com/).
-The application is developed using a modular monorepo architecture, via [Yarn Workspaces](https://classic.yarnpkg.com/en/docs/workspaces), that allows us to split the application features into individually installable packages.
+## About
+This mono-repository is for the portal web-client and related packages for DataHub, LinkedIn's premier
+data search and discovery tool, connecting users to the data that matters to them.
 
-![DataHub](../docs/imgs/entity_page_screenshot.png)
+## Entities
 
-## Folder Layout
-The folder structure is organized as below:
-```sh
-datahub-web
-├── @datahub # application modules / packages
-├── blueprints # EmberJs blueprints for the app
-├── configs # configuration sources for building the app
-├── node_modules # installed packages dependencies
-├── packages # application source directory
-└── scripts # helper shell scripts
-```
+TBD
 
-## Prerequisites
-* [Also see Frontend](https://github.com/linkedin/datahub/blob/master/datahub-frontend/README.md#pre-requisites)
-* Other dependencies are installed as part of the build step
+## Security
 
-## Build
-Running the build script `./gradlew build` from the top-level directory `<DOWNLOAD_DIRECTORY>/datahub` will build the entire app.
+### HTML Sanitizer
+(Dom Purify)[https://www.npmjs.com/package/dompurify] is used in conjunction with ember-auto-import to transform the npm package into an ember consumable format.
+DOMPurify is a DOM-only XSS sanitizer for HTML, MathML and SVG.You can feed DOMPurify with string full of dirty HTML and it will return a string (unless configured otherwise) with clean HTML.
 
-To build the web client (Ember application), you can run the following from the top-level directory
+## Creating a new package
 
-```sh
-datahub> ./gradlew emberBuild
-```
-or
+`ember g addon <package-name>`
 
-```sh
-datahub> ./gradlew :datahub-web:build
-```
+## Package Organization
 
-Building will run the monorepo test suite and transpile the TypeScript application into the `datahub-web/dist` folder.
+The packages, in order of highest on the dependency tree to lowest:
 
-## Developing & Running the web application
-Once [DataHub GMS](../gms) and the [DataHub Frontend](../datahub-frontend) are running you can start [DataHub Web](./) by running:
-```sh
-datahub> ./gradlew emberServe
-```
+`data-portal`:
+- Contains the host application. This package aggregates the contents of all other packages into the complete
+  web client, though it is not intended to have much individual functionality of its own
 
-or
+`@datahub/entities`:
+- Contains the entity specific logic and components
 
-```sh
-datahub-web> yarn # To install dependencies, if you skipped the build step above
-datahub-web> yarn run dev # serve the ember application
-```
-This will start the ember application and proxy to your running instance of [DataHub Frontend](../datahub-frontend).
-NOTE: If you are running [DataHub Frontend](../datahub-frontend) on a port other than 9001, you will need to update the proxy to this port number in the [gradle script](./build.gradle). 
+`@datahub/shared`:
+- Contains features and functionality that applies to the application as a whole, or are shared between more
+  than one entity
 
-## Testing
+`@datahub/data-models`:
+- Contains the entity definitions and core data management functions that help us define the base properties
+  of an entity
 
-To run all tests
-```sh
-datahub> ./gradlew emberTest
-```
+`@datahub/metadata-types`:
+- Contains logic to translate the backend models to types that we can consume on the client
 
-or
-
-```sh
-datahub> yarn test
-```
-
-To run test for a specific package / workspace in the [DataHub Web](./) monorepo, you can execute
-```sh
-datahub> yarn workspace <WORKSPACE_NAME> test # where WORKSPACE_NAME is a yarn workspace in @datathub/
-```
-
-For example:
-```sh
-datahub> yarn workspace @datahub/data-models test
-```
-
-## Contributing
-[See contributing.md](../CONTRIBUTING.md)
+`@datahub/utils`:
+- Core utility functions. This package should not depend on any other DataHub package and instead provides
+  base level functions for all other packages.

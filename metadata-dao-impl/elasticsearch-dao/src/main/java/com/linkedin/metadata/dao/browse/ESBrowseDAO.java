@@ -53,7 +53,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Gets a list of groups/entities that match given browse request
+   * Gets a list of groups/entities that match given browse request.
    *
    * @param path the path to be browsed
    * @param requestParams the request map with fields and values as filters
@@ -81,7 +81,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Builds aggregations for search request
+   * Builds aggregations for search request.
    *
    * @param path the path which is being browsed
    * @return {@link AggregationBuilder}
@@ -99,7 +99,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Constructs group search request
+   * Constructs group search request.
    *
    * @param path the path which is being browsed
    * @return {@link SearchRequest}
@@ -115,7 +115,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Builds query string
+   * Builds query string.
    *
    * @param path the path which is being browsed
    * @param requestMap entity filters e.g. status=PUBLISHED for features
@@ -154,7 +154,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Constructs search request for entity search
+   * Constructs search request for entity search.
    *
    * @param path the path which is being browsed
    * @param from index of first entity
@@ -177,7 +177,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Extracts search responses into browse result
+   * Extracts search responses into browse result.
    *
    * @param groupsResponse groups search response
    * @param entitiesResponse entity search response
@@ -200,7 +200,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Extracts group search response into browse result metadata
+   * Extracts group search response into browse result metadata.
    *
    * @param groupsResponse groups search response
    * @param path the path which is being browsed
@@ -221,7 +221,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Extracts entity search response into list of browse result entities
+   * Extracts entity search response into list of browse result entities.
    *
    * @param entitiesResponse entity search response
    * @return list of {@link BrowseResultEntity}
@@ -247,9 +247,9 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Extracts the name of group/entity from path
+   * Extracts the name of group/entity from path.
    *
-   * Example: /foo/bar/baz => baz
+   * <p>Example: /foo/bar/baz => baz
    *
    * @param path path of the group/entity
    * @return String
@@ -275,7 +275,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   }
 
   /**
-   * Gets a list of paths for a given urn
+   * Gets a list of paths for a given urn.
    *
    * @param urn urn of the entity
    * @return all paths related to a given urn

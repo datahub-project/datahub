@@ -1,0 +1,20 @@
+@mixin dot-separator {
+  & > * + * {
+    display: flex;
+    align-items: center;
+
+    // For each child sibling element prepend a middot character (unicode sequence \00B7) as a psuedo-element
+    // Indicates a separation between children
+    &::before {
+      content: '\00B7';
+      color: get-color(gray5);
+      padding: item-spacing(0 3);
+      font-weight: 800;
+      font-size: 32px;
+      line-height: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}

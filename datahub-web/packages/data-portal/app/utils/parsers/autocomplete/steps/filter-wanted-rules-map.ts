@@ -1,4 +1,4 @@
-import { ISuggestionBuilder, AutocompleteRuleNames } from 'wherehows-web/utils/parsers/autocomplete/types';
+import { ISuggestionBuilder, AutocompleteRuleNames } from 'datahub-web/utils/parsers/autocomplete/types';
 
 /**
  * Will clean up the map from the last step (04-create-wanted-rules-map) and leave the ones that

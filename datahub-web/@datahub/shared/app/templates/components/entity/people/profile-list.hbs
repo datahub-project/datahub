@@ -1,0 +1,40 @@
+<div class={{this.baseClass}}>
+  {{#each @profiles as |profile|}}
+    {{#let
+      profile.entity as |entity|
+    }}
+      <div class="{{this.baseClass}}__profile">
+        <img
+          class="{{this.baseClass}}__profile-picture"
+          src={{entity.profilePictureUrl}}
+          alt="Profile avatar"
+        >
+
+        <div class="{{this.baseClass}}__content">
+          <Avatar::Containers::AvatarMain @entity={{entity}} as |avatars|>
+            {{#let (get avatars 0) as |avatar|}}
+              <Avatar::AvatarName class="{{this.baseClass}}__name" @avatar={{avatar}} @displayType='name'/>
+            {{/let}}
+          </Avatar::Containers::AvatarMain>
+
+          <span class="{{this.baseClass}}__title">
+            {{entity.title}}
+          </span>
+
+          <div class="{{this.baseClass}}__connections">
+            <span class="{{this.baseClass}}__connection">
+              <MailTo @mailHeader={{hash to=entity.email}} class="{{this.baseClass}}__connection-link">
+                <FaIcon
+                  class="{{this.baseClass}}__connection-icon"
+                  @icon="envelope"
+                  @prefix="far"
+                />
+                {{entity.email}}
+              </MailTo>
+            </span>
+          </div>
+        </div>
+      </div>
+    {{/let}}
+  {{/each}}
+</div>

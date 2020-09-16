@@ -2,7 +2,7 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../../../templates/components/user/containers/tab-content/entity-ownership';
 import { layout } from '@ember-decorators/component';
-import { computed, action, set } from '@ember/object';
+import { computed } from '@ember/object';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 import { entityFromTabId } from '@datahub/user/utils/tabownership';
@@ -31,20 +31,6 @@ export default class UserContainersTabContentEntityOwnership extends Component {
   params?: { selectedTab: string };
 
   /**
-   * The currently navigated to page
-   */
-  selectedPageMap: Record<string, number> = {};
-
-  /**
-   * Denotes the current page of the selected entity ownership type
-   */
-  @computed('params.selectedTab', 'selectedPageMap')
-  get currentPage(): number {
-    const { selectedTab } = this.params || { selectedTab: null };
-    return (selectedTab && this.selectedPageMap[selectedTab]) || 1;
-  }
-
-  /**
    * Given the selected tab from the parameters, map to the entity for which to display ownership
    * relationship information
    */
@@ -70,19 +56,6 @@ export default class UserContainersTabContentEntityOwnership extends Component {
     if (ownedEntity) {
       const { userEntityOwnership, search } = ownedEntity.renderProps;
       return userEntityOwnership || search;
-    }
-  }
-
-  /**
-   * Updates the page for the currently logged in user
-   * @param {number} newPage - the new page to change to
-   */
-  @action
-  onUpdatePage(newPage: number): void {
-    const { params } = this;
-
-    if (params) {
-      set(this, 'selectedPageMap', { ...this.selectedPageMap, [params.selectedTab]: newPage });
     }
   }
 }

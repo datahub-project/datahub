@@ -1,0 +1,47 @@
+{{#if hasBlock}}
+  {{yield (hash cell=(component tableCellComponent))}}
+{{else}}
+
+  {{#let tableConfigs.customColumns as |columnConfigs|}}
+    {{#each tableConfigs.labels as |label|}}
+
+      {{#let (get columnConfigs label) as |labelConfig|}}
+        {{#if labelConfig.component}}
+          {{!-- Uses custom provided component path --}}
+          {{component
+            labelConfig.component
+            class=(concat tableClasses.cell " " labelConfig.className)
+            tableConfigs=(readonly tableConfigs)
+            labelConfig=(readonly labelConfig)
+            rowData=rowData
+            field=(get rowData label)
+          }}
+        {{else}}
+          <td class={{concat tableClasses.cell " " labelConfig.className}}>
+            {{#with labelConfig.displayLink as |displayLink|}}
+              {{!-- Logic block for basically configured computed links --}}
+              {{#let
+                (nacho-table-link-compute displayLink.compute rowData)
+              as |computedLink|
+              }}
+                <a
+                  class={{displayLink.className}}
+                  href={{computedLink.ref}}
+                  target={{if displayLink.isNewTab "_blank"}}
+                >
+                  {{if computedLink.display computedLink.display computedLink.ref}}
+                </a>
+              {{/let}}
+
+            {{else}}
+              {{get rowData label}}
+            {{/with}}
+          </td>
+        {{/if}}
+
+      {{/let}}
+
+    {{/each}}
+  {{/let}}
+
+{{/if}}

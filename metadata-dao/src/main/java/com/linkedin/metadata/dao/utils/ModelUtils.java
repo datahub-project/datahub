@@ -34,6 +34,7 @@ import org.reflections.Reflections;
 public class ModelUtils {
 
   private static final ClassLoader CLASS_LOADER = DummySnapshot.class.getClassLoader();
+  private static final String METADATA_AUDIT_EVENT_PREFIX = "METADATA_AUDIT_EVENT";
 
   private ModelUtils() {
     // Util class
@@ -102,7 +103,7 @@ public class ModelUtils {
   }
 
   /**
-   * Gets a snapshot class given its FQCN
+   * Gets a snapshot class given its FQCN.
    *
    * @param className FQCN of snapshot class
    * @return snapshot class that extends {@link RecordTemplate}, associated with className
@@ -115,7 +116,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a snapshot
+   * Extracts the "urn" field from a snapshot.
    *
    * @param snapshot the snapshot to extract urn from
    * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
@@ -128,7 +129,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead
+   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead.
    */
   @Nonnull
   public static Urn getUrnFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
@@ -136,7 +137,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a delta
+   * Extracts the "urn" field from a delta.
    *
    * @param delta the delta to extract urn from
    * @param <DELTA> must be a valid delta model defined in com.linkedin.metadata.delta
@@ -149,7 +150,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead.
    */
   @Nonnull
   public static Urn getUrnFromDeltaUnion(@Nonnull UnionTemplate deltaUnion) {
@@ -157,7 +158,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from a search document
+   * Extracts the "urn" field from a search document.
    *
    * @param document the document to extract urn from
    * @param <DOCUMENT> must be a valid document model defined in com.linkedin.metadata.search
@@ -170,7 +171,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the "urn" field from an entity
+   * Extracts the "urn" field from an entity.
    *
    * @param entity the entity to extract urn from
    * @param <ENTITY> must be a valid entity model defined in com.linkedin.metadata.entity
@@ -183,7 +184,7 @@ public class ModelUtils {
   }
 
   /**
-   * Extracts the fields with type urn from a relationship
+   * Extracts the fields with type urn from a relationship.
    *
    * @param relationship the relationship to extract urn from
    * @param <RELATIONSHIP> must be a valid relationship model defined in com.linkedin.metadata.relationship
@@ -199,18 +200,20 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
    */
   @Nonnull
-  public static <RELATIONSHIP extends RecordTemplate> Urn  getSourceUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+  public static <RELATIONSHIP extends RecordTemplate> Urn getSourceUrnFromRelationship(
+      @Nonnull RELATIONSHIP relationship) {
     return getUrnFromRelationship(relationship, "source");
   }
 
   /**
-   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead
+   * Similar to {@link #getUrnFromRelationship} but extracts from a delta union instead.
    */
   @Nonnull
-  public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(@Nonnull RELATIONSHIP relationship) {
+  public static <RELATIONSHIP extends RecordTemplate> Urn getDestinationUrnFromRelationship(
+      @Nonnull RELATIONSHIP relationship) {
     return getUrnFromRelationship(relationship, "destination");
   }
 
@@ -248,7 +251,7 @@ public class ModelUtils {
   }
 
   /**
-   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead
+   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead.
    */
   @Nonnull
   public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
@@ -267,7 +270,7 @@ public class ModelUtils {
   }
 
   /**
-   * Creates a snapshot with its urn field set
+   * Creates a snapshot with its urn field set.
    *
    * @param snapshotClass the type of snapshot to create
    * @param urn value for the urn field
@@ -399,8 +402,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for a specific kind of relationship.
    */
   @Nonnull
-  private static Class<? extends Urn> urnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass,
-      @Nonnull String fieldName) {
+  private static Class<? extends Urn> urnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass, @Nonnull String fieldName) {
     RelationshipValidator.validateRelationshipSchema(relationshipClass);
     return urnClassForField(relationshipClass, fieldName);
   }
@@ -409,7 +412,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for the source field of a specific kind of relationship.
    */
   @Nonnull
-  public static Class<? extends Urn> sourceUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+  public static Class<? extends Urn> sourceUrnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass) {
     return urnClassForRelationship(relationshipClass, "source");
   }
 
@@ -417,7 +421,8 @@ public class ModelUtils {
    * Gets the expected {@link Urn} class for the destination field of a specific kind of relationship.
    */
   @Nonnull
-  public static Class<? extends Urn> destinationUrnClassForRelationship(@Nonnull Class<? extends RecordTemplate> relationshipClass) {
+  public static Class<? extends Urn> destinationUrnClassForRelationship(
+      @Nonnull Class<? extends RecordTemplate> relationshipClass) {
     return urnClassForRelationship(relationshipClass, "destination");
   }
 
@@ -487,23 +492,66 @@ public class ModelUtils {
   }
 
   /**
-   * Returns all entity classes
+   * Returns all entity classes.
    */
   @Nonnull
   public static Set<Class<? extends RecordTemplate>> getAllEntities() {
-    return new Reflections("com.linkedin.metadata.entity")
-        .getSubTypesOf(RecordTemplate.class).stream().filter(EntityValidator::isValidEntitySchema)
+    return new Reflections("com.linkedin.metadata.entity").getSubTypesOf(RecordTemplate.class)
+        .stream()
+        .filter(EntityValidator::isValidEntitySchema)
         .collect(Collectors.toSet());
   }
 
   /**
-   * Get entity type from urn class
+   * Get entity type from urn class.
    */
   @Nonnull
   public static String getEntityTypeFromUrnClass(@Nonnull Class<? extends Urn> urnClass) {
     try {
       return urnClass.getDeclaredField("ENTITY_TYPE").get(null).toString();
     } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Get aspect specific kafka topic name from urn & aspect classes.
+   */
+  @Nonnull
+  public static <URN extends Urn, ASPECT extends RecordTemplate> String getAspectSpecificMAETopicName(@Nonnull URN urn,
+      @Nonnull ASPECT newValue) {
+    final String urnStr = urn.getClass().getSimpleName().toUpperCase();
+    return String.format("%s_%s_%s", METADATA_AUDIT_EVENT_PREFIX, urnStr.substring(0, urnStr.length() - "Urn".length()),
+        newValue.getClass().getSimpleName().toUpperCase());
+  }
+
+  /**
+   * Return true if the aspect is defined in common namespace.
+   */
+  public static boolean isCommonAspect(@Nonnull Class<? extends RecordTemplate> clazz) {
+    return clazz.getPackage().getName().startsWith("com.linkedin.common");
+  }
+
+  /**
+   * Creates an entity union with a specific entity set.
+   *
+   * @param entityUnionClass the type of entity union to create
+   * @param entity the entity to set
+   * @param <ENTITY_UNION> must be a valid enity union defined in com.linkedin.metadata.entity
+   * @param <ENTITY> must be a supported entity in entity union
+   * @return the created entity union
+   */
+  @Nonnull
+  public static <ENTITY_UNION extends UnionTemplate, ENTITY extends RecordTemplate> ENTITY_UNION newEntityUnion(
+      @Nonnull Class<ENTITY_UNION> entityUnionClass, @Nonnull ENTITY entity) {
+
+    EntityValidator.validateEntityUnionSchema(entityUnionClass);
+
+    try {
+      ENTITY_UNION entityUnion = entityUnionClass.newInstance();
+      RecordUtils.setSelectedRecordTemplateInUnion(entityUnion, entity);
+      return entityUnion;
+    } catch (InstantiationException | IllegalAccessException e) {
       throw new RuntimeException(e);
     }
   }

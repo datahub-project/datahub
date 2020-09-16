@@ -1,0 +1,113 @@
+.institutional-memory-links {
+  $author-column-width: 124px;
+  $date-column-width: 148px;
+  $url-column-width: 450px;
+  $action-column-width: 96px;
+
+  $base-font-size: fs(standard);
+  $title-font-size: 20px;
+
+  $border-color: #e0e0e0;
+
+  font-size: $base-font-size;
+  border: 1px solid $border-color;
+
+  &__global + div {
+    border: none;
+  }
+
+  &__title {
+    font-weight: bold;
+    font-size: $title-font-size;
+    line-height: 28px;
+  }
+  &__container {
+    & {
+      border: none;
+    }
+    thead {
+      border: none;
+    }
+    th.nacho-table__title,
+    td.nacho-table__cell {
+      background-color: white;
+      padding: item-spacing(2 5);
+      border-bottom: 1px solid $border-color;
+      font-size: $base-font-size;
+    }
+  }
+
+  &__footer {
+    @include nacho-table-footer();
+  }
+
+  &__author {
+    width: $author-column-width;
+  }
+
+  &__date {
+    width: $date-column-width;
+  }
+
+  &__link {
+    width: $url-column-width;
+  }
+
+  &__actions {
+    width: $action-column-width;
+    text-align: right;
+    &-button {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: get-color(slate7);
+    }
+  }
+
+  &-modal {
+    $input-width: 540px;
+
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 12px 18px 1px rgba(0, 0, 0, 0.2);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 2px;
+    overflow: auto;
+    background-color: get-color(white);
+    max-height: calc(100vh - 64px);
+    min-height: 48px;
+    width: 732px;
+
+    &__header {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    &__title {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    &__close-button {
+      border: none;
+      background: transparent;
+    }
+
+    &__form {
+      width: $input-width;
+    }
+
+    &__url {
+      width: $input-width;
+    }
+
+    &__description {
+      width: $input-width;
+      height: 172px;
+    }
+
+    &__description-limit {
+      text-align: right;
+    }
+  }
+}

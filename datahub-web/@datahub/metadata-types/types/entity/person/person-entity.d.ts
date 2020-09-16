@@ -8,8 +8,6 @@ export interface ICorpUserEditableInfo {
   teams: Array<string>;
   // A self-assigned list of skills that the person claims to own
   skills: Array<string>;
-  // Reference to the picture URL for the person
-  pictureLink: string;
 }
 
 /**
@@ -47,4 +45,5 @@ export interface ICorpUserInfo {
     countryCode: string;
   };
   editableInfo?: ICorpUserEditableInfo;
+  datasetRecommendationsInfo?: Com.Linkedin.Identity.DatasetRecommendationsInfo;
 }

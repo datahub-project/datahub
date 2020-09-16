@@ -7,7 +7,7 @@ from confluent_kafka.avro import AvroProducer
 from confluent_kafka.avro.serializer import SerializerError
 
 
-topic = "MetadataChangeEvent"
+topic = "MetadataChangeEvent_v4"
 
 class MetadataChangeEvent(object):
 
@@ -78,10 +78,28 @@ def consume(conf, schema_record):
     c.close()
 
 
+def convert_config_to_dict(file_location):
+    result = {}
+    f = open(file_location, "r")
+    fl = f.readlines()
+    for line in fl:
+        if line[0] == '#' or line == '\n':
+            continue
+        key, value = line.split("=", 1)
+        if value is not None:
+            result = {**result, **{key : value.rsplit("\n")[0]}}
+        else:
+            result = {**result, **{key : None}}
+    return result
+
+
 def main(args):
     # Handle common configs
     conf = {'bootstrap.servers': args.bootstrap_servers,
             'schema.registry.url': args.schema_registry}
+
+    if args.command_config is not None:
+        conf.update(convert_config_to_dict(args.command_config))
 
     if args.mode == "produce":
         produce(conf, args.data_file, args.schema_record)
@@ -104,4 +122,7 @@ if __name__ == '__main__':
                         help="Avro schema record; required if running 'producer' mode")
     parser.add_argument('-d', dest="data_file", default="bootstrap_mce.dat",
                         help="MCE data file; required if running 'producer' mode")
+    parser.add_argument('-c', dest="command_config",
+                        default=None, help="Kafka SSL details")
     main(parser.parse_args())
+

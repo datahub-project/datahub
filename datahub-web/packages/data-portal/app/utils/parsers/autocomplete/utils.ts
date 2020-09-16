@@ -1,11 +1,10 @@
-import { readValuesV2 } from 'wherehows-web/utils/api/search/values-v2';
-import { IFieldValuesResponseV2 } from 'wherehows-web/typings/app/search/fields-v2';
+import { readValuesV2 } from 'datahub-web/utils/api/search/values-v2';
+import { IFieldValuesResponseV2 } from 'datahub-web/typings/app/search/fields-v2';
 import { debounceAndMemoizeAsyncQuery } from '@datahub/utils/api/autocomplete';
 
 /**
  * Returns a new object for an empty query suggestion response
  * Used as a return value in case the requirement to request data from an endpoint is not met
- * @returns {IFieldValuesResponse}
  */
 const getEmptyQueryResultV2 = (): IFieldValuesResponseV2 => ({
   query: '',

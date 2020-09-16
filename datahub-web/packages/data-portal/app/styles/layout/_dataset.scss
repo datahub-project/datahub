@@ -8,6 +8,10 @@
   align-items: center;
   margin-top: item-spacing(5);
   margin-bottom: item-spacing(5);
+
+  .nacho-pill {
+    margin-right: item-spacing(1);
+  }
 }
 
 .dataset-name {
@@ -18,21 +22,13 @@
   margin: 0;
 }
 
-.dataset-description {
-  display: flex;
-  padding-right: item-spacing(3);
-  word-wrap: break-word;
-  text-overflow: ellipsis;
-  margin: 0;
-}
-
 .dataset-header-meta {
   display: flex;
   position: relative;
+}
 
-  .dataset-health-score {
-    position: absolute;
-    right: item-spacing(5);
-    bottom: -32px;
+.dataset-header {
+  &__social-metadata {
+    margin-bottom: item-spacing(3);
   }
 }

@@ -1,0 +1,26 @@
+<div class="content-panel">
+  {{#if (or this.title this.description)}}
+    <section class="content-panel__header-row">
+      <section class="content-panel__header-title-section">
+        {{#if this.title}}
+          <h3 class="content-panel__title" id="{{@options.domId}}" >
+            {{this.title}}
+          </h3>
+        {{/if}}
+        {{#if this.description}}
+          <p class="content-panel__description" >
+            {{this.description}}
+          </p>
+        {{/if}}
+      </section>
+       {{yield (hash toolbar=(component 'blank-template'))}}
+    </section>
+  {{/if}}
+  <section class="content-panel__section">
+    {{#if contentComponent}}
+      {{component contentComponent.name options=contentComponent.options entity=@entity}}
+    {{else}}
+      {{yield (hash body=(component 'blank-template'))}}
+    {{/if}}
+  </section>
+</div>

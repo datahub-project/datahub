@@ -1,9 +1,9 @@
 import Component from '@ember/component';
 import { task, Task } from 'ember-concurrency';
-import { LineageList, IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
-import { readDownstreamDatasetsByUrn, readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
+import { DatasetLineageList, IDatasetLineage } from '@datahub/metadata-types/types/entity/dataset/lineage';
+import { readDownstreamDatasetsByUrn, readUpstreamDatasetsByUrn } from 'datahub-web/utils/api/datasets/lineage';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import GraphDb, { INode } from 'wherehows-web/utils/graph-db';
+import GraphDb, { INode } from 'datahub-web/utils/graph-db';
 import { action } from '@ember/object';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
@@ -34,26 +34,26 @@ export default class DatasetRelationshipLevels extends Component {
   @task(function*(
     this: DatasetRelationshipLevels,
     id: number,
-    upstream: boolean = false
-  ): IterableIterator<Promise<LineageList>> {
+    upstream = false
+  ): IterableIterator<Promise<DatasetLineageList>> {
     const currentNode = this.graphDb.nodesById[id];
     if (currentNode) {
       const method = upstream ? readUpstreamDatasetsByUrn : readDownstreamDatasetsByUrn;
-      const nodes: Array<IDatasetLineage> = yield method(
+      const nodes = ((yield method(
         (currentNode.payload && currentNode.payload.dataset.uri) || ''
-      );
+      )) as unknown) as Array<IDatasetLineage>;
       nodes.forEach((node): INode<IDatasetLineage> => this.graphDb.addNode(node, currentNode, upstream));
       this.graphDb.setNodeAttrs(id, {
         loaded: true
       });
     }
   })
-  getLineageDataTask: Task<Promise<LineageList>, (a: number, b?: boolean) => Promise<LineageList>>;
+  getLineageDataTask: Task<Promise<DatasetLineageList>, (a: number, b?: boolean) => Promise<DatasetLineageList>>;
 
   /**
    * It will create the first node using the dataset passed, and invoke upstream and downstream tasks
    */
-  @task(function*(this: DatasetRelationshipLevels): IterableIterator<Promise<LineageList>> {
+  @task(function*(this: DatasetRelationshipLevels): IterableIterator<Promise<DatasetLineageList>> {
     const rootNode = this.graphDb.addNode({
       dataset: this.dataset,
       type: '',
@@ -69,7 +69,7 @@ export default class DatasetRelationshipLevels extends Component {
       selected: true
     });
   })
-  firstLoadTask!: ETaskPromise<LineageList>;
+  firstLoadTask!: ETaskPromise<DatasetLineageList>;
 
   /**
    * When we select a node, we need to toggle it and load it if necessary

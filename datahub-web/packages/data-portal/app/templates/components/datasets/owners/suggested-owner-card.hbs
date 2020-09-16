@@ -1,10 +1,7 @@
 {{#let @owner.owner as |ownerRecord|}}
   <section class="suggested-owner-card__owner-info">
     <div class="suggested-owner-card__owner-info__profile">
-      {{avatars/avatar-image
-        avatar=@owner.avatar
-        class="suggested-owner-card__owner-info__profile__pic"
-      }}
+      <Avatars::AvatarImage @avatar={{@owner.avatar}} @class="suggested-owner-card__owner-info__profile__pic" />
 
       <div class="suggested-owner-card__owner-info__profile__name">
         <h5 class="suggested-owner-card__owner-info__profile__name__full">
@@ -21,6 +18,7 @@
         <span class="suggested-owner-card__owner-info__add--disabled">Added</span>
       {{else}}
         <button
+          type="button"
           class="nacho-button--secondary nacho-button--medium"
           {{action "confirmOwner"}}
         >

@@ -1,0 +1,42 @@
+/**
+ * Prompt for privacy compliance
+ */
+.metadata-prompt {
+  margin: 40px 0 10px;
+
+  /**
+   * Overrides default styles
+   */
+  .ember-radio-button {
+    display: inline-block;
+    cursor: pointer;
+  }
+
+  &__header {
+    display: flex;
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+  }
+}
+
+.mark-dataset-no-button {
+  margin-left: auto;
+}
+
+/// Wraps a status notification icon for a given dataset
+.dataset-tag-container {
+  width: 20px;
+  display: flex;
+}
+
+.dataset-classification-indicator {
+  /// A notification that a dataset contains a tag
+  &--tagged {
+    color: get-color(green5);
+  }
+
+  /// A notification that a dataset does not contains a tag
+  &--not-tagged {
+    color: get-color(red5);
+  }
+}

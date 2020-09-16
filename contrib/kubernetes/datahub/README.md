@@ -2,7 +2,7 @@ datahub
 =======
 A Helm chart for LinkedIn DataHub
 
-Current chart version is `0.0.1`
+Current chart version is `0.1.0`
 
 ## Chart Requirements
 
@@ -13,7 +13,7 @@ Current chart version is `0.0.1`
 | file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.1.0 |
 | file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.1.0 |
 
-## Chart Values
+#### Chart Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -30,9 +30,7 @@ Current chart version is `0.0.1`
 | datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` |  |
 | datahub-mce-consumer.image.tag | string | `"latest"` |  |
 | global.datahub.appVersion | string | `"1.0"` |  |
-| global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
-| global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
 | global.elasticsearch.host | string | `"elasticsearch"` |  |
 | global.elasticsearch.port | string | `"9200"` |  |
 | global.hostAliases[0].hostnames[0] | string | `"broker"` |  |
@@ -42,11 +40,14 @@ Current chart version is `0.0.1`
 | global.hostAliases[0].ip | string | `"192.168.0.104"` |  |
 | global.kafka.bootstrap.server | string | `"broker:29092"` |  |
 | global.kafka.schemaregistry.url | string | `"http://schema-registry:8081"` |  |
-| global.neo4j.password | string | `"datahub"` |  |
+| global.neo4j.host | string | `"neo4j:7474"` |  |
 | global.neo4j.uri | string | `"bolt://neo4j"` |  |
 | global.neo4j.username | string | `"neo4j"` |  |
+| global.neo4j.password.secretRef | string | `"neo4j-secrets"` |  |
+| global.neo4j.password.secretKey | string | `"neo4j-password"` |  |
 | global.sql.datasource.driver | string | `"com.mysql.jdbc.Driver"` |  |
 | global.sql.datasource.host | string | `"mysql"` |  |
-| global.sql.datasource.password | string | `"datahub"` |  |
 | global.sql.datasource.url | string | `"jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false\u0026useSSL=true"` |  |
 | global.sql.datasource.username | string | `"datahub"` |  |
+| global.sql.datasource.password.secretRef | string | `"mysql-secrets"` |  |
+| global.sql.datasource.password.secretKey | string | `"mysql-password"` |  |

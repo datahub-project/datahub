@@ -2,12 +2,10 @@ package com.linkedin.metadata.dao.utils;
 
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -26,29 +24,28 @@ public class SearchUtils {
   }
 
   /**
-   * Validates the request params and create a request map out of it
+   * Validates the request params and create a request map out of it.
    *
    * @param requestParams the search request with fields and values
    * @return a request map
    */
   @Nonnull
   public static Map<String, String> getRequestMap(@Nullable Filter requestParams) {
-
     if (requestParams == null) {
       return Collections.emptyMap();
     }
 
-    if (requestParams.getCriteria()
-        .stream()
-        .anyMatch(criterion -> criterion.getCondition() != com.linkedin.metadata.query.Condition.EQUAL)) {
-      throw new IllegalArgumentException("Invalid List criteria - condition must be EQUAL: ");
-    }
+    requestParams.getCriteria().forEach(criterion -> {
+      if (criterion.getCondition() != com.linkedin.metadata.query.Condition.EQUAL) {
+        throw new UnsupportedOperationException("Unsupported condition: " + criterion.getCondition());
+      }
+    });
 
     return requestParams.getCriteria().stream().collect(Collectors.toMap(Criterion::getField, Criterion::getValue));
   }
 
   /**
-   * Builds search query using criterion
+   * Builds search query using criterion.
    *
    * @param criterion {@link Criterion} single criterion which contains field, value and a comparison operator
    * @return QueryBuilder
@@ -68,21 +65,7 @@ public class SearchUtils {
       return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim());
     }
 
-    throw new IllegalArgumentException("Unsupported condition: " + condition);
-  }
-
-  /**
-   * Converts a requestMap to a filter
-   *
-   * @param requestMap a map of fields and values
-   * @return the search filter
-   */
-  @Nonnull
-  public static Filter getFilter(@Nonnull Map<String, String> requestMap) {
-    List<Criterion> criterionList = requestMap.entrySet().stream()
-        .map(entry -> new Criterion().setField(entry.getKey()).setValue(entry.getValue()))
-        .collect(Collectors.toList());
-    return new Filter().setCriteria(new CriterionArray(criterionList));
+    throw new UnsupportedOperationException("Unsupported condition: " + condition);
   }
 
   @Nonnull

@@ -1,30 +1,13 @@
 <form {{action "userDidSubmit" on="submit"}}>
   <label for="login-username" class="sr-only">Login</label>
-  {{input
-    value=username
-    class="nacho-login-form__input"
-    placeholder="Username"
-    id="login-username"
-  }}
+  <Input @value={{username}} class="nacho-login-form__input" placeholder="Username" @id="login-username" />
 
   <label for="login-password" class="sr-only">Password</label>
-  {{input
-    value=password
-    class="nacho-login-form__input"
-    placeholder="Password"
-    id="login-password"
-    type="password"
-  }}
+  <Input @value={{password}} class="nacho-login-form__input" placeholder="Password" @id="login-password" @type="password" />
 
   {{#if showTokenCredentialInput}}
     <label for="login-vip-token" class="sr-only input-no-spinner">VIP Token</label>
-    {{input
-      value=vipToken
-      class="nacho-login-form__input"
-      placeholder="VIP Token"
-      id="login-vip-token"
-      type="number"
-    }}
+    <Input @value={{vipToken}} class="nacho-login-form__input" placeholder="VIP Token" @id="login-vip-token" @type="number" />
   {{/if}}
 
   <p

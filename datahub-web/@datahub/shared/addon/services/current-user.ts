@@ -1,8 +1,11 @@
 import Service from '@ember/service';
 import { get, set } from '@ember/object';
-import { currentUser, IUser } from '@datahub/shared/api/user/authentication';
+import { currentUserDeprecated } from '@datahub/shared/api/user/authentication';
 import Session from 'ember-simple-auth/services/session';
 import { inject as service } from '@ember/service';
+import DataModelsService from '@datahub/data-models/services/data-models';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { IUser } from '@datahub/metadata-types/types/common/user';
 
 /**
  * Indicates that the current user has already been tracked in the current session
@@ -24,10 +27,16 @@ export default class CurrentUser extends Service {
   session!: Session;
 
   /**
-   * Current user properties
-   * @type {IUser}
+   * Reference to the data models service in order to access the proper entity for our current user
    */
-  currentUser?: IUser;
+  @service
+  dataModels!: DataModelsService;
+
+  /**
+   * Creates a PersonEntity out of the current user so that we can fetch and store information
+   * about the logged in person
+   */
+  entity?: PersonEntity;
 
   /**
    * Attempt to load the currently logged in user.
@@ -37,12 +46,18 @@ export default class CurrentUser extends Service {
    * @returns {Promise}
    */
   async load(): Promise<void> {
-    const session = get(this, 'session');
+    const { session, dataModels } = this;
     // If we have a valid session, get the currently logged in user, and set the currentUser attribute,
     // otherwise raise an exception
     if (session.isAuthenticated) {
-      const user: IUser = await currentUser();
-      set(this, 'currentUser', user);
+      // NOTE: Open source is currently using an outdated version of the /me endpoint, which requires a separated
+      // logic in the open source version of current-user
+      const userV1: IUser = await currentUserDeprecated();
+      const PersonEntityClass = dataModels.getModel(PersonEntity.displayName);
+      const urn = PersonEntityClass.urnFromUsername(userV1.userName);
+      const entity = dataModels.createPartialInstance(PersonEntityClass.displayName, { ...userV1, urn });
+
+      set(this, 'entity', entity);
     }
   }
 
@@ -66,7 +81,7 @@ export default class CurrentUser extends Service {
    * @param {Function} userIdTracker a function that takes the userId and tracks it
    */
   trackCurrentUser(userIdTracker: (...args: Array<unknown>) => void = (): void => void 0): void {
-    const userId: string = this.currentUser ? this.currentUser.userName : '';
+    const userId: string = this.entity?.username || '';
 
     // If we have a non-empty userId, the user hasn't already been tracked and the userIdTracker is a valid argument
     // then track the user and toggle the flag affirmative

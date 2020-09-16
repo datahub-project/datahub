@@ -1,0 +1,11 @@
+.binary-toggle {
+  /// Rules for the labels rendered when a user has clicked a state button
+  &__label {
+    &--affirm {
+      color: get-color(gray5);
+    }
+    &--deny {
+      color: get-color(red5);
+    }
+  }
+}

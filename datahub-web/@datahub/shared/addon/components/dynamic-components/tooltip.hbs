@@ -1,0 +1,12 @@
+<div class="dynamic-tooltip {{@options.className}}" ...attributes>
+  {{component @options.triggerComponent.name options=@options.triggerComponent.options}}
+
+  {{!-- From ember-tooltips --}}
+  <PopoverOnElement @event={{or @options.triggerOn "click"}}>
+    <section class="dynamic-tooltip__content">
+      {{#each @options.contentComponents as |contentComponent|}}
+        {{component contentComponent.name options=contentComponent.options}}
+      {{/each}}
+    </section>
+  </PopoverOnElement>
+</div>

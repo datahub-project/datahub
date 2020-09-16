@@ -7,11 +7,11 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,6 +58,18 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   @Override
   public List<RecordTemplate> findMixedTypesEntities(@Nonnull Statement queryStatement) {
     return runQuery(queryStatement, this::nodeRecordToEntity);
+  }
+
+  /**
+   * Similar to other free form APIs, such as findEntities, findRelationships, findMixedTypesEntities, etc.
+   * findPaths should be used when there is a specific need to query the graph DB and no existing APIs could be used.
+   *
+   * @param queryStatement
+   * @return A list of paths, each of which should be [Node1, Edge1, Node2, Edge2, ....]
+   */
+  @Nonnull
+  public List<List<RecordTemplate>> findPaths(@Nonnull Statement queryStatement) {
+    return runQuery(queryStatement, this::pathRecordToPathList);
   }
 
   @Nonnull
@@ -185,7 +197,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
   @Nonnull
   public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate>
-  List<List<RecordTemplate>> getPathsToAllNodesTraversed(
+  List<List<RecordTemplate>> findPaths(
       @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
       @Nullable Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
       @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull RelationshipFilter relationshipFilter,
@@ -221,20 +233,34 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
     final Statement statement = buildStatement(statementString, "length(p), dest.urn", offset, count);
 
-    return runQuery(statement, this::pathRecordToEntityList);
+    return runQuery(statement, this::pathRecordToPathList);
   }
 
   /**
-   * Runs a query statement with parameters and return StatementResult
+   * Runs a query statement with parameters and return StatementResult.
    *
    * @param statement a statement with parameters to be executed
    * @param mapperFunction lambda to transform query result
-   * @return List<T> list of elements in the query result
+   * @return list of elements in the query result
    */
   @Nonnull
   private <T> List<T> runQuery(@Nonnull Statement statement, @Nonnull Function<Record, T> mapperFunction) {
     try (final Session session = _driver.session()) {
       return session.run(statement.getCommandText(), statement.getParams()).list(mapperFunction);
+    }
+  }
+
+
+  /**
+   * Runs a free-form Cypher query.
+   *
+   * @param query Cypher query to be executed
+   * @return query result as a list of {@link Record}
+   */
+  @Nonnull
+  public List<Record> runFreeFormQuery(@Nonnull String query) {
+    try (final Session session = _driver.session()) {
+      return session.run(query).list();
     }
   }
 
@@ -296,17 +322,27 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   @Nonnull
-  private <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
+  <ENTITY extends RecordTemplate> ENTITY nodeRecordToEntity(@Nonnull Class<ENTITY> entityClass,
       @Nonnull Record nodeRecord) {
     return nodeToEntity(entityClass, nodeRecord.values().get(0).asNode());
   }
 
   @Nonnull
-  private List<RecordTemplate> pathRecordToEntityList(@Nonnull Record pathRecord) {
+  private List<RecordTemplate> pathRecordToPathList(@Nonnull Record pathRecord) {
     final Path path = pathRecord.values().get(0).asPath();
-    return StreamSupport.stream(path.nodes().spliterator(), false)
-        .map(Neo4jUtil::nodeToEntity)
-        .collect(Collectors.toList());
+    final List<RecordTemplate> pathList = new ArrayList<>();
+
+    StreamSupport.stream(path.spliterator(), false)
+        .map(Neo4jUtil::pathSegmentToRecordList)
+        .forEach(segment -> {
+          if (pathList.isEmpty()) {
+            pathList.add(segment.get(0));
+          }
+          pathList.add(segment.get(1));
+          pathList.add(segment.get(2));
+        });
+
+    return pathList;
   }
 
   @Nonnull

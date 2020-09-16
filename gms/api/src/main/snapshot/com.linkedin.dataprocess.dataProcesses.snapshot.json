@@ -386,6 +386,34 @@
     } ]
   }, "com.linkedin.metadata.query.SortOrder", {
     "type" : "record",
+    "name" : "BackfillResult",
+    "namespace" : "com.linkedin.metadata.restli",
+    "doc" : "The model for the result of a backfill",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BackfillResultEntity",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the backfilled entity"
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : "string"
+            },
+            "doc" : "List of the aspects backfilled for the entity"
+          } ]
+        }
+      },
+      "doc" : "List of backfilled entities"
+    } ]
+  }, "com.linkedin.metadata.restli.BackfillResultEntity", {
+    "type" : "record",
     "name" : "DataProcessSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
     "doc" : "A metadata snapshot for a specific Data process entity.",
@@ -429,21 +457,21 @@
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       }, {
         "method" : "batch_get",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ]
       }, {
         "method" : "get_all",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
@@ -463,7 +491,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
@@ -502,9 +530,9 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
-        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+        "returns" : "com.linkedin.metadata.restli.BackfillResult"
       }, {
         "name" : "getSnapshot",
         "parameters" : [ {
@@ -513,7 +541,7 @@
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "default" : "[]"
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.snapshot.DataProcessSnapshot"
       }, {

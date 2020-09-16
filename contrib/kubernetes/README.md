@@ -31,48 +31,10 @@ The following table lists the configuration parameters and its default values
 
 | Repository | Name | Version |
 |------------|------|---------|
-| file://./charts/datahub-frontend | datahub-frontend | 0.1.0 |
-| file://./charts/datahub-gms | datahub-gms | 0.1.0 |
-| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.1.0 |
-| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.1.0 |
-
-#### Chart Values
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| datahub-frontend.enabled | bool | `true` |  |
-| datahub-frontend.image.repository | string | `"linkedin/datahub-frontend"` |  |
-| datahub-frontend.image.tag | string | `"latest"` |  |
-| datahub-gms.enabled | bool | `true` |  |
-| datahub-gms.image.repository | string | `"linkedin/datahub-gms"` |  |
-| datahub-gms.image.tag | string | `"latest"` |  |
-| datahub-mae-consumer.enabled | bool | `true` |  |
-| datahub-mae-consumer.image.repository | string | `"linkedin/datahub-mae-consumer"` |  |
-| datahub-mae-consumer.image.tag | string | `"latest"` |  |
-| datahub-mce-consumer.enabled | bool | `true` |  |
-| datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` |  |
-| datahub-mce-consumer.image.tag | string | `"latest"` |  |
-| global.datahub.appVersion | string | `"1.0"` |  |
-| global.datahub.gms.host | string | `"datahub-gms-deployment"` |  |
-| global.datahub.gms.port | string | `"8080"` |  |
-| global.datahub.gms.secret | string | `"YouKnowNothing"` |  |
-| global.elasticsearch.host | string | `"elasticsearch"` |  |
-| global.elasticsearch.port | string | `"9200"` |  |
-| global.hostAliases[0].hostnames[0] | string | `"broker"` |  |
-| global.hostAliases[0].hostnames[1] | string | `"mysql"` |  |
-| global.hostAliases[0].hostnames[2] | string | `"elasticsearch"` |  |
-| global.hostAliases[0].hostnames[3] | string | `"neo4j"` |  |
-| global.hostAliases[0].ip | string | `"192.168.0.104"` |  |
-| global.kafka.bootstrap.server | string | `"broker:29092"` |  |
-| global.kafka.schemaregistry.url | string | `"http://schema-registry:8081"` |  |
-| global.neo4j.password | string | `"datahub"` |  |
-| global.neo4j.uri | string | `"bolt://neo4j"` |  |
-| global.neo4j.username | string | `"neo4j"` |  |
-| global.sql.datasource.driver | string | `"com.mysql.jdbc.Driver"` |  |
-| global.sql.datasource.host | string | `"mysql"` |  |
-| global.sql.datasource.password | string | `"datahub"` |  |
-| global.sql.datasource.url | string | `"jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false\u0026useSSL=true"` |  |
-| global.sql.datasource.username | string | `"datahub"` |  |
+| file://./charts/datahub-frontend | datahub-frontend | 0.2.0 |
+| file://./charts/datahub-gms | datahub-gms | 0.2.0 |
+| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.2.0 |
+| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.2.0 |
 
 ## Install DataHub
 Navigate to the current directory and run the below command.  Update the `datahub/values.yaml` file with valid hostname/IP address configuration for elasticsearch, neo4j, schema-registry, broker & mysql. 

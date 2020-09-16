@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
-import BannerService, { IBanner } from 'wherehows-web/services/banners';
+import BannerService, { IBanner } from 'datahub-web/services/banners';
 import { bannerAnimationSpeed } from '@datahub/utils/constants/notifications';
 import { inject as service } from '@ember/service';
 import { alias } from '@ember/object/computed';

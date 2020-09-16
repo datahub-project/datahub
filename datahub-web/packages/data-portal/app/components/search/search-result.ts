@@ -1,12 +1,13 @@
 import Component from '@ember/component';
 import { classNames } from '@ember-decorators/component';
 import { inject as service } from '@ember/service';
-import Search from 'wherehows-web/services/search';
-import { action, computed, get } from '@ember/object';
-import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
+import Search from '@datahub/shared/services/search';
+import { action, computed } from '@ember/object';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { ISearchResultMetadata } from '@datahub/data-models/types/entity/search';
-import { DataModelEntityInstance } from '@datahub/data-models/addon/constants/entity';
+import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 import { KeyNamesWithValueType } from '@datahub/utils/types/base';
+import { assertComponentPropertyNotUndefined } from '@datahub/utils/decorators/assert';
 
 // keys that return string (excluding undefined key)
 type CompatibleKeysThatReturnString = Exclude<KeyNamesWithValueType<DataModelEntityInstance, string>, undefined>;
@@ -26,6 +27,7 @@ export default class SearchResult extends Component {
    * @memberof SearchResult
    */
   @service
+  @assertComponentPropertyNotUndefined
   search: Search;
 
   /**
@@ -36,12 +38,15 @@ export default class SearchResult extends Component {
   /**
    * Result used in template
    */
-  result!: DataModelEntityInstance;
+  @assertComponentPropertyNotUndefined
+  result: DataModelEntityInstance;
 
   /**
    * Config for search for this entity
    */
-  searchConfig!: IEntityRenderCommonPropsSearch;
+  @assertComponentPropertyNotUndefined
+  searchConfig: IEntityRenderCommonPropsSearch;
+
   /**
    * Will return the name of the entity. By default it will use
    * 'name' as field to fetch the name, otherwise it should be
@@ -53,7 +58,7 @@ export default class SearchResult extends Component {
     const { searchResultEntityFields = {} } = searchConfig;
     const { name = 'name' } = searchResultEntityFields || {};
 
-    return get(result, name as CompatibleKeysThatReturnString);
+    return result[name as CompatibleKeysThatReturnString];
   }
 
   /**
@@ -75,13 +80,12 @@ export default class SearchResult extends Component {
    * `entityPictureUrlField` needed to be specified to render this field
    */
   @computed('searchConfig.entityPictureUrlField', 'entity')
-  get pictureUrl(): string | void {
-    const { result, searchConfig = { searchResultEntityFields: { pictureUrl: '' } } } = this;
+  get pictureUrl(): string | undefined | void {
+    const { result, searchConfig } = this;
     const { searchResultEntityFields = {} } = searchConfig;
     const { pictureUrl = undefined } = searchResultEntityFields || {};
-
-    if (result && pictureUrl) {
-      return get(result, pictureUrl as CompatibleKeysThatReturnString);
+    if (pictureUrl) {
+      return result[pictureUrl as CompatibleKeysThatReturnString];
     }
   }
 
@@ -90,11 +94,11 @@ export default class SearchResult extends Component {
    * the search service.
    * This allows us to explicity indicate that a transition to a search result is in progress
    * @param {string} resultUrn urn for the search result item
-   * @param {MouseEvent} _e
+   * @param {number} absolutePosition The absolute position of the search result in the total list of search results for the search query, independent of pagination. This is null when the impressed content is not a result item, but, for example, a search result facet
    * @memberof SearchResult
    */
   @action
-  onResultClick(resultUrn: string, _e: MouseEvent): void {
-    this.search.didClickSearchResult(resultUrn);
+  onResultClick(resultUrn: string, absolutePosition: number): void {
+    this.search.didClickSearchResult(resultUrn, absolutePosition);
   }
 }

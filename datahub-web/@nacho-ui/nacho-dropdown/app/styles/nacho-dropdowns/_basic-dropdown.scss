@@ -1,0 +1,57 @@
+.nacho-dropdown--basic {
+  /**
+   * <select> primary color, borders, icons, etcetera...
+   */
+  $color: get-color(gray2);
+  $default-border: (1px solid shade($color, 20%));
+
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  width: 100%;
+  max-width: 300px;
+  border: $default-border;
+  border-radius: 2px;
+  background-color: get-color(white);
+  padding: 0 item-spacing(3);
+
+  select {
+    &::-ms-expand {
+      display: none;
+    }
+
+    outline: none;
+    border: 0;
+    border-radius: 2px;
+    background-color: transparent;
+    width: 100%;
+    height: 100%;
+
+    &:disabled {
+      cursor: not-allowed;
+      color: shade($color, 10%);
+
+      &:after {
+        visibility: hidden;
+      }
+    }
+  }
+
+  /// Hides the styling for a select element unless hovered over
+  &--hidden-state {
+    border: 1px solid transparent;
+    background-color: transparent;
+
+    &:hover {
+      border: $default-border;
+
+      &::after {
+        visibility: visible;
+      }
+    }
+
+    &::after {
+      visibility: hidden;
+    }
+  }
+}

@@ -6,6 +6,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.datahub.dao.DaoFactory;
+import com.linkedin.datahub.dao.table.DataPlatformsDao;
 import com.linkedin.datahub.dao.table.DatasetOwnerDao;
 import com.linkedin.datahub.dao.table.LineageDao;
 import com.linkedin.datahub.dao.view.DatasetViewDao;
@@ -30,6 +31,7 @@ public class Dataset extends Controller {
   private final OwnerViewDao _ownerViewDao;
   private final DatasetOwnerDao _datasetOwnerDao;
   private final LineageDao _lineageDao;
+  private final DataPlatformsDao _dataPlatformsDao;
 
   private static final JsonNode EMPTY_RESPONSE = Json.newObject();
 
@@ -38,6 +40,7 @@ public class Dataset extends Controller {
     _ownerViewDao = DaoFactory.getOwnerViewDao();
     _datasetOwnerDao = DaoFactory.getDatasetOwnerDao();
     _lineageDao = DaoFactory.getLineageDao();
+    _dataPlatformsDao = DaoFactory.getDataPlatformsDao();
   }
 
   @Security.Authenticated(Secured.class)
@@ -55,7 +58,7 @@ public class Dataset extends Controller {
       return internalServerError(ControllerUtil.errorResponse(e));
     }
 
-    return ok(Json.newObject().set("dataset", Json.toJson(view)));
+    return ok(Json.toJson(view));
   }
 
   @Security.Authenticated(Secured.class)
@@ -246,6 +249,11 @@ public class Dataset extends Controller {
     try {
       upstreams = _lineageDao.getUpstreamLineage(datasetUrn);
     } catch (Exception e) {
+      if (ControllerUtil.checkErrorCode(e, 404)) {
+        int[] emptyUpstreams = new int[0];
+        return ok(Json.toJson(emptyUpstreams));
+      }
+
       Logger.error("Fetch Dataset upstreams error", e);
       return internalServerError(ControllerUtil.errorResponse(e));
     }
@@ -263,5 +271,16 @@ public class Dataset extends Controller {
       return internalServerError(ControllerUtil.errorResponse(e));
     }
     return ok(Json.toJson(downstreams));
+  }
+
+  @Security.Authenticated(Secured.class)
+  @Nonnull
+  public Result getDataPlatforms() {
+    try {
+      return ok(ControllerUtil.jsonNode("platforms", _dataPlatformsDao.getAllPlatforms()));
+    } catch (final Exception e) {
+      Logger.error("Fail to get data platforms", e);
+      return notFound(ControllerUtil.errorResponse(e));
+    }
   }
 }

@@ -13,7 +13,7 @@ import static com.linkedin.metadata.generator.SchemaGeneratorConstants.*;
 import static com.linkedin.metadata.generator.SchemaGeneratorUtil.*;
 
 
-/***
+/**
  * Render the property annotations to the MXE pdl schema.
  */
 @Slf4j
@@ -58,6 +58,10 @@ public class EventSchemaComposer extends RythmGenerator {
     // generate FMCE
     writeToFile(new File(directory, FAILED_METADATA_CHANGE_EVENT + PDL_SUFFIX),
         renderToString(eventSpec, entityUrn, namespace, EVENT_TEMPLATES.get(FAILED_METADATA_CHANGE_EVENT)));
+
+    // generate MAE
+    writeToFile(new File(directory, METADATA_AUDIT_EVENT + PDL_SUFFIX),
+        renderToString(eventSpec, entityUrn, namespace, EVENT_TEMPLATES.get(METADATA_AUDIT_EVENT)));
   }
 
   @Nonnull

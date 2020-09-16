@@ -10,7 +10,9 @@ import javax.annotation.Nullable;
 
 
 /**
- * Interface which all entities supporting browse should implement in their respective restli MPs
+ * Interface which all entities supporting browse should implement in their respective restli MPs.
+ *
+ * @deprecated Use {@link BaseBrowsableClient} instead
  */
 public interface BrowsableClient<URN extends Urn> {
 

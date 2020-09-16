@@ -24,6 +24,10 @@ way to do that is through [Docker images](../docker).
 Every MCE in the data file should be in a single line. It also supports consuming from 
 `MetadataChangeEvent` topic.
 
+Tested & confirmed platforms:
+* Red Hat Enterprise Linux Workstation release 7.6 (Maipo) w/Python 3.6.8
+* MacOS 10.15.5 (19F101) Darwin 19.5.0 w/Python 3.7.3
+
 ```
 ➜  python mce_cli.py --help
 usage: mce_cli.py [-h] [-b BOOTSTRAP_SERVERS] [-s SCHEMA_REGISTRY]
@@ -44,9 +48,14 @@ optional arguments:
 ```
 
 ## Bootstrapping DataHub
-Run the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
+* Apply the step 1 & 2 from prerequisites.
+* [Optional] Open a new terminal to consume the events: 
 ```
-➜  python mce_cli.py produce -d bootstrap_mce.dat
+➜  python3 metadata-ingestion/mce-cli/mce_cli.py consume -l metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc
+```
+* Run the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
+```
+➜  python3 metadata-ingestion/mce-cli/mce_cli.py produce -l metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc -d metadata-ingestion/mce-cli/bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
   MCE1: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}), "proposedDelta": None}
   MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
@@ -80,22 +89,6 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ➜  python ldap_etl.py
 ```
 This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
-
-## Ingest metadata from Kafka to DataHub
-The kafka_etl provides you ETL channel to communicate with your kafka.
-```
-➜  Config your kafka environmental variable in the file.
-    ZOOKEEPER      # Your zookeeper host.
-    
-➜  Config your Kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
-
-➜  python kafka_etl.py
-```
-This will bootstrap DataHub with your metadata in the kafka as a dataset entity.
 
 ## Ingest metadata from MySQL to DataHub
 The mysql_etl provides you ETL channel to communicate with your MySQL.
