@@ -4,6 +4,8 @@ If you need to onboard a new entity to search, refer to [How to onboard to GMA S
 
 For this exercise, we'll add a new field to an existing aspect of corp users and search over this field. Your use case might require searching over an existing field of an aspect or create a brand new aspect and search over it's field(s). For such use cases, similar steps should be followed.
 
+This document will also guide you on how to leverage an existing field for faceted search i.e. use the field in aggregations, sorting or in a script.
+
 ## 1. Add field to aspect (skip this step if the field already exists in an aspect)
 For this example, we will add new field `courses` to [CorpUserEditableInfo](../../metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdl) which is an aspect of corp user entity.
 ```
@@ -66,7 +68,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
     "courses": {
-      "type": "text,
+      "type": "text",
       "fielddata": true
     }
   }
@@ -79,7 +81,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
     "courses": {
-      "type": "text,
+      "type": "text",
       "fields": {
         "subfield": {
           "type": "keyword"
@@ -89,6 +91,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
   }
 }'
 ```
+More on this is explained in [ES guides](https://www.elastic.co/guide/en/elasticsearch/reference/current/fielddata.html).
 
 ## 4. Modify index config, so that the new mapping is picked up next time
 If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json).
@@ -189,7 +192,24 @@ For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/
 ```
 As you can see in the above query template, corp user search is performed across multiple fields, to which the field `courses` has been added.
 
-## 7: Test your changes
+## 7: (*Optional*) For a field that is a facet, modify the search config.
+We define the list of facets in search config. If your field needs to be a facet, add it to the set of facets defined in method *getFacetFields*. For this example, we will add the logic in [CorpUserSearchConfig](../../gms/impl/src/main/java/com/linkedin/metadata/configs/CorpUserSearchConfig.java).
+
+```java
+package com.linkedin.metadata.configs;
+
+public class CorpUserSearchConfig extends BaseSearchConfig<CorpUserInfoDocument> {
+  @Override
+  @Nonnull
+  public Set<String> getFacetFields() {
+    return Collections.unmodifiableSet(new HashSet<>(Arrays.asList("courses"));
+  }
+
+  ...
+}
+```
+
+## 8: Test your changes
 Make sure relevant docker containers are rebuilt before testing the changes.
 If this is a new field that has been added to an existing snapshot, then you can test by ingesting data that contains this new field. Here is an example of ingesting to `/corpUsers` endpoint, with the new field `courses`.
 
