@@ -8,7 +8,7 @@
 
 Adding support for [Azkaban](https://azkaban.github.io/) job and flow metadata and enabling search and discovery for them. 
 
-The design includes the metadata needed to represent Azkaban jobs and flows as entities and their relationships to other
+The design includes the metadata needed to represent Azkaban jobs and flows as data job entities and their relationships to other
 entities like Datasets.
 
 ## Motivation
@@ -17,16 +17,18 @@ Azkaban is a popular open source workflow manager created and extensively used a
 in the metadata graph since data processing jobs are the primary driver of data movement and creation.
 
 Without job metadata, it is not possible to understand the data flow across an organization. Additionally, jobs are needed in the
-lineage graph to surface operational metadata and have a complete view of data movement and processing
+lineage graph to surface operational metadata and have a complete view of data movement and processing. Capturing jobs and flows
+metadata in the lineage graph also allows in understanding dependency between multiple flows and jobs and structure of data 
+pipelines in end to end data flow.
 
 ## Requirements
 
 The following requirements exists as part of this rfc:
 
-- Define Azkaban flow and job as entities and model their metadata
-- Enable Search & Discovery for Azkaban jobs and flows
-- Link Azkaban entities to existing entities like Datasets to build a more complete metadata graph
-- Automatically derive dataset upstream lineage from azkaban job metadata (inputs and outputs)
+- Define Data flow and job as entities and model metadata for azkaban data job and flows
+- Enable Search & Discovery for Data jobs and flows
+- Link DataJob entities to existing entities like Datasets to build a more complete metadata graph
+- Automatically derive dataset upstream lineage from data job metadata (inputs and outputs)
 
 ## Non Requirements
 
@@ -39,7 +41,7 @@ Azkaban UI for further debugging or finer grained information.
 
 ![high level design](graph.png)
 
-The graph diagram above shows the relationships and high level metadata associated with Azkaban Job and Flow entities.
+The graph diagram above shows the relationships and high level metadata associated with Data Job and Flow entities.
 
 An Azkaban flow is a DAG of one or more Azkaban jobs. Usually, most data processing jobs consume one or more inputs and 
 produce one of more outputs (represented by datasets in the diagram). There can be other kinds of housekeeping jobs as well
@@ -50,19 +52,29 @@ flow it is part of. As shown in the diagram, dataset upstream lineage is derived
 in `ds1` and `ds2` being upstreams of `ds3`.
 
 ### Entities
-There will be 2 top level GMA [entities](../../../what/entity.md) in the design: Azkaban job and flow.
+There will be 2 top level GMA [entities](../../../what/entity.md) in the design: DataJob and DataFlow.
 
 ### URN Representation
-We'll define two [URNs](../../../what/urn.md): `AzkabanJobUrn` and `AzkabanFlowUrn`.
-These URNs should allow for unique identification for an Azkaban job and flow respectively.
+We'll define two [URNs](../../../what/urn.md): `DataJobUrn` and `DataFlowUrn`.
+These URNs should allow for unique identification for a Data job and flow respectively.
 
-An example Azkaban flow URN will look like below:
+An example Data flow URN will look like below:
 ```
-urn:li:azkabanFlow:(cluster,project,flow_id)
+urn:li:dataFlow:(azkaban,flow_id,cluster)
 ```
-An example Azkaban job URN will look like below:
+An example Data job URN will look like below:
 ```
-urn:li:azkabanJob:(urn:li:azkabanFlow:(cluster,project,flow_id),job_id)
+urn:li:dataJob:(azkaban,job_id,cluster)
+```
+
+An example DataFlow URN for azkaban will look like below:
+```
+urn:li:dataFlow:(azkaban,flow1,cluster1)
+```
+
+An example DataJob URN for azkaban will look like below:
+```
+urn:li:dataFlow:(azkaban,flow1_job1,cluster1)
 ```
 
 ### Azkaban Flow metadata
@@ -70,7 +82,7 @@ urn:li:azkabanJob:(urn:li:azkabanFlow:(cluster,project,flow_id),job_id)
 Below is a list of metadata which can be associated with an azkaban flow:
 
 - Azkaban cluster
-- Project for the flow
+- Project for the flow (the concept of project may not exist for other workflow managers so it may not apply in all cases)
 - Flow name
 - Ownership
 
@@ -80,9 +92,9 @@ Below is a list of metadata which can be associated with an azkaban job:
 
 - Azkaban Flow the job is part of
 - Job name
+- Job type (could be spark, mapreduce, hive, presto. command etc)
 - Inputs consumed by the job
 - Outputs produced by the job
-- Ownership
 
 ## Rollout / Adoption Strategy
 
