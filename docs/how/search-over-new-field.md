@@ -60,6 +60,36 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 }'
 ```
 
+If this field needs to be a facet i.e. you want to enable sorting, aggregations on this field or use it in scripts, then your mapping may be different depending on the type of field. For **text** fields you will need to enable *fielddata* (disabled by default), as shown below
+```json
+curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
+{
+  "properties": {
+    "courses": {
+      "type": "text,
+      "fielddata": true
+    }
+  }
+}'
+```
+
+However *fielddata* enablement could consume significant heap space. If possible, use unanalyzed **keyword** field as a facet. For the current example, you could either choose keyword type for the field *courses* or create a subfield of type keyword under *courses* and use the same for sorting, aggregations, etc (second approach described below)
+```json
+curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
+{
+  "properties": {
+    "courses": {
+      "type": "text,
+      "fields": {
+        "subfield": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}'
+```
+
 ## 4. Modify index config, so that the new mapping is picked up next time
 If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json).
 
