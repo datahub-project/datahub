@@ -147,9 +147,10 @@ docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
 
 Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities. 
 
-## Getting `cannot start service {X}` error while starting Docker containers.
+## Getting error while starting Docker containers
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
-### bind: address already in use
+
+### `bind: address already in use`
 This error means that the network port (which is supposed to be used by the failed container) is already in use on your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If you don't want to kill the process which is using that port, another option is to change the port number for the Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
 
 ```
@@ -160,11 +161,14 @@ ERROR: for mysql  Cannot start service mysql: driver failed programming external
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
 ``` 
-### OCI runtime create failed
+### `OCI runtime create failed`
 If you see an error message like below, please make sure to git update your local repo to HEAD.
 ```
 ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI runtime create failed: container_linux.go:349: starting container process caused "exec: \"bash\": executable file not found in $PATH": unknown
 ```
+
+### `failed to register layer: devmapper: Unknown device`
+This most means that you're out of disk space (see [#1879](https://github.com/linkedin/datahub/issues/1879)).
 
 ## toomanyrequests: too many failed login attempts for username or IP address
 Try the following
@@ -173,6 +177,12 @@ rm ~/.docker/config.json
 docker login
 ```
 More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
+
+## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
+This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/linkedin/datahub/issues/1816)). Please run the following command to manually initialize it.
+```
+docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
+```
 
 ## I've messed up my docker setup. How do I start from scratch?
 1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
@@ -184,8 +194,3 @@ docker rm -f $(docker ps -aq)
 docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
 ```
 
-## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
-This means the database wasn't properly initialized as part of the quickstart processs. Please run the following command to manually initialize it.
-```
-docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
-```
