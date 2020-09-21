@@ -1,17 +1,11 @@
 package com.linkedin.metadata.testing;
 
 import com.linkedin.common.FabricType;
-import com.linkedin.common.RegisteredSchemaType;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.common.urn.DatasetGroupUrn;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.common.urn.FeatureUrn;
-import com.linkedin.common.urn.MetricUrn;
-import com.linkedin.common.urn.RegisteredSchemaUrn;
-import com.linkedin.metadata.urn.InternalDataPlatformUrn;
-import com.linkedin.metadata.urn.InternalDatasetUrn;
-import com.linkedin.metadata.urn.InternalRegisteredSchemaUrn;
 import javax.annotation.Nonnull;
 
 
@@ -34,31 +28,16 @@ public final class Urns {
 
   @Nonnull
   public static DatasetUrn makeDatasetUrn(@Nonnull String name) {
-    return new InternalDatasetUrn(new InternalDataPlatformUrn("mysql"), name, FabricType.DEV);
+    return new DatasetUrn(new DataPlatformUrn("mysql"), name, FabricType.DEV);
   }
 
   @Nonnull
   public static DatasetUrn makeDatasetUrn(@Nonnull String platform, @Nonnull String name, @Nonnull FabricType fabricType) {
-    return new InternalDatasetUrn(new InternalDataPlatformUrn(platform), name, fabricType);
+    return new DatasetUrn(new DataPlatformUrn(platform), name, fabricType);
   }
 
   @Nonnull
-  public static MetricUrn makeMetricUrn(@Nonnull String name) {
-    return new MetricUrn("UMP", name);
-  }
-
-  @Nonnull
-  public static DatasetGroupUrn makeDatasetGroupUrn(@Nonnull String name) {
-    return new DatasetGroupUrn("foo", name);
-  }
-
-  @Nonnull
-  public static RegisteredSchemaUrn makeRegisteredSchemaUrn(@Nonnull String name) {
-    return new InternalRegisteredSchemaUrn(RegisteredSchemaType.KAFKA, name);
-  }
-
-  @Nonnull
-  public static FeatureUrn makeFeatureUrn(@Nonnull String name) {
-    return new FeatureUrn("foo", name);
+  public static DataProcessUrn makeDataProcessUrn(@Nonnull String name) {
+    return new DataProcessUrn("Azure Data Factory", name, FabricType.DEV);
   }
 }
