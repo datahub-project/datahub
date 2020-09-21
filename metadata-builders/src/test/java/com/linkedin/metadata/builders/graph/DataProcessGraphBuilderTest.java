@@ -8,7 +8,7 @@ import com.linkedin.metadata.snapshot.DataProcessSnapshot;
 import java.util.List;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.metadata.testing.Urns.*;
 import static org.testng.Assert.*;
 
 

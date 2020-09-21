@@ -9,7 +9,6 @@ import com.linkedin.common.OwnershipSuggestion;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.MetricAspect;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,12 +53,4 @@ public final class Owners {
   public static OwnershipSuggestion makeOwnershipSuggestion(@Nonnull String ldap) {
     return new OwnershipSuggestion().setOwners(new OwnerArray(Collections.singleton(makeOwner(ldap))));
   }
-
-  @Nonnull
-  public static MetricAspect makeOwnershipAspectUnion(@Nonnull String ldap) {
-    MetricAspect aspect = new MetricAspect();
-    aspect.setOwnership(makeOwnership(ldap));
-    return aspect;
-  }
-
 }
