@@ -152,16 +152,6 @@
           "analyzer": "custom_browse_slash",
           "fielddata": true
         },
-        "origin": {
-          "type": "keyword",
-          "fields": {
-            "ngram": {
-              "type": "text",
-              "analyzer": "custom_ngram"
-            }
-          },
-          "normalizer": "my_normalizer"
-        },
         "deprecated": {
           "type": "boolean"
         },
@@ -204,6 +194,16 @@
         "num_downstream_datasets": {
           "type": "long"
         },
+        "origin": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
         "owners": {
           "type": "text",
           "fields": {
@@ -227,11 +227,11 @@
         "removed": {
           "type": "boolean"
         },
-        "urn": {
+        "upstreams": {
           "type": "keyword",
           "normalizer": "my_normalizer"
         },
-        "upstreams": {
+        "urn": {
           "type": "keyword",
           "normalizer": "my_normalizer"
         }
