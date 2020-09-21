@@ -16,18 +16,20 @@ In this feature we will discuss how we can enable search and discovery on the de
 
 ## Basic example
 
-Metadata `Health` of a dataset is a typical example of this feature. The details of metadata `Health` will be covered in a separate RFC.
+Metadata `Health` of a dataset is a typical example of this feature. The details of metadata `Health` will be covered in a separate RFC (the review of `Health` metadata is out of scope of this RFC)
 
 To put it simple,  
-- Health is a derived using metadata from multiple aspects
-- Promote healthy datasets in search of the datasets
-- There are organizational needs to rollup unhealthy (or healthy) datasets to a ldap/manager/team. This has the needs to query graph in conjucntion with health metadata.
+- Health metadata is derived using metadata from multiple aspects.
+- A need for promoting healthy datasets in search of the datasets.
+- There are organizational needs to rollup unhealthy (or healthy) datasets to a ldap/manager/team. This has the needs to query graph in conjunction with health metadata.
+    - Number of unhealthy datasets owned by me.
+    - Number of unhealthy datasets owned by my organization.
 
 ## Motivation
 In the context of derived metadata, we need the ability to 
 1. Compute from different aspects
-2. Maintaining versions of the derived metadata 
-3. Notify in the event of change of derived metadata
+2. Maintain versions of the derived metadata 
+3. Notify in the event of change in derived metadata
 4. Search of entities powered with derived metadata
 5. Graph query needs of entities powered with derived metadata.  
 
@@ -36,7 +38,7 @@ In the context of derived metadata, we need the ability to
 Derived metadata can be modelled as an aspect of an entity. 
 This is similar to any other aspect but with subtle differences.
 
-- Value of this aspect gets computed only when `GET` API is called. 
+- Value of this aspect gets computed only when `GET` API is invoked. 
 - `GET` API computes, persists and retrieves the metadata from the KV store.
 
 ### Entity Aspect Model
@@ -63,17 +65,17 @@ Whereas, `GET` API for derived aspect, does something more than that. A typical 
 4. Retrieve latest value of derived metadata and serve the `GET` request.
   
 The persistence of the derived aspect follows GMA architecture. This helps with few of the motivational points mentioned. 
-- Versioning capabilities of the metadata 
-- Notification in the form of MAE when derived aspect metadata has changed. 
+- Versioning capabilities of the derived metadata 
+- Notification in the form of MAE when derived metadata has changed. 
 
-The MAEs produced will help us power both GMA indexes search and graph. This is similar to any other GMA aspect. 
+The MAEs produced will furher power both search and graph GMA indices. This is similar to any other GMA aspect. 
 
 ### Refresh of derived aspect metadata
 `GET` operation on derived aspect always gives the current state of derived metadata. 
 
 Often, `GET` operation might not be called for all entity values. Hence, peeking into the DB doesn't guarantee to give the true state of derived aspect.
    
-Depending on how fresh we need GMA indexes and the how often we want to notify on the changes of derived aspect metadata, there is a need for a CRON job which calls GET operation for all URNs of the entity.  
+Depending on how fresh we need GMA indexes and how often we want to notify on the changes of derived aspect metadata, there is a need for a CRON job which calls GET operation for all URNs of the entity.  
 
  ![Backfill Derived Aspects](Backfill-Process.png)
 
@@ -84,30 +86,30 @@ In the above, a CRON job on a nightly basis calls `GET` API of derived aspect. T
 
 ## How we teach this
 
-- Derived metadata is derived from multiple of aspects of possibly different entities with or without any other auxiliary information.  
-- Derived metadata can be modelled as aspects and are called as Derived Aspects. These are very similar to any other GMA aspect.
-- `GET` API of derivedAspect always gives the up-to date derived data.
-- A CRON job maintains the freshness of the derived aspect persisted and GMA indexes.
+- Derived metadata is derived from multiple aspects of possibly different(or same) entities with(or without) any other auxiliary information.  
+- Derived metadata can be modelled as aspects and are called as `Derived Aspects`. These are very similar to any other GMA aspect.
+- `GET` API of `Derived Aspect` always gives the up-to date derived metadata.
+- A CRON job maintains the freshness of the `Derived Aspect` persisted in KV store and GMA indices.
 
 ## Drawbacks
  
 As more and more derived aspects are onboarded, additional load on the KV store is inevitable.  
 
-On the other alternate design, we considered not to persist the metadata in KV store. But, this would involve emitting MAEs on every GET call of derived aspect. This can be overwhelming on GMA indexes pipelines.
+On the other hand, alternate design, doesn't persist the metadata in KV store. And would involve emitting MAEs on every GET call of derived aspect. This can be overwhelming on GMA indexes pipelines.
 
-There is a tradeoff in choosing the KV store to persist more metadata on derived aspects, compared to overwhelming GMA indexing pipelines. Given that we have horizontally scalable KV store solutions, I believe this should be of the least concern. 
+There is a tradeoff in choosing the KV store to persist more metadata for derived aspects, compared to overwhelming GMA indexing pipelines. Given that we have horizontally scalable KV store solutions, I believe this should be of the least concern. 
 
 ## Alternatives
 
 In the alternate design, we don't persist derived metadata in the KV store. The workflow looks like below. 
 
-- `GET` API computes the current state of derived metadata. The computed information is passed onto the caller without persisting.  
+- `GET` API computes the current state of derived metadata. The computed information is returned to the caller without persisting in KV store.  
 - `GET` API on derived aspect also emits MAE before returning to client. 
 - Similar to the proposed design, a nightly CRON process always calls `GET` API for all entities. 
 
 There are few major drawbacks in this approach and hence I am inclined to proposed design. 
 1. Lots of MAEs are emitted. Hence, can potentially overwhelm GMA indexing pipelines. 
-2. MAE is emitted even when there is no change in metadata. This is a false positive. Clients can't rely on such notifications.
+2. MAEs are emitted even when there is no change in metadata. This is a false positive. Clients can't rely on such notifications.
 3. Versioning of derived metadata is not present and hence the state of derived metadata a few day back can't be answered.
 
 ## Rollout / Adoption Strategy
