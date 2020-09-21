@@ -275,7 +275,7 @@ Response:
         "fullName": "Data Hub",
         "title": "CEO",
         "displayName": "Data Hub",
-        "email": "datahub@linkedin.com"
+        "email": "datahub@linkedin.com q
       }
     }
   ],
@@ -289,3 +289,42 @@ Response:
   }
 }
 ```
+
+# Appendix: MidTier and UI changes
+
+## 1 Add fields to facets in MidTier if desired (optional)
+
+In [Search.java](../../datahub-frontend/app/controllers/api/v2/Search.java) add the desired fields here: 
+
+```
+private static final Set<String> DATASET_FACET_FIELDS = ImmutableSet.of("origin", "platform", "YOURCUSTOMFIELD");      
+```
+
+## 2 Add field in the Dataset entity
+
+In [dataset-entity.ts](../../datahub-web/%40datahub/data-models/addon/entity/dataset/dataset-entity.ts), add your new property
+
+```
+@alias('entity.YOURCUSTOMFIELD')
+YOURCUSTOMFIELD?: string;
+```
+
+## 3 Add fields in the Dataset configuration json
+
+
+In [dataset-entity.ts](../../datahub-web/%40datahub/data-models/addon/entity/dataset/fields.ts), add your new property:
+
+```  
+{
+  showInAutoCompletion: true,
+  fieldName: 'YOURCUSTOMFIELD',
+  showInResultsPreview: true,
+  displayName: 'You Custom Field',
+  showInFacets: true,
+  desc: 'This is a custom field',
+  example: 'YOURCUSTOMFIELD:value'
+}
+```
+
+
+
