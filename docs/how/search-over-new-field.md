@@ -275,7 +275,7 @@ Response:
         "fullName": "Data Hub",
         "title": "CEO",
         "displayName": "Data Hub",
-        "email": "datahub@linkedin.com q
+        "email": "datahub@linkedin.com"
       }
     }
   ],
