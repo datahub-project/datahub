@@ -11,6 +11,8 @@ import com.linkedin.metadata.query.BrowseResultEntity;
 import com.linkedin.metadata.query.BrowseResultEntityArray;
 import com.linkedin.metadata.query.BrowseResultMetadata;
 import com.linkedin.parseq.BaseEngineTest;
+import com.linkedin.restli.common.ComplexResourceKey;
+import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.testing.EntityAspectUnion;
 import com.linkedin.testing.EntityDocument;
 import com.linkedin.testing.EntityKey;
@@ -35,7 +37,7 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
 
   class TestResource extends BaseBrowsableEntityResource<
       // format
-      EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
+      ComplexResourceKey<EntityKey, EmptyRecord>, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
 
     public TestResource() {
       super(EntitySnapshot.class, EntityAspectUnion.class);
@@ -71,13 +73,13 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected Urn toUrn(@Nonnull EntityKey key) {
+    protected Urn toUrn(@Nonnull ComplexResourceKey<EntityKey, EmptyRecord> key) {
       throw new RuntimeException("Not implemented");
     }
 
     @Nonnull
     @Override
-    protected EntityKey toKey(@Nonnull Urn urn) {
+    protected ComplexResourceKey<EntityKey, EmptyRecord> toKey(@Nonnull Urn urn) {
       throw new RuntimeException("Not implemented");
     }
 

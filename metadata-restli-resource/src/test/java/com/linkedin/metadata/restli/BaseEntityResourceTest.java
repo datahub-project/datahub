@@ -16,6 +16,8 @@ import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.BaseEngineTest;
+import com.linkedin.restli.common.ComplexResourceKey;
+import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
@@ -53,7 +55,7 @@ public class BaseEntityResourceTest extends BaseEngineTest {
   private BaseLocalDAO<EntityAspectUnion, FooUrn> _mockLocalDAO;
   private TestResource _resource = new TestResource();
 
-  class TestResource extends BaseEntityResource<EntityKey, EntityValue, FooUrn, EntitySnapshot, EntityAspectUnion> {
+  class TestResource extends BaseEntityResource<ComplexResourceKey<EntityKey, EmptyRecord>, EntityValue, FooUrn, EntitySnapshot, EntityAspectUnion> {
 
     public TestResource() {
       super(EntitySnapshot.class, EntityAspectUnion.class, FooUrn.class);
@@ -77,14 +79,14 @@ public class BaseEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected FooUrn toUrn(@Nonnull EntityKey key) {
-      return makeFooUrn(key.getId().intValue());
+    protected FooUrn toUrn(@Nonnull ComplexResourceKey<EntityKey, EmptyRecord> key) {
+      return makeFooUrn(key.getKey().getId().intValue());
     }
 
     @Nonnull
     @Override
-    protected EntityKey toKey(@Nonnull FooUrn urn) {
-      return new EntityKey().setId(urn.getIdAsLong());
+    protected ComplexResourceKey<EntityKey, EmptyRecord> toKey(@Nonnull FooUrn urn) {
+      return new ComplexResourceKey<>(new EntityKey().setId(urn.getIdAsLong()), new EmptyRecord());
     }
 
     @Nonnull

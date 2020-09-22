@@ -18,8 +18,6 @@ import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.Task;
-import com.linkedin.restli.common.ComplexResourceKey;
-import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.annotations.Action;
@@ -29,14 +27,14 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestMethod;
-import com.linkedin.restli.server.resources.ComplexKeyResourceTaskTemplate;
+import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,13 +61,13 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
  */
 public abstract class BaseEntityResource<
     // @formatter:off
-    KEY extends RecordTemplate,
+    KEY,
     VALUE extends RecordTemplate,
     URN extends Urn,
     SNAPSHOT extends RecordTemplate,
     ASPECT_UNION extends UnionTemplate>
     // @formatter:on
-    extends ComplexKeyResourceTaskTemplate<KEY, EmptyRecord, VALUE> {
+    extends CollectionResourceTaskTemplate<KEY, VALUE> {
 
   private static final BaseRestliAuditor DUMMY_AUDITOR = new DummyRestliAuditor(Clock.systemUTC());
 
@@ -119,7 +117,7 @@ public abstract class BaseEntityResource<
   protected abstract URN toUrn(@Nonnull KEY key);
 
   /**
-   * Converts a URN to resource's key.
+   * Converts a URN to a resource's key.
    */
   @Nonnull
   protected abstract KEY toKey(@Nonnull URN urn);
@@ -141,11 +139,11 @@ public abstract class BaseEntityResource<
    */
   @RestMethod.Get
   @Nonnull
-  public Task<VALUE> get(@Nonnull ComplexResourceKey<KEY, EmptyRecord> id,
+  public Task<VALUE> get(@Nonnull KEY id,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
     return RestliUtils.toTask(() -> {
-      final URN urn = toUrn(id.getKey());
+      final URN urn = toUrn(id);
       final VALUE value = getInternalNonEmpty(Collections.singleton(urn), parseAspectsParam(aspectNames)).get(urn);
       if (value == null) {
         throw RestliUtils.resourceNotFoundException();
@@ -155,20 +153,20 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Similar to {@link #get(ComplexResourceKey, String[])} but for multiple entities.
+   * Similar to {@link #get(KEY, String[])} but for multiple entities.
    */
   @RestMethod.BatchGet
   @Nonnull
-  public Task<Map<ComplexResourceKey<KEY, EmptyRecord>, VALUE>> batchGet(
-      @Nonnull Set<ComplexResourceKey<KEY, EmptyRecord>> ids,
+  public Task<Map<KEY, VALUE>> batchGet(
+      @Nonnull Set<KEY> ids,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return RestliUtils.toTask(() -> {
-      final Map<ComplexResourceKey<KEY, EmptyRecord>, URN> urnMap =
-          ids.stream().collect(Collectors.toMap(Function.identity(), id -> toUrn(id.getKey())));
-      return getInternal(urnMap.values(), parseAspectsParam(aspectNames)).entrySet()
+      final Map<URN, KEY> urnMap =
+          ids.stream().collect(Collectors.toMap(id -> toUrn(id), Function.identity()));
+      return getInternal(urnMap.keySet(), parseAspectsParam(aspectNames)).entrySet()
           .stream()
           .collect(
-              Collectors.toMap(e -> new ComplexResourceKey<>(toKey(e.getKey()), new EmptyRecord()), e -> e.getValue()));
+              Collectors.toMap(e -> urnMap.get(e.getKey()), e -> e.getValue()));
     });
   }
 
@@ -341,15 +339,14 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Returns {@link CollectionResult} containing ordered list of values of multiple entities obtained after filtering urns
-   * from local secondary index. The returned list is ordered lexicographically by the string representation of the URN.
-   * The list of values is in the same order as the list of urns contained in {@link ListResultMetadata}.
+   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
+   * {@link ListResultMetadata} contains relevant list of urns.
    *
    * @param aspectClasses set of aspect classes that needs to be populated in the values
    * @param filter {@link IndexFilter} that defines the filter conditions
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
-   * @return {@link CollectionResult} containing ordered list of values of multiple entities
+   * @return {@link CollectionResult} containing the values of multiple entities
    */
   @Nonnull
   private CollectionResult<VALUE, ListResultMetadata> filterAspects(
@@ -359,7 +356,7 @@ public abstract class BaseEntityResource<
     final ListResult<UrnAspectEntry<URN>> urnAspectEntries =
         getLocalDAO().getAspects(aspectClasses, filter, parseUrnParam(lastUrn), pagingContext.getCount());
 
-    final Map<URN, List<UnionTemplate>> urnAspectsMap = new LinkedHashMap<>();
+    final Map<URN, List<UnionTemplate>> urnAspectsMap = new HashMap<>();
     for (UrnAspectEntry<URN> entry : urnAspectEntries.getValues()) {
       urnAspectsMap.compute(entry.getUrn(), (k, v) -> {
         if (v == null) {
@@ -384,27 +381,27 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Returns {@link CollectionResult} containing ordered list of values of multiple entities obtained after filtering urns
-   * from local secondary index. The returned list is ordered lexicographically by the string representation of the URN.
-   * The values returned do not contain any metadata aspect, only parts of the urn (if applicable).
-   * The list of values is in the same order as the list of urns contained in {@link ListResultMetadata}.
+   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
+   * Here the value does not contain any metadata aspect, only parts of the urn (if applicable). {@link ListResultMetadata} contains relevant list of urns.
    *
    * @param filter {@link IndexFilter} that defines the filter conditions
    * @param lastUrn last urn of the previous fetched page
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
-   * @return {@link CollectionResult} containing ordered list of values of multiple entities
+   * @return {@link CollectionResult} containing the values of multiple entities
    */
   @Nonnull
   private CollectionResult<VALUE, ListResultMetadata> filterUrns(@Nonnull IndexFilter filter, @Nullable String lastUrn,
       @Nonnull PagingContext pagingContext) {
 
     final ListResult<URN> urns = getLocalDAO().listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount());
-    final List<VALUE> values =
-        urns.getValues().stream().map(urn -> toValue(newSnapshot(urn))).collect(Collectors.toList());
-    final ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
-        urns.getValues().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
+    final Map<URN, VALUE> urnValueMap = urns.getValues()
+        .stream()
+        .distinct()
+        .collect(Collectors.toMap(Function.identity(), urn -> toValue(newSnapshot(urn))));
+    ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
+        urnValueMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
 
-    return new CollectionResult<>(new ArrayList<>(values), urns.getTotalCount(), resultMetadata);
+    return new CollectionResult<>(new ArrayList<>(urnValueMap.values()), urns.getTotalCount(), resultMetadata);
   }
 
   /**

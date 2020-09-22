@@ -19,6 +19,8 @@ import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.parseq.BaseEngineTest;
+import com.linkedin.restli.common.ComplexResourceKey;
+import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.ResourceContext;
@@ -52,7 +54,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
   class TestResource extends BaseSearchableEntityResource<
       // format
-      EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
+      ComplexResourceKey<EntityKey, EmptyRecord>, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
 
     public TestResource() {
       super(EntitySnapshot.class, EntityAspectUnion.class);
@@ -82,14 +84,14 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected Urn toUrn(@Nonnull EntityKey key) {
-      return makeUrn(key.getId());
+    protected Urn toUrn(@Nonnull ComplexResourceKey<EntityKey, EmptyRecord> key) {
+      return makeUrn(key.getKey().getId());
     }
 
     @Nonnull
     @Override
-    protected EntityKey toKey(@Nonnull Urn urn) {
-      return new EntityKey().setId(urn.getIdAsLong());
+    protected ComplexResourceKey<EntityKey, EmptyRecord> toKey(@Nonnull Urn urn) {
+      return new ComplexResourceKey<>(new EntityKey().setId(urn.getIdAsLong()), new EmptyRecord());
     }
 
     @Nonnull

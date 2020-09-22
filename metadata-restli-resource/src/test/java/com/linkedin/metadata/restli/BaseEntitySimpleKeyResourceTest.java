@@ -228,9 +228,14 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), aspectNames));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(urn.toString(), aspectNames));
 
-    assertEquals(ImmutableSet.copyOf(backfilledAspects), ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class)));
+    assertEquals(backfillResult.getEntities().size(), 1);
+
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn);
+    assertEquals(backfillResultEntity.getAspects().size(), 1);
+    assertEquals(backfillResultEntity.getAspects().get(0), ModelUtils.getAspectName(AspectFoo.class));
   }
 
   @Test
@@ -241,9 +246,14 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     when(_mockLocalDAO.backfill(AspectFoo.class, urn)).thenReturn(Optional.of(foo));
     when(_mockLocalDAO.backfill(AspectBar.class, urn)).thenReturn(Optional.of(bar));
 
-    String[] backfilledAspects = runAndWait(_resource.backfill(urn.toString(), null));
+    BackfillResult backfillResult = runAndWait(_resource.backfill(urn.toString(), null));
 
-    assertEquals(ImmutableSet.copyOf(backfilledAspects),
+    assertEquals(backfillResult.getEntities().size(), 1);
+
+    BackfillResultEntity backfillResultEntity = backfillResult.getEntities().get(0);
+    assertEquals(backfillResultEntity.getUrn(), urn);
+    assertEquals(backfillResultEntity.getAspects().size(), 2);
+    assertEquals(ImmutableSet.copyOf(backfillResultEntity.getAspects()),
         ImmutableSet.of(ModelUtils.getAspectName(AspectFoo.class), ModelUtils.getAspectName(AspectBar.class)));
   }
 
@@ -259,11 +269,11 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
   /**
    * Test class for {@link BaseEntityResource}.
    * */
-  private class TestResource extends BaseEntitySimpleKeyResource<
+  private class TestResource extends BaseEntityResource<
       Long, EntityValue, Urn, EntitySnapshot, EntityAspectUnion> {
 
     TestResource() {
-      super(EntityAspectUnion.class, EntitySnapshot.class);
+      super(EntitySnapshot.class, EntityAspectUnion.class);
     }
 
     @Override
@@ -286,6 +296,12 @@ public class BaseEntitySimpleKeyResourceTest extends BaseEngineTest {
     @Nonnull
     protected Urn toUrn(@Nonnull Long key) {
       return makeUrn(key);
+    }
+
+    @Nonnull
+    @Override
+    protected Long toKey(@Nonnull Urn urn) {
+      return urn.getIdAsLong();
     }
 
     @Override

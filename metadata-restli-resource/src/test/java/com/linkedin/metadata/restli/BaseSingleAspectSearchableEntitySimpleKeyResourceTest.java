@@ -143,8 +143,8 @@ public class BaseSingleAspectSearchableEntitySimpleKeyResourceTest extends BaseE
   /**
    * Test class for BaseSingleAspectSearchableEntitySimpleKeyResource.
    * */
-  private class TestResource extends BaseSingleAspectSearchableEntitySimpleKeyResource<Long, EntityValue,
-      SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot, EntityDocument> {
+  private class TestResource extends BaseSingleAspectSearchableEntityResource<Long, EntityValue,
+        SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot, EntityDocument> {
 
     TestResource() {
       super(AspectBar.class, EntityAspectUnion.class, EntityValue.class, EntitySnapshot.class);
@@ -176,6 +176,12 @@ public class BaseSingleAspectSearchableEntitySimpleKeyResourceTest extends BaseE
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
+    }
+
+    @Nonnull
+    @Override
+    protected Long toKey(@Nonnull SingleAspectEntityUrn urn) {
+      return urn.getIdAsLong();
     }
 
     @Override

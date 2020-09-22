@@ -217,7 +217,7 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
    * Test implementation of BaseSingleAspectEntitySimpleKeyResource.
    * */
   private class TestResource extends
-                             BaseSingleAspectEntitySimpleKeyResource<Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
+                             BaseSingleAspectEntityResource<Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
 
     TestResource() {
       super(AspectBar.class, EntityAspectUnion.class, EntityValue.class, EntitySnapshot.class);
@@ -243,6 +243,12 @@ public class BaseSingleAspectEntitySimpleKeyResourceTest extends BaseEngineTest 
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
+    }
+
+    @Nonnull
+    @Override
+    protected Long toKey(@Nonnull SingleAspectEntityUrn urn) {
+      return urn.getIdAsLong();
     }
 
     @Override

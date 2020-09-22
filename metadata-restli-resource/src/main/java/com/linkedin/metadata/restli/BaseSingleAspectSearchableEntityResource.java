@@ -28,7 +28,7 @@ import static com.linkedin.metadata.dao.BaseReadDAO.*;
  * @param <SNAPSHOT> must be a valid snapshot type defined in com.linkedin.metadata.snapshot
  * @param <DOCUMENT> must be a valid search document type defined in com.linkedin.metadata.search
  */
-public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
+public abstract class BaseSingleAspectSearchableEntityResource<
     // @formatter:off
     KEY,
     VALUE extends RecordTemplate,
@@ -38,7 +38,7 @@ public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
     SNAPSHOT extends RecordTemplate,
     DOCUMENT extends RecordTemplate>
     // @formatter:on
-    extends BaseSearchableEntitySimpleKeyResource<KEY, VALUE, URN, SNAPSHOT, ASPECT_UNION, DOCUMENT> {
+    extends BaseSearchableEntityResource<KEY, VALUE, URN, SNAPSHOT, ASPECT_UNION, DOCUMENT> {
 
   private final Class<ASPECT> _aspectClass;
   private final Class<VALUE> _valueClass;
@@ -46,13 +46,13 @@ public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
   /**
    * Constructor.
    * */
-  public BaseSingleAspectSearchableEntitySimpleKeyResource(
+  public BaseSingleAspectSearchableEntityResource(
       @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass,
       @Nonnull Class<VALUE> valueClass,
       @Nonnull Class<SNAPSHOT> snapshotClass) {
 
-    super(aspectUnionClass, snapshotClass);
+    super(snapshotClass, aspectUnionClass);
     _aspectClass = aspectClass;
     _valueClass = valueClass;
   }
@@ -69,13 +69,27 @@ public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
   protected abstract VALUE createEntity(@Nonnull VALUE partialEntity, @Nonnull URN urn);
 
   /**
-   * Override {@link BaseEntitySimpleKeyResource}'s method to override the default logic of returning entity values
+   * Override {@link BaseEntityResource}'s method to override the default logic of returning entity values
    * for each urn. The base classes assumes that the aspects are fields in the entity value whereas in this class
    * the aspect is included in the value.
    * */
   @Override
   @Nonnull
-  protected Map<URN, VALUE> getUrnEntityMap(
+  protected Map<URN, VALUE> getInternal(
+      @Nonnull Collection<URN> urns,
+      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
+    // ignore the second parameter as it is not required for single aspect entities
+    return getUrnEntityMapInternal(urns);
+  }
+
+  /**
+   * Override {@link BaseEntityResource}'s method to override the default logic of returning entity values
+   * for each urn. The base classes assumes that the aspects are fields in the entity value whereas in this class
+   * the aspect is included in the value.
+   * */
+  @Override
+  @Nonnull
+  protected Map<URN, VALUE> getInternalNonEmpty(
       @Nonnull Collection<URN> urns,
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
     // ignore the second parameter as it is not required for single aspect entities
@@ -119,7 +133,7 @@ public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
 
   /**
    * Throwing an exception with a `not implemented` error message as this method is only required
-   * by parent class {@link BaseEntitySimpleKeyResource} method- {@link #getUrnEntityMap(Collection, Set)},
+   * by parent class {@link BaseEntityResource} method- {@link #getInternalNonEmpty(Collection, Set)},
    * which has been overridden here.
    * */
   @Override
@@ -130,7 +144,7 @@ public abstract class BaseSingleAspectSearchableEntitySimpleKeyResource<
 
   /**
    * Throwing an exception with a `not implemented` error message as this method is only required
-   * by parent class {@link BaseEntitySimpleKeyResource} method- {@link #getUrnEntityMap(Collection, Set)},
+   * by parent class {@link BaseEntityResource} method- {@link #getInternalNonEmpty(Collection, Set)},
    * which has been overridden here.
    * */
   @Override

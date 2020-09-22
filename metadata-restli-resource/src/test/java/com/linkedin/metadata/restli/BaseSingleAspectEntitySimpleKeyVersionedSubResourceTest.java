@@ -107,8 +107,8 @@ public class BaseSingleAspectEntitySimpleKeyVersionedSubResourceTest extends Bas
    * Test sub resource class for BaseSingleAspectEntitySimpleKeyVersionedSubResource.
    * */
   @RestLiCollection(name = "versions", namespace = "com.linkedin.testing", parent = TestResource.class, keyName = "versionId")
-  private class TestVersionedSubResource extends BaseSingleAspectEntitySimpleKeyVersionedSubResource<
-            EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion> {
+  private class TestVersionedSubResource extends BaseSingleAspectEntityVersionedSubResource<
+              EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion> {
 
     TestVersionedSubResource() {
       super(AspectBar.class, EntityValue.class);
@@ -151,8 +151,8 @@ public class BaseSingleAspectEntitySimpleKeyVersionedSubResourceTest extends Bas
    * Test resource class for BaseSingleAspectEntitySimpleKeyResource.
    * */
   @RestLiCollection(name = "SingleAspectEntity", namespace = "com.linkedin.testing", keyName = "testId")
-  private class TestResource extends BaseSingleAspectEntitySimpleKeyResource<
-        Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
+  private class TestResource extends BaseSingleAspectEntityResource<
+          Long, EntityValue, SingleAspectEntityUrn, AspectBar, EntityAspectUnion, EntitySnapshot> {
 
     TestResource() {
       super(AspectBar.class, EntityAspectUnion.class, EntityValue.class, EntitySnapshot.class);
@@ -178,6 +178,12 @@ public class BaseSingleAspectEntitySimpleKeyVersionedSubResourceTest extends Bas
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
+    }
+
+    @Nonnull
+    @Override
+    protected Long toKey(@Nonnull SingleAspectEntityUrn urn) {
+      return urn.getIdAsLong();
     }
 
     @Override

@@ -32,7 +32,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
  */
 public abstract class BaseBrowsableEntityResource<
     // @formatter:off
-    KEY extends RecordTemplate,
+    KEY,
     VALUE extends RecordTemplate,
     URN extends Urn,
     SNAPSHOT extends RecordTemplate,

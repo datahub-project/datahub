@@ -23,7 +23,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A base resource class for serving a versioned single-aspect entity values as sub resource. This resource class is
- * meant to be used as a child resource for classes extending from {@link BaseSingleAspectEntitySimpleKeyResource}.
+ * meant to be used as a child resource for classes extending from {@link BaseSingleAspectEntityResource}.
  *
  * <p>The key for the sub-resource is typically a version field which is a Long value. The versioned resources are
  * retrieved using {@link #get(Long)} and {@link #getAllWithMetadata(PagingContext)}.
@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
  * @param <ASPECT_UNION> must be a valid union of aspect models defined in com.linkedin.metadata.aspect
  * @param <ASPECT> must be a valid aspect type inside ASPECT_UNION
  * */
-public abstract class BaseSingleAspectEntitySimpleKeyVersionedSubResource<
+public abstract class BaseSingleAspectEntityVersionedSubResource<
     // @formatter:off
     VALUE extends RecordTemplate,
     URN extends Urn,
@@ -45,7 +45,7 @@ public abstract class BaseSingleAspectEntitySimpleKeyVersionedSubResource<
   private final Class<ASPECT> _aspectClass;
   private final Class<VALUE> _valueClass;
 
-  public BaseSingleAspectEntitySimpleKeyVersionedSubResource(
+  public BaseSingleAspectEntityVersionedSubResource(
       @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Class<VALUE> valueClass) {
 

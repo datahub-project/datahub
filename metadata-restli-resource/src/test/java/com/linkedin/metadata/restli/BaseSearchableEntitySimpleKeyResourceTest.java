@@ -29,7 +29,6 @@ import com.linkedin.testing.AspectFoo;
 import com.linkedin.testing.EntityAspectUnion;
 import com.linkedin.testing.EntityAspectUnionArray;
 import com.linkedin.testing.EntityDocument;
-import com.linkedin.testing.EntityKey;
 import com.linkedin.testing.EntitySnapshot;
 import com.linkedin.testing.EntityValue;
 import java.net.URISyntaxException;
@@ -179,11 +178,11 @@ public class BaseSearchableEntitySimpleKeyResourceTest extends BaseEngineTest {
   /**
    * Test resource class for {@link BaseSearchableEntityResource}.
    * */
-  private class TestResource extends BaseSearchableEntitySimpleKeyResource<
-      EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
+  private class TestResource extends BaseSearchableEntityResource<
+      Long, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
 
     TestResource() {
-      super(EntityAspectUnion.class, EntitySnapshot.class);
+      super(EntitySnapshot.class, EntityAspectUnion.class);
     }
 
     @Override
@@ -210,8 +209,14 @@ public class BaseSearchableEntitySimpleKeyResourceTest extends BaseEngineTest {
 
     @Override
     @Nonnull
-    protected Urn toUrn(@Nonnull EntityKey key) {
-      return makeUrn(key.getId());
+    protected Urn toUrn(@Nonnull Long key) {
+      return makeUrn(key);
+    }
+
+    @Nonnull
+    @Override
+    protected Long toKey(@Nonnull Urn urn) {
+      return urn.getIdAsLong();
     }
 
     @Override
