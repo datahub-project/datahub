@@ -36,7 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -341,14 +341,15 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
-   * {@link ListResultMetadata} contains relevant list of urns.
+   * Returns {@link CollectionResult} containing ordered list of values of multiple entities obtained after filtering urns
+   * from local secondary index. The returned list is ordered lexicographically by the string representation of the URN.
+   * The list of values is in the same order as the list of urns contained in {@link ListResultMetadata}.
    *
    * @param aspectClasses set of aspect classes that needs to be populated in the values
    * @param filter {@link IndexFilter} that defines the filter conditions
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
-   * @return {@link CollectionResult} containing the values of multiple entities
+   * @return {@link CollectionResult} containing ordered list of values of multiple entities
    */
   @Nonnull
   private CollectionResult<VALUE, ListResultMetadata> filterAspects(
@@ -358,7 +359,7 @@ public abstract class BaseEntityResource<
     final ListResult<UrnAspectEntry<URN>> urnAspectEntries =
         getLocalDAO().getAspects(aspectClasses, filter, parseUrnParam(lastUrn), pagingContext.getCount());
 
-    final Map<URN, List<UnionTemplate>> urnAspectsMap = new HashMap<>();
+    final Map<URN, List<UnionTemplate>> urnAspectsMap = new LinkedHashMap<>();
     for (UrnAspectEntry<URN> entry : urnAspectEntries.getValues()) {
       urnAspectsMap.compute(entry.getUrn(), (k, v) -> {
         if (v == null) {
@@ -383,27 +384,27 @@ public abstract class BaseEntityResource<
   }
 
   /**
-   * Returns {@link CollectionResult} containing the values of multiple entities obtained after filtering urns from local secondary index.
-   * Here the value does not contain any metadata aspect, only parts of the urn (if applicable). {@link ListResultMetadata} contains relevant list of urns.
+   * Returns {@link CollectionResult} containing ordered list of values of multiple entities obtained after filtering urns
+   * from local secondary index. The returned list is ordered lexicographically by the string representation of the URN.
+   * The values returned do not contain any metadata aspect, only parts of the urn (if applicable).
+   * The list of values is in the same order as the list of urns contained in {@link ListResultMetadata}.
    *
    * @param filter {@link IndexFilter} that defines the filter conditions
    * @param lastUrn last urn of the previous fetched page
    * @param pagingContext {@link PagingContext} defining the paging parameters of the request
-   * @return {@link CollectionResult} containing the values of multiple entities
+   * @return {@link CollectionResult} containing ordered list of values of multiple entities
    */
   @Nonnull
   private CollectionResult<VALUE, ListResultMetadata> filterUrns(@Nonnull IndexFilter filter, @Nullable String lastUrn,
       @Nonnull PagingContext pagingContext) {
 
     final ListResult<URN> urns = getLocalDAO().listUrns(filter, parseUrnParam(lastUrn), pagingContext.getCount());
-    final Map<URN, VALUE> urnValueMap = urns.getValues()
-        .stream()
-        .distinct()
-        .collect(Collectors.toMap(Function.identity(), urn -> toValue(newSnapshot(urn))));
-    ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
-        urnValueMap.keySet().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
+    final List<VALUE> values =
+        urns.getValues().stream().map(urn -> toValue(newSnapshot(urn))).collect(Collectors.toList());
+    final ListResultMetadata resultMetadata = new ListResultMetadata().setExtraInfos(new ExtraInfoArray(
+        urns.getValues().stream().map(urn -> new ExtraInfo().setUrn(urn)).collect(Collectors.toList())));
 
-    return new CollectionResult<>(new ArrayList<>(urnValueMap.values()), urns.getTotalCount(), resultMetadata);
+    return new CollectionResult<>(new ArrayList<>(values), urns.getTotalCount(), resultMetadata);
   }
 
   /**
