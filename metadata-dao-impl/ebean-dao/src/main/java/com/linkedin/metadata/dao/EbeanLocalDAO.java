@@ -742,7 +742,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   /**
    * Returns list of urns from strongly consistent secondary index that satisfy the given filter conditions.
    *
-   * <p>Results are sorted in increasing alphabetical order of urn.
+   * <p>Results are ordered lexicographically by the string representation of the URN.
    *
    * <p>NOTE: Currently this works for upto 10 filter conditions.
    *
