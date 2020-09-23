@@ -68,8 +68,11 @@ https://linkedin.zoom.us/skype/95617940722
 
 ## Agenda
 
-- Data Discoverability at SpotHero (Maggie Hays)
-- Designing the next generation of metadata events for scale (Chris Lee)
+- Quick intro - 5 mins
+- Data Discoverability at SpotHero ([Maggie Hays](https://www.linkedin.com/in/maggie-hays/)) - 15 mins
+- Designing the next generation of metadata events for scale ([Chris Lee](https://www.linkedin.com/in/chrisleecmu/)) - 15 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 mins
 
 # Past Meetings
 
