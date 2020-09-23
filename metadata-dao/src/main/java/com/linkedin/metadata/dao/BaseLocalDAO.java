@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -384,6 +385,8 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   /**
    * Returns list of urns from local secondary index that satisfy the given filter conditions.
    *
+   * <p>Results are ordered lexicographically by the string representation of the URN.
+   *
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pageSize maximum number of distinct urns to return
@@ -404,13 +407,15 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
 
   /**
    * Retrieves {@link ListResult} of {@link UrnAspectEntry} containing latest version of aspects along with the urn for the list of urns
-   * returned from local secondary index that satisfy given filter conditions.
+   * returned from local secondary index that satisfy given filter conditions. The returned list is ordered lexicographically by the string
+   * representation of the URN.
    *
    * @param aspectClasses aspect classes whose latest versions need to be retrieved
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pageSize maximum number of distinct urns whose aspects need to be retrieved
-   * @return {@link ListResult} containing latest versions of aspects along with urns returned from local secondary index satisfying given filter conditions
+   * @return {@link ListResult} containing ordered list of latest versions of aspects along with urns returned from local secondary index
+   *        satisfying given filter conditions
    */
   @Nonnull
   public ListResult<UrnAspectEntry<URN>> getAspects(@Nonnull Set<Class<? extends RecordTemplate>> aspectClasses,
@@ -420,17 +425,17 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
     final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnAspectMap =
         get(aspectClasses, new HashSet<>(urns.getValues()));
 
-    final Map<URN, List<RecordTemplate>> urnListAspectMap = new HashMap<>();
-    for (Map.Entry<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> entry : urnAspectMap.entrySet()) {
-      final Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = entry.getValue();
-      urnListAspectMap.compute(entry.getKey(), (k, v) -> {
+    final Map<URN, List<RecordTemplate>> urnListAspectMap = new LinkedHashMap<>();
+    for (URN urn : urns.getValues()) {
+      final Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = urnAspectMap.get(urn);
+      urnListAspectMap.compute(urn, (k, v) -> {
         if (v == null) {
           v = new ArrayList<>();
         }
         return v;
       });
       for (Optional<? extends RecordTemplate> aspect : aspectMap.values()) {
-        aspect.ifPresent(record -> urnListAspectMap.get(entry.getKey()).add(record));
+        aspect.ifPresent(record -> urnListAspectMap.get(urn).add(record));
       }
     }
 
