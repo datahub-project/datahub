@@ -1,6 +1,6 @@
 - Start Date: 08/28/2020
-- RFC PR: <>
-- Implementation PR(s): <>
+- RFC PR: <TBD>
+- Implementation PR(s): <TBD>
 
 # Business Glossary
 
@@ -67,14 +67,20 @@ It's important to make businessTerm as a top level entity because it can exist w
 We'll define a [URNs](../../../what/urn.md): `BusinessTermUrn`.
 These URNs should allow for unique identification of business term.  
 
-A business term  URN will look like below:
+A business term  URN (BusinessTermUrn) will look like below:
 ```
 urn:li:businessTerm:(<<namespace>>,<<name>>)
+```
+
+A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of another RFC)
+```
+urn:li:datasetField:(<datasetUrn>,<fieldPath>)
 ```
 
 ### New Snapshot Object
 There will be new snapshot object will be definied to onboard business terms along with definitions
 
+Path : metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/
 ```
 /**
  * A metadata snapshot for a specific BusinessTerm entity.
@@ -92,6 +98,9 @@ record BusinessTermSnapshot {
   aspects: array[BusinessTermAspect]
 }
 ```
+
+Path : metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/
+
 ### BusinessTermAspect
 There will be new aspect defined to capture the required attributes & ownership information
 
@@ -105,6 +114,26 @@ typeref BusinessTermAspect = union[
 ]
 ```
 
+Business Term Entity Definition
+```
+/**
+ * Data model for a Business Term entity
+ */
+record BusinessTermEntity includes BaseEntity {
+
+  /**
+   * Urn for the dataset
+   */
+  urn: BusinessTermUrn
+
+  /**
+   * Business Term native name e.g. CashInstrument
+   */
+  name: optional string
+
+}
+```
+
 ### Entity BusinessTermProperties
 
 ```
@@ -114,7 +143,7 @@ typeref BusinessTermAspect = union[
 record BusinessTermProperties {
 
   /**
-   * Name of business term
+   * Friendly Name of business term
    */
   name: string
 
@@ -135,11 +164,12 @@ record BusinessTermProperties {
 
  /**
    * URI of the external source when the term is borrowed from external
+   * e.g: fibo-fbc-fi-fi:CashInstrument
    */
   sourceURI: optional string
 
   /**
-   * The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
+   * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
   uri: optional Uri
 
@@ -147,15 +177,40 @@ record BusinessTermProperties {
 
 ```
 
+### Business Term Realationship 
+Business Terms will be owened by certain business users
+
+```
+/**
+ * A generic model for the Owned-By relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.CorpuserUrn",
+  "source" : "com.linkedin.common.urn.BusinessTermUrn"
+}, {
+   "destination" : "com.linkedin.common.urn.CorpuserUrn",
+   "source" : "com.linkedin.common.urn.BusinessTermUrn"
+} ]
+record OwnedBy includes BaseRelationship {
+
+  /**
+   * The type of the ownership
+   */
+  type: OwnershipType
+}
+```
+
 ### Extension to SchemaField entity
+
+Proposing to replace the fieldPath with urn
 
 ```
 record SchemaField {
 
   /**
-   * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
+   * Urn for the Dataset Field
    */
-  fieldPath: SchemaFieldPath
+  urn: DatasetFieldUrn
 
   /**
    * Flattened name of a field in JSON Path notation.
@@ -188,13 +243,28 @@ record SchemaField {
   recursive: boolean = false
 
   /**
-   * The Urn of the business term to be linked
+   * The Urn of the business term to be linked (optional)
    */
-  businessTerm: Urn  
+  businessTerm: optional Urn  
 }
 ```
 
+### How Dataset Field related to Business Term
 
+Proposed to introduce a new Relationship as RelatedTo (one way relationship), where one define a Dataset Field related to certain business term
+
+```
+
+/**
+ * A generic model for the Is-Part-Of relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.BusinessTermUrn",
+  "source" : "com.linkedin.common.urn.DatasetFieldUrn"
+} ]
+record RElatedTo includes BaseRelationship {
+}
+```
 
 ## Metadata graph
 
