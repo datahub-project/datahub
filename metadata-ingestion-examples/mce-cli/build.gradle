@@ -1,0 +1,34 @@
+plugins {
+  id 'org.springframework.boot'
+  id 'java'
+  id 'pegasus'
+}
+
+dependencies {
+  compile project(':metadata-utils')
+  compile project(':metadata-builders')
+  compile project(':metadata-dao-impl:kafka-producer')
+  compile project(':metadata-events:mxe-schemas')
+  compile project(':metadata-ingestion-examples:common')
+
+  dataModel project(':metadata-models')
+
+  compile spec.product.pegasus.restliServer
+  compile externalDependency.javaxInject
+  compile externalDependency.kafkaAvroSerde
+  compile externalDependency.lombok
+  compile externalDependency.picocli
+  compile externalDependency.springBeans
+  compile externalDependency.springBootAutoconfigure
+  compile externalDependency.springCore
+  compile externalDependency.springKafka
+
+  runtime externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
+  annotationProcessor externalDependency.picocli
+}
+
+bootJar {
+  mainClassName = 'com.linkedin.metadata.examples.cli.MceCliApplication'
+}

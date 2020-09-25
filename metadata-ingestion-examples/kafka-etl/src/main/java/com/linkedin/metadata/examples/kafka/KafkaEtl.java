@@ -20,7 +20,7 @@ import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.zookeeper.ZooKeeper;
 import org.springframework.boot.CommandLineRunner;
@@ -42,7 +42,7 @@ public final class KafkaEtl implements CommandLineRunner {
 
   @Inject
   @Named("kafkaEventProducer")
-  private Producer<String, IndexedRecord> _producer;
+  private Producer<String, GenericRecord> _producer;
 
   @Inject
   @Named("zooKeeper")

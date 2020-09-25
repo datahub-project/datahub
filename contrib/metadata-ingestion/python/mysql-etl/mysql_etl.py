@@ -11,7 +11,7 @@ DATABASE = 'DATABASE'
 USER = 'USER'
 PASSWORD = 'PASSWORD'
 
-AVROLOADPATH = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
+AVROLOADPATH = '../../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
 KAFKATOPIC = 'MetadataChangeEvent_v4'
 BOOTSTRAP = 'localhost:9092'
 SCHEMAREGISTRY = 'http://localhost:8081'
