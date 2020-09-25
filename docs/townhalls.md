@@ -5,7 +5,7 @@ Currently it's held on the last Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - September 25th, 2020 @ 9 AM US Pacific (GMT-7)
+# Coming up - October 30th, 2020 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
@@ -20,7 +20,7 @@ You can join with this link, or see the full invite below. https://linkedin.zoom
 John Plaisted is inviting you to a scheduled Zoom meeting.
 
 Topic: DataHub Town Hall
-Time: Sep 25, 2020 09:00 AM Pacific Time (US and Canada)
+Time: Oct 30, 2020 09:00 AM Pacific Time (US and Canada)
 
 Join Zoom Meeting
 https://linkedin.zoom.us/j/95617940722
@@ -39,6 +39,8 @@ Dial by your location
         +1 301 715 8592 US (Germantown)
         877 853 5247 US Toll-free
         888 788 0099 US Toll-free
+        833 548 0276 US Toll-free
+        833 548 0282 US Toll-free
 Meeting ID: 956 1794 0722
 Find your local number: https://linkedin.zoom.us/u/acDYS0P5fu
 
@@ -68,11 +70,7 @@ https://linkedin.zoom.us/skype/95617940722
 
 ## Agenda
 
-- Quick intro - 5 mins
-- Data Discoverability at SpotHero ([Maggie Hays](https://www.linkedin.com/in/maggie-hays/)) - 15 mins
-- Designing the next generation of metadata events for scale ([Chris Lee](https://www.linkedin.com/in/chrisleecmu/)) - 15 mins
-- General Q&A from sign up sheet, slack, and participants - 15 mins
-- Closing remarks - 5 mins
+Coming soon!
 
 # Past Meetings
 
