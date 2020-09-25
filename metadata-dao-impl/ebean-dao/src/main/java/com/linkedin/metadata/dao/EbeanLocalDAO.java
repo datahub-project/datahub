@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.retention.VersionBasedRetention;
 import com.linkedin.metadata.dao.storage.LocalDAOStorageConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.IndexCriterion;
@@ -63,11 +64,24 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   protected final EbeanServer _server;
   protected final Class<URN> _urnClass;
 
+  private static final int INDEX_QUERY_TIMEOUT_IN_SEC = 5;
+
   @Value
   static class GMAIndexPair {
     public String valueType;
     public Object value;
   }
+
+  private static final Map<Condition, String> CONDITION_STRING_MAP =
+      Collections.unmodifiableMap(new HashMap<Condition, String>() {
+        {
+          put(Condition.EQUAL, "=");
+          put(Condition.LESS_THAN, "<");
+          put(Condition.LESS_THAN_OR_EQUAL_TO, "<=");
+          put(Condition.GREATER_THAN, ">");
+          put(Condition.GREATER_THAN_OR_EQUAL_TO, ">=");
+        }
+      });
 
   /**
    * Constructor for EbeanLocalDAO.
@@ -381,6 +395,26 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
             .map(record -> toRecordTemplate(key.getAspectClass(), record))));
   }
 
+  @Override
+  @Nonnull
+  public Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> getWithExtraInfo(
+      @Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys) {
+    if (keys.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    final List<EbeanMetadataAspect> records = batchGet(keys);
+
+    final Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> result =
+        new HashMap<>();
+    keys.forEach(key -> records.stream()
+        .filter(record -> matchKeys(key, record.getKey()))
+        .findFirst()
+        .map(record -> result.put(key, toRecordTemplateWithExtraInfo(key.getAspectClass(), record))));
+    return result;
+  }
+
+
   public boolean existsInLocalIndex(@Nonnull URN urn) {
     return _server.find(EbeanMetadataIndex.class)
         .where().eq(URN_COLUMN, urn.toString())
@@ -482,7 +516,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final List<ASPECT> aspects =
         pagedList.getList().stream().map(a -> toRecordTemplate(aspectClass, a)).collect(Collectors.toList());
     final ListResultMetadata listResultMetadata =
-        makeListResultMetadata(pagedList.getList().stream().map(this::toExtraInfo).collect(Collectors.toList()));
+        makeListResultMetadata(pagedList.getList().stream().map(EbeanLocalDAO::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
@@ -507,7 +541,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final List<ASPECT> aspects =
         pagedList.getList().stream().map(a -> toRecordTemplate(aspectClass, a)).collect(Collectors.toList());
     final ListResultMetadata listResultMetadata =
-        makeListResultMetadata(pagedList.getList().stream().map(this::toExtraInfo).collect(Collectors.toList()));
+        makeListResultMetadata(pagedList.getList().stream().map(EbeanLocalDAO::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
@@ -535,6 +569,13 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Nonnull
+  private static <ASPECT extends RecordTemplate> AspectWithExtraInfo<ASPECT> toRecordTemplateWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull EbeanMetadataAspect aspect) {
+    return new AspectWithExtraInfo<>(RecordUtils.toRecordTemplate(aspectClass, aspect.getMetadata()),
+        toExtraInfo(aspect));
+  }
+
+  @Nonnull
   private <T> ListResult<T> toListResult(@Nonnull List<T> values, @Nullable ListResultMetadata listResultMetadata,
       @Nonnull PagedList<?> pagedList, @Nullable Integer start) {
     final int nextStart = (start != null && pagedList.hasNext()) ? start.intValue() + pagedList.getList().size() : ListResult.INVALID_NEXT_START;
@@ -551,7 +592,21 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Nonnull
-  private ExtraInfo toExtraInfo(@Nonnull EbeanMetadataAspect aspect) {
+  private static ExtraInfo toExtraInfo(@Nonnull EbeanMetadataAspect aspect) {
+    final ExtraInfo extraInfo = new ExtraInfo();
+    extraInfo.setVersion(aspect.getKey().getVersion());
+    extraInfo.setAudit(makeAuditStamp(aspect));
+    try {
+      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
+    } catch (URISyntaxException e) {
+      throw new ModelConversionException(e.getMessage());
+    }
+
+    return extraInfo;
+  }
+
+  @Nonnull
+  private static AuditStamp makeAuditStamp(@Nonnull EbeanMetadataAspect aspect) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(aspect.getCreatedOn().getTime());
 
@@ -563,17 +618,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
-
-    final ExtraInfo extraInfo = new ExtraInfo();
-    extraInfo.setVersion(aspect.getKey().getVersion());
-    extraInfo.setAudit(auditStamp);
-    try {
-      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
-    } catch (URISyntaxException e) {
-      throw new ModelConversionException(e.getMessage());
-    }
-
-    return extraInfo;
+    return auditStamp;
   }
 
   @Nonnull
@@ -649,6 +694,14 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     }
   }
 
+  @Nonnull
+  private static String getStringForOperator(@Nonnull Condition condition) {
+    if (!CONDITION_STRING_MAP.containsKey(condition)) {
+      throw new UnsupportedOperationException(condition.toString() + " condition is not supported in local secondary index");
+    }
+    return CONDITION_STRING_MAP.get(condition);
+  }
+
   /**
    * Constructs SQL query that contains positioned parameters (with `?`), based on whether {@link IndexCriterion} of
    * a given condition has field `pathParams`.
@@ -664,10 +717,17 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
     final StringBuilder whereClause = new StringBuilder("WHERE t0.urn > ?");
     IntStream.range(0, indexCriterionArray.size()).forEach(i -> {
       final IndexCriterion criterion = indexCriterionArray.get(i);
+
       whereClause.append(" AND t").append(i).append(".aspect = ?");
       if (criterion.hasPathParams()) {
-        whereClause.append(" AND t").append(i).append(".path = ?").append(" AND t").append(i).append(".")
-            .append(getGMAIndexPair(criterion.getPathParams().getValue()).valueType).append(" = ?");
+        whereClause.append(" AND t")
+            .append(i)
+            .append(".path = ? AND t")
+            .append(i)
+            .append(".")
+            .append(getGMAIndexPair(criterion.getPathParams().getValue()).valueType)
+            .append(getStringForOperator(criterion.getPathParams().getCondition()))
+            .append("?");
       }
     });
     return selectClause + " " + whereClause;
@@ -682,7 +742,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   /**
    * Returns list of urns from strongly consistent secondary index that satisfy the given filter conditions.
    *
-   * <p>Results are sorted in increasing alphabetical order of urn.
+   * <p>Results are ordered lexicographically by the string representation of the URN.
    *
    * <p>NOTE: Currently this works for upto 10 filter conditions.
    *
@@ -708,7 +768,8 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
     addEntityTypeFilter(indexFilter);
 
-    final Query<EbeanMetadataIndex> query = _server.findNative(EbeanMetadataIndex.class, constructSQLQuery(indexCriterionArray));
+    final Query<EbeanMetadataIndex> query = _server.findNative(EbeanMetadataIndex.class, constructSQLQuery(indexCriterionArray))
+        .setTimeout(INDEX_QUERY_TIMEOUT_IN_SEC);
     setParameters(indexCriterionArray, query, lastUrn == null ? "" : lastUrn.toString());
 
     final PagedList<EbeanMetadataIndex> pagedList = query

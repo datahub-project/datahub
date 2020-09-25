@@ -27,7 +27,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.dao.BaseReadDAO.*;
-import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.metadata.utils.AuditStamps.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;

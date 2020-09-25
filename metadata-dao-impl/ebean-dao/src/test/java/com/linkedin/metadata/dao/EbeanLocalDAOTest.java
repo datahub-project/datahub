@@ -21,6 +21,7 @@ import com.linkedin.metadata.dao.utils.BazUrnPathExtractor;
 import com.linkedin.metadata.dao.utils.FooUrnPathExtractor;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
@@ -61,7 +62,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.dao.utils.RegisteredUrnPathExtractors.*;
-import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.metadata.utils.AuditStamps.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -632,6 +633,30 @@ public class EbeanLocalDAOTest {
     indexValue6.setString("val");
     IndexCriterion criterion6 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path6").setValue(indexValue6));
 
+    // cover CONDITION other than EQUAL
+    // GREATER_THAN
+    IndexValue indexValue7 = new IndexValue();
+    indexValue7.setInt(100);
+    IndexCriterion criterion7 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path4").setValue(indexValue7)
+        .setCondition(Condition.GREATER_THAN));
+
+    // GREATER_THAN_EQUAL_TO
+    IndexValue indexValue8 = new IndexValue();
+    indexValue8.setFloat(100.2f);
+    IndexCriterion criterion8 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path3").setValue(indexValue8)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO));
+
+    // LESS_THAN
+    IndexValue indexValue9 = new IndexValue();
+    indexValue9.setDouble(1.894e2);
+    IndexCriterion criterion9 = new IndexCriterion().setAspect(aspect1).setPathParams(new IndexPathParams().setPath("/path2").setValue(indexValue9)
+        .setCondition(Condition.LESS_THAN));
+
+    // LESS_THAN_EQUAL_TO
+    IndexValue indexValue10 = new IndexValue();
+    indexValue10.setLong(1111L);
+    IndexCriterion criterion10 = new IndexCriterion().setAspect(aspect2).setPathParams(new IndexPathParams().setPath("/path5").setValue(indexValue10));
+
     // 1. with two filter conditions
     IndexCriterionArray indexCriterionArray1 = new IndexCriterionArray(Arrays.asList(criterion1, criterion2));
     final IndexFilter indexFilter1 = new IndexFilter().setCriteria(indexCriterionArray1);
@@ -660,6 +685,50 @@ public class EbeanLocalDAOTest {
     assertEquals(urns3.getTotalPageCount(), 1);
     assertEquals(urns3.getPageSize(), 5);
     assertFalse(urns3.isHavingMore());
+
+    // 4. GREATER_THAN criterion
+    IndexCriterionArray indexCriterionArray4 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion2, criterion3, criterion4, criterion5, criterion6, criterion7));
+    final IndexFilter indexFilter4 = new IndexFilter().setCriteria(indexCriterionArray4);
+    ListResult<Urn> urns4 = dao.listUrns(indexFilter4, null, 5);
+    assertEquals(urns4.getValues(), Arrays.asList(urn1, urn3));
+    assertEquals(urns4.getTotalCount(), 2);
+    assertEquals(urns4.getTotalPageCount(), 1);
+    assertEquals(urns4.getPageSize(), 5);
+    assertFalse(urns4.isHavingMore());
+
+    // 5. GREATER_THAN_EQUAL_TO criterion
+    IndexCriterionArray indexCriterionArray5 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion2, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8));
+    final IndexFilter indexFilter5 = new IndexFilter().setCriteria(indexCriterionArray5);
+    ListResult<Urn> urns5 = dao.listUrns(indexFilter5, null, 10);
+    assertEquals(urns5.getValues(), Arrays.asList(urn1, urn3));
+    assertEquals(urns5.getTotalCount(), 2);
+    assertEquals(urns5.getTotalPageCount(), 1);
+    assertEquals(urns5.getPageSize(), 10);
+    assertFalse(urns5.isHavingMore());
+
+    // 6. LESS_THAN criterion
+    IndexCriterionArray indexCriterionArray6 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8, criterion9));
+    final IndexFilter indexFilter6 = new IndexFilter().setCriteria(indexCriterionArray6);
+    ListResult<Urn> urns6 = dao.listUrns(indexFilter6, urn1, 8);
+    assertEquals(urns6.getValues(), Collections.singletonList(urn3));
+    assertEquals(urns6.getTotalCount(), 1);
+    assertEquals(urns6.getTotalPageCount(), 1);
+    assertEquals(urns6.getPageSize(), 8);
+    assertFalse(urns6.isHavingMore());
+
+    // 7. LESS_THAN_EQUAL_TO
+    IndexCriterionArray indexCriterionArray7 = new IndexCriterionArray(
+        Arrays.asList(criterion1, criterion3, criterion4, criterion5, criterion6, criterion7, criterion8, criterion9, criterion10));
+    final IndexFilter indexFilter7 = new IndexFilter().setCriteria(indexCriterionArray7);
+    ListResult<Urn> urns7 = dao.listUrns(indexFilter7, null, 4);
+    assertEquals(urns7.getValues(), Collections.emptyList());
+    assertEquals(urns7.getTotalCount(), 0);
+    assertEquals(urns7.getTotalPageCount(), 0);
+    assertEquals(urns7.getPageSize(), 4);
+    assertFalse(urns7.isHavingMore());
   }
 
   @Test
@@ -704,24 +773,36 @@ public class EbeanLocalDAOTest {
   }
 
   @Test
-  public void testGetWithIndexFilter() {
+  public void testGetAspectsWithIndexFilter() {
     LocalDAOStorageConfig storageConfig = makeLocalDAOStorageConfig(AspectFoo.class, Collections.singletonList("/value"));
     EbeanLocalDAO dao = new EbeanLocalDAO(_mockProducer, _server, storageConfig, FooUrn.class);
     dao.enableLocalSecondaryIndex(true);
 
-    FooUrn urn = makeFooUrn(1);
-    AspectFoo foo0 = new AspectFoo().setValue("val1");
-    addMetadata(urn, AspectFoo.class.getCanonicalName(), 0, foo0);
-    AspectFoo foo1 = new AspectFoo().setValue("val2");
-    addMetadata(urn, AspectFoo.class.getCanonicalName(), 1, foo1);
-    AspectBar bar0 = new AspectBar().setValue("val1");
-    addMetadata(urn, AspectBar.class.getCanonicalName(), 0, bar0);
-    AspectBar bar1 = new AspectBar().setValue("val2");
-    addMetadata(urn, AspectBar.class.getCanonicalName(), 1, bar1);
+    FooUrn urn1 = makeFooUrn(1);
+    AspectFoo e1foo1 = new AspectFoo().setValue("val1");
+    addMetadata(urn1, AspectFoo.class.getCanonicalName(), 0, e1foo1);
+    AspectFoo e1foo2 = new AspectFoo().setValue("val2");
+    addMetadata(urn1, AspectFoo.class.getCanonicalName(), 1, e1foo2);
+    AspectBar e1bar1 = new AspectBar().setValue("val1");
+    addMetadata(urn1, AspectBar.class.getCanonicalName(), 0, e1bar1);
+    AspectBar e1bar2 = new AspectBar().setValue("val2");
+    addMetadata(urn1, AspectBar.class.getCanonicalName(), 1, e1bar2);
+    FooUrn urn2 = makeFooUrn(2);
+    AspectFoo e2foo1 = new AspectFoo().setValue("val1");
+    addMetadata(urn2, AspectFoo.class.getCanonicalName(), 0, e2foo1);
+    AspectFoo e2foo2 = new AspectFoo().setValue("val2");
+    addMetadata(urn2, AspectFoo.class.getCanonicalName(), 1, e2foo2);
+    AspectBar e2bar1 = new AspectBar().setValue("val1");
+    addMetadata(urn2, AspectBar.class.getCanonicalName(), 0, e2bar1);
+    AspectBar e2bar2 = new AspectBar().setValue("val2");
+    addMetadata(urn2, AspectBar.class.getCanonicalName(), 1, e2bar2);
 
-    dao.updateLocalIndex(urn, foo0, 0);
+    dao.updateLocalIndex(urn1, e1foo1, 0);
+    dao.updateLocalIndex(urn1, e1bar1, 0);
+    dao.updateLocalIndex(urn2, e2foo1, 0);
+    dao.updateLocalIndex(urn2, e2bar1, 0);
+
     Set<Class<? extends RecordTemplate>> aspectClasses = ImmutableSet.of(AspectFoo.class, AspectBar.class);
-
     IndexValue indexValue = new IndexValue();
     indexValue.setString("val1");
     IndexCriterion criterion = new IndexCriterion().setAspect(AspectFoo.class.getCanonicalName())
@@ -729,13 +810,16 @@ public class EbeanLocalDAOTest {
     IndexCriterionArray indexCriterionArray = new IndexCriterionArray(Collections.singletonList(criterion));
     IndexFilter indexFilter = new IndexFilter().setCriteria(indexCriterionArray);
 
-    Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = new HashMap<>();
-    aspectMap.put(AspectFoo.class, Optional.of(foo0));
-    aspectMap.put(AspectBar.class, Optional.of(bar0));
-    Map<FooUrn, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> expected = new HashMap<>();
-    expected.put(urn, aspectMap);
+    ListResult<UrnAspectEntry<FooUrn>> actual = dao.getAspects(aspectClasses, indexFilter, null, 5);
 
-    assertEquals(dao.get(aspectClasses, indexFilter, null, 2), expected);
+    UrnAspectEntry<FooUrn> entry1 = new UrnAspectEntry<>(urn1, Arrays.asList(e1foo1, e1bar1));
+    UrnAspectEntry<FooUrn> entry2 = new UrnAspectEntry<>(urn2, Arrays.asList(e2foo1, e2bar1));
+
+    assertEquals(actual.getValues(), Arrays.asList(entry1, entry2));
+    assertEquals(actual.getPageSize(), 5);
+    assertEquals(actual.getTotalPageCount(), 1);
+    assertEquals(actual.getTotalCount(), 2);
+    assertNull(actual.getMetadata());
   }
 
   @Test
@@ -1318,6 +1402,96 @@ public class EbeanLocalDAOTest {
     assertThrows(IllegalArgumentException.class, () -> dao.getUrn(urn3));
   }
 
+  @Test
+  public void testGetWithExtraInfoLatestVersion() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    AspectFoo v0 = new AspectFoo().setValue("foo");
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, v0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo v1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, v1, 456, creator2.toString(),
+        impersonator2.toString());
+
+    Optional<AspectWithExtraInfo<AspectFoo>> foo = dao.getWithExtraInfo(AspectFoo.class, urn);
+
+    assertTrue(foo.isPresent());
+    assertEquals(foo.get(), new AspectWithExtraInfo<>(v0,
+        new ExtraInfo().setAudit(makeAuditStamp(creator1, impersonator1, 123)).setUrn(urn).setVersion(0)));
+  }
+
+  @Test
+  public void testGetWithExtraInfoSpecificVersion() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    AspectFoo v0 = new AspectFoo().setValue("foo");
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, v0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo v1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, v1, 456, creator2.toString(),
+        impersonator2.toString());
+
+    Optional<AspectWithExtraInfo<AspectFoo>> foo = dao.getWithExtraInfo(AspectFoo.class, urn, 1);
+
+    assertTrue(foo.isPresent());
+    assertEquals(foo.get(), new AspectWithExtraInfo<>(v1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+  }
+
+  @Test
+  public void testGetWithExtraInfoMultipleKeys() {
+    EbeanLocalDAO<EntityAspectUnion, FooUrn> dao =
+        new EbeanLocalDAO<>(EntityAspectUnion.class, _mockProducer, _server, FooUrn.class);
+    FooUrn urn = makeFooUrn(1);
+    CorpuserUrn creator1 = new CorpuserUrn("testCreator1");
+    CorpuserUrn impersonator1 = new CorpuserUrn("testImpersonator1");
+    CorpuserUrn creator2 = new CorpuserUrn("testCreator2");
+    CorpuserUrn impersonator2 = new CorpuserUrn("testImpersonator2");
+    CorpuserUrn creator3 = new CorpuserUrn("testCreator3");
+    CorpuserUrn impersonator3 = new CorpuserUrn("testImpersonator3");
+    AspectFoo fooV0 = new AspectFoo().setValue("foo");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 0, fooV0, 123, creator1.toString(),
+        impersonator1.toString());
+    AspectFoo fooV1 = new AspectFoo().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectFoo.class.getCanonicalName(), 1, fooV1, 456, creator2.toString(),
+        impersonator2.toString());
+    AspectBar barV0 = new AspectBar().setValue("bar");
+    addMetadataWithAuditStamp(urn, AspectBar.class.getCanonicalName(), 0, barV0, 1234, creator3.toString(),
+        impersonator3.toString());
+
+    // both aspect keys exist
+    AspectKey<FooUrn, AspectFoo> aspectKey1 = new AspectKey<>(AspectFoo.class, urn, 1L);
+    AspectKey<FooUrn, AspectBar> aspectKey2 = new AspectKey<>(AspectBar.class, urn, 0L);
+
+    Map<AspectKey<FooUrn, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> result =
+        dao.getWithExtraInfo(new HashSet<>(Arrays.asList(aspectKey1, aspectKey2)));
+
+    assertEquals(result.keySet().size(), 2);
+    assertEquals(result.get(aspectKey1), new AspectWithExtraInfo<>(fooV1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+    assertEquals(result.get(aspectKey2), new AspectWithExtraInfo<>(barV0,
+        new ExtraInfo().setAudit(makeAuditStamp(creator3, impersonator3, 1234)).setVersion(0).setUrn(urn)));
+
+    // one of the aspect keys does not exist
+    AspectKey<FooUrn, AspectBar> aspectKey3 = new AspectKey<>(AspectBar.class, urn, 1L);
+
+    result = dao.getWithExtraInfo(new HashSet<>(Arrays.asList(aspectKey1, aspectKey3)));
+
+    assertEquals(result.keySet().size(), 1);
+    assertEquals(result.get(aspectKey1), new AspectWithExtraInfo<>(fooV1,
+        new ExtraInfo().setAudit(makeAuditStamp(creator2, impersonator2, 456)).setVersion(1).setUrn(urn)));
+  }
+
   private void addMetadata(Urn urn, String aspectName, long version, RecordTemplate metadata) {
     EbeanMetadataAspect aspect = new EbeanMetadataAspect();
     aspect.setKey(new EbeanMetadataAspect.PrimaryKey(urn.toString(), aspectName, version));
@@ -1325,6 +1499,17 @@ public class EbeanLocalDAOTest {
     aspect.setCreatedOn(new Timestamp(1234));
     aspect.setCreatedBy("urn:li:corpuser:foo");
     aspect.setCreatedFor("urn:li:corpuser:bar");
+    _server.save(aspect);
+  }
+
+  private void addMetadataWithAuditStamp(Urn urn, String aspectName, long version, RecordTemplate metadata,
+      long timeStamp, String creator, String impersonator) {
+    EbeanMetadataAspect aspect = new EbeanMetadataAspect();
+    aspect.setKey(new EbeanMetadataAspect.PrimaryKey(urn.toString(), aspectName, version));
+    aspect.setMetadata(RecordUtils.toJsonString(metadata));
+    aspect.setCreatedOn(new Timestamp(timeStamp));
+    aspect.setCreatedBy(creator);
+    aspect.setCreatedFor(impersonator);
     _server.save(aspect);
   }
 
