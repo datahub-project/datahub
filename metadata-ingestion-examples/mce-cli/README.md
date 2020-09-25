@@ -1,6 +1,6 @@
 # MCE CLI
 
-A small application which can produce or consume MetadataChangeEvents.
+A small application which can produce or consume [MetadataChangeEvents](../../docs/what/mxe.md).
 
 ## Running the Application
 
