@@ -29,12 +29,6 @@ dependencies {
   annotationProcessor externalDependency.picocli
 }
 
-bootRun {
-  if (project.hasProperty('args')) {
-    args project.args.split(',')
-  }
-}
-
 bootJar {
   mainClassName = 'com.linkedin.metadata.examples.cli.MceCliApplication'
 }

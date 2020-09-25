@@ -30,7 +30,7 @@ MCEs are being produced (or not) at a glance.
 ./gradlew :metadata-ingestion-examples:mce-cli:bootRun
 
 # Alternatives
-./gradlew :metadata-ingestion-examples:mce-cli:bootRun -Pargs=consume
+./gradlew :metadata-ingestion-examples:mce-cli:bootRun --args='consume'
 java -jar  metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar
 java -jar metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar consume
 ```
@@ -41,7 +41,7 @@ Producing events can be useful to help debug the MCE pipeline, or just to help m
 this on your production stack!).
 
 ```
-./gradlew :metadata-ingestion-examples:mce-cli:bootRun -Pargs=m=produce,my-file.json
+./gradlew :metadata-ingestion-examples:mce-cli:bootRun --args='-m produce my-file.json'
 
 # Alternatively
 java -jar  metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar -m produce my-file.json
