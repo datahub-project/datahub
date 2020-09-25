@@ -52,23 +52,36 @@ In the above, `DerivedAspect` is an aspect of entity1. The value of this is comp
 - `aspect3` of `entity2`
 - `other metadata` from auxiliary files / other services.
 
+### Value Computers
+Value computer classes computes the value of the derived aspects at that point of time by GMA DAOs.
+- GMA DAO will have the provision to register value computers. Similar to how one registers the post update hooks in creation of DAO instance.
+- GMA DAO on get of the aspect, will invoke the value computer, computes value, persists if necessary and returns the value.
+
 ### Computation of Derived Aspect
  ![Derived Aspect powering index](Powering-Indexes.png)
 
 `GET` API of a typical metadata aspect simply fetches latest value of the aspect from KV store.
 
 Whereas, `GET` API for derived aspect, does something more than that. A typical workflow of `GET` of derived aspect is below.
+
+#### Reponsibility of Derived Aspect Resource
  
-1. Compute the derived metadata
+Registering a `ValueComputer` class with the DAO. (This is similar to registering post update hooks with DAO).
+
+And every time `GET` is called on the derived aspect, `ValueComputer` would be invoked by GMA DAO to compute the current value of the derived value.
+
+#### Responsibility of GMA DAO
+1. Invoke `ValueComputer` and compute the current value of the derived aspect.
 2. Check if the derived metadata has changed from previous persisted value n KV store.
 3. Persist if the metadata has changed.
 4. Retrieve latest value of derived metadata and serve the `GET` request.
-  
-The persistence of the derived aspect follows GMA architecture. This helps with few of the motivational points mentioned. 
-- Versioning capabilities of the derived metadata 
-- Notification in the form of MAE when derived metadata has changed. 
 
-The MAEs produced will furher power both search and graph GMA indices. This is similar to any other GMA aspect. 
+The persistence of the derived aspect follows GMA architecture. This helps with some of the motivational points mentioned.
+1. Versioning capabilities of the derived metadata
+2. Notification in the form of MAE when derived metadata has changed.
+
+The MAEs produced will further power both search and graph GMA indices. This is similar to any other GMA aspect.
+
 
 ### Refresh of derived aspect metadata
 `GET` operation on derived aspect always gives the current state of derived metadata. 
