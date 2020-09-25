@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.relationship
+
+/**
+ * A generic model for the Evaluated-On relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.DatasetUrn",
+  "source" : "com.linkedin.common.urn.MLModelUrn"
+}]
+record EvaluatedOn includes BaseRelationship {
+
+  /**
+   * How was the data preprocessed for evaluation (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
+   */
+  preProcessing: optional string
+}

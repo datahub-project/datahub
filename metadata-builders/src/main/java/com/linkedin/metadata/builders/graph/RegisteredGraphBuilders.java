@@ -23,6 +23,7 @@ public class RegisteredGraphBuilders {
           add(new CorpUserGraphBuilder());
           add(new DataProcessGraphBuilder());
           add(new DatasetGraphBuilder());
+          add(new MLModelGraphBuilder());
         }
       });
 

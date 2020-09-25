@@ -18,6 +18,7 @@ public class RegisteredIndexBuilders {
           add(new CorpUserInfoIndexBuilder());
           add(new DataProcessIndexBuilder());
           add(new DatasetIndexBuilder());
+          add(new MLModelIndexBuilder());
         }
       });
 

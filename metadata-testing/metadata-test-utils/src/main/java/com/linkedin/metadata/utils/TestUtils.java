@@ -14,6 +14,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.common.urn.Urn;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -42,6 +43,11 @@ public class TestUtils {
   @Nonnull
   public static DataProcessUrn makeDataProcessUrn(@Nonnull String name) {
     return new DataProcessUrn("Azure Data Factory", name, FabricType.DEV);
+  }
+
+  @Nonnull
+  public static MLModelUrn makeMLModelUrn(@Nonnull String name) {
+    return new MLModelUrn(new DataPlatformUrn("mysql"), name, FabricType.DEV);
   }
 
   @Nonnull

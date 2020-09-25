@@ -1,0 +1,119 @@
+{
+  "function_score": {
+    "query": {
+      "bool": {
+        "should": [
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.065,
+              "default_field": "evaluationDatasets",
+              "default_operator": "OR"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.075,
+              "default_field": "trainingDatasets",
+              "default_operator": "OR"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.035,
+              "default_field": "description",
+              "default_operator": "OR"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.055,
+              "default_field": "platform",
+              "default_operator": "OR"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.01,
+              "default_field": "type",
+              "default_operator": "OR"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.125,
+              "default_field": "name.ngram",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 8,
+              "default_field": "name.model_pattern_ngram",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 1,
+              "default_field": "name.delimited",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 8,
+              "default_field": "name.pattern",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "custom_keyword",
+              "boost": 1000000,
+              "default_field": "name",
+              "default_operator": "AND"
+            }
+          }
+        ]
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "hasOwners": true
+          }
+        },
+        "weight": 2
+      },
+      {
+        "filter": {
+          "term": {
+            "active": false
+          }
+        },
+        "weight": 0.0001
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

@@ -22,6 +22,7 @@ public class RequestBuilders {
           add(new CorpUserActionRequestBuilder());
           add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
+          add(new MLModelActionRequestBuilder());
         }
       });
 
