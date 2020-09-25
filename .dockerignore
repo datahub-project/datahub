@@ -1,1 +1,7 @@
 datahub-web/node_modules
+out
+**/*.class
+# Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
+**/build/**/*.jar
+.git
+.gradle
