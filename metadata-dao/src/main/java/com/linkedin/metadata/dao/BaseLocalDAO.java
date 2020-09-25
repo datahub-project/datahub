@@ -25,8 +25,11 @@ import com.linkedin.metadata.query.IndexCriterion;
 import com.linkedin.metadata.query.IndexCriterionArray;
 import com.linkedin.metadata.query.IndexFilter;
 import java.time.Clock;
+import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +39,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
@@ -381,6 +385,8 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   /**
    * Returns list of urns from local secondary index that satisfy the given filter conditions.
    *
+   * <p>Results are ordered lexicographically by the string representation of the URN.
+   *
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pageSize maximum number of distinct urns to return
@@ -400,20 +406,51 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   }
 
   /**
-   * Retrieves multiple aspects latest versions associated with list of urns returned from local secondary index that satisfy given filter conditions.
+   * Retrieves {@link ListResult} of {@link UrnAspectEntry} containing latest version of aspects along with the urn for the list of urns
+   * returned from local secondary index that satisfy given filter conditions. The returned list is ordered lexicographically by the string
+   * representation of the URN.
    *
    * @param aspectClasses aspect classes whose latest versions need to be retrieved
    * @param indexFilter {@link IndexFilter} containing filter conditions to be applied
    * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
    * @param pageSize maximum number of distinct urns whose aspects need to be retrieved
-   * @return latest versions of multiple aspects associated with urns returned from local secondary index that satisfy given filter conditions
+   * @return {@link ListResult} containing ordered list of latest versions of aspects along with urns returned from local secondary index
+   *        satisfying given filter conditions
    */
   @Nonnull
-  public Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> get(
-      @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses, @Nonnull IndexFilter indexFilter,
-      @Nullable URN lastUrn, int pageSize) {
-    final Set<URN> urns = new HashSet<>(listUrns(indexFilter, lastUrn, pageSize).getValues());
-    return get(aspectClasses, urns);
+  public ListResult<UrnAspectEntry<URN>> getAspects(@Nonnull Set<Class<? extends RecordTemplate>> aspectClasses,
+      @Nonnull IndexFilter indexFilter, @Nullable URN lastUrn, int pageSize) {
+
+    final ListResult<URN> urns = listUrns(indexFilter, lastUrn, pageSize);
+    final Map<URN, Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>>> urnAspectMap =
+        get(aspectClasses, new HashSet<>(urns.getValues()));
+
+    final Map<URN, List<RecordTemplate>> urnListAspectMap = new LinkedHashMap<>();
+    for (URN urn : urns.getValues()) {
+      final Map<Class<? extends RecordTemplate>, Optional<? extends RecordTemplate>> aspectMap = urnAspectMap.get(urn);
+      urnListAspectMap.compute(urn, (k, v) -> {
+        if (v == null) {
+          v = new ArrayList<>();
+        }
+        return v;
+      });
+      for (Optional<? extends RecordTemplate> aspect : aspectMap.values()) {
+        aspect.ifPresent(record -> urnListAspectMap.get(urn).add(record));
+      }
+    }
+
+    final List<UrnAspectEntry<URN>> urnAspectEntries = urnListAspectMap.entrySet()
+        .stream()
+        .map(entry -> new UrnAspectEntry<>(entry.getKey(), entry.getValue()))
+        .collect(Collectors.toList());
+
+    return ListResult.<UrnAspectEntry<URN>>builder().values(urnAspectEntries)
+        .havingMore(urns.isHavingMore())
+        .nextStart(urns.getNextStart())
+        .pageSize(urns.getPageSize())
+        .totalCount(urns.getTotalCount())
+        .totalPageCount(urns.getTotalPageCount())
+        .build();
   }
 
   /**
@@ -644,6 +681,46 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
   @Nonnull
   public abstract <ASPECT extends RecordTemplate> ListResult<ASPECT> list(@Nonnull Class<ASPECT> aspectClass, int start,
       int pageSize);
+
+  /**
+   * Batch retrieves metadata aspects along with {@link ExtraInfo} using multiple {@link AspectKey}s.
+   *
+   * @param keys set of keys for the metadata to retrieve
+   * @return a mapping of given keys to the corresponding metadata aspect and {@link ExtraInfo}.
+   */
+  @Nonnull
+  public abstract Map<AspectKey<URN, ? extends RecordTemplate>, AspectWithExtraInfo<? extends RecordTemplate>> getWithExtraInfo(
+      @Nonnull Set<AspectKey<URN, ? extends RecordTemplate>> keys);
+
+  /**
+   * Similar to {@link #getWithExtraInfo(Set)} but only using only one {@link AspectKey}.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull AspectKey<URN, ASPECT> key) {
+    if (getWithExtraInfo(Collections.singleton(key)).containsKey(key)) {
+      return Optional.of((AspectWithExtraInfo<ASPECT>) getWithExtraInfo(Collections.singleton(key)).get(key));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Similar to {@link #getWithExtraInfo(AspectKey)} but with each component of the key broken out as arguments.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn, long version) {
+    return getWithExtraInfo(new AspectKey<>(aspectClass, urn, version));
+  }
+
+  /**
+   * Similar to {@link #getWithExtraInfo(Class, Urn, long)} but always retrieves the latest version.
+   */
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<AspectWithExtraInfo<ASPECT>> getWithExtraInfo(
+      @Nonnull Class<ASPECT> aspectClass, @Nonnull URN urn) {
+    return getWithExtraInfo(aspectClass, urn, LATEST_VERSION);
+  }
 
   /**
    * Generates a new string ID that's guaranteed to be globally unique.

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.dao.producer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
@@ -11,6 +12,8 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
+import com.linkedin.mxe.TopicConvention;
+import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -31,6 +34,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 /**
  * A Kafka implementation of {@link BaseMetadataEventProducer}.
+ *
+ * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}. If
+ * none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
  */
 @Slf4j
 public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn>
@@ -38,6 +44,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
 
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
+  private final TopicConvention _topicConvention;
 
   /**
    * Constructor.
@@ -48,9 +55,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer) {
-    super(snapshotClass, aspectUnionClass);
-    _producer = producer;
-    _callback = Optional.empty();
+    this(snapshotClass, aspectUnionClass, producer, new TopicConventionImpl(), null);
   }
 
   /**
@@ -59,14 +64,43 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param snapshotClass The snapshot class for the produced events
    * @param aspectUnionClass The aspect union in the snapshot
    * @param producer The Kafka {@link Producer} to use
+   * @param topicConvention the convention to use to get kafka topic names
+   */
+  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
+      @Nonnull TopicConvention topicConvention) {
+    this(snapshotClass, aspectUnionClass, producer, topicConvention, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param snapshotClass The snapshot class for the produced events
+   * @param aspectUnionClass The aspect union in the snapshot
+   * @param producer The Kafka {@link Producer} to use
+   */
+  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
+      @Nullable Callback callback) {
+    this(snapshotClass, aspectUnionClass, producer, new TopicConventionImpl(), callback);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param snapshotClass The snapshot class for the produced events
+   * @param aspectUnionClass The aspect union in the snapshot
+   * @param producer The Kafka {@link Producer} to use
+   * @param topicConvention the convention to use to get kafka topic names
    * @param callback The {@link Callback} to invoke when the request is completed
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull Callback callback) {
+      @Nonnull TopicConvention topicConvention, @Nullable Callback callback) {
     super(snapshotClass, aspectUnionClass);
     _producer = producer;
-    _callback = Optional.of(callback);
+    _callback = Optional.ofNullable(callback);
+    _topicConvention = topicConvention;
   }
 
   @Override
@@ -83,9 +117,10 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
     }
 
     if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(Topics.METADATA_CHANGE_EVENT, urn.toString(), record), _callback.get());
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeEventTopicName(), urn.toString(), record),
+          _callback.get());
     } else {
-      _producer.send(new ProducerRecord(Topics.METADATA_CHANGE_EVENT, urn.toString(), record));
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeEventTopicName(), urn.toString(), record));
     }
   }
 
@@ -107,18 +142,21 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
     }
 
     if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(Topics.METADATA_AUDIT_EVENT, urn.toString(), record), _callback.get());
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
+          _callback.get());
     } else {
-      _producer.send(new ProducerRecord(Topics.METADATA_AUDIT_EVENT, urn.toString(), record));
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record));
     }
   }
 
   @Override
   public <ASPECT extends RecordTemplate> void produceAspectSpecificMetadataAuditEvent(@Nonnull URN urn,
       @Nullable ASPECT oldValue, @Nonnull ASPECT newValue) {
+    // TODO switch to convention once versions are annotated in the schema
     final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
     if (!isValidAspectSpecificTopic(topicKey)) {
-      log.warn(makeUnregisteredMAEMessage(urn, newValue));
+      log.warn("The event topic for entity {} and aspect {}, expected to be {}, has not been registered.",
+          urn.getClass().getCanonicalName(), newValue.getClass().getCanonicalName(), topicKey);
       return;
     }
 
@@ -164,13 +202,8 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
     return snapshot;
   }
 
+  @VisibleForTesting
   static boolean isValidAspectSpecificTopic(@Nonnull String topic) {
     return Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic));
-  }
-
-  @Nonnull
-  private String makeUnregisteredMAEMessage(@Nonnull URN urn, @Nonnull RecordTemplate value) {
-    return String.format("The MAEv5 event of entity %s with aspect %s has not been registered.",
-        urn.getClass().getCanonicalName(), value.getClass().getCanonicalName());
   }
 }

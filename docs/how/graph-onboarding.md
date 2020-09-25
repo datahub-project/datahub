@@ -1,6 +1,7 @@
 # How to onboard to GMA graph?
 
 ## 1. Define relationship models
+Relationship models are used to build edges in the graph. 
 If you need to define a [relationship] which is not available in the set of [relationship models] provided,
 that relationship model should be implemented as a first step for graph onboarding. 
 Below is an example model for `OwnedBy` relationship:
@@ -23,8 +24,51 @@ record OwnedBy includes BaseRelationship {
   type: OwnershipType
 }
 ```
+Fields in this model are translated to properties of the graph edge.
+Also, the FQCN of the relationship model, which is `com.linkedin.metadata.relationship.OwnedBy` in this example, is used as the label for edges.
 
-## 2. Implement relationship builders
+## 2. Define entity models
+Entity models are used to build nodes in the graph.
+Every GMA [entity] should have its own entity model defined and placed under [entity models] directory.
+Below is an example model for `DatasetEntity` relationship.
+
+```
+namespace com.linkedin.metadata.entity
+
+import com.linkedin.common.DataPlatformUrn
+import com.linkedin.common.DatasetUrn
+import com.linkedin.common.FabricType
+
+/**
+ * Data model for a dataset entity
+ */
+record DatasetEntity includes BaseEntity {
+
+  /**
+   * Urn for the dataset
+   */
+  urn: DatasetUrn
+
+  /**
+   * Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
+   */
+  name: optional string
+
+  /**
+   * Platform urn for the dataset in the form of urn:li:platform:{platform_name}
+   */
+  platform: optional DataPlatformUrn
+
+  /**
+   * Fabric type where dataset belongs to or where it was generated.
+   */
+  origin: optional FabricType
+}
+```
+Fields in this model are translated to properties of the graph node.
+Also, the FQCN of the entity model, which is `com.linkedin.metadata.entity.DatasetEntity` in this case, is used as the label for nodes.
+
+## 3. Implement relationship builders
 You need to implement relationship builders for your specific [aspect]s and [relationship]s if they are not already defined.
 Relationship builders build list of relationships after processing aspects and any relationship builder should implement `BaseRelationshipBuilder` abstract class.
 Relationship builders are per aspect and per relationship type.
@@ -52,7 +96,7 @@ public abstract class BaseRelationshipBuilder<ASPECT extends RecordTemplate> {
 }
 ```
 
-## 3. Implement graph builders
+## 4. Implement graph builders
 Graph builders build graph updates by processing [snapshot]s. 
 They internally use relationship builders to generate edges and nodes of the graph.
 All relationship builders for an [entity] should be registered through graph builder.
@@ -130,20 +174,21 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
 }
 ```
 
-## 4. Ingestion into graph
+## 5. Ingestion into graph
 The ingestion process for each [entity] is done by graph builders. 
 The builders will be invoked whenever an [MAE] is received by [MAE Consumer Job]. 
 Graph builders should be extended from BaseGraphBuilder. Check DatasetGraphBuilder as an example above. 
 For the consumer job to consume those MAEs, you should add your graph builder to the [graph builder registry].
 
-## 5. Graph queries
+## 6. Graph queries
 You can onboard the graph queries which fit to your specific use cases using [Query DAO]. 
 You also need to create [rest.li](https://rest.li) APIs to serve your graph queries.
 [BaseQueryDAO] provides an abstract implementation of several graph query APIs.
 Refer to [DownstreamLineageResource] rest.li resource implementation to see a use case of graph queries.
 
 [relationship]: ../what/relationship.md
-[relationship models]: ../../metadata-models/build/mainSchemas/com/linkedin/metadata/relationship
+[relationship models]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/relationship
+[entity models]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/entity
 [aspect]: ../what/aspect.md
 [snapshot]: ../what/snapshot.md
 [entity]: ../what/entity.md
