@@ -2,6 +2,17 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 09/25/2020
+
+[Recording](https://linkedin.zoom.us/rec/share/uEQ2pRY0BHbVqk_sOTVRm05VXJ0xM_zKJ26yzfCBqNZItiBht__k_juCCahJ37QK.IKAU9qA_0qdURX4_)
+
+Agenda
+
+- Quick intro - 5 mins
+- Data Discoverability at SpotHero ([Maggie Hays](https://www.linkedin.com/in/maggie-hays/)) - 15 mins
+- Designing the next generation of metadata events for scale ([Chris Lee](https://www.linkedin.com/in/chrisleecmu/)) - 15 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 mins
 
 ## 08/28/2020
 
