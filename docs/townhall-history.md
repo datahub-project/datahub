@@ -9,8 +9,8 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 Agenda
 
 - Quick intro - 5 mins
-- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
-- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
+- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/master/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
+- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/master/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 mins
 
