@@ -9,8 +9,8 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 Agenda
 
 - Quick intro - 5 mins
-- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) from SpotHero - 20 mins
-- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) from LinkedIn - 15 mins
+- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
+- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/mars-lan-patch-1/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 mins
 
@@ -21,8 +21,8 @@ Agenda
 
 Agenda
 - Quick intro - 5 mins
-- [Data Governance look for a Digital Bank](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench) by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank - 20 mins
-- Column level lineage for datasets demo by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak/) from LinkedIn - 15 mins
+- [Data Governance look for a Digital Bank](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench) by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) (Saxo Bank) - 20 mins
+- Column level lineage for datasets demo by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet and participants - 15 mins
 - Closing remarks - 5 mins
 
@@ -32,9 +32,9 @@ Agenda
 
 Agenda
   * Quick intro - 5 mins
-  * Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak) from LinkedIn - 15 mins
-  * Showcasing new Lineage UI in internal LinkedIn DataHub By [Ignacio](https://www.linkedin.com/in/ignaciobona) from LinkedIn - 10 mins
-  * New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) from LinkedIn - 2 mins
+  * Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak) (LinkedIn) - 15 mins
+  * Showcasing new Lineage UI in internal LinkedIn DataHub By [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 10 mins
+  * New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) (LinkedIn) - 2 mins
   * Answering questions from the signup sheet - 13 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
@@ -45,8 +45,8 @@ Agenda
 
 Agenda
   * Quick intro - 5 mins
-  * Onboarding Data Process entity by [Liangjun Jiang](https://github.com/liangjun-jiang) from Expedia - 15 mins
-  * How to onboard a new relationship to metadata graph by [Kerem Sahin](https://github.com/keremsahin1) from Linkedin - 15 mins
+  * Onboarding Data Process entity by [Liangjun Jiang](https://github.com/liangjun-jiang) (Expedia) - 15 mins
+  * How to onboard a new relationship to metadata graph by [Kerem Sahin](https://github.com/keremsahin1) (Linkedin) - 15 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
@@ -83,8 +83,8 @@ Agenda
 
 - Agenda
   * Quick intro - 5 mins
-  * Creating Helm charts for deploying DataHub on Kubernetes by [Bharat Akkinepalli](https://www.linkedin.com/in/bharat-akkinepalli-ba0b7223/) from ThoughtWorks - 10 mins
-  * How to onboard a new metadata aspect by [Mars Lan](https://www.linkedin.com/in/marslan) from LinkedIn - 10 mins
+  * Creating Helm charts for deploying DataHub on Kubernetes by [Bharat Akkinepalli](https://www.linkedin.com/in/bharat-akkinepalli-ba0b7223/) (ThoughtWorks) - 10 mins
+  * How to onboard a new metadata aspect by [Mars Lan](https://www.linkedin.com/in/marslan) (LinkedIn) - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
