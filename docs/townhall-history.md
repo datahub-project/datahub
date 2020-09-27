@@ -57,8 +57,8 @@ Agenda
 
 Agenda
   * Quick intro - 5 mins
-  * How to add a new aspect/feature for an existing entity in UI by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) from LinkedIn - 10 mins
-  * How to search over a new field by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) from LinkedIn - 10 mins
+  * How to add a new aspect/feature for an existing entity in UI by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 10 mins
+  * How to search over a new field by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
@@ -69,8 +69,8 @@ Agenda
 
 Agenda
   * Quick intro - 5 mins
-  * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o&ab_channel=ArunVasudevan) by [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) from Expedia - 10 mins
-  * Deploying DataHub using Nix by [Larry Luo](https://github.com/clojurians-org) from Shanghai HuaRui Bank - 10 mins
+  * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o&ab_channel=ArunVasudevan) by [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) (Expedia) - 10 mins
+  * Deploying DataHub using Nix by [Larry Luo](https://github.com/clojurians-org) (Shanghai HuaRui Bank) - 10 mins
   * Answering questions from the signup sheet - 15 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins
