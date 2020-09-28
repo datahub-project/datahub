@@ -48,7 +48,7 @@ public class TestUtils {
   }
 
   @Nonnull
-  public static <T> Urn makeUrn(@Nonnull T id) {
+  public static Urn makeUrn(@Nonnull Object id) {
     try {
       return new Urn("urn:li:testing:" + id);
     } catch (URISyntaxException e) {
@@ -57,7 +57,7 @@ public class TestUtils {
   }
 
   @Nonnull
-  public static <T> Urn makeUrn(@Nonnull T id, @Nonnull String entityType) {
+  public static Urn makeUrn(@Nonnull Object id, @Nonnull String entityType) {
     try {
       return new Urn("urn:li:" + entityType + ":" + id);
     } catch (URISyntaxException e) {
