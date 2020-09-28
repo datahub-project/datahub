@@ -102,6 +102,7 @@ Here is a list of companies that are currently building POC or seriously evaluat
 * [Metadata Management And Integration At LinkedIn With DataHub @ Data Engineering Podcase](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
 * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
+* [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
 * [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 * [LinkedIn DataHub Application Architecture Quick Understanding](https://medium.com/@liangjunjiang/linkedin-datahub-application-architecture-quick-understanding-a5b7868ee205)
 * [LinkIn Datahub Metadata Ingestion Scripts Unofficical Guide](https://medium.com/@liangjunjiang/linkin-datahub-etl-unofficical-guide-7c3949483f8b)
