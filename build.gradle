@@ -51,7 +51,7 @@ project.ext.externalDependency = [
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'junit': 'junit:junit:4.12',
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.2.2',
+    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
     'logbackClassic': 'ch.qos.logback:logback-classic:1.2.3',
     'lombok': 'org.projectlombok:lombok:1.18.12',

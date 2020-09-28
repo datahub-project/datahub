@@ -116,3 +116,6 @@ You can call the [rest.li](https://github.com/linkedin/rest.li) API to ingest me
 ## Does Kafka support SSL? If so, how?
 
 Yes. We are using the Spring Boot framework to start our apps, including setting up Kafka. You can [use environment variables to set system properties](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-external-config-relaxed-binding-from-environment-variables), including [Kafka properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties). From there you can set your SSL configuration for Kafka.
+
+If Schema Registry is configured to use security (SSL), then you also need to set the following config: https://docs.confluent.io/current/kafka/encryption.html#encryption-ssl-schema-registry.
+Note! The logs might say something similar to 'kafkastore.ssl.truststore.password was supplied but isn't a known config', but this is wrong and can be ignored.
