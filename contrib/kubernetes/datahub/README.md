@@ -51,3 +51,10 @@ Current chart version is `0.1.0`
 | global.sql.datasource.username | string | `"datahub"` |  |
 | global.sql.datasource.password.secretRef | string | `"mysql-secrets"` |  |
 | global.sql.datasource.password.secretKey | string | `"mysql-password"` |  |
+
+#### Optional Chart Values
+
+| global.credentialsAndCertsSecretPath | string | `"/mnt/certs"` |  |
+| global.credentialsAndCertsSecrets.name | string | `""` |  |
+| global.credentialsAndCertsSecrets.secureEnv | string | `""` |  |
+| global.springKafkaConfigurationOverrides | string | `""` |  |
