@@ -22,6 +22,7 @@
 * [Metadata Management And Integration At LinkedIn With DataHub @ Data Engineering Podcase](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
 * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
+* [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
 
 # Non-English Articles
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://blog.csdn.net/DataPipeline/article/details/100155781)
