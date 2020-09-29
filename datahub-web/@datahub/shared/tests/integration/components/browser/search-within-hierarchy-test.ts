@@ -2,16 +2,16 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
 import { TestContext } from 'ember-test-helpers';
 import EmberRouter from '@ember/routing/router';
 import { getContext } from '@ember/test-helpers';
+import { MockEntity } from '@datahub/data-models/entity/mock/mock-entity';
 
 module('Integration | Component | browser/search-within-hierarchy', function(hooks): void {
   setupRenderingTest(hooks);
 
   const componentRef = '.data-search-hierarchy';
-  const entityType = FeatureEntity.displayName;
+  const entityType = MockEntity.displayName;
   let count = 0;
   let segments: Array<string> = [];
 
@@ -69,6 +69,6 @@ module('Integration | Component | browser/search-within-hierarchy', function(hoo
     );
 
     assert.dom(componentRef).matchesText(`View ${count} ${entityType}`);
-    assert.dom(componentRef).hasAttribute('href', '#/browsesearch/ml-features?page=1&path=testSegment');
+    assert.dom(componentRef).hasAttribute('href', `#/browsesearch/${entityType}?page=1&path=testSegment`);
   });
 });

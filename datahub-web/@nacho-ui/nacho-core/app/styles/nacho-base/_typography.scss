@@ -3,7 +3,8 @@
  */
 body {
   color: $text-color;
-  font: normal 300 150% / 1.4 $text-font-stack;
+  font: normal fw(normal, 4) 14px $text-font-stack;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
@@ -12,9 +13,9 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: 300;
+  font-weight: fw(normal, 4);
 }
 
 th {
-  font-weight: normal;
+  font-weight: fw(normal, 6);
 }

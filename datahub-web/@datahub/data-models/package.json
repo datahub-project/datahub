@@ -27,6 +27,7 @@
     "@datahub/metadata-types": "0.0.0",
     "@datahub/utils": "0.0.0",
     "@types/ember-resolver": "^5.0.7",
+    "@nacho-ui/core": "^0.0.38",
     "ember-cli-babel": "^7.17.2",
     "ember-cli-htmlbars": "^4.2.2",
     "ember-cli-typescript": "^3.1.3",

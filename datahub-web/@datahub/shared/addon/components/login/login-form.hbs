@@ -1,0 +1,29 @@
+<div class={{this.baseClass}}>
+  <form {{on "submit" this.userDidSubmit}}>
+    <label for="login-username" class="sr-only">Login</label>
+    <Input @value={{@username}} class="nacho-login-form__input" placeholder="Username" @id="login-username" />
+
+    <label for="login-password" class="sr-only">Password</label>
+    <Input @value={{@password}} class="nacho-login-form__input" placeholder="Password" @id="login-password" @type="password" />
+
+    {{#if @showTokenCredentialInput}}
+      <label for="login-vip-token" class="sr-only input-no-spinner">VIP Token</label>
+      <Input @value={{@vipToken}} class="nacho-login-form__input" placeholder="VIP Token" @id="login-vip-token" @type="number" />
+    {{/if}}
+
+    <p
+      id="login-error"
+      class="nacho-login__login-error"
+    >
+      {{if @errorMessage @errorMessage}}
+    </p>
+
+    <button
+      type="submit"
+      class="nacho-button--large nacho-login-form__button nacho-button--secondary"
+    >
+      Login
+    </button>
+  </form>
+</div>
+{{yield}}

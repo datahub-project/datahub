@@ -4,7 +4,7 @@ import { inject as service } from '@ember/service';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import CurrentUser from '@datahub/shared/services/current-user';
 import Metrics from 'ember-metrics';
-import { getConfig } from 'datahub-web/services/configurator';
+import { getConfig } from '@datahub/shared/services/configurator';
 import Transition from '@ember/routing/-private/transition';
 
 export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {

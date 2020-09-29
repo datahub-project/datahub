@@ -32,10 +32,10 @@
       {{!-- TODO META-11235: Allow for entity feature configs container to batch targets --}}
       <Configurable::Containers::EntityFeatureConfigs
         @entity={{container.entity}}
-        @targetFeature="appworx-deprecation"
+      as |featureConfigs|
       >
         {{!-- TODO META-11238: Separate entity feature configs container with configurable feature wrapper --}}
-        <EntityAlertBanner />
+        <EntityAlertBanner @configs={{featureConfigs}}/>
       </Configurable::Containers::EntityFeatureConfigs>
 
       <div class="container">

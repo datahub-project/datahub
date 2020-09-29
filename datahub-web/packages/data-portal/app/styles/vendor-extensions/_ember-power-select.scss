@@ -15,7 +15,7 @@ $ember-power-select-border-color: shade($color, 20%);
 .ember-power-select-trigger {
   &::before {
     content: '\e259';
-    font-weight: normal;
+    font-weight: fw(normal, 6);
     pointer-events: none;
     font-family: $glyphicons-stack;
     position: absolute;

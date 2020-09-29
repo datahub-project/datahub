@@ -15,7 +15,7 @@ $browse-nav-border-color: get-color(gray1);
     @include flex-column-center;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
-    font-weight: fw(normal, 6);
+    font-weight: fw(normal, 7);
     font-size: 24px;
     position: absolute;
     margin: 0;
@@ -77,13 +77,13 @@ $browse-nav-border-color: get-color(gray1);
   }
 
   &__title {
-    font-weight: fw(normal, 2);
+    font-weight: fw(normal, 3);
     text-transform: capitalize;
     margin: 0;
   }
 
   &__subtext {
-    font-weight: fw(normal, 2);
+    font-weight: fw(normal, 3);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;

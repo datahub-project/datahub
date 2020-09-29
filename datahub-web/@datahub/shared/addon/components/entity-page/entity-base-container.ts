@@ -18,6 +18,7 @@ import {
 } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { assertComponentPropertyNotUndefined } from '@datahub/utils/decorators/assert';
 import { IConfigurator } from '@datahub/shared/types/configurator/configurator';
+import { returnDefaultIfNotFound } from '@datahub/utils/api/fetcher';
 
 /**
  * Class for a basic data model entity tagless container component.
@@ -120,14 +121,17 @@ export default class EntityBaseContainer<E extends DataModelEntityInstance> exte
   /**
    * Container data task to reify the container's entity instance on component DOM insertion or container dependent key update
    */
-  @(task(function*(this: EntityBaseContainer<E>): IterableIterator<Promise<E>> {
+  @(task(function*(this: EntityBaseContainer<E>): IterableIterator<Promise<E | undefined>> {
     const { urn, dataModels, entityClass } = this;
     let entity: EntityBaseContainer<E>['entity'];
 
     if (urn && entityClass) {
       try {
         set(this, 'error', undefined);
-        entity = yield (dataModels.createInstance(entityClass.displayName, urn) as unknown) as Promise<E>;
+        entity = yield returnDefaultIfNotFound(
+          (dataModels.createInstance(entityClass.displayName, urn) as unknown) as Promise<E | undefined>,
+          undefined
+        );
       } catch (e) {
         set(this, 'error', e);
         throw e;

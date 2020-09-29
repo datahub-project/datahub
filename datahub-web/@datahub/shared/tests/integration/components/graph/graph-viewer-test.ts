@@ -6,11 +6,9 @@ import { waitFor, click } from '@ember/test-helpers';
 import { simpleGraph, lineageGraph } from '../../../helpers/graph/graphs';
 import { typeInSearch } from 'ember-power-select/test-support/helpers';
 import { IGraphViewerState } from '@datahub/shared/types/graph/graph-viewer-state';
-import { setupHandlerRegistrations } from '@datahub/shared/test-helpers/setup-handler-registrations';
 
 module('Integration | Component | graph-viewer & toolbar', function(hooks): void {
   setupRenderingTest(hooks);
-  setupHandlerRegistrations(hooks);
 
   test('it renders', async function(assert): Promise<void> {
     let state: IGraphViewerState = {

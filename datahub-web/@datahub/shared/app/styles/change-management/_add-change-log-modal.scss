@@ -39,6 +39,10 @@
     overflow-x: hidden;
   }
 
+  &__content-preview &__subject {
+    margin-bottom: item-spacing(3);
+  }
+
   &__content-user-input {
     display: flex;
     flex-direction: column;
@@ -60,11 +64,11 @@
   &__list,
   &__label,
   &__title {
-    font-weight: normal;
+    font-weight: fw(normal, 6);
   }
 
   &__label-bold {
-    font-weight: bold;
+    font-weight: fw(normal, 7);
     font-size: fs(standard);
   }
 

@@ -13,7 +13,7 @@ import {
   updateDatasetOwnersByUrn
 } from 'datahub-web/utils/api/datasets/owners';
 import { inject as service } from '@ember/service';
-import { getConfig } from 'datahub-web/services/configurator';
+import { getConfig } from '@datahub/shared/services/configurator';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';

@@ -1,0 +1,28 @@
+<section class="wh-login-container">
+  <section class="nacho-login">
+
+    <img
+      src="/assets/images/landing-logo.png"
+      class="landing-logo"
+      alt="{{this.appName}}"
+    >
+    <h1 class="nacho-login__header">{{this.appName}}</h1>
+    <p>
+      Connecting you to the data that matters.
+    </p>
+    {{#if (eq this.model.loginType this.AuthenticationType.Sso)}}
+      <NachoAnimation::PendulumEllipsis />
+    {{else}}
+      <Login::LoginForm
+        @username={{this.username}}
+        @password={{this.password}}
+        @vipToken={{this.vipToken}}
+        @isInternal={{this.model.isInternal}}
+        @errorMessage={{this.errorMessage}}
+        @showTokenCredentialInput={{this.model.isInternal}}
+        @onSubmit={{fn this.authenticateUser}}
+      />
+    {{/if}}
+  </section>
+</section>
+{{outlet}}

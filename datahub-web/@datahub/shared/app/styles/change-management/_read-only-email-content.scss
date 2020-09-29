@@ -14,7 +14,7 @@
   }
 
   &__item-highlighted {
-    font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
+    font-weight: fw(normal, 7);
+    color: get-color(black, $email-content-color-opacity);
   }
 }

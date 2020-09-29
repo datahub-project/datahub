@@ -14,7 +14,7 @@
     flex-flow: row wrap;
     margin: 0;
     font-size: 16px;
-    font-weight: 400;
+    font-weight: fw(normal, 6);
   }
 
   &__checkbox-wrapper {
@@ -24,11 +24,11 @@
   }
 
   &__label {
-    font-weight: 300;
+    font-weight: fw(normal, 4);
   }
 
   &__count {
-    font-weight: 300;
+    font-weight: fw(normal, 4);
 
     &::before {
       content: '(';
@@ -61,7 +61,7 @@
 
   &__title {
     margin: 0;
-    font-weight: 400;
+    font-weight: fw(normal, 6);
   }
 
   &__empty {

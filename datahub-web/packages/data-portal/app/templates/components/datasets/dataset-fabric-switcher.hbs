@@ -1,11 +1,12 @@
 {{#basic-dropdown as |switcher|}}
   {{#switcher.trigger
+    class="dataset-fabric-switcher__trigger"
     onMouseDown=(action "prevent")
     onMouseEnter=(action "showFabrics")
     onMouseLeave=(action "hideFabrics")
   }}
 
-    <strong class="dataset-fabric-switcher__fabric">{{uppercase this.fabric}}</strong>
+    <span class="dataset-fabric-switcher__fabric">{{uppercase this.fabric}}</span>
 
     {{#if this.fabric}}
       <span class="dataset-fabric-switcher__icon">
@@ -29,9 +30,7 @@
             <li
               class="dataset-fabric-switcher__fabric-list-item {{selectedClass}}"
             >
-              <strong>
-                {{fabricOpt.fabric}}
-              </strong>
+              {{fabricOpt.fabric}}
             </li>
           {{/let}}
         </LinkTo>

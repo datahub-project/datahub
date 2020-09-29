@@ -1,6 +1,5 @@
 import { ISharedOwner } from '@datahub/metadata-types/types/common/shared-owner';
 import { IMirageServer, IMirageDBs, IMirageDB } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
-import { IFeatureEntity } from '@datahub/metadata-types/types/entity/feature/feature-entity';
 import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
 
 /**
@@ -12,7 +11,7 @@ export interface IMirageWherehowsDBs extends IMirageDBs {
   datasetOwnerships: IMirageDB<ISharedOwner & { datasetId: string }>; // so we can join with dataset
   metrics: IMirageDB<Com.Linkedin.Metric.Metric>;
   platforms: IMirageDB<IDataPlatform>;
-  features: IMirageDB<IFeatureEntity>;
+  features: IMirageDB<Com.Linkedin.Metadata.Entity.FeatureEntity>;
 }
 
 /**
