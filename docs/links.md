@@ -18,6 +18,7 @@
 ](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
 
 # Talks & Presentations
+* [DataHub: Powering LinkedIn's Metadata @ Budapest Data Forum 2020](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf)
 * [Journey of metadata at LinkedIn @ Crunch Data Conference 2019](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
 * [Metadata Management And Integration At LinkedIn With DataHub @ Data Engineering Podcase](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
 * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
