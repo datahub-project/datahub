@@ -279,8 +279,7 @@ We should create/update user guides to educate users for:
  - Search & discovery experience through business terms (how to find a relevant datasets quickly in DataHub)
 
 ## Alternatives
-* [] Todo
-
+This is a new feature in Datahub that brings the common vocabulry across data stake holders and also enable better discoverability to the datasets. I see there is no clear alternative to this feature, at the most users can document the `business term` outside the `Data Catalog` and can reference/assosciate those terms as an additional property to Dataset column.
 
 
 ## Rollout / Adoption Strategy
