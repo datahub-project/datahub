@@ -14,6 +14,8 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { OwnerUrnNamespace } from '@datahub/data-models/constants/entity/dataset/ownership';
 import { htmlSafe } from '@ember/string';
 import { markdownAndSanitize } from '@datahub/utils/helpers/render-links-as-anchor-tags';
+import autosize from 'autosize';
+import { RecipientType } from '@datahub/shared/constants/change-management';
 
 /**
  * Interface meant for assembling the different recipient types' count
@@ -65,14 +67,6 @@ enum ModalState {
   Transition = 'transition',
   // The state where the modal is in charge of sending the email for an existing change log
   EmailOnly = 'email'
-}
-
-/**
- * Types of optional recipients
- */
-enum RecipientType {
-  IndividualRecipient = 'individualRecipient',
-  DistributionList = 'distributionList'
 }
 
 // Minimum number of characters required for Subject and Content to create the log
@@ -228,6 +222,18 @@ export default class AddChangeLogModal extends Component<IAddChangeLogModalArgs>
       this.emailRecipientsCount.individualRecipients +
       this.emailRecipientsCount.owners
     );
+  }
+
+  /**
+   * Method for handling the textarea keyup.
+   * @param {KeyboardEvent} e - KeyboardEvent triggered by user input
+   */
+  @action
+  handleKeyup(e: KeyboardEvent): void {
+    const target = e.target as Element | null;
+    if (target) {
+      autosize(target);
+    }
   }
 
   /**

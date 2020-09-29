@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get } from '@ember/object';
+import { set, computed } from '@ember/object';
 import { task } from 'ember-concurrency';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';
 import { DatasetOrigins } from 'datahub-web/typings/api/datasets/origins';
@@ -19,6 +19,7 @@ export default class DatasetFabricsContainer extends Component {
   /**
    * Urn string for the related dataset, supplied as an external attribute
    */
+  @computed('entity')
   get urn(): string {
     return this.entity?.urn || '';
   }
@@ -41,7 +42,7 @@ export default class DatasetFabricsContainer extends Component {
       const dataOrigins = ((yield readDatasetOriginsByUrn(urn)) as unknown) as DatasetOrigins;
 
       if (isArray(dataOrigins)) {
-        get(this, 'fabrics').setObjects(dataOrigins);
+        set(this, 'fabrics', dataOrigins);
       }
     }
   })

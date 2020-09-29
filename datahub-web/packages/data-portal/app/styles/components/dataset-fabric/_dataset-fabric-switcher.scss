@@ -6,9 +6,15 @@
     color: get-color(blue7);
   }
 
+  &__trigger {
+    display: flex;
+  }
+
   &__fabric {
     $fabric-border-width: item-spacing(1) / 2;
     color: get-color(blue7);
+    font-weight: fw(normal, 6);
+    margin-right: item-spacing(1);
 
     &-list {
       $fabric-border-width: item-spacing(1) / 2;

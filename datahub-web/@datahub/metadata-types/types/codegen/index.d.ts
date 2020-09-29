@@ -72139,6 +72139,8 @@ declare namespace Com {
 
       export interface InchartsChartDataset {
         name: string;
+        datasetUrn?: string;
+        datasetId?: number;
         description?: string;
         type: 'PINOT' | 'PRESTO' | 'UMP';
         sourceTable?: string;
@@ -72212,6 +72214,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/AdaptiveAssessmentQuizUrn.pdsc
 
       export type AdaptiveAssessmentQuizUrn = string;
+      // Generated from: com/linkedin/common/AdaptiveAssessmentReportUrn.pdsc
+
+      export type AdaptiveAssessmentReportUrn = string;
       // Generated from: com/linkedin/common/AdaptiveAssessmentStateUrn.pdsc
 
       export type AdaptiveAssessmentStateUrn = string;
@@ -72448,6 +72453,12 @@ declare namespace Com {
       // Generated from: com/linkedin/common/AtcTestConfigUrn.pdsc
 
       export type AtcTestConfigUrn = string;
+      // Generated from: com/linkedin/common/AtsApplicationStageUrn.pdsc
+
+      export type AtsApplicationStageUrn = string;
+      // Generated from: com/linkedin/common/AtsApplicationUrn.pdsc
+
+      export type AtsApplicationUrn = string;
       // Generated from: com/linkedin/common/AtsCandidateUrn.pdsc
 
       export type AtsCandidateUrn = string;
@@ -72536,6 +72547,12 @@ declare namespace Com {
         decommissionTime?: Time;
         note: string;
       }
+      // Generated from: com/linkedin/common/BaseFieldMapping.pdsc
+
+      export interface BaseFieldMapping {
+        created?: AuditStamp;
+        transformationFunction?: string;
+      }
       // Generated from: com/linkedin/common/BaseUserEditableInfo.pdsc
 
       export interface BaseUserEditableInfo {
@@ -72564,6 +72581,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/BookingLineItemModificationUrn.pdsc
 
       export type BookingLineItemModificationUrn = string;
+      // Generated from: com/linkedin/common/BrandLiftPollUrn.pdsc
+
+      export type BrandLiftPollUrn = string;
       // Generated from: com/linkedin/common/BulkMarketingCampaignCreationFileUrn.pdsc
 
       export type BulkMarketingCampaignCreationFileUrn = string;
@@ -72603,6 +72623,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/BusinessRuleUrn.pdsc
 
       export type BusinessRuleUrn = string;
+      // Generated from: com/linkedin/common/BusinessRuleVersionUrn.pdsc
+
+      export type BusinessRuleVersionUrn = string;
       // Generated from: com/linkedin/common/CalendarAvailabilityShareUrn.pdsc
 
       export type CalendarAvailabilityShareUrn = string;
@@ -73217,6 +73240,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/CrmOpportunityUrn.pdsc
 
       export type CrmOpportunityUrn = string;
+      // Generated from: com/linkedin/common/CrmOpportunityV2Urn.pdsc
+
+      export type CrmOpportunityV2Urn = string;
       // Generated from: com/linkedin/common/CrmPairingUrn.pdsc
 
       export type CrmPairingUrn = string;
@@ -73226,6 +73252,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/CrmUserUrn.pdsc
 
       export type CrmUserUrn = string;
+      // Generated from: com/linkedin/common/CrmUserV2Urn.pdsc
+
+      export type CrmUserV2Urn = string;
       // Generated from: com/linkedin/common/CroppedImage.pdsc
 
       export interface CroppedImage {
@@ -73329,12 +73358,26 @@ declare namespace Com {
       // Generated from: com/linkedin/common/DataInsightsChartQueryTemplateVersionUrn.pdsc
 
       export type DataInsightsChartQueryTemplateVersionUrn = string;
+      // Generated from: com/linkedin/common/DataInsightsDeckTemplateVersionUrn.pdsc
+
+      export type DataInsightsDeckTemplateVersionUrn = string;
+      // Generated from: com/linkedin/common/DataInsightsModuleTemplateVersionUrn.pdsc
+
+      export type DataInsightsModuleTemplateVersionUrn = string;
+      // Generated from: com/linkedin/common/DataInsightsPromptTemplateVersionUrn.pdsc
+
+      export type DataInsightsPromptTemplateVersionUrn = string;
       // Generated from: com/linkedin/common/DataInsightsQueryTemplateVersionUrn.pdsc
 
       export type DataInsightsQueryTemplateVersionUrn = string;
+      // Generated from: com/linkedin/common/DataInsightsSlideTemplateVersionUrn.pdsc
+
+      export type DataInsightsSlideTemplateVersionUrn = string;
       // Generated from: com/linkedin/common/DataJobRef.pdsc
 
-      export type DataJobRef = { azkabanJob: string };
+      export type DataJobRef = {
+        azkabanJob: string;
+      };
       // Generated from: com/linkedin/common/DataPlatformUrn.pdsc
 
       export type DataPlatformUrn = string;
@@ -73450,6 +73493,8 @@ declare namespace Com {
 
       export type DeveloperTransactionType =
         | 'CODE_REVIEW'
+        | 'RBTOOL_REVIEW'
+        | 'GITHUB_REVIEW'
         | 'CODE_DEPLOY'
         | 'CODE_PUBLISH'
         | 'RESOURCE_ALLOCATION'
@@ -73470,7 +73515,19 @@ declare namespace Com {
         | 'MP_DOCUMENTATION_AUTHOR'
         | 'DOC_SEARCH'
         | 'LOCAL_BUILD'
-        | 'REMOTE_DEVELOPMENT';
+        | 'REMOTE_DEVELOPMENT'
+        | 'CONFIG_AUTHORING'
+        | 'SDK_USAGE_RESTLI'
+        | 'SDK_USAGE_PARSEQ'
+        | 'SDK_USAGE_QUASAR'
+        | 'CONFIG_BUILD'
+        | 'BUILD_SCAN_VIEWING'
+        | 'CONFIG_DEPLOYMENT'
+        | 'ML_MODEL_PUBLISH'
+        | 'WC_TEST'
+        | 'HI_COMPLETION'
+        | 'JIRA_INTERACTION'
+        | 'TESTX_INTERACTION';
       // Generated from: com/linkedin/common/DeveloperTransactionUrn.pdsc
 
       export type DeveloperTransactionUrn = string;
@@ -73906,11 +73963,17 @@ declare namespace Com {
 
       export interface EntityTopUsage {
         mostFrequentUsers: Array<{
-          identity: { gridUser: string } | { corpUser: string };
+          identity: {
+            gridUser?: string;
+            corpUser?: string;
+          };
           accessCount: number;
         }>;
         mostFrequentGroups: Array<{
-          identity: { gridGroup: string } | { corpGroup: string };
+          identity: {
+            gridGroup?: string;
+            corpGroup?: string;
+          };
           accessCount: number;
         }>;
       }
@@ -74001,19 +74064,26 @@ declare namespace Com {
         | 'MANDA'
         | 'AZURECONTROL'
         | 'AZUREPROD'
-        | 'AZUREEI';
+        | 'AZUREEI'
+        | 'CMD';
       // Generated from: com/linkedin/common/FabricUrn.pdsc
 
       export type FabricUrn = string;
       // Generated from: com/linkedin/common/FeatureCustomizationSegmentUrn.pdsc
 
       export type FeatureCustomizationSegmentUrn = string;
+      // Generated from: com/linkedin/common/FeatureCustomizationTargetLocationUrn.pdsc
+
+      export type FeatureCustomizationTargetLocationUrn = string;
       // Generated from: com/linkedin/common/FeatureUrn.pdsc
 
       export type FeatureUrn = string;
       // Generated from: com/linkedin/common/FeedDividerUrn.pdsc
 
       export type FeedDividerUrn = string;
+      // Generated from: com/linkedin/common/FeedRequestUrn.pdsc
+
+      export type FeedRequestUrn = string;
       // Generated from: com/linkedin/common/FieldOfStudyUrn.pdsc
 
       export type FieldOfStudyUrn = string;
@@ -74070,7 +74140,10 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/common/FollowerType.pdsc
 
-      export type FollowerType = { corpUser: string } | { corpGroup: string };
+      export type FollowerType = {
+        corpUser?: string;
+        corpGroup?: string;
+      };
       // Generated from: com/linkedin/common/FollowUrn.pdsc
 
       export type FollowUrn = string;
@@ -74080,6 +74153,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/FormUrn.pdsc
 
       export type FormUrn = string;
+      // Generated from: com/linkedin/common/FrequencyCapGroupUrn.pdsc
+
+      export type FrequencyCapGroupUrn = string;
       // Generated from: com/linkedin/common/FrontendResourceUrn.pdsc
 
       export type FrontendResourceUrn = string;
@@ -74263,6 +74339,12 @@ declare namespace Com {
       // Generated from: com/linkedin/common/HireMailboxUrn.pdsc
 
       export type HireMailboxUrn = string;
+      // Generated from: com/linkedin/common/HireMessageThreadUrn.pdsc
+
+      export type HireMessageThreadUrn = string;
+      // Generated from: com/linkedin/common/HireMessageV2Urn.pdsc
+
+      export type HireMessageV2Urn = string;
       // Generated from: com/linkedin/common/HireProfileUrn.pdsc
 
       export type HireProfileUrn = string;
@@ -74371,9 +74453,15 @@ declare namespace Com {
       // Generated from: com/linkedin/common/HiringDocumentUrn.pdsc
 
       export type HiringDocumentUrn = string;
+      // Generated from: com/linkedin/common/HiringDocumentV2Urn.pdsc
+
+      export type HiringDocumentV2Urn = string;
       // Generated from: com/linkedin/common/HiringDocumentVersionUrn.pdsc
 
       export type HiringDocumentVersionUrn = string;
+      // Generated from: com/linkedin/common/HiringDocumentVersionV2Urn.pdsc
+
+      export type HiringDocumentVersionV2Urn = string;
       // Generated from: com/linkedin/common/HiringFavoriteUrn.pdsc
 
       export type HiringFavoriteUrn = string;
@@ -74866,6 +74954,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/JobSeekerUrn.pdsc
 
       export type JobSeekerUrn = string;
+      // Generated from: com/linkedin/common/JobSharerUrn.pdsc
+
+      export type JobSharerUrn = string;
       // Generated from: com/linkedin/common/JobSourceUrn.pdsc
 
       export type JobSourceUrn = string;
@@ -74877,9 +74968,10 @@ declare namespace Com {
       export type JobSpiderUrn = string;
       // Generated from: com/linkedin/common/JobsSourceOfHire.pdsc
 
-      export type JobsSourceOfHire =
-        | { JobsSourceOfHireApproaches: JobsSourceOfHireApproaches }
-        | { JobsSourceOfHireJobSites: JobsSourceOfHireJobSites };
+      export type JobsSourceOfHire = {
+        JobsSourceOfHireApproaches?: Com.Linkedin.Common.JobsSourceOfHireApproaches;
+        JobsSourceOfHireJobSites?: Com.Linkedin.Common.JobsSourceOfHireJobSites;
+      };
       // Generated from: com/linkedin/common/JobsSourceOfHireApproaches.pdsc
 
       export type JobsSourceOfHireApproaches =
@@ -74906,6 +74998,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/JobWrappingBucketUrn.pdsc
 
       export type JobWrappingBucketUrn = string;
+      // Generated from: com/linkedin/common/JobWrappingBucketVersionUrn.pdsc
+
+      export type JobWrappingBucketVersionUrn = string;
       // Generated from: com/linkedin/common/JobWrappingContractUrn.pdsc
 
       export type JobWrappingContractUrn = string;
@@ -75200,6 +75295,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/LearningExternalLinkAssetUrn.pdsc
 
       export type LearningExternalLinkAssetUrn = string;
+      // Generated from: com/linkedin/common/LearningIngestionSeedUrn.pdsc
+
+      export type LearningIngestionSeedUrn = string;
       // Generated from: com/linkedin/common/LearningIngestionWorkflowDefinitionUrn.pdsc
 
       export type LearningIngestionWorkflowDefinitionUrn = string;
@@ -75838,6 +75936,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/MessagesTopicUrn.pdsc
 
       export type MessagesTopicUrn = string;
+      // Generated from: com/linkedin/common/MessagingDataSyncTopicUrn.pdsc
+
+      export type MessagingDataSyncTopicUrn = string;
       // Generated from: com/linkedin/common/MessagingDomainUrn.pdsc
 
       export type MessagingDomainUrn = string;
@@ -75847,6 +75948,12 @@ declare namespace Com {
       // Generated from: com/linkedin/common/MessagingMessageUrn.pdsc
 
       export type MessagingMessageUrn = string;
+      // Generated from: com/linkedin/common/MessagingProgressIndicatorTopicUrn.pdsc
+
+      export type MessagingProgressIndicatorTopicUrn = string;
+      // Generated from: com/linkedin/common/MessagingReactionUrn.pdsc
+
+      export type MessagingReactionUrn = string;
       // Generated from: com/linkedin/common/MessagingThreadAccessCodeUrn.pdsc
 
       export type MessagingThreadAccessCodeUrn = string;
@@ -76000,6 +76107,13 @@ declare namespace Com {
       // Generated from: com/linkedin/common/MultipleReactionsTopicUrn.pdsc
 
       export type MultipleReactionsTopicUrn = string;
+      // Generated from: com/linkedin/common/MultiProductGitContext.pdsc
+
+      export interface MultiProductGitContext {
+        multiproduct: string;
+        commitHash: string;
+        branch: string;
+      }
       // Generated from: com/linkedin/common/MultiProductUrn.pdsc
 
       export type MultiProductUrn = string;
@@ -76051,6 +76165,44 @@ declare namespace Com {
       // Generated from: com/linkedin/common/NormalizedQuestionUrn.pdsc
 
       export type NormalizedQuestionUrn = string;
+      // Generated from: com/linkedin/common/NotificationCadence.pdsc
+
+      export type NotificationCadence = 'IMMEDIATE' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'QUARTERLY';
+      // Generated from: com/linkedin/common/NotificationDefinition.pdsc
+
+      export interface NotificationDefinition {
+        name: string;
+        description: string;
+        active: boolean;
+        defaultCadence: NotificationCadence;
+        channel: {
+          jira: boolean;
+          email: boolean;
+          inApp: boolean;
+        };
+      }
+      // Generated from: com/linkedin/common/NotificationPublication.pdsc
+
+      export interface NotificationPublication {
+        recipients?: NotificationSubscriber[];
+        notificationHeader?: string;
+        notificationMessage?: string;
+        publishedAt?: Time;
+      }
+      // Generated from: com/linkedin/common/NotificationSubscriber.pdsc
+
+      export type NotificationSubscriber = {
+        groupUrn?: string;
+        userUrn?: string;
+      };
+      // Generated from: com/linkedin/common/NotificationSubscription.pdsc
+
+      export interface NotificationSubscription {
+        lastModified: AuditStamp;
+        subscriber: NotificationSubscriber;
+        notificationDefinition: NotificationDefinition;
+        cadence?: NotificationCadence;
+      }
       // Generated from: com/linkedin/common/NotificationTypeUrn.pdsc
 
       export type NotificationTypeUrn = string;
@@ -76198,6 +76350,12 @@ declare namespace Com {
       // Generated from: com/linkedin/common/OfflineOperatingUnitUrn.pdsc
 
       export type OfflineOperatingUnitUrn = string;
+      // Generated from: com/linkedin/common/OracleFinanceContractLineUrn.pdsc
+
+      export type OracleFinanceContractLineUrn = string;
+      // Generated from: com/linkedin/common/OracleFinanceContractUrn.pdsc
+
+      export type OracleFinanceContractUrn = string;
       // Generated from: com/linkedin/common/OrderLineUrn.pdsc
 
       export type OrderLineUrn = string;
@@ -76694,6 +76852,9 @@ declare namespace Com {
       // Generated from: com/linkedin/common/RegisteredQueryUrn.pdsc
 
       export type RegisteredQueryUrn = string;
+      // Generated from: com/linkedin/common/RegisteredSchemaFieldUrn.pdsc
+
+      export type RegisteredSchemaFieldUrn = string;
       // Generated from: com/linkedin/common/RegisteredSchemaType.pdsc
 
       export type RegisteredSchemaType =
@@ -76724,7 +76885,9 @@ declare namespace Com {
       export type ReplySuggestionTopicV2Urn = string;
       // Generated from: com/linkedin/common/Repository.pdsc
 
-      export type Repository = string;
+      export type Repository = {
+        'com.linkedin.common.MultiProductUrn': string;
+      };
       // Generated from: com/linkedin/common/RequestForProposalsUrn.pdsc
 
       export type RequestForProposalsUrn = string;
@@ -76754,6 +76917,15 @@ declare namespace Com {
       // Generated from: com/linkedin/common/ResourceCallConfigurationUrn.pdsc
 
       export type ResourceCallConfigurationUrn = string;
+      // Generated from: com/linkedin/common/ResourceSensitivity.pdsc
+
+      export interface ResourceSensitivity {
+        resourceSensitivity: string;
+        lastModified?: AuditStamp;
+      }
+      // Generated from: com/linkedin/common/ResourceSensitivityUrn.pdsc
+
+      export type ResourceSensitivityUrn = string;
       // Generated from: com/linkedin/common/RestLiResourceFabricInstanceUrn.pdsc
 
       export type RestLiResourceFabricInstanceUrn = string;
@@ -77508,6 +77680,15 @@ declare namespace Com {
       // Generated from: com/linkedin/common/TrafficShiftScalingEventUrn.pdsc
 
       export type TrafficShiftScalingEventUrn = string;
+      // Generated from: com/linkedin/common/TrexExperimentMetricAlertDefinitionUrn.pdsc
+
+      export type TrexExperimentMetricAlertDefinitionUrn = string;
+      // Generated from: com/linkedin/common/TrexNotificationRequestUrn.pdsc
+
+      export type TrexNotificationRequestUrn = string;
+      // Generated from: com/linkedin/common/TrexNotificationSubscriptionUrn.pdsc
+
+      export type TrexNotificationSubscriptionUrn = string;
       // Generated from: com/linkedin/common/TypingIndicatorsTopicUrn.pdsc
 
       export type TypingIndicatorsTopicUrn = string;
@@ -77759,8 +77940,15 @@ declare namespace Com {
         // Generated from: com/linkedin/common/error/Input.pdsc
 
         export interface Input {
-          inputPath: string | string;
-          value?: { decimalValue: Com.Linkedin.Common.BigDecimal } | string | boolean;
+          inputPath: {
+            fieldPath?: string;
+            parameterPath?: string;
+          };
+          value?: {
+            decimalValue?: Com.Linkedin.Common.BigDecimal;
+            stringValue?: string;
+            booleanValue?: boolean;
+          };
         }
         // Generated from: com/linkedin/common/error/InputError.pdsc
 
@@ -78241,7 +78429,10 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dashboard/InchartsDashboardItemType.pdsc
 
-      export type InchartsDashboardItemType = InchartsDashboardGroup | InchartsDashboardChart;
+      export type InchartsDashboardItemType = {
+        'com.linkedin.dashboard.InchartsDashboardGroup'?: Com.Linkedin.Dashboard.InchartsDashboardGroup;
+        'com.linkedin.dashboard.InchartsDashboardChart'?: Com.Linkedin.Dashboard.InchartsDashboardChart;
+      };
       // Generated from: com/linkedin/dashboard/InchartsDashboardMetadata.pdsc
 
       export interface InchartsDashboardMetadata {
@@ -78352,7 +78543,10 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataConstructChangeManagement/NotificationRecipient.pdsc
 
-      export type NotificationRecipient = { groupUrn: string } | { userUrn: string };
+      export type NotificationRecipient = {
+        groupUrn?: string;
+        userUrn?: string;
+      };
       // Generated from: com/linkedin/dataConstructChangeManagement/NotificationTypes.pdsc
 
       export interface NotificationTypes {
@@ -78362,7 +78556,11 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataConstructChangeManagement/OwningEntity.pdsc
 
-      export type OwningEntity = { dataset: string } | { feature: string } | { metric: string };
+      export type OwningEntity = {
+        dataset?: string;
+        feature?: string;
+        metric?: string;
+      };
       // Generated from: com/linkedin/dataConstructChangeManagement/OwningEntityType.pdsc
 
       export type OwningEntityType = 'DATASET' | 'METRIC' | 'FEATURE';
@@ -78706,12 +78904,15 @@ declare namespace Com {
         complianceInfoSuggestion?: ComplianceInfoSuggestion;
         complianceProposal?: ComplianceProposal;
         dataPrivacyReviewV2?: DataPrivacyReviewV2;
+        datasetSchemaLineage?: DatasetSchemaLineage;
+        datasetUpstreamLineage?: DatasetUpstreamLineage;
         entityTopUsage?: Com.Linkedin.Common.EntityTopUsage;
         exportPolicy?: ExportPolicy;
         follow?: Com.Linkedin.Common.Follow;
         health?: Com.Linkedin.Common.Health;
         institutionalMemory?: Com.Linkedin.Common.InstitutionalMemory;
         likes?: Com.Linkedin.Common.Likes;
+        observedSchemaDefinition?: Com.Linkedin.Schema.ObservedSchemaDefinition;
         ownership?: Com.Linkedin.Common.Ownership;
         ownershipSuggestion?: Com.Linkedin.Common.OwnershipSuggestion;
         replicationConfig?: ReplicationConfig;
@@ -78777,6 +78978,18 @@ declare namespace Com {
         currentFieldPaths: SchemaFieldPath[];
         parentField: SchemaFieldPath;
       }
+      // Generated from: com/linkedin/dataset/DatasetFieldMapping.pdsc
+
+      export interface DatasetFieldMapping extends Com.Linkedin.Common.BaseFieldMapping {
+        sourceFields: DatasetFieldUpstream[];
+        destinationField: string;
+        dataJob?: Com.Linkedin.Common.DataJobRef;
+      }
+      // Generated from: com/linkedin/dataset/DatasetFieldUpstream.pdsc
+
+      export type DatasetFieldUpstream = {
+        'com.linkedin.common.DatasetFieldUrn': string;
+      };
       // Generated from: com/linkedin/dataset/DatasetGroupRelation.pdsc
 
       export interface DatasetGroupRelation {
@@ -78799,7 +79012,7 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/DatasetLineageType.pdsc
 
-      export type DatasetLineageType = 'COPY' | 'TRANSFORMED' | 'VIEW' | 'MANAGE';
+      export type DatasetLineageType = 'COPY' | 'TRANSFORMED' | 'VIEW' | 'MANAGE' | 'OBFUSCATED_COPY';
       // Generated from: com/linkedin/dataset/DatasetMetadataHealth.pdsc
 
       export interface DatasetMetadataHealth {
@@ -78818,6 +79031,22 @@ declare namespace Com {
 
       export interface DatasetRefresh {
         lastRefresh: number;
+      }
+      // Generated from: com/linkedin/dataset/DatasetSchemaFieldMapping.pdsc
+
+      export interface DatasetSchemaFieldMapping extends Com.Linkedin.Common.BaseFieldMapping {
+        sourceFields: string[];
+        destinationField: string;
+      }
+      // Generated from: com/linkedin/dataset/DatasetSchemaLineage.pdsc
+
+      export interface DatasetSchemaLineage {
+        fieldMappings: DatasetSchemaFieldMapping[];
+      }
+      // Generated from: com/linkedin/dataset/DatasetUpstreamLineage.pdsc
+
+      export interface DatasetUpstreamLineage {
+        fieldMappings: DatasetFieldMapping[];
       }
       // Generated from: com/linkedin/dataset/DeploymentInfo.pdsc
 
@@ -79057,6 +79286,7 @@ declare namespace Com {
 
       export interface SchemaField {
         fieldPath: SchemaFieldPath;
+        pegasusPath?: string;
         jsonPath?: string;
         nullable: boolean;
         description?: string;
@@ -79575,7 +79805,7 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/dataset/wormhole/WormholeDataBundleInstances.pdsc
 
-        export type WormholeDataBundleInstances = WormholeDataBundleInstance[];
+        export type WormholeDataBundleInstances = Com.Linkedin.Dataset.Wormhole.WormholeDataBundleInstance[];
         // Generated from: com/linkedin/dataset/wormhole/WormholeDatasetMetadata.pdsc
 
         export interface WormholeDatasetMetadata {
@@ -79667,14 +79897,6 @@ declare namespace Com {
         corpGroupsToAdd: string[];
         corpGroupsToRemove: string[];
       }
-      // Generated from: com/linkedin/datasetAccessGroup/DatasetAccessGroup.pdsc
-
-      export interface DatasetAccessGroup {
-        id: number;
-        datasetAccessGroupInfo: DatasetAccessGroupInfo;
-        datasetAccessGroupMembership: DatasetAccessGroupMembership;
-        corpGroupMap: CorpGroupMap;
-      }
       // Generated from: com/linkedin/datasetAccessGroup/DatasetAccessGroupInfo.pdsc
 
       export interface DatasetAccessGroupInfo {
@@ -79754,6 +79976,9 @@ declare namespace Com {
         name: string;
         status?: Com.Linkedin.Common.Status;
         observedSchemaDefinition?: Com.Linkedin.Schema.ObservedSchemaDefinition;
+        etlDatasetInstanceConfig?: Com.Linkedin.DatasetInstance.Etl.ETLDatasetInstanceConfig;
+        etlPipelineScopedConfigs?: Com.Linkedin.DatasetInstance.Etl.ETLPipelineScopedConfigs;
+        ingressETLPipelines?: Com.Linkedin.DatasetInstance.Etl.IngressETLPipelines;
       }
       // Generated from: com/linkedin/datasetInstance/DatasetInstanceKey.pdsc
 
@@ -80086,7 +80311,10 @@ declare namespace Com {
 
       export interface ExperimentAlertSubscription {
         lastModified: Com.Linkedin.Common.AuditStamp;
-        subscriber: { corpGroupUrn: string } | { corpUserUrn: string };
+        subscriber: {
+          corpGroupUrn?: string;
+          corpUserUrn?: string;
+        };
         alertType: string;
         alertFrequency: 'ASAP' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'QUARTERLY';
         active?: boolean;
@@ -80110,6 +80338,48 @@ declare namespace Com {
           };
         };
       }
+      // Generated from: com/linkedin/experiments/TrexExperimentMetricAlertDefinition.pdsc
+
+      export interface TrexExperimentMetricAlertDefinition extends Com.Linkedin.Common.NotificationDefinition {
+        lastModified: Com.Linkedin.Common.AuditStamp;
+        expiresAt?: Com.Linkedin.Common.Time;
+        lixTestUrn?: string;
+        dataset: string;
+        metric: string;
+        dimension?: {
+          name: string;
+          value: string;
+        };
+        thresholds?: {
+          maxPValue?: number;
+          minAbsoluteLift?: number;
+          minAbsoluteSitewideImpact?: number;
+          minAbsoluteRealizedImpact?: number;
+          minRampAllocation?: number;
+          minActiveDays?: number;
+          minModelScore?: number;
+        };
+      }
+      // Generated from: com/linkedin/experiments/TrexNotificationDefinitionRef.pdsc
+
+      export type TrexNotificationDefinitionRef = {
+        metricAlert: string;
+      };
+      // Generated from: com/linkedin/experiments/TrexNotificationRequest.pdsc
+
+      export interface TrexNotificationRequest extends Com.Linkedin.Common.NotificationPublication {
+        trexNotificationDefinitionUrn: TrexNotificationDefinitionRef;
+        trexNotificationSubscriptionUrn?: string;
+        notificationParameters: {
+          canonicalParameterType?: string;
+          parameterJson: string;
+        };
+      }
+      // Generated from: com/linkedin/experiments/TrexNotificationSubscription.pdsc
+
+      export interface TrexNotificationSubscription extends Com.Linkedin.Common.NotificationSubscription {
+        trexNotificationDefinitionUrn: TrexNotificationDefinitionRef;
+      }
     }
     namespace Feature {
       // Generated from: com/linkedin/feature/FeatureKey.pdsc
@@ -80120,7 +80390,7 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/feature/FeatureKeys.pdsc
 
-      export type FeatureKeys = FeatureKey[];
+      export type FeatureKeys = Com.Linkedin.Feature.FeatureKey[];
       // Generated from: com/linkedin/feature/FeatureKeySnapshotMap.pdsc
 
       export type FeatureKeySnapshotMap = {
@@ -80194,13 +80464,19 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FrameFeatureBaseEntity.pdsc
 
-        export type FrameFeatureBaseEntity = string;
+        export type FrameFeatureBaseEntity = {
+          baseEntityString: string;
+        };
         // Generated from: com/linkedin/feature/frame/FrameFeatureCategory.pdsc
 
-        export type FrameFeatureCategory = string;
+        export type FrameFeatureCategory = {
+          categoryString: string;
+        };
         // Generated from: com/linkedin/feature/frame/FrameFeatureClassification.pdsc
 
-        export type FrameFeatureClassification = string;
+        export type FrameFeatureClassification = {
+          classificationString: string;
+        };
         // Generated from: com/linkedin/feature/frame/FrameFeatureCommonConfig.pdsc
 
         export interface FrameFeatureCommonConfig {
@@ -80283,13 +80559,14 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FrameSourceProperties.pdsc
 
-        export type FrameSourceProperties =
-          | HDFSSourceProperties
-          | EspressoSourceProperties
-          | VoldemortSourceProperties
-          | RestliSourceProperties
-          | VeniceSourceProperties
-          | PassthroughSourceProperties;
+        export type FrameSourceProperties = {
+          'com.linkedin.feature.frame.HDFSSourceProperties'?: Com.Linkedin.Feature.Frame.HDFSSourceProperties;
+          'com.linkedin.feature.frame.EspressoSourceProperties'?: Com.Linkedin.Feature.Frame.EspressoSourceProperties;
+          'com.linkedin.feature.frame.VoldemortSourceProperties'?: Com.Linkedin.Feature.Frame.VoldemortSourceProperties;
+          'com.linkedin.feature.frame.RestliSourceProperties'?: Com.Linkedin.Feature.Frame.RestliSourceProperties;
+          'com.linkedin.feature.frame.VeniceSourceProperties'?: Com.Linkedin.Feature.Frame.VeniceSourceProperties;
+          'com.linkedin.feature.frame.PassthroughSourceProperties'?: Com.Linkedin.Feature.Frame.PassthroughSourceProperties;
+        };
         // Generated from: com/linkedin/feature/frame/FrameSourceType.pdsc
 
         export type FrameSourceType = 'HDFS' | 'ESPRESSO' | 'VOLDEMORT' | 'RESTLI' | 'VENICE' | 'PASSTHROUGH';
@@ -80381,13 +80658,16 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/grid/execution/ExecutableEntityUrn.pdsc
 
-        export type ExecutableEntityUrn = string;
+        export type ExecutableEntityUrn = {
+          'com.linkedin.common.GridWorkflowExecutionUrn': string;
+        };
         // Generated from: com/linkedin/grid/execution/ExecutableEntityUrnV2.pdsc
 
-        export type ExecutableEntityUrnV2 =
-          | { gridWorkflowExecutionUrn: string }
-          | { gridJobExecutionUrn: string }
-          | { containerisedApplicationUrn: string };
+        export type ExecutableEntityUrnV2 = {
+          gridWorkflowExecutionUrn?: string;
+          gridJobExecutionUrn?: string;
+          containerisedApplicationUrn?: string;
+        };
         // Generated from: com/linkedin/grid/execution/ExecutionConfigInfo.pdsc
 
         export interface ExecutionConfigInfo {
@@ -80619,7 +80899,10 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/incharts/InchartsEntityIdentifier.pdsc
 
-      export type InchartsEntityIdentifier = { chart: string } | { dashboard: string };
+      export type InchartsEntityIdentifier = {
+        chart?: string;
+        dashboard?: string;
+      };
       // Generated from: com/linkedin/incharts/RetinaGlobalMessage.pdsc
 
       export interface RetinaGlobalMessage extends Com.Linkedin.Common.ChangeAuditStamps {
@@ -80653,7 +80936,10 @@ declare namespace Com {
         schedule: string;
         startTime: Com.Linkedin.Common.Time;
         endTime: Com.Linkedin.Common.Time;
-        subscribers: Array<{ user: string } | { group: string }>;
+        subscribers: Array<{
+          user?: string;
+          group?: string;
+        }>;
         changeAuditStamps: Com.Linkedin.Common.ChangeAuditStamps;
       }
       // Generated from: com/linkedin/incharts/SubscriptionConfiguration.pdsc
@@ -80719,7 +81005,10 @@ declare namespace Com {
 
       export interface InferenceAccessInfo {
         platform: 'DALI' | 'FRAME';
-        accessInfo: { datasetAccessInfo: DatasetAccessInfo } | { frameFeatureAccessInfo: FrameFeatureAccessInfo };
+        accessInfo: {
+          datasetAccessInfo?: DatasetAccessInfo;
+          frameFeatureAccessInfo?: FrameFeatureAccessInfo;
+        };
       }
       // Generated from: com/linkedin/inference/InferenceCategoryInfo.pdsc
 
@@ -80750,7 +81039,10 @@ declare namespace Com {
         sourceType: Com.Linkedin.Common.InferenceSourceType;
         name: string;
         multiproduct?: string;
-        source?: { feature: string } | { dataset: string };
+        source?: {
+          feature?: string;
+          dataset?: string;
+        };
       }
       // Generated from: com/linkedin/inference/InferenceStatus.pdsc
 
@@ -80827,7 +81119,6 @@ declare namespace Com {
       // Generated from: com/linkedin/jitaclservice/AccessStatusKey.pdsc
 
       export interface AccessStatusKey {
-        datasetUrn: string;
         principal: string;
       }
       // Generated from: com/linkedin/jitaclservice/AccessType.pdsc
@@ -80938,398 +81229,495 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/aspect/AzkabanFlowAspect.pdsc
 
-        export type AzkabanFlowAspect =
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.DataJob.Azkaban.AzkabanFlowInfo
-          | Com.Linkedin.DataJob.Azkaban.AzkabanFlowJobsInfo;
+        export type AzkabanFlowAspect = {
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.dataJob.azkaban.AzkabanFlowInfo'?: Com.Linkedin.DataJob.Azkaban.AzkabanFlowInfo;
+          'com.linkedin.dataJob.azkaban.AzkabanFlowJobsInfo'?: Com.Linkedin.DataJob.Azkaban.AzkabanFlowJobsInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/AzkabanJobAspect.pdsc
 
-        export type AzkabanJobAspect =
-          | Com.Linkedin.DataJob.Azkaban.AzkabanJobInfo
-          | Com.Linkedin.DataJob.Azkaban.AzkabanJobInput
-          | Com.Linkedin.DataJob.Azkaban.AzkabanJobOutput
-          | Com.Linkedin.DataJob.Etl.ETLDatasetInstancePairs
-          | Com.Linkedin.DataJob.Etl.ETLPipelineSchedule
-          | Com.Linkedin.Common.Ownership;
+        export type AzkabanJobAspect = {
+          'com.linkedin.dataJob.azkaban.AzkabanJobInfo'?: Com.Linkedin.DataJob.Azkaban.AzkabanJobInfo;
+          'com.linkedin.dataJob.azkaban.AzkabanJobInput'?: Com.Linkedin.DataJob.Azkaban.AzkabanJobInput;
+          'com.linkedin.dataJob.azkaban.AzkabanJobOutput'?: Com.Linkedin.DataJob.Azkaban.AzkabanJobOutput;
+          'com.linkedin.dataJob.etl.ETLDatasetInstancePairs'?: Com.Linkedin.DataJob.Etl.ETLDatasetInstancePairs;
+          'com.linkedin.dataJob.etl.ETLPipelineSchedule'?: Com.Linkedin.DataJob.Etl.ETLPipelineSchedule;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+        };
         // Generated from: com/linkedin/metadata/aspect/ComplianceDataTypeAspect.pdsc
 
-        export type ComplianceDataTypeAspect = Com.Linkedin.Dataset.ComplianceDataTypeInfo;
+        export type ComplianceDataTypeAspect = {
+          'com.linkedin.dataset.ComplianceDataTypeInfo': Com.Linkedin.Dataset.ComplianceDataTypeInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/ContainerisedExecutionAspect.pdsc
 
-        export type ContainerisedExecutionAspect =
-          | Com.Linkedin.Grid.BaseContainerisedExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionConfigInfo
-          | Com.Linkedin.Grid.SubmissionInfo
-          | Com.Linkedin.Grid.JobExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        export type ContainerisedExecutionAspect = {
+          'com.linkedin.grid.BaseContainerisedExecutionInfo'?: Com.Linkedin.Grid.BaseContainerisedExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionInfo'?: Com.Linkedin.Grid.Execution.ExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionConfigInfo'?: Com.Linkedin.Grid.Execution.ExecutionConfigInfo;
+          'com.linkedin.grid.SubmissionInfo'?: Com.Linkedin.Grid.SubmissionInfo;
+          'com.linkedin.grid.JobExecutionInfo'?: Com.Linkedin.Grid.JobExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionErrorContextInfo'?: Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/CorpGroupAspect.pdsc
 
-        export type CorpGroupAspect = Com.Linkedin.Identity.CorpGroupInfo;
+        export type CorpGroupAspect = {
+          'com.linkedin.identity.CorpGroupInfo': Com.Linkedin.Identity.CorpGroupInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/CorpUserAspect.pdsc
 
-        export type CorpUserAspect =
-          | Com.Linkedin.Identity.CorpUserInfo
-          | Com.Linkedin.Identity.CorpUserEditableInfo
-          | Com.Linkedin.Identity.DatasetRecommendationsInfo;
+        export type CorpUserAspect = {
+          'com.linkedin.identity.CorpUserInfo'?: Com.Linkedin.Identity.CorpUserInfo;
+          'com.linkedin.identity.CorpUserEditableInfo'?: Com.Linkedin.Identity.CorpUserEditableInfo;
+          'com.linkedin.identity.DatasetRecommendationsInfo'?: Com.Linkedin.Identity.DatasetRecommendationsInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/DataConceptAspect.pdsc
 
-        export type DataConceptAspect =
-          | Com.Linkedin.Common.InstitutionalMemory
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.DataConcept.DataConceptProperties
-          | Com.Linkedin.DataConcept.RelatedEntities;
+        export type DataConceptAspect = {
+          'com.linkedin.common.InstitutionalMemory'?: Com.Linkedin.Common.InstitutionalMemory;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.dataConcept.DataConceptProperties'?: Com.Linkedin.DataConcept.DataConceptProperties;
+          'com.linkedin.dataConcept.RelatedEntities'?: Com.Linkedin.DataConcept.RelatedEntities;
+        };
         // Generated from: com/linkedin/metadata/aspect/DataConstructChangeManagementAspect.pdsc
 
-        export type DataConstructChangeManagementAspect = Com.Linkedin.DataConstructChangeManagement.DataConstructChangeManagementContent;
+        export type DataConstructChangeManagementAspect = {
+          'com.linkedin.dataConstructChangeManagement.DataConstructChangeManagementContent': Com.Linkedin.DataConstructChangeManagement.DataConstructChangeManagementContent;
+        };
         // Generated from: com/linkedin/metadata/aspect/DataPlatformAspect.pdsc
 
-        export type DataPlatformAspect = Com.Linkedin.Dataplatform.DataPlatformInfo;
+        export type DataPlatformAspect = {
+          'com.linkedin.dataplatform.DataPlatformInfo': Com.Linkedin.Dataplatform.DataPlatformInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/DatasetAccessGroupAspect.pdsc
 
-        export type DatasetAccessGroupAspect =
-          | Com.Linkedin.DatasetAccessGroup.DatasetAccessGroupInfo
-          | Com.Linkedin.DatasetAccessGroup.DatasetAccessGroupMembership
-          | Com.Linkedin.DatasetAccessGroup.CorpGroupMap;
+        export type DatasetAccessGroupAspect = {
+          'com.linkedin.datasetAccessGroup.DatasetAccessGroupInfo'?: Com.Linkedin.DatasetAccessGroup.DatasetAccessGroupInfo;
+          'com.linkedin.datasetAccessGroup.DatasetAccessGroupMembership'?: Com.Linkedin.DatasetAccessGroup.DatasetAccessGroupMembership;
+          'com.linkedin.datasetAccessGroup.CorpGroupMap'?: Com.Linkedin.DatasetAccessGroup.CorpGroupMap;
+        };
         // Generated from: com/linkedin/metadata/aspect/DatasetAspect.pdsc
 
-        export type DatasetAspect =
-          | Com.Linkedin.Dataset.ComplianceInfo
-          | Com.Linkedin.Dataset.ComplianceInfoSuggestion
-          | Com.Linkedin.Dataset.ComplianceProposal
-          | Com.Linkedin.Dataset.DataPrivacyReviewV2
-          | Com.Linkedin.Dataset.DatasetProperties
-          | Com.Linkedin.Common.Deprecation
-          | Com.Linkedin.Common.EntityTopUsage
-          | Com.Linkedin.Dataset.ExportPolicy
-          | Com.Linkedin.Common.Follow
-          | Com.Linkedin.Common.Health
-          | Com.Linkedin.Common.InstitutionalMemory
-          | Com.Linkedin.Common.Likes
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Common.OwnershipSuggestion
-          | Com.Linkedin.Dataset.ReplicationConfig
-          | Com.Linkedin.Dataset.RetentionPolicy
-          | Com.Linkedin.Dataset.SearchRelevanceSignals
-          | Com.Linkedin.Common.Status
-          | Com.Linkedin.Dataset.Ump.UMPDatasetProperties
-          | Com.Linkedin.Dataset.UpstreamLineage
-          | Com.Linkedin.Dataset.UserEditableDatasetProperties
-          | Com.Linkedin.Dataset.UserEditableSchemaInfo
-          | Com.Linkedin.Dataset.Wormhole.WormholeDatasetMetadata
-          | Com.Linkedin.Dataset.Wormhole.WormholeDatasetOperationalMetadata
-          | Com.Linkedin.Dataset.Datasentinel.ColumnDefinition
-          | Com.Linkedin.Dataset.Datasentinel.DataAssertion
-          | Com.Linkedin.Dataset.DataPrivacyReview
-          | Com.Linkedin.Dataset.Datasentinel.DataValidationConfig
-          | Com.Linkedin.Dataset.Datasentinel.SliceDefinition;
+        export type DatasetAspect = {
+          'com.linkedin.dataset.ComplianceInfo'?: Com.Linkedin.Dataset.ComplianceInfo;
+          'com.linkedin.dataset.ComplianceInfoSuggestion'?: Com.Linkedin.Dataset.ComplianceInfoSuggestion;
+          'com.linkedin.dataset.ComplianceProposal'?: Com.Linkedin.Dataset.ComplianceProposal;
+          'com.linkedin.dataset.DataPrivacyReviewV2'?: Com.Linkedin.Dataset.DataPrivacyReviewV2;
+          'com.linkedin.dataset.DatasetProperties'?: Com.Linkedin.Dataset.DatasetProperties;
+          'com.linkedin.dataset.DatasetUpstreamLineage'?: Com.Linkedin.Dataset.DatasetUpstreamLineage;
+          'com.linkedin.dataset.DatasetSchemaLineage'?: Com.Linkedin.Dataset.DatasetSchemaLineage;
+          'com.linkedin.common.Deprecation'?: Com.Linkedin.Common.Deprecation;
+          'com.linkedin.common.EntityTopUsage'?: Com.Linkedin.Common.EntityTopUsage;
+          'com.linkedin.dataset.ExportPolicy'?: Com.Linkedin.Dataset.ExportPolicy;
+          'com.linkedin.common.Follow'?: Com.Linkedin.Common.Follow;
+          'com.linkedin.common.Health'?: Com.Linkedin.Common.Health;
+          'com.linkedin.common.InstitutionalMemory'?: Com.Linkedin.Common.InstitutionalMemory;
+          'com.linkedin.common.Likes'?: Com.Linkedin.Common.Likes;
+          'com.linkedin.schema.ObservedSchemaDefinition'?: Com.Linkedin.Schema.ObservedSchemaDefinition;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.common.OwnershipSuggestion'?: Com.Linkedin.Common.OwnershipSuggestion;
+          'com.linkedin.dataset.ReplicationConfig'?: Com.Linkedin.Dataset.ReplicationConfig;
+          'com.linkedin.dataset.RetentionPolicy'?: Com.Linkedin.Dataset.RetentionPolicy;
+          'com.linkedin.dataset.SearchRelevanceSignals'?: Com.Linkedin.Dataset.SearchRelevanceSignals;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+          'com.linkedin.dataset.ump.UMPDatasetProperties'?: Com.Linkedin.Dataset.Ump.UMPDatasetProperties;
+          'com.linkedin.dataset.UpstreamLineage'?: Com.Linkedin.Dataset.UpstreamLineage;
+          'com.linkedin.dataset.UserEditableDatasetProperties'?: Com.Linkedin.Dataset.UserEditableDatasetProperties;
+          'com.linkedin.dataset.UserEditableSchemaInfo'?: Com.Linkedin.Dataset.UserEditableSchemaInfo;
+          'com.linkedin.dataset.wormhole.WormholeDatasetMetadata'?: Com.Linkedin.Dataset.Wormhole.WormholeDatasetMetadata;
+          'com.linkedin.dataset.wormhole.WormholeDatasetOperationalMetadata'?: Com.Linkedin.Dataset.Wormhole.WormholeDatasetOperationalMetadata;
+          'com.linkedin.dataset.datasentinel.ColumnDefinition'?: Com.Linkedin.Dataset.Datasentinel.ColumnDefinition;
+          'com.linkedin.dataset.datasentinel.DataAssertion'?: Com.Linkedin.Dataset.Datasentinel.DataAssertion;
+          'com.linkedin.dataset.DataPrivacyReview'?: Com.Linkedin.Dataset.DataPrivacyReview;
+          'com.linkedin.dataset.datasentinel.DataValidationConfig'?: Com.Linkedin.Dataset.Datasentinel.DataValidationConfig;
+          'com.linkedin.dataset.datasentinel.SliceDefinition'?: Com.Linkedin.Dataset.Datasentinel.SliceDefinition;
+        };
         // Generated from: com/linkedin/metadata/aspect/DatasetGroupAspect.pdsc
 
-        export type DatasetGroupAspect =
-          | Com.Linkedin.DatasetGroup.DatasetGroupInfo
-          | Com.Linkedin.DatasetGroup.DatasetGroupMembership;
+        export type DatasetGroupAspect = {
+          'com.linkedin.datasetGroup.DatasetGroupInfo'?: Com.Linkedin.DatasetGroup.DatasetGroupInfo;
+          'com.linkedin.datasetGroup.DatasetGroupMembership'?: Com.Linkedin.DatasetGroup.DatasetGroupMembership;
+        };
         // Generated from: com/linkedin/metadata/aspect/DatasetInstanceAspect.pdsc
 
-        export type DatasetInstanceAspect =
-          | Com.Linkedin.DatasetInstance.Etl.ETLDatasetInstanceConfig
-          | Com.Linkedin.DatasetInstance.Etl.ETLPipelineScopedConfigs
-          | Com.Linkedin.DatasetInstance.Etl.IngressETLPipelines
-          | Com.Linkedin.Schema.ObservedSchemaDefinition
-          | Com.Linkedin.Common.Status
-          | Com.Linkedin.Dataset.Datafidelity.DatasetInstanceAlert
-          | Com.Linkedin.Dataset.Datafidelity.DatasetInstanceStats
-          | Com.Linkedin.DatasetInstance.Wimd.WIMDReport
-          | Com.Linkedin.DatasetInstance.Etl.ETLPipelines
-          | Com.Linkedin.DatasetInstance.Etl.ETLPipelineScopedDatasetInstanceConfig
-          | Com.Linkedin.Schema.NormalizedSchema;
+        export type DatasetInstanceAspect = {
+          'com.linkedin.datasetInstance.etl.ETLDatasetInstanceConfig'?: Com.Linkedin.DatasetInstance.Etl.ETLDatasetInstanceConfig;
+          'com.linkedin.datasetInstance.etl.ETLPipelineScopedConfigs'?: Com.Linkedin.DatasetInstance.Etl.ETLPipelineScopedConfigs;
+          'com.linkedin.datasetInstance.etl.IngressETLPipelines'?: Com.Linkedin.DatasetInstance.Etl.IngressETLPipelines;
+          'com.linkedin.schema.ObservedSchemaDefinition'?: Com.Linkedin.Schema.ObservedSchemaDefinition;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+          'com.linkedin.dataset.datafidelity.DatasetInstanceAlert'?: Com.Linkedin.Dataset.Datafidelity.DatasetInstanceAlert;
+          'com.linkedin.dataset.datafidelity.DatasetInstanceStats'?: Com.Linkedin.Dataset.Datafidelity.DatasetInstanceStats;
+          'com.linkedin.datasetInstance.wimd.WIMDReport'?: Com.Linkedin.DatasetInstance.Wimd.WIMDReport;
+          'com.linkedin.datasetInstance.etl.ETLPipelines'?: Com.Linkedin.DatasetInstance.Etl.ETLPipelines;
+          'com.linkedin.datasetInstance.etl.ETLPipelineScopedDatasetInstanceConfig'?: Com.Linkedin.DatasetInstance.Etl.ETLPipelineScopedDatasetInstanceConfig;
+          'com.linkedin.schema.NormalizedSchema'?: Com.Linkedin.Schema.NormalizedSchema;
+        };
         // Generated from: com/linkedin/metadata/aspect/DatasetPartitionAspect.pdsc
 
-        export type DatasetPartitionAspect =
-          | Com.Linkedin.DatasetPartition.Datasentinel.DataValidationReports
-          | Com.Linkedin.DatasetPartition.Datasentinel.DatasetProfile
-          | Com.Linkedin.Dataset.Datafidelity.DatasetPartitionAlert
-          | Com.Linkedin.Dataset.Datafidelity.DatasetPartitionStats;
+        export type DatasetPartitionAspect = {
+          'com.linkedin.datasetPartition.datasentinel.DataValidationReports'?: Com.Linkedin.DatasetPartition.Datasentinel.DataValidationReports;
+          'com.linkedin.datasetPartition.datasentinel.DatasetProfile'?: Com.Linkedin.DatasetPartition.Datasentinel.DatasetProfile;
+          'com.linkedin.dataset.datafidelity.DatasetPartitionAlert'?: Com.Linkedin.Dataset.Datafidelity.DatasetPartitionAlert;
+          'com.linkedin.dataset.datafidelity.DatasetPartitionStats'?: Com.Linkedin.Dataset.Datafidelity.DatasetPartitionStats;
+        };
         // Generated from: com/linkedin/metadata/aspect/ExperimentAlertSubscriptionAspect.pdsc
 
-        export type ExperimentAlertSubscriptionAspect = Com.Linkedin.Experiments.ExperimentAlertSubscription;
+        export type ExperimentAlertSubscriptionAspect = {
+          'com.linkedin.experiments.ExperimentAlertSubscription': Com.Linkedin.Experiments.ExperimentAlertSubscription;
+        };
         // Generated from: com/linkedin/metadata/aspect/FeatureAspect.pdsc
 
-        export type FeatureAspect =
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Common.Status
-          | Com.Linkedin.Feature.Frame.FrameFeatureAvailabilityConfig
-          | Com.Linkedin.Feature.Frame.FrameFeatureConfig
-          | Com.Linkedin.Feature.Frame.FrameFeatureEditableConfig
-          | Com.Linkedin.Feature.Frame.FrameDerivedFeatureConfig
-          | Com.Linkedin.Feature.Frame.FrameFeatureInferenceInfo
-          | Com.Linkedin.Feature.Frame.FrameFeatureStatusConfig
-          | Com.Linkedin.Feature.Frame.FrameFeatureTierConfig
-          | Com.Linkedin.Feature.Frame.FrameFeatureUsageInfo;
+        export type FeatureAspect = {
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+          'com.linkedin.feature.frame.FrameFeatureAvailabilityConfig'?: Com.Linkedin.Feature.Frame.FrameFeatureAvailabilityConfig;
+          'com.linkedin.feature.frame.FrameFeatureConfig'?: Com.Linkedin.Feature.Frame.FrameFeatureConfig;
+          'com.linkedin.feature.frame.FrameFeatureEditableConfig'?: Com.Linkedin.Feature.Frame.FrameFeatureEditableConfig;
+          'com.linkedin.feature.frame.FrameDerivedFeatureConfig'?: Com.Linkedin.Feature.Frame.FrameDerivedFeatureConfig;
+          'com.linkedin.feature.frame.FrameFeatureInferenceInfo'?: Com.Linkedin.Feature.Frame.FrameFeatureInferenceInfo;
+          'com.linkedin.feature.frame.FrameFeatureStatusConfig'?: Com.Linkedin.Feature.Frame.FrameFeatureStatusConfig;
+          'com.linkedin.feature.frame.FrameFeatureTierConfig'?: Com.Linkedin.Feature.Frame.FrameFeatureTierConfig;
+          'com.linkedin.feature.frame.FrameFeatureUsageInfo'?: Com.Linkedin.Feature.Frame.FrameFeatureUsageInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/GridGroupAspect.pdsc
 
-        export type GridGroupAspect = Com.Linkedin.Identity.GridGroupInfo;
+        export type GridGroupAspect = {
+          'com.linkedin.identity.GridGroupInfo': Com.Linkedin.Identity.GridGroupInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/GridJobExecutionAspect.pdsc
 
-        export type GridJobExecutionAspect =
-          | Com.Linkedin.Grid.JobExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionConfigInfo
-          | Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        export type GridJobExecutionAspect = {
+          'com.linkedin.grid.JobExecutionInfo'?: Com.Linkedin.Grid.JobExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionInfo'?: Com.Linkedin.Grid.Execution.ExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionConfigInfo'?: Com.Linkedin.Grid.Execution.ExecutionConfigInfo;
+          'com.linkedin.grid.execution.ExecutionErrorContextInfo'?: Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/GridUserAspect.pdsc
 
-        export type GridUserAspect = Com.Linkedin.Identity.GridUserInfo;
+        export type GridUserAspect = {
+          'com.linkedin.identity.GridUserInfo': Com.Linkedin.Identity.GridUserInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/GridWorkflowAspect.pdsc
 
-        export type GridWorkflowAspect = Com.Linkedin.Grid.WorkflowInfo;
+        export type GridWorkflowAspect = {
+          'com.linkedin.grid.WorkflowInfo': Com.Linkedin.Grid.WorkflowInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/GridWorkflowExecutionAspect.pdsc
 
-        export type GridWorkflowExecutionAspect =
-          | Com.Linkedin.Grid.WorkflowExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionInfo
-          | Com.Linkedin.Grid.Execution.ExecutionConfigInfo
-          | Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        export type GridWorkflowExecutionAspect = {
+          'com.linkedin.grid.WorkflowExecutionInfo'?: Com.Linkedin.Grid.WorkflowExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionInfo'?: Com.Linkedin.Grid.Execution.ExecutionInfo;
+          'com.linkedin.grid.execution.ExecutionConfigInfo'?: Com.Linkedin.Grid.Execution.ExecutionConfigInfo;
+          'com.linkedin.grid.execution.ExecutionErrorContextInfo'?: Com.Linkedin.Grid.Execution.ExecutionErrorContextInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/InchartsChartAspect.pdsc
 
-        export type InchartsChartAspect =
-          | Com.Linkedin.Chart.InchartsChartEdit
-          | Com.Linkedin.Chart.InchartsChartInstances
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Common.Status;
+        export type InchartsChartAspect = {
+          'com.linkedin.chart.InchartsChartEdit'?: Com.Linkedin.Chart.InchartsChartEdit;
+          'com.linkedin.chart.InchartsChartInstances'?: Com.Linkedin.Chart.InchartsChartInstances;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+        };
         // Generated from: com/linkedin/metadata/aspect/InchartsChartInstanceAspect.pdsc
 
-        export type InchartsChartInstanceAspect =
-          | Com.Linkedin.Chart.InchartsChartInstanceMetadata
-          | Com.Linkedin.Common.Status;
+        export type InchartsChartInstanceAspect = {
+          'com.linkedin.chart.InchartsChartInstanceMetadata'?: Com.Linkedin.Chart.InchartsChartInstanceMetadata;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+        };
         // Generated from: com/linkedin/metadata/aspect/InchartsDashboardAspect.pdsc
 
-        export type InchartsDashboardAspect =
-          | Com.Linkedin.Dashboard.InchartsDashboardMetadata
-          | Com.Linkedin.Dashboard.InchartsDashboardEdit
-          | Com.Linkedin.Dashboard.InchartsDashboardCharts
-          | Com.Linkedin.Dashboard.InchartsDashboardItem
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Common.Status;
+        export type InchartsDashboardAspect = {
+          'com.linkedin.dashboard.InchartsDashboardMetadata'?: Com.Linkedin.Dashboard.InchartsDashboardMetadata;
+          'com.linkedin.dashboard.InchartsDashboardEdit'?: Com.Linkedin.Dashboard.InchartsDashboardEdit;
+          'com.linkedin.dashboard.InchartsDashboardCharts'?: Com.Linkedin.Dashboard.InchartsDashboardCharts;
+          'com.linkedin.dashboard.InchartsDashboardItem'?: Com.Linkedin.Dashboard.InchartsDashboardItem;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+        };
         // Generated from: com/linkedin/metadata/aspect/InferenceAspect.pdsc
 
-        export type InferenceAspect =
-          | Com.Linkedin.Inference.ExportModes
-          | Com.Linkedin.Inference.InferenceAccessInfo
-          | Com.Linkedin.Inference.InferenceProductDefinedInfo
-          | Com.Linkedin.Inference.InferenceSourceDefinedInfo
-          | Com.Linkedin.Inference.InferenceStatus
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Inference.PresentationFunctionMappingInfo
-          | Com.Linkedin.Inference.PresentationInlineMappingInfo
-          | Com.Linkedin.Inference.PresentationTableMappingInfo;
+        export type InferenceAspect = {
+          'com.linkedin.inference.ExportModes'?: Com.Linkedin.Inference.ExportModes;
+          'com.linkedin.inference.InferenceAccessInfo'?: Com.Linkedin.Inference.InferenceAccessInfo;
+          'com.linkedin.inference.InferenceProductDefinedInfo'?: Com.Linkedin.Inference.InferenceProductDefinedInfo;
+          'com.linkedin.inference.InferenceSourceDefinedInfo'?: Com.Linkedin.Inference.InferenceSourceDefinedInfo;
+          'com.linkedin.inference.InferenceStatus'?: Com.Linkedin.Inference.InferenceStatus;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.inference.PresentationFunctionMappingInfo'?: Com.Linkedin.Inference.PresentationFunctionMappingInfo;
+          'com.linkedin.inference.PresentationInlineMappingInfo'?: Com.Linkedin.Inference.PresentationInlineMappingInfo;
+          'com.linkedin.inference.PresentationTableMappingInfo'?: Com.Linkedin.Inference.PresentationTableMappingInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/InferenceCategoryAspect.pdsc
 
-        export type InferenceCategoryAspect = Com.Linkedin.Inference.InferenceCategoryInfo;
+        export type InferenceCategoryAspect = {
+          'com.linkedin.inference.InferenceCategoryInfo': Com.Linkedin.Inference.InferenceCategoryInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MetricAspect.pdsc
 
-        export type MetricAspect =
-          | Com.Linkedin.Common.Follow
-          | Com.Linkedin.Common.Health
-          | Com.Linkedin.Common.InstitutionalMemory
-          | Com.Linkedin.Common.Likes
-          | Com.Linkedin.Metric.MetricGovernance
-          | Com.Linkedin.Common.Ownership
-          | Com.Linkedin.Common.Status
-          | Com.Linkedin.Metric.UserEditableMetricProperties
-          | Com.Linkedin.Metric.Ump.UMPMetricProperties;
+        export type MetricAspect = {
+          'com.linkedin.common.Follow'?: Com.Linkedin.Common.Follow;
+          'com.linkedin.common.Health'?: Com.Linkedin.Common.Health;
+          'com.linkedin.common.InstitutionalMemory'?: Com.Linkedin.Common.InstitutionalMemory;
+          'com.linkedin.common.Likes'?: Com.Linkedin.Common.Likes;
+          'com.linkedin.metric.MetricGovernance'?: Com.Linkedin.Metric.MetricGovernance;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.common.Status'?: Com.Linkedin.Common.Status;
+          'com.linkedin.metric.UserEditableMetricProperties'?: Com.Linkedin.Metric.UserEditableMetricProperties;
+          'com.linkedin.metric.ump.UMPMetricProperties'?: Com.Linkedin.Metric.Ump.UMPMetricProperties;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlArtifactAspect.pdsc
 
-        export type MlArtifactAspect =
-          | Com.Linkedin.Proml.MlArtifact.Id
-          | Com.Linkedin.Proml.MlArtifact.ArtifactInfo
-          | string;
+        export type MlArtifactAspect = {
+          'com.linkedin.proml.mlArtifact.Id'?: Com.Linkedin.Proml.MlArtifact.Id;
+          'com.linkedin.proml.mlArtifact.ArtifactInfo'?: Com.Linkedin.Proml.MlArtifact.ArtifactInfo;
+          'com.linkedin.proml.mlArtifact.StandardArtifactUrn'?: string;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlDataAnalysisResultAspect.pdsc
 
-        export type MlDataAnalysisResultAspect =
-          | Com.Linkedin.Proml.MlDataAnalysisResult.Id
-          | Com.Linkedin.Proml.MlDataAnalysisResult.DataAnalysisResultInfo
-          | Com.Linkedin.Proml.MlDataAnalysisResult.AnalyzedDatasets;
+        export type MlDataAnalysisResultAspect = {
+          'com.linkedin.proml.mlDataAnalysisResult.Id'?: Com.Linkedin.Proml.MlDataAnalysisResult.Id;
+          'com.linkedin.proml.mlDataAnalysisResult.DataAnalysisResultInfo'?: Com.Linkedin.Proml.MlDataAnalysisResult.DataAnalysisResultInfo;
+          'com.linkedin.proml.mlDataAnalysisResult.DatasetStatsAnalyzerResult'?: Com.Linkedin.Proml.MlDataAnalysisResult.DatasetStatsAnalyzerResult;
+          'com.linkedin.proml.mlDataAnalysisResult.AnalyzedDatasets'?: Com.Linkedin.Proml.MlDataAnalysisResult.AnalyzedDatasets;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlDeploymentGroupAspect.pdsc
 
-        export type MlDeploymentGroupAspect =
-          | Com.Linkedin.Proml.MlDeploymentGroup.Id
-          | Com.Linkedin.Proml.MlDeploymentGroup.DeploymentGroupInfo
-          | Com.Linkedin.Proml.MlDeploymentGroup.PublishedModels
-          | Com.Linkedin.Proml.MlDeploymentGroup.PublishedModelVersions;
+        export type MlDeploymentGroupAspect = {
+          'com.linkedin.proml.mlDeploymentGroup.Id'?: Com.Linkedin.Proml.MlDeploymentGroup.Id;
+          'com.linkedin.proml.mlDeploymentGroup.DeploymentGroupInfo'?: Com.Linkedin.Proml.MlDeploymentGroup.DeploymentGroupInfo;
+          'com.linkedin.proml.mlDeploymentGroup.PublishedModels'?: Com.Linkedin.Proml.MlDeploymentGroup.PublishedModels;
+          'com.linkedin.proml.mlDeploymentGroup.PublishedModelVersions'?: Com.Linkedin.Proml.MlDeploymentGroup.PublishedModelVersions;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlExperimentAspect.pdsc
 
-        export type MlExperimentAspect =
-          | Com.Linkedin.Proml.MlExperiment.ExperimentInfo
-          | Com.Linkedin.Proml.MlExperiment.Id
-          | Com.Linkedin.Proml.MlExperiment.PipelineRuns;
+        export type MlExperimentAspect = {
+          'com.linkedin.proml.mlExperiment.ExperimentInfo'?: Com.Linkedin.Proml.MlExperiment.ExperimentInfo;
+          'com.linkedin.proml.mlExperiment.Id'?: Com.Linkedin.Proml.MlExperiment.Id;
+          'com.linkedin.proml.mlExperiment.PipelineRuns'?: Com.Linkedin.Proml.MlExperiment.PipelineRuns;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlExportedFeaturizedDatasetAspect.pdsc
 
-        export type MlExportedFeaturizedDatasetAspect =
-          | Com.Linkedin.Proml.MlExportedFeaturizedDataset.Id
-          | Com.Linkedin.Proml.MlExportedFeaturizedDataset.ExportedFeaturizedDatasetInfo
-          | Com.Linkedin.Proml.MlExportedFeaturizedDataset.VeniceExportation
-          | Com.Linkedin.Proml.MlExportedFeaturizedDataset.GridExportation;
+        export type MlExportedFeaturizedDatasetAspect = {
+          'com.linkedin.proml.mlExportedFeaturizedDataset.Id'?: Com.Linkedin.Proml.MlExportedFeaturizedDataset.Id;
+          'com.linkedin.proml.mlExportedFeaturizedDataset.ExportedFeaturizedDatasetInfo'?: Com.Linkedin.Proml.MlExportedFeaturizedDataset.ExportedFeaturizedDatasetInfo;
+          'com.linkedin.proml.mlExportedFeaturizedDataset.VeniceExportation'?: Com.Linkedin.Proml.MlExportedFeaturizedDataset.VeniceExportation;
+          'com.linkedin.proml.mlExportedFeaturizedDataset.GridExportation'?: Com.Linkedin.Proml.MlExportedFeaturizedDataset.GridExportation;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlFeatureAnchorAspect.pdsc
 
-        export type MlFeatureAnchorAspect =
-          | Com.Linkedin.Proml.MlFeatureAnchor.FeatureAnchor
-          | Com.Linkedin.Proml.Common.Feature.PublishInfo;
+        export type MlFeatureAnchorAspect = {
+          'com.linkedin.proml.mlFeatureAnchor.FeatureAnchor'?: Com.Linkedin.Proml.MlFeatureAnchor.FeatureAnchor;
+          'com.linkedin.proml.common.feature.PublishInfo'?: Com.Linkedin.Proml.Common.Feature.PublishInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlFeatureCreationResultAspect.pdsc
 
-        export type MlFeatureCreationResultAspect =
-          | Com.Linkedin.Proml.MlFeatureCreationResult.Id
-          | Com.Linkedin.Proml.MlFeatureCreationResult.FeatureCreationResultInfo;
+        export type MlFeatureCreationResultAspect = {
+          'com.linkedin.proml.mlFeatureCreationResult.Id'?: Com.Linkedin.Proml.MlFeatureCreationResult.Id;
+          'com.linkedin.proml.mlFeatureCreationResult.FeatureCreationResultInfo'?: Com.Linkedin.Proml.MlFeatureCreationResult.FeatureCreationResultInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlFeatureVersionAspect.pdsc
 
-        export type MlFeatureVersionAspect =
-          | Com.Linkedin.Proml.MlFeatureVersion.FeatureVersion
-          | Com.Linkedin.Proml.Common.Feature.PublishInfo;
+        export type MlFeatureVersionAspect = {
+          'com.linkedin.proml.mlFeatureVersion.FeatureVersion'?: Com.Linkedin.Proml.MlFeatureVersion.FeatureVersion;
+          'com.linkedin.proml.common.feature.PublishInfo'?: Com.Linkedin.Proml.Common.Feature.PublishInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlFeaturizedDatasetAspect.pdsc
 
-        export type MlFeaturizedDatasetAspect =
-          | Com.Linkedin.Proml.MlFeaturizedDataset.Id
-          | Com.Linkedin.Proml.MlFeaturizedDataset.FeaturizedDatasetInfo;
+        export type MlFeaturizedDatasetAspect = {
+          'com.linkedin.proml.mlFeaturizedDataset.Id'?: Com.Linkedin.Proml.MlFeaturizedDataset.Id;
+          'com.linkedin.proml.mlFeaturizedDataset.FeaturizedDatasetInfo'?: Com.Linkedin.Proml.MlFeaturizedDataset.FeaturizedDatasetInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlModelAnalysisResultAspect.pdsc
 
-        export type MlModelAnalysisResultAspect =
-          | Com.Linkedin.Proml.MlModelAnalysisResult.Id
-          | Com.Linkedin.Proml.MlModelAnalysisResult.ModelAnalysisResultInfo
-          | Com.Linkedin.Proml.MlModelAnalysisResult.AnalyzedModel
-          | Com.Linkedin.Proml.MlModelAnalysisResult.TestDataset
-          | Com.Linkedin.Proml.MlModelAnalysisResult.BinaryClassificationMetricsAnalyzerResult
-          | Com.Linkedin.Proml.MlModelAnalysisResult.ModelAgnosticFeatureImportanceAnalyzerResult
-          | Com.Linkedin.Proml.MlModelAnalysisResult.MulticlassMetricsAnalyzerResult
-          | Com.Linkedin.Proml.MlModelAnalysisResult.RankingMetricsAnalyzerResult
-          | Com.Linkedin.Proml.MlModelAnalysisResult.RegressionMetricsAnalyzerResult
-          | Com.Linkedin.Proml.MlModelAnalysisResult.ReplayMetricsAnalyzerResult;
+        export type MlModelAnalysisResultAspect = {
+          'com.linkedin.proml.mlModelAnalysisResult.Id'?: Com.Linkedin.Proml.MlModelAnalysisResult.Id;
+          'com.linkedin.proml.mlModelAnalysisResult.ModelAnalysisResultInfo'?: Com.Linkedin.Proml.MlModelAnalysisResult.ModelAnalysisResultInfo;
+          'com.linkedin.proml.mlModelAnalysisResult.AnalyzedModel'?: Com.Linkedin.Proml.MlModelAnalysisResult.AnalyzedModel;
+          'com.linkedin.proml.mlModelAnalysisResult.TestDataset'?: Com.Linkedin.Proml.MlModelAnalysisResult.TestDataset;
+          'com.linkedin.proml.mlModelAnalysisResult.BinaryClassificationMetricsAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.BinaryClassificationMetricsAnalyzerResult;
+          'com.linkedin.proml.mlModelAnalysisResult.ModelAgnosticFeatureImportanceAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.ModelAgnosticFeatureImportanceAnalyzerResult;
+          'com.linkedin.proml.mlModelAnalysisResult.MulticlassMetricsAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.MulticlassMetricsAnalyzerResult;
+          'com.linkedin.proml.mlModelAnalysisResult.RankingMetricsAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.RankingMetricsAnalyzerResult;
+          'com.linkedin.proml.mlModelAnalysisResult.RegressionMetricsAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.RegressionMetricsAnalyzerResult;
+          'com.linkedin.proml.mlModelAnalysisResult.ReplayMetricsAnalyzerResult'?: Com.Linkedin.Proml.MlModelAnalysisResult.ReplayMetricsAnalyzerResult;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlModelTrainingSummaryAspect.pdsc
 
-        export type MlModelTrainingSummaryAspect =
-          | Com.Linkedin.Proml.MlModelTrainingSummary.Id
-          | Com.Linkedin.Proml.MlModelTrainingSummary.ModelTrainingSummaryInfo;
+        export type MlModelTrainingSummaryAspect = {
+          'com.linkedin.proml.mlModelTrainingSummary.Id'?: Com.Linkedin.Proml.MlModelTrainingSummary.Id;
+          'com.linkedin.proml.mlModelTrainingSummary.ModelTrainingSummaryInfo'?: Com.Linkedin.Proml.MlModelTrainingSummary.ModelTrainingSummaryInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlModelValidationResultAspect.pdsc
 
-        export type MlModelValidationResultAspect =
-          | Com.Linkedin.Proml.MlModelValidationResult.Id
-          | Com.Linkedin.Proml.MlModelValidationResult.ModelValidationResultInfo;
+        export type MlModelValidationResultAspect = {
+          'com.linkedin.proml.mlModelValidationResult.Id'?: Com.Linkedin.Proml.MlModelValidationResult.Id;
+          'com.linkedin.proml.mlModelValidationResult.ModelValidationResultInfo'?: Com.Linkedin.Proml.MlModelValidationResult.ModelValidationResultInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPipelineAspect.pdsc
 
-        export type MlPipelineAspect =
-          | Com.Linkedin.Proml.MlPipeline.Id
-          | Com.Linkedin.Proml.MlPipeline.PipelineInfo
-          | Com.Linkedin.Proml.MlPipeline.Versions;
+        export type MlPipelineAspect = {
+          'com.linkedin.proml.mlPipeline.Id'?: Com.Linkedin.Proml.MlPipeline.Id;
+          'com.linkedin.proml.mlPipeline.PipelineInfo'?: Com.Linkedin.Proml.MlPipeline.PipelineInfo;
+          'com.linkedin.proml.mlPipeline.Versions'?: Com.Linkedin.Proml.MlPipeline.Versions;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPipelineRunAspect.pdsc
 
-        export type MlPipelineRunAspect =
-          | Com.Linkedin.Proml.MlPipelineRun.ExecutionIds
-          | Com.Linkedin.Proml.MlPipelineRun.Id
-          | Com.Linkedin.Proml.MlPipelineRun.PipelineRunEndTime
-          | Com.Linkedin.Proml.MlPipelineRun.PipelineRunInfo
-          | Com.Linkedin.Proml.MlPipelineRun.PipelineRunStartTime
-          | Com.Linkedin.Proml.MlPipelineRun.PipelineRunStatus
-          | Com.Linkedin.Proml.MlPipelineRun.PipelineStepsRuns;
+        export type MlPipelineRunAspect = {
+          'com.linkedin.proml.mlPipelineRun.ExecutionIds'?: Com.Linkedin.Proml.MlPipelineRun.ExecutionIds;
+          'com.linkedin.proml.mlPipelineRun.Id'?: Com.Linkedin.Proml.MlPipelineRun.Id;
+          'com.linkedin.proml.mlPipelineRun.PipelineRunEndTime'?: Com.Linkedin.Proml.MlPipelineRun.PipelineRunEndTime;
+          'com.linkedin.proml.mlPipelineRun.PipelineRunInfo'?: Com.Linkedin.Proml.MlPipelineRun.PipelineRunInfo;
+          'com.linkedin.proml.mlPipelineRun.PipelineRunStartTime'?: Com.Linkedin.Proml.MlPipelineRun.PipelineRunStartTime;
+          'com.linkedin.proml.mlPipelineRun.PipelineRunStatus'?: Com.Linkedin.Proml.MlPipelineRun.PipelineRunStatus;
+          'com.linkedin.proml.mlPipelineRun.PipelineStepsRuns'?: Com.Linkedin.Proml.MlPipelineRun.PipelineStepsRuns;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPipelineStepRunAspect.pdsc
 
-        export type MlPipelineStepRunAspect =
-          | Com.Linkedin.Proml.MlPipelineStepRun.Id
-          | Com.Linkedin.Proml.MlPipelineStepRun.PipelineStepRunInfo
-          | Com.Linkedin.Proml.MlPipelineStepRun.StepRunStartTime
-          | Com.Linkedin.Proml.MlPipelineStepRun.StepRunEndTime
-          | Com.Linkedin.Proml.MlPipelineStepRun.StepRunOutputs
-          | Com.Linkedin.Proml.MlPipelineStepRun.StepRunParameters
-          | Com.Linkedin.Proml.MlPipelineStepRun.StepRunCustomMetrics;
+        export type MlPipelineStepRunAspect = {
+          'com.linkedin.proml.mlPipelineStepRun.Id'?: Com.Linkedin.Proml.MlPipelineStepRun.Id;
+          'com.linkedin.proml.mlPipelineStepRun.PipelineStepRunInfo'?: Com.Linkedin.Proml.MlPipelineStepRun.PipelineStepRunInfo;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunStartTime'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunStartTime;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunEndTime'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunEndTime;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunOutputs'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunOutputs;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunParameters'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunParameters;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunCustomMetrics'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunCustomMetrics;
+          'com.linkedin.proml.mlPipelineStepRun.StepRunInputs'?: Com.Linkedin.Proml.MlPipelineStepRun.StepRunInputs;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPipelineStepRunOutputAspect.pdsc
 
-        export type MlPipelineStepRunOutputAspect =
-          | Com.Linkedin.Proml.MlPipelineStepRunOutput.Id
-          | Com.Linkedin.Proml.MlPipelineStepRunOutput.StepRunOutputArtifact
-          | Com.Linkedin.Proml.MlPipelineStepRunOutput.StepRunOutputInfo;
+        export type MlPipelineStepRunOutputAspect = {
+          'com.linkedin.proml.mlPipelineStepRunOutput.Id'?: Com.Linkedin.Proml.MlPipelineStepRunOutput.Id;
+          'com.linkedin.proml.mlPipelineStepRunOutput.StepRunOutputArtifact'?: Com.Linkedin.Proml.MlPipelineStepRunOutput.StepRunOutputArtifact;
+          'com.linkedin.proml.mlPipelineStepRunOutput.StepRunOutputInfo'?: Com.Linkedin.Proml.MlPipelineStepRunOutput.StepRunOutputInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPipelineVersionAspect.pdsc
 
-        export type MlPipelineVersionAspect =
-          | Com.Linkedin.Proml.MlPipelineVersion.Id
-          | Com.Linkedin.Proml.MlPipelineVersion.PipelineRuns
-          | Com.Linkedin.Proml.MlPipelineVersion.PipelineVersionInfo;
+        export type MlPipelineVersionAspect = {
+          'com.linkedin.proml.mlPipelineVersion.Id'?: Com.Linkedin.Proml.MlPipelineVersion.Id;
+          'com.linkedin.proml.mlPipelineVersion.PipelineRuns'?: Com.Linkedin.Proml.MlPipelineVersion.PipelineRuns;
+          'com.linkedin.proml.mlPipelineVersion.PipelineVersionInfo'?: Com.Linkedin.Proml.MlPipelineVersion.PipelineVersionInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlProblemStatementAspect.pdsc
 
-        export type MlProblemStatementAspect =
-          | Com.Linkedin.Proml.MlProblemStatement.Id
-          | Com.Linkedin.Proml.MlProblemStatement.ProblemStatementInfo;
+        export type MlProblemStatementAspect = {
+          'com.linkedin.proml.mlProblemStatement.Id'?: Com.Linkedin.Proml.MlProblemStatement.Id;
+          'com.linkedin.proml.mlProblemStatement.ProblemStatementInfo'?: Com.Linkedin.Proml.MlProblemStatement.ProblemStatementInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlProjectAspect.pdsc
 
-        export type MlProjectAspect =
-          | Com.Linkedin.Proml.Common.Members
-          | Com.Linkedin.Proml.MlProject.Experiments
-          | Com.Linkedin.Proml.MlProject.Id
-          | Com.Linkedin.Proml.MlProject.Pipelines
-          | Com.Linkedin.Proml.MlProject.ProblemStatement
-          | Com.Linkedin.Proml.MlProject.ProjectInfo;
+        export type MlProjectAspect = {
+          'com.linkedin.proml.common.Members'?: Com.Linkedin.Proml.Common.Members;
+          'com.linkedin.proml.mlProject.Experiments'?: Com.Linkedin.Proml.MlProject.Experiments;
+          'com.linkedin.proml.mlProject.Id'?: Com.Linkedin.Proml.MlProject.Id;
+          'com.linkedin.proml.mlProject.Pipelines'?: Com.Linkedin.Proml.MlProject.Pipelines;
+          'com.linkedin.proml.mlProject.ProblemStatement'?: Com.Linkedin.Proml.MlProject.ProblemStatement;
+          'com.linkedin.proml.mlProject.ProjectInfo'?: Com.Linkedin.Proml.MlProject.ProjectInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlProjectGroupAspect.pdsc
 
-        export type MlProjectGroupAspect =
-          | Com.Linkedin.Proml.MlProjectGroup.Id
-          | Com.Linkedin.Proml.MlProjectGroup.ProjectGroupInfo
-          | Com.Linkedin.Proml.MlProjectGroup.Projects;
+        export type MlProjectGroupAspect = {
+          'com.linkedin.proml.mlProjectGroup.Id'?: Com.Linkedin.Proml.MlProjectGroup.Id;
+          'com.linkedin.proml.mlProjectGroup.ProjectGroupInfo'?: Com.Linkedin.Proml.MlProjectGroup.ProjectGroupInfo;
+          'com.linkedin.proml.mlProjectGroup.Projects'?: Com.Linkedin.Proml.MlProjectGroup.Projects;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPublishedModelAspect.pdsc
 
-        export type MlPublishedModelAspect =
-          | Com.Linkedin.Proml.Common.MlDeprecation
-          | Com.Linkedin.Proml.MlPublishedModel.Id
-          | Com.Linkedin.Proml.MlPublishedModel.PublishedModelInfo
-          | Com.Linkedin.Proml.MlPublishedModel.PublishedModelVersions
-          | Com.Linkedin.Proml.MlPublishedModel.ReservedVersions;
+        export type MlPublishedModelAspect = {
+          'com.linkedin.proml.common.MlDeprecation'?: Com.Linkedin.Proml.Common.MlDeprecation;
+          'com.linkedin.proml.mlPublishedModel.Id'?: Com.Linkedin.Proml.MlPublishedModel.Id;
+          'com.linkedin.proml.mlPublishedModel.PublishedModelInfo'?: Com.Linkedin.Proml.MlPublishedModel.PublishedModelInfo;
+          'com.linkedin.proml.mlPublishedModel.PublishedModelVersions'?: Com.Linkedin.Proml.MlPublishedModel.PublishedModelVersions;
+          'com.linkedin.proml.mlPublishedModel.ReservedVersions'?: Com.Linkedin.Proml.MlPublishedModel.ReservedVersions;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlPublishedModelVersionAspect.pdsc
 
-        export type MlPublishedModelVersionAspect =
-          | Com.Linkedin.Proml.Common.MlDeprecation
-          | Com.Linkedin.Proml.MlPublishedModelVersion.Id
-          | Com.Linkedin.Proml.MlPublishedModelVersion.PublishedModelVersionInfo;
+        export type MlPublishedModelVersionAspect = {
+          'com.linkedin.proml.common.MlDeprecation'?: Com.Linkedin.Proml.Common.MlDeprecation;
+          'com.linkedin.proml.mlPublishedModelVersion.Id'?: Com.Linkedin.Proml.MlPublishedModelVersion.Id;
+          'com.linkedin.proml.mlPublishedModelVersion.PublishedModelVersionInfo'?: Com.Linkedin.Proml.MlPublishedModelVersion.PublishedModelVersionInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlTaskExecutionLogAspect.pdsc
 
-        export type MlTaskExecutionLogAspect =
-          | Com.Linkedin.Proml.MlTaskExecutionLog.Id
-          | Com.Linkedin.Proml.MlTaskExecutionLog.TaskExecutionLogInfo;
+        export type MlTaskExecutionLogAspect = {
+          'com.linkedin.proml.mlTaskExecutionLog.Id'?: Com.Linkedin.Proml.MlTaskExecutionLog.Id;
+          'com.linkedin.proml.mlTaskExecutionLog.TaskExecutionLogInfo'?: Com.Linkedin.Proml.MlTaskExecutionLog.TaskExecutionLogInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlTrainedModelAspect.pdsc
 
-        export type MlTrainedModelAspect =
-          | Com.Linkedin.Proml.MlTrainedModel.ComplianceInfo
-          | Com.Linkedin.Proml.MlTrainedModel.Id
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.LastSuccessfulTask
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelArtifactStoreLocations
-          | Com.Linkedin.Proml.MlTrainedModel.ModelDependencies
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelMpName
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelUploadStatusList
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelVersion
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelPublishAttempt
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PrePublishLocation
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishedModelVersion
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishAttempt
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishAttemptLogsList
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishRequest
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishStatus
-          | Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ReviewInfo
-          | Com.Linkedin.Proml.MlTrainedModel.PhotonVizInfo
-          | Com.Linkedin.Proml.MlTrainedModel.TrainedModelInfo;
+        export type MlTrainedModelAspect = {
+          'com.linkedin.proml.mlTrainedModel.ComplianceInfo'?: Com.Linkedin.Proml.MlTrainedModel.ComplianceInfo;
+          'com.linkedin.proml.mlTrainedModel.Id'?: Com.Linkedin.Proml.MlTrainedModel.Id;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.LastSuccessfulTask'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.LastSuccessfulTask;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ModelArtifactStoreLocations'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelArtifactStoreLocations;
+          'com.linkedin.proml.mlTrainedModel.ModelDependencies'?: Com.Linkedin.Proml.MlTrainedModel.ModelDependencies;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ModelMpName'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelMpName;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ModelUploadStatusList'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelUploadStatusList;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ModelVersion'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelVersion;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ModelPublishAttempt'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ModelPublishAttempt;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PrePublishLocation'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PrePublishLocation;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PublishedModelVersion'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishedModelVersion;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PublishAttempt'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishAttempt;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PublishAttemptLogsList'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishAttemptLogsList;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PublishRequest'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishRequest;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.PublishStatus'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.PublishStatus;
+          'com.linkedin.proml.mlTrainedModel.mlModelPublish.ReviewInfo'?: Com.Linkedin.Proml.MlTrainedModel.MlModelPublish.ReviewInfo;
+          'com.linkedin.proml.mlTrainedModel.PhotonVizInfo'?: Com.Linkedin.Proml.MlTrainedModel.PhotonVizInfo;
+          'com.linkedin.proml.mlTrainedModel.TrainedModelInfo'?: Com.Linkedin.Proml.MlTrainedModel.TrainedModelInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/MlVerticalAspect.pdsc
 
-        export type MlVerticalAspect = Com.Linkedin.Proml.MlVertical.VerticalInfo;
+        export type MlVerticalAspect = {
+          'com.linkedin.proml.mlVertical.VerticalInfo': Com.Linkedin.Proml.MlVertical.VerticalInfo;
+        };
+        // Generated from: com/linkedin/metadata/aspect/MultiproductAspect.pdsc
+
+        export type MultiproductAspect = {
+          'com.linkedin.common.ResourceSensitivity'?: Com.Linkedin.Common.ResourceSensitivity;
+          'com.linkedin.multiproduct.MultiproductInfo'?: Com.Linkedin.Multiproduct.MultiproductInfo;
+        };
         // Generated from: com/linkedin/metadata/aspect/RegisteredSchemaAspect.pdsc
 
-        export type RegisteredSchemaAspect =
-          | Com.Linkedin.Common.FileReference
-          | Com.Linkedin.Dataset.ComplianceInfo
-          | Com.Linkedin.Schema.SchemaDefinition
-          | Com.Linkedin.Schema.RegisteredSchemaDeprecation;
+        export type RegisteredSchemaAspect = {
+          'com.linkedin.dataset.ComplianceInfo'?: Com.Linkedin.Dataset.ComplianceInfo;
+          'com.linkedin.common.FileReference'?: Com.Linkedin.Common.FileReference;
+          'com.linkedin.schema.RegisteredSchemaDeprecation'?: Com.Linkedin.Schema.RegisteredSchemaDeprecation;
+          'com.linkedin.schema.SchemaDefinition'?: Com.Linkedin.Schema.SchemaDefinition;
+          'com.linkedin.schema.SchemaInfo'?: Com.Linkedin.Schema.SchemaInfo;
+        };
+        // Generated from: com/linkedin/metadata/aspect/ResourceSensitivityAspect.pdsc
+
+        export type ResourceSensitivityAspect = never;
         // Generated from: com/linkedin/metadata/aspect/SamzaJobInstanceAspect.pdsc
 
-        export type SamzaJobInstanceAspect =
-          | Com.Linkedin.DataJob.Samza.Input
-          | Com.Linkedin.DataJob.Samza.JobInstanceInfo
-          | Com.Linkedin.DataJob.Samza.JobInstanceStatus
-          | Com.Linkedin.DataJob.Samza.Output
-          | Com.Linkedin.Common.Ownership;
+        export type SamzaJobInstanceAspect = {
+          'com.linkedin.dataJob.samza.Input'?: Com.Linkedin.DataJob.Samza.Input;
+          'com.linkedin.dataJob.samza.JobInstanceInfo'?: Com.Linkedin.DataJob.Samza.JobInstanceInfo;
+          'com.linkedin.dataJob.samza.JobInstanceStatus'?: Com.Linkedin.DataJob.Samza.JobInstanceStatus;
+          'com.linkedin.dataJob.samza.Output'?: Com.Linkedin.DataJob.Samza.Output;
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+        };
+        // Generated from: com/linkedin/metadata/aspect/TrexExperimentMetricAlertDefinitionAspect.pdsc
+
+        export type TrexExperimentMetricAlertDefinitionAspect = {
+          'com.linkedin.experiments.TrexExperimentMetricAlertDefinition': Com.Linkedin.Experiments.TrexExperimentMetricAlertDefinition;
+        };
+        // Generated from: com/linkedin/metadata/aspect/TrexNotificationRequestAspect.pdsc
+
+        export type TrexNotificationRequestAspect = {
+          'com.linkedin.experiments.TrexNotificationRequest': Com.Linkedin.Experiments.TrexNotificationRequest;
+        };
+        // Generated from: com/linkedin/metadata/aspect/TrexNotificationSubscriptionAspect.pdsc
+
+        export type TrexNotificationSubscriptionAspect = {
+          'com.linkedin.common.Ownership'?: Com.Linkedin.Common.Ownership;
+          'com.linkedin.experiments.TrexNotificationSubscription'?: Com.Linkedin.Experiments.TrexNotificationSubscription;
+        };
         // Generated from: com/linkedin/metadata/aspect/WormholeNamespaceAspect.pdsc
 
-        export type WormholeNamespaceAspect = Com.Linkedin.Dataset.Wormhole.WormholeNamespaceMetadata;
+        export type WormholeNamespaceAspect = {
+          'com.linkedin.dataset.wormhole.WormholeNamespaceMetadata': Com.Linkedin.Dataset.Wormhole.WormholeNamespaceMetadata;
+        };
       }
       namespace Delta {
         // Generated from: com/linkedin/metadata/delta/DatasetGroupDelta.pdsc
@@ -81346,7 +81734,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/delta/Delta.pdsc
 
-        export type Delta = DatasetGroupDelta | DatasetUpstreamLineageDelta | MlFeatureAnchorDelta;
+        export type Delta = {
+          'com.linkedin.metadata.delta.DatasetGroupDelta'?: Com.Linkedin.Metadata.Delta.DatasetGroupDelta;
+          'com.linkedin.metadata.delta.DatasetUpstreamLineageDelta'?: Com.Linkedin.Metadata.Delta.DatasetUpstreamLineageDelta;
+          'com.linkedin.metadata.delta.MlFeatureAnchorDelta'?: Com.Linkedin.Metadata.Delta.MlFeatureAnchorDelta;
+        };
         // Generated from: com/linkedin/metadata/delta/MlFeatureAnchorDelta.pdsc
 
         export interface MlFeatureAnchorDelta {
@@ -81357,7 +81749,9 @@ declare namespace Com {
       namespace Dummy {
         // Generated from: com/linkedin/metadata/dummy/DummyAspect.pdsc
 
-        export type DummyAspect = string;
+        export type DummyAspect = {
+          'com.linkedin.common.Urn': string;
+        };
         // Generated from: com/linkedin/metadata/dummy/DummySnapshot.pdsc
 
         export interface DummySnapshot {
@@ -81426,6 +81820,15 @@ declare namespace Com {
           platform?: string;
           origin?: Com.Linkedin.Common.FabricType;
         }
+        // Generated from: com/linkedin/metadata/entity/DatasetFieldEntity.pdsc
+
+        export interface DatasetFieldEntity extends BaseEntity {
+          urn: string;
+          name?: string;
+          platform?: string;
+          origin?: Com.Linkedin.Common.FabricType;
+          fieldName?: string;
+        }
         // Generated from: com/linkedin/metadata/entity/DatasetGroupEntity.pdsc
 
         export interface DatasetGroupEntity extends BaseEntity {
@@ -81454,7 +81857,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/Entity.pdsc
 
-        export type Entity = DatasetEntity | MetricEntity | RegisteredSchemaEntity;
+        export type Entity = {
+          'com.linkedin.metadata.entity.DatasetEntity'?: Com.Linkedin.Metadata.Entity.DatasetEntity;
+          'com.linkedin.metadata.entity.DatasetFieldEntity'?: Com.Linkedin.Metadata.Entity.DatasetFieldEntity;
+          'com.linkedin.metadata.entity.MetricEntity'?: Com.Linkedin.Metadata.Entity.MetricEntity;
+          'com.linkedin.metadata.entity.RegisteredSchemaEntity'?: Com.Linkedin.Metadata.Entity.RegisteredSchemaEntity;
+          'com.linkedin.metadata.entity.RegisteredSchemaFieldEntity'?: Com.Linkedin.Metadata.Entity.RegisteredSchemaFieldEntity;
+        };
         // Generated from: com/linkedin/metadata/entity/FeatureEntity.pdsc
 
         export interface FeatureEntity extends BaseEntity {
@@ -81557,12 +81966,32 @@ declare namespace Com {
         export interface MlTrainedModelEntity extends BaseEntity {
           urn: string;
         }
+        // Generated from: com/linkedin/metadata/entity/MultiproductEntity.pdsc
+
+        export interface MultiproductEntity extends BaseEntity {
+          urn: string;
+          name?: string;
+        }
         // Generated from: com/linkedin/metadata/entity/RegisteredSchemaEntity.pdsc
 
         export interface RegisteredSchemaEntity extends BaseEntity {
           urn: string;
           type?: string;
           name?: string;
+        }
+        // Generated from: com/linkedin/metadata/entity/RegisteredSchemaFieldEntity.pdsc
+
+        export interface RegisteredSchemaFieldEntity extends BaseEntity {
+          urn: string;
+          type?: string;
+          name?: string;
+          fieldName?: string;
+        }
+        // Generated from: com/linkedin/metadata/entity/ResourceSensitivityEntity.pdsc
+
+        export interface ResourceSensitivityEntity extends BaseEntity {
+          urn: string;
+          resourceSensitivity?: string;
         }
       }
       namespace Graph {
@@ -81722,9 +82151,15 @@ declare namespace Com {
           source: string;
           destination: string;
         }
+        // Generated from: com/linkedin/metadata/relationship/ComplianceDerivedFrom.pdsc
+
+        export interface ComplianceDerivedFrom extends BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/Contains.pdsc
 
         export interface Contains extends BaseRelationship {}
+        // Generated from: com/linkedin/metadata/relationship/DataDerivedFrom.pdsc
+
+        export interface DataDerivedFrom extends BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/DownstreamOf.pdsc
 
         export interface DownstreamOf extends BaseRelationship {
@@ -81736,6 +82171,9 @@ declare namespace Com {
         // Generated from: com/linkedin/metadata/relationship/GeneratedBy.pdsc
 
         export interface GeneratedBy extends BaseRelationship {}
+        // Generated from: com/linkedin/metadata/relationship/HasField.pdsc
+
+        export interface HasField extends BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/InstanceOf.pdsc
 
         export interface InstanceOf extends BaseRelationship {}
@@ -81749,13 +82187,34 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/relationship/Relationship.pdsc
 
-        export type Relationship = Contains | FollowedBy | GeneratedBy | InstanceOf | IsPartOf | OwnedBy | SubmittedBy;
+        export type Relationship = {
+          'com.linkedin.metadata.relationship.ComplianceDerivedFrom'?: Com.Linkedin.Metadata.Relationship.ComplianceDerivedFrom;
+          'com.linkedin.metadata.relationship.Contains'?: Com.Linkedin.Metadata.Relationship.Contains;
+          'com.linkedin.metadata.relationship.DataDerivedFrom'?: Com.Linkedin.Metadata.Relationship.DataDerivedFrom;
+          'com.linkedin.metadata.relationship.FollowedBy'?: Com.Linkedin.Metadata.Relationship.FollowedBy;
+          'com.linkedin.metadata.relationship.GeneratedBy'?: Com.Linkedin.Metadata.Relationship.GeneratedBy;
+          'com.linkedin.metadata.relationship.HasField'?: Com.Linkedin.Metadata.Relationship.HasField;
+          'com.linkedin.metadata.relationship.InstanceOf'?: Com.Linkedin.Metadata.Relationship.InstanceOf;
+          'com.linkedin.metadata.relationship.IsPartOf'?: Com.Linkedin.Metadata.Relationship.IsPartOf;
+          'com.linkedin.metadata.relationship.OwnedBy'?: Com.Linkedin.Metadata.Relationship.OwnedBy;
+          'com.linkedin.metadata.relationship.SubmittedBy'?: Com.Linkedin.Metadata.Relationship.SubmittedBy;
+        };
         // Generated from: com/linkedin/metadata/relationship/ReportsTo.pdsc
 
         export interface ReportsTo extends BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/SubmittedBy.pdsc
 
         export interface SubmittedBy extends BaseRelationship {}
+      }
+      namespace Restli {
+        // Generated from: com/linkedin/metadata/restli/BackfillResult.pdsc
+
+        export interface BackfillResult {
+          entities: Array<{
+            urn: string;
+            aspects: string[];
+          }>;
+        }
       }
       namespace Search {
         // Generated from: com/linkedin/metadata/search/AzkabanFlowDocument.pdsc
@@ -81807,6 +82266,7 @@ declare namespace Com {
           teams?: string[];
           skills?: string[];
           active?: boolean;
+          emails?: string[];
         }
         // Generated from: com/linkedin/metadata/search/DataConceptDocument.pdsc
 
@@ -81870,14 +82330,15 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/Document.pdsc
 
-        export type Document =
-          | AzkabanFlowDocument
-          | AzkabanJobDocument
-          | CorpUserInfoDocument
-          | DatasetDocument
-          | FeatureDocument
-          | MetricDocument
-          | RegisteredSchemaDocument;
+        export type Document = {
+          'com.linkedin.metadata.search.AzkabanFlowDocument'?: Com.Linkedin.Metadata.Search.AzkabanFlowDocument;
+          'com.linkedin.metadata.search.AzkabanJobDocument'?: Com.Linkedin.Metadata.Search.AzkabanJobDocument;
+          'com.linkedin.metadata.search.CorpUserInfoDocument'?: Com.Linkedin.Metadata.Search.CorpUserInfoDocument;
+          'com.linkedin.metadata.search.DatasetDocument'?: Com.Linkedin.Metadata.Search.DatasetDocument;
+          'com.linkedin.metadata.search.FeatureDocument'?: Com.Linkedin.Metadata.Search.FeatureDocument;
+          'com.linkedin.metadata.search.MetricDocument'?: Com.Linkedin.Metadata.Search.MetricDocument;
+          'com.linkedin.metadata.search.RegisteredSchemaDocument'?: Com.Linkedin.Metadata.Search.RegisteredSchemaDocument;
+        };
         // Generated from: com/linkedin/metadata/search/FeatureDocument.pdsc
 
         export interface FeatureDocument extends BaseDocument {
@@ -81928,6 +82389,7 @@ declare namespace Com {
           description?: string;
           metrics?: string[];
           datasets?: string[];
+          datasetIds?: number[];
           sourceTables?: string[];
           datasetTypes?: string[];
           protocol?: string;
@@ -81947,6 +82409,7 @@ declare namespace Com {
           accessType?: string;
           createdAt?: number;
           lastModifiedAt?: number;
+          chartIds?: number[];
         }
         // Generated from: com/linkedin/metadata/search/InferenceDocument.pdsc
 
@@ -82014,6 +82477,10 @@ declare namespace Com {
         export interface MlDeploymentGroupDocument extends BaseDocument {
           urn: string;
           name?: string;
+          creator?: string;
+          createdAt?: Com.Linkedin.Common.Time;
+          description?: string;
+          namespace?: string;
         }
         // Generated from: com/linkedin/metadata/search/MlExperimentDocument.pdsc
 
@@ -82402,11 +82869,23 @@ declare namespace Com {
           urn: string;
           aspects: Com.Linkedin.Metadata.Aspect.MlTrainedModelAspect[];
         }
+        // Generated from: com/linkedin/metadata/snapshot/MultiproductSnapshot.pdsc
+
+        export interface MultiproductSnapshot {
+          urn: string;
+          aspects: Com.Linkedin.Metadata.Aspect.MultiproductAspect[];
+        }
         // Generated from: com/linkedin/metadata/snapshot/RegisteredSchemaSnapshot.pdsc
 
         export interface RegisteredSchemaSnapshot {
           urn: string;
           aspects: Com.Linkedin.Metadata.Aspect.RegisteredSchemaAspect[];
+        }
+        // Generated from: com/linkedin/metadata/snapshot/ResourceSensitivitySnapshot.pdsc
+
+        export interface ResourceSensitivitySnapshot {
+          urn: string;
+          aspects: Com.Linkedin.Metadata.Aspect.ResourceSensitivityAspect[];
         }
         // Generated from: com/linkedin/metadata/snapshot/SamzaJobInstanceSnapshot.pdsc
 
@@ -82416,63 +82895,85 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/snapshot/Snapshot.pdsc
 
-        export type Snapshot =
-          | AzkabanFlowSnapshot
-          | AzkabanJobSnapshot
-          | ContainerisedExecutionSnapshot
-          | CorpUserSnapshot
-          | CorpGroupSnapshot
-          | DataConceptSnapshot
-          | DataConstructChangeManagementSnapshot
-          | DatasetAccessGroupSnapshot
-          | DatasetGroupSnapshot
-          | DatasetSnapshot
-          | DatasetInstanceSnapshot
-          | DatasetPartitionSnapshot
-          | ExperimentAlertSubscriptionSnapshot
-          | FeatureSnapshot
-          | GridUserSnapshot
-          | GridGroupSnapshot
-          | GridJobExecutionSnapshot
-          | GridWorkflowExecutionSnapshot
-          | GridWorkflowSnapshot
-          | InchartsChartInstanceSnapshot
-          | InchartsChartSnapshot
-          | InchartsDashboardSnapshot
-          | InferenceCategorySnapshot
-          | InferenceSnapshot
-          | MetricSnapshot
-          | MlArtifactSnapshot
-          | MlDataAnalysisResultSnapshot
-          | MlDeploymentGroupSnapshot
-          | MlExperimentSnapshot
-          | MlExportedFeaturizedDatasetSnapshot
-          | MlFeatureAnchorSnapshot
-          | MlFeatureCreationResultSnapshot
-          | MlFeatureSnapshot
-          | MlFeaturizedDatasetSnapshot
-          | MlModelAnalysisResultSnapshot
-          | MlModelTrainingSummarySnapshot
-          | MlModelValidationResultSnapshot
-          | MlPipelineRunSnapshot
-          | MlPipelineSnapshot
-          | MlPipelineStepRunOutputSnapshot
-          | MlPipelineStepRunSnapshot
-          | MlPipelineVersionSnapshot
-          | MlProblemStatementSnapshot
-          | MlProjectGroupSnapshot
-          | MlProjectSnapshot
-          | MlPublishedModelSnapshot
-          | MlPublishedModelVersionSnapshot
-          | MlTrainedModelSnapshot
-          | MlTaskExecutionLogSnapshot
-          | RegisteredSchemaSnapshot
-          | SamzaJobInstanceSnapshot
-          | WormholeNamespaceSnapshot;
+        export type Snapshot = {
+          'com.linkedin.metadata.snapshot.AzkabanFlowSnapshot'?: Com.Linkedin.Metadata.Snapshot.AzkabanFlowSnapshot;
+          'com.linkedin.metadata.snapshot.AzkabanJobSnapshot'?: Com.Linkedin.Metadata.Snapshot.AzkabanJobSnapshot;
+          'com.linkedin.metadata.snapshot.ContainerisedExecutionSnapshot'?: Com.Linkedin.Metadata.Snapshot.ContainerisedExecutionSnapshot;
+          'com.linkedin.metadata.snapshot.CorpUserSnapshot'?: Com.Linkedin.Metadata.Snapshot.CorpUserSnapshot;
+          'com.linkedin.metadata.snapshot.CorpGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.CorpGroupSnapshot;
+          'com.linkedin.metadata.snapshot.DataConceptSnapshot'?: Com.Linkedin.Metadata.Snapshot.DataConceptSnapshot;
+          'com.linkedin.metadata.snapshot.DataConstructChangeManagementSnapshot'?: Com.Linkedin.Metadata.Snapshot.DataConstructChangeManagementSnapshot;
+          'com.linkedin.metadata.snapshot.DatasetAccessGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.DatasetAccessGroupSnapshot;
+          'com.linkedin.metadata.snapshot.DatasetGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.DatasetGroupSnapshot;
+          'com.linkedin.metadata.snapshot.DatasetSnapshot'?: Com.Linkedin.Metadata.Snapshot.DatasetSnapshot;
+          'com.linkedin.metadata.snapshot.DatasetInstanceSnapshot'?: Com.Linkedin.Metadata.Snapshot.DatasetInstanceSnapshot;
+          'com.linkedin.metadata.snapshot.DatasetPartitionSnapshot'?: Com.Linkedin.Metadata.Snapshot.DatasetPartitionSnapshot;
+          'com.linkedin.metadata.snapshot.ExperimentAlertSubscriptionSnapshot'?: Com.Linkedin.Metadata.Snapshot.ExperimentAlertSubscriptionSnapshot;
+          'com.linkedin.metadata.snapshot.FeatureSnapshot'?: Com.Linkedin.Metadata.Snapshot.FeatureSnapshot;
+          'com.linkedin.metadata.snapshot.GridUserSnapshot'?: Com.Linkedin.Metadata.Snapshot.GridUserSnapshot;
+          'com.linkedin.metadata.snapshot.GridGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.GridGroupSnapshot;
+          'com.linkedin.metadata.snapshot.GridJobExecutionSnapshot'?: Com.Linkedin.Metadata.Snapshot.GridJobExecutionSnapshot;
+          'com.linkedin.metadata.snapshot.GridWorkflowExecutionSnapshot'?: Com.Linkedin.Metadata.Snapshot.GridWorkflowExecutionSnapshot;
+          'com.linkedin.metadata.snapshot.GridWorkflowSnapshot'?: Com.Linkedin.Metadata.Snapshot.GridWorkflowSnapshot;
+          'com.linkedin.metadata.snapshot.InchartsChartInstanceSnapshot'?: Com.Linkedin.Metadata.Snapshot.InchartsChartInstanceSnapshot;
+          'com.linkedin.metadata.snapshot.InchartsChartSnapshot'?: Com.Linkedin.Metadata.Snapshot.InchartsChartSnapshot;
+          'com.linkedin.metadata.snapshot.InchartsDashboardSnapshot'?: Com.Linkedin.Metadata.Snapshot.InchartsDashboardSnapshot;
+          'com.linkedin.metadata.snapshot.InferenceCategorySnapshot'?: Com.Linkedin.Metadata.Snapshot.InferenceCategorySnapshot;
+          'com.linkedin.metadata.snapshot.InferenceSnapshot'?: Com.Linkedin.Metadata.Snapshot.InferenceSnapshot;
+          'com.linkedin.metadata.snapshot.MetricSnapshot'?: Com.Linkedin.Metadata.Snapshot.MetricSnapshot;
+          'com.linkedin.metadata.snapshot.MlArtifactSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlArtifactSnapshot;
+          'com.linkedin.metadata.snapshot.MlDataAnalysisResultSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlDataAnalysisResultSnapshot;
+          'com.linkedin.metadata.snapshot.MlDeploymentGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlDeploymentGroupSnapshot;
+          'com.linkedin.metadata.snapshot.MlExperimentSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlExperimentSnapshot;
+          'com.linkedin.metadata.snapshot.MlExportedFeaturizedDatasetSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlExportedFeaturizedDatasetSnapshot;
+          'com.linkedin.metadata.snapshot.MlFeatureAnchorSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlFeatureAnchorSnapshot;
+          'com.linkedin.metadata.snapshot.MlFeatureCreationResultSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlFeatureCreationResultSnapshot;
+          'com.linkedin.metadata.snapshot.MlFeatureSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlFeatureSnapshot;
+          'com.linkedin.metadata.snapshot.MlFeaturizedDatasetSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlFeaturizedDatasetSnapshot;
+          'com.linkedin.metadata.snapshot.MlModelAnalysisResultSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlModelAnalysisResultSnapshot;
+          'com.linkedin.metadata.snapshot.MlModelTrainingSummarySnapshot'?: Com.Linkedin.Metadata.Snapshot.MlModelTrainingSummarySnapshot;
+          'com.linkedin.metadata.snapshot.MlModelValidationResultSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlModelValidationResultSnapshot;
+          'com.linkedin.metadata.snapshot.MlPipelineRunSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPipelineRunSnapshot;
+          'com.linkedin.metadata.snapshot.MlPipelineSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPipelineSnapshot;
+          'com.linkedin.metadata.snapshot.MlPipelineStepRunOutputSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPipelineStepRunOutputSnapshot;
+          'com.linkedin.metadata.snapshot.MlPipelineStepRunSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPipelineStepRunSnapshot;
+          'com.linkedin.metadata.snapshot.MlPipelineVersionSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPipelineVersionSnapshot;
+          'com.linkedin.metadata.snapshot.MlProblemStatementSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlProblemStatementSnapshot;
+          'com.linkedin.metadata.snapshot.MlProjectGroupSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlProjectGroupSnapshot;
+          'com.linkedin.metadata.snapshot.MlProjectSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlProjectSnapshot;
+          'com.linkedin.metadata.snapshot.MlPublishedModelSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPublishedModelSnapshot;
+          'com.linkedin.metadata.snapshot.MlPublishedModelVersionSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlPublishedModelVersionSnapshot;
+          'com.linkedin.metadata.snapshot.MlTrainedModelSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlTrainedModelSnapshot;
+          'com.linkedin.metadata.snapshot.MlTaskExecutionLogSnapshot'?: Com.Linkedin.Metadata.Snapshot.MlTaskExecutionLogSnapshot;
+          'com.linkedin.metadata.snapshot.RegisteredSchemaSnapshot'?: Com.Linkedin.Metadata.Snapshot.RegisteredSchemaSnapshot;
+          'com.linkedin.metadata.snapshot.SamzaJobInstanceSnapshot'?: Com.Linkedin.Metadata.Snapshot.SamzaJobInstanceSnapshot;
+          'com.linkedin.metadata.snapshot.TrexExperimentMetricAlertDefinitionSnapshot'?: Com.Linkedin.Metadata.Snapshot.TrexExperimentMetricAlertDefinitionSnapshot;
+          'com.linkedin.metadata.snapshot.TrexNotificationRequestSnapshot'?: Com.Linkedin.Metadata.Snapshot.TrexNotificationRequestSnapshot;
+          'com.linkedin.metadata.snapshot.TrexNotificationSubscriptionSnapshot'?: Com.Linkedin.Metadata.Snapshot.TrexNotificationSubscriptionSnapshot;
+          'com.linkedin.metadata.snapshot.WormholeNamespaceSnapshot'?: Com.Linkedin.Metadata.Snapshot.WormholeNamespaceSnapshot;
+        };
         // Generated from: com/linkedin/metadata/snapshot/SnapshotKey.pdsc
 
         export interface SnapshotKey {
           aspectVersions: Com.Linkedin.Metadata.Aspect.AspectVersion[];
+        }
+        // Generated from: com/linkedin/metadata/snapshot/TrexExperimentMetricAlertDefinitionSnapshot.pdsc
+
+        export interface TrexExperimentMetricAlertDefinitionSnapshot {
+          urn: string;
+          aspects: Com.Linkedin.Metadata.Aspect.TrexExperimentMetricAlertDefinitionAspect[];
+        }
+        // Generated from: com/linkedin/metadata/snapshot/TrexNotificationRequestSnapshot.pdsc
+
+        export interface TrexNotificationRequestSnapshot {
+          urn: string;
+          aspects: Com.Linkedin.Metadata.Aspect.TrexNotificationRequestAspect[];
+        }
+        // Generated from: com/linkedin/metadata/snapshot/TrexNotificationSubscriptionSnapshot.pdsc
+
+        export interface TrexNotificationSubscriptionSnapshot {
+          urn: string;
+          aspects: Com.Linkedin.Metadata.Aspect.TrexNotificationSubscriptionAspect[];
         }
         // Generated from: com/linkedin/metadata/snapshot/WormholeNamespaceSnapshot.pdsc
 
@@ -82616,6 +83117,13 @@ declare namespace Com {
         export type UMPMetricScriptType = 'PIG' | 'HIVE' | 'SPARK' | 'NONE';
       }
     }
+    namespace Multiproduct {
+      // Generated from: com/linkedin/multiproduct/MultiproductInfo.pdsc
+
+      export interface MultiproductInfo {
+        description?: string;
+      }
+    }
     namespace Mxe {
       // Generated from: com/linkedin/mxe/FailedMetadataChangeEvent.pdsc
 
@@ -82695,7 +83203,10 @@ declare namespace Com {
         export type JsonString = string;
         // Generated from: com/linkedin/proml/common/Member.pdsc
 
-        export type Member = { corpUser: string } | { corpGroup: string };
+        export type Member = {
+          corpUser?: string;
+          corpGroup?: string;
+        };
         // Generated from: com/linkedin/proml/common/Members.pdsc
 
         export interface Members {
@@ -82712,9 +83223,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/common/feature/PublishTarget.pdsc
 
-          export type PublishTarget =
-            | Com.Linkedin.Common.VersionedMultiProductModule
-            | Com.Linkedin.Common.VersionedMultiProduct;
+          export type PublishTarget = {
+            'com.linkedin.common.VersionedMultiProductModule'?: Com.Linkedin.Common.VersionedMultiProductModule;
+            'com.linkedin.common.VersionedMultiProduct'?: Com.Linkedin.Common.VersionedMultiProduct;
+          };
         }
       }
       namespace MlArtifact {
@@ -82750,17 +83262,18 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/proml/mlArtifact/StandardArtifactUrnType.pdsc
 
-        export type StandardArtifactUrnType =
-          | { trainedModel: string }
-          | { analysisResult: string }
-          | { validationResult: string }
-          | { publishedModel: string }
-          | { featurizedDataset: string }
-          | { modelAnalysisResult: string }
-          | { dataAnalysisResult: string }
-          | { modelTrainingSummary: string }
-          | { exportedFeaturizedDataset: string }
-          | { featureCreationResult: string };
+        export type StandardArtifactUrnType = {
+          trainedModel?: string;
+          analysisResult?: string;
+          validationResult?: string;
+          publishedModel?: string;
+          featurizedDataset?: string;
+          modelAnalysisResult?: string;
+          dataAnalysisResult?: string;
+          modelTrainingSummary?: string;
+          exportedFeaturizedDataset?: string;
+          featureCreationResult?: string;
+        };
       }
       namespace MlDataAnalysisResult {
         // Generated from: com/linkedin/proml/mlDataAnalysisResult/AnalyzedDatasets.pdsc
@@ -82775,6 +83288,50 @@ declare namespace Com {
           creation: Com.Linkedin.Common.AuditStamp;
           resultLocation: string;
           artifact: string;
+        }
+        // Generated from: com/linkedin/proml/mlDataAnalysisResult/DatasetStatsAnalyzerResult.pdsc
+
+        export interface DatasetStatsAnalyzerResult {
+          name: string;
+          datasets: Array<{
+            name: string;
+            numExamples?: number;
+            features?: Array<{
+              name: string;
+              stats:
+                | {
+                    nullCount: number;
+                    nonNullCount: number;
+                    zeroCount: number;
+                    nanCount: number;
+                    min?: number;
+                    max?: number;
+                    mean?: number;
+                    sampledVariance?: number;
+                    sampledStddev?: number;
+                    skewness?: number;
+                    kurtosis?: number;
+                    approxMedian?: number;
+                    histogram: Array<{
+                      value: number;
+                      count: number;
+                    }>;
+                  }
+                | {
+                    nullCount: number;
+                    nonNullCount: number;
+                    uniqueCount: number;
+                    avgStringLength?: number;
+                    topKFreqStrings: Array<{
+                      term: string;
+                      count: number;
+                    }>;
+                  }
+                | {
+                    description: string;
+                  };
+            }>;
+          }>;
         }
         // Generated from: com/linkedin/proml/mlDataAnalysisResult/Id.pdsc
 
@@ -82862,12 +83419,14 @@ declare namespace Com {
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.EspressoDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.InMemoryPassthroughDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.RestliDataSourceAnchor
+            | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.RestliFinderDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.VeniceDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.HdfsDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.ObservationPassthroughDataSourceAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.OfflineFeatureSourcesAnchor
             | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.OnlineFeatureSourcesAnchor
-            | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.CrossEnvironmentFeatureSourcesAnchor;
+            | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.CrossEnvironmentFeatureSourcesAnchor
+            | Com.Linkedin.Proml.MlFeatureAnchor.Anchor.SequentialJoinFeatureSourcesAnchor;
         }
         // Generated from: com/linkedin/proml/mlFeatureAnchor/PublishInfoDelta.pdsc
 
@@ -82878,67 +83437,116 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/CouchbaseDataSourceAnchor.pdsc
 
           export interface CouchbaseDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+              Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.CouchbaseDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/CrossEnvironmentFeatureSourcesAnchor.pdsc
 
-          export interface CrossEnvironmentFeatureSourcesAnchor {
+          export interface CrossEnvironmentFeatureSourcesAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource[];
-            transformationFunction: Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/CustomDataSourceAnchor.pdsc
 
           export interface CustomDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+              Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.CustomDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/EspressoDataSourceAnchor.pdsc
 
           export interface EspressoDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+              Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.EspressoDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/HdfsDataSourceAnchor.pdsc
 
-          export interface HdfsDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOfflineDataSource {
+          export interface HdfsDataSourceAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.HdfsDataSource;
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UserDefinedFunction
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Transformation.SlidingWindowAggregation
+              | Com.Linkedin.Proml.MlFeatureAnchor.Transformation.SlidingWindowEmbeddingAggregation
+              | Com.Linkedin.Proml.MlFeatureAnchor.Transformation.SlidingWindowLatestAvailable
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/InMemoryPassthroughDataSourceAnchor.pdsc
 
           export interface InMemoryPassthroughDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.InMemoryPassthroughDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/ObservationPassthroughDataSourceAnchor.pdsc
 
           export interface ObservationPassthroughDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOfflineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.ObservationPassthroughDataSource;
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/OfflineFeatureSourcesAnchor.pdsc
 
-          export interface OfflineFeatureSourcesAnchor {
+          export interface OfflineFeatureSourcesAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource[];
-            transformationFunction: Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UserDefinedFunction
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/OnlineFeatureSourcesAnchor.pdsc
 
-          export interface OnlineFeatureSourcesAnchor {
+          export interface OnlineFeatureSourcesAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource[];
-            transformationFunction: Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/RestliDataSourceAnchor.pdsc
 
           export interface RestliDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+              Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.RestliDataSource;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/RestliFinderDataSourceAnchor.pdsc
+
+          export interface RestliFinderDataSourceAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource {
+            source: Com.Linkedin.Proml.MlFeatureAnchor.Source.RestliFinderDataSource;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/SequentialJoinFeatureSourcesAnchor.pdsc
+
+          export interface SequentialJoinFeatureSourcesAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
+            base: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource;
+            expansionKeyFunction: {
+              keyFunction: Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression;
+            };
+            expansion: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource;
+            reductionFunction:
+              | 'AVG'
+              | 'MAX'
+              | 'MIN'
+              | 'SUM'
+              | 'UNION'
+              | 'ELEMENTWISE_AVG'
+              | 'ELEMENTWISE_MIN'
+              | 'ELEMENTWISE_MAX';
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/VeniceDataSourceAnchor.pdsc
 
           export interface VeniceDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Common.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+              Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.VeniceDataSource;
           }
         }
@@ -82958,16 +83566,6 @@ declare namespace Com {
           export interface SparkSqlExpression {
             sql: string;
           }
-          // Generated from: com/linkedin/proml/mlFeatureAnchor/common/TransformationFunctionForOfflineDataSource.pdsc
-
-          export interface TransformationFunctionForOfflineDataSource {
-            transformationFunction: UnspecifiedTransformationFunction;
-          }
-          // Generated from: com/linkedin/proml/mlFeatureAnchor/common/TransformationFunctionForOnlineDataSource.pdsc
-
-          export interface TransformationFunctionForOnlineDataSource {
-            transformationFunction: UnspecifiedTransformationFunction;
-          }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/common/UnspecifiedTransformationFunction.pdsc
 
           export interface UnspecifiedTransformationFunction {}
@@ -82977,17 +83575,45 @@ declare namespace Com {
             clazz: Clazz;
           }
         }
+        namespace Key {
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/key/KeyPlaceholder.pdsc
+
+          export interface KeyPlaceholder {
+            keyPlaceholderRef: KeyPlaceholderRef;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/key/KeyPlaceholderRef.pdsc
+
+          export type KeyPlaceholderRef = string;
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/key/KeyPlaceholders.pdsc
+
+          export interface KeyPlaceholders {
+            keyPlaceholders: KeyPlaceholder[];
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/key/OfflineDataSourceKey.pdsc
+
+          export interface OfflineDataSourceKey {
+            keyFunction?:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UserDefinedFunction;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/key/OnlineDataSourceKey.pdsc
+
+          export interface OnlineDataSourceKey {
+            keyFunction?: Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression;
+          }
+        }
         namespace Source {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/CouchbaseDataSource.pdsc
 
-          export interface CouchbaseDataSource {
+          export interface CouchbaseDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             bucketName: string;
             bootstrapServers: Com.Linkedin.Common.Uri[];
             documentDataModel: Com.Linkedin.Proml.MlFeatureAnchor.Common.Clazz;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/CustomDataSource.pdsc
 
-          export interface CustomDataSource {
+          export interface CustomDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             dataModel: Com.Linkedin.Proml.MlFeatureAnchor.Common.Clazz;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/DataSource.pdsc
@@ -83008,7 +83634,7 @@ declare namespace Com {
           export type DateTimeFormat = string;
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/EspressoDataSource.pdsc
 
-          export interface EspressoDataSource {
+          export interface EspressoDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             databaseName: string;
             tableName: string;
             d2Uri: Com.Linkedin.Common.Uri;
@@ -83017,10 +83643,12 @@ declare namespace Com {
 
           export interface FeatureSource {
             urn: string;
+            alias?: string;
+            keyPlaceholderRefs: Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholderRef[];
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/HdfsDataSource.pdsc
 
-          export interface HdfsDataSource {
+          export interface HdfsDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OfflineDataSourceKey {
             datasetLocation: Com.Linkedin.Proml.Common.HdfsLocation | Com.Linkedin.Proml.Common.DaliLocation;
             timeField?: TimeField;
           }
@@ -83031,19 +83659,32 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/ObservationPassthroughDataSource.pdsc
 
-          export interface ObservationPassthroughDataSource {}
+          export interface ObservationPassthroughDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OfflineDataSourceKey {}
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/PathSpec.pdsc
 
           export type PathSpec = string;
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/source/RequestParameterValue.pdsc
+
+          export type RequestParameterValue = {
+            'com.linkedin.proml.mlFeatureAnchor.common.MvelExpression'?: Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression;
+            'com.linkedin.proml.common.JsonString'?: Com.Linkedin.Proml.Common.JsonString;
+          };
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/RestliDataSource.pdsc
 
-          export interface RestliDataSource {
+          export interface RestliDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             resourceName: string;
             projections?: PathSpec[];
+            requestParameters: { [id: string]: RequestParameterValue };
           }
-          // Generated from: com/linkedin/proml/mlFeatureAnchor/source/RestRequestParamValue.pdsc
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/source/RestliFinderDataSource.pdsc
 
-          export type RestRequestParamValue = Com.Linkedin.Proml.Common.JsonString;
+          export interface RestliFinderDataSource {
+            resourceName: string;
+            finderMethod: string;
+            projections: PathSpec[];
+            requestParameters: { [id: string]: RequestParameterValue };
+          }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/TimeField.pdsc
 
           export interface TimeField {
@@ -83052,14 +83693,68 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/TimeFieldFormat.pdsc
 
-          export type TimeFieldFormat = TimestampGranularity | DateTimeFormat;
+          export type TimeFieldFormat = {
+            'com.linkedin.proml.mlFeatureAnchor.source.TimestampGranularity'?: Com.Linkedin.Proml.MlFeatureAnchor.Source.TimestampGranularity;
+            'com.linkedin.proml.mlFeatureAnchor.source.DateTimeFormat'?: Com.Linkedin.Proml.MlFeatureAnchor.Source.DateTimeFormat;
+          };
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/TimestampGranularity.pdsc
 
           export type TimestampGranularity = 'SECONDS' | 'MILLISECONDS';
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/VeniceDataSource.pdsc
 
-          export interface VeniceDataSource {
+          export interface VeniceDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             storeName: string;
+          }
+        }
+        namespace Transformation {
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/LateralView.pdsc
+
+          export interface LateralView {
+            tableGeneratingFunction: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            virtualTableAlias: string;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/SlidingWindowAggregation.pdsc
+
+          export interface SlidingWindowAggregation {
+            targetColumn: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            aggregationType: 'SUM' | 'COUNT' | 'MAX' | 'MIN' | 'AVG';
+            window: Window;
+            lateralViews: LateralView[];
+            filter?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            groupBy?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            limit?: number;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/SlidingWindowEmbeddingAggregation.pdsc
+
+          export interface SlidingWindowEmbeddingAggregation {
+            targetColumn: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            aggregationType: 'MAX_POOLING' | 'MIN_POOLING' | 'AVG_POOLING';
+            window: Window;
+            filter?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            groupBy?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/SlidingWindowLatestAvailable.pdsc
+
+          export interface SlidingWindowLatestAvailable {
+            targetColumn: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            window?: Window;
+            lateralViews: LateralView[];
+            groupBy?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+            filter?: Com.Linkedin.Proml.MlFeatureAnchor.Common.SparkSqlExpression;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/TransformationFunctionForOnlineDataSource.pdsc
+
+          export interface TransformationFunctionForOnlineDataSource {
+            transformationFunction:
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UserDefinedFunction
+              | Com.Linkedin.Proml.MlFeatureAnchor.Common.UnspecifiedTransformationFunction;
+          }
+          // Generated from: com/linkedin/proml/mlFeatureAnchor/transformation/Window.pdsc
+
+          export interface Window {
+            size: number;
+            unit: 'DAY' | 'HOUR' | 'MINUTE' | 'SECOND';
           }
         }
       }
@@ -83079,23 +83774,33 @@ declare namespace Com {
         }
       }
       namespace MlFeatureVersion {
+        // Generated from: com/linkedin/proml/mlFeatureVersion/Dimension.pdsc
+
+        export interface Dimension {
+          type: DimensionType;
+          shape?: number;
+        }
         // Generated from: com/linkedin/proml/mlFeatureVersion/DimensionType.pdsc
 
         export type DimensionType = 'LONG' | 'INT' | 'STRING';
-        // Generated from: com/linkedin/proml/mlFeatureVersion/FeatureFormat.pdsc
-
-        export interface FeatureFormat {
-          valueType: ValueType;
-          dimensionTypes: DimensionType[];
-        }
         // Generated from: com/linkedin/proml/mlFeatureVersion/FeatureValue.pdsc
 
         export type FeatureValue = number | number | number | number | string;
         // Generated from: com/linkedin/proml/mlFeatureVersion/FeatureVersion.pdsc
 
         export interface FeatureVersion {
-          format?: FeatureFormat;
+          format?: TensorFeatureFormat;
           defaultValue?: FeatureValue;
+        }
+        // Generated from: com/linkedin/proml/mlFeatureVersion/TensorCategory.pdsc
+
+        export type TensorCategory = 'DENSE' | 'SPARSE' | 'RAGGED';
+        // Generated from: com/linkedin/proml/mlFeatureVersion/TensorFeatureFormat.pdsc
+
+        export interface TensorFeatureFormat {
+          tensorCategory: TensorCategory;
+          valueType: ValueType;
+          dimensions: Dimension[];
         }
         // Generated from: com/linkedin/proml/mlFeatureVersion/ValueType.pdsc
 
@@ -83245,7 +83950,12 @@ declare namespace Com {
         export type ValidationOutcome = 'ERROR' | 'SUCCESS' | 'WARNING';
         // Generated from: com/linkedin/proml/mlModelValidationResult/ValidationType.pdsc
 
-        export type ValidationType = 'DEPENDENCY_VALIDATION' | 'ONLINE_FEATURE_AVAILABILITY' | 'ABSOLUTE_MODEL_SIZE';
+        export type ValidationType =
+          | 'DEPENDENCY_VALIDATION'
+          | 'ONLINE_FEATURE_AVAILABILITY'
+          | 'ABSOLUTE_MODEL_SIZE'
+          | 'RELATIVE_MODEL_SIZE'
+          | 'RELATIVE_MODEL_RELEVANCE_PERFORMANCE';
       }
       namespace MlPipeline {
         // Generated from: com/linkedin/proml/mlPipeline/Id.pdsc
@@ -83266,6 +83976,12 @@ declare namespace Com {
         }
       }
       namespace MlPipelineRun {
+        // Generated from: com/linkedin/proml/mlPipelineRun/AzkabanExecutionInfo.pdsc
+
+        export interface AzkabanExecutionInfo {
+          clusterUrl: string;
+          executionId: string;
+        }
         // Generated from: com/linkedin/proml/mlPipelineRun/ExecutionId.pdsc
 
         export interface ExecutionId {
@@ -83277,6 +83993,11 @@ declare namespace Com {
         export interface ExecutionIds {
           executionIds: ExecutionId[];
         }
+        // Generated from: com/linkedin/proml/mlPipelineRun/ExecutionInfo.pdsc
+
+        export type ExecutionInfo = {
+          'com.linkedin.proml.mlPipelineRun.AzkabanExecutionInfo': Com.Linkedin.Proml.MlPipelineRun.AzkabanExecutionInfo;
+        };
         // Generated from: com/linkedin/proml/mlPipelineRun/Id.pdsc
 
         export interface Id {
@@ -83294,6 +84015,7 @@ declare namespace Com {
           creation: Com.Linkedin.Common.AuditStamp;
           pipelineVersion: string;
           experiment: string;
+          executionInfo?: ExecutionInfo;
         }
         // Generated from: com/linkedin/proml/mlPipelineRun/PipelineRunStartTime.pdsc
 
@@ -83328,6 +84050,7 @@ declare namespace Com {
         export interface PipelineStepRunInfo {
           pipelineStepName: string;
           pipelineRun: string;
+          componentClassName?: string;
         }
         // Generated from: com/linkedin/proml/mlPipelineStepRun/StepRunCustomMetrics.pdsc
 
@@ -83338,6 +84061,16 @@ declare namespace Com {
 
         export interface StepRunEndTime {
           endAt?: Com.Linkedin.Common.Time;
+        }
+        // Generated from: com/linkedin/proml/mlPipelineStepRun/StepRunInputArtifact.pdsc
+
+        export interface StepRunInputArtifact {
+          artifact: string;
+        }
+        // Generated from: com/linkedin/proml/mlPipelineStepRun/StepRunInputs.pdsc
+
+        export interface StepRunInputs {
+          stepRunInputs: StepRunInputArtifact[];
         }
         // Generated from: com/linkedin/proml/mlPipelineStepRun/StepRunOutputs.pdsc
 
@@ -83356,12 +84089,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/proml/mlPipelineStepRun/StepRunTrackedValue.pdsc
 
-        export type StepRunTrackedValue =
-          | number
-          | number
-          | string
-          | boolean
-          | { jsonValue: Com.Linkedin.Proml.Common.JsonString };
+        export type StepRunTrackedValue = {
+          intValue?: number;
+          doubleValue?: number;
+          stringValue?: string;
+          booleanValue?: boolean;
+          jsonValue?: Com.Linkedin.Proml.Common.JsonString;
+        };
       }
       namespace MlPipelineStepRunOutput {
         // Generated from: com/linkedin/proml/mlPipelineStepRunOutput/Id.pdsc
@@ -83417,6 +84151,7 @@ declare namespace Com {
           version: string;
           pipeline: string;
           pipelineSpec?: PipelineVersionSpec;
+          gitContext?: Com.Linkedin.Common.MultiProductGitContext;
         }
         // Generated from: com/linkedin/proml/mlPipelineVersion/PipelineVersionSpec.pdsc
 
@@ -83703,7 +84438,12 @@ declare namespace Com {
       namespace Urn {
         // Generated from: com/linkedin/resourceidentity/urn/Key.pdsc
 
-        export type Key = string | { [id: string]: string } | { [id: string]: string };
+        export type Key =
+          | { [id: string]: string }
+          | { [id: string]: string }
+          | {
+              simpleKey: string;
+            };
         // Generated from: com/linkedin/resourceidentity/urn/KeyConfig.pdsc
 
         export interface KeyConfig {
@@ -83783,6 +84523,13 @@ declare namespace Com {
           stackTrace?: string;
           errorDetailType?: string;
           errorDetails?: {};
+        }
+        // Generated from: com/linkedin/restli/common/ExtensionSchemaAnnotation.pdsc
+
+        export interface ExtensionSchemaAnnotation {
+          resource: string;
+          using?: string;
+          params?: { [id: string]: string };
         }
         // Generated from: com/linkedin/restli/common/Link.pdsc
 
@@ -84000,6 +84747,8 @@ declare namespace Com {
       // Generated from: com/linkedin/schema/BaseGraphQLSchema.pdsc
 
       export interface BaseGraphQLSchema {
+        graph?: string;
+        graphVersion?: string;
         rawSchema: string;
       }
       // Generated from: com/linkedin/schema/BinaryJsonSchema.pdsc
@@ -84076,8 +84825,10 @@ declare namespace Com {
       export interface RegisteredSchema {
         type: Com.Linkedin.Common.RegisteredSchemaType;
         name: string;
+        schemaInfo?: SchemaInfo;
         schemaDefinition?: SchemaDefinition;
         complianceInfo?: Com.Linkedin.Dataset.ComplianceInfo;
+        fileReference?: Com.Linkedin.Common.FileReference;
         registeredschemaDeprecation?: RegisteredSchemaDeprecation;
       }
       // Generated from: com/linkedin/schema/RegisteredSchemaDeprecation.pdsc
@@ -84113,6 +84864,7 @@ declare namespace Com {
 
       export interface SchemaField {
         fieldPath: Com.Linkedin.Dataset.SchemaFieldPath;
+        pegasusFieldPath?: Com.Linkedin.Dataset.SchemaFieldPath;
         jsonPath?: string;
         nullable: boolean;
         description?: string;
@@ -84133,6 +84885,12 @@ declare namespace Com {
         | 'MAP'
         | 'RECORD'
         | 'UNION';
+      // Generated from: com/linkedin/schema/SchemaInfo.pdsc
+
+      export interface SchemaInfo {
+        displayName?: string;
+        domain?: string;
+      }
       // Generated from: com/linkedin/schema/Schemaless.pdsc
 
       export interface Schemaless {}

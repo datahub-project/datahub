@@ -18,9 +18,7 @@
       <body.row @class="relationship-table__row" @field={{lineage}} as |row|>
         <row.cell>
           <LinkTo @route="datasets.dataset" @model={{lineage.dataset.uri}}>
-            <strong>
-              {{lineage.dataset.nativeName}}
-            </strong>
+            {{lineage.dataset.nativeName}}
           </LinkTo>
         </row.cell>
         <row.cell>

@@ -7,15 +7,16 @@ import { BaseEntity } from '@datahub/data-models/entity/base-entity';
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { TestContext } from 'ember-test-helpers';
 import { MirageTestContext } from '@datahub/utils/types/vendor/ember-cli-mirage/mirage-tests';
-import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
+import { getApiRoot, ApiVersion, ApiResponseStatus } from '@datahub/utils/api/shared';
 import setupMirage from 'ember-cli-mirage/test-support/setup-mirage';
 import { setupErrorHandler } from '@datahub/utils/test-helpers/setup-error';
-import { setupHandlerRegistrations } from '@datahub/shared/test-helpers/setup-handler-registrations';
+import { ApiError } from '@datahub/utils/api/error';
 
 const setupTest = async function(
   test: TestContext,
   options: {
     withBrowsePage: boolean;
+    withNotFoundError?: boolean;
   }
 ): Promise<void> {
   class MockEntity extends BaseEntity<{}> {
@@ -52,8 +53,14 @@ const setupTest = async function(
   });
 
   stubService('data-models', {
-    createInstance(_entityDisplayName: string, urn: string): MockEntity {
-      return new MockEntity(urn);
+    createInstance(_entityDisplayName: string, urn: string): Promise<MockEntity> {
+      return new Promise(resolve => {
+        if (options.withNotFoundError) {
+          throw new ApiError(ApiResponseStatus.NotFound, 'Entity not found');
+        } else {
+          resolve(new MockEntity(urn));
+        }
+      });
     }
   });
 
@@ -71,7 +78,6 @@ module('Integration | Component | entity-page/entity-page-main', function(hooks)
   setupRenderingTest(hooks);
   setupMirage(hooks);
   setupErrorHandler(hooks, { catchMsgs: ['Unexpected token E in JSON at position 0'] });
-  setupHandlerRegistrations(hooks);
 
   test('it renders', async function(assert): Promise<void> {
     await setupTest(this, { withBrowsePage: false });
@@ -83,5 +89,10 @@ module('Integration | Component | entity-page/entity-page-main', function(hooks)
     this.server.get('/browsePaths', () => 'Error', 500);
     await setupTest(this, { withBrowsePage: true });
     assert.dom().containsText('Error loading the path. Please refresh the page and try again');
+  });
+
+  test('not found error', async function(this: MirageTestContext, assert): Promise<void> {
+    await setupTest(this, { withBrowsePage: true, withNotFoundError: true });
+    assert.dom().containsText('Entity not found');
   });
 });

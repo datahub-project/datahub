@@ -1,0 +1,23 @@
+<section class="{{this.baseClass}} {{@class}}">
+  {{#if @icon}}
+    <div  class="{{this.baseClass}}__icon">
+      {{svg-jar @icon}}
+    </div>
+  {{/if}}
+
+  <div class="{{this.baseClass}}__content">
+    <h5 class="{{this.baseClass}}__title">
+      {{yield (hash Title=(component 'blank-template'))}}
+    </h5>
+    <p class="{{this.baseClass}}__description">
+      {{yield (hash Description=(component 'blank-template'))}}
+    </p>
+    <p class="{{baseClass}}__fine-print">
+      {{yield (hash FinePrint=(component 'blank-template'))}}
+    </p>
+  </div>
+
+  <div class="{{this.baseClass}}__link">
+    {{yield (hash Action=(component 'blank-template'))}}
+  </div>
+</section>

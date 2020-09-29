@@ -1,0 +1,16 @@
+<Search::Containers::EntityTaskContainer
+  @keyword={{this.keyword}}
+  @entity={{this.entityDisplayName}}
+  @pageSize={{this.pageSize}}
+  @searchConfig={{this.searchConfig}}
+  @shouldCollectSearchTelemetry={{false}}
+as |dataContainer|
+>
+    <ChangeManagement::RecipientPowerSelect
+      @result={{dataContainer.result}}
+      @onSearch={{dataContainer.searchEntitiesWithKeyword}}
+      @addRecipient={{@addRecipient}}
+      @removeRecipient={{@removeRecipient}}
+      @individualRecipients={{@individualRecipients}}
+    />
+</Search::Containers::EntityTaskContainer>

@@ -39,6 +39,7 @@ $navbar-dropdown-width: 310px;
     li > a {
       display: flex;
       align-items: center;
+      font-weight: fw(normal, 4);
     }
 
     /// Allows us to have non-links in the dropdown menu in this navbar, extends original styling
@@ -124,7 +125,7 @@ $navbar-dropdown-width: 310px;
  * Beta insignia for navbar logo
  */
 .beta-badge {
-  font-weight: fw(normal, 400);
+  font-weight: fw(normal, 6);
   letter-spacing: 5px;
 }
 

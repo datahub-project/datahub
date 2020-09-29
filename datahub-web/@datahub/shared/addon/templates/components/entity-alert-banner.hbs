@@ -1,28 +1,31 @@
-<div class="{{this.baseClass}} container">
-  <FaIcon
-    class="{{this.baseClass}}__icon"
-    @icon="exclamation-circle"
-  />
-  <div class="{{this.baseClass}}__message">
-    <h1 class="{{this.baseClass}}__subject">
-      {{!-- TODO META-11234: Refactor entity alert banner to be generic --}}
-      <span>This dataset will be deprecated by May 31st 2020 as part of a company wide horizontal initiative</span>
-      <a href="https://tools.corp.linkedin.com/apps/tools/initiatives/#/ideas/316" target="_blank" rel="noopener noreferrer" class="{{this.baseClass}}__link">
-        <span class="{{this.baseClass}}__link-text">HI 316</span>
-      </a>
-      <span>.</span>
-    </h1>
-    <h2 class="{{this.baseClass}}__body">
-      <span>Once deprecated the dataset won’t available there after. Please visit the</span>
-      <a href="https://docs.google.com/spreadsheets/d/1KYWqgIuywFDsaRcAdYK1nr71UkvsZ4ocWGMN0ef01LA/edit#gid=1973852182" target="_blank" rel="noreferrer noopener" class="{{this.baseClass}}__link">
-        <span class="{{this.baseClass}}__link-text">dataset list</span>
-      </a>
-      <span>to view SOT (Source of Truth) replacement dataset options. For more information, including contact information, please view the</span>
-      <a href="https://iwww.corp.linkedin.com/wiki/cf/pages/viewpage.action?pageId=306038844" target="_blank" rel="noreferrer noopener" class="{{this.baseClass}}__link">
-        <span class="{{this.baseClass}}__link-text">wiki</span>
-      </a>
-      <span>.</span>
-      <span>{{@configs}}</span>
-    </h2>
+{{!-- TODO META-11238: This should be separated logic placed elsewhere --}}
+{{#if (get @configs "appworx-deprecation")}}
+  <div class="{{this.baseClass}} container">
+    <FaIcon
+      class="{{this.baseClass}}__icon"
+      @icon="exclamation-circle"
+    />
+    <div class="{{this.baseClass}}__message">
+      <h1 class="{{this.baseClass}}__subject">
+        {{!-- TODO META-11234: Refactor entity alert banner to be generic --}}
+        <span>This dataset will be deprecated by May 31st 2020 as part of a company wide horizontal initiative</span>
+        <a href="https://tools.corp.linkedin.com/apps/tools/initiatives/#/ideas/316" target="_blank" rel="noopener noreferrer" class="{{this.baseClass}}__link">
+          <span class="{{this.baseClass}}__link-text">HI 316</span>
+        </a>
+        <span>.</span>
+      </h1>
+      <h2 class="{{this.baseClass}}__body">
+        <span>Once deprecated the dataset won’t available there after. Please visit the</span>
+        <a href="https://docs.google.com/spreadsheets/d/1KYWqgIuywFDsaRcAdYK1nr71UkvsZ4ocWGMN0ef01LA/edit#gid=1973852182" target="_blank" rel="noreferrer noopener" class="{{this.baseClass}}__link">
+          <span class="{{this.baseClass}}__link-text">dataset list</span>
+        </a>
+        <span>to view SOT (Source of Truth) replacement dataset options. For more information, including contact information, please view the</span>
+        <a href="https://iwww.corp.linkedin.com/wiki/cf/pages/viewpage.action?pageId=306038844" target="_blank" rel="noreferrer noopener" class="{{this.baseClass}}__link">
+          <span class="{{this.baseClass}}__link-text">wiki</span>
+        </a>
+        <span>.</span>
+        <span>{{@configs}}</span>
+      </h2>
+    </div>
   </div>
-</div>
+{{/if}}

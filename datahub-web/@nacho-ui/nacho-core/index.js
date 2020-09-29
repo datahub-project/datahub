@@ -6,10 +6,22 @@ module.exports = {
 
   included(app) {
     this._super.included(app);
-    ['regular', 'italic', '200', '200italic', '300', '300italic', '600', '600italic'].forEach(weight =>
-      ['eot', 'svg', 'ttf', 'woff', 'woff2'].forEach(extension =>
-        app.import(`vendor/fonts/Source-Sans-Pro-${weight}/Source-Sans-Pro-${weight}.${extension}`, {
-          destDir: `assets/fonts/Source-Sans-Pro-${weight}`
+
+    [
+      'Black',
+      'BlackItalic',
+      'Bold',
+      'BoldItalic',
+      'Italic',
+      'Light',
+      'LightItalic',
+      'Regular',
+      'Thin',
+      'ThinItalic'
+    ].forEach(weight =>
+      ['ttf'].forEach(extension =>
+        app.import(`vendor/fonts/Lato/Lato-${weight}.${extension}`, {
+          destDir: `assets/fonts/Lato`
         })
       )
     );

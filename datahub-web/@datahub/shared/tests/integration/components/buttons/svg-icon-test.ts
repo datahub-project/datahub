@@ -37,7 +37,7 @@ module('Integration | Component | buttons/svg-icon', function(hooks): void {
 
     this.set('title', title);
 
-    await render(hbs`<Buttons::SvgIcon title={{this.title}} @title="overridden" disabled={{true}} />`);
+    await render(hbs`<Buttons::SvgIcon title={{this.title}} disabled={{true}} />`);
 
     assert.dom('button').isDisabled('Expected the native HTML attribute disabled to be passed down');
     assert

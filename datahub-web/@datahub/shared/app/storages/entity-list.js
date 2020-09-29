@@ -1,1 +1,1 @@
-export { default } from '@datahub/shared/utils/lists/entity-list';
+export { default } from '@linkedin/entities/utils/features/lists/entity-list';
