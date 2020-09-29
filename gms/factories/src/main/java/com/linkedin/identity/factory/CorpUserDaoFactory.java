@@ -1,10 +1,12 @@
 package com.linkedin.identity.factory;
 
+import com.linkedin.common.factory.TopicConventionFactory;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.mxe.TopicConvention;
 import io.ebean.config.ServerConfig;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +24,12 @@ public class CorpUserDaoFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "corpUserDao")
-  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
+  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
   @Nonnull
   protected EbeanLocalDAO createInstance() {
     KafkaMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, CorpuserUrn> producer =
         new KafkaMetadataEventProducer(CorpUserSnapshot.class, CorpUserAspect.class,
-            applicationContext.getBean(Producer.class));
+            applicationContext.getBean(Producer.class), applicationContext.getBean(TopicConvention.class));
     return new EbeanLocalDAO<>(CorpUserAspect.class, producer, applicationContext.getBean(ServerConfig.class),
         CorpuserUrn.class);
   }
