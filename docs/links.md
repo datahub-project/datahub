@@ -17,10 +17,10 @@
 ](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
 
 # Talks & Presentations
-* [DataHub: Powering LinkedIn's Metadata (Budapest Data Forum 2020)](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf)
-* [The evolution of metadata: LinkedIn’s story (Strata Data Conference 2019)](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019)
-* [Journey of metadata at LinkedIn (Crunch Data Conference 2019)](https://www.youtube.com/watch?v=OB-O0Y6OYDE)
-* [Metadata Management And Integration At LinkedIn With DataHub (Data Engineering Podcase)](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/)
+* [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) - [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
+* [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) - [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
+* [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) - [Crunch Data Conference 2019](https://crunchconf.com/2019)
+* [Metadata Management And Integration At LinkedIn With DataHub](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) - [Data Engineering Podcase](https://www.dataengineeringpodcast.com)
 * [DataHub Journey with Expedia Group](https://www.youtube.com/watch?v=ajcRdB22s5o)
 * [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
 * [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
