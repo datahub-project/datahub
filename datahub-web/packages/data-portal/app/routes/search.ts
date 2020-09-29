@@ -10,7 +10,7 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
-import Configurator from 'datahub-web/services/configurator';
+import Configurator from '@datahub/shared/services/configurator';
 import { DataModelName } from '@datahub/data-models/constants/entity/index';
 
 export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {

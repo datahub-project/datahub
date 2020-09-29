@@ -4,7 +4,7 @@ import { UnWrapPromise } from '@datahub/utils/types/async';
 import CurrentUser from '@datahub/shared/services/current-user';
 import { inject as service } from '@ember/service';
 import { alias } from '@ember/object/computed';
-import { getConfig } from 'datahub-web/services/configurator';
+import { getConfig } from '@datahub/shared/services/configurator';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 
 /**

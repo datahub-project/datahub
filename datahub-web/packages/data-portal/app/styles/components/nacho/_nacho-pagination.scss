@@ -12,7 +12,7 @@
     border: 0;
     display: block;
     padding: item-spacing(5);
-    font-weight: 400;
+    font-weight: fw(normal, 6);
     color: get-color(gray8);
 
     &:hover {
@@ -47,7 +47,7 @@
     background: transparent;
     padding: item-spacing(1 2);
     border-radius: 2px;
-    font-weight: 400;
+    font-weight: fw(normal, 6);
     display: block;
     border: 1px solid white;
     margin-right: item-spacing(1);

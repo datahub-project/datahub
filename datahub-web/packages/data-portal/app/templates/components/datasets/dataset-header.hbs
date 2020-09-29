@@ -5,26 +5,26 @@
         {{@entity.name}}
       </h3>
 
-      <EntityPage::EntityHeader::Tag @value={{@entity.platformNativeType}} @options={{hash
-        tooltip="Native Type."
+      <EntityPage::EntityHeader::Tag @value={{@entity.platformAndNativeType}} @options={{hash
+        tooltip="Platform and native type"
         state="neutral-inverse"
       }}/>
 
       <EntityPage::EntityHeader::Tag @value={{@entity.removed}} @options={{hash
         text="REMOVED"
-        tooltip="This dataset has been removed."
+        tooltip="This dataset has been removed"
         state="alert"
       }}/>
 
       <EntityPage::EntityHeader::Tag @value={{@entity.deprecated}} @options={{hash
         text="DEPRECATED"
-        tooltip="This dataset has been deprecated. Check Status Tab for more information."
+        tooltip="This dataset has been deprecated. Check Status Tab for more information"
         state="alert"
       }}/>
 
       <EntityPage::EntityHeader::Tag @value={{datasetContainsPersonalData}} @options={{hash
         text="PII"
-        tooltip="This dataset contains personally identifiable information."
+        tooltip="This dataset contains personally identifiable information"
         state="warning"
       }}/>
 

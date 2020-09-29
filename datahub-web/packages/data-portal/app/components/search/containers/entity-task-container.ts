@@ -5,8 +5,7 @@ import {
 } from '@datahub/shared/types/tracking/event-tracking.d';
 import { TrackingEventCategory } from '@datahub/shared/constants/tracking/event-tracking/index';
 import Component from '@ember/component';
-import { set } from '@ember/object';
-import { computed } from '@ember/object';
+import { set, computed } from '@ember/object';
 import { facetFromParamUrl, readSearchV2, facetToParamUrl } from 'datahub-web/utils/api/search/search';
 import { IFacetsCounts, IFacetsSelectionsMap } from '@datahub/data-models/types/entity/facets';
 import { task } from 'ember-concurrency';
@@ -273,9 +272,18 @@ export default class SearchEntityTaskContainer extends Component {
       set(this, 'result', result);
       return;
     }
-
     // result is nullable, but null when there is an exception at the search endpoint
     throw new Error('Could not parse search results');
+  }
+
+  /**
+   * Performs the action of searching entities (through the getResultsForEntity method) but by providing a way to override the keyword property.
+   *
+   * @param keyword User provided string to search against
+   */
+  async searchEntitiesWithKeyword(keyword = ''): Promise<void> {
+    set(this, 'keyword', keyword);
+    await this.searchEntities();
   }
 
   /**

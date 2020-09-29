@@ -33,12 +33,11 @@
       </HeroContainer>
     {{/if}}
     <section class="container-fluid">
-      {{! template-lint-disable no-partial }}
-      {{partial "main"}}
+      {{outlet}}
     </section>
   </div>
 
   <Notifications />
 {{else}}
-  {{outlet "login"}}
+  {{outlet}}
 {{/if}}

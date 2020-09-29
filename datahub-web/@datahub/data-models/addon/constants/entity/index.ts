@@ -1,4 +1,3 @@
-import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { ListEntity } from '@datahub/data-models/entity/list/list-entity';
@@ -12,7 +11,6 @@ import { DataConstructChangeManagementEntity } from '@datahub/data-models/entity
  */
 export interface IDataModelEntity {
   [DatasetEntity.displayName]: typeof DatasetEntity;
-  [FeatureEntity.displayName]: typeof FeatureEntity;
   [PersonEntity.displayName]: typeof PersonEntity;
   [ListEntity.displayName]: typeof ListEntity;
   [DataConstructChangeManagementEntity.displayName]: typeof DataConstructChangeManagementEntity;
@@ -24,7 +22,6 @@ export interface IDataModelEntity {
  */
 export const DataModelEntity: IDataModelEntity = {
   [DatasetEntity.displayName]: DatasetEntity,
-  [FeatureEntity.displayName]: FeatureEntity,
   [PersonEntity.displayName]: PersonEntity,
   [ListEntity.displayName]: ListEntity,
   [DataConstructChangeManagementEntity.displayName]: DataConstructChangeManagementEntity

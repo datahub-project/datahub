@@ -1,8 +1,6 @@
-import { DatasetEntity } from '../dataset-entity';
 import { IDatasetLineage } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { computed } from '@ember/object';
 import { oneWay } from '@ember/object/computed';
-import { fromLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
 
 /**
  * The dataset lineage object is a light wrapper around the dataset lineage API response to provide the
@@ -17,15 +15,23 @@ export class DatasetLineage {
   private readonly data: IDatasetLineage;
 
   /**
-   * Creates a new dataset entity object from the retrieved data for this lineage object. We can create a
-   * dataset entity object from this as the interface of the dataset property on the lineage object is
-   * expected to be the same as the dataset readEntity response
-   * @type {DatasetEntity}
+   * Provides a raw dataset data for the underlying lineage piece, with the addition of a urn property, intended to be
+   * utilized by our data model service to be able to generically instantiate a dataset entity out of the object
+   * @note WARNING - do not use this property directly. Because it contains raw API data that can differ between open
+   * source and an internal implementation, using properties directly from this referenced object can have unintended
+   * consequences
    */
   @computed('data')
-  get dataset(): DatasetEntity {
-    const { dataset } = this.data;
-    return new DatasetEntity(dataset.uri, fromLegacy(dataset));
+  get _rawDatasetData(): IDatasetLineage['dataset'] & { urn: string } {
+    return { ...this.data.dataset, urn: this.urn };
+  }
+
+  /**
+   * Gets the urn of the related dataset entity
+   */
+  @computed('data')
+  get urn(): string {
+    return this.data.dataset.uri;
   }
 
   /**

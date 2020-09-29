@@ -31,9 +31,17 @@ body {
 a {
   color: $link-color;
   text-decoration: none;
+  font-weight: fw(normal, 6);
 
   @include on-event() {
     color: $text-color;
     text-decoration: none;
   }
+}
+
+/**
+ *
+**/
+label {
+  font-weight: fw(normal, 6);
 }

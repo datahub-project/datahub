@@ -24,6 +24,7 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
     background: $app-search-bar-background;
     border-radius: 2px;
     margin-right: item-spacing(3);
+    border: 0;
   }
 
   &__entity-select select {
@@ -35,40 +36,52 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
   }
 
   &__text-input {
-    height: $app-search-bar-height;
-    border: 1px solid $app-search-bar-disabled-color;
-    border-radius: 2px 0 0 2px;
-    min-width: $app-search-bar-input-width;
-
-    &.ember-power-select-trigger[aria-disabled='true'] {
-      background: $app-search-bar-background;
-    }
-
-    &::before {
-      display: none;
-    }
-
-    input {
+    &#{&}#{&}#{&} {
+      height: $app-search-bar-height;
       border: 0;
-      background: transparent;
-      transition-duration: 334ms;
-      transition-property: border-color, box-shadow;
-      box-sizing: border-box;
       border-radius: 2px 0 0 2px;
-      padding-left: item-spacing(3);
+      min-width: $app-search-bar-input-width;
 
-      &:focus {
-        border: 0;
-        box-shadow: 0px 0px 2px 1px get-color(blue7) inset;
+      &.ember-power-select-trigger[aria-disabled='true'] {
+        background: $app-search-bar-background;
       }
 
-      &:disabled {
-        color: $app-search-bar-disabled-color;
-        &::placeholder {
+      &::before {
+        display: none;
+      }
+
+      input {
+        border: 0;
+        background: transparent;
+        transition-duration: 334ms;
+        transition-property: border-color, box-shadow;
+        box-sizing: border-box;
+        border-radius: 2px 0 0 2px;
+        padding-left: item-spacing(3);
+
+        &:focus {
+          border: 0;
+          box-shadow: none;
+        }
+
+        &:disabled {
           color: $app-search-bar-disabled-color;
+          &::placeholder {
+            color: $app-search-bar-disabled-color;
+          }
         }
       }
     }
+  }
+
+  &__search-bar-container {
+    display: flex;
+    transition: box-shadow 200ms;
+  }
+
+  &__search-bar-container:focus-within {
+    box-shadow: 0px 0px 3px 0px get-color(white);
+    border-radius: 2px;
   }
 
   &__button {
@@ -79,6 +92,11 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
     color: $text-color;
     height: $app-search-bar-height;
     line-height: $app-search-bar-height;
+    padding: item-spacing(2 4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: visible;
 
     &:hover,
     &:active,
@@ -106,6 +124,7 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
   }
 
   &__suggestion-title {
+    color: get-color(gray9);
     padding: 0;
     margin: 0;
     font-size: 16px;
@@ -131,13 +150,18 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
 
   &__dropdown {
     &.ember-power-select-dropdown.ember-basic-dropdown-content--in-place {
-      top: $app-search-bar-height;
+      top: $app-search-bar-height + item-spacing(1);
       box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
       border: 0px;
+      border-radius: 2px;
     }
 
     .ember-power-select-option {
       padding: item-spacing(2 5);
+
+      &[aria-current='true'] {
+        background-color: get-color(gray0);
+      }
     }
 
     .ember-power-select-options {
@@ -151,12 +175,21 @@ $app-search-bar-disabled-color: get-color(black, 0.2);
       .ember-power-select-group-name {
         padding-left: item-spacing(3);
       }
+
+      &:first-child {
+        padding-top: item-spacing(2);
+      }
+
+      &:last-child {
+        padding-bottom: item-spacing(2);
+        border: 0;
+      }
     }
 
     &.ember-basic-dropdown-content > .ember-power-select-options {
       max-height: 500px;
-      border: 1px solid get-color(gray3);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+      border: 0;
+      border-radius: 2px;
       overflow-y: auto;
       overflow-x: hidden;
 

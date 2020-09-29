@@ -67,7 +67,7 @@ module('Integration | Component | truncated-text-with-tooltip', function(hooks):
 
     let component = document.querySelector('.truncated-text-with-tooltip') as HTMLElement;
 
-    await triggerEvent(component, 'mouseover');
+    await triggerEvent(component, 'mouseenter');
 
     assert.equal(document.getElementsByClassName('ember-tooltip').length, 0);
 
@@ -84,7 +84,7 @@ module('Integration | Component | truncated-text-with-tooltip', function(hooks):
 
     component = document.querySelector('.truncated-text-with-tooltip') as HTMLElement;
 
-    await triggerEvent(component, 'mouseover');
+    await triggerEvent(component, 'mouseenter');
 
     assert.equal(document.getElementsByClassName('ember-tooltip').length, 1);
   });

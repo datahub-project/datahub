@@ -2,8 +2,6 @@ import Controller from '@ember/controller';
 import Session from 'ember-simple-auth/services/session';
 import { inject as service } from '@ember/service';
 import { computed } from '@ember/object';
-import { FeatureEntity } from '@datahub/data-models/entity/feature/feature-entity';
-import { DataModelEntity } from '@datahub/data-models/constants/entity';
 
 export default class Application extends Controller {
   /**
@@ -13,12 +11,6 @@ export default class Application extends Controller {
    */
   @service
   session: Session;
-
-  /**
-   * References the currently supported DataModelEntity for the Entity lists
-   * @memberof Application
-   */
-  listEntity: DataModelEntity = FeatureEntity;
 
   /**
    * Will determine whether of not show search hero component

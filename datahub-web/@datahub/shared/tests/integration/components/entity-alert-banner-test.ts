@@ -8,7 +8,7 @@ module('Integration | Component | entity-alert-banner', function(hooks): void {
 
   test('it renders', async function(assert): Promise<void> {
     // TODO META-11234: Refactor entity alert banner to be generic
-    await render(hbs`<EntityAlertBanner />`);
+    await render(hbs`<EntityAlertBanner @configs={{hash appworx-deprecation=true}}/>`);
 
     assert
       .dom()

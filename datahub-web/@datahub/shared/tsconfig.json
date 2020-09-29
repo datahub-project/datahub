@@ -22,6 +22,8 @@
       "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
       "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
       "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "@nacho-ui/core": ["../../@nacho-ui/nacho-core/addon"],
+      "@nacho-ui/core/*": ["../../@nacho-ui/nacho-core/addon/*"],
       "*": ["types/*"]
     }
   },
@@ -38,6 +40,7 @@
     "../../@datahub/utils/addon/**/*",
     "../../@datahub/utils/types/**/*",
     "../../@datahub/metadata-types/addon/**/*",
-    "../../@datahub/metadata-types/types/**/*"
+    "../../@datahub/metadata-types/types/**/*",
+    "../../@nacho-ui/nacho-core/**/*"
   ]
 }

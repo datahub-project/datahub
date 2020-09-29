@@ -29,6 +29,7 @@
 
     .ivy-tabs-tab[role='tab'] {
       line-height: ($application-navigation-tab-static-height / 2) + 2;
+      font-family: $text-font-stack;
 
       &.entity-tabs__tab {
         &--disabled {

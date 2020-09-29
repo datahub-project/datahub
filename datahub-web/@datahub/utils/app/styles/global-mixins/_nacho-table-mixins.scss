@@ -8,7 +8,7 @@
     border: none;
     cursor: pointer;
     color: get-color(blue7);
-    font-weight: bold;
+    font-weight: fw(normal, 6);
   }
   &-icon {
     height: item-spacing(3);

@@ -50,8 +50,11 @@ export default class DatasetSchemaContainer extends Component {
     const lastModifiedString = lastModified ? new Date(lastModified).toLocaleString() : '';
 
     const schemas = augmentObjectsWithHtmlComments(columns);
+    // Specifically tests for null or undefined here as an empty string for json does not necessarily imply a lack of
+    // schema
+    const isEmpty = json === null || json === undefined;
 
-    setProperties(this, { schemas, json: json || '{}', lastModifiedString, isEmpty: !json });
+    setProperties(this, { schemas, json: json || '{}', lastModifiedString, isEmpty });
   })
   getDatasetSchemaTask!: ETaskPromise<IDatasetSchema>;
 }

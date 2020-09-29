@@ -39,6 +39,12 @@
     display: flex;
 
     @include dot-separator();
+
+    &-group {
+      &--prominent {
+        font-weight: fw(normal, 6);
+      }
+    }
   }
 
   &__recalculate {

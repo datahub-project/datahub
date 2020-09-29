@@ -59,11 +59,6 @@ export interface IAppConfig {
   // confidence threshold for filtering out higher quality suggestions
   suggestionConfidenceThreshold: number;
 
-  // Allowlist of features comma separated
-  featureStatsAllowlist: {
-    features: Array<string>;
-  };
-
   // Whether or not to show the social actions features
   showSocialActions: boolean;
 
@@ -87,6 +82,9 @@ export interface IAppConfig {
 
   // Whether or not to show our foxie virtual assistant contents
   showFoxie?: boolean;
+
+  // Entity feature config targets to be used when determining configurations for specific entities
+  entityFeatureConfigTargets?: Record<string, Array<string>>;
 }
 
 /**
