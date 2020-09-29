@@ -26,6 +26,12 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
+        {{- if .Values.global.credentialsAndCertsSecrets }}
+        - name: datahub-certs-dir
+          secret:
+            defaultMode: 256
+            secretName: {{ .Values.global.credentialsAndCertsSecrets.name }}
+        {{- end }}
       {{- if .Values.extraVolumes }}
         {{ toYaml .Values.extraVolumes | indent 8 }}
       {{- end }}
@@ -44,10 +50,29 @@ spec:
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
+            {{- if .Values.global.springKafkaConfigurationOverrides }}
+            {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
+            - name: SPRING_KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}
+              value: {{ $configValue }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.global.credentialsAndCertsSecrets }}
+            {{- range $envVarName, $envVarValue := .Values.global.credentialsAndCertsSecrets.secureEnv }}
+            - name: SPRING_KAFKA_PROPERTIES_{{ $envVarName | replace "." "_" | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.credentialsAndCertsSecrets.name }}
+                  key: {{ $envVarValue }}
+            {{- end }}
+            {{- end }}
           {{- if .Values.extraEnvs }}
             {{ toYaml .Values.extraEnvs | indent 10 }}
           {{- end }}
           volumeMounts:
+          {{- if .Values.global.credentialsAndCertsSecrets }}
+            - name: datahub-certs-dir
+              mountPath: {{ .Values.global.credentialsAndCertsSecretPath | default "/mnt/certs" }}
+          {{- end }}
           {{- if .Values.extraVolumeMounts }}
             {{ toYaml .Values.extraVolumeMounts | indent 10 }}
           {{- end }}
