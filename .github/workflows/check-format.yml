@@ -1,4 +1,4 @@
-name: build & test
+name: Check format
 on:
   push:
     branches:
