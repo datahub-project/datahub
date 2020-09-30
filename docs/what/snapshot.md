@@ -1,9 +1,12 @@
 # What is a snapshot?
 
-A metadata snapshot models the current state of one or multiple metadata [aspects](aspect.md) associated with a particular [entity](entity.md). 
-Each entity type is expected to have:
-1. An entity-specific aspect (e.g. `CorpGroupAspect` from below), which is a `typeref` containing a union of all possible metadata aspects for the entity.
-2. An entity-specific snapshot (e.g. `CorpGroupSnapshot` from below), which contains an array (aspects) of entity-specific aspects.
+A metadata snapshot models the current state of one or multiple metadata [aspects](aspect.md) associated with a
+particular [entity](entity.md). Each entity type is expected to have:
+
+1. An entity-specific aspect (e.g. `CorpGroupAspect` from below), which is a `typeref` containing a union of all
+   possible metadata aspects for the entity.
+2. An entity-specific snapshot (e.g. `CorpGroupSnapshot` from below), which contains an array (aspects) of
+   entity-specific aspects.
 
 ```
 namespace com.linkedin.metadata.aspect
@@ -36,7 +39,8 @@ record CorpGroupSnapshot {
 }
 ```
 
-The generic `Snapshot` typeref contains a union of all entity-specific snapshots and can therefore be used to represent the state of any metadata aspect for all supported entity types.
+The generic `Snapshot` typeref contains a union of all entity-specific snapshots and can therefore be used to represent
+the state of any metadata aspect for all supported entity types.
 
 ```
 namespace com.linkedin.metadata.snapshot

@@ -5,14 +5,14 @@ ETL scripts written in Python.
 ## Prerequisites
 
 1. Before running any python metadata ingestion job, you should make sure that DataHub backend services are all running.
-The easiest way to do that is through [Docker images](../../docker).
+   The easiest way to do that is through [Docker images](../../docker).
 2. You also need to build the `mxe-schemas` module as below.
    ```
    ./gradlew :metadata-events:mxe-schemas:build
    ```
    This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic.
-3. All the scripts are written using Python 3 and most likely won't work with Python 2.x interpreters.
-   You can verify the version of your Python using the following command.
+3. All the scripts are written using Python 3 and most likely won't work with Python 2.x interpreters. You can verify
+   the version of your Python using the following command.
    ```
    python --version
    ```

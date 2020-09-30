@@ -19,7 +19,7 @@ Or by building and running the jar:
 ```
 ./gradlew :metadata-ingestion-examples:kafka-etl:build
 
-java -jar metadata-ingestion-examples/kafka-etl/build/libs/kafka-etl.jar 
+java -jar metadata-ingestion-examples/kafka-etl/build/libs/kafka-etl.jar
 ```
 
 ### Environment Variables

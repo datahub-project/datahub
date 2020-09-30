@@ -1,10 +1,10 @@
 # How to onboard to GMA graph?
 
 ## 1. Define relationship models
-Relationship models are used to build edges in the graph. 
-If you need to define a [relationship] which is not available in the set of [relationship models] provided,
-that relationship model should be implemented as a first step for graph onboarding. 
-Below is an example model for `OwnedBy` relationship:
+
+Relationship models are used to build edges in the graph. If you need to define a [relationship] which is not available
+in the set of [relationship models] provided, that relationship model should be implemented as a first step for graph
+onboarding. Below is an example model for `OwnedBy` relationship:
 
 ```
 namespace com.linkedin.metadata.relationship
@@ -24,13 +24,14 @@ record OwnedBy includes BaseRelationship {
   type: OwnershipType
 }
 ```
-Fields in this model are translated to properties of the graph edge.
-Also, the FQCN of the relationship model, which is `com.linkedin.metadata.relationship.OwnedBy` in this example, is used as the label for edges.
+
+Fields in this model are translated to properties of the graph edge. Also, the FQCN of the relationship model, which is
+`com.linkedin.metadata.relationship.OwnedBy` in this example, is used as the label for edges.
 
 ## 2. Define entity models
-Entity models are used to build nodes in the graph.
-Every GMA [entity] should have its own entity model defined and placed under [entity models] directory.
-Below is an example model for `DatasetEntity` relationship.
+
+Entity models are used to build nodes in the graph. Every GMA [entity] should have its own entity model defined and
+placed under [entity models] directory. Below is an example model for `DatasetEntity` relationship.
 
 ```
 namespace com.linkedin.metadata.entity
@@ -65,13 +66,15 @@ record DatasetEntity includes BaseEntity {
   origin: optional FabricType
 }
 ```
-Fields in this model are translated to properties of the graph node.
-Also, the FQCN of the entity model, which is `com.linkedin.metadata.entity.DatasetEntity` in this case, is used as the label for nodes.
+
+Fields in this model are translated to properties of the graph node. Also, the FQCN of the entity model, which is
+`com.linkedin.metadata.entity.DatasetEntity` in this case, is used as the label for nodes.
 
 ## 3. Implement relationship builders
-You need to implement relationship builders for your specific [aspect]s and [relationship]s if they are not already defined.
-Relationship builders build list of relationships after processing aspects and any relationship builder should implement `BaseRelationshipBuilder` abstract class.
-Relationship builders are per aspect and per relationship type.
+
+You need to implement relationship builders for your specific [aspect]s and [relationship]s if they are not already
+defined. Relationship builders build list of relationships after processing aspects and any relationship builder should
+implement `BaseRelationshipBuilder` abstract class. Relationship builders are per aspect and per relationship type.
 
 ```java
 public abstract class BaseRelationshipBuilder<ASPECT extends RecordTemplate> {
@@ -97,9 +100,9 @@ public abstract class BaseRelationshipBuilder<ASPECT extends RecordTemplate> {
 ```
 
 ## 4. Implement graph builders
-Graph builders build graph updates by processing [snapshot]s. 
-They internally use relationship builders to generate edges and nodes of the graph.
-All relationship builders for an [entity] should be registered through graph builder.
+
+Graph builders build graph updates by processing [snapshot]s. They internally use relationship builders to generate
+edges and nodes of the graph. All relationship builders for an [entity] should be registered through graph builder.
 
 ```java
 public abstract class BaseGraphBuilder<SNAPSHOT extends RecordTemplate> implements GraphBuilder<SNAPSHOT> {
@@ -175,16 +178,18 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
 ```
 
 ## 5. Ingestion into graph
-The ingestion process for each [entity] is done by graph builders. 
-The builders will be invoked whenever an [MAE] is received by [MAE Consumer Job]. 
-Graph builders should be extended from BaseGraphBuilder. Check DatasetGraphBuilder as an example above. 
-For the consumer job to consume those MAEs, you should add your graph builder to the [graph builder registry].
+
+The ingestion process for each [entity] is done by graph builders. The builders will be invoked whenever an [MAE] is
+received by [MAE Consumer Job]. Graph builders should be extended from BaseGraphBuilder. Check DatasetGraphBuilder as an
+example above. For the consumer job to consume those MAEs, you should add your graph builder to the [graph builder
+registry].
 
 ## 6. Graph queries
-You can onboard the graph queries which fit to your specific use cases using [Query DAO]. 
-You also need to create [rest.li](https://rest.li) APIs to serve your graph queries.
-[BaseQueryDAO] provides an abstract implementation of several graph query APIs.
-Refer to [DownstreamLineageResource] rest.li resource implementation to see a use case of graph queries.
+
+You can onboard the graph queries which fit to your specific use cases using [Query DAO]. You also need to create
+[rest.li](https://rest.li) APIs to serve your graph queries. [BaseQueryDAO] provides an abstract implementation of
+several graph query APIs. Refer to [DownstreamLineageResource] rest.li resource implementation to see a use case of
+graph queries.
 
 [relationship]: ../what/relationship.md
 [relationship models]: ../../metadata-models/src/main/pegasus/com/linkedin/metadata/relationship
@@ -194,7 +199,9 @@ Refer to [DownstreamLineageResource] rest.li resource implementation to see a us
 [entity]: ../what/entity.md
 [mae]: ../what/mxe.md#metadata-audit-event-mae
 [mae consumer job]: ../architecture/metadata-ingestion.md#mae-consumer-job
-[graph builder registry]: ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/graph/RegisteredGraphBuilders.java
+[graph builder registry]:
+  ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/graph/RegisteredGraphBuilders.java
 [query dao]: ../architecture/metadata-serving.md#query-dao
-[BaseQueryDAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseQueryDAO.java
-[DownstreamLineageResource]: ../../gms/impl/src/main/java/com/linkedin/metadata/resources/dataset/DownstreamLineageResource.java
+[basequerydao]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseQueryDAO.java
+[downstreamlineageresource]:
+  ../../gms/impl/src/main/java/com/linkedin/metadata/resources/dataset/DownstreamLineageResource.java

@@ -7,10 +7,10 @@ Normally, you'd rebuild your images from scratch with `docker-compose build` (or
 this takes way too long for development. It has to copy the entire repo to each image and rebuild it there.
 
 The `docker-compose.dev.yml` file bypasses this problem by mounting binaries, startup scripts, and other data to
-special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`). 
+special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`).
 
-These dev images will use your _locally built code_, so you'll need to build locally with gradle first
-(and every time you want to update the instance). Building locally should be much faster than building on Docker.
+These dev images will use your _locally built code_, so you'll need to build locally with gradle first (and every time
+you want to update the instance). Building locally should be much faster than building on Docker.
 
 We highly recommend you just invoke the `docker/dev.sh` script we've included. It is pretty small if you want to read it
 to see what it does, but it ends up using our `docker-compose.dev.yml` file.
@@ -44,12 +44,12 @@ JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspe
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
 ```
 
-
 ## Tips for People New To Docker
 
 ## Accessing Logs
 
-It is highly recommended you use [Docker Desktop's dashboard](https://www.docker.com/products/docker-desktop) to access service logs. If you double click an image it will pull up the logs for you.
+It is highly recommended you use [Docker Desktop's dashboard](https://www.docker.com/products/docker-desktop) to access
+service logs. If you double click an image it will pull up the logs for you.
 
 ### Conflicting containers
 
@@ -68,9 +68,11 @@ running. If you, for some reason, wish to change this behavior, check out these 
 ```
 docker-compose -p datahub -f docker-compose.yml -f docker-compose.overrides.yml -f docker-compose.dev.yml up datahub-gms
 ```
+
 Will only start `datahub-gms` and its dependencies.
 
 ```
 docker-compose -p datahub -f docker-compose.yml -f docker-compose.overrides.yml -f docker-compose.dev.yml up --no-deps datahub-gms
 ```
+
 Will only start `datahub-gms`, without dependencies.

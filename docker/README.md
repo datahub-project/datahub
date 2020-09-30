@@ -1,6 +1,7 @@
 # Docker Images
 
 ## Prerequisites
+
 You need to install [docker](https://docs.docker.com/install/) and
 [docker-compose](https://docs.docker.com/compose/install/) (if using Linux; on Windows and Mac compose is included with
 Docker Desktop).
@@ -10,24 +11,25 @@ area.
 
 ## Quickstart
 
-The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images 
-which are continuously deployed to [Docker Hub](https://hub.docker.com/u/linkedin) with every commit to repository.
+The easiest way to bring up and test DataHub is using DataHub [Docker](https://www.docker.com) images which are
+continuously deployed to [Docker Hub](https://hub.docker.com/u/linkedin) with every commit to repository.
 
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).
 
 DataHub Docker Images:
 
-* [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
-* [linkedin/datahub-frontend](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend/)
-* [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)
-* [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
+- [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
+- [linkedin/datahub-frontend](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend/)
+- [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)
+- [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
 Dependencies:
-* [Kafka, Zookeeper, and Schema Registry](kafka-setup)
-* [Elasticsearch](elasticsearch-setup)
-* [MySQL](mysql)
-* [Neo4j](neo4j)
+
+- [Kafka, Zookeeper, and Schema Registry](kafka-setup)
+- [Elasticsearch](elasticsearch-setup)
+- [MySQL](mysql)
+- [Neo4j](neo4j)
 
 ### Ingesting demo data.
 

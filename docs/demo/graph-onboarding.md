@@ -2,13 +2,17 @@
 
 Steps for this already detailed in [How to onboard to GMA graph?](../how/graph-onboarding.md)
 
-For this exercise, we'll add a new relationship type `FollowedBy` which is extracted out of `Follow` aspect. For that, we first need to add `Follow` aspect.
+For this exercise, we'll add a new relationship type `FollowedBy` which is extracted out of `Follow` aspect. For that,
+we first need to add `Follow` aspect.
 
 ## 1. Onboard `Follow` aspect
+
 Referring to [How to add a new metadata aspect?](../how/add-new-aspect.md)
 
 ### 1.1 Model new aspect
-* Follow.pdl
+
+- Follow.pdl
+
 ```
 namespace com.linkedin.common
 
@@ -24,7 +28,8 @@ record Follow {
 }
 ```
 
-* FollowAction.pdl
+- FollowAction.pdl
+
 ```
 namespace com.linkedin.common
 
@@ -45,7 +50,8 @@ record FollowAction {
 }
 ```
 
-* FollowerType.pdl
+- FollowerType.pdl
+
 ```
 namespace com.linkedin.common
 
@@ -59,6 +65,7 @@ typeref FollowerType = union[
 ```
 
 ### 1.2 Update aspect union for dataset
+
 ```
 namespace com.linkedin.metadata.aspect
 
@@ -87,6 +94,7 @@ typeref DatasetAspect = union[
 ```
 
 ## 2. Create `FollowedBy` relationship
+
 ```
 namespace com.linkedin.metadata.relationship
 
@@ -105,13 +113,16 @@ record FollowedBy includes BaseRelationship {
 ```
 
 ## 3. Build the repo to generate Java classes for newly added models
+
 ```
 ./gradlew build -Prest.model.compatibility=ignore
 ```
 
-You can verify that API definitions for /dataset endpoint of GMS as well as MXE schemas are automatically updated to include new model changes.
+You can verify that API definitions for /dataset endpoint of GMS as well as MXE schemas are automatically updated to
+include new model changes.
 
 ## 4. Create `FollowedBy` relationship builder from `Follow` aspect
+
 ```java
 package com.linkedin.metadata.builders.graph.relationship;
 
@@ -204,8 +215,8 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
 
 ## 6. Rebuild & restart all containers with new changes
 
-This is all the code change we need to do to enable linking datasets and corp users (groups as well).
-Now we can re-build & start all Docker images.
+This is all the code change we need to do to enable linking datasets and corp users (groups as well). Now we can
+re-build & start all Docker images.
 
 ```
 ./docker/rebuild-all/rebuild-all.sh
@@ -214,6 +225,7 @@ Now we can re-build & start all Docker images.
 ## 7. That's it. Let's test our new feature!
 
 Let's ingest a user first
+
 ```
 curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '
 {
@@ -232,6 +244,7 @@ curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protoc
 ```
 
 And now let's ingest a dataset with two aspects: Ownership & Follow
+
 ```
 curl 'http://localhost:8080/datasets?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '
 {
@@ -262,7 +275,7 @@ curl 'http://localhost:8080/datasets?action=ingest' -X POST -H 'X-RestLi-Protoco
 }'
 ```
 
-Ownership aspect will help create an `OwnedBy` edge between user & dataset nodes. That existed already.
-Now that we added follow aspect, we'll also be able to see a `FollowedBy` edge between same user & dataset nodes.
+Ownership aspect will help create an `OwnedBy` edge between user & dataset nodes. That existed already. Now that we
+added follow aspect, we'll also be able to see a `FollowedBy` edge between same user & dataset nodes.
 
 You can confirm this by connecting to Neo4j browser on http://localhost:7474/browser

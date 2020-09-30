@@ -18,7 +18,7 @@ Or by building and running the jar:
 ```
 ./gradlew :metadata-ingestion-examples:mce-cli:build
 
-java -jar metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar 
+java -jar metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar
 ```
 
 ### Consuming Events

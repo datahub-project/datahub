@@ -23,17 +23,17 @@
 
 ## Requirements
 
-> What specific requirements does your design need to meet? This should ideally be a bulleted list of items you wish
-> to achieve with your design. This can help everyone involved (including yourself!) make sure your design is robust
-> enough to meet these requirements.
+> What specific requirements does your design need to meet? This should ideally be a bulleted list of items you wish to
+> achieve with your design. This can help everyone involved (including yourself!) make sure your design is robust enough
+> to meet these requirements.
 >
 > Once everyone has agreed upon the set of requirements for your design, we can use this list to review the detailed
 > design.
 
 ### Extensibility
 
-> Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding
-> a new API or set of models that others can build on in later? Please list these concerns here as well.
+> Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding a
+> new API or set of models that others can build on in later? Please list these concerns here as well.
 
 ## Non-Requirements
 
@@ -53,8 +53,8 @@
 
 ## How we teach this
 
-> What names and terminology work best for these concepts and why? How is this idea best presented? As a continuation
-> of existing DataHub patterns, or as a wholly new one?
+> What names and terminology work best for these concepts and why? How is this idea best presented? As a continuation of
+> existing DataHub patterns, or as a wholly new one?
 
 > What audience or audiences would be impacted by this change? Just DataHub backend developers? Frontend developers?
 > Users of the DataHub application itself?
@@ -66,7 +66,7 @@
 
 ## Drawbacks
 
-> Why should we *not* do this? Please consider the impact on teaching DataHub, on the integration of this feature with
+> Why should we _not_ do this? Please consider the impact on teaching DataHub, on the integration of this feature with
 > other existing and planned features, on the impact of the API churn on existing apps, etc.
 
 > There are tradeoffs to choosing any path, please attempt to identify them here.
@@ -80,7 +80,7 @@
 ## Rollout / Adoption Strategy
 
 > If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
-> automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces? 
+> automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces?
 
 ## Future Work
 

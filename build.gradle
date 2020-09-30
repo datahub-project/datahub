@@ -8,6 +8,7 @@ buildscript {
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.2.RELEASE'
+    classpath 'com.diffplug.spotless:spotless-plugin-gradle:5.6.1'
   }
 }
 
@@ -84,6 +85,8 @@ project.ext.externalDependency = [
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]
 
+apply plugin: 'com.diffplug.spotless'
+
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
@@ -125,5 +128,14 @@ subprojects {
         restClientCompile spec.product.pegasus.restliClient
       }
     }
+  }
+}
+
+spotless {
+  format 'md', {
+    target '**/*.md'
+    // These files are synced internally; we don't yet run this plugin internally. Until we do don't format.
+    targetExclude 'datahub-web/**'
+    prettier().config([printWidth: 120, proseWrap: 'always'])
   }
 }

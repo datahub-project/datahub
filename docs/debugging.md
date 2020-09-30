@@ -1,7 +1,9 @@
 # Debugging Guide
 
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
-You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log similar to the below:
+
+You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log
+similar to the below:
 
 ```
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
@@ -19,19 +21,24 @@ c267c287a235        landoop/schema-registry-ui:latest                     "/run.
 ce14b9758eb3        mysql:5.7
 ```
 
-Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you should see a log similar to this at the end of the initialization:
+Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you
+should see a log similar to this at the end of the initialization:
+
 ```
 2020-02-06 09:20:54.870:INFO:oejs.Server:main: Started @18807ms
 ```
 
 For `datahub-frontend`, you should see a log similar to this at the end of the initialization:
+
 ```
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9001
 ```
 
 ## My elasticsearch or broker container exited with error or was stuck forever
 
-If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate
+at least 8GB of RAM + 2GB swap space.
+
 ```
 datahub-gms             | 2020/04/03 14:34:26 Problem with request: Get http://elasticsearch:9200: dial tcp 172.19.0.5:9200: connect: connection refused. Sleeping 1s
 broker                  | [2020-04-03 14:34:42,398] INFO Client session timed out, have not heard from server in 6874ms for sessionid 0x10000023fa60002, closing socket connection and attempting reconnect (org.apache.zookeeper.ClientCnxn)
@@ -40,14 +47,15 @@ schema-registry         | [2020-04-03 14:34:48,518] WARN Client session timed ou
 
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
-You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics. 
-You can run below command to see the Kafka topics created in your Kafka broker.
+You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics. You can run below
+command to see the Kafka topics created in your Kafka broker.
 
 ```bash
 kafkacat -L -b localhost:9092
 ```
 
-Confirm that `MetadataChangeEvent` & `MetadataAuditEvent` topics exist besides the default ones. Example response as below:
+Confirm that `MetadataChangeEvent` & `MetadataAuditEvent` topics exist besides the default ones. Example response as
+below:
 
 ```bash
 Metadata for all topics (from broker 1: localhost:9092/1):
@@ -123,7 +131,8 @@ You can run below command to see the search indices created in your Elasticsearc
 curl http://localhost:9200/_cat/indices
 ```
 
-Confirm that `datasetdocument` & `corpuserinfodocument` indices exist besides the default ones. Example response as below:
+Confirm that `datasetdocument` & `corpuserinfodocument` indices exist besides the default ones. Example response as
+below:
 
 ```bash
 yellow open .monitoring-es-6-2020.01.27     hNu-jjU3Tl2SKKFdXzjxHQ 1 1 27279 34  14.8mb  14.8mb
@@ -139,19 +148,27 @@ yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0 
 
 ## How can I check if data has been loaded into MySQL properly?
 
-Once the mysql container is up and running, you should be able to connect to it dirctly on `localhost:3306` using tools such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke [MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
+Once the mysql container is up and running, you should be able to connect to it dirctly on `localhost:3306` using tools
+such as [MySQL Workbench](https://www.mysql.com/products/workbench/). You can also run the following command to invoke
+[MySQL Command-Line Client](https://dev.mysql.com/doc/refman/8.0/en/mysql.html) inside the mysql container.
 
 ```
 docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
 ```
 
-Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities. 
+Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities.
 
 ## Getting error while starting Docker containers
+
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
 
 ### `bind: address already in use`
-This error means that the network port (which is supposed to be used by the failed container) is already in use on your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If you don't want to kill the process which is using that port, another option is to change the port number for the Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
+
+This error means that the network port (which is supposed to be used by the failed container) is already in use on your
+system. You need to find and kill the process which is using this specific port before starting the corresponding Docker
+container. If you don't want to kill the process which is using that port, another option is to change the port number
+for the Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports)
+parameter for the specific Docker container in the `docker-compose.yml` configuration file.
 
 ```
 Example : On macOS
@@ -160,37 +177,50 @@ ERROR: for mysql  Cannot start service mysql: driver failed programming external
 
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
-``` 
+```
+
 ### `OCI runtime create failed`
+
 If you see an error message like below, please make sure to git update your local repo to HEAD.
+
 ```
 ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI runtime create failed: container_linux.go:349: starting container process caused "exec: \"bash\": executable file not found in $PATH": unknown
 ```
 
 ### `failed to register layer: devmapper: Unknown device`
+
 This most means that you're out of disk space (see [#1879](https://github.com/linkedin/datahub/issues/1879)).
 
 ## toomanyrequests: too many failed login attempts for username or IP address
+
 Try the following
+
 ```bash
 rm ~/.docker/config.json
 docker login
 ```
+
 More discussions on the same issue https://github.com/docker/hub-feedback/issues/1250
 
 ## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
-This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/linkedin/datahub/issues/1816)). Please run the following command to manually initialize it.
+
+This means the database wasn't properly initialized as part of the quickstart processs (see
+[#1816](https://github.com/linkedin/datahub/issues/1816)). Please run the following command to manually initialize it.
+
 ```
 docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql
 ```
 
 ## I've messed up my docker setup. How do I start from scratch?
-1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
+
+1. Delete _all_ docker containers, including ones that are created outside of the quickstart guide.
+
 ```
 docker rm -f $(docker ps -aq)
 ```
+
 2. Drop all DataHub's docker volumes.
+
 ```
 docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
 ```
-
