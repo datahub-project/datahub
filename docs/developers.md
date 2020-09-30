@@ -50,9 +50,13 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue. 
 
-### Getting `Execution failed for task ':gms:impl:checkRestModel'`
+### `Execution failed for task ':gms:impl:checkRestModel'`
 
 This generally means that an [incompatible change](https://linkedin.github.io/rest.li/modeling/compatibility_check) was introduced to the rest.li API in GMS. You'll need to rebuild the snapshots/IDL by running the following command once
 ```
 ./gradlew :gms:impl:build -Prest.model.compatibility=ignore
 ```
+
+### `java.io.IOException: No space left on device`
+
+This means you're running out of space on your disk to build. Please free up some space or try a different disk.
