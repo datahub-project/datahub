@@ -45,7 +45,7 @@ successful release on Github will automatically publish the images.
 ### Building images
 
 > This is **not** our recommended development flow and most developers should be following the
-> [Using Docker Images During Development](#using-docker-images-during-development) guide.
+> [Using Docker Images During Development](../docs/docker/development.md) guide.
 
 To build the full images (that we are going to publish), you need to run the following:
 
