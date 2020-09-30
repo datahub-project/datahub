@@ -35,3 +35,4 @@
 * [数据治理工具调研之DataHub](https://www.cnblogs.com/CodingJacob/p/di2jiang-gong-ju-diao-yan-zhidatahub.html)
 * [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)
 * [Linkedin bringt Open-Source-Datahub](https://www.itmagazine.ch/artikel/71532/Linkedin_bringt_Open-Source-Datahub.html)
+* [DataHub: универсальный инструмент поиска и обнаружения метаданных](https://habr.com/ru/post/520930/)
