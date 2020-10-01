@@ -19,3 +19,17 @@ DataHub components that connect to Kafka are currently:
 - mce-consumer-job
 - mae-consumer-job
 - gms
+- Various ingestion example apps
+
+## Configuring Topic Names
+
+By default, ingestion relies upon the `MetadataChangeEvent_v4`, `MetadataAuditEvent_v4`, and `FailedMetadataChangeEvent` kafka topics by default for
+[metadata events](https://github.com/linkedin/datahub/blob/master/docs/what/mxe.md.
+
+We've included environment variables to customize the name each of these topics, if your company or organization has naming rules for your topics.
+
+- `METADATA_CHANGE_EVENT_NAME`: The name of the metadata change event topic.
+- `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
+- `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the failed metadata change event topic.
+
+Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
