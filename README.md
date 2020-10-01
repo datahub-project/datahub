@@ -92,6 +92,7 @@ Here is a list of companies that are currently building POC or seriously evaluat
 * [University of Phoenix](https://www.phoenix.edu)
 * [Vectice](https://www.vectice.com)
 * [Viasat](https://viasat.com)
+* [Wolt](https://wolt.com)
 * [Weee!](https://www.sayweee.com)
 
 ## Select Articles & Talks
