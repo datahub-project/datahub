@@ -208,6 +208,28 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   healthScore?: number;
 
   /**
+   * For open source support only, creates a reference to the customProperties, which can be found as an aspect of the
+   * dataset entity. This helps to display various properties that may be specific to certain datasets and allows for
+   * flexible display
+   */
+  @oneWay('entity.customProperties')
+  customProperties?: Com.Linkedin.Dataset.DatasetProperties['customProperties'];
+
+  /**
+   * Computes the custom dataset properties as a list of label and values rather than object mapping
+   */
+  @computed('customProperties')
+  get customDatasetProperties(): Array<{ label: string; value: string }> | void {
+    const { customProperties } = this;
+    if (customProperties) {
+      return Object.keys(customProperties).map((key): { label: string; value: string } => ({
+        label: key,
+        value: customProperties[key]
+      }));
+    }
+  }
+
+  /**
    * Platform native type, for example it can be TABLE or VIEW for Hive.
    */
   @reads('entity.platformNativeType')
