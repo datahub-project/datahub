@@ -6,7 +6,7 @@ For this exercise, we'll add a new field to an existing aspect of corp users and
 
 This document will also guide you on how to leverage an existing field for faceted search i.e. use the field in aggregations, sorting or in a script.
 
-## 1. Add field to aspect (skip this step if the field already exists in an aspect)
+## 1: Add field to aspect (skip this step if the field already exists in an aspect)
 
 For this example, we will add new field `courses` to [CorpUserEditableInfo](../../metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdl) which is an aspect of corp user entity.
 
@@ -29,7 +29,7 @@ record CorpUserEditableInfo {
 }
 ```
 
-## 2. Add field to search document model
+## 2: Add field to search document model
 
 For this example, we will add field `courses` to [CorpUserInfoDocument.pdl](../../metadata-models/src/main/pegasus/com/linkedin/metadata/search/CorpUserInfoDocument.pdl) which is the search document model for corp user entity.
 
@@ -51,7 +51,7 @@ record CorpUserInfoDocument includes BaseDocument {
 }
 ```
 
-## 3. Modify the mapping of search index
+## 3: Modify the mapping of search index
 
 Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
@@ -100,7 +100,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 
 More on this is explained in [ES guides](https://www.elastic.co/guide/en/elasticsearch/reference/current/fielddata.html).
 
-## 4. Modify index config, so that the new mapping is picked up next time
+## 4: Modify index config, so that the new mapping is picked up next time
 
 If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json).
 
@@ -130,7 +130,7 @@ If you want corp user search index to contain this new field `courses` next time
 
 Choose your analyzer wisely. For this example, we store the field `courses` as an array of string and hence use `text` data type. Default analyzer is `standard` and it provides grammar based tokenization.
 
-## 5. Update the index builder logic
+## 5: Update the index builder logic
 
 Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in [CorpUserInfoIndexBuilder](../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/CorpUserInfoIndexBuilder.java).
 
