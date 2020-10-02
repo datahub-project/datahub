@@ -80,28 +80,44 @@
         {{#each container.datasetTabs as |tabComponent|}}
           {{#tabs.tabpanel tabComponent.id}}
             <Nacho::NachoTabCacher @lazyRender={{tabComponent.lazyRender}} @id={{tabComponent.id}} @currentTab={{container.tabSelected}}>
-              {{component
-                tabComponent.contentComponent
-                entity=(readonly container.entity)
-                dataset=(readonly container.entity.legacyDataset)
-                snapshot=(readonly container.entity.snapshot)
-                urn=(readonly container.urn)
-                avatarProperties=container.avatarEntityProps
-                jitAclConfig=container.jitAclConfig
-                currentUsername=@userName
-                wikiLinks=container.wikiLinks
-                datasetName=container.entity.name
-                aclMoreInfoLink=container.wikiLinks.jitAcl
-                notifyPiiStatus=(action container.onNotifyPiiStatus)
-                setOwnershipRuleChange=(action container.setOwnershipRuleChange)
-                requestJitAccess=(hash
+
+              {{!-- We presume here that if we have a tabComponent.contentComponent.name then we are using a
+                    component object and not just a string name identifier
+                --}}
+
+              {{#if tabComponent.contentComponent.name}}
+
+                {{component
+                  tabComponent.contentComponent.name
+                  entity=(readonly container.entity)
+                  options=tabComponent.contentComponent.options
+                }}
+
+              {{else}}
+
+                {{component
+                  tabComponent.contentComponent
+                  entity=(readonly container.entity)
+                  dataset=(readonly container.entity.legacyDataset)
+                  snapshot=(readonly container.entity.snapshot)
+                  urn=(readonly container.urn)
+                  avatarProperties=container.avatarEntityProps
                   jitAclConfig=container.jitAclConfig
-                  requestJitUrns=@requestJitUrns
-                  addRequestJitUrn=(fn @addRequestJitUrn)
-                  removeRequestJitUrn=(fn @removeRequestJitUrn)
-                  resetRequestJitUrns=(fn @resetRequestJitUrns)
-                )
-              }}
+                  currentUsername=@userName
+                  wikiLinks=container.wikiLinks
+                  datasetName=container.entity.name
+                  aclMoreInfoLink=container.wikiLinks.jitAcl
+                  notifyPiiStatus=(action container.onNotifyPiiStatus)
+                  setOwnershipRuleChange=(action container.setOwnershipRuleChange)
+                  requestJitAccess=(hash
+                    jitAclConfig=container.jitAclConfig
+                    requestJitUrns=@requestJitUrns
+                    addRequestJitUrn=(fn @addRequestJitUrn)
+                    removeRequestJitUrn=(fn @removeRequestJitUrn)
+                    resetRequestJitUrns=(fn @resetRequestJitUrns)
+                  )
+                }}
+              {{/if}}
             </Nacho::NachoTabCacher>
           {{/tabs.tabpanel}}
         {{/each}}
