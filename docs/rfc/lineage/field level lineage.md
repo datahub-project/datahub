@@ -241,7 +241,7 @@ Haven't thought about any potential drawbacks.
 In the alternate design, we wouldn't need to consider defining a dataset field urn. There is an extensive RFC and discussion on this at ( #1784 )
 
 ## Rollout / Adoption Strategy
-This introduces a new aspect `DatasetUpstrealmLineage` which is capable of defining lineage at field level. Hence, the existing customers shouldn't be impacted with this change.  
+This introduces a new aspect `DatasetUpstreamLineage` which is capable of defining lineage at field level. Hence, the existing customers shouldn't be impacted with this change.  
 
 ## Unresolved questions
 - The syntax of transformation function representing how the source fields got transformed to destination fields is not thought through.
