@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-import com.linkedin.common.factory.Neo4jDriverFactory;
+import com.linkedin.gms.factory.common.Neo4jDriverFactory;
 import com.linkedin.metadata.dao.internal.BaseGraphWriterDAO;
 import com.linkedin.metadata.dao.internal.Neo4jGraphWriterDAO;
 

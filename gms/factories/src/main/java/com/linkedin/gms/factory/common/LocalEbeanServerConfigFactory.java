@@ -1,4 +1,4 @@
-package com.linkedin.common.factory;
+package com.linkedin.gms.factory.common;
 
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;

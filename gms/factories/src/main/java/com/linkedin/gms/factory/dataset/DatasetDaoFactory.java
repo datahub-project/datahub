@@ -1,6 +1,6 @@
-package com.linkedin.dataset.factory;
+package com.linkedin.gms.factory.dataset;
 
-import com.linkedin.common.factory.TopicConventionFactory;
+import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;

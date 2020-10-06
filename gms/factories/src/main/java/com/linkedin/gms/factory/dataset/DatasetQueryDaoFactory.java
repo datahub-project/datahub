@@ -1,4 +1,4 @@
-package com.linkedin.dataset.factory;
+package com.linkedin.gms.factory.dataset;
 
 import com.linkedin.metadata.dao.Neo4jQueryDAO;
 import org.neo4j.driver.Driver;

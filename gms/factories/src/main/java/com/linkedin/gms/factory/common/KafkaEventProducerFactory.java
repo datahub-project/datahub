@@ -1,4 +1,4 @@
-package com.linkedin.common.factory;
+package com.linkedin.gms.factory.common;
 
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;

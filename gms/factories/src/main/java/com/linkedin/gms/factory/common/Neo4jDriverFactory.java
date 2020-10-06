@@ -1,4 +1,4 @@
-package com.linkedin.common.factory;
+package com.linkedin.gms.factory.common;
 
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;

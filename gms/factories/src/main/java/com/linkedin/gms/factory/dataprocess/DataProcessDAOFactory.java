@@ -1,6 +1,6 @@
-package com.linkedin.dataprocess.factory;
+package com.linkedin.gms.factory.dataprocess;
 
-import com.linkedin.common.factory.TopicConventionFactory;
+import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
