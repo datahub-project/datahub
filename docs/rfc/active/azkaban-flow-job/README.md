@@ -58,23 +58,23 @@ There will be 2 top level GMA [entities](../../../what/entity.md) in the design:
 We'll define two [URNs](../../../what/urn.md): `DataJobUrn` and `DataFlowUrn`.
 These URNs should allow for unique identification for a Data job and flow respectively.
 
-An example Data flow URN will look like below:
+DataFlow URN will consist of the following parts:
+1. Workflow manager type (e.g. azkaban, airflow etc)
+2. Flow id - Id of a flow unique within a cluster
+3. Cluster - Cluster where the flow is deployed/executed
+
+DataJob URN will consist of the following parts:
+1. Flow Urn - Urn of the data flow this job is part of
+2. Job id - Unique id of the job within the flow
+
+An example DataFlow URN will look like below:
 ```
 urn:li:dataFlow:(azkaban,flow_id,cluster)
 ```
-An example Data job URN will look like below:
-```
-urn:li:dataJob:(azkaban,job_id,cluster)
-```
 
-An example DataFlow URN for azkaban will look like below:
+An example DataJob URN will look like below:
 ```
-urn:li:dataFlow:(azkaban,flow1,cluster1)
-```
-
-An example DataJob URN for azkaban will look like below:
-```
-urn:li:dataFlow:(azkaban,flow1_job1,cluster1)
+urn:li:dataJob:(urn:li:dataFlow:(azkaban,flow_id,cluster),job_id)
 ```
 
 ### Azkaban Flow metadata
