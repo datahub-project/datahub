@@ -1,7 +1,7 @@
 package com.linkedin.ml.client;
 
+import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.MLModelUrn;
-import com.linkedin.common.client.MLModelsClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.ml.MLModel;
 import com.linkedin.ml.MLModelKey;
@@ -22,7 +22,7 @@ import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class MLModels extends MLModelsClient {
+public class MLModels extends BaseClient {
     private static final MlModelsRequestBuilders ML_MODELS_REQUEST_BUILDERS = new MlModelsRequestBuilders();
 
     public MLModels(@Nonnull Client restliClient) {
@@ -119,5 +119,18 @@ public class MLModels extends MLModelsClient {
     @Nonnull
     private MLModelUrn getUrnFromKey(@Nonnull ComplexResourceKey<MLModelKey, EmptyRecord> key) {
         return toModelUrn(key.getKey());
+    }
+
+    @Nonnull
+    protected MLModelKey toMLModelKey(@Nonnull MLModelUrn urn) {
+        return new MLModelKey()
+            .setName(urn.getMlModelNameEntity())
+            .setOrigin(urn.getOriginEntity())
+            .setPlatform(urn.getPlatformEntity());
+    }
+
+    @Nonnull
+    protected MLModelUrn toModelUrn(@Nonnull MLModelKey key) {
+        return new MLModelUrn(key.getPlatform(), key.getName(), key.getOrigin());
     }
 }

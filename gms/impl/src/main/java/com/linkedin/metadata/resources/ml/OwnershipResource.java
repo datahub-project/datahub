@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  * Rest.li entry point: /mlModels/{mlModelKey}/ownership
  */
 @Slf4j
-@RestLiCollection(name = "ownership", namespace = "com.linkedin.dataset", parent = MLModels.class)
+@RestLiCollection(name = "ownership", namespace = "com.linkedin.ml", parent = MLModels.class)
 public class OwnershipResource extends BaseMLModelsAspectResource<Ownership> {
 
     public OwnershipResource() {

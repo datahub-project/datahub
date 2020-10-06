@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.ml;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -208,10 +209,56 @@ public class MLModels extends BaseSearchableEntityResource<
         return mlModelFactors;
     }
 
+    /**
+     * MLModelFactors are not reversible to MLModelFactorPrompts so generated Snapshot will not have factors.
+     */
     @Nonnull
     @Override
     protected MLModelSnapshot toSnapshot(@Nonnull MLModel mlModel, @Nonnull MLModelUrn urn) {
-        return null;
+        final List<MLModelAspect> aspects = new ArrayList<>();
+        if (mlModel.hasCaveatsAndRecommendations()) {
+          aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getCaveatsAndRecommendations()));
+        }
+        if (mlModel.hasCost()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getCost()));
+        }
+        if (mlModel.hasDeprecation()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getDeprecation()));
+        }
+        if (mlModel.hasEthicalConsiderations()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getEthicalConsiderations()));
+        }
+        if (mlModel.hasEvaluationData()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getEvaluationData()));
+        }
+        if (mlModel.hasInstitutionalMemory()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getInstitutionalMemory()));
+        }
+        if (mlModel.hasIntendedUse()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getIntendedUse()));
+        }
+        if (mlModel.hasMetrics()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getMetrics()));
+        }
+        if (mlModel.hasMlModelProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getMlModelProperties()));
+        }
+        if (mlModel.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getOwnership()));
+        }
+        if (mlModel.hasQuantitativeAnalyses()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getQuantitativeAnalyses()));
+        }
+        if (mlModel.hasSourceCode()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getSourceCode()));
+        }
+        if (mlModel.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getStatus()));
+        }
+        if (mlModel.hasTrainingData()) {
+            aspects.add(ModelUtils.newAspectUnion(MLModelAspect.class, mlModel.getTrainingData()));
+        }
+        return ModelUtils.newSnapshot(MLModelSnapshot.class, urn, aspects);
     }
 
     @RestMethod.Get

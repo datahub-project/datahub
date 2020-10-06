@@ -282,7 +282,7 @@
         }
       }, {
         "name" : "ownership",
-        "namespace" : "com.linkedin.dataset",
+        "namespace" : "com.linkedin.ml",
         "path" : "/mlModels/{model}/ownership",
         "schema" : "com.linkedin.common.Ownership",
         "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/ownership\n\ngenerated from: com.linkedin.metadata.resources.ml.OwnershipResource",

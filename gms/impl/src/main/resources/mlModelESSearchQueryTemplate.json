@@ -7,44 +7,13 @@
             "query_string": {
               "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
-              "boost": 0.065,
-              "default_field": "evaluationDatasets",
-              "default_operator": "OR"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 0.075,
-              "default_field": "trainingDatasets",
-              "default_operator": "OR"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 0.035,
-              "default_field": "description",
-              "default_operator": "OR"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 0.055,
-              "default_field": "platform",
-              "default_operator": "OR"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 0.01,
-              "default_field": "type",
+              "fields": [
+                "evaluationDatasets^0.065",
+                "trainingDatasets^0.075",
+                "description^0.035",
+                "platform^0.055",
+                "type^0.01"
+              ],
               "default_operator": "OR"
             }
           },
@@ -53,34 +22,13 @@
               "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
               "boost": 0.125,
-              "default_field": "name.ngram",
-              "default_operator": "AND"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 8,
-              "default_field": "name.model_pattern_ngram",
-              "default_operator": "AND"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 1,
-              "default_field": "name.delimited",
-              "default_operator": "AND"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "boost": 8,
-              "default_field": "name.pattern",
+              "fields": [
+                "name.ngram^0.125",
+                "name.ml_model_pattern_ngram^8",
+                "name.delimited^1",
+                "name.pattern^8",
+
+              ],
               "default_operator": "AND"
             }
           },
