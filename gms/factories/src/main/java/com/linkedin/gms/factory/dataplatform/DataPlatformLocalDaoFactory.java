@@ -1,4 +1,4 @@
-package com.linkedin.dataplatform.factory;
+package com.linkedin.gms.factory.dataplatform;
 
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.metadata.aspect.DataPlatformAspect;

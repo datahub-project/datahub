@@ -1,4 +1,4 @@
-package com.linkedin.identity.factory;
+package com.linkedin.gms.factory.identity;
 
 import com.linkedin.metadata.configs.CorpGroupSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
