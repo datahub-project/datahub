@@ -1,8 +1,7 @@
-package com.linkedin.dataset.factory;
+package com.linkedin.gms.factory.dataset;
 
-import com.linkedin.metadata.configs.DatasetSearchConfig;
-import com.linkedin.metadata.dao.search.ESSearchDAO;
-import com.linkedin.metadata.search.DatasetDocument;
+import com.linkedin.metadata.configs.DatasetBrowseConfig;
+import com.linkedin.metadata.dao.browse.ESBrowseDAO;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -12,17 +11,15 @@ import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.Nonnull;
 
-
 @Configuration
-public class DatasetSearchDAOFactory {
+public class DatasetBrowseDAOFactory {
   @Autowired
   ApplicationContext applicationContext;
 
   @Nonnull
+  @Bean(name = "datasetBrowseDao")
   @DependsOn({"elasticSearchRestHighLevelClient"})
-  @Bean(name = "datasetSearchDao")
-  protected ESSearchDAO createInstance() {
-    return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), DatasetDocument.class,
-        new DatasetSearchConfig());
+  protected ESBrowseDAO createInstance() {
+    return new ESBrowseDAO(applicationContext.getBean(RestHighLevelClient.class), new DatasetBrowseConfig());
   }
 }

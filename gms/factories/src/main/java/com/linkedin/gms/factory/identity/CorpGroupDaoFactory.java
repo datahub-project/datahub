@@ -1,11 +1,11 @@
-package com.linkedin.identity.factory;
+package com.linkedin.gms.factory.identity;
 
-import com.linkedin.common.factory.TopicConventionFactory;
-import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.metadata.aspect.CorpUserAspect;
+import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.mxe.TopicConvention;
 import io.ebean.config.ServerConfig;
 import org.apache.kafka.clients.producer.Producer;
@@ -19,18 +19,18 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
-public class CorpUserDaoFactory {
+public class CorpGroupDaoFactory {
   @Autowired
   ApplicationContext applicationContext;
 
-  @Bean(name = "corpUserDao")
+  @Bean(name = "corpGroupDao")
   @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
   @Nonnull
   protected EbeanLocalDAO createInstance() {
-    KafkaMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, CorpuserUrn> producer =
-        new KafkaMetadataEventProducer(CorpUserSnapshot.class, CorpUserAspect.class,
+    KafkaMetadataEventProducer<CorpGroupSnapshot, CorpGroupAspect, CorpGroupUrn> producer =
+        new KafkaMetadataEventProducer(CorpGroupSnapshot.class, CorpGroupAspect.class,
             applicationContext.getBean(Producer.class), applicationContext.getBean(TopicConvention.class));
-    return new EbeanLocalDAO<>(CorpUserAspect.class, producer, applicationContext.getBean(ServerConfig.class),
-        CorpuserUrn.class);
+    return new EbeanLocalDAO<>(CorpGroupAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        CorpGroupUrn.class);
   }
 }

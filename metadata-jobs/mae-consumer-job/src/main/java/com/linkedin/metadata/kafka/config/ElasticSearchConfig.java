@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-import com.linkedin.common.factory.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.metadata.builders.search.RegisteredIndexBuilders;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.utils.elasticsearch.ElasticsearchConnector;

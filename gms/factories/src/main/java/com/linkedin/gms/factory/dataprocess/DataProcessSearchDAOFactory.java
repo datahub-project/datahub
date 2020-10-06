@@ -1,4 +1,4 @@
-package com.linkedin.dataprocess.factory;
+package com.linkedin.gms.factory.dataprocess;
 
 import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
