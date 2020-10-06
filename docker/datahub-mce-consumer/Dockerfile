@@ -29,6 +29,9 @@ FROM base as dev-install
 
 FROM ${APP_ENV}-install as final
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub
+USER datahub
+
 EXPOSE 9090
 
 CMD /datahub/datahub-mce-consumer/scripts/start.sh
