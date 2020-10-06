@@ -1,11 +1,11 @@
 # DataHub Town Hall
 
 We hold regular virtual town hall meetings to meet with DataHub community. 
-Currently it's held on the last Friday of every month.
+Currently it's held on the first Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - August 28th, 2020 @ 9 AM US Pacific (GMT-7)
+# Coming up - November 06th, 2020 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
@@ -66,10 +66,8 @@ https://linkedin.zoom.us/skype/95617940722
 ## Agenda
 
 - Quick intro - 5 mins
-- [Presentation] Data Governance look for a Digital Bank - by [Sheetal Pratik](https://www.linkedin.com/in/sheetalpratik/) from Saxo Bank (20 mins)
-- [Demo] Column level lineage for datasets - by [Nagarjuna](https://www.linkedin.com/in/nagarjunak/) from LinkedIn (15 mins)
-- General Q&A from sign up sheet and participants - 15 mins
-- Closing remarks - 5 mins
+- [Presentation] TBD
+- [Demo] TBD
 
 # Past Meetings
 
