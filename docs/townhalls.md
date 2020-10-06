@@ -64,10 +64,8 @@ https://linkedin.zoom.us/skype/95617940722
 </details>
 
 ## Agenda
+Coming soon!
 
-- Quick intro - 5 mins
-- [Presentation] TBD
-- [Demo] TBD
 
 # Past Meetings
 
