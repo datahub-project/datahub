@@ -45,7 +45,7 @@ def build_dataset_mce(platform, dataset_name, columns):
     """
     Creates MetadataChangeEvent for the dataset.
     """
-    actor, sys_time = "urn:li:corpuser:etl", int(time.time())
+    actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
 
     fields = []
     for column in columns:
