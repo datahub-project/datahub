@@ -6,6 +6,10 @@
 
   &__title {
     margin: 0;
+
+    &-prominent {
+      font-weight: fw(normal, 6);
+    }
   }
 
   &__score {

@@ -10,9 +10,8 @@
             children are grouped logically using a wrapping element if the elements should not
             be treated as direct children
         }}
-        <span class="{{this.baseClass}}__title-group">
-          <strong>Overall Health:</strong>
-
+        <span class="{{this.baseClass}}__title-group {{this.baseClass}}__title-group--prominent">
+          Overall Health:
           <Health::HealthScoreValue @score={{this.healthProxy.score}}/>
         </span>
 

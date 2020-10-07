@@ -1,4 +1,4 @@
-import { Server, Request, HandlerFunction } from 'ember-cli-mirage';
+import { Server, HandlerFunction } from 'ember-cli-mirage';
 import { setup } from '@datahub/shared/mirage-addon/mirage-config';
 import {
   getInstitutionalMemory,
@@ -13,14 +13,6 @@ import { IFollowsAspect } from '@datahub/metadata-types/types/aspects/social-act
  */
 export default function(this: Server): void {
   setup(this);
-
-  this.get('/features/:urn', function(_schema: unknown, request: Request) {
-    return { urn: request.params.urn };
-  });
-
-  this.get('/features/snapshots/:urns', function(_schema: unknown, request: Request) {
-    return (request.params.urns as string).split(';').map((urn: string) => ({ urn }));
-  });
 
   this.namespace = '';
   this.get('/pokemons/:urn/institutionalmemory', (getInstitutionalMemory as unknown) as HandlerFunction);

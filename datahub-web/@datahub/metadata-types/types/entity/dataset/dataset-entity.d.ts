@@ -35,4 +35,6 @@ export interface IDatasetEntity {
   uri: string;
   // The health score for the dataset entity
   healthScore: number;
+  // Open source support only, this property accesses a variety of properties of the dataset that are to be presented
+  customProperties?: Com.Linkedin.Dataset.DatasetProperties['customProperties'];
 }

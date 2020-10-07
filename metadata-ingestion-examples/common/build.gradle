@@ -12,6 +12,7 @@ dependencies {
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
   compile externalDependency.springKafka
+  compile externalDependency.zookeeper
 
   annotationProcessor externalDependency.lombok
 

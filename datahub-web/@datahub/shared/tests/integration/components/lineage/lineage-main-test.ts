@@ -6,13 +6,11 @@ import setupMirage from 'ember-cli-mirage/test-support/setup-mirage';
 import { MirageTestContext } from '@datahub/utils/types/vendor/ember-cli-mirage/mirage-tests';
 import { setupErrorHandler } from '@datahub/utils/test-helpers/setup-error';
 import { lineageGraph } from '../../../helpers/graph/graphs';
-import { setupHandlerRegistrations } from '@datahub/shared/test-helpers/setup-handler-registrations';
 
 module('Integration | Component | lineage/lineage-main', function(hooks) {
   setupRenderingTest(hooks);
   setupMirage(hooks);
   setupErrorHandler(hooks, { catchMsgs: ['Unexpected token i in JSON at position 2'] });
-  setupHandlerRegistrations(hooks);
 
   test('error case', async function(this: MirageTestContext, assert) {
     this.server.namespace = '/api/v2';

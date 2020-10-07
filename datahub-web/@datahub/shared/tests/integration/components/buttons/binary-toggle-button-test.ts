@@ -37,7 +37,7 @@ module('Integration | Component | buttons/binary-toggle-button', function(hooks)
     assert.dom(denyButton).hasStyle({ color: 'rgb(255, 44, 51)' });
 
     this.setProperties({ state: buttonState, stateLabels });
-    assert.dom().hasText(`${stateLabels[buttonState]} Undo`, 'Expected button state to be rendered');
+    assert.dom().hasText(`${stateLabels[buttonState]}`, 'Expected button state to be rendered');
     assert.equal(document.querySelectorAll(`.${buttonClass}`).length, 0, 'Expected buttons to no longer be rendered');
 
     this.setProperties({ state: undefined, onAffirm, onDeny });
@@ -68,7 +68,7 @@ module('Integration | Component | buttons/binary-toggle-button', function(hooks)
       />
     `);
 
-    assert.dom().hasText(`${stateLabels[buttonState]} Undo`, 'Expected button state to be rendered');
+    assert.dom().hasText(`${stateLabels[buttonState]}`, 'Expected button state to be rendered');
 
     await click(`.${buttonClass}__reverse`);
     assert.ok(onUndo.called, 'Expected the external handler for onUndo to be invoked');

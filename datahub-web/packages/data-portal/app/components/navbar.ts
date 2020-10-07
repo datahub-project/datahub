@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { tagName } from '@ember-decorators/component';
-import Configurator from 'datahub-web/services/configurator';
+import Configurator from '@datahub/shared/services/configurator';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { inject as service } from '@ember/service';
 import CurrentUser from '@datahub/shared/services/current-user';

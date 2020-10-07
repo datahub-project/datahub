@@ -1,5 +1,5 @@
 import { ApiStatus, getApiRoot } from '@datahub/utils/api/shared';
-import { IAuthenticateResponse, ICurrentUserResponse } from 'datahub-web/typings/api/authentication/user';
+import { IAuthenticateResponse, ICurrentUserResponse } from '@datahub/shared/types/authentication/user';
 import $ from 'jquery';
 import { IUser } from '@datahub/metadata-types/types/common/user';
 

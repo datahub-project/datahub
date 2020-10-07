@@ -1,7 +1,6 @@
 import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { DataModelName } from '@datahub/data-models/constants/entity';
-import { supportedListEntities } from '@datahub/shared/constants/lists/shared';
 import Transition from '@ember/routing/-private/transition';
 import { inject as service } from '@ember/service';
 import DataModelsService from '@datahub/data-models/services/data-models';
@@ -49,11 +48,7 @@ export default class ListsEntity extends Route.extend(AuthenticatedRouteMixin) {
    * @memberof ListsEntity
    */
   checkEntitySupport(entity?: DataModelName): void {
-    if (
-      entity &&
-      !this.dataModels.guards.isGuardedEntity(entity) &&
-      supportedListEntities.includes(entity) // Allow includes check for all data model entity types
-    ) {
+    if (entity && !this.dataModels.guards.isGuardedEntity(entity)) {
       return;
     }
 

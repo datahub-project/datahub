@@ -6,6 +6,9 @@ $max-container-width: 1128px;
 
 /** **************** COLOR CONCERNS **************** **/
 
+// The standardized color opacities in the application
+$email-content-color-opacity: 0.95;
+
 /// All the available colors we want to be able to work with in our application. This is currently only for
 /// internal use only, which is why this file has been added to .npmignore. A proper theme will be released in
 /// the future as a sample for the open source world
@@ -153,21 +156,26 @@ $color-bin: (
 
 /// Regular font family
 /// @type List
-$text-font-stack: ('Source Sans Pro', 'Helvetica', 'Arial', sans-serif) !default;
+$text-font-stack: ('Lato', 'Helvetica', 'Arial', sans-serif) !default;
 $font-weights: (
   normal: (
-    2: 200,
-    3: 300,
-    4: 400,
-    6: 600,
-    // numeric font weight equivalent to "bold"
-      7: 700
+    // super thin
+      2: 100,
+    // thin
+      3: 300,
+    // standard
+      4: 400,
+    // bold
+      6: 700,
+    // super bold
+      7: 900
   ),
   italic: (
-    2: 200,
+    2: 100,
     3: 300,
     4: 400,
-    6: 600
+    6: 700,
+    7: 900
   )
 );
 
@@ -238,4 +246,9 @@ $glyphicons-stack: ('Glyphicons Halflings', sans-serif);
   );
 
   @return map-get($image-resources, $image-ref);
+}
+
+@mixin font-standard() {
+  font-weight: fw(normal, 4);
+  color: $text-color;
 }

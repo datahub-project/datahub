@@ -14,7 +14,6 @@ import { readUpstreamDatasets } from '@datahub/data-models/api/dataset/lineage';
 import { DatasetLineageList } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { getRenderProps } from '@datahub/data-models/entity/dataset/render-props';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared';
-import { IDatasetSnapshot } from '@datahub/metadata-types/types/metadata/dataset-snapshot';
 import { every } from 'lodash';
 import DatasetComplianceSuggestion from '@datahub/data-models/entity/dataset/modules/compliance-suggestion';
 import { SuggestionIntent } from '@datahub/data-models/constants/entity/dataset/compliance-suggestions';
@@ -25,12 +24,12 @@ import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
 import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
 import { oneWay, alias, reads } from '@ember/object/computed';
 import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
-// import { toLegacy } from '@datahub/data-models/entity/dataset/utils/legacy';
 import { readDatasetOwnersByUrn } from '@datahub/data-models/api/dataset/ownership';
 import { transformOwnersResponseIntoOwners } from '@datahub/data-models/entity/dataset/utils/owner';
 import { readInstitutionalMemory, writeInstitutionalMemory } from '@datahub/data-models/entity/institutional-memory';
 import { relationship } from '@datahub/data-models/relationships/decorator';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import titleize from '@nacho-ui/core/utils/strings/titleize';
 
 /**
  * Defines the data model for the Dataset entity.
@@ -113,7 +112,7 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    * Reads the snapshots for a list of Dataset urns
    * @static
    */
-  static readSnapshots(_urns: Array<string>): Promise<Array<IDatasetSnapshot>> {
+  static readSnapshots(_urns: Array<string>): Promise<Array<Com.Linkedin.Metadata.Snapshot.DatasetSnapshot>> {
     throw new Error(NotImplementedError);
   }
 
@@ -144,6 +143,24 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    * @type {Array<DatasetLineage>}
    */
   upstreams?: Array<DatasetLineage>;
+
+  /**
+   * Allows us to, instead of relying on the actual lineage objects for fetching the upstream datasets, create a
+   * connection to the raw information within the instantiated lineage piece to form a relationship to other dataset
+   * entities
+   * @note WARNING - do not use this property directly. Because of the difference between internal and open source
+   * models, this can create unintentional issues if relying on the underlying types directly
+   */
+  get _upstreamsRawDatasets(): Array<DatasetLineage['_rawDatasetData']> {
+    const { upstreams = [] } = this;
+    return upstreams.map((upstream): DatasetLineage['_rawDatasetData'] => upstream._rawDatasetData);
+  }
+
+  /**
+   * Relates to the upstream dataset entities
+   */
+  @relationship('datasets', '_upstreamsRawDatasets')
+  upstreamDatasets!: Array<DatasetEntity>;
 
   /**
    * Whether or not the dataset has been deprecated
@@ -178,6 +195,12 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   removed!: boolean;
 
   /**
+   * Description for the dataset that contains more information about the nature of the data or metadata
+   */
+  @oneWay('entity.description')
+  description?: string;
+
+  /**
    * References the value of the healthScore from the underlying IDatasetEntity object
    * used in search results where the Health Score is shown as an attribute
    */
@@ -185,11 +208,40 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
   healthScore?: number;
 
   /**
-   * Description for the dataset that contains more information about the nature of the data or metadata
+   * For open source support only, creates a reference to the customProperties, which can be found as an aspect of the
+   * dataset entity. This helps to display various properties that may be specific to certain datasets and allows for
+   * flexible display
    */
-  @oneWay('entity.description')
-  description?: string;
+  @oneWay('entity.customProperties')
+  customProperties?: Com.Linkedin.Dataset.DatasetProperties['customProperties'];
 
+  /**
+   * Computes the custom dataset properties as a list of label and values rather than object mapping
+   */
+  @computed('customProperties')
+  get customDatasetProperties(): Array<{ label: string; value: string }> | void {
+    const { customProperties } = this;
+    if (customProperties) {
+      return Object.keys(customProperties).map((key): { label: string; value: string } => ({
+        label: key,
+        value: customProperties[key]
+      }));
+    }
+  }
+
+  /**
+   * Platform native type, for example it can be TABLE or VIEW for Hive.
+   */
+  @reads('entity.platformNativeType')
+  platformNativeType?: Com.Linkedin.Dataset.Dataset['platformNativeType'];
+
+  /**
+   * Combined platform and native type, for example: Hive Table
+   */
+  @computed('platformNativeType', 'platform')
+  get platformAndNativeType(): string {
+    return titleize(`${this.platform} ${this.platformNativeType?.toLocaleLowerCase()}`);
+  }
   /**
    * gets the dataorigin field (needed from search)
    * from the urn
@@ -204,21 +256,18 @@ export class DatasetEntity extends BaseEntity<Com.Linkedin.Dataset.Dataset> {
    */
   @computed('entity.platform', 'urn')
   get platform(): DatasetPlatform | undefined {
-    const { urn, entity } = this;
+    const { urn } = this;
     const parts = getDatasetUrnParts(urn);
-    const platform = (entity && entity.platform) || parts.platform;
+    // TODO META-12937: Due to inconsistencies we can't rely on platform field
+    // const platform = (entity && entity.platform) || parts.platform;
+    const platform = parts.platform;
+
     // New API return platform with urn:li:dataPlatform:, in order to
     // make it compatible, we manually remove that part.
     const platformName = platform?.replace('urn:li:dataPlatform:', '');
 
     return platformName as DatasetPlatform | undefined;
   }
-
-  /**
-   * Platform native type, for example it can be TABLE or VIEW for Hive.
-   */
-  @reads('entity.platformNativeType')
-  platformNativeType?: Com.Linkedin.Dataset.Dataset['platformNativeType'];
 
   /**
    * Reference to the data entity's native name, should not be something that is editable but gives us a

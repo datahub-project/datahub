@@ -1,6 +1,7 @@
 /// Core classes
 .dynamic-tooltip {
   &__content {
+    text-align: left;
     display: flex;
     flex-direction: column;
     align-items: center;

@@ -29,7 +29,7 @@ Refer to [graph onboarding](graph-onboarding.md) if you need to perform graph qu
 See [`CorpUsers`] for an example of top-level [resource endpoint]. Optionally add an aspect-specific [sub-resource endpoint] such as [`CorpUsersEditableInfoResource`].
 
 ## 6. Configure dependency injection
-GMS uses [Spring Framework](https://docs.spring.io/spring-framework/docs/current/spring-framework-reference/core.html#beans) for dependency injection. You'll need to add [various factories](https://github.com/linkedin/datahub/tree/master/gms/factories/src/main/java/com/linkedin/identity/factory) to create any custom DAOs used by the rest.li endpoint. You'll also need to add any custom package to the `base-package` of `<context:component-scan>` tag in [beans.xml](https://github.com/linkedin/datahub/blob/master/gms/war/src/main/webapp/WEB-INF/beans.xml)
+GMS uses [Spring Framework](https://docs.spring.io/spring-framework/docs/current/spring-framework-reference/core.html#beans) for dependency injection. You'll need to add [various factories](https://github.com/linkedin/datahub/tree/master/gms/factories/src/main/java/com/linkedin/gms/factory) to create any custom DAOs used by the rest.li endpoint. You'll also need to add any custom package to the `base-package` of `<context:component-scan>` tag in [beans.xml](https://github.com/linkedin/datahub/blob/master/gms/war/src/main/webapp/WEB-INF/beans.xml)
 
 ## 7. UI for entity onboarding [WIP]
 

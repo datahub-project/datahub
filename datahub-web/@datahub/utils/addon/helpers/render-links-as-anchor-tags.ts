@@ -9,9 +9,6 @@ const markedRendererOverride = new marked.Renderer();
 markedRendererOverride.link = (href: string, title: string, text: string): string =>
   `<a href='${href}' title='${title || text}' target='_blank'>${text}</a>`;
 
-// Overrides marked's default renderer which wraps everything in a p tag
-markedRendererOverride.paragraph = (text: string): string => text;
-
 marked.setOptions({
   gfm: true,
   tables: true,

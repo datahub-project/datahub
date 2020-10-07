@@ -10,9 +10,8 @@
      but use native browser accessibility features
   }}
   {{#if @title}}
-    <TooltipOnElement
-      @text={{@title}}
-    />
+    {{! Ember tooltip will kind of hijack the title attribute when passed}}
+    <EmberTooltip @text={{@title}}/>
   {{/if}}
   {{! Show a question mark if an iconName is not supplied }}
   {{if @iconName (svg-jar @iconName class=@iconClass height="18px") "?"}}

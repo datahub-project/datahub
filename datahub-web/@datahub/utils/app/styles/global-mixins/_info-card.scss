@@ -1,0 +1,26 @@
+@mixin info-card {
+  @include nacho-container;
+  margin-top: item-spacing(6);
+  background-color: white;
+  display: flex;
+  align-items: center;
+
+  &__link,
+  &__icon {
+    flex-shrink: 0;
+  }
+
+  &__icon {
+    padding-right: item-spacing(4);
+
+    svg {
+      width: item-spacing(6);
+      height: auto;
+    }
+  }
+
+  &__content {
+    flex-grow: 1;
+    flex-shrink: 1;
+  }
+}

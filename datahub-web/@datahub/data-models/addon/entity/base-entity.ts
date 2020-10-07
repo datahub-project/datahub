@@ -75,8 +75,8 @@ export const statics = <T extends new (...args: Array<unknown>) => void>(): ((c:
  * @interface IBaseEntityStatics
  * @template T constrained by the IBaseEntity interface, the entity interface that BaseEntity subclass will encapsulate
  */
-export interface IBaseEntityStatics<T> {
-  new (urn: string): BaseEntity<T>;
+export interface IBaseEntityStatics<T, S = Snapshot> {
+  new (urn: string): BaseEntity<T, S>;
 
   /**
    * Properties that guide the rendering of ui elements and features in the host application
@@ -100,7 +100,7 @@ export interface IBaseEntityStatics<T> {
   /**
    * Queries the batch GET endpoint for snapshots for the supplied urns
    */
-  readSnapshots(_urns: Array<string>): Promise<Array<Snapshot>>;
+  readSnapshots(_urns: Array<string>): Promise<Array<S>>;
 
   /**
    * Builds a search query keyword from a list of segments for the related DataModelEntity
@@ -131,7 +131,7 @@ export const isBaseEntity = <T extends {}>(entity?: T | IBaseEntity): entity is 
  * @class BaseEntity
  * @template T the entity interface that the entity model (subclass) encapsulates
  */
-export abstract class BaseEntity<T extends {} | IBaseEntity> {
+export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snapshot = Snapshot> {
   /**
    * A reference to the derived concrete entity instance
    * @type {T}
@@ -143,7 +143,7 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * References the Snapshot for the related Entity
    * @type {Snapshot}
    */
-  snapshot?: Snapshot;
+  snapshot?: S;
 
   /**
    * References the wiki related documents and objects related to this entity
@@ -200,7 +200,7 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    */
   @computed('snapshot')
   get owners(): Array<Com.Linkedin.Common.Owner> {
-    const ownership = getMetadataAspect(this.snapshot)(
+    const ownership = getMetadataAspect(this.snapshot as Snapshot)(
       'com.linkedin.common.Ownership'
     ) as MetadataAspect['com.linkedin.common.Ownership'];
 
@@ -252,8 +252,8 @@ export abstract class BaseEntity<T extends {} | IBaseEntity> {
    * implemented in a subclass, therefore, the same static
    * class is needed
    */
-  get staticInstance(): IBaseEntityStatics<T> {
-    return (this.constructor as unknown) as IBaseEntityStatics<T>;
+  get staticInstance(): IBaseEntityStatics<T, S> {
+    return (this.constructor as unknown) as IBaseEntityStatics<T, S>;
   }
 
   /**

@@ -8,7 +8,7 @@
 
   &__header {
     margin: 0;
-    font-weight: 400;
+    font-weight: fw(normal, 6);
   }
 
   &__info {
@@ -63,7 +63,7 @@
 
       &__action {
         color: $link-color;
-        font-weight: 500;
+        font-weight: fw(normal, 6);
       }
     }
   }
@@ -103,7 +103,7 @@
         &--disabled {
           font-size: 18px;
           color: rgba(0, 0, 0, 0.5);
-          font-weight: 600;
+          font-weight: fw(normal, 7);
           margin-left: 8px;
         }
       }
@@ -125,7 +125,7 @@
           &__full {
             max-width: $max-profile-width;
             font-size: 16px;
-            font-weight: 400;
+            font-weight: fw(normal, 6);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;

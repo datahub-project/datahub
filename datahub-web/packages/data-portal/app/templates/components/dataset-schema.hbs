@@ -49,25 +49,25 @@
                 {{#if schema.nullable}}
                   <span class="schema-property-indicator schema-property-indicator--nullable">
                     N
-                    <TooltipOnElement @text="Is Nullable" />
+                    <EmberTooltip @text="Is Nullable" />
                   </span>
                 {{/if}}
                 {{#if schema.indexed}}
                   <span class="schema-property-indicator schema-property-indicator--indexed">
                     I
-                    <TooltipOnElement @text="Is Indexed" />
+                    <EmberTooltip @text="Is Indexed" />
                   </span>
                 {{/if}}
                 {{#if schema.partitioned}}
                   <span class="schema-property-indicator schema-property-indicator--partitioned">
                     P
-                    <TooltipOnElement @text="Is Partitioned" />
+                    <EmberTooltip @text="Is Partitioned" />
                   </span>
                 {{/if}}
                 {{#if schema.distributed}}
                   <span class="schema-property-indicator schema-property-indicator--distributed">
                     D
-                    <TooltipOnElement @text="Is Distributed" />
+                    <EmberTooltip @text="Is Distributed" />
                   </span>
                 {{/if}}
               </div>

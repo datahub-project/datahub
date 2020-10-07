@@ -55,7 +55,7 @@ module('Integration | Component | dynamic-components/header', function(hooks) {
     assert.dom('.dynamic-tooltip').exists('Renders a dynamic tooltip');
     assert.dom('.dynamic-header').exists('Renders a dynamic header');
     assert.dom('.mining').exists('Gives us the correct custom class');
-    assert.dom('.pikachu-miner-link').exists('Gives us the correct nested custom class');
+
     assert.dom('.pikachu-icon').exists('Renders the nested icon element');
     assert.dom('.dynamic-header__title').hasTextContaining('Gotta mine em all!');
 

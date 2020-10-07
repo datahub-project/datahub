@@ -90,14 +90,17 @@ export function packageToNamespace(_package: string, ignorePackages: RegExp[] | 
  * @param _type package.class
  * @param ignorePackage regexp to use for eliminating ignored packages.
  */
-export function typeToNamespace(_type: string, ignorePackages: RegExp[] | undefined): string {
+export function typeToNamespace(_type: string, ignorePackages: RegExp[] | undefined, context?: string): string {
   // Translate all Urn types to string.
   if (_type.endsWith('Urn')) {
     return 'string';
   }
 
+  // if there is a context and it is not in the package, add package to name
+  const typeWithPackage = context && _type.indexOf('.') < 0 ? `${context}.${_type}` : _type;
+
   // Eliminate any ignored package.
-  const clean = cleanType(_type, ignorePackages);
+  const clean = cleanType(typeWithPackage, ignorePackages);
 
   const parts = clean.split('.');
   const last = parts.pop();

@@ -18,7 +18,7 @@ $search-result-label-width: 124px;
   }
 
   &__title {
-    font-weight: fw(normal, 4);
+    font-weight: fw(normal, 6);
     margin: 0;
   }
 
@@ -65,7 +65,7 @@ $search-result-label-width: 124px;
   &__title {
     display: flex;
     font-size: 18px;
-    font-weight: fw(normal, 4);
+    font-weight: fw(normal, 6);
     margin: 0;
     align-items: center;
 
@@ -135,7 +135,7 @@ $search-result-label-width: 124px;
     min-width: $search-result-label-width;
 
     &-label {
-      font-weight: fw(normal, 4);
+      font-weight: fw(normal, 6);
       margin: item-spacing(1 4 0 0);
     }
   }

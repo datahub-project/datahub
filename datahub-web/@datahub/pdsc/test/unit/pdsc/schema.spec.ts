@@ -30,7 +30,8 @@ describe('pdsc', () => {
           "namespace" : "com.linkedin.restli.examples.groups.api",
           "ref" : { "type" : "array", "items" : "GroupMembershipQueryParam" }
         }`;
-    const expected = 'export type GroupMembershipQueryParamArrayRef = GroupMembershipQueryParam[];\n';
+    const expected =
+      'export type GroupMembershipQueryParamArrayRef = Com.Linkedin.Restli.Examples.Groups.Api.GroupMembershipQueryParam[];\n';
     const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
     assert.equal(expected, generated.value);
   });
@@ -50,7 +51,7 @@ describe('pdsc', () => {
         "type" : "com.linkedin.common.CorpuserUrn"
       } ]
     }`;
-    const expected = 'export type NotificationRecipient = { groupUrn: string }\n | { userUrn: string };\n';
+    const expected = 'export type NotificationRecipient = \n | {\ngroupUrn?: string,\nuserUrn?: string,\n}\n;\n';
     const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
     assert.equal(expected, generated.value);
   });
@@ -69,7 +70,88 @@ describe('pdsc', () => {
       } ]
     }`;
     const expected =
-      "export type NotificationRecipient = { 'com.linkedin.common.CorpGroupUrn': string }\n | { 'com.linkedin.common.CorpuserUrn': string };\n";
+      "export type NotificationRecipient = \n | {\n'com.linkedin.common.CorpGroupUrn'?: string,\n'com.linkedin.common.CorpuserUrn'?: string,\n}\n;\n";
+    const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
+    assert.equal(expected, generated.value);
+  });
+
+  it('generates union typeref without alias 2', () => {
+    const raw = `
+    {
+      "type" : "typeref",
+      "name" : "NotificationRecipient",
+      "namespace" : "com.linkedin.namespace",
+      "doc" : "A recipients of a change management notification",
+      "ref" : [ {
+        "type" : "CorpGroupUrn"
+      }, {
+        "type" : "CorpuserUrn"
+      } ]
+    }`;
+    const expected =
+      "export type NotificationRecipient = \n | {\n'com.linkedin.namespace.CorpGroupUrn'?: string,\n'com.linkedin.namespace.CorpuserUrn'?: string,\n}\n;\n";
+    const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
+    assert.equal(expected, generated.value);
+  });
+
+  it('generates union typeref without alias 3', () => {
+    const raw = `
+    {
+      "type" : "typeref",
+      "name" : "FrameSourceProperties",
+      "namespace" : "com.linkedin.feature.frame",
+      "doc" : "A union of all supported source property types",
+      "ref" : [ "ClassA", "ClassB" ]
+    }`;
+    const expected =
+      "export type FrameSourceProperties = \n | {\n'com.linkedin.feature.frame.ClassA'?: Com.Linkedin.Feature.Frame.ClassA,\n'com.linkedin.feature.frame.ClassB'?: Com.Linkedin.Feature.Frame.ClassB,\n}\n;\n";
+    const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
+    assert.equal(expected, generated.value);
+  });
+
+  it('generates union typeref without alias 4', () => {
+    const raw = `
+    {
+      "type" : "typeref",
+      "name" : "FrameSourceProperties",
+      "namespace" : "com.linkedin.feature.frame",
+      "doc" : "A union of all supported source property types",
+      "ref" : [ "ClassA", "ClassB", "boolean" ]
+    }`;
+    const expected =
+      "export type FrameSourceProperties = boolean\n | {\n'com.linkedin.feature.frame.ClassA'?: Com.Linkedin.Feature.Frame.ClassA,\n'com.linkedin.feature.frame.ClassB'?: Com.Linkedin.Feature.Frame.ClassB,\n}\n;\n";
+    const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
+    assert.equal(expected, generated.value);
+  });
+
+  it('generates union typeref without alias 5', () => {
+    const raw = `
+    {
+      "type" : "typeref",
+      "name" : "FrameSourceProperties",
+      "namespace" : "com.linkedin.feature.frame",
+      "doc" : "A union of all supported source property types",
+      "ref" : [ "ClassA"]
+    }`;
+    const expected =
+      "export type FrameSourceProperties = \n | {\n'com.linkedin.feature.frame.ClassA': Com.Linkedin.Feature.Frame.ClassA,\n}\n;\n";
+    const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
+    assert.equal(expected, generated.value);
+  });
+
+  it('generates union typeref without alias 6', () => {
+    const raw = `
+    {
+      "type" : "typeref",
+      "name" : "FrameFeatureClassification",
+      "namespace" : "com.linkedin.feature.frame",
+      "doc" : "A union of all supported feature classification types",
+      "ref" : [ {
+        "alias" : "classificationString",
+        "type" : "string"
+      } ]
+    }`;
+    const expected = 'export type FrameFeatureClassification = \n | {\nclassificationString: string,\n}\n;\n';
     const generated = pdsc.generateTs(JSON.parse(raw) as any, undefined, options);
     assert.equal(expected, generated.value);
   });

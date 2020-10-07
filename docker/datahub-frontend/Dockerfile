@@ -13,7 +13,11 @@ RUN cd datahub-src && ./gradlew :datahub-frontend:dist \
 
 FROM openjdk:8-jre-alpine
 
+RUN addgroup -S datahub && adduser -S datahub -G datahub
+
 COPY --from=builder /datahub-frontend /datahub-frontend/
+RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
+USER datahub
 EXPOSE 9001
 
 ENV JAVA_OPTS=" \
@@ -23,5 +27,6 @@ ENV JAVA_OPTS=" \
 	-Dconfig.file=datahub-frontend/conf/application.conf \
 	-Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
 	-Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
-	-Dlogback.debug=true"
+	-Dlogback.debug=true \
+	-Dpidfile.path=/datahub-frontend/play.pid"
 CMD ["datahub-frontend/bin/playBinary"]

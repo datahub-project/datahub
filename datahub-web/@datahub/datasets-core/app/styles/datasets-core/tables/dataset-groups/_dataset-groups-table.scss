@@ -4,7 +4,7 @@
   &#{&} th,
   thead {
     padding: item-spacing(5 4);
-    font-weight: fw(normal, 4);
+    font-weight: fw(normal, 6);
     border: none;
   }
 
@@ -14,7 +14,7 @@
 
   &__header {
     font-size: 20px;
-    font-weight: fw(normal, 4);
+    font-weight: fw(normal, 6);
     margin: item-spacing(5 0 5 0);
   }
 
@@ -25,7 +25,7 @@
   }
 
   &__title {
-    font-weight: fw(normal, 7);
+    font-weight: fw(normal, 6);
     font-size: fs(x-large);
     line-height: 28px;
   }
