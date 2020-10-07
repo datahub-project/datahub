@@ -19,10 +19,10 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> 👕🌲 DataHub participates in Hacktoberfest. Refer https://hacktoberfest.digitalocean.com for more details.
+> 👕🌲 DataHub participates in Hacktoberfest. Refer https://hacktoberfest.digitalocean.com for more details.
 > - Support open source and pick a limited edition T-shirt or plant a tree.
-> - To earn your Hacktoberfest tee or tree reward, you must register and make four valid pull requests (PRs) between October 1-31 (in any time zone)
-> - Pull requests that we consider to be low-quality contributions (which we discourage). (From : https://hacktoberfest.digitalocean.com/details#quality)
+> - To earn your Hacktoberfest tee or tree reward, you must [register](https://hacktoberfest.digitalocean.com/login) and make 4 valid pull requests (PRs) between October 1-31 (in any time zone)
+> - Pull requests that we consider to be [low-quality contributions](https://hacktoberfest.digitalocean.com/details#quality), which we discourage
 >   - Pull requests that are automated (e.g. scripted opening pull requests to remove whitespace/fix typos/optimize images).
 >   - Pull requests that are disruptive (e.g. taking someone else's branch/commits and making a pull request).
 >   - Pull requests that are regarded by a project maintainer as a hindrance vs. helping.
