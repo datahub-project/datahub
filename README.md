@@ -19,6 +19,15 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
+> 👕🌲 DataHub participates in Hacktoberfest. Refer https://hacktoberfest.digitalocean.com for more details.
+> - Support open source and pick a limited edition T-shirt or plant a tree.
+> - To earn your Hacktoberfest tee or tree reward, you must [register](https://hacktoberfest.digitalocean.com/login) and make 4 valid pull requests (PRs) between October 1-31 (in any time zone)
+> - Pull requests that we consider to be [low-quality contributions](https://hacktoberfest.digitalocean.com/details#quality), which we discourage
+>   - Pull requests that are automated (e.g. scripted opening pull requests to remove whitespace/fix typos/optimize images).
+>   - Pull requests that are disruptive (e.g. taking someone else's branch/commits and making a pull request).
+>   - Pull requests that are regarded by a project maintainer as a hindrance vs. helping.
+>   - Something that's clearly an attempt to simply +1 your pull request count for October.
+
 > 📣 Next DataHub town hall meeting on November 6th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - VC link (we're using zoom!): https://linkedin.zoom.us/j/4698262890
@@ -28,6 +37,7 @@
 > - Check out the latest [DataHub Podcast](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ Data Engineering Podcast.
 > - We've released v0.5.0-beta. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0-beta)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
+
 
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, read our 
