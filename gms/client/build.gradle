@@ -7,9 +7,9 @@ dependencies {
 
   dataModel project(':li-utils')
 
-  compile project(':metadata-dao')
+  compile externalDependency.gmaDaoApi
   compile project(':metadata-dao-impl:restli-dao')
-  compile project(':metadata-restli-resource')
+  compile externalDependency.gmaRestliResources
 
   compile spec.product.pegasus.restliClient
 }

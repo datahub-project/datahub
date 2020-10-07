@@ -1,6 +1,0 @@
-namespace com.linkedin.common
-
-/**
- * Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number
- */
-typeref Time = long
