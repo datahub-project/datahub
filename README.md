@@ -35,7 +35,7 @@
 
 > ✨ Latest Update: 
 > - Check out the latest [DataHub Podcast](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ Data Engineering Podcast.
-> - We've released v0.5.0-beta. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0-beta)
+> - We've released v0.5.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 
