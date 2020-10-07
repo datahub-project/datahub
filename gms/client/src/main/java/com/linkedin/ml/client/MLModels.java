@@ -34,7 +34,9 @@ public class MLModels extends BaseSearchableClient<MLModel> {
 
     @Nonnull
     @Override
-    public CollectionResponse<MLModel> search(@Nonnull String input, @Nullable StringArray aspectNames, @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
+    public CollectionResponse<MLModel> search(@Nonnull String input, @Nullable StringArray aspectNames,
+        @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+        throws RemoteInvocationException {
         final MlModelsFindBySearchRequestBuilder requestBuilder = ML_MODELS_REQUEST_BUILDERS.findBySearch()
             .aspectsParam(aspectNames)
             .inputParam(input)
