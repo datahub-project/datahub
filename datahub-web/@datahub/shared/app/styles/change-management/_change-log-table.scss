@@ -17,7 +17,7 @@ table.change-log-table {
     border: none;
   }
   &__title {
-    font-weight: bold;
+    font-weight: fw(normal, 6);
     font-size: $title-font-size;
     line-height: $general-line-height + 8;
     margin-bottom: item-spacing(1);
@@ -66,7 +66,8 @@ table.change-log-table {
     border: none;
     color: get-color(blue7);
     line-height: line-height;
-    font-weight: bold;
+    font-weight: fw(normal, 7);
+    background-color: transparent;
   }
 
   &__footer {

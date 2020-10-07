@@ -1,0 +1,13 @@
+.tooltip {
+  font: normal fw(normal, 4) 14px $text-font-stack;
+  padding: 0;
+}
+
+.ember-popover {
+  padding: item-spacing(2);
+
+  .ember-popover-inner {
+    background-color: transparent;
+    color: $text-color;
+  }
+}

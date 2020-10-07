@@ -18,9 +18,10 @@ import { isNotFoundApiError } from '@datahub/utils/api/shared';
 import Search from '@datahub/shared/services/search';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
 import { IAppConfig, IConfigurator } from '@datahub/shared/types/configurator/configurator';
-import { TabProperties, DatasetTab } from '@datahub/data-models/constants/entity/dataset/tabs';
+import { DatasetTab } from '@datahub/data-models/constants/entity/dataset/tabs';
 import { CommonTabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
 import { ITabProperties } from '@datahub/data-models/types/entity/rendering/entity-render-props';
+import { TabProperties } from '@datahub/data-models/constants/entity/dataset/tab-properties/all';
 
 /**
  * Defines the error properties when there is an error in the container
@@ -237,6 +238,7 @@ export default class DatasetMainContainer extends Component {
     const tabs: Array<string> = [
       DatasetTab.Schema,
       DatasetTab.Properties,
+      DatasetTab.Status,
       DatasetTab.Ownership,
       DatasetTab.Relationships
     ];

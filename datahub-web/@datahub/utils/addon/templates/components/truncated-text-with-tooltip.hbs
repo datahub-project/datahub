@@ -2,27 +2,27 @@
   <DynamicLink
     class={{this.baseClass}}
     @params={{@linkParams}}
-    onmouseover={{action this.hideTooltipIfUntruncated}}
+    onmouseenter={{action this.hideTooltipIfUntruncated}}
   >
     {{@text}}
     {{#if this.showTooltip}}
-      <TooltipOnElement
+      <EmberTooltip
         @text={{@text}}
-        @class="truncated-text-with-tooltip__tooltip"
+        @tooltipClass="truncated-text-with-tooltip__tooltip"
       />
     {{/if}}
   </DynamicLink>
 {{else}}
   <span
     class={{this.baseClass}}
-    onmouseover={{action this.hideTooltipIfUntruncated}}
+    onmouseenter={{action this.hideTooltipIfUntruncated}}
     role="tooltip"
   >
     {{@text}}
     {{#if this.showTooltip}}
-      <TooltipOnElement
+      <EmberTooltip
         @text={{@text}}
-        @class="truncated-text-with-tooltip__tooltip"
+        @tooltipClass="truncated-text-with-tooltip__tooltip"
       />
     {{/if}}
   </span>

@@ -67,3 +67,23 @@ global:
         - "mysql"
         - "elasticsearch"
         - "neo4j"
+
+  # credentialsAndCertsSecretPath: /mnt/datahub/certs
+  # credentialsAndCertsSecrets:
+  #   name: datahub-certs
+  #   secureEnv:
+  #     ssl.key.password: datahub.linkedin.com.KeyPass
+  #     ssl.keystore.password: datahub.linkedin.com.KeyStorePass
+  #     ssl.truststore.password: datahub.linkedin.com.TrustStorePass
+  #     kafkastore.ssl.truststore.password: datahub.linkedin.com.TrustStorePass
+
+  # springKafkaConfigurationOverrides:
+  #   ssl.keystore.location: /mnt/datahub/certs/datahub.linkedin.com.keystore.jks
+  #   ssl.truststore.location: /mnt/datahub/certs/datahub.linkedin.com.truststore.jks
+  #   kafkastore.ssl.truststore.location: /mnt/datahub/certs/datahub.linkedin.com.truststore.jks
+  #   security.protocol: SSL
+  #   kafkastore.security.protocol: SSL
+  #   ssl.keystore.type: JKS
+  #   ssl.truststore.type: JKS
+  #   ssl.protocol: TLS
+  #   ssl.endpoint.identification.algorithm: 

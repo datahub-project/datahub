@@ -71,6 +71,12 @@
       "@datahub/shared/*": [
         "../../@datahub/shared/addon/*"
       ],
+      "@datahub/entities": [
+        "../../@datahub/entities/addon"
+      ],
+      "@datahub/entities/*": [
+        "../../@datahub/entities/addon/*"
+      ],
       "@nacho-ui/core": [
         "../../@nacho-ui/nacho-core/addon"
       ],
@@ -95,6 +101,8 @@
     "../../@datahub/shared/tests/**/*",
     "../../@datahub/user/addon/**/*",
     "../../@datahub/user/types/**/*",
+    "../../@datahub/entities/addon/**/*",
+    "../../@datahub/entities/types/**/*",
     "../../@datahub/data-models/addon/**/*",
     "../../@datahub/data-models/types/**/*",
     "../../@datahub/data-models/tests/**/*",

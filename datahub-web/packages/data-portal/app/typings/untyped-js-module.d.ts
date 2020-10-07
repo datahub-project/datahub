@@ -2,11 +2,6 @@
 
 declare module 'datahub-web/app';
 
-declare module 'ember-simple-auth/mixins/application-route-mixin' {
-  import MixinTwo from '@ember/object/mixin';
-  export default MixinTwo;
-}
-
 declare module 'datahub-web/initializers/ember-cli-mirage' {
   import { IMirageServer } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
 

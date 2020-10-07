@@ -30,7 +30,7 @@
     padding: item-spacing(2);
     line-height: 20px;
     font-size: 16px;
-    font-weight: bold;
+    font-weight: fw(normal, 6);
 
     &:hover {
       border: 1px solid get-color(black);
@@ -54,7 +54,7 @@
     }
 
     margin: item-spacing(2 0 0);
-    font-weight: 400;
+    font-weight: fw(normal, 6);
     height: item-spacing(5) + 3;
   }
 
@@ -74,7 +74,7 @@
     margin-bottom: item-spacing(5);
 
     &-title {
-      font-weight: bold;
+      font-weight: fw(normal, 6);
     }
 
     &-icon {
@@ -106,7 +106,7 @@
     padding-left: item-spacing(4);
 
     &-name {
-      font-weight: bold;
+      font-weight: fw(normal, 6);
     }
 
     &-img {
@@ -118,7 +118,7 @@
     width: 50%;
 
     &-name {
-      font-weight: bold;
+      font-weight: fw(normal, 6);
     }
 
     &-tags {
@@ -143,7 +143,7 @@
   &__connection {
     font-size: fs(small);
     margin-right: item-spacing(5);
-    color: get-color(black, 0.9);
+    color: $text-color;
     cursor: pointer;
 
     &-icon:hover,
@@ -152,7 +152,7 @@
     }
 
     &-link {
-      color: get-color(black);
+      color: $text-color;
       &:hover {
         color: get-color(blue6);
       }

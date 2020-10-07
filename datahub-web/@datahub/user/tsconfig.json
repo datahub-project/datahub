@@ -24,6 +24,8 @@
       "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
       "@datahub/utils": ["../../@datahub/utils/addon"],
       "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "@nacho-ui/core": ["../../@nacho-ui/nacho-core/addon"],
+      "@nacho-ui/core/*": ["../../@nacho-ui/nacho-core/addon/*"],
       "*": ["types/*"]
     }
   },
@@ -43,6 +45,7 @@
     "../../@datahub/shared/types/**/*",
     "../../@datahub/shared/tests/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*"
+    "../../@datahub/utils/types/**/*",
+    "../../@nacho-ui/nacho-core/**/*"
   ]
 }

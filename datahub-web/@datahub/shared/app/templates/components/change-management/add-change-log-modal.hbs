@@ -69,20 +69,11 @@
           <p class="{{this.baseModalClass}}__label">
             Add Individual email recipients
           </p>
-          <div class="{{this.baseModalClass}}__tag-input">
-            {{#each this.individualRecipients as |individualRecipient index|}}
-              <NachoPillInput
-                class="{{this.baseModalClass}}__pill"
-                @value={{individualRecipient}}
-                @onDelete={{fn this.removeRecipient this.recipientType.individualRecipient index}}
-              />
-            {{/each}}
-            <NachoPillInput
-              class="{{this.baseModalClass}}__pill"
-              @placeholder="e.g.,jweiner"
-              @onComplete={{fn this.addRecipient this.recipientType.individualRecipient}}
-            />
-          </div>
+          <ChangeManagement::RecipientSearchSelect
+            @addRecipient={{this.addRecipient}}
+            @removeRecipient={{this.removeRecipient}}
+            @individualRecipients={{this.individualRecipients}}
+          />
         </div>
       </div>
     {{else if this.isSendingEmailOnly}}
@@ -91,8 +82,9 @@
         @content={{@currentChangeLog.content}}
       />
     {{else if this.isInMarkdownPreviewMode}}
-      <section class="{{this.baseModalClass}}__content-preview}}">
-        <div class="{{this.baseModalClass}}__item">
+      <section class="{{this.baseModalClass}}__content-preview">
+
+        <div class="{{this.baseModalClass}}__item {{this.baseModalClass}}__subject">
           <p class="{{this.baseModalClass}}__label">
             {{this.editableChangeset.subject}}
           </p>
@@ -112,7 +104,9 @@
               @maxlength={{this.maxCharSubject}}
               @value={{this.editableChangeset.subject}}
               @placeholder="Headline of the change"
+
             />
+
             <p class="{{this.baseModalClass}}__text-input-validation">
               {{! render validation messages for subject}}
               <ul class="{{this.baseModalClass}}__text-input-error">
@@ -138,6 +132,7 @@
               @maxlength={{this.maxCharContent}}
               @value={{this.editableChangeset.content}}
               @placeholder="Details you wish to include in the log"
+              {{on "keyup" (fn this.handleKeyup)}}
             />
             <p class="{{this.baseModalClass}}__text-input-validation">
               {{! render validation messages for content/body}}

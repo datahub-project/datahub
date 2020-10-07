@@ -21,7 +21,7 @@
     &:after {
       color: shade($color, 20%);
       content: '\e259';
-      font-weight: normal;
+      font-weight: fw(normal, 6);
       pointer-events: none;
       font-family: $glyphicons-stack;
       position: absolute;
@@ -128,7 +128,7 @@
 
   &__add-field {
     &#{&} {
-      font-weight: fw(normal, 4);
+      font-weight: fw(normal, 6);
       display: block;
     }
   }
@@ -180,7 +180,7 @@
 
       .ember-radio-button {
         color: black;
-        font-weight: fw(normal, 6);
+        font-weight: fw(normal, 7);
         cursor: default;
       }
     }

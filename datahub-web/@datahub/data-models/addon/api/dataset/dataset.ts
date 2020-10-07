@@ -3,8 +3,8 @@ import { getJSON } from '@datahub/utils/api/fetcher';
 import { encodeUrn } from '@datahub/utils/validators/urn';
 
 /**
- * Constructs the Feature url root endpoint
- * @param {ApiVersion} version the version of the api applicable to retrieve the Feature
+ * Constructs the Dataset url root endpoint
+ * @param {ApiVersion} version the version of the api applicable to retrieve the Dataset
  * @returns {string}
  */
 export const datasetUrlRoot = (version: ApiVersion): string => `${getApiRoot(version)}/datasets`;

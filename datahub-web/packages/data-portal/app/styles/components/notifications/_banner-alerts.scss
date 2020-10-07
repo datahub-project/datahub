@@ -53,6 +53,11 @@
       border-bottom: 1px solid get-color(red3, 0.5);
     }
 
+    a {
+      color: get-color(white);
+      text-decoration: underline;
+    }
+
     &:first-child {
       z-index: 999;
     }
@@ -72,6 +77,10 @@
     &__content {
       width: 90vw;
       min-width: 1056px;
+
+      p {
+        margin: 0;
+      }
 
       &__link {
         color: get-color(white, 0.9);

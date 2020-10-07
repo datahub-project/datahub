@@ -53,7 +53,7 @@ input[type='checkbox'] {
       display: block;
       background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiBpZD0ic3ZnLXNvdXJjZSIgd2lkdGg9IjI0cHgiIGhlaWdodD0iMjRweCIgdmVyc2lvbj0iMS4xIiBkYXRhLWVtYmVyLWV4dGVuc2lvbj0iMSI+CiAgPHBhdGggZD0iTTE1LDNMNi41NywxMy43MkEwLjcsMC43LDAsMCwxLDYsMTRhMC43MiwwLjcyLDAsMCwxLS41Ni0wLjI3TDEsOC4wNywyLjM2LDcsNiwxMS43MiwxMy42OCwyWiIgY2xhc3M9InNtYWxsLWljb24iIHN0eWxlPSJmaWxsLW9wYWNpdHk6IDE7ZmlsbDogd2hpdGUiIGlkPSJjaGVjay1pY29uLXNtYWxsIi8+Cjwvc3ZnPg==');
       color: white;
-      font-weight: 200;
+      font-weight: fw(normal, 3);
     }
   }
 
@@ -66,7 +66,7 @@ input[type='checkbox'] {
       display: block;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24px' height='24px' x='0' y='0' preserveAspectRatio='xMinYMin meet' focusable='false'%3E%3Cpath d='M21,3V5H3V3H21Z' style='fill: white'%3E%3C/path%3E%3C/svg%3E");
       color: white;
-      font-weight: 200;
+      font-weight: fw(normal, 3);
       margin: 7px 2px;
     }
   }

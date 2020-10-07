@@ -1,0 +1,18 @@
+.dh-info-panel {
+  @include info-card();
+
+  &__title {
+    margin: 0;
+    font-weight: fw(normal, 6);
+  }
+
+  &__description {
+    margin: 0;
+  }
+
+  &__fine-print {
+    margin: 0;
+    font-size: small;
+    color: get-color(gray6);
+  }
+}

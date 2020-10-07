@@ -51,7 +51,7 @@ project.ext.externalDependency = [
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'junit': 'junit:junit:4.12',
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.2.2',
+    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
     'logbackClassic': 'ch.qos.logback:logback-classic:1.2.3',
     'lombok': 'org.projectlombok:lombok:1.18.12',
@@ -80,7 +80,8 @@ project.ext.externalDependency = [
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
-    'testng': 'org.testng:testng:6.9.9'
+    'testng': 'org.testng:testng:6.9.9',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]
 
 allprojects {
