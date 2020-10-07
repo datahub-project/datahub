@@ -1,8 +1,10 @@
 package com.linkedin.ml.client;
 
-import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.MLModelUrn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.ml.MLModel;
 import com.linkedin.ml.MLModelKey;
 import com.linkedin.ml.MlModelsDoAutocompleteRequestBuilder;
@@ -19,14 +21,35 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class MLModels extends BaseClient {
+public class MLModels extends BaseSearchableClient<MLModel> {
     private static final MlModelsRequestBuilders ML_MODELS_REQUEST_BUILDERS = new MlModelsRequestBuilders();
 
     public MLModels(@Nonnull Client restliClient) {
         super(restliClient);
+    }
+
+    @Nonnull
+    @Override
+    public CollectionResponse<MLModel> search(@Nonnull String input, @Nullable StringArray aspectNames, @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
+        final MlModelsFindBySearchRequestBuilder requestBuilder = ML_MODELS_REQUEST_BUILDERS.findBySearch()
+            .aspectsParam(aspectNames)
+            .inputParam(input)
+            .sortParam(sortCriterion)
+            .paginate(start, count);
+        if (requestFilters != null) {
+            requestBuilder.filterParam(newFilter(requestFilters));
+        }
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    @Nonnull
+    public CollectionResponse<MLModel> search(@Nonnull String input, int start, int count)
+        throws RemoteInvocationException {
+        return search(input, null, null, start, count);
     }
 
     /**

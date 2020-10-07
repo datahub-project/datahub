@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.factory;
+package com.linkedin.gms.factory.ml;
 
 import javax.annotation.Nonnull;
 

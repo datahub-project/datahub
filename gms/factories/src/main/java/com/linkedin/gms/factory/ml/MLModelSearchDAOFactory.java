@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.factory;
+package com.linkedin.gms.factory.ml;
 
 import com.linkedin.metadata.configs.MLModelSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
