@@ -190,14 +190,8 @@
         "normalizer": "my_normalizer"
       },
       "owners": {
-        "type": "text",
-        "fields": {
-          "ngram": {
-            "type": "text",
-            "analyzer": "comma_pattern_ngram"
-          }
-        },
-        "analyzer": "comma_pattern"
+        "type": "keyword",
+        "normalizer": "my_normalizer"
       },
       "platform": {
         "type": "keyword",
