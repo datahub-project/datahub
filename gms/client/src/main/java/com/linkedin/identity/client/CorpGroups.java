@@ -1,6 +1,7 @@
 package com.linkedin.identity.client;
 
 import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpGroup;
 import com.linkedin.identity.CorpGroupKey;
 import com.linkedin.identity.CorpGroupsDoAutocompleteRequestBuilder;
@@ -10,8 +11,7 @@ import com.linkedin.metadata.configs.CorpGroupSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseClient;
-import com.linkedin.metadata.restli.SearchableClient;
+import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class CorpGroups extends BaseClient implements SearchableClient<CorpGroup> {
+public class CorpGroups extends BaseSearchableClient<CorpGroup> {
   private static final CorpGroupsRequestBuilders CORP_GROUPS_REQUEST_BUILDERS = new CorpGroupsRequestBuilders();
   private static final CorpGroupSearchConfig CORP_GROUP_SEARCH_CONFIG = new CorpGroupSearchConfig();
 
@@ -74,13 +74,15 @@ public class CorpGroups extends BaseClient implements SearchableClient<CorpGroup
         );
   }
 
+  @Override
   @Nonnull
-  public CollectionResponse<CorpGroup> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
-      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
+  public CollectionResponse<CorpGroup> search(@Nonnull String input, @Nullable StringArray aspectNames,
+      @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+      throws RemoteInvocationException {
     final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
-    CorpGroupsFindBySearchRequestBuilder requestBuilder = CORP_GROUPS_REQUEST_BUILDERS
-        .findBySearch()
+    final CorpGroupsFindBySearchRequestBuilder requestBuilder = CORP_GROUPS_REQUEST_BUILDERS.findBySearch()
         .inputParam(input)
+        .aspectsParam(aspectNames)
         .filterParam(filter)
         .sortParam(sortCriterion)
         .paginate(start, count);

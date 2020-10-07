@@ -1,6 +1,7 @@
 package com.linkedin.dataprocess.client;
 
 import com.linkedin.common.urn.DataProcessUrn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataprocess.DataProcess;
 import com.linkedin.dataprocess.DataProcessInfoRequestBuilders;
 import com.linkedin.dataprocess.DataProcessesDoAutocompleteRequestBuilder;
@@ -11,8 +12,7 @@ import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseClient;
-import com.linkedin.metadata.restli.SearchableClient;
+import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
-public class DataProcesses extends BaseClient implements SearchableClient<DataProcess> {
+public class DataProcesses extends BaseSearchableClient<DataProcess> {
 
   private static final DataProcessesRequestBuilders DATA_PROCESSES_REQUEST_BUILDERS = new DataProcessesRequestBuilders();
   private static final DataProcessInfoRequestBuilders DATA_PROCESS_INFO_REQUEST_BUILDERS = new DataProcessInfoRequestBuilders();
@@ -98,10 +98,11 @@ public class DataProcesses extends BaseClient implements SearchableClient<DataPr
 
   @Nonnull
   @Override
-  public CollectionResponse<DataProcess> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
-      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
-    DataProcessesFindBySearchRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS
-        .findBySearch()
+  public CollectionResponse<DataProcess> search(@Nonnull String input, @Nullable StringArray aspectNames,
+      @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+      throws RemoteInvocationException {
+    final DataProcessesFindBySearchRequestBuilder requestBuilder = DATA_PROCESSES_REQUEST_BUILDERS.findBySearch()
+        .aspectsParam(aspectNames)
         .inputParam(input)
         .sortParam(sortCriterion)
         .paginate(start, count);
