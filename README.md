@@ -29,6 +29,10 @@
 > - We've released v0.5.0-beta. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0-beta)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
+✨ DataHub participates in Hacktoberfest. Refer https://hacktoberfest.digitalocean.com for more details.
+> - Support open source and pick a limited edition T-shirt or plant a tree.
+> - To earn your Hacktoberfest tee or tree reward, you must register and make four valid pull requests (PRs) between October 1-31 (in any time zone)
+
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, read our 
 [LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and [DataHub Onboarding Guide](docs/how/entity-onboarding.md) to understand how to extend DataHub for your own use cases.
