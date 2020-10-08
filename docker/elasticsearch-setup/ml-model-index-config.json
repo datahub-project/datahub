@@ -52,13 +52,6 @@
             "type": "custom",
             "tokenizer": "ml_model_pattern"
           },
-          "comma_pattern": {
-            "filter": [
-              "lowercase"
-            ],
-            "type": "custom",
-            "tokenizer": "comma_tokenizer"
-          },
           "custom_browse": {
             "filter": [
               "lowercase"
@@ -79,14 +72,6 @@
             ],
             "type": "custom",
             "tokenizer": "keyword"
-          },
-          "comma_pattern_ngram": {
-            "filter": [
-              "lowercase",
-              "autocomplete_filter"
-            ],
-            "type": "custom",
-            "tokenizer": "comma_tokenizer"
           },
           "delimit": {
             "filter": [
@@ -124,10 +109,6 @@
           },
           "slash_tokenizer": {
             "pattern": "[/]",
-            "type": "pattern"
-          },
-          "comma_tokenizer": {
-            "pattern": ",",
             "type": "pattern"
           },
           "ml_model_pattern": {
