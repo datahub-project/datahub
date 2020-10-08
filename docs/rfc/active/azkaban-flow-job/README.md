@@ -81,7 +81,6 @@ urn:li:dataJob:(urn:li:dataFlow:(azkaban,flow_id,cluster),job_id)
 
 Below is a list of metadata which can be associated with an azkaban flow:
 
-- Azkaban cluster
 - Project for the flow (the concept of project may not exist for other workflow managers so it may not apply in all cases)
 - Flow name
 - Ownership
@@ -90,7 +89,6 @@ Below is a list of metadata which can be associated with an azkaban flow:
 
 Below is a list of metadata which can be associated with an azkaban job:
 
-- Azkaban Flow the job is part of
 - Job name
 - Job type (could be spark, mapreduce, hive, presto. command etc)
 - Inputs consumed by the job
