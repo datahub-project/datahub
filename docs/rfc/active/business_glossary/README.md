@@ -78,10 +78,10 @@ urn:li:datasetField:(<datasetUrn>,<fieldPath>)
 ```
 
 ### New Snapshot Object
-There will be new snapshot object will be definied to onboard business terms along with definitions
+There will be new snapshot object to onboard business terms along with definitions
 
 Path : metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/
-```
+```java
 /**
  * A metadata snapshot for a specific BusinessTerm entity.
  */
@@ -115,7 +115,7 @@ typeref BusinessTermAspect = union[
 ```
 
 Business Term Entity Definition
-```
+```java
 /**
  * Data model for a Business Term entity
  */
@@ -134,18 +134,13 @@ record BusinessTermEntity includes BaseEntity {
 }
 ```
 
-### Entity BusinessTermProperties
+### Entity BusinessTermInfo
 
-```
+```java
 /**
  * Properties associated with a BusinessTerm
  */
-record BusinessTermProperties {
-
-  /**
-   * Friendly Name of business term
-   */
-  name: string
+record BusinessTermInfo {
 
   /**
    * Definition of business term
@@ -177,7 +172,7 @@ record BusinessTermProperties {
 
 ```
 
-### Business Term Realationship 
+### Business Term Realationship with Owner
 Business Terms will be owened by certain business users
 
 ```
@@ -188,8 +183,8 @@ Business Terms will be owened by certain business users
   "destination" : "com.linkedin.common.urn.CorpuserUrn",
   "source" : "com.linkedin.common.urn.BusinessTermUrn"
 }, {
-   "destination" : "com.linkedin.common.urn.CorpuserUrn",
-   "source" : "com.linkedin.common.urn.BusinessTermUrn"
+   "destination" : "com.linkedin.common.urn.BusinessTermUrn",
+   "source" : "com.linkedin.common.urn.CorpuserUrn"
 } ]
 record OwnedBy includes BaseRelationship {
 
@@ -200,11 +195,29 @@ record OwnedBy includes BaseRelationship {
 }
 ```
 
-### Extension to SchemaField entity
+### Dataset Field related Changes/enhancements
 
-Proposing to replace the fieldPath with urn
+Defining new ```DatasetFiled``` Entity
 
+```java
+record DatasetFieldEntity includes BaseEntity {
+
+  /**
+   * Urn for the dataset
+   */
+  urn: DatasetFieldUrn
+
+  /**
+   * Dataset Field native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
+   */
+  name: optional string
+
+}
 ```
+
+Proposing to replace the fieldPath with urn in the ```SchemaField```
+
+```java
 record SchemaField {
 
   /**
@@ -242,19 +255,58 @@ record SchemaField {
    */
   recursive: boolean = false
 
-  /**
-   * The Urn of the business term to be linked (optional)
-   */
-  businessTerm: optional Urn  
 }
 ```
 
-### How Dataset Field related to Business Term
-
-Proposed to introduce a new Relationship as RelatedTo (one way relationship), where one define a Dataset Field related to certain business term
+### Business Glossary Aspect
+Business Term can be asociated with Dataset Field as well as Dataset. Defning the aspect that can be asociated with Dataset and DatasetField 
 
 ```
+record BusinessTerm {
+   businessTermUrn : BusinessTermUrn, 
+   createdBy: ActorUrn
+}
+```
 
+Proposing to have an aspect model to DatasetField to associate with dependent aspects like Business Term (can add the lineage also later)
+
+```
+/**
+ * A union of all supported metadata aspects for a DatasetFiled
+ */
+typeref DatasetFieldAspect = union[
+  SchemaField,
++ BusinessTerm  
+]
+```
+
+
+Proposed to have the following changes to the Dataset aspect to associate (optionally) with Business Glossary (term)
+
+```
+/**
+ * A union of all supported metadata aspects for a Dataset
+ */
+typeref DatasetAspect = union[
+  DatasetProperties,
+  DatasetDeprecation,
+  UpstreamLineage,
+  InstitutionalMemory,
+  Ownership,
+  Status,
+  SchemaMetadata
++ BusinessTerm  
+]
+```
+
+
+### How Dataset/DatasetField related to Business Term
+
+Proposed to introduce a new Relationship as RelatedTo (one way relationship), where one define a Dataset Field/Dataset related to certain Business Term
+
+Relationship with ```DatasetField```
+
+```java
 /**
  * A generic model for the Is-Part-Of relationship
  */
@@ -262,7 +314,20 @@ Proposed to introduce a new Relationship as RelatedTo (one way relationship), wh
   "destination" : "com.linkedin.common.urn.BusinessTermUrn",
   "source" : "com.linkedin.common.urn.DatasetFieldUrn"
 } ]
-record RElatedTo includes BaseRelationship {
+record RelatedTo includes BaseRelationship {
+}
+```
+
+Relationship with ```Dataset```
+```java
+/**
+ * A generic model for the Is-Part-Of relationship
+ */
+@pairings = [ {
+  "destination" : "com.linkedin.common.urn.BusinessTermUrn",
+  "source" : "com.linkedin.common.urn.DatasetUrn"
+} ]
+record RelatedTo includes BaseRelationship {
 }
 ```
 
