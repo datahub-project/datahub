@@ -1,6 +1,7 @@
 # DataHub: A Generalized Metadata Search & Discovery Tool
 [![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
 [![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
+[![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
 [![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/docs/CONTRIBUTING.md)
 [![License](https://img.shields.io/github/license/linkedin/datahub)](LICENSE)
@@ -35,7 +36,7 @@
 
 > ✨ Latest Update: 
 > - Check out the latest [DataHub Podcast](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ Data Engineering Podcast.
-> - We've released v0.5.0-beta. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0-beta)
+> - We've released v0.5.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 

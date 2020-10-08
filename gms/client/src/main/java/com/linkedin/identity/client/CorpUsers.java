@@ -1,6 +1,7 @@
 package com.linkedin.identity.client;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserKey;
@@ -12,9 +13,8 @@ import com.linkedin.metadata.configs.CorpUserSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseClient;
+import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.metadata.restli.SearchableClient;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.CreateIdRequest;
@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class CorpUsers extends BaseClient implements SearchableClient<CorpUser> {
+public class CorpUsers extends BaseSearchableClient<CorpUser> {
 
   private static final CorpUsersRequestBuilders CORP_USERS_REQUEST_BUILDERS = new CorpUsersRequestBuilders();
   private static final EditableInfoRequestBuilders EDITABLE_INFO_REQUEST_BUILDERS = new EditableInfoRequestBuilders();
@@ -128,13 +128,15 @@ public class CorpUsers extends BaseClient implements SearchableClient<CorpUser> 
     _client.sendRequest(request).getResponse();
   }
 
+  @Override
   @Nonnull
-  public CollectionResponse<CorpUser> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
-      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
+  public CollectionResponse<CorpUser> search(@Nonnull String input, @Nullable StringArray aspectNames,
+      @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+      throws RemoteInvocationException {
     final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
-    CorpUsersFindBySearchRequestBuilder requestBuilder = CORP_USERS_REQUEST_BUILDERS
-        .findBySearch()
+    final CorpUsersFindBySearchRequestBuilder requestBuilder = CORP_USERS_REQUEST_BUILDERS.findBySearch()
         .inputParam(input)
+        .aspectsParam(aspectNames)
         .filterParam(filter)
         .sortParam(sortCriterion)
         .paginate(start, count);
