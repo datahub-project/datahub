@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
  * Rest.li entry point: /mlModels/{mlModelKey}/evaluationData
  */
 @Slf4j
-@RestLiCollection(name = "cost", namespace = "com.linkedin.ml", parent = MLModels.class)
+@RestLiCollection(name = "evaluationData", namespace = "com.linkedin.ml", parent = MLModels.class)
 public class EvaluationDataResource extends BaseMLModelsAspectResource<EvaluationData> {
     public EvaluationDataResource() {
         super(EvaluationData.class);

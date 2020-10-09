@@ -1256,6 +1256,27 @@
             }
           }
         }, {
+          "name" : "evaluationData",
+          "namespace" : "com.linkedin.ml",
+          "path" : "/mlModels/{model}/evaluationData",
+          "schema" : "com.linkedin.ml.metadata.EvaluationData",
+          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/evaluationData\n\ngenerated from: com.linkedin.metadata.resources.ml.EvaluationDataResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "evaluationDataId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/mlModels/{model}/evaluationData/{evaluationDataId}"
+            }
+          }
+        }, {
           "name" : "institutionalMemory",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{model}/institutionalMemory",
