@@ -20,11 +20,11 @@ namespace com.linkedin.common
     "maxLength" : 20
   },
   {
-    "name" : "dashboardId",
-    "doc" : "Unique id of the dashboard assigned by the specific dashboard tool",
-    "type" : "string",
-    "maxLength" : 20
+    "name" : "dashboardUrl",
+    "doc" : "URL for the specific dashboard such as looker.linkedin.com/dashboards/1234",
+    "type" : "Url",
+    "maxLength" : 200
   }],
-  "maxLength" : 36
+  "maxLength" : 239
 }
 typeref DashboardUrn = string

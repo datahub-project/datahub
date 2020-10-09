@@ -1,0 +1,14 @@
+namespace com.linkedin.chart
+
+enum ChartQueryType {
+
+  /**
+   * LookML queries
+   */
+  LOOKML
+
+  /**
+   * SQL type queries
+   */
+  SQL
+}

@@ -13,16 +13,5 @@ record ChartQuery {
   /**
    * Chart query type
    */
-  type: enum ChartQueryType {
-
-    /**
-     * LookML queries
-     */
-    LOOKML
-
-    /**
-     * SQL type queries
-     */
-    SQL
-  }
+  type: ChartQueryType
 }

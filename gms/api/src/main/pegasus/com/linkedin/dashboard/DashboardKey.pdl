@@ -1,0 +1,26 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.common.Url
+
+/**
+ * Key for dashboard resource
+ */
+record DashboardKey {
+  /**
+   * The name of the dashboard tool such as looker, redash etc.
+   */
+  @validate.strlen = {
+    "max" : 20,
+    "min" : 1
+  }
+  tool: string
+
+  /**
+   * URL for the specific dashboard such as looker.linkedin.com/dashboards/1234
+   */
+  @validate.strlen = {
+    "max" : 200,
+    "min" : 1
+  }
+  dashboardUrl: Url
+}

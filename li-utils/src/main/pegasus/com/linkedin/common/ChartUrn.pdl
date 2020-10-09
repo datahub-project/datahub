@@ -19,12 +19,12 @@ namespace com.linkedin.common
     "type" : "string",
     "maxLength" : 20
   },
-    {
-      "name" : "chartId",
-      "doc" : "Unique id of the chart assigned by the specific dashboard tool",
-      "type" : "string",
-      "maxLength" : 20
-    }],
-  "maxLength" : 36
+  {
+    "name" : "chartUrl",
+    "doc" : "URL for the specific chart such as looker.linkedin.com/looks/1234",
+    "type" : "Url",
+    "maxLength" : 200
+  }],
+  "maxLength" : 235
 }
 typeref ChartUrn = string
