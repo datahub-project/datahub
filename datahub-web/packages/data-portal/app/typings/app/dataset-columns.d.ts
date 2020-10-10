@@ -1,14 +1,14 @@
-import { IDatasetColumn } from 'datahub-web/typings/api/datasets/columns';
 import { IComplianceEntity, IComplianceInfo } from 'datahub-web/typings/api/datasets/compliance';
 import { IComplianceChangeSet, ISchemaFieldsToPolicy } from 'datahub-web/typings/app/dataset-compliance';
+import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/schema';
 
 /**
  * Defines the interface for keys extracted from the columns property on an response of IDatasetSchemaGetResponse
  * @interface IColumnFieldProps
  */
 export interface IColumnFieldProps {
-  identifierField: IDatasetColumn['fullFieldPath'];
-  dataType: IDatasetColumn['dataType'];
+  identifierField: IDatasetSchemaColumn['fullFieldPath'];
+  dataType: IDatasetSchemaColumn['dataType'];
   identifierType?: IComplianceEntity['identifierType'];
   logicalType?: IComplianceEntity['logicalType'];
   suggestion?: IComplianceChangeSet['suggestion'];

@@ -37,6 +37,7 @@
     display: flex;
     overflow-y: auto;
     overflow-x: hidden;
+    padding-top: item-spacing(2);
   }
 
   &__content-preview &__subject {
@@ -54,33 +55,44 @@
 
   &__preview-markdown-icon {
     margin-right: item-spacing(2);
-    width: 16px;
+    width: item-spacing(4);
   }
 
   &__label {
     margin-bottom: item-spacing(1);
   }
 
-  &__list,
-  &__label,
+  &__list {
+    font-weight: fw(normal, 4);
+  }
+
+  &__label {
+    font-weight: fw(normal, 4);
+    margin-bottom: item-spacing(1);
+  }
+
   &__title {
     font-weight: fw(normal, 6);
   }
 
-  &__label-bold {
+  &__label--bold {
     font-weight: fw(normal, 7);
     font-size: fs(standard);
+    margin-bottom: item-spacing(2);
   }
 
   &__item {
     display: flex;
     flex-direction: column;
     width: $add-change-log-modal-item-width;
+    margin-bottom: item-spacing(2);
+    margin-top: item-spacing(4);
   }
 
   &__list {
     padding-left: 18px;
   }
+
   &__text-input {
     padding: item-spacing(1 2 1 2);
     border: 1px solid get-color(black, 0.75);
@@ -114,16 +126,11 @@
   }
 
   &__tag-input {
-    border-radius: 2px;
-    border: 1px solid get-color(black, 0.6);
-    padding: item-spacing(2);
-    display: flex;
-    flex-wrap: wrap;
-    margin-bottom: item-spacing(1);
+    @include change-management-tag-input;
   }
 
   &__pill {
-    margin: item-spacing(1 1 0 0);
+    @include change-management-pill;
   }
 
   &__action {

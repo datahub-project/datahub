@@ -1,0 +1,11 @@
+<div
+  {{did-insert (perform this.getTopConsumersTask @entity)}}
+  {{did-update (perform this.getTopConsumersTask @entity)}}
+  >
+  {{yield (hash
+    containerTask=this.getTopConsumersTask
+    topUserUrns=this.topUserUrns
+    topGroupUrns=this.topGroupUrns
+    topGroupLinkParams=this.topGroupLinkParams
+  )}}
+</div>

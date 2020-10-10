@@ -1,19 +1,38 @@
 {{#if this.isEditing}}
-  <Input
-    class="{{this.baseClass}}__input"
-    @value={{this.tagValue}}
-    @enter={{fn this.userConfirmedEntry}}
-    {{on "focusout" (fn this.userFocusedOut)}}
-    {{on "keydown" (fn this.userKeyDown)}}
-    @maxlength={{@maxlength}}
-  />
-  <button
-    type="button"
-    class="{{this.baseClass}}__action"
-    {{on "click" (fn this.userConfirmedEntry)}}
-  >
-    <FaIcon @icon="plus" class="{{this.baseClass}}__icon" />
-  </button>
+
+  {{#if this.isTypeahead}}
+    <PowerSelectTypeahead
+      @dropdownClass="{{this.baseClass}}__dropdown"
+      @triggerClass="{{this.baseClass}}__input"
+      @selected={{selectedEntity}}
+      @onchange={{fn this.userConfirmedEntry}}
+      @search={{@onSearch}}
+      @onblur={{fn this.onBlur}}
+      @placeholder={{@placeholder}}
+      @noMatchesMessage="No results found"
+    as |option|
+    >
+      {{yield option}}
+    </PowerSelectTypeahead>
+  {{else}}
+    <Input
+      class="{{this.baseClass}}__input"
+      @value={{this.tagValue}}
+      @enter={{fn this.userConfirmedEntry}}
+      {{on "focusout" (fn this.userFocusedOut)}}
+      {{on "keydown" (fn this.userKeyDown)}}
+      @maxlength={{@maxlength}}
+    />
+
+    <button
+      type="button"
+      class="{{this.baseClass}}__action"
+      {{on "click" (fn this.userConfirmedEntry this.tagValue)}}
+    >
+      <FaIcon @icon="plus" class="{{this.baseClass}}__icon" />
+    </button>
+  {{/if}}
+
 {{else}}
   {{!-- Tag has value and should be a basic display --}}
   {{#if @value}}
@@ -38,4 +57,3 @@
     </button>
   {{/if}}
 {{/if}}
-{{yield}}

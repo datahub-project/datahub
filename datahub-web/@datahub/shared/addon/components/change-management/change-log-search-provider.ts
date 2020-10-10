@@ -14,6 +14,11 @@ interface IChangeLogSearchProviderArgs {
 }
 
 /**
+ * Aspects to show in search results for change log
+ */
+const aspects: Array<keyof Com.Linkedin.Metadata.Aspect.DataConstructChangeManagementAspect> = [];
+
+/**
  * A Dummy component that has no significant logic around API calls or data transformation but serves
  * as a wrapper for providing the required search configs and params.
  */
@@ -23,7 +28,8 @@ export default class ChangeLogSearchProvider extends Component<IChangeLogSearchP
    */
   searchConfig?: IEntityRenderCommonPropsSearch = {
     attributes: [],
-    showFacets: false
+    showFacets: false,
+    defaultAspects: aspects
   };
 
   /**

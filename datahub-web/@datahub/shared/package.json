@@ -71,6 +71,7 @@
     "eyeglass-restyle": "^1.1.0",
     "ivy-tabs": "^3.3.0",
     "minimatch": "^3.0.4",
+    "restliparams": "^1.0.1",
     "sass": "^1.21.0",
     "svg-pan-zoom": "^3.6.1",
     "faker": "^4.1.0"

@@ -1,6 +1,7 @@
-import { IDatasetSchema, IDatasetSchemaGetResponse } from 'datahub-web/typings/api/datasets/schema';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
+import { IDatasetSchema } from '@datahub/metadata-types/types/entity/dataset/schema';
+import { IDatasetSchemaGetResponse } from '@datahub/datasets-core/types/datasets/schema';
 
 /**
  * Returns the url for a dataset schema by urn
@@ -19,7 +20,7 @@ const readDatasetSchemaByUrn = async (urn: string): Promise<IDatasetSchema> => {
 
   try {
     ({ schema } = await getJSON<IDatasetSchemaGetResponse>({ url: datasetSchemaUrlByUrn(urn) }));
-  } catch {
+  } catch (e) {
     return {
       schemaless: false,
       rawSchema: null,

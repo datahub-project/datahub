@@ -1,0 +1,44 @@
+.recipient-search-select {
+  &__tag-input {
+    @include change-management-tag-input;
+  }
+
+  &__pill {
+    @include change-management-pill;
+  }
+
+  &__suggestions-list-item {
+    display: flex;
+    border: none;
+    width: 100%;
+    align-items: center;
+    padding: item-spacing(2 0);
+  }
+
+  &__suggestions-list-item-detail {
+    display: flex;
+    text-align: left;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    &#{&}#{&} {
+      height: item-spacing(6);
+      width: item-spacing(6);
+      border: none;
+    }
+  }
+
+  &__suggestions-list-item-detail-email {
+    color: get-color(black, 0.6);
+  }
+
+  &__icon-container {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    margin-right: item-spacing(2);
+  }
+}

@@ -7,7 +7,7 @@
       @heading="We could not find a schema for this dataset"
     />
   {{else}}
-    <DatasetSchema
+    <Datasets::DatasetSchema
       @json={{this.json}}
       @schemas={{this.schemas}}
       @lastModified={{this.lastModifiedString}}

@@ -1,4 +1,3 @@
-import { getDatasetSchema } from '@datahub/datasets-core/mirage-addon/helpers/schema';
 import { getDataPlatforms } from '@datahub/datasets-core/mirage-addon/helpers/platforms';
 import { getDatasetOwnership } from '@datahub/datasets-core/mirage-addon/helpers/ownership';
 import { Server } from 'ember-cli-mirage';
@@ -9,8 +8,6 @@ import { IMirageServer } from '@datahub/utils/types/vendor/ember-cli-mirage-depr
 export function datasetsMirageConfig(server: Server | IMirageServer): void {
   server = server as IMirageServer;
   server.namespace = '/api/v2';
-
-  server.get('/datasets/:urn/schema', getDatasetSchema);
 
   // Temporary solution as we don't need real upstreams at the moment, we just don't wnat mirage to throw
   // any errors

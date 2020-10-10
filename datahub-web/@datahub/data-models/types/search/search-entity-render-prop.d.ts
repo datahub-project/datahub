@@ -26,6 +26,7 @@ export interface IEntityRenderCommonPropsSearch {
   // Note: Though this parameter is optional, items that rely on listing entities that are searchable
   // will default this to false
   isEnabled?: boolean;
+  defaultAspects: Array<string>;
 }
 /**
  * This interface should live in search addon, but search addon depends on data-models and
