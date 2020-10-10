@@ -191,6 +191,6 @@ docker rm -f $(docker ps -aq)
 ```
 2. Drop all DataHub's docker volumes.
 ```
-docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
+docker volume rm -f $(docker volume ls -f name=datahub_  -q)
 ```
 
