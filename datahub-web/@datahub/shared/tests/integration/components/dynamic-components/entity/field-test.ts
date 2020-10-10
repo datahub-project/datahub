@@ -9,9 +9,7 @@ module('Integration | Component | dynamic-components/entity/field', function(hoo
 
   test('it renders', async function(assert) {
     const fakeSeedInformation = {
-      dataset: {
-        description: `Pikachu's special dataset`
-      }
+      description: `Pikachu's special dataset`
     };
     const testUnderlyingDataset = new DatasetEntity(
       'pikachu',
