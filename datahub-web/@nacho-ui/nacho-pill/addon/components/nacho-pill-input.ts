@@ -18,11 +18,13 @@ export const baseInputPillClass = 'nacho-pill-input';
  * - While in editing mode, pressing the tab key will create a new tag and also leave us in
  *   editing mode still to quickly add more tags
  * - While in editing mode, clicking away will cause the input pill to reset
+ * - If typeahead is enabled then upon searching a dropdown will surface with the suggestions
  *
  * Refer to dummy application component <TestNachoPillInput> for suggested use of this component
  * @example
  * <NachoPillInput
  *  @value={{"string" || undefined}}
+ *  @isTypeahead={{true || undefined}}
  *  @placeholder={{"string" || undefined}}
  *  @onComplete={{action onComplete}}
  *  @onDelete={{action onDelete}}
@@ -33,7 +35,7 @@ export const baseInputPillClass = 'nacho-pill-input';
  */
 @layout(template)
 @classNames(baseInputPillClass)
-export default class NachoPillInput extends BasePillComponent {
+export default class NachoPillInput<T> extends BasePillComponent {
   /**
    * Inclusion in component for easy access in the template
    */
@@ -55,11 +57,16 @@ export default class NachoPillInput extends BasePillComponent {
   value?: string;
 
   /**
+   *  Whether or not we want to use nacho-pill-input as an input for a typeahead dropdown
+   */
+  isTypeahead = false;
+
+  /**
    * This is expected to be updated based on the user's input into the pill during editing mode.
    * We don't connect it directly to the value parameter because we don't necessarily know if
    * it will connect to any property directly.
    */
-  tagValue = '';
+  tagValue?: T;
 
   /**
    * Expected to be passed in, or will get a default value in the constructor, determines the
@@ -80,7 +87,7 @@ export default class NachoPillInput extends BasePillComponent {
    * Ultimately, this confirms their choice to finalize their pill entry and add the typed in value
    * to somelist
    */
-  onComplete: (value: string) => void = noop;
+  onComplete: (value: string | T) => void = noop;
 
   /**
    * External action, meant to handle a user action expressing desire to delete the value
@@ -107,7 +114,7 @@ export default class NachoPillInput extends BasePillComponent {
   createPillAndReset(): void {
     if (this.tagValue) {
       this.onComplete(this.tagValue);
-      set(this, 'tagValue', '');
+      set(this, 'tagValue', undefined);
     }
   }
 
@@ -157,7 +164,22 @@ export default class NachoPillInput extends BasePillComponent {
 
     // If focusOut does not stem from a sibling button then reset tagValue , else ignore and let secondaryTargetHandler take over the event propagation
     if (isTargetValid && !isChildPresent) {
-      setProperties(this, { tagValue: '', isEditing: false });
+      setProperties(this, { tagValue: undefined, isEditing: false });
+    }
+  }
+
+  /**
+   * Handler method for the PowerSelectTypeahead component, which dictates how we handle NachoPillInput when user focuses out.
+   */
+  @action
+  onBlur(_dd: unknown | undefined, event: MouseEvent | undefined): void {
+    // a secondary mouse event if any that happened alongside the focusOut. Eg : "onClick"
+    const secondaryTarget = event?.relatedTarget as Node | undefined;
+
+    // When clicked in a dropdown option, secondary target is null. We just want to take action when the
+    // secondary target is defined and it is outside ourselves
+    if (secondaryTarget && !this.element.contains(secondaryTarget)) {
+      setProperties(this, { tagValue: undefined, isEditing: false });
     }
   }
 
@@ -166,8 +188,11 @@ export default class NachoPillInput extends BasePillComponent {
    * tag they've created to whatever list provided the context for this pill and its siblings
    */
   @action
-  userConfirmedEntry(): void {
+  userConfirmedEntry(selectedEntry: T): void {
     set(this, 'isEditing', false);
+    if (selectedEntry) {
+      set(this, 'tagValue', selectedEntry);
+    }
     this.createPillAndReset();
   }
 

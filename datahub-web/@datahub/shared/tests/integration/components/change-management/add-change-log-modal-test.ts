@@ -73,20 +73,25 @@ module('Integration | Component | change-management/add-change-log-modal', funct
     const actions = findAll(`.${baseModalClass}__action`);
     assert.dom(actions[1]).hasText('Continue to send email', 'button text is rendered as expected');
     await click(actions[1]);
-
+    // Focus pill
     await click('.nacho-pill-input:nth-child(1)');
-    await fillIn('.nacho-pill-input__input:nth-child(1)', 'testGroup1');
-    await triggerKeyEvent('.nacho-pill-input__input:nth-child(1)', 'keyup', 13);
+    const nachoPillInputs = findAll('.nacho-pill-input__input');
+    // Fill input with data
+    await fillIn(findAll('.ember-power-select-search-input')[0], 'testGroup1');
+    // Hit tab / enter
+    await triggerKeyEvent(nachoPillInputs[0], 'keyup', 13);
 
     // Add a new individual recipient
-    await click(findAll('.nacho-pill-input')[2]);
-    await click(findAll('.nacho-pill-input__input')[0]);
-    await fillIn('.nacho-pill-input__input:nth-child(1)', 'testIndividualLDAP1');
-    await triggerKeyEvent('.nacho-pill-input__input:nth-child(1)', 'keyup', 13);
+    await click(findAll('.nacho-pill-input')[1]);
+    await fillIn(findAll('.ember-power-select-search-input')[0], 'testIndividualLDAP1');
+    await triggerKeyEvent(findAll('.ember-power-select-search-input')[0], 'keyup', 13);
 
     assert
       .dom(find(`.${baseModalClass}__content`))
-      .includesText('Sending Email to 5 individuals and 1 group(s)', 'Title text is displayed correctly');
+      .includesText(
+        'Sending Email to 4 individuals',
+        'User is able to enter input for searching and Title text is displayed correctly'
+      );
 
     assert
       .dom(find(`.${baseModalClass}__content`))
@@ -94,13 +99,13 @@ module('Integration | Component | change-management/add-change-log-modal', funct
     assert
       .dom(find(`.${baseModalClass}__content`))
       .includesText(
-        'Group email distribution list (1)',
+        'Group email distribution list (0)',
         'Distribution lists are included in prompt with the right count'
       );
     assert
       .dom(find(`.${baseModalClass}__content`))
       .includesText(
-        'Individual email recipients (1)',
+        'Individual email recipients (0)',
         'Individual recipients are included in prompt with the right count'
       );
   });

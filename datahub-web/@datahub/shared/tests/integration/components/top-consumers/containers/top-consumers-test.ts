@@ -27,12 +27,12 @@ module('Integration | Component | top-consumers/containers/top-consumers', funct
     });
 
     assert.notEqual(
-      topConsumersContainer.topUserUrns.length,
+      topConsumersContainer.topUserUrns?.length,
       0,
       'Expects container to have the correct number of top users urns'
     );
     assert.notEqual(
-      topConsumersContainer.topGroupUrns.length,
+      topConsumersContainer.topGroupUrns?.length,
       0,
       'Expects container to have the correct number of top group urns'
     );

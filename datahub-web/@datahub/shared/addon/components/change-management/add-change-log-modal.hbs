@@ -35,10 +35,10 @@
     {{#if this.isDisplayingPreviewModal}}
     <div class="{{this.baseModalClass}}__content-preview-modal">
         <div class="{{this.baseModalClass}}__item">
-          <p class="{{this.baseModalClass}}__label {{this.baseModalClass}}__label-bold">
+          <p class="{{this.baseModalClass}}__label--bold">
             {{this.titleText}}
           </p>
-          <ul class="{{this.baseModalClass}}__item {{this.baseModalClass}}__list">
+          <ul class="{{this.baseModalClass}}__list">
             <li>Dataset Followers ({{this.emailRecipientsCount.followers}})</li>
             <li>All Owners of the dataset ({{this.emailRecipientsCount.owners}})</li>
             <li>Individual email recipients ({{this.emailRecipientsCount.individualRecipients}})</li>
@@ -46,28 +46,19 @@
           </ul>
         </div>
         <div class="{{this.baseModalClass}}__item">
-          <p class="{{this.baseModalClass}}__label {{this.baseModalClass}}__label-bold">
-            Add Additional email recipients (optional)
+          <p class="{{this.baseModalClass}}__label--bold">
+            Add additional email recipients (optional)
           </p>
           <p class="{{this.baseModalClass}}__label">
-            Add Group email distribution list
+            Add group email distribution lists
           </p>
-          <div class="{{this.baseModalClass}}__tag-input">
-            {{#each this.distributionLists as |distributionList index|}}
-              <NachoPillInput
-                class="{{this.baseModalClass}}__pill"
-                @value={{distributionList}}
-                @onDelete={{fn this.removeRecipient this.recipientType.distributionList index}}
-              />
-            {{/each}}
-            <NachoPillInput
-              class="{{this.baseModalClass}}__pill"
-              @placeholder="e.g.,datahub-dev"
-              @onComplete={{fn this.addRecipient this.recipientType.distributionList}}
-            />
-          </div>
+          <ChangeManagement::RecipientSearchSelect
+            @addRecipient={{this.addRecipient}}
+            @removeRecipient={{this.removeRecipient}}
+            @distributionLists={{this.distributionLists}}
+          />
           <p class="{{this.baseModalClass}}__label">
-            Add Individual email recipients
+            Add individual email recipients
           </p>
           <ChangeManagement::RecipientSearchSelect
             @addRecipient={{this.addRecipient}}

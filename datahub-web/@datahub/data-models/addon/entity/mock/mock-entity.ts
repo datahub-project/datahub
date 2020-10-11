@@ -33,7 +33,8 @@ export class MockEntity<E = IBaseEntity> extends BaseEntity<E> {
             desc: 'A mock field',
             example: 'Evolutionary'
           }
-        ]
+        ],
+        defaultAspects: []
       },
       entityPage: {
         route: 'entity-type.urn',

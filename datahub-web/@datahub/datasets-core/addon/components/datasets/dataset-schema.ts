@@ -1,8 +1,7 @@
-import Component from '@ember/component';
-import { computed, set, setProperties } from '@ember/object';
-import { IDatasetColumn, IDatasetColumnWithHtmlComments } from 'datahub-web/typings/api/datasets/columns';
-import { task } from 'ember-concurrency';
-import { ETask } from '@datahub/utils/types/concurrency';
+import Component from '@glimmer/component';
+import { computed, set, setProperties, action } from '@ember/object';
+import { IDatasetColumnWithHtmlComments } from '@datahub/datasets-core/types/datasets/columns';
+import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/schema';
 
 /**
  * Presentational component for rendering a JSON Schema, either with a Table or a JSON representation
@@ -10,7 +9,21 @@ import { ETask } from '@datahub/utils/types/concurrency';
  * @class DatasetSchema
  * @extends {Component}
  */
-export default class DatasetSchema extends Component {
+export default class DatasetSchema extends Component<{
+  /**
+   * Externally supplied JSON value for the related Dataset's schema. This is defaulted to an empty JSON object
+   */
+  json: string;
+  /**
+   * List of columns in the Dataset and additional attributes, used to back the table representation of the Dataset's schema
+   */
+  schemas: Array<IDatasetColumnWithHtmlComments | IDatasetSchemaColumn>;
+
+  /**
+   * Schema last modified
+   */
+  lastModified: Date;
+}> {
   /**
    * Flag indicating that the schema should be rendered with a tabular representation
    * This currently is driven by the schemas attribute
@@ -23,20 +36,10 @@ export default class DatasetSchema extends Component {
   isValidJson = false;
 
   /**
-   * Externally supplied JSON value for the related Dataset's schema. This is defaulted to an empty JSON object
-   */
-  json = '{}';
-
-  /**
    * This will reference the prettified JSON input from this.JSON.
    * By default, it points to the same value
    */
-  possibleJsonOutput = this.json;
-
-  /**
-   * List of columns in the Dataset and additional attributes, used to back the table representation of the Dataset's schema
-   */
-  schemas: Array<IDatasetColumnWithHtmlComments | IDatasetColumn> = [];
+  possibleJsonOutput = this.args.json;
 
   /**
    * Toggle the render mode for ember-ace editor between JSON and text depending on the last task
@@ -55,7 +58,7 @@ export default class DatasetSchema extends Component {
    * Format the JSON string as a human friendly string
    */
   prettifyJson(_r: boolean = this.isShowingTable): string {
-    return JSON.stringify(JSON.parse(this.json), null, '\t');
+    return JSON.stringify(JSON.parse(this.args.json), null, '\t');
   }
 
   /**
@@ -64,13 +67,11 @@ export default class DatasetSchema extends Component {
    * An error will be thrown by the task if an invalid JSON string is provided
    * @param {boolean} [shouldShowTable=this.isShowingTable] Flag indicating the user toggled view,
    * if no value is passed in e.g. when attrs are updated, we retain the currently set flag state
-   * @type {ETask<void>}
    */
-  @(task(function*(
-    this: DatasetSchema,
-    shouldShowTable: DatasetSchema['isShowingTable'] = this.isShowingTable
-  ): IterableIterator<void> {
-    let output = this.json;
+
+  @action
+  onToggleSchemaViewTypeTask(shouldShowTable: DatasetSchema['isShowingTable'] = this.isShowingTable): void {
+    let output = this.args.json;
 
     // Attempt to parse JSON
     try {
@@ -89,8 +90,5 @@ export default class DatasetSchema extends Component {
       // Always toggle state even if the JSON is invalid , source value (this.json) will be rendered as plain text
       setProperties(this, { possibleJsonOutput: output, isShowingTable: shouldShowTable });
     }
-  })
-    .restartable()
-    .on('didUpdateAttrs'))
-  onToggleSchemaViewTypeTask: ETask<void>;
+  }
 }

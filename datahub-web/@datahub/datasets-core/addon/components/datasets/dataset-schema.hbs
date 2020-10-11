@@ -1,4 +1,4 @@
-{{#if schemas.length}}
+{{#if @schemas.length}}
   <div class="row dataset-schema__header">
     <div class="col-xs-12">
       <div class="btn-group">
@@ -9,14 +9,14 @@
           @leftOptionText="Table"
           @rightOptionValue={{false}}
           @rightOptionText="JSON"
-          @onChange={{perform this.onToggleSchemaViewTypeTask}}
+          @onChange={{fn this.onToggleSchemaViewTypeTask}}
         />
       </div>
       <div
         class="schemas-modified-time"
         aria-label="Last time the Dataset Schema was modified"
       >
-        Last modified: {{lastModified}}
+        Last modified: {{@lastModified}}
       </div>
     </div>
   </div>
@@ -33,19 +33,13 @@
         <Head.title @class="dataset-detail-table__th-comments">
           Default Comments
         </Head.title>
-        <Head.title @class="dataset-detail-table__th-comment-count">
-          <FaIcon
-            @icon={{"comments"}}
-            @title={{"Comment Count"}}
-          />
-        </Head.title>
       </Table.head>
       <Table.body as |Body|>
-        {{#each this.schemas as |schema|}}
+        {{#each @schemas as |schema|}}
           <Body.row as |Row|>
             <Row.cell>
               <div class="dataset-detail-table__field-name">
-              {{schema.fieldName}}
+                {{schema.fieldName}}
                 {{#if schema.nullable}}
                   <span class="schema-property-indicator schema-property-indicator--nullable">
                     N
@@ -82,9 +76,6 @@
                   {{schema.commentHtml}}
                 </p>
               </div>
-            </Row.cell>
-            <Row.cell @class="text-center">
-              {{schema.commentCount}}
             </Row.cell>
           </Body.row>
         {{/each}}

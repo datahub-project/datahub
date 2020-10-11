@@ -12,11 +12,11 @@ import {
   getFacetDefaultValueForEntity,
   transformDefaultsIntoSelections
 } from '@datahub/data-models/entity/utils/facets';
-import { facetToParamUrl } from 'datahub-web/utils/api/search/search';
 import RouterService from '@ember/routing/router-service';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import DataModelsService from '@datahub/data-models/services/data-models';
+import { facetToParamUrl } from '@datahub/shared/utils/search/search';
 
 /**
  * Search box container that handle all the data part for

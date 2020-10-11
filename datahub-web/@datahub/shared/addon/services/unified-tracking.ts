@@ -182,7 +182,9 @@ export default class UnifiedTracking extends Service {
     this.router.on('routeDidChange', ({ to }: Transition): void => {
       const { router, metrics } = this;
       // Fetch the URL from the router and store it as an identifier
-      const page: string = router.currentURL;
+      // Note: We need to append the hash '#' here as this isn't included in our tracking adapter but we need this hash
+      // to provide accurate information about the page since the Ember app uses it
+      const page: string = '/#' + router.currentURL;
       // fallback to page value if a resolution cannot be determined, e.g when to / from is null
       const title: string = resolveDynamicRouteName(mapOfRouteNamesToResolver, to) || page || '';
 

@@ -1,5 +1,5 @@
-import { readValuesV2 } from 'datahub-web/utils/api/search/values-v2';
-import { IFieldValuesResponseV2 } from 'datahub-web/typings/app/search/fields-v2';
+import { readValuesV2 } from '@datahub/shared/utils/search/values-v2';
+import { IFieldValuesResponseV2 } from '@datahub/shared/types/search/fields-v2';
 import { debounceAndMemoizeAsyncQuery } from '@datahub/utils/api/autocomplete';
 
 /**

@@ -8,7 +8,9 @@ module('Integration | Component | dynamic-components/entity/field', function(hoo
   setupRenderingTest(hooks);
 
   test('it renders', async function(assert) {
-    const fakeSeedInformation = { description: `Pikachu's special dataset` };
+    const fakeSeedInformation = {
+      description: `Pikachu's special dataset`
+    };
     const testUnderlyingDataset = new DatasetEntity(
       'pikachu',
       (fakeSeedInformation as unknown) as Com.Linkedin.Dataset.Dataset

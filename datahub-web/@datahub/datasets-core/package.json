@@ -21,6 +21,7 @@
     "postpublish": "ember ts:clean"
   },
   "dependencies": {
+    "@datahub/shared": "0.0.0",
     "@datahub/data-models": "0.0.0",
     "@datahub/metadata-types": "0.0.0",
     "@datahub/utils": "0.0.0",

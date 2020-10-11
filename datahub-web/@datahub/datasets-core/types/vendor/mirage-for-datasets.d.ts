@@ -1,7 +1,7 @@
 import { IMirageDB } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
 import { IComplianceFieldAnnotation } from '@datahub/metadata-types/constants/entity/dataset/compliance-field-annotation';
 import { IComplianceDataType } from '@datahub/metadata-types/types/entity/dataset/compliance-data-types';
-import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/scehma';
+import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/schema';
 import { IDatasetComplianceInfo } from '@datahub/metadata-types/types/entity/dataset/compliance/info';
 import { IDatasetExportPolicy } from '@datahub/metadata-types/types/entity/dataset/compliance/export-policy';
 import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
