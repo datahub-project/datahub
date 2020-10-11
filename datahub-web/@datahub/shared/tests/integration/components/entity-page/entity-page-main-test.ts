@@ -29,7 +29,8 @@ const setupTest = async function(
         search: {
           attributes: [],
           autocompleteNameField: '',
-          placeholder: ''
+          placeholder: '',
+          defaultAspects: []
         }
       };
       if (options.withBrowsePage) {

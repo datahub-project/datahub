@@ -148,10 +148,11 @@ declare module 'ember-cli-mirage' {
 
   export interface HandlerContext {
     request: Request;
-    serialize(
-      modelOrCollection: Collection<unknown> | ModelInstance | Array<ModelInstance> | ModelClass,
+    serialize<T = unknown>(modelOrCollection: ModelInstance<T> | ModelClass<T>, serializerName?: string): T;
+    serialize<T = unknown>(
+      modelOrCollection: DatabaseCollection<T> | Array<ModelInstance<T>> | Collection<T>,
       serializerName?: string
-    ): unknown;
+    ): Array<T>;
     normalizedRequestAttrs<M extends keyof ModelRegistry>(model: M): NormalizedRequestAttrs<ModelRegistry[M]>;
   }
 

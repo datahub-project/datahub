@@ -1,4 +1,4 @@
-import { IDatasetSchema, IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/scehma';
+import { IDatasetSchema, IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/schema';
 import { oneWay } from '@ember/object/computed';
 
 /**

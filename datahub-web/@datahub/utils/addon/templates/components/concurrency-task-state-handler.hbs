@@ -8,7 +8,6 @@
   {{/if}}
 {{else}}
   {{#if @task.last.isError}}
-
     {{#let (or @errorHeading "An error occurred. Please try again shortly.") as |errorMessage|}}
       {{! Show entity lockup if toggled on, otherwise yield error. This allows this component to be used in interfaces
       where rendering the lockup is not suitable, for example in a button

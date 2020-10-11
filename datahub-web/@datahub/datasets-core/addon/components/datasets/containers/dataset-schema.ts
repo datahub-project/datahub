@@ -1,26 +1,31 @@
 import Component from '@ember/component';
 import { setProperties } from '@ember/object';
 import { task } from 'ember-concurrency';
-import { IDatasetColumn, IDatasetColumnWithHtmlComments } from 'datahub-web/typings/api/datasets/columns';
-import { IDatasetSchema } from 'datahub-web/typings/api/datasets/schema';
-import { augmentObjectsWithHtmlComments } from 'datahub-web/utils/api/datasets/columns';
-import { readDatasetSchemaByUrn } from 'datahub-web/utils/api/datasets/schema';
+import { IDatasetColumnWithHtmlComments } from '@datahub/datasets-core/types/datasets/columns';
+import { augmentObjectsWithHtmlComments } from '@datahub/datasets-core/utils/api/columns';
+import { readDatasetSchemaByUrn } from '@datahub/datasets-core/utils/api/schema';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { IDatasetSchemaColumn, IDatasetSchema } from '@datahub/metadata-types/types/entity/dataset/schema';
+import { layout } from '@ember-decorators/component';
+// @ts-ignore: Ignore import of compiled template
+import template from '../../../templates/components/datasets/containers/dataset-schema';
+import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 
-@containerDataSource<DatasetSchemaContainer>('getDatasetSchemaTask', ['urn'])
+@layout(template)
+@containerDataSource<DatasetSchemaContainer>('getDatasetSchemaTask', ['entity'])
 export default class DatasetSchemaContainer extends Component {
   /**
    * The urn identifier for the dataset
    * @type {string}
    */
-  urn!: string;
+  entity!: DatasetEntity;
 
   /**
    * json string for the dataset schema properties
    * @type {string}
    */
-  json: string;
+  json?: string;
 
   /**
    * Stores the last modified date on the dataset schema as an utc time string
@@ -32,7 +37,7 @@ export default class DatasetSchemaContainer extends Component {
    * List of schema properties for the dataset
    * @type {IDatasetColumnWithHtmlComments | IDatasetColumn}
    */
-  schemas: Array<IDatasetColumnWithHtmlComments | IDatasetColumn>;
+  schemas?: Array<IDatasetColumnWithHtmlComments | IDatasetSchemaColumn>;
 
   /**
    * If there is schema or not
@@ -44,7 +49,7 @@ export default class DatasetSchemaContainer extends Component {
    */
   @task(function*(this: DatasetSchemaContainer): IterableIterator<Promise<IDatasetSchema>> {
     const { columns = [], rawSchema: json, lastModified } = ((yield readDatasetSchemaByUrn(
-      this.urn
+      this.entity.urn
     )) as unknown) as IDatasetSchema;
 
     const lastModifiedString = lastModified ? new Date(lastModified).toLocaleString() : '';
