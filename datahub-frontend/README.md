@@ -320,3 +320,16 @@ WHZ-Authentication {
 ```
 
 Note that the special keyword `USERNAME` will be substituted by the actual username.  
+
+### API Debugging
+Most DataHub frontend API endpoints are protected using [Play Authentication](https://www.playframework.com/documentation/2.1.0/JavaGuide4), which means it requires authentication information stored in the cookie for the request to go through. This makes debugging using curl difficult. One option is to first make a curl call against the `/authenticate` endpoint and stores the authentication info in a cookie file like this
+
+```
+curl -c cookie.txt -d '{"username":"datahub", "password":"datahub"}' -H 'Content-Type: application/json' http://localhost:9001/authenticate
+```
+
+You can then make all subsequent calls using the same cookie file to pass the authentication check.
+
+```
+curl -b cookie.txt "http://localhost:9001/api/v2/search?type=dataset&input=page"
+```
