@@ -163,7 +163,7 @@ export async function getResultsForEntity(
     const totalPages = Math.ceil(total / itemsPerPage);
     const page = Math.ceil((start + 1) / itemsPerPage);
     const data = elements.map(
-      (entityData): DataModelEntityInstance => dataModels.createPartialInstance(entity, entityData)
+      (entityData): DataModelEntityInstance => dataModels.createPartialInstance(entity, entityData, aspects)
     );
 
     const entitySearchResult = {

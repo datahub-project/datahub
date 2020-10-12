@@ -11,6 +11,7 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
 import { assignRelationshipGettersToClassObject } from '@datahub/data-models/relationships/creator';
 import { IDataModelEntity } from '@datahub/data-models/constants/entity';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { addAspectLoaded } from '../entity/utils/aspects';
 
 /**
  * Encapsulating Guards logic into this class so it is easier to move if data-models grow
@@ -92,7 +93,8 @@ export default class DataModelsService extends Service {
    */
   createPartialInstance<K extends DataModelName>(
     modelKey: K,
-    data: DataModelEntityInstance['entity'] | string
+    data: DataModelEntityInstance['entity'] | string,
+    aspectsLoaded?: Array<string>
   ): InstanceType<typeof DataModelEntity[K]> {
     const EntityClass = this.getModel(modelKey);
     let instance: InstanceType<typeof DataModelEntity[K]>;
@@ -104,6 +106,8 @@ export default class DataModelsService extends Service {
       instance = new EntityClass(urn) as InstanceType<typeof DataModelEntity[K]>;
       set(instance, 'entity', data as typeof instance['entity']);
     }
+
+    aspectsLoaded?.forEach(aspect => addAspectLoaded(instance, aspect));
 
     return instance;
   }

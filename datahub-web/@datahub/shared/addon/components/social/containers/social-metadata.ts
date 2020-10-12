@@ -14,6 +14,7 @@ import { IDynamicComponentsIconArgs } from '@datahub/shared/components/dynamic-c
 import { IDynamicComponentArgs } from '@datahub/shared/types/dynamic-component';
 import { IDynamicComponentsTextArgs } from '@datahub/shared/components/dynamic-components/text';
 import { IDynamicComponentsWikiLinkArgs } from '@datahub/shared/components/dynamic-components/wiki-link';
+import { hasAspect } from '@datahub/data-models/entity/utils/aspects';
 
 export const baseSocialMetadataComponentClass = 'social-metadata-container';
 
@@ -115,13 +116,18 @@ export default class SocialMetadataContainer extends Component {
   @(task(function*(this: SocialMetadataContainer): IterableIterator<Promise<Array<void>>> {
     const { entity, hideSocialActions } = this;
     // Prevents making unnecessary calls to the API if we are already flag guarding this feature anyway
-    if (entity && !hideSocialActions) {
-      yield Promise.all([
-        entity.readLikes(),
-        entity.readFollows()
-        // TODO: Add function to fetch saves as well
-      ]);
+    // or we already have the aspect loaded
+    const load = [];
+
+    if (!hideSocialActions && entity && !hasAspect(entity, 'likes')) {
+      load.push(entity.readLikes());
     }
+
+    if (!hideSocialActions && entity && !hasAspect(entity, 'follow')) {
+      load.push(entity.readFollows());
+    }
+
+    yield Promise.all(load);
   }).drop())
   getContainerDataTask!: ETaskPromise<Array<void>>;
 }
