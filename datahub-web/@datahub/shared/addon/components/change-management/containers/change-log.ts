@@ -361,9 +361,10 @@ export default class ChangeLogContainer extends Component {
 
       // 1. Gather unique recipient urns
       const uniqueRecipientUrns = new Set(
-        [...transformFollowersIntoRecipients(entity.followedByActions), ...ownersAsRecipients].map(
-          user => (user as { userUrn?: string }).userUrn || ''
-        )
+        [
+          ...transformFollowersIntoRecipients(entity.follow?.followers.map(followers => followers.follower) || []),
+          ...ownersAsRecipients
+        ].map(user => (user as { userUrn?: string }).userUrn || '')
       );
 
       // 2. Construct recipients from the recipient Urns

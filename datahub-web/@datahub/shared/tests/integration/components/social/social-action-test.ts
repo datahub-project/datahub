@@ -4,12 +4,11 @@ import { render, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
-import { set } from '@ember/object';
 import { baseSocialActionComponentClass } from '@datahub/shared/components/social/social-action';
 import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
-import { ILikeAction, IFollowerType } from '@datahub/metadata-types/types/aspects/social-actions';
 import { noop } from 'lodash';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
+import { setAspect } from '@datahub/data-models/entity/utils/aspects';
 
 module('Integration | Component | social/social-action', function(hooks): void {
   setupRenderingTest(hooks);
@@ -25,11 +24,9 @@ module('Integration | Component | social/social-action', function(hooks): void {
     const setOfLikedByUrns = new Set(likedByUrns);
     setOfLikedByUrns.add(personEntity.urn);
 
-    set(
-      sampleEntity,
-      'likedByActions',
-      Array.from(setOfLikedByUrns).map((urn): ILikeAction => ({ likedBy: urn }))
-    );
+    setAspect(sampleEntity, 'likes', {
+      actions: Array.from(setOfLikedByUrns).map((urn): Com.Linkedin.Common.LikeAction => ({ likedBy: urn }))
+    });
     return new Promise(noop);
   };
 
@@ -39,11 +36,9 @@ module('Integration | Component | social/social-action', function(hooks): void {
     const setOfLikedByUrns = new Set(likedByUrns);
     setOfLikedByUrns.delete(personEntity.urn);
 
-    set(
-      sampleEntity,
-      'likedByActions',
-      Array.from(setOfLikedByUrns).map((urn): ILikeAction => ({ likedBy: urn }))
-    );
+    setAspect(sampleEntity, 'likes', {
+      actions: Array.from(setOfLikedByUrns).map((urn): Com.Linkedin.Common.LikeAction => ({ likedBy: urn }))
+    });
     return new Promise(noop);
   };
 
@@ -52,11 +47,11 @@ module('Integration | Component | social/social-action', function(hooks): void {
     const setOfFollowedByUrns = new Set(followedByUrns);
     setOfFollowedByUrns.add(personEntity.urn);
 
-    set(
-      sampleEntity,
-      'followedByActions',
-      Array.from(setOfFollowedByUrns).map((urn): IFollowerType => ({ corpUser: urn }))
-    );
+    setAspect(sampleEntity, 'follow', {
+      followers: Array.from(setOfFollowedByUrns).map(
+        (urn): Com.Linkedin.Common.FollowAction => ({ follower: { corpUser: urn } })
+      )
+    });
     return new Promise(noop);
   };
 

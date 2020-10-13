@@ -1,12 +1,6 @@
 import { DataModelName } from '@datahub/data-models/constants/entity';
 import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
 import { getJSON, postJSON } from '@datahub/utils/api/fetcher';
-import {
-  ILikesAspect,
-  ILikeAction,
-  IFollowsAspect,
-  IFollowerType
-} from '@datahub/metadata-types/types/aspects/social-actions';
 import { encodeUrn } from '@datahub/utils/validators/urn';
 
 /**
@@ -28,18 +22,12 @@ const getLikeActionsUrl = (entityType: DataModelName, urn: string): string =>
   getSocialActionsUrl(entityType, urn, 'likes');
 
 /**
- * Given a Likes aspect from the backend, returns the actual like actions related to that aspect
- * @param actions - the list of like actions that are retrieved from the api
- */
-const getLikeActionsFromAspect = ({ actions }: ILikesAspect): Array<ILikeAction> => actions;
-
-/**
  * Given an entity type and urn, construct a getter for which to retrieve likes information
  * @param {DataModelName} entityType - the type of entity for which we want to read like information
  * @param {string} urn - the identifier for the entity for which we want to read like information
  */
-export const readLikesForEntity = (entityType: DataModelName, urn: string): Promise<Array<ILikeAction>> =>
-  getJSON({ url: getLikeActionsUrl(entityType, urn) }).then(getLikeActionsFromAspect);
+export const readLikesForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Likes> =>
+  getJSON({ url: getLikeActionsUrl(entityType, urn) });
 
 /**
  * Given an entity type and urn, post an update request that adds the user to the list of those who
@@ -48,8 +36,8 @@ export const readLikesForEntity = (entityType: DataModelName, urn: string): Prom
  * @param {string} urn - the identifier for the entity to which to add the user's like action
  * @return an updated likes aspect for the entity
  */
-export const addLikeForEntity = (entityType: DataModelName, urn: string): Promise<Array<ILikeAction>> =>
-  postJSON({ url: `${getLikeActionsUrl(entityType, urn)}/add`, data: {} }).then(getLikeActionsFromAspect);
+export const addLikeForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Likes> =>
+  postJSON({ url: `${getLikeActionsUrl(entityType, urn)}/add`, data: {} });
 
 /**
  * Given an entity type and urn, post an update request that removes the user to the list of those
@@ -58,8 +46,8 @@ export const addLikeForEntity = (entityType: DataModelName, urn: string): Promis
  * @param {string} urn - the identifier for teh entity to which to add the user's like action
  * @return an updated likes aspect for the entity
  */
-export const removeLikeForEntity = (entityType: DataModelName, urn: string): Promise<Array<ILikeAction>> =>
-  postJSON({ url: `${getLikeActionsUrl(entityType, urn)}/remove`, data: {} }).then(getLikeActionsFromAspect);
+export const removeLikeForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Likes> =>
+  postJSON({ url: `${getLikeActionsUrl(entityType, urn)}/remove`, data: {} });
 
 /**
  * Using the socialActionsUrl as a base, create a function that constructs one specifically for
@@ -72,21 +60,12 @@ const getFollowActionsUrl = (entityType: DataModelName, urn: string): string =>
   getSocialActionsUrl(entityType, urn, 'follows');
 
 /**
- * Given the followers aspect from the API response, provided as a convenience function we return
- * objects representing the followers themselves
- * @param {Array<IFollowAction>} followers - the list of followers presented as
- *  FollowAction objects
- */
-const getFollowersFromAspect = ({ followers }: IFollowsAspect): Array<IFollowerType> =>
-  followers.map(({ follower }): IFollowerType => follower);
-
-/**
  * Given an entity type and urn, construct a getter for which to retrieve follows information
  * @param {DataModelName} entityType - the type of entity for which we want to read follow information
  * @param {string} urn - the identifier for the entity for which we want to read follow information
  */
-export const readFollowsForEntity = (entityType: DataModelName, urn: string): Promise<Array<IFollowerType>> =>
-  getJSON({ url: getFollowActionsUrl(entityType, urn) }).then(getFollowersFromAspect);
+export const readFollowsForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Follow> =>
+  getJSON({ url: getFollowActionsUrl(entityType, urn) });
 
 /**
  * Given an entity type and urn, construct a getter for which to add the user as a follower
@@ -94,8 +73,8 @@ export const readFollowsForEntity = (entityType: DataModelName, urn: string): Pr
  * @param {string} urn - the identifier for the entity for which we want to update follow information
  * @return an updated follow aspect for the entity, if successful
  */
-export const addFollowForEntity = (entityType: DataModelName, urn: string): Promise<Array<IFollowerType>> =>
-  postJSON({ url: `${getFollowActionsUrl(entityType, urn)}/add`, data: {} }).then(getFollowersFromAspect);
+export const addFollowForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Follow> =>
+  postJSON({ url: `${getFollowActionsUrl(entityType, urn)}/add`, data: {} });
 
 /**
  * Given an entity type and urn, construct a getter for which to remove the user as a follower
@@ -103,5 +82,5 @@ export const addFollowForEntity = (entityType: DataModelName, urn: string): Prom
  * @param {string} urn - the identifier for the entity for which we want to update follow information
  * @return an updated follow aspect for the entity, if successful
  */
-export const removeFollowForEntity = (entityType: DataModelName, urn: string): Promise<Array<IFollowerType>> =>
-  postJSON({ url: `${getFollowActionsUrl(entityType, urn)}/remove`, data: {} }).then(getFollowersFromAspect);
+export const removeFollowForEntity = (entityType: DataModelName, urn: string): Promise<Com.Linkedin.Common.Follow> =>
+  postJSON({ url: `${getFollowActionsUrl(entityType, urn)}/remove`, data: {} });

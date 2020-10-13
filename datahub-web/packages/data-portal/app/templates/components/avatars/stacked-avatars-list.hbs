@@ -17,13 +17,26 @@
         <Nacho::Dropdown::HoverDropdown @dropDownItems={{avatar.avatarOptions}} @selectedDropDown={{null}} @wrappedTriggerComponent={{true}} @renderInPlace={{true}} @onSelect={{action "onAvatarOptionSelected" avatar}} as |dd|>
 
           <dd.trigger @class="avatar-item__trigger">
-            {{#if avatar.profileLink}}
-              <a href={{avatar.profileLink}} rel="noreferrer noopener" target="_blank">
-                <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
-              </a>
-            {{else}}
-              <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
-            {{/if}}
+
+            <Avatar::Containers::AvatarMain @username={{avatar.userName}} as |avatarsV2|>
+              {{!-- TODO: [META-12887]
+                    This is a temporary fix to be able to use the new avatar class to fetch the profile link instead
+                    of the old avatar method, which unfortunately is still required by the parent and child components.
+                    Upon completion of META-12887 this should be cleaned up
+                 --}}
+              {{#let (get avatarsV2 "0") as |avatarV2|}}
+
+                {{#if avatarV2.profileLink}}
+                  <DynamicLink @params={{avatarV2.profileLink}}>
+                    <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
+                  </DynamicLink>
+                {{else}}
+                  <Avatars::AvatarImage @avatar={{avatar}} @class={{if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked"}} />
+                {{/if}}
+
+              {{/let}}
+
+            </Avatar::Containers::AvatarMain>
           </dd.trigger>
 
           {{dd.content}}
