@@ -2,7 +2,6 @@ import { IChangeLogProperties, ChangeLog } from '@datahub/shared/modules/change-
 import { msTimeAsUnix } from '@datahub/utils/helpers/ms-time-as-unix';
 import { IAddChangeLogModalProps } from '@datahub/shared/types/change-management/change-log';
 import { OwnerUrnNamespace } from '@datahub/data-models/constants/entity/dataset/ownership';
-import { IFollowerType } from '@datahub/metadata-types/types/aspects/social-actions';
 import getActorFromUrn from '@datahub/data-models/utils/get-actor-from-urn';
 
 type IDetailResponse = Com.Linkedin.DataConstructChangeManagement.DataConstructChangeManagement;
@@ -118,10 +117,13 @@ export const constructChangeLogContent = (
  * @param followers List of followers for a given entity
  */
 export const transformFollowersIntoRecipients = (
-  followers: Array<IFollowerType>
+  followers: Array<Com.Linkedin.Common.FollowerType>
 ): Array<Com.Linkedin.DataConstructChangeManagement.NotificationRecipient> =>
   followers.reduce(
-    (recipients: Array<Com.Linkedin.DataConstructChangeManagement.NotificationRecipient>, follower: IFollowerType) => {
+    (
+      recipients: Array<Com.Linkedin.DataConstructChangeManagement.NotificationRecipient>,
+      follower: Com.Linkedin.Common.FollowerType
+    ) => {
       if (follower?.corpUser) {
         recipients = [...recipients, { userUrn: follower.corpUser }];
       }

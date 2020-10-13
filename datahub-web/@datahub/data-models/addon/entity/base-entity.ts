@@ -21,7 +21,6 @@ import { readEntity } from '@datahub/data-models/api/entity';
 import { relationship } from '@datahub/data-models/relationships/decorator';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
-import { ILikeAction, IFollowerType } from '@datahub/metadata-types/types/aspects/social-actions';
 import {
   readLikesForEntity,
   addLikeForEntity,
@@ -32,8 +31,8 @@ import {
 } from '@datahub/data-models/api/common/social-actions';
 import { DataModelName } from '@datahub/data-models/constants/entity';
 import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
-import { isArray } from '@ember/array';
 import { noop } from 'lodash';
+import { aspect, setAspect } from '@datahub/data-models/entity/utils/aspects';
 
 /**
  * Options for get category method
@@ -516,10 +515,10 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async readLikes(): Promise<void> {
     if (this.allowedSocialActions.like) {
-      const likeActions = await readLikesForEntity(this.displayName as DataModelName, this.urn).catch(
-        getDefaultIfNotFoundError([])
+      const likes = await readLikesForEntity(this.displayName as DataModelName, this.urn).catch(
+        getDefaultIfNotFoundError({ actions: [] })
       );
-      set(this, 'likedByActions', likeActions || []);
+      setAspect(this, 'likes', likes);
     }
   }
 
@@ -528,11 +527,9 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async addLike(): Promise<void> {
     if (this.allowedSocialActions.like) {
-      const updatedLikeActions = await addLikeForEntity(this.displayName as DataModelName, this.urn);
+      const updatedLikes = await addLikeForEntity(this.displayName as DataModelName, this.urn);
 
-      if (isArray(updatedLikeActions)) {
-        set(this, 'likedByActions', updatedLikeActions);
-      }
+      setAspect(this, 'likes', updatedLikes);
     }
   }
 
@@ -541,11 +538,9 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async removeLike(): Promise<void> {
     if (this.allowedSocialActions.like) {
-      const updatedLikeActions = await removeLikeForEntity(this.displayName as DataModelName, this.urn);
+      const updatedLikes = await removeLikeForEntity(this.displayName as DataModelName, this.urn);
 
-      if (isArray(updatedLikeActions)) {
-        set(this, 'likedByActions', updatedLikeActions);
-      }
+      setAspect(this, 'likes', updatedLikes);
     }
   }
 
@@ -556,11 +551,10 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async readFollows(): Promise<void> {
     if (this.allowedSocialActions.follow) {
-      const followActions = await readFollowsForEntity(this.displayName as DataModelName, this.urn).catch(
-        getDefaultIfNotFoundError([])
+      const follow = await readFollowsForEntity(this.displayName as DataModelName, this.urn).catch(
+        getDefaultIfNotFoundError({ followers: [] })
       );
-
-      set(this, 'followedByActions', followActions || []);
+      setAspect(this, 'follow', follow);
     }
   }
 
@@ -570,11 +564,8 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async addFollow(): Promise<void> {
     if (this.allowedSocialActions.follow) {
-      const updatedFollowActions = await addFollowForEntity(this.displayName as DataModelName, this.urn);
-
-      if (isArray(updatedFollowActions)) {
-        set(this, 'followedByActions', updatedFollowActions);
-      }
+      const follow = await addFollowForEntity(this.displayName as DataModelName, this.urn);
+      setAspect(this, 'follow', follow);
     }
   }
 
@@ -584,24 +575,36 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    */
   async removeFollow(): Promise<void> {
     if (this.allowedSocialActions.follow) {
-      const updatedFollowActions = await removeFollowForEntity(this.displayName as DataModelName, this.urn);
-
-      if (isArray(updatedFollowActions)) {
-        set(this, 'followedByActions', updatedFollowActions);
-      }
+      const follow = await removeFollowForEntity(this.displayName as DataModelName, this.urn);
+      setAspect(this, 'follow', follow);
     }
   }
+  /**
+   * Likes aspect that will reference to `entity.likes` or to the value passed to
+   * setAspect('com.linkedin.common.Likes')
+   */
+  @aspect('com.linkedin.common.Likes')
+  likes!: Com.Linkedin.Common.Likes;
 
   /**
-   * Actions representing a like from a specific user
+   * Follow aspect that will reference to `entity.follow` or to the value passed to
+   * setAspect('com.linkedin.common.Follow')
    */
-  likedByActions: Array<ILikeAction> = [];
+  @aspect('com.linkedin.common.Follow')
+  follow?: Com.Linkedin.Common.Follow;
+
+  /**
+   * EntityTopUsage aspect will reference to `entity.entityTopUsage` or to the value passed to
+   * setAspect('com.linkedin.common.EntityTopUsage')
+   */
+  @aspect('com.linkedin.common.EntityTopUsage')
+  entityTopUsage?: Com.Linkedin.Common.EntityTopUsage;
 
   /**
    * For social features, we add the concept of "liking" an entity which implies that the data
    * related to the entity is useful or of importance
    */
-  @mapBy('likedByActions', 'likedBy')
+  @mapBy('likes.actions', 'likedBy')
   likedByUrns!: Array<string>;
 
   /**
@@ -612,20 +615,17 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
   likedBy!: Array<PersonEntity>;
 
   /**
-   * Action objects representing a follow from a specific user
-   */
-  followedByActions: Array<IFollowerType> = [];
-
-  /**
    * For social features, we add the concept of "following" an entity, which means that the person
    * (current user) has opted into notifications of updates regarding this entity's metadata
    */
-  @computed('followedByActions')
+  @computed('follow')
   get followedByUrns(): Array<string> {
-    const { followedByActions } = this;
+    const { follow } = this;
     // corpUser || corpGroup is guaranteed to be a string as one of them MUST be defined, as
     // dictated by our API interface
-    return followedByActions.map(({ corpGroup, corpUser }): string => (corpUser || corpGroup) as string);
+    return (follow?.followers || []).map(
+      ({ follower: { corpGroup, corpUser } }): string => (corpUser || corpGroup) as string
+    );
   }
 
   /**
@@ -641,4 +641,15 @@ export abstract class BaseEntity<T extends {} | IBaseEntity, S extends {} | Snap
    * @memberof BaseEntity
    */
   constructor(readonly urn: string = '') {}
+}
+
+/**
+ * Adding available aspects
+ */
+declare module '@datahub/data-models/entity/utils/aspects' {
+  export interface IAvailableAspects {
+    ['likes']?: Com.Linkedin.Common.Likes;
+    ['follow']?: Com.Linkedin.Common.Follow;
+    ['entityTopUsage']?: Com.Linkedin.Common.EntityTopUsage;
+  }
 }

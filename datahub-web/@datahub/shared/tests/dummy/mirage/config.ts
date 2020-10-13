@@ -4,7 +4,6 @@ import {
   getInstitutionalMemory,
   postInstitutionalMemory
 } from '@datahub/shared/mirage-addon/helpers/institutional-memory';
-import { IFollowsAspect } from '@datahub/metadata-types/types/aspects/social-actions';
 
 /**
  * Default handler for Mirage config
@@ -20,7 +19,7 @@ export default function(this: Server): void {
   // TODO Mirage for follows: https://jira01.corp.linkedin.com:8443/browse/META-11926
   this.get(
     '/api/v2/pokemons/pikachu:urn/follows',
-    (): IFollowsAspect => ({
+    (): Com.Linkedin.Common.Follow => ({
       followers: [
         { follower: { corpUser: 'aketchum' } },
         { follower: { corpUser: 'misty' } },

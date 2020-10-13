@@ -10,6 +10,8 @@ const defaultAspects: Array<keyof Com.Linkedin.Metadata.Aspect.DatasetAspect> = 
   'com.linkedin.common.Likes',
   'com.linkedin.common.EntityTopUsage',
   'com.linkedin.common.Status'
+  // TODO META-12972: Due to performace reasons, this aspect is disabled until the ticket is resolved
+  // 'com.linkedin.common.Follow'
 ];
 
 /**

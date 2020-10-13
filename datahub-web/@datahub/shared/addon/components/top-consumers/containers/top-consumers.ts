@@ -1,5 +1,5 @@
 import Component from '@glimmer/component';
-import { alias, map, or } from '@ember/object/computed';
+import { alias, map } from '@ember/object/computed';
 import { IDynamicLinkParams } from 'dynamic-link/components/dynamic-link';
 import { DataModelName, DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { getGridGroupFromUrn } from '@datahub/data-models/utils/get-group-from-urn';
@@ -7,7 +7,7 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { task } from 'ember-concurrency';
 import { readTopConsumersForEntity } from '@datahub/shared/api/top-consumers';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
-import { tracked } from '@glimmer/tracking';
+import { setAspect, hasAspect } from '@datahub/data-models/entity/utils/aspects';
 
 /**
  * This container is the data source for the top consumers aspect for an entity
@@ -39,20 +39,7 @@ export default class TopConsumersContainer extends Component<{
   /**
    * The aspect of the entity that it is passed in
    */
-  @alias('args.entity.entity.entityTopUsage')
-  aspectEntityTopUsage?: Com.Linkedin.Common.EntityTopUsage;
-
-  /**
-   * The entityTopUsage fetched from the api (if available)
-   */
-  @tracked
-  apiEntityTopUsage?: Com.Linkedin.Common.EntityTopUsage;
-
-  /**
-   * Checks if the aspect is defined, otherwise use the api response
-   *
-   */
-  @or('aspectEntityTopUsage', 'apiEntityTopUsage')
+  @alias('args.entity.entityTopUsage')
   entityTopUsage?: Com.Linkedin.Common.EntityTopUsage;
 
   /**
@@ -90,14 +77,19 @@ export default class TopConsumersContainer extends Component<{
   @task(function*(
     this: TopConsumersContainer
   ): IterableIterator<Promise<Com.Linkedin.Common.EntityTopUsage> | Promise<Array<PersonEntity>>> {
-    const { entityType, urn } = this;
-    if (entityType && urn && !this.aspectEntityTopUsage) {
+    const {
+      entityType,
+      urn,
+      args: { entity }
+    } = this;
+
+    if (entity && entityType && urn && !hasAspect(entity, 'entityTopUsage')) {
       const entityTopUsage = ((yield readTopConsumersForEntity(
         entityType,
         urn
       )) as unknown) as Com.Linkedin.Common.EntityTopUsage;
 
-      this.apiEntityTopUsage = entityTopUsage;
+      setAspect(entity, 'entityTopUsage', entityTopUsage);
     }
   })
   getTopConsumersTask!: ETaskPromise<Com.Linkedin.Common.EntityTopUsage | PersonEntity>;
