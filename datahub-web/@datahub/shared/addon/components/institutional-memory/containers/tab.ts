@@ -32,7 +32,7 @@ export default class InstitutionalMemoryContainersTab extends Component {
   }
 
   /**
-   * Flag that indicates if the current entity belongs to a whitelist that dictates if Change management is enabled or not.
+   * Flag that indicates if the current entity belongs to a allow list that dictates if Change management is enabled or not.
    */
   @computed('entity.displayName')
   get isChangeManagementEnabled(): boolean {
