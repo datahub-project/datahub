@@ -1,0 +1,21 @@
+namespace com.linkedin.common
+
+/**
+ * Base model representing field mappings
+ */
+record BaseFieldMapping {
+  /**
+   * Audit stamp containing who reported the field mapping and when
+   */
+  created: optional AuditStamp
+
+  /**
+   * Type of the transformation involved in generating destination field from source fields. e.g., BLACKBOX, IDENTITY, CUSOTM
+   */
+  tranformationType: optional FieldTransformationType = "BLACKBOX"
+
+  /**
+   * A UDF mentioning how the source fields got transformed to destination field. This is only applicable when transformationType is CUSOTM
+   */
+  transformationFunction: optional string
+}
