@@ -29,13 +29,13 @@ Business terms can be linked to specific entities/tables and columns in a data a
 
 
 ### Sample Business Glossary Definition
-|URN|Business Term |Definition  | Domain/Namespace | Owner | Ext Source| URI | Ext Reference |
-|--|--|--|--|--|--|--|--|
-|urn:li:businessTerm:(instrument.cashInstrument) | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | fibo-fbc-fi-fi:CashInstrument|https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
-|urn:li:businessTerm:(common.dateTime) | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | fibo-fnd-dt-fd:DateTime|https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
-|urn:li:businessTerm:(market.bidSize) | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - |- | - |
-|--|--|--|--|--|--|--|--|
-| | | | | | | | |
+|URN|Business Term |Definition  | Domain/Namespace | Owner | Ext Source| Ext Reference |
+|--|--|--|--|--|--|--|
+|urn:li:businessTerm:(instrument.cashInstrument) | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
+|urn:li:businessTerm:(common.dateTime) | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
+|urn:li:businessTerm:(market.bidSize) | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - | - |
+|--|--|--|--|--|--|--|
+| | | | | | | |
 
 ### Business Term  & Dataset - Relationship
 
@@ -72,7 +72,7 @@ A business term  URN (BusinessTermUrn) will look like below:
 urn:li:businessTerm:(<<namespace>>,<<name>>)
 ```
 
-A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of another RFC)
+A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of field-level-lineage [RFC](https://github.com/linkedin/datahub/pull/1841))
 ```
 urn:li:datasetField:(<datasetUrn>,<fieldPath>)
 ```
@@ -109,7 +109,7 @@ There will be new aspect defined to capture the required attributes & ownership 
  * A union of all supported metadata aspects for a BusinessTerm
  */
 typeref BusinessTermAspect = union[
-  BusinessTermProperties,
+  BusinessTermInfo,
   Ownership
 ]
 ```
@@ -157,16 +157,10 @@ record BusinessTermInfo {
    */
   sourceRef: optional string
 
- /**
-   * URI of the external source when the term is borrowed from external
-   * e.g: fibo-fbc-fi-fi:CashInstrument
-   */
-  sourceURI: optional string
-
   /**
    * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
-  uri: optional Uri
+  uri: optional sourceURI
 
 }
 
@@ -221,9 +215,9 @@ Proposing to replace the fieldPath with urn in the ```SchemaField```
 record SchemaField {
 
   /**
-   * Urn for the Dataset Field
+   * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
    */
-  urn: DatasetFieldUrn
+  fieldPath: SchemaFieldPath
 
   /**
    * Flattened name of a field in JSON Path notation.
