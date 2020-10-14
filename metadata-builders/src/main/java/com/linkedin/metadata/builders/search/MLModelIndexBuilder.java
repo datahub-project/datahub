@@ -55,7 +55,7 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
     @Nonnull
     private List<MLModelDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull MLModelSnapshot mlModelSnapshot) {
         final MLModelUrn urn = mlModelSnapshot.getUrn();
-        return mlModelSnapshot.getAspects().stream().map(aspect -> {
+        final List<MLModelDocument> documents =  mlModelSnapshot.getAspects().stream().map(aspect -> {
             if (aspect.isDeprecation()) {
                 return getDocumentToUpdateFromAspect(urn, aspect.getDeprecation());
             } else if (aspect.isEvaluationData()) {
@@ -69,19 +69,22 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
             } else if (aspect.isTrainingData()) {
                 return getDocumentToUpdateFromAspect(urn, aspect.getTrainingData());
             }
-            return setUrnDerivedFields(urn);
-        }).collect(Collectors.toList());
+            return null;
+        }).filter(Objects::nonNull)
+            .collect(Collectors.toList());
+        documents.add(setUrnDerivedFields(urn));
+        return documents;
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(MLModelUrn urn, Deprecation deprecation) {
-        return setUrnDerivedFields(urn)
+        return new MLModelDocument()
             .setActive(!deprecation.isDeprecated());
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(MLModelUrn urn, EvaluationData evaluationData) {
-        final MLModelDocument doc = setUrnDerivedFields(urn);
+        final MLModelDocument doc = new MLModelDocument();
 
         if (evaluationData.hasEvaluationData()) {
             final DatasetUrnArray datasetUrns = evaluationData.getEvaluationData()
@@ -95,7 +98,7 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull MLModelProperties mlModelProperties) {
-        final MLModelDocument doc = setUrnDerivedFields(urn);
+        final MLModelDocument doc = new MLModelDocument();
 
         if (mlModelProperties.hasDate()) {
             doc.setCreatedTimestamp(mlModelProperties.getDate());
@@ -111,20 +114,20 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull Ownership ownership) {
         final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-        return setUrnDerivedFields(urn)
+        return new MLModelDocument()
             .setHasOwners(!owners.isEmpty())
             .setOwners(owners);
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull Status status) {
-        return setUrnDerivedFields(urn)
+        return new MLModelDocument()
             .setRemoved(status.isRemoved());
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull TrainingData trainingData) {
-        final MLModelDocument doc = setUrnDerivedFields(urn);
+        final MLModelDocument doc = new MLModelDocument();
 
         if (trainingData.hasTrainingData()) {
             final DatasetUrnArray datasetUrns = trainingData.getTrainingData()
