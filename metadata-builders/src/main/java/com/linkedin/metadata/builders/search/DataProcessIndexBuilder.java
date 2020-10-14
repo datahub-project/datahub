@@ -1,7 +1,6 @@
 package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.Ownership;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -42,7 +41,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nonnull
     private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn, @Nonnull Ownership ownership) {
         final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-        return setUrnDerivedFields(urn)
+        return new DataProcessDocument()
             .setHasOwners(!owners.isEmpty())
             .setOwners(owners);
     }
@@ -50,7 +49,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nonnull
     private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn,
         @Nonnull DataProcessInfo dataProcessInfo) {
-        DataProcessDocument dataProcessDocument = setUrnDerivedFields(urn);
+        final DataProcessDocument dataProcessDocument = new DataProcessDocument();
         if (dataProcessInfo.getInputs() != null) {
             dataProcessDocument.setInputs(dataProcessInfo.getInputs())
                 .setNumInputDatasets(dataProcessInfo.getInputs().size());
@@ -63,15 +62,9 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     }
 
     @Nonnull
-    private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn, @Nonnull Status status) {
-        return setUrnDerivedFields(urn)
-            .setRemoved(status.isRemoved());
-    }
-
-    @Nonnull
     private List<DataProcessDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataProcessSnapshot dataProcessSnapshot) {
-        DataProcessUrn urn = dataProcessSnapshot.getUrn();
-        return dataProcessSnapshot.getAspects().stream().map(aspect -> {
+        final DataProcessUrn urn = dataProcessSnapshot.getUrn();
+        final List<DataProcessDocument> documents = dataProcessSnapshot.getAspects().stream().map(aspect -> {
             if (aspect.isDataProcessInfo()) {
                 return getDocumentToUpdateFromAspect(urn, aspect.getDataProcessInfo());
             } else if (aspect.isOwnership()) {
@@ -79,6 +72,8 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
             }
             return null;
         }).filter(Objects::nonNull).collect(Collectors.toList());
+        documents.add(setUrnDerivedFields(urn));
+        return documents;
     }
 
     @Nullable
