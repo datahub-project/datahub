@@ -25,16 +25,16 @@ public class DatasetIndexBuilderTest {
     DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
     List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
-    assertEquals(actualDocs.size(), 1);
-    assertEquals(actualDocs.get(0).getUrn(), datasetUrn);
+    assertEquals(actualDocs.size(), 2);
     assertEquals(actualDocs.get(0).getDescription(), "baz");
+    assertEquals(actualDocs.get(1).getUrn(), datasetUrn);
 
     datasetProperties = new DatasetProperties();
     datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
     actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
-    assertEquals(actualDocs.size(), 1);
-    assertEquals(actualDocs.get(0).getUrn(), datasetUrn);
-    assertEquals(actualDocs.get(0).getDescription(), "");
+    assertEquals(actualDocs.size(), 2);
+    assertNull(actualDocs.get(0).getDescription());
+    assertEquals(actualDocs.get(1).getUrn(), datasetUrn);
   }
 }
