@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.dataset;
 
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -8,6 +10,7 @@ import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
@@ -35,6 +38,7 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import com.linkedin.schema.SchemaMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -123,19 +127,28 @@ public final class Datasets extends BaseBrowsableEntityResource<
 
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
       if (aspect instanceof DatasetProperties) {
-        DatasetProperties datasetProperties = DatasetProperties.class.cast(aspect);
+        final DatasetProperties datasetProperties = (DatasetProperties) aspect;
         value.setProperties(datasetProperties.getCustomProperties());
         value.setTags(datasetProperties.getTags());
-        if (datasetProperties.hasUri()) {
+        if (datasetProperties.getUri() != null) {
           value.setUri(datasetProperties.getUri());
         }
-        if (datasetProperties.hasDescription()) {
+        if (datasetProperties.getDescription() != null) {
           value.setDescription(datasetProperties.getDescription());
         }
       } else if (aspect instanceof DatasetDeprecation) {
-        value.setDeprecation(DatasetDeprecation.class.cast(aspect));
+        value.setDeprecation((DatasetDeprecation) aspect);
+      } else if (aspect instanceof InstitutionalMemory) {
+        value.setInstitutionalMemory((InstitutionalMemory) aspect);
+      } else if (aspect instanceof Ownership) {
+        value.setOwnership((Ownership) aspect);
+      } else if (aspect instanceof SchemaMetadata) {
+        value.setSchemaMetadata((SchemaMetadata) aspect);
       } else if (aspect instanceof Status) {
-        value.setRemoved(Status.class.cast(aspect).isRemoved());
+        value.setStatus((Status) aspect);
+        value.setRemoved(((Status) aspect).isRemoved());
+      } else if (aspect instanceof UpstreamLineage) {
+        value.setUpstreamLineage((UpstreamLineage) aspect);
       }
     });
     return value;
@@ -145,14 +158,30 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   protected DatasetSnapshot toSnapshot(@Nonnull Dataset dataset, @Nonnull DatasetUrn datasetUrn) {
     final List<DatasetAspect> aspects = new ArrayList<>();
-    if (dataset.hasProperties()) {
+    if (dataset.getProperties() != null) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));
     }
-    if (dataset.hasDeprecation()) {
+    if (dataset.getDeprecation() != null) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
     }
-
-    aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, new Status().setRemoved(dataset.isRemoved())));
+    if (dataset.getInstitutionalMemory() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getInstitutionalMemory()));
+    }
+    if (dataset.getOwnership() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getOwnership()));
+    }
+    if (dataset.getSchemaMetadata() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getSchemaMetadata()));
+    }
+    if (dataset.getStatus() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getStatus()));
+    }
+    if (dataset.getUpstreamLineage() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getUpstreamLineage()));
+    }
+    if (dataset.hasRemoved()) {
+      aspects.add(DatasetAspect.create(new Status().setRemoved(dataset.isRemoved())));
+    }
     return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
   }
 
@@ -161,10 +190,10 @@ public final class Datasets extends BaseBrowsableEntityResource<
     final DatasetProperties datasetProperties = new DatasetProperties();
     datasetProperties.setDescription(dataset.getDescription());
     datasetProperties.setTags(dataset.getTags());
-    if (dataset.hasUri()) {
+    if (dataset.getUri() != null)  {
       datasetProperties.setUri(dataset.getUri());
     }
-    if (dataset.hasPlatform()) {
+    if (dataset.getProperties() != null) {
       datasetProperties.setCustomProperties(dataset.getProperties());
     }
     return datasetProperties;
