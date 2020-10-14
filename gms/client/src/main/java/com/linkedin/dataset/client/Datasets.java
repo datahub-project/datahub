@@ -1,6 +1,5 @@
 package com.linkedin.dataset.client;
 
-import com.linkedin.common.client.DatasetsClient;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.Dataset;
@@ -13,6 +12,8 @@ import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
 import com.linkedin.dataset.DatasetsRequestBuilders;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class Datasets extends DatasetsClient {
+public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();
 
     public Datasets(@Nonnull Client restliClient) {
@@ -67,10 +68,21 @@ public class Datasets extends DatasetsClient {
     public CollectionResponse<Dataset> search(@Nonnull String input, @Nonnull Map<String, String> requestFilters,
                                                int start, int count) throws RemoteInvocationException {
 
-        DatasetsFindBySearchRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS
-                .findBySearch()
-                .inputParam(input)
-                .filterParam(newFilter(requestFilters)).paginate(start, count);
+        return search(input, null, requestFilters, null, start, count);
+    }
+
+    @Override
+    @Nonnull
+    public CollectionResponse<Dataset> search(@Nonnull String input, @Nullable StringArray aspectNames,
+        @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+        throws RemoteInvocationException {
+
+        final DatasetsFindBySearchRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS.findBySearch()
+            .inputParam(input)
+            .aspectsParam(aspectNames)
+            .filterParam(newFilter(requestFilters))
+            .sortParam(sortCriterion)
+            .paginate(start, count);
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
@@ -106,6 +118,7 @@ public class Datasets extends DatasetsClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @Override
     public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
                                int start, int limit) throws RemoteInvocationException {
         DatasetsDoBrowseRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS
@@ -178,5 +191,18 @@ public class Datasets extends DatasetsClient {
     @Nonnull
     private DatasetUrn getUrnFromKey(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key) {
         return toDatasetUrn(key.getKey());
+    }
+
+    @Nonnull
+    private DatasetKey toDatasetKey(@Nonnull DatasetUrn urn) {
+        return new DatasetKey()
+            .setName(urn.getDatasetNameEntity())
+            .setOrigin(urn.getOriginEntity())
+            .setPlatform(urn.getPlatformEntity());
+    }
+
+    @Nonnull
+    private DatasetUrn toDatasetUrn(@Nonnull DatasetKey key) {
+        return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
     }
 }
