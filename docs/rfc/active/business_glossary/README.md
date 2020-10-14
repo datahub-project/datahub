@@ -51,12 +51,15 @@ Business terms can be linked to specific entities/tables and columns in a data a
 ### Stiching Together
 
 
-Business Glossary will be a first class entity where one can define the business terms and this will be similar to entities like Dataset, CorporateUser etc.
-Then extending the Dataset's aspect SchemaMetadata, that will be extending the SchemaField model to capture urn of the business term (optional).
+Business Glossary will be a first class entity where one can define the `BusinessTerm`s and this will be similar to entities like Dataset, CorporateUser etc. Business Term can be linked to other entities like Dataset, DatasetField. In future Business terms can be linked to Dashboards, Metrics etc
+
 
 ![high level design](business_glossary_rel.png)
 
-The above diagram illustrates how business glossaries will be connected to other entities. Business terms are modelled as BusinessTerm entities and example business terms are `Term-1`, `Term-2`, .. `Term-n`. In the above diagram from the dataset (`DS-1`) element `e11` is linked to business term `Term-2` and `e12` is linked to `Term-1`. At the same time from Dataset (`DS-2`) element `e24` linked the business term `Term-2`, `e22` with `Term-3` and `e24` with `Term-4`.
+The above diagram illustrates how Business Terms will be connected to other entities entities like Dataset, DatasetField. The above example depicts business terms are `Term-1`, `Term-2`, .. `Term-n` and how they are linked to `DatasetField` and `Dataset`. 
+Dataset (`DS-1`) fields `e11` is linked to Business Term `Term-2` and `e12` is linked to `Term-1`. 
+Dataset (`DS-2`) element `e23` linked the Business Term `Term-2`, `e22` with `Term-3` and `e24` with `Term-5`. Dataset (DS-2) is linked to business term `Term-4`
+Dataset (`DS-2`) it-self linked to Business Term `Term-4`
 
 ## Metadata Model Enhancements 
 
@@ -160,7 +163,7 @@ record BusinessTermInfo {
   /**
    * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
-  uri: optional sourceURI
+  sourceURI: optional uri
 
 }
 
@@ -186,69 +189,6 @@ record OwnedBy includes BaseRelationship {
    * The type of the ownership
    */
   type: OwnershipType
-}
-```
-
-### Dataset Field related Changes/enhancements
-
-Defining new ```DatasetFiled``` Entity
-
-```java
-record DatasetFieldEntity includes BaseEntity {
-
-  /**
-   * Urn for the dataset
-   */
-  urn: DatasetFieldUrn
-
-  /**
-   * Dataset Field native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}
-   */
-  name: optional string
-
-}
-```
-
-Proposing to replace the fieldPath with urn in the ```SchemaField```
-
-```java
-record SchemaField {
-
-  /**
-   * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
-   */
-  fieldPath: SchemaFieldPath
-
-  /**
-   * Flattened name of a field in JSON Path notation.
-   */
-  jsonPath: optional string
-
-  /**
-   * Indicates if this field is optional or nullable
-   */
-  nullable: boolean = false
-
-  /**
-   * Description
-   */
-  description: optional string
-
-  /**
-   * Platform independent field type of the field.
-   */
-  type: SchemaFieldDataType
-
-  /**
-   * The native type of the field in the dataset's platform as declared by platform schema.
-   */
-  nativeDataType: string
-
-  /**
-   * There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.
-   */
-  recursive: boolean = false
-
 }
 ```
 
@@ -325,7 +265,7 @@ record RelatedTo includes BaseRelationship {
 }
 ```
 
-## Metadata graph
+## Metadata Graph
 
 This might not be a crtical requirement, but nice to have.
 
