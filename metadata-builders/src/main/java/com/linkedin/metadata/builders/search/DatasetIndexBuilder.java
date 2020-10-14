@@ -51,42 +51,40 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Ownership ownership) {
     final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-    return setUrnDerivedFields(urn)
+    return new DatasetDocument()
         .setHasOwners(!owners.isEmpty())
         .setOwners(owners);
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Status status) {
-    return setUrnDerivedFields(urn)
+    return new DatasetDocument()
         .setRemoved(status.isRemoved());
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetDeprecation deprecation) {
-    return setUrnDerivedFields(urn).setDeprecated(deprecation.isDeprecated());
+    return new DatasetDocument().setDeprecated(deprecation.isDeprecated());
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetProperties datasetProperties) {
-    final DatasetDocument doc = setUrnDerivedFields(urn);
-    if (datasetProperties.hasDescription()) {
+    final DatasetDocument doc = new DatasetDocument();
+    if (datasetProperties.getDescription() != null) {
       doc.setDescription(datasetProperties.getDescription());
-    } else {
-      doc.setDescription("");
     }
     return doc;
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull SchemaMetadata schemaMetadata) {
-    return setUrnDerivedFields(urn)
+    return new DatasetDocument()
         .setHasSchema(true);
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull UpstreamLineage upstreamLineage) {
-    return setUrnDerivedFields(urn)
+    return new DatasetDocument()
         .setUpstreams(new DatasetUrnArray(
             upstreamLineage.getUpstreams().stream().map(upstream -> upstream.getDataset()).collect(Collectors.toList())
         ));
@@ -95,7 +93,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private List<DatasetDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DatasetSnapshot datasetSnapshot) {
     final DatasetUrn urn = datasetSnapshot.getUrn();
-    return datasetSnapshot.getAspects().stream().map(aspect -> {
+    final List<DatasetDocument> documents = datasetSnapshot.getAspects().stream().map(aspect -> {
       if (aspect.isDatasetDeprecation()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getDatasetDeprecation());
       } else if (aspect.isDatasetProperties()) {
@@ -111,6 +109,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
+    documents.add(setUrnDerivedFields(urn));
+    return documents;
   }
 
   @Override
@@ -123,6 +123,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   }
 
   @Override
+  @Nonnull
   public Class<DatasetDocument> getDocumentType() {
     return DatasetDocument.class;
   }
