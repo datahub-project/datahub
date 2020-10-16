@@ -13,8 +13,8 @@
 * [A Data Engineer’s Perspective On Data Democratization](https://towardsdatascience.com/a-data-engineers-perspective-on-data-democratization-a8aed10f4253)
 * [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
 * [4 Data Trends to Watch in 2020](https://medium.com/memory-leak/4-data-trends-to-watch-in-2020-491707902c09)
-* [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub
-](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
+* [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
+* [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
 
 # Talks & Presentations
 * [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
