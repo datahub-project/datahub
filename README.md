@@ -79,6 +79,7 @@ Join our [slack workspace](https://join.slack.com/t/datahubspace/shared_invite/z
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 * [Expedia Group](http://expedia.com)
 * [Experius](https://www.experius.nl)
+* [Grofers](https://grofers.com)
 * [LinkedIn](http://linkedin.com)
 * [Saxo Bank](https://www.home.saxo)
 * [Shanghai HuaRui Bank](https://www.shrbank.com)
