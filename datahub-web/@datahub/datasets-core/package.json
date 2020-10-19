@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "description": "The handler for datasets as an entity under DataHub",
   "keywords": [
-    "ember-addon"
+    "ember-addon",
+    "eyeglass-module"
   ],
   "repository": "",
   "license": "MIT",
@@ -25,12 +26,10 @@
     "@datahub/data-models": "0.0.0",
     "@datahub/metadata-types": "0.0.0",
     "@datahub/utils": "0.0.0",
-    "@fortawesome/ember-fontawesome": "^0.1.13",
+    "@fortawesome/ember-fontawesome": "^0.2.2",
     "@fortawesome/free-regular-svg-icons": "^5.9.0",
     "@fortawesome/free-solid-svg-icons": "^5.9.0",
-    "@nacho-ui/animations": "^0.0.38",
     "@nacho-ui/core": "^0.0.38",
-    "@nacho-ui/dropdown": "^0.0.38",
     "@nacho-ui/pill": "^0.0.38",
     "@nacho-ui/table": "^0.0.38",
     "@types/ember-resolver": "^5.0.7",
@@ -40,7 +39,10 @@
     "ember-cli-htmlbars": "^4.2.2",
     "ember-cli-typescript": "^3.1.3",
     "ember-composable-helpers": "^3.0.3",
-    "ember-concurrency": "^1.1.2"
+    "ember-concurrency": "^1.1.2",
+    "ember-cli-eyeglass": "^6.4.3",
+    "eyeglass": "^2.4.2",
+    "eyeglass-restyle": "^1.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.8.4",
@@ -60,7 +62,6 @@
     "ember-cli-dependency-checker": "^3.2.0",
     "ember-cli-inject-live-reload": "^2.0.2",
     "ember-cli-mirage": "^0.4.15",
-    "ember-cli-sass": "^10.0.0",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-typescript-blueprints": "^3.0.0",
     "ember-cli-uglify": "^3.0.0",
@@ -88,5 +89,10 @@
   },
   "ember-addon": {
     "configPath": "tests/dummy/config"
+  },
+  "eyeglass": {
+    "needs": "^2.4.2",
+    "name": "datahub-datasets",
+    "exports": "eyeglass-exports.js"
   }
 }

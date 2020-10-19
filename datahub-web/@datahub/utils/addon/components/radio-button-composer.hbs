@@ -1,0 +1,27 @@
+<span
+  class="{{@class}} {{this.checkedClass}} {{this.disabledClass}}"
+  {{did-insert this.bindEvents}}
+  {{will-destroy this.unBindEvents}}
+  >
+  {{#if hasBlock}}
+    <label class="ember-radio-button {{this.checkedClass}} {{this.disabledClass}} {{@class}}" for={{@radioId}} ...attributes>
+      <RadioButtonInput
+        id={{@radioId}}
+        @name={{@name}}
+        @disabled={{@disabled}}
+        @groupValue={{@groupValue}}
+        @value={{@value}}
+        @changed={{fn this.changed}} ...attributes/>
+
+      {{yield}}
+    </label>
+  {{else}}
+    <RadioButtonInput
+        id={{@radioId}}
+        @name={{@name}}
+        @disabled={{@disabled}}
+        @groupValue={{@groupValue}}
+        @value={{@value}}
+        @changed={{fn this.changed}}  ...attributes/>
+  {{/if}}
+</span>

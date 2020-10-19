@@ -4,6 +4,7 @@
   "description": "Provides components and macro components related to search.",
   "keywords": [
     "ember-addon",
+    "eyeglass-module",
     "nacho",
     "macro",
     "components"
@@ -29,11 +30,14 @@
   "dependencies": {
     "@nacho-ui/core": "^0.0.38",
     "ember-cli-babel": "^7.12.2",
-    "ember-cli-htmlbars": "^3.0.0",
+    "ember-cli-htmlbars": "^4.2.2",
     "ember-cli-typescript": "^3.1.3",
     "ember-power-select": "^2.0.9",
     "ember-power-select-typeahead": "^0.7.2",
-    "node-sass": "^4.0.0"
+    "node-sass": "^4.0.0",
+    "ember-cli-eyeglass": "^6.4.3",
+    "eyeglass": "^2.4.2",
+    "eyeglass-restyle": "^1.1.0"
   },
   "devDependencies": {
     "@ember/optional-features": "^1.3.0",
@@ -47,9 +51,7 @@
     "broccoli-asset-rev": "^3.0.0",
     "ember-cli": "~3.16.0",
     "ember-cli-dependency-checker": "^3.2.0",
-    "ember-cli-htmlbars-inline-precompile": "^2.1.0",
     "ember-cli-inject-live-reload": "^2.0.2",
-    "ember-cli-sass": "^10.0.0",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-uglify": "^3.0.0",
     "ember-decorators": "^6.0.0",
@@ -72,5 +74,10 @@
   },
   "ember-addon": {
     "configPath": "tests/dummy/config"
+  },
+  "eyeglass": {
+    "needs": "^2.4.2",
+    "name": "nacho-search",
+    "exports": "eyeglass-exports.js"
   }
 }

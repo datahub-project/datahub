@@ -5,7 +5,8 @@ module.exports = {
   isDevelopingAddon: () => true,
 
   included(app) {
-    this._super.included(app);
+    // eslint-disable-next-line prefer-rest-params
+    this._super.included.apply(this, arguments);
 
     [
       'Black',

@@ -33,7 +33,8 @@
     "ember-cli-typescript": "^3.1.3",
     "ember-fetch": "^7.0.0",
     "ember-lodash": "^4.18.0",
-    "faker": "^4.1.0"
+    "faker": "^4.1.0",
+    "ember-cli-eyeglass": "^6.4.3"
   },
   "devDependencies": {
     "@babel/core": "^7.8.4",

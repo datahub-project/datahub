@@ -1,11 +1,9 @@
 @import 'nacho-core';
 @import 'datahub-utils';
 @import 'nacho-table';
-@import 'nacho-animations';
 @import 'nacho-pill';
-@import 'nacho-dropdown';
 
-@import 'datasets-core';
+@import 'datahub-datasets';
 
 html {
   font-family: 'Source Sans Pro';

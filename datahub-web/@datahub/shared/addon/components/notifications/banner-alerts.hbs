@@ -5,7 +5,7 @@
     <div
       class="banner-alert {{if banner.isExiting "banner-alert--exiting" "banner-alert--active"}} banner-alert--{{banner.type}}"
     >
-      {{fa-icon banner.iconName class="banner-alert__icon"}}
+      <FaIcon @icon={{banner.iconName}} class="banner-alert__icon" />
       <div class="banner-alert__content">
         {{#if banner.usePartial}}
           {{! TODO: META-7160 remove partial usage }}
@@ -23,7 +23,7 @@
       </div>
       {{#if banner.isDismissable}}
         <button {{action "onDismissBanner" banner}} class="banner-alert__dismiss" type="button">
-          {{fa-icon "times"}}
+          <FaIcon @icon="times"  />
         </button>
       {{/if}}
     </div>

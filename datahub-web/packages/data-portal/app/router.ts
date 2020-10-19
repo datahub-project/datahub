@@ -33,20 +33,6 @@ ApplicationRouter.map(function(): void {
     path: '/*wildcard'
   });
 
-  this.route('features', function(): void {
-    this.route(
-      'feature',
-      {
-        path: '/:feature_urn'
-      },
-      function(): void {
-        this.route('tab', {
-          path: '/:tab_selected'
-        });
-      }
-    );
-  });
-
   this.route('lists', function(): void {
     this.route('entity', {
       path: '/:entity_name'
@@ -58,8 +44,6 @@ ApplicationRouter.map(function(): void {
   this.route('logout');
 
   this.route('login');
-
-  this.route('retina-authoring');
 
   this.route('browse', function(): void {
     this.route('entity', {
@@ -74,12 +58,6 @@ ApplicationRouter.map(function(): void {
   });
 
   this.route('app-catalogue', { path: '/apps' });
-
-  this.route('dataconcepts', function(): void {
-    this.route('dataconcept', { path: '/:concept_urn' }, function(): void {
-      this.route('tab', { path: '/:tab_selected' });
-    });
-  });
 
   this.route('lineage', function() {
     this.route('urn', { path: '/:urn' });

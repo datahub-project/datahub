@@ -1,6 +1,6 @@
 import Component from '@glimmer/component';
 import { action, set, setProperties } from '@ember/object';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { IDynamicComponent } from '@datahub/shared/types/dynamic-component';
 import { reads } from '@ember/object/computed';
 import {

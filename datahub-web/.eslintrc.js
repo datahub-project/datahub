@@ -55,7 +55,8 @@ module.exports = {
         '**/testem.js',
         '**/index.js',
         '**/config/**/*.js',
-        '**/lib/*/**.js'
+        '**/lib/*/**.js',
+        '**/eyeglass-exports.js'
       ],
       parserOptions: {
         sourceType: 'script',

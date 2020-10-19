@@ -1,6 +1,6 @@
 <header class="{{this.baseHeaderClass}} entity-header wherehows-entity-header">
   <section class="{{this.baseHeaderClass}}__img-section">
-    <NachoAvatarImage
+    <NachoAvatar::NachoAvatarImage
       class="{{this.baseHeaderClass}}__profile-img"
       @img={{@entity.profilePictureUrl}}
       @alt={{@entity.name}}
@@ -97,7 +97,7 @@
                 @model={{manager.urn}}
                 class="{{this.baseHeaderClass}}__connection-link"
               >
-                <NachoAvatarImage
+                <NachoAvatar::NachoAvatarImage
                   class="{{this.baseHeaderClass}}__manager-img"
                   @img={{manager.profilePictureUrl}}
                   @alt={{manager.name}}
@@ -113,11 +113,11 @@
       <div class="{{this.baseHeaderClass}}__connections">
         <div class="{{this.baseHeaderClass}}__connection">
           <MailTo @mailHeader={{hash to=@entity.email}} class="{{this.baseHeaderClass}}__connection-link">
-            {{fa-icon
-              "envelope"
-              class=(concat this.baseHeaderClass "__connection-icon")
-              prefix="far"
-            }}
+            <FaIcon
+              @icon="envelope"
+              class={{concat this.baseHeaderClass "__connection-icon"}}
+              @prefix="far"
+            />
             {{@entity.email}}
           </MailTo>
         </div>
@@ -149,11 +149,11 @@
               rel="noreferrer noopener"
               class="{{this.baseHeaderClass}}__connection-link"
             >
-              {{fa-icon
-                "linkedin"
-                class=(concat this.baseHeaderClass "__connection-icon")
-                prefix="fab"
-              }}
+              <FaIcon
+                @icon="linkedin"
+                class={{concat this.baseHeaderClass "__connection-icon"}}
+                @prefix="fab"
+              />
               {{@headerProperties.externalProfileLinkText}}
             </a>
           </div>
@@ -162,11 +162,11 @@
 
         {{#if @headerProperties.isConnectedToSlack}}
           <div class="{{this.baseHeaderClass}}__connection">
-            {{fa-icon
-              "slack"
-              class=(concat this.baseHeaderClass "__connection-icon")
-              prefix="fab"
-            }}
+            <FaIcon
+              @icon="slack"
+              class={{concat this.baseHeaderClass "__connection-icon"}}
+              @prefix="fab"
+            />
             Slack
           </div>
         {{/if}}

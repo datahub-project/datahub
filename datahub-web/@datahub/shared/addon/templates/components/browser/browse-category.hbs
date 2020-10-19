@@ -1,8 +1,8 @@
 <DynamicLink @params={{node.link}} @class="browse-category__link">
   {{#if @isForEntityPage}}
-    {{fa-icon "file-alt" prefix="far" aria-hidden="true"}}
+    <FaIcon @icon="file-alt" prefix="far" aria-hidden="true" />
   {{else}}
-    {{fa-icon "folder-open" aria-hidden="true"}}
+    <FaIcon @icon="folder-open" aria-hidden="true" />
   {{/if}}
 
   <div class="browse-category__node-name">
@@ -17,10 +17,10 @@
         {{pluralize node.count (singularize node.entity)}}
       </div>
     {{/if}}
-    {{fa-icon
-      icon="chevron-right"
+    <FaIcon
+      @icon="chevron-right"
       aria-label="Navigate into data system"
       class="browse-category__chevron"
-    }}
+    />
   {{/unless}}
 </DynamicLink>
