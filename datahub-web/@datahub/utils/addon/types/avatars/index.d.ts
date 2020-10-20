@@ -1,4 +1,4 @@
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 /**
  * TODO: META-9287 Move to Nacho lib

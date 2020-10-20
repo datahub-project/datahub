@@ -1,0 +1,28 @@
+<div class="{{this.baseToggleClass}}">
+  <div class="{{this.baseToggleClass}}__content">
+    {{#let (eq @value @leftOptionValue) as |leftActive|}}
+
+      <button
+        type="button"
+        class="{{this.baseToggleClass}}__button {{this.baseToggleClass}}__button--left {{if leftActive (concat this.baseToggleClass "__button--active")}}"
+        {{on 'click' (fn this.onValueChange @leftOptionValue)}}
+        ...attributes
+      >
+        {{@leftOptionText}}
+      </button>
+      <button
+        type="button"
+        class="{{this.baseToggleClass}}__button {{this.baseToggleClass}}__button--right {{unless leftActive (concat this.baseToggleClass "__button--active")}}"
+        {{on 'click' (fn this.onValueChange @rightOptionValue)}}
+        ...attributes
+      >
+        {{@rightOptionText}}
+      </button>
+      <div
+        class="{{this.baseToggleClass}}__slider {{this.baseToggleClass}}__slider--{{if leftActive "left-active" "right-active"}}"
+      >
+      </div>
+
+    {{/let}}
+  </div>
+</div>

@@ -55,7 +55,7 @@
               class="nacho-button nacho-button--tertiary dataset-owner-table__trigger"
               onclick={{action this.onClickAddOwner}}
             >
-              {{fa-icon "plus"}} Add an owner
+              <FaIcon @icon="plus"  /> Add an owner
             </button>
           {{/if}}
         </div>
@@ -88,7 +88,7 @@
     {{#if requiredMinNotConfirmed}}
       <div class="dataset-authors-save-error">
         <p>
-          {{fa-icon "times-circle" prefix="far" class="dataset-authors-save-error__icon"}}
+          <FaIcon @icon="times-circle" @prefix="far" class="dataset-authors-save-error__icon" />
           {{#if (eq changedState 1)}}
             {{#if (eq ownersRequiredCount 2)}}
               Maintain at least 2 DataOwners.

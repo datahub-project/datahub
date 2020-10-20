@@ -1,0 +1,20 @@
+<div id="{{@id}}" class="nacho-dropdown nacho-dropdown--basic {{@class}}">
+  <select
+    onchange={{action this.onSelectionChange value="target.value"}}
+    disabled={{@disabled}}
+  >
+    {{#each this.renderedOptions as |opt|}}
+      <option
+        value={{opt.value}}
+        selected={{opt.isSelected}}
+        disabled={{or opt.isDisabled opt.isCategoryHeader}}
+      >
+        {{#if hasBlock}}
+          {{yield (hash item=opt)}}
+        {{else}}
+          {{if opt.label opt.label opt.value}}
+        {{/if}}
+      </option>
+    {{/each}}
+  </select>
+</div>

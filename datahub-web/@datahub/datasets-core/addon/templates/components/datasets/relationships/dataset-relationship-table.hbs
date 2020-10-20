@@ -54,17 +54,17 @@
           {{#if showAllRelationships}}
 
             See Less
-            {{fa-icon
-              "caret-up"
+            <FaIcon
+              @icon="caret-up"
               aria-label="See less relationships"
-            }}
+            />
           {{else}}
 
             See More
-            {{fa-icon
-              "caret-down"
+            <FaIcon
+              @icon="caret-down"
               aria-label="See more relationships"
-            }}
+            />
 
           {{/if}}
         </button>

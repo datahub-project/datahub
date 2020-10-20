@@ -38,9 +38,12 @@ module.exports = function(environment) {
     // keep test console output quieter
     ENV.APP.LOG_ACTIVE_GENERATION = false;
     ENV.APP.LOG_VIEW_LOOKUPS = false;
+    ENV.RAISE_ON_DEPRECATION = false;
+    ENV.LOG_STACKTRACE_ON_DEPRECATION = false;
 
     ENV.APP.rootElement = '#ember-testing';
     ENV.APP.autoboot = false;
+    ENV.APP.notificationsTimeout = 1;
   }
 
   if (environment === 'production') {

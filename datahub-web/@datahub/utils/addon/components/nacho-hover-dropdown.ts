@@ -9,7 +9,7 @@ import { TaskInstance, timeout, task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import { classNames, layout } from '@ember-decorators/component';
 import { noop } from 'lodash';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { ETask } from '@datahub/utils/types/concurrency';
 
 /**

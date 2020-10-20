@@ -1,6 +1,6 @@
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { reads } from '@ember/object/computed';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { IEntityLinkAttrs } from '@datahub/data-models/types/entity/shared';
 
 /**

@@ -26,7 +26,7 @@ export default function(server: Server | IMirageServer): void {
   generateDatasetSchemaFields(fieldNames, (server as unknown) as Server);
 
   server.createList('datasetPurgePolicy', 1);
-  server.createList('datasets', 1);
+  server.createList('dataset', 1);
   server.createList('datasetComplianceInfo', 1);
   server.createList('datasetExportPolicy', 1);
   server.createList('platform', 20);

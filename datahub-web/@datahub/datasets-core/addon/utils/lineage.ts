@@ -1,6 +1,6 @@
 import { IDatasetLineage, DatasetLineageList } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { arrayFilter, take } from '@datahub/utils/array/index';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 /**
  * Shortcut typing to reference dropdown options for relationship types
