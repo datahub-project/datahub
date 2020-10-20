@@ -42,7 +42,7 @@ export interface IAppConfig {
       CORP: string;
     };
     // Lists the DatasetPlatforms that are supported for JIT ACL requests
-    whitelist: Array<DatasetPlatform>;
+    allowList: Array<DatasetPlatform>;
     // Email contact for issues with JIT ACL service and endpoint
     contact: string;
   };
