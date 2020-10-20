@@ -6,7 +6,7 @@ import { inject as service } from '@ember/service';
 import HotKeys from 'datahub-web/services/hot-keys';
 import { Keyboard } from 'datahub-web/constants/keyboard';
 import { later, cancel } from '@ember/runloop';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { task } from 'ember-concurrency';
 import { EmberRunTimer } from '@ember/runloop/types';
 import { cancelInflightTask } from 'datahub-web/utils/search/typeahead';

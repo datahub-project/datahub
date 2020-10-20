@@ -1,1 +1,0 @@
-export { default } from '@nacho-ui/dropdown/components/nacho-dropdown-basic';

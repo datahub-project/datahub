@@ -2,7 +2,7 @@ import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
 import { KeyNamesWithValueType } from '@datahub/utils/types/base';
 import { IDynamicComponent } from '@datahub/shared/types/dynamic-component';
 import { IStandardDynamicProperty } from '@datahub/data-models/types/entity/rendering/properties-panel';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 // TODO https://jira01.corp.linkedin.com:8443/browse/META-10764: Investigate how to solve the 'wrapper' components scalability issue in generic entity page and search
 /**

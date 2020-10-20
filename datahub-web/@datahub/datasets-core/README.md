@@ -19,8 +19,6 @@ The following styling requirements should be met in order to apply stylings for 
 
 ```scss
 // Host application app.scss
-@import 'nacho-core-theme';
-@import 'nacho-core';
 @import 'nacho-table';
 @import 'nacho-pill';
 

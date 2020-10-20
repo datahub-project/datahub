@@ -12,7 +12,7 @@
 
       {{#if selectedDropDown}}
         <span class="nacho-drop-down__active__toggle">
-          {{fa-icon (if isExpanded "caret-up" "caret-down")}}
+          <FaIcon @icon={{if isExpanded "caret-up" "caret-down"}} />
         </span>
       {{/if}}
     </bd.trigger>

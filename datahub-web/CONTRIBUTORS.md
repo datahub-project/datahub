@@ -2,6 +2,7 @@
 
 - Ignacio (Nacho) Bona Piedrabuena (2018)
 - Charlie (That Pikachu Guy) Tran (2017)
+- Beau Davenport (2020)
 
 ## In loving memory
 

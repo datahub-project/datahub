@@ -27,14 +27,14 @@
     "@datahub/metadata-types": "0.0.0",
     "@datahub/utils": "0.0.0",
     "@ember/render-modifiers": "^1.0.2",
+    "ember-decorators": "^6.0.0",
     "@f/animate": "^1.0.1",
-    "@fortawesome/ember-fontawesome": "^0.1.13",
+    "@fortawesome/ember-fontawesome": "^0.2.2",
     "@fortawesome/free-brands-svg-icons": "^5.9.0",
     "@fortawesome/free-regular-svg-icons": "^5.9.0",
     "@fortawesome/free-solid-svg-icons": "^5.9.0",
     "@glimmer/component": "^1.0.0",
     "@glimmer/tracking": "^1.0.0",
-    "@nacho-ui/button": "^0.0.38",
     "@nacho-ui/core": "^0.0.38",
     "@nacho-ui/pill": "^0.0.38",
     "@nacho-ui/table": "^0.0.38",
@@ -48,7 +48,6 @@
     "ember-changeset": "2.0.1",
     "ember-changeset-validations": "^2.1.0",
     "ember-cli-babel": "^7.17.2",
-    "ember-cli-eyeglass": "^6.4.3",
     "ember-cli-htmlbars": "^4.2.2",
     "ember-cli-moment-shim": "^3.7.1",
     "ember-cli-string-helpers": "^4.0.5",
@@ -67,14 +66,15 @@
     "ember-simple-auth": "^1.9.2",
     "ember-svg-jar": "^2.2.3",
     "ember-tooltips": "^3.4.5",
-    "eyeglass": "^2.4.2",
-    "eyeglass-restyle": "^1.1.0",
     "ivy-tabs": "^3.3.0",
     "minimatch": "^3.0.4",
     "restliparams": "^1.0.1",
     "sass": "^1.21.0",
     "svg-pan-zoom": "^3.6.1",
-    "faker": "^4.1.0"
+    "faker": "^4.1.0",
+    "ember-cli-eyeglass": "^6.4.3",
+    "eyeglass": "^2.4.2",
+    "eyeglass-restyle": "^1.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.8.4",
@@ -119,10 +119,12 @@
   "ember": {
     "edition": "octane"
   },
-  "eyeglass": {
-    "needs": "^2.4.2"
-  },
   "ember-addon": {
     "configPath": "tests/dummy/config"
+  },
+  "eyeglass": {
+    "needs": "^2.4.2",
+    "name": "datahub-shared",
+    "exports": "eyeglass-exports.js"
   }
 }

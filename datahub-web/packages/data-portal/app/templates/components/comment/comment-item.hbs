@@ -57,10 +57,10 @@
       title="Edit this comment"
       {{action "onEdit"}}
     >
-      {{fa-icon
-        "pencil-alt"
+      <FaIcon
+        @icon="pencil-alt"
         aria-label="Edit this comment"
-      }}
+      />
     </button>
 
     <button
@@ -69,7 +69,7 @@
       title="Delete this comment"
       {{action "onDelete"}}
     >
-      {{fa-icon "trash" aria-label="Delete this comment"}}
+      <FaIcon @icon="trash" aria-label="Delete this comment" />
     </button>
   {{/if}}
 </section>

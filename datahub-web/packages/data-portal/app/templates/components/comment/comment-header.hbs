@@ -3,7 +3,7 @@
     {{yield}}
   {{else}}
     {{#if comments.length}}
-      {{fa-icon "comment-alt" title="Comment Count"}}
+      <FaIcon @icon="comment-alt" title="Comment Count" />
 
       {{comments.length}}
     {{/if}}

@@ -3,7 +3,9 @@
   "version": "0.0.38",
   "description": "The default blueprint for ember-cli addons.",
   "keywords": [
-    "ember-addon"
+    "ember-addon",
+    "eyeglass-module",
+    "eyeglass-module"
   ],
   "repository": "",
   "license": "MIT",
@@ -12,27 +14,34 @@
     "doc": "doc",
     "test": "tests"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "build": "ember build",
+    "prepublishOnly": "ember ts:precompile",
+    "postpublish": "ember ts:clean",
     "start": "ember serve",
     "test": "ember test",
-    "test:all": "ember try:each",
-    "prepublishOnly": "ember ts:precompile",
-    "postpublish": "ember ts:clean"
+    "test:all": "ember try:each"
   },
   "dependencies": {
     "@babel/core": "^7.8.4",
+    "@fortawesome/ember-fontawesome": "^0.2.2",
+    "@fortawesome/free-regular-svg-icons": "^5.9.0",
+    "@fortawesome/free-solid-svg-icons": "^5.9.0",
     "ember-cli-babel": "^7.12.2",
-    "ember-cli-htmlbars": "^3.0.1",
+    "ember-cli-eyeglass": "^6.4.3",
+    "ember-cli-htmlbars": "^4.2.2",
     "ember-cli-typescript": "^3.1.3",
-    "ember-decorators": "^6.0.0",
-    "node-sass": "^4.0.0"
+    "ember-truth-helpers": "^2.1.0",
+    "eyeglass": "^2.4.2",
+    "eyeglass-restyle": "^1.1.0",
+    "ember-basic-dropdown": "^1.1.3",
+    "ember-power-select": "^2.0.9",
+    "ember-power-select-typeahead": "^0.7.2"
   },
   "devDependencies": {
     "@ember/optional-features": "^1.3.0",
+    "@glimmer/component": "^1.0.0",
+    "@glimmer/tracking": "^1.0.0",
     "@types/ember": "^3.1.1",
     "@types/ember-qunit": "^3.4.7",
     "@types/ember-test-helpers": "^1.0.4",
@@ -43,30 +52,37 @@
     "broccoli-asset-rev": "^3.0.0",
     "ember-cli": "~3.16.0",
     "ember-cli-dependency-checker": "^3.2.0",
-    "ember-cli-htmlbars-inline-precompile": "^2.1.0",
     "ember-cli-inject-live-reload": "^2.0.2",
-    "ember-cli-sass": "^10.0.0",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-uglify": "^3.0.0",
-    "ember-disable-prototype-extensions": "^1.1.3",
-    "ember-export-application-global": "^2.0.0",
+    "ember-cli-update": "^0.52.1",
+    "ember-decorators": "^6.0.0",
+    "ember-export-application-global": "^2.0.1",
     "ember-load-initializers": "^2.1.1",
     "ember-maybe-import-regenerator": "^0.1.6",
     "ember-qunit": "^4.6.0",
     "ember-resolver": "^7.0.0",
     "ember-source": "~3.16.3",
     "ember-source-channel-url": "^2.0.1",
-    "ember-try": "^1.0.0",
+    "ember-try": "^1.4.0",
     "loader.js": "^4.7.0",
     "qunit-dom": "^0.9.1",
     "sass": "^1.21.0",
     "typescript": "^3.9.3"
   },
   "engines": {
-    "node": "6.* || 8.* || >= 10.*"
+    "node": "10.* || >= 12"
+  },
+  "ember": {
+    "edition": "octane"
   },
   "ember-addon": {
     "configPath": "tests/dummy/config"
+  },
+  "eyeglass": {
+    "needs": "^2.4.2",
+    "name": "nacho-core",
+    "exports": "eyeglass-exports.js"
   },
   "gitHead": "0fdfd20c717fb51748b76b72c12e5d2f44d52900"
 }

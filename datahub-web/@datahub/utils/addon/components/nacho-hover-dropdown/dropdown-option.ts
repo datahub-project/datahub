@@ -3,7 +3,7 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../templates/components/nacho-hover-dropdown/dropdown-option';
 
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 import { tagName, classNames, className, layout } from '@ember-decorators/component';
 import { equal } from '@ember/object/computed';

@@ -1,0 +1,10 @@
+<button type="button" class="{{this.buttonClass}} {{@baseClass}}" {{on 'click' this.onClickButton}}>
+  <FaIcon
+    @icon={{if
+        @isSorting
+        (if (eq @sortDirection this.sortDirections.ASCEND) "sort-up" "sort-down")
+        "sort"
+      }}
+    class={{this.iconClass}}
+  />
+</button>

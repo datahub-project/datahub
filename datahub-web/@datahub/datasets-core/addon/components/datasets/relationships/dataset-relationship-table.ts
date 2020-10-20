@@ -13,7 +13,7 @@ import {
   filterLineageByType
 } from '@datahub/datasets-core/utils/lineage';
 import { AppRoute } from '@datahub/data-models/types/entity/shared';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 /**
  * Shortcut typing to reference dropdown options for relationship types
