@@ -33,11 +33,11 @@ public class CorpUserUtil {
     public static User toCorpUserView(CorpUser corpUser) {
         User user = new User();
         user.setUserName(corpUser.getUsername());
-        if (corpUser.hasInfo()) {
+        if (corpUser.getInfo() != null) {
             user.setEmail(corpUser.getInfo().getEmail());
             user.setName(corpUser.getInfo().getFullName());
         }
-        if (corpUser.hasEditableInfo()) {
+        if (corpUser.getEditableInfo() != null) {
             user.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
         }
         return user;
