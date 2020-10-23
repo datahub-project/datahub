@@ -193,4 +193,7 @@ docker rm -f $(docker ps -aq)
 ```
 docker volume rm -f $(docker volume ls -f name=datahub_  -q)
 ```
-
+3. Delete DataHub's network
+```
+docker network rm datahub_network
+```
