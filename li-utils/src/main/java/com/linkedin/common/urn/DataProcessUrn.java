@@ -40,6 +40,7 @@ public class DataProcessUrn extends Urn {
     }
 
     public static DataProcessUrn createFromString(String rawUrn) throws URISyntaxException {
+        validateUrn(rawUrn, ENTITY_TYPE);
         String content = new Urn(rawUrn).getContent();
         String[] parts = content.substring(1, content.length() - 1).split(",");
         return new DataProcessUrn(parts[0], parts[1], toFabricType(parts[2]));

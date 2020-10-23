@@ -39,6 +39,7 @@ public final class MLModelUrn extends Urn {
   }
 
   public static MLModelUrn createFromString(String rawUrn) throws URISyntaxException {
+    validateUrn(rawUrn, ENTITY_TYPE);
     String content = new Urn(rawUrn).getContent();
     String[] parts = content.substring(1, content.length() - 1).split(",");
     return new MLModelUrn(DataPlatformUrn.createFromString(parts[0]), parts[1], toFabricType(parts[2]));

@@ -26,14 +26,13 @@ public final class CorpuserUrn extends Urn {
   }
 
   public static CorpuserUrn createFromString(String rawUrn) throws URISyntaxException {
+    validateUrn(rawUrn, ENTITY_TYPE);
     String username = new Urn(rawUrn).getContent();
     return new CorpuserUrn(username);
   }
 
   public static CorpuserUrn createFromUrn(Urn urn) throws URISyntaxException {
-    if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-      throw new URISyntaxException(urn.toString(), "Can't cast URN to CorpuserUrn, not same ENTITY");
-    }
+    validateUrn(urn, ENTITY_TYPE);
 
     Matcher matcher = URN_PATTERN.matcher(urn.toString());
     if (matcher.find()) {

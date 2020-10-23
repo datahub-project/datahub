@@ -31,9 +31,8 @@ public final class DashboardUrn extends Urn {
   }
 
   public static DashboardUrn createFromString(String rawUrn) throws URISyntaxException {
-    Urn urn = new Urn(rawUrn);
-    validateUrn(urn, ENTITY_TYPE);
-    String[] urnParts = urn.getContent().split(",");
+    validateUrn(rawUrn, ENTITY_TYPE);
+    String[] urnParts = new Urn(rawUrn).getContent().split(",");
     return new DashboardUrn(urnParts[0], urnParts[1]);
   }
 
