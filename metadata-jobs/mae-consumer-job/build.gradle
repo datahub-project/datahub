@@ -22,12 +22,12 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
-    compile project(':metadata-dao')
-    compile project(':metadata-dao-impl:neo4j-dao')
-    compile externalDependency.elasticSearchRest
-    compile externalDependency.neo4jJavaDriver
 
+    compile externalDependency.elasticSearchRest
+    compile externalDependency.gmaDaoApi
+    compile externalDependency.gmaNeo4jDao
     compile externalDependency.kafkaAvroSerde
+    compile externalDependency.neo4jJavaDriver
 
     compile (externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
