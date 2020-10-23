@@ -91,6 +91,12 @@ public class Urn {
     return createFromString(rawUrn);
   }
 
+  public static void validateUrn(@Nonnull String rawUrn, @Nonnull String entityType)
+      throws URISyntaxException {
+    final Urn urn = new Urn(rawUrn);
+    validateUrn(urn, entityType);
+  }
+
   public static void validateUrn(@Nonnull Urn urn, @Nonnull String entityType)
       throws URISyntaxException {
     if (!entityType.equals(urn.getEntityType())) {
