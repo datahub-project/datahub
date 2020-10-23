@@ -4,12 +4,12 @@ dependencies {
   compile project(':gms:api')
   compile project(':gms:impl')
   compile project(path: ':gms:api', configuration: 'restClient')
+  compile project(':metadata-dao-impl:restli-dao')
 
   dataModel project(':li-utils')
 
-  compile project(':metadata-dao')
-  compile project(':metadata-dao-impl:restli-dao')
-  compile project(':metadata-restli-resource')
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaRestliResources
 
   compile spec.product.pegasus.restliClient
 }

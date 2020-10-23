@@ -2,16 +2,19 @@ apply plugin: 'java'
 apply plugin: 'pegasus'
 
 dependencies {
-  compile project(':metadata-dao')
   compile project(':metadata-models')
-  compile project(':metadata-restli-resource')
   compile externalDependency.cacheApi
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaDaoApiDataTemplate
+  compile externalDependency.gmaRestliResources
+  compile externalDependency.gmaRestliResourcesDataTemplate
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon
 
   compileOnly externalDependency.lombok
 
-  testCompile project(':metadata-testing:metadata-test-models')
   testCompile project(':metadata-testing:metadata-test-utils')
+  testCompile externalDependency.gmaTestModels
+  testCompile externalDependency.gmaTestModelsDataTemplate
   testCompile externalDependency.mockito
 }

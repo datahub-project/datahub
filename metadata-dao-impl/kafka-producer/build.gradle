@@ -1,10 +1,10 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':metadata-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
+  compile externalDependency.gmaDaoApi
   compile externalDependency.kafkaClients
 
   compileOnly externalDependency.lombok

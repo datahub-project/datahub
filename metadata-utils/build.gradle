@@ -4,6 +4,7 @@ dependencies {
   compile externalDependency.avro_1_7
   compile externalDependency.commonsLang
   compile externalDependency.elasticSearchRest
+  compile externalDependency.gmaDaoApi
   compile externalDependency.httpClient
   compile externalDependency.logbackClassic
   compile externalDependency.neo4jJavaDriver
@@ -11,7 +12,6 @@ dependencies {
   compile spec.product.pegasus.restliCommon
 
   compile project(':li-utils')
-  compile project(':metadata-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-utils-avro-1.7')
 

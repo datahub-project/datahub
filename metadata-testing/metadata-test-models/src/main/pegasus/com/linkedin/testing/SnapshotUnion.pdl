@@ -1,6 +1,0 @@
-namespace com.linkedin.testing
-
-/**
- * For unit testing
- */
-typeref SnapshotUnion = union[EntitySnapshot]

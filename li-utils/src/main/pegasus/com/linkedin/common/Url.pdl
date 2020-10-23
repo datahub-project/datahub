@@ -1,7 +1,0 @@
-namespace com.linkedin.common
-
-@java = {
-  "coercerClass" : "com.linkedin.common.url.UrlCoercer",
-  "class" : "com.linkedin.common.url.Url"
-}
-typeref Url = string
