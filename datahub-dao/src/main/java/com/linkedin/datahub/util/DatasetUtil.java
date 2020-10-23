@@ -56,8 +56,8 @@ public class DatasetUtil {
     if (dataset.hasPlatformNativeType()) {
       view.setNativeType(dataset.getPlatformNativeType().name());
     }
-    if (dataset.hasRemoved()) {
-      view.setRemoved(dataset.isRemoved());
+    if (dataset.getStatus() != null) {
+      view.setRemoved(dataset.getStatus().isRemoved());
     }
     if (dataset.hasDeprecation()) {
       view.setDeprecated(dataset.getDeprecation().isDeprecated());
