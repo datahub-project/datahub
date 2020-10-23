@@ -38,7 +38,6 @@ public final class AzkabanFlowUrn extends Urn {
   }
 
   public static AzkabanFlowUrn createFromString(String rawUrn) throws URISyntaxException {
-    validateUrn(rawUrn, ENTITY_TYPE);
     String content = new Urn(rawUrn).getContent();
     String[] parts = content.substring(1, content.length() - 1).split(",");
     return new AzkabanFlowUrn(parts[0], parts[1], parts[2]);
