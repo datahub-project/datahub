@@ -23,6 +23,7 @@ public final class DataPlatformUrn extends Urn {
   }
 
   public static DataPlatformUrn createFromString(String rawUrn) throws URISyntaxException {
+    validateUrn(rawUrn, ENTITY_TYPE);
     String platformName = new Urn(rawUrn).getContent();
     return new DataPlatformUrn(platformName);
   }
