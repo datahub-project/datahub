@@ -356,7 +356,8 @@
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the dataset is removed or not",
-      "default" : false
+      "default" : false,
+      "deprecated" : true
     }, {
       "name" : "deprecation",
       "type" : {
@@ -385,19 +386,408 @@
       },
       "doc" : "The dataset deprecation status",
       "optional" : true
+    }, {
+      "name" : "institutionalMemory",
+      "type" : "com.linkedin.common.InstitutionalMemory",
+      "doc" : "Institutional memory metadata of the dataset",
+      "optional" : true
+    }, {
+      "name" : "ownership",
+      "type" : "com.linkedin.common.Ownership",
+      "doc" : "Ownership metadata of the dataset",
+      "optional" : true
+    }, {
+      "name" : "schemaMetadata",
+      "type" : {
+        "type" : "record",
+        "name" : "SchemaMetadata",
+        "namespace" : "com.linkedin.schema",
+        "doc" : "SchemaMetadata to describe metadata related to store schema",
+        "include" : [ {
+          "type" : "record",
+          "name" : "SchemaMetadataKey",
+          "doc" : "Key to retrieve schema metadata.",
+          "fields" : [ {
+            "name" : "schemaName",
+            "type" : "string",
+            "doc" : "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
+            "validate" : {
+              "strlen" : {
+                "max" : 500,
+                "min" : 1
+              }
+            }
+          }, {
+            "name" : "platform",
+            "type" : "com.linkedin.common.DataPlatformUrn",
+            "doc" : "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})"
+          }, {
+            "name" : "version",
+            "type" : "long",
+            "doc" : "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
+          } ]
+        }, "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "dataset",
+          "type" : "com.linkedin.common.DatasetUrn",
+          "doc" : "Dataset this schema metadata is associated with.",
+          "optional" : true
+        }, {
+          "name" : "cluster",
+          "type" : "string",
+          "doc" : "The cluster this schema metadata resides from",
+          "optional" : true
+        }, {
+          "name" : "hash",
+          "type" : "string",
+          "doc" : "the SHA1 hash of the schema content"
+        }, {
+          "name" : "platformSchema",
+          "type" : [ {
+            "type" : "record",
+            "name" : "EspressoSchema",
+            "doc" : "Schema text of an espresso table schema.",
+            "fields" : [ {
+              "name" : "documentSchema",
+              "type" : "string",
+              "doc" : "The native espresso document schema."
+            }, {
+              "name" : "tableSchema",
+              "type" : "string",
+              "doc" : "The espresso table schema definition."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "OracleDDL",
+            "doc" : "Schema holder for oracle data definition language that describes an oracle table.",
+            "fields" : [ {
+              "name" : "tableSchema",
+              "type" : "string",
+              "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "MySqlDDL",
+            "doc" : "Schema holder for MySql data definition language that describes an MySql table.",
+            "fields" : [ {
+              "name" : "tableSchema",
+              "type" : "string",
+              "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "PrestoDDL",
+            "doc" : "Schema holder for presto data definition language that describes a presto view.",
+            "fields" : [ {
+              "name" : "rawSchema",
+              "type" : "string",
+              "doc" : "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "KafkaSchema",
+            "doc" : "Schema holder for kafka schema.",
+            "fields" : [ {
+              "name" : "documentSchema",
+              "type" : "string",
+              "doc" : "The native kafka document schema. This is a human readable avro document schema."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "BinaryJsonSchema",
+            "doc" : "Schema text of binary JSON schema.",
+            "fields" : [ {
+              "name" : "schema",
+              "type" : "string",
+              "doc" : "The native schema text for binary JSON file format."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "OrcSchema",
+            "doc" : "Schema text of an ORC schema.",
+            "fields" : [ {
+              "name" : "schema",
+              "type" : "string",
+              "doc" : "The native schema for ORC file format."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "Schemaless",
+            "doc" : "The dataset has no specific schema associated with it",
+            "fields" : [ ]
+          }, {
+            "type" : "record",
+            "name" : "KeyValueSchema",
+            "doc" : "Schema text of a key-value store schema.",
+            "fields" : [ {
+              "name" : "keySchema",
+              "type" : "string",
+              "doc" : "The raw schema for the key in the key-value store."
+            }, {
+              "name" : "valueSchema",
+              "type" : "string",
+              "doc" : "The raw schema for the value in the key-value store."
+            } ]
+          }, {
+            "type" : "record",
+            "name" : "OtherSchema",
+            "doc" : "Schema holder for undefined schema types.",
+            "fields" : [ {
+              "name" : "rawSchema",
+              "type" : "string",
+              "doc" : "The native schema in the dataset's platform."
+            } ]
+          } ],
+          "doc" : "The native schema in the dataset's platform."
+        }, {
+          "name" : "fields",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "SchemaField",
+              "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+              "fields" : [ {
+                "name" : "fieldPath",
+                "type" : {
+                  "type" : "typeref",
+                  "name" : "SchemaFieldPath",
+                  "namespace" : "com.linkedin.dataset",
+                  "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
+                  "ref" : "string"
+                },
+                "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+              }, {
+                "name" : "jsonPath",
+                "type" : "string",
+                "doc" : "Flattened name of a field in JSON Path notation.",
+                "optional" : true
+              }, {
+                "name" : "nullable",
+                "type" : "boolean",
+                "doc" : "Indicates if this field is optional or nullable",
+                "default" : false
+              }, {
+                "name" : "description",
+                "type" : "string",
+                "doc" : "Description",
+                "optional" : true
+              }, {
+                "name" : "type",
+                "type" : {
+                  "type" : "record",
+                  "name" : "SchemaFieldDataType",
+                  "doc" : "Schema field data types",
+                  "fields" : [ {
+                    "name" : "type",
+                    "type" : [ {
+                      "type" : "record",
+                      "name" : "BooleanType",
+                      "doc" : "Boolean field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "FixedType",
+                      "doc" : "Fixed field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "StringType",
+                      "doc" : "String field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "BytesType",
+                      "doc" : "Bytes field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "NumberType",
+                      "doc" : "Number data type: long, integer, short, etc..",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "EnumType",
+                      "doc" : "Enum field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "NullType",
+                      "doc" : "Null field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "MapType",
+                      "doc" : "Map field type.",
+                      "fields" : [ {
+                        "name" : "keyType",
+                        "type" : "string",
+                        "doc" : "Key type in a map",
+                        "optional" : true
+                      }, {
+                        "name" : "valueType",
+                        "type" : "string",
+                        "doc" : "Type of the value in a map",
+                        "optional" : true
+                      } ]
+                    }, {
+                      "type" : "record",
+                      "name" : "ArrayType",
+                      "doc" : "Array field type.",
+                      "fields" : [ {
+                        "name" : "nestedType",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "string"
+                        },
+                        "doc" : "List of types this array holds.",
+                        "optional" : true
+                      } ]
+                    }, {
+                      "type" : "record",
+                      "name" : "UnionType",
+                      "doc" : "Union field type.",
+                      "fields" : [ {
+                        "name" : "nestedTypes",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "string"
+                        },
+                        "doc" : "List of types in union type.",
+                        "optional" : true
+                      } ]
+                    }, {
+                      "type" : "record",
+                      "name" : "RecordType",
+                      "doc" : "Record field type.",
+                      "fields" : [ ]
+                    } ],
+                    "doc" : "Data platform specific types"
+                  } ]
+                },
+                "doc" : "Platform independent field type of the field."
+              }, {
+                "name" : "nativeDataType",
+                "type" : "string",
+                "doc" : "The native type of the field in the dataset's platform as declared by platform schema."
+              }, {
+                "name" : "recursive",
+                "type" : "boolean",
+                "doc" : "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.",
+                "default" : false
+              } ]
+            }
+          },
+          "doc" : "Client provided a list of fields from document schema."
+        }, {
+          "name" : "primaryKeys",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.dataset.SchemaFieldPath"
+          },
+          "doc" : "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.",
+          "optional" : true
+        }, {
+          "name" : "foreignKeysSpecs",
+          "type" : {
+            "type" : "map",
+            "values" : {
+              "type" : "record",
+              "name" : "ForeignKeySpec",
+              "doc" : "Description of a foreign key in a schema.",
+              "fields" : [ {
+                "name" : "foreignKey",
+                "type" : [ {
+                  "type" : "record",
+                  "name" : "DatasetFieldForeignKey",
+                  "doc" : "For non-urn based foregin keys.",
+                  "fields" : [ {
+                    "name" : "parentDataset",
+                    "type" : "com.linkedin.common.DatasetUrn",
+                    "doc" : "dataset that stores the resource."
+                  }, {
+                    "name" : "currentFieldPaths",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.dataset.SchemaFieldPath"
+                    },
+                    "doc" : "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
+                  }, {
+                    "name" : "parentField",
+                    "type" : "com.linkedin.dataset.SchemaFieldPath",
+                    "doc" : "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
+                  } ]
+                }, {
+                  "type" : "record",
+                  "name" : "UrnForeignKey",
+                  "doc" : "If SchemaMetadata fields make any external references and references are of type com.linkeidn.common.Urn or any children, this models can be used to mark it.",
+                  "fields" : [ {
+                    "name" : "currentFieldPath",
+                    "type" : "com.linkedin.dataset.SchemaFieldPath",
+                    "doc" : "Field in hosting(current) SchemaMetadata."
+                  } ]
+                } ],
+                "doc" : "Foreign key definition in metadata schema."
+              } ]
+            }
+          },
+          "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Schema metadata of the dataset",
+      "optional" : true
+    }, {
+      "name" : "status",
+      "type" : "com.linkedin.common.Status",
+      "doc" : "Status metadata of the dataset",
+      "optional" : true
+    }, {
+      "name" : "upstreamLineage",
+      "type" : {
+        "type" : "record",
+        "name" : "UpstreamLineage",
+        "doc" : "Upstream lineage of a dataset",
+        "fields" : [ {
+          "name" : "upstreams",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "Upstream",
+              "doc" : "Upstream lineage information about a dataset including the source reporting the lineage",
+              "fields" : [ {
+                "name" : "auditStamp",
+                "type" : "com.linkedin.common.AuditStamp",
+                "doc" : "Audit stamp containing who reported the lineage and when"
+              }, {
+                "name" : "dataset",
+                "type" : "com.linkedin.common.DatasetUrn",
+                "doc" : "The upstream dataset the lineage points to"
+              }, {
+                "name" : "type",
+                "type" : {
+                  "type" : "enum",
+                  "name" : "DatasetLineageType",
+                  "doc" : "The various types of supported dataset lineage",
+                  "symbols" : [ "COPY", "TRANSFORMED", "VIEW" ],
+                  "symbolDocs" : {
+                    "COPY" : "Direct copy without modification",
+                    "TRANSFORMED" : "Transformed data with modification (format or content change)",
+                    "VIEW" : "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+                  }
+                },
+                "doc" : "The type of the lineage"
+              } ]
+            }
+          },
+          "doc" : "List of upstream dataset lineage information"
+        } ]
+      },
+      "doc" : "Upstream lineage metadata of the dataset",
+      "optional" : true
     } ]
-  }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", {
-    "type" : "enum",
-    "name" : "DatasetLineageType",
-    "namespace" : "com.linkedin.dataset",
-    "doc" : "The various types of supported dataset lineage",
-    "symbols" : [ "COPY", "TRANSFORMED", "VIEW" ],
-    "symbolDocs" : {
-      "COPY" : "Direct copy without modification",
-      "TRANSFORMED" : "Transformed data with modification (format or content change)",
-      "VIEW" : "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
-    }
-  }, {
+  }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", "com.linkedin.dataset.DatasetLineageType", {
     "type" : "record",
     "name" : "DatasetProperties",
     "namespace" : "com.linkedin.dataset",
@@ -460,44 +850,7 @@
       },
       "doc" : "List of downstream dataset lineage information"
     } ]
-  }, "com.linkedin.dataset.PlatformNativeType", {
-    "type" : "typeref",
-    "name" : "SchemaFieldPath",
-    "namespace" : "com.linkedin.dataset",
-    "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
-    "ref" : "string"
-  }, {
-    "type" : "record",
-    "name" : "Upstream",
-    "namespace" : "com.linkedin.dataset",
-    "doc" : "Upstream lineage information about a dataset including the source reporting the lineage",
-    "fields" : [ {
-      "name" : "auditStamp",
-      "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when"
-    }, {
-      "name" : "dataset",
-      "type" : "com.linkedin.common.DatasetUrn",
-      "doc" : "The upstream dataset the lineage points to"
-    }, {
-      "name" : "type",
-      "type" : "DatasetLineageType",
-      "doc" : "The type of the lineage"
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "UpstreamLineage",
-    "namespace" : "com.linkedin.dataset",
-    "doc" : "Upstream lineage of a dataset",
-    "fields" : [ {
-      "name" : "upstreams",
-      "type" : {
-        "type" : "array",
-        "items" : "Upstream"
-      },
-      "doc" : "List of upstream dataset lineage information"
-    } ]
-  }, {
+  }, "com.linkedin.dataset.PlatformNativeType", "com.linkedin.dataset.SchemaFieldPath", "com.linkedin.dataset.Upstream", "com.linkedin.dataset.UpstreamLineage", {
     "type" : "record",
     "name" : "UpstreamLineageDelta",
     "namespace" : "com.linkedin.dataset",
@@ -515,337 +868,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
-      "type" : "record",
-      "name" : "SchemaMetadata",
-      "namespace" : "com.linkedin.schema",
-      "doc" : "SchemaMetadata to describe metadata related to store schema",
-      "include" : [ {
-        "type" : "record",
-        "name" : "SchemaMetadataKey",
-        "doc" : "Key to retrieve schema metadata.",
-        "fields" : [ {
-          "name" : "schemaName",
-          "type" : "string",
-          "doc" : "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
-          "validate" : {
-            "strlen" : {
-              "max" : 500,
-              "min" : 1
-            }
-          }
-        }, {
-          "name" : "platform",
-          "type" : "com.linkedin.common.DataPlatformUrn",
-          "doc" : "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})"
-        }, {
-          "name" : "version",
-          "type" : "long",
-          "doc" : "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
-        } ]
-      }, "com.linkedin.common.ChangeAuditStamps" ],
-      "fields" : [ {
-        "name" : "dataset",
-        "type" : "com.linkedin.common.DatasetUrn",
-        "doc" : "Dataset this schema metadata is associated with.",
-        "optional" : true
-      }, {
-        "name" : "cluster",
-        "type" : "string",
-        "doc" : "The cluster this schema metadata resides from",
-        "optional" : true
-      }, {
-        "name" : "hash",
-        "type" : "string",
-        "doc" : "the SHA1 hash of the schema content"
-      }, {
-        "name" : "platformSchema",
-        "type" : [ {
-          "type" : "record",
-          "name" : "EspressoSchema",
-          "doc" : "Schema text of an espresso table schema.",
-          "fields" : [ {
-            "name" : "documentSchema",
-            "type" : "string",
-            "doc" : "The native espresso document schema."
-          }, {
-            "name" : "tableSchema",
-            "type" : "string",
-            "doc" : "The espresso table schema definition."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "OracleDDL",
-          "doc" : "Schema holder for oracle data definition language that describes an oracle table.",
-          "fields" : [ {
-            "name" : "tableSchema",
-            "type" : "string",
-            "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "MySqlDDL",
-          "doc" : "Schema holder for MySql data definition language that describes an MySql table.",
-          "fields" : [ {
-            "name" : "tableSchema",
-            "type" : "string",
-            "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "PrestoDDL",
-          "doc" : "Schema holder for presto data definition language that describes a presto view.",
-          "fields" : [ {
-            "name" : "rawSchema",
-            "type" : "string",
-            "doc" : "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "KafkaSchema",
-          "doc" : "Schema holder for kafka schema.",
-          "fields" : [ {
-            "name" : "documentSchema",
-            "type" : "string",
-            "doc" : "The native kafka document schema. This is a human readable avro document schema."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "BinaryJsonSchema",
-          "doc" : "Schema text of binary JSON schema.",
-          "fields" : [ {
-            "name" : "schema",
-            "type" : "string",
-            "doc" : "The native schema text for binary JSON file format."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "OrcSchema",
-          "doc" : "Schema text of an ORC schema.",
-          "fields" : [ {
-            "name" : "schema",
-            "type" : "string",
-            "doc" : "The native schema for ORC file format."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "Schemaless",
-          "doc" : "The dataset has no specific schema associated with it",
-          "fields" : [ ]
-        }, {
-          "type" : "record",
-          "name" : "KeyValueSchema",
-          "doc" : "Schema text of a key-value store schema.",
-          "fields" : [ {
-            "name" : "keySchema",
-            "type" : "string",
-            "doc" : "The raw schema for the key in the key-value store."
-          }, {
-            "name" : "valueSchema",
-            "type" : "string",
-            "doc" : "The raw schema for the value in the key-value store."
-          } ]
-        }, {
-          "type" : "record",
-          "name" : "OtherSchema",
-          "doc" : "Schema holder for undefined schema types.",
-          "fields" : [ {
-            "name" : "rawSchema",
-            "type" : "string",
-            "doc" : "The native schema in the dataset's platform."
-          } ]
-        } ],
-        "doc" : "The native schema in the dataset's platform."
-      }, {
-        "name" : "fields",
-        "type" : {
-          "type" : "array",
-          "items" : {
-            "type" : "record",
-            "name" : "SchemaField",
-            "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
-            "fields" : [ {
-              "name" : "fieldPath",
-              "type" : "com.linkedin.dataset.SchemaFieldPath",
-              "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
-            }, {
-              "name" : "jsonPath",
-              "type" : "string",
-              "doc" : "Flattened name of a field in JSON Path notation.",
-              "optional" : true
-            }, {
-              "name" : "nullable",
-              "type" : "boolean",
-              "doc" : "Indicates if this field is optional or nullable",
-              "default" : false
-            }, {
-              "name" : "description",
-              "type" : "string",
-              "doc" : "Description",
-              "optional" : true
-            }, {
-              "name" : "type",
-              "type" : {
-                "type" : "record",
-                "name" : "SchemaFieldDataType",
-                "doc" : "Schema field data types",
-                "fields" : [ {
-                  "name" : "type",
-                  "type" : [ {
-                    "type" : "record",
-                    "name" : "BooleanType",
-                    "doc" : "Boolean field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "FixedType",
-                    "doc" : "Fixed field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "StringType",
-                    "doc" : "String field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "BytesType",
-                    "doc" : "Bytes field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "NumberType",
-                    "doc" : "Number data type: long, integer, short, etc..",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "EnumType",
-                    "doc" : "Enum field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "NullType",
-                    "doc" : "Null field type.",
-                    "fields" : [ ]
-                  }, {
-                    "type" : "record",
-                    "name" : "MapType",
-                    "doc" : "Map field type.",
-                    "fields" : [ {
-                      "name" : "keyType",
-                      "type" : "string",
-                      "doc" : "Key type in a map",
-                      "optional" : true
-                    }, {
-                      "name" : "valueType",
-                      "type" : "string",
-                      "doc" : "Type of the value in a map",
-                      "optional" : true
-                    } ]
-                  }, {
-                    "type" : "record",
-                    "name" : "ArrayType",
-                    "doc" : "Array field type.",
-                    "fields" : [ {
-                      "name" : "nestedType",
-                      "type" : {
-                        "type" : "array",
-                        "items" : "string"
-                      },
-                      "doc" : "List of types this array holds.",
-                      "optional" : true
-                    } ]
-                  }, {
-                    "type" : "record",
-                    "name" : "UnionType",
-                    "doc" : "Union field type.",
-                    "fields" : [ {
-                      "name" : "nestedTypes",
-                      "type" : {
-                        "type" : "array",
-                        "items" : "string"
-                      },
-                      "doc" : "List of types in union type.",
-                      "optional" : true
-                    } ]
-                  }, {
-                    "type" : "record",
-                    "name" : "RecordType",
-                    "doc" : "Record field type.",
-                    "fields" : [ ]
-                  } ],
-                  "doc" : "Data platform specific types"
-                } ]
-              },
-              "doc" : "Platform independent field type of the field."
-            }, {
-              "name" : "nativeDataType",
-              "type" : "string",
-              "doc" : "The native type of the field in the dataset's platform as declared by platform schema."
-            }, {
-              "name" : "recursive",
-              "type" : "boolean",
-              "doc" : "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.",
-              "default" : false
-            } ]
-          }
-        },
-        "doc" : "Client provided a list of fields from document schema."
-      }, {
-        "name" : "primaryKeys",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.dataset.SchemaFieldPath"
-        },
-        "doc" : "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.",
-        "optional" : true
-      }, {
-        "name" : "foreignKeysSpecs",
-        "type" : {
-          "type" : "map",
-          "values" : {
-            "type" : "record",
-            "name" : "ForeignKeySpec",
-            "doc" : "Description of a foreign key in a schema.",
-            "fields" : [ {
-              "name" : "foreignKey",
-              "type" : [ {
-                "type" : "record",
-                "name" : "DatasetFieldForeignKey",
-                "doc" : "For non-urn based foregin keys.",
-                "fields" : [ {
-                  "name" : "parentDataset",
-                  "type" : "com.linkedin.common.DatasetUrn",
-                  "doc" : "dataset that stores the resource."
-                }, {
-                  "name" : "currentFieldPaths",
-                  "type" : {
-                    "type" : "array",
-                    "items" : "com.linkedin.dataset.SchemaFieldPath"
-                  },
-                  "doc" : "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
-                }, {
-                  "name" : "parentField",
-                  "type" : "com.linkedin.dataset.SchemaFieldPath",
-                  "doc" : "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
-                } ]
-              }, {
-                "type" : "record",
-                "name" : "UrnForeignKey",
-                "doc" : "If SchemaMetadata fields make any external references and references are of type com.linkeidn.common.Urn or any children, this models can be used to mark it.",
-                "fields" : [ {
-                  "name" : "currentFieldPath",
-                  "type" : "com.linkedin.dataset.SchemaFieldPath",
-                  "doc" : "Field in hosting(current) SchemaMetadata."
-                } ]
-              } ],
-              "doc" : "Foreign key definition in metadata schema."
-            } ]
-          }
-        },
-        "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
-        "optional" : true
-      } ]
-    } ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
