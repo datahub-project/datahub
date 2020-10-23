@@ -31,7 +31,6 @@ public final class AzkabanJobUrn extends Urn {
   }
 
   public static AzkabanJobUrn createFromString(String rawUrn) throws URISyntaxException {
-    validateUrn(rawUrn, ENTITY_TYPE);
     String content = new Urn(rawUrn).getContent();
     String flowParts = content.substring(1, content.lastIndexOf(",") + 1);
     String[] parts = content.substring(1, content.length() - 1).split(",");

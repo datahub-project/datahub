@@ -25,13 +25,14 @@ public final class CorpGroupUrn extends Urn {
   }
 
   public static CorpGroupUrn createFromString(String rawUrn) throws URISyntaxException {
-    validateUrn(rawUrn, ENTITY_TYPE);
     String groupName = new Urn(rawUrn).getContent();
     return new CorpGroupUrn(groupName);
   }
 
   public static CorpGroupUrn createFromUrn(Urn urn) throws URISyntaxException {
-    validateUrn(urn, ENTITY_TYPE);
+    if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Can't cast URN to CorpGroupUrn, not same ENTITY");
+    }
 
     Matcher matcher = URN_PATTERN.matcher(urn.toString());
     if (matcher.find()) {
