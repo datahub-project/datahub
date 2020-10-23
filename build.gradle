@@ -1,5 +1,6 @@
 buildscript {
   ext.pegasusVersion = '28.3.7'
+  ext.gmaVersion = '0.0.1'
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -26,8 +27,6 @@ project.ext.spec = [
     ]
 ]
 
-def GMA_VERSION = "0.0.1"
-
 project.ext.externalDependency = [
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
@@ -39,17 +38,17 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:5.6.8',
     'elasticSearchTransport': 'org.elasticsearch.client:transport:5.6.8',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'gmaCoreModels': "com.linkedin.datahub-gma:core-models-data-template:$GMA_VERSION",
-    'gmaDaoApi': "com.linkedin.datahub-gma:dao-api:$GMA_VERSION",
-    'gmaDaoApiDataTemplate': "com.linkedin.datahub-gma:dao-api-data-template:$GMA_VERSION",
-    'gmaEbeanDao': "com.linkedin.datahub-gma:ebean-dao:$GMA_VERSION",
-    'gmaElasticsearchDao': "com.linkedin.datahub-gma:elasticsearch-dao:$GMA_VERSION",
-    'gmaNeo4jDao': "com.linkedin.datahub-gma:neo4j-dao:$GMA_VERSION",
-    'gmaRestliResources': "com.linkedin.datahub-gma:restli-resources:$GMA_VERSION",
-    'gmaRestliResourcesDataTemplate': "com.linkedin.datahub-gma:restli-resources-data-template:$GMA_VERSION",
-    'gmaTestModels': "com.linkedin.datahub-gma:test-models:$GMA_VERSION",
-    'gmaTestModelsDataTemplate': "com.linkedin.datahub-gma:test-models-data-template:$GMA_VERSION",
-    'gmaValidators': "com.linkedin.datahub-gma:validators:$GMA_VERSION",
+    'gmaCoreModels': "com.linkedin.datahub-gma:core-models-data-template:$gmaVersion",
+    'gmaDaoApi': "com.linkedin.datahub-gma:dao-api:$gmaVersion",
+    'gmaDaoApiDataTemplate': "com.linkedin.datahub-gma:dao-api-data-template:$gmaVersion",
+    'gmaEbeanDao': "com.linkedin.datahub-gma:ebean-dao:$gmaVersion",
+    'gmaElasticsearchDao': "com.linkedin.datahub-gma:elasticsearch-dao:$gmaVersion",
+    'gmaNeo4jDao': "com.linkedin.datahub-gma:neo4j-dao:$gmaVersion",
+    'gmaRestliResources': "com.linkedin.datahub-gma:restli-resources:$gmaVersion",
+    'gmaRestliResourcesDataTemplate': "com.linkedin.datahub-gma:restli-resources-data-template:$gmaVersion",
+    'gmaTestModels': "com.linkedin.datahub-gma:test-models:$gmaVersion",
+    'gmaTestModelsDataTemplate': "com.linkedin.datahub-gma:test-models-data-template:$gmaVersion",
+    'gmaValidators': "com.linkedin.datahub-gma:validators:$gmaVersion",
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:1.4.196',
