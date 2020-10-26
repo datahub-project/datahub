@@ -53,7 +53,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "datasets", namespace = "com.linkedin.dataset", keyName = "dataset")
 public final class Datasets extends BaseBrowsableEntityResource<
     // @formatter:off
-        DatasetKey,
+        ComplexResourceKey<DatasetKey, EmptyRecord>,
         Dataset,
         DatasetUrn,
         DatasetSnapshot,
@@ -103,17 +103,19 @@ public final class Datasets extends BaseBrowsableEntityResource<
 
   @Override
   @Nonnull
-  protected DatasetUrn toUrn(@Nonnull DatasetKey key) {
-    return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
+  protected DatasetUrn toUrn(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key) {
+    return new DatasetUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin());
   }
 
   @Override
   @Nonnull
-  protected DatasetKey toKey(@Nonnull DatasetUrn urn) {
-    return new DatasetKey()
-        .setPlatform(urn.getPlatformEntity())
-        .setName(urn.getDatasetNameEntity())
-        .setOrigin(urn.getOriginEntity());
+  protected ComplexResourceKey<DatasetKey, EmptyRecord> toKey(@Nonnull DatasetUrn urn) {
+    return new ComplexResourceKey<>(
+        new DatasetKey()
+            .setPlatform(urn.getPlatformEntity())
+            .setName(urn.getDatasetNameEntity())
+            .setOrigin(urn.getOriginEntity()),
+        new EmptyRecord());
   }
 
   @Override
