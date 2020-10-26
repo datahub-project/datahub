@@ -105,7 +105,7 @@ services:
       - elasticsearch
 
   neo4j:
-    image: neo4j:3.5.7
+    image: neo4j:4.0.6
     env_file: neo4j/env/docker.env
     hostname: neo4j
     container_name: neo4j
