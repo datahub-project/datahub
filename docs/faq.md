@@ -7,7 +7,8 @@ DataHub is a self-service data portal which provides search and discovery capabi
 Common problems with commercial solutions can be summarized as:
 - Lacks direct access to source code: Any feature gaps can only be closed by external parties, which can be both time consuming and expensive.
 - Dependency on larger proprietary systems or environments, e.g. AWS, Azure, Cloudera etc., making it infeasible to adopt if it doesn’t fit your environment.
-- Expensive to acquire and operate.
+- Expensive to acquire, integrate and operate
+- Vendor Lock-in
 
 DataHub can be right for you if you want an open source unbundled solution (front-end application completely decoupled from a “battle-tested” metadata store), that you are free to modify, extend and integrate with your data ecosystem. In our experience at LinkedIn and talking to other companies in a similar situation, metadata always has a very company specific implementation and meaning. Commercial tools will typically drop-in and solve a few use-cases well out of the gate, but will need much more investment or will be impossible to extend for some specific kinds of metadata.
 
