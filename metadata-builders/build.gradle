@@ -10,6 +10,7 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testCompile externalDependency.assertJ
   testCompile externalDependency.mockito
   testCompile project(':metadata-testing:metadata-models-test-utils')
   testCompile project(':metadata-testing:metadata-test-utils')
