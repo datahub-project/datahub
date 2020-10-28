@@ -42,6 +42,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn, @Nonnull Ownership ownership) {
         final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
         return new DataProcessDocument()
+            .setUrn(urn)
             .setHasOwners(!owners.isEmpty())
             .setOwners(owners);
     }
@@ -49,7 +50,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     @Nonnull
     private DataProcessDocument getDocumentToUpdateFromAspect(@Nonnull DataProcessUrn urn,
         @Nonnull DataProcessInfo dataProcessInfo) {
-        final DataProcessDocument dataProcessDocument = new DataProcessDocument();
+        final DataProcessDocument dataProcessDocument = new DataProcessDocument().setUrn(urn);
         if (dataProcessInfo.getInputs() != null) {
             dataProcessDocument.setInputs(dataProcessInfo.getInputs())
                 .setNumInputDatasets(dataProcessInfo.getInputs().size());

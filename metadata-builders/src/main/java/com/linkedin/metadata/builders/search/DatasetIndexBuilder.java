@@ -52,6 +52,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Ownership ownership) {
     final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
     return new DatasetDocument()
+        .setUrn(urn)
         .setHasOwners(!owners.isEmpty())
         .setOwners(owners);
   }
@@ -59,17 +60,18 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Status status) {
     return new DatasetDocument()
+        .setUrn(urn)
         .setRemoved(status.isRemoved());
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetDeprecation deprecation) {
-    return new DatasetDocument().setDeprecated(deprecation.isDeprecated());
+    return new DatasetDocument().setUrn(urn).setDeprecated(deprecation.isDeprecated());
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetProperties datasetProperties) {
-    final DatasetDocument doc = new DatasetDocument();
+    final DatasetDocument doc = new DatasetDocument().setUrn(urn);
     if (datasetProperties.getDescription() != null) {
       doc.setDescription(datasetProperties.getDescription());
     }
@@ -79,15 +81,18 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull SchemaMetadata schemaMetadata) {
     return new DatasetDocument()
+        .setUrn(urn)
         .setHasSchema(true);
   }
 
   @Nonnull
-  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull UpstreamLineage upstreamLineage) {
-    return new DatasetDocument()
-        .setUpstreams(new DatasetUrnArray(
-            upstreamLineage.getUpstreams().stream().map(upstream -> upstream.getDataset()).collect(Collectors.toList())
-        ));
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull UpstreamLineage upstreamLineage) {
+    return new DatasetDocument().setUrn(urn)
+        .setUpstreams(new DatasetUrnArray(upstreamLineage.getUpstreams()
+            .stream()
+            .map(upstream -> upstream.getDataset())
+            .collect(Collectors.toList())));
   }
 
   @Nonnull
