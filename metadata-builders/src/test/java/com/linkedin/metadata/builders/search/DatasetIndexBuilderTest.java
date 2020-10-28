@@ -78,7 +78,7 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
-  public void datsetDeprecation() {
+  public void datasetDeprecation() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(true);
@@ -99,7 +99,7 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
-  public void datsetDeprecation_clearDeprecation() {
+  public void datasetDeprecation_clearDeprecation() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(false);
