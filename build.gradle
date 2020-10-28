@@ -21,6 +21,7 @@ project.ext.spec = [
             'generator': 'com.linkedin.pegasus:generator:' + pegasusVersion,
             'restliCommon' : 'com.linkedin.pegasus:restli-common:' + pegasusVersion,
             'restliClient' : 'com.linkedin.pegasus:restli-client:' + pegasusVersion,
+            'restliDocgen' : 'com.linkedin.pegasus:restli-docgen:' + pegasusVersion,
             'restliServer' : 'com.linkedin.pegasus:restli-server:' + pegasusVersion,
             'restliSpringBridge': 'com.linkedin.pegasus:restli-spring-bridge:' + pegasusVersion,
         ]
