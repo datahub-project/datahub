@@ -10,6 +10,8 @@
     must be instantiated via spring and then passed into rest.li -->
     <bean id="injectResourceFactory" class="com.linkedin.restli.server.spring.SpringInjectResourceFactory" />
 
+    <bean id="defaultDocumentationRequestHandler" class="com.linkedin.restli.docgen.DefaultDocumentationRequestHandler" />
+
     <!--
       In web.xml, HttpRequestHandlerServlet loads this "restliRequestHandler" spring bean as a servlet.  For details, see:
       http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
@@ -18,6 +20,7 @@
         <constructor-arg>
             <bean class="com.linkedin.restli.server.RestLiConfig">
                 <property name="resourcePackageNames" value="com.linkedin.metadata.resources" />
+                <property name="documentationRequestHandler" ref="defaultDocumentationRequestHandler" />
             </bean>
         </constructor-arg>
         <constructor-arg ref="injectResourceFactory" />
