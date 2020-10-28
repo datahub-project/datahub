@@ -1,40 +1,265 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipSource;
+import com.linkedin.common.OwnershipSourceType;
+import com.linkedin.common.OwnershipType;
+import com.linkedin.common.Status;
+import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.Upstream;
+import com.linkedin.dataset.UpstreamArray;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
 import java.util.List;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.testng.Assert.*;
 
 
 public class DatasetIndexBuilderTest {
+  private final DatasetIndexBuilder _indexBuilder = new DatasetIndexBuilder();
 
   @Test
-  public void testDescriptionClearing() {
-    DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
-
-    DatasetProperties datasetProperties = new DatasetProperties().setDescription("baz");
-    DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+  public void datasetPropertiesSetsDescription() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final DatasetProperties datasetProperties = new DatasetProperties().setDescription("baz");
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
-    List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
-    assertEquals(actualDocs.size(), 1);
-    assertEquals(actualDocs.get(0).getUrn(), datasetUrn);
-    assertEquals(actualDocs.get(0).getDescription(), "baz");
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setDescription("baz");
 
-    datasetProperties = new DatasetProperties();
-    datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+    // when
+    final List<DatasetDocument> actualDocs = _indexBuilder.getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void datasetPropertiesNoDescription() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final DatasetProperties datasetProperties = new DatasetProperties();
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
-    actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
-    assertEquals(actualDocs.size(), 1);
-    assertEquals(actualDocs.get(0).getUrn(), datasetUrn);
-    assertEquals(actualDocs.get(0).getDescription(), "");
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setDescription("");
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void datasetDeprecation() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(true);
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetDeprecation)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setDeprecated(true);
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void datasetDeprecationClearDeprecation() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(false);
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetDeprecation)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setDeprecated(false);
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void ownership() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final Owner owner = new Owner().setOwner(new CorpuserUrn("testUser"))
+        .setSource(new OwnershipSource().setType(OwnershipSourceType.FILE_SYSTEM))
+        .setType(OwnershipType.DATAOWNER);
+    final Ownership ownership = new Ownership().setOwners(new OwnerArray(owner));
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, ownership)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setHasOwners(true)
+        .setOwners(new StringArray("testUser"));
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void ownershipIgnoresNonCorpUsers() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final Owner owner1 = new Owner().setOwner(new CorpuserUrn("testUser1"))
+        .setSource(new OwnershipSource().setType(OwnershipSourceType.FILE_SYSTEM))
+        .setType(OwnershipType.DATAOWNER);
+    final Owner owner2 = new Owner().setOwner(new CorpuserUrn("testUser2"))
+        .setSource(new OwnershipSource().setType(OwnershipSourceType.FILE_SYSTEM))
+        .setType(OwnershipType.DATAOWNER);
+    final Owner owner3 = new Owner().setOwner(new CorpGroupUrn("testGroup"))
+        .setSource(new OwnershipSource().setType(OwnershipSourceType.FILE_SYSTEM))
+        .setType(OwnershipType.DATAOWNER);
+    final Ownership ownership = new Ownership().setOwners(new OwnerArray(owner1, owner2, owner3));
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, ownership)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setHasOwners(true)
+        .setOwners(new StringArray("testUser1", "testUser2"));
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void schemaMetadata() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final SchemaMetadata schemaMetadata = new SchemaMetadata();
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, schemaMetadata)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setHasSchema(true);
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void removedStatus() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final Status status = new Status().setRemoved(true);
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setRemoved(true);
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void nonRemovedStatus() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final Status status = new Status().setRemoved(false);
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setRemoved(false);
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
+  }
+
+  @Test
+  public void upstreamLineage() {
+    // given
+    final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
+    final DatasetUrn upstreamUrn1 = new DatasetUrn(new DataPlatformUrn("testPlatform"), "dataset1", FabricType.DEV);
+    final DatasetUrn upstreamUrn2 = new DatasetUrn(new DataPlatformUrn("testPlatform"), "dataset2", FabricType.DEV);
+    final Upstream upstream1 = new Upstream().setDataset(upstreamUrn1);
+    final Upstream upstream2 = new Upstream().setDataset(upstreamUrn2);
+    final UpstreamLineage upstreamLineage = new UpstreamLineage().setUpstreams(new UpstreamArray(upstream1, upstream2));
+    final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
+        Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, upstreamLineage)));
+    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+        .setBrowsePaths(new StringArray("/prod/foo/bar"))
+        .setOrigin(FabricType.PROD)
+        .setName("bar")
+        .setPlatform("foo")
+        .setUpstreams(new DatasetUrnArray(upstreamUrn1, upstreamUrn2));
+
+    // when
+    final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
+
+    // then
+    assertThat(actualDocs).containsExactly(expectedDocument);
   }
 }
