@@ -26,7 +26,7 @@ you need to make two small edits (don't check these changes in!).
 For example, to debug `dathaub-gms`:
 
 ```
-# Add this line to docker/datahub-gms/env/dev.env. You can change the port and/or change suspend=n to y.
+# Add this line to docker/datahub-gms/env/docker.env. You can change the port and/or change suspend=n to y.
 JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
 ```
 
