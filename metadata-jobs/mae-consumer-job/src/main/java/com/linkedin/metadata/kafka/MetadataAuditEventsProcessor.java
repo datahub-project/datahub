@@ -127,7 +127,7 @@ public class MetadataAuditEventsProcessor {
         String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
         elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));
       } catch (UnsupportedEncodingException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-        log.error("Failed to encode the urn with error ", e.toString());
+        log.error("Failed to encode the urn with error: {}", e.toString());
         continue;
       }
       elasticEvent.setActionType(ChangeType.UPDATE);
