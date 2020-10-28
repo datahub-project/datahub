@@ -36,7 +36,7 @@ public class DatasetIndexBuilderTest {
   private final DatasetIndexBuilder _indexBuilder = new DatasetIndexBuilder();
 
   @Test
-  public void datasetProperties_setsDescription() {
+  public void datasetPropertiesSetsDescription() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final DatasetProperties datasetProperties = new DatasetProperties().setDescription("baz");
@@ -57,7 +57,7 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
-  public void datasetProperties_noDescription() {
+  public void datasetPropertiesNoDescription() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final DatasetProperties datasetProperties = new DatasetProperties();
@@ -99,7 +99,7 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
-  public void datasetDeprecation_clearDeprecation() {
+  public void datasetDeprecationClearDeprecation() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(false);
@@ -145,7 +145,7 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
-  public void ownership_ignoresNonCorpUsers() {
+  public void ownershipIgnoresNonCorpUsers() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
     final Owner owner1 = new Owner().setOwner(new CorpuserUrn("testUser1"))
