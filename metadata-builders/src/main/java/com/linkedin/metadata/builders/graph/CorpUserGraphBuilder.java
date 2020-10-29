@@ -35,7 +35,7 @@ public class CorpUserGraphBuilder extends BaseGraphBuilder<CorpUserSnapshot> {
     final CorpuserUrn urn = snapshot.getUrn();
     final CorpUserEntity entity = new CorpUserEntity().setUrn(urn)
         .setRemoved(!isUserActive(snapshot))
-        .setName(urn.getUsernameEntity());
+        .setName(urn.getUsername());
 
     return Collections.singletonList(entity);
   }

@@ -92,13 +92,13 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected ComplexResourceKey<CorpUserKey, EmptyRecord> toKey(@Nonnull CorpuserUrn urn) {
-    return new ComplexResourceKey<>(new CorpUserKey().setName(urn.getUsernameEntity()), new EmptyRecord());
+    return new ComplexResourceKey<>(new CorpUserKey().setName(urn.getUsername()), new EmptyRecord());
   }
 
   @Override
   @Nonnull
   protected CorpUser toValue(@Nonnull CorpUserSnapshot snapshot) {
-    final CorpUser value = new CorpUser().setUsername(snapshot.getUrn().getUsernameEntity());
+    final CorpUser value = new CorpUser().setUsername(snapshot.getUrn().getUsername());
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
       if (aspect instanceof CorpUserInfo) {
         value.setInfo(CorpUserInfo.class.cast(aspect));

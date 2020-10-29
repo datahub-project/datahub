@@ -21,9 +21,9 @@ public class DatasetGraphBuilderTest {
     DatasetUrn urn = makeDatasetUrn("foobar");
     DatasetSnapshot snapshot = new DatasetSnapshot().setUrn(urn).setAspects(new DatasetAspectArray());
     DatasetEntity expected = new DatasetEntity().setUrn(urn)
-        .setName(urn.getDatasetNameEntity())
-        .setPlatform(urn.getPlatformEntity())
-        .setOrigin(urn.getOriginEntity());
+        .setName(urn.getDatasetName())
+        .setPlatform(urn.getPlatform())
+        .setOrigin(urn.getOrigin());
 
     List<? extends RecordTemplate> datasetEntities = new DatasetGraphBuilder().buildEntities(snapshot);
 
@@ -39,9 +39,9 @@ public class DatasetGraphBuilderTest {
     DatasetSnapshot snapshot =
         new DatasetSnapshot().setUrn(urn).setAspects(new DatasetAspectArray(Collections.singleton(aspect)));
     DatasetEntity expected = new DatasetEntity().setUrn(urn)
-        .setName(urn.getDatasetNameEntity())
-        .setPlatform(urn.getPlatformEntity())
-        .setOrigin(urn.getOriginEntity())
+        .setName(urn.getDatasetName())
+        .setPlatform(urn.getPlatform())
+        .setOrigin(urn.getOrigin())
         .setRemoved(true);
 
     List<? extends RecordTemplate> datasetEntities = new DatasetGraphBuilder().buildEntities(snapshot);

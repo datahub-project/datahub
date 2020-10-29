@@ -91,13 +91,13 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected ComplexResourceKey<CorpGroupKey, EmptyRecord> toKey(@Nonnull CorpGroupUrn urn) {
-    return new ComplexResourceKey<>(new CorpGroupKey().setName(urn.getGroupNameEntity()), new EmptyRecord());
+    return new ComplexResourceKey<>(new CorpGroupKey().setName(urn.getGroupName()), new EmptyRecord());
   }
 
   @Override
   @Nonnull
   protected CorpGroup toValue(@Nonnull CorpGroupSnapshot snapshot) {
-    final CorpGroup value = new CorpGroup().setName(snapshot.getUrn().getGroupNameEntity());
+    final CorpGroup value = new CorpGroup().setName(snapshot.getUrn().getGroupName());
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
       if (aspect instanceof CorpGroupInfo) {
         value.setInfo(CorpGroupInfo.class.cast(aspect));

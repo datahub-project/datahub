@@ -78,7 +78,7 @@ public class DataProcesses extends BaseSearchableClient<DataProcess> {
 
   @Nonnull
   private DataProcessKey toDataProcessKey(@Nonnull DataProcessUrn urn) {
-    return new DataProcessKey().setName(urn.getNameEntity());
+    return new DataProcessKey().setName(urn.getName());
   }
 
   @Nonnull

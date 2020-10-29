@@ -31,9 +31,9 @@ public class DataProcessGraphBuilder extends BaseGraphBuilder<DataProcessSnapsho
   protected List<? extends RecordTemplate> buildEntities(@Nonnull DataProcessSnapshot snapshot) {
     final DataProcessUrn urn = snapshot.getUrn();
     final DataProcessEntity entity = new DataProcessEntity().setUrn(urn)
-        .setName(urn.getNameEntity())
+        .setName(urn.getName())
         .setOrchestrator(urn.getOrchestrator())
-        .setOrigin(urn.getOriginEntity());
+        .setOrigin(urn.getOrigin());
 
     return Collections.singletonList(entity);
   }

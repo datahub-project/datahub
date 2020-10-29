@@ -41,7 +41,7 @@ public final class BuilderUtils {
       Urn urn = owner.getOwner();
       if (CorpuserUrn.ENTITY_TYPE.equals(urn.getEntityType())) {
         try {
-          ldap.add(CorpuserUrn.createFromUrn(urn).getUsernameEntity());
+          ldap.add(CorpuserUrn.createFromUrn(urn).getUsername());
         } catch (URISyntaxException e) {
           log.error("CorpuserUrn syntax error", e);
         }
@@ -59,7 +59,7 @@ public final class BuilderUtils {
    */
   @Nonnull
   public static StringArray getCorpUsernames(@Nonnull CorpuserUrnArray corpuserUrns) {
-    return corpuserUrns.stream().map(urn -> urn.getUsernameEntity()).collect(Collectors.toCollection(StringArray::new));
+    return corpuserUrns.stream().map(urn -> urn.getUsername()).collect(Collectors.toCollection(StringArray::new));
   }
 
   /**
@@ -70,7 +70,7 @@ public final class BuilderUtils {
    */
   @Nonnull
   public static StringArray getCorpGroupnames(@Nonnull CorpGroupUrnArray corpgroupUrns) {
-    return corpgroupUrns.stream().map(urn -> urn.getGroupNameEntity()).collect(Collectors.toCollection(StringArray::new));
+    return corpgroupUrns.stream().map(urn -> urn.getGroupName()).collect(Collectors.toCollection(StringArray::new));
   }
 
   /**
@@ -93,7 +93,7 @@ public final class BuilderUtils {
   @Nonnull
   public static StringArray getDatasetNames(@Nonnull DatasetUrnArray datasetUrns) {
     return datasetUrns.stream()
-        .map(DatasetUrn::getDatasetNameEntity)
+        .map(DatasetUrn::getDatasetName)
         .collect(Collectors.toCollection(StringArray::new));
   }
 }

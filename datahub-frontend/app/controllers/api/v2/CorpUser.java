@@ -69,7 +69,7 @@ public class CorpUser extends Controller {
         } catch (URISyntaxException e) {
             return unauthorized("Invalid urn");
         }
-        if (!corpUser.getUsernameEntity().equals(username)) {
+        if (!corpUser.getUsername().equals(username)) {
             return unauthorized(EMPTY_RESPONSE);
         }
         final JsonNode requestBody = request().body().asJson();
