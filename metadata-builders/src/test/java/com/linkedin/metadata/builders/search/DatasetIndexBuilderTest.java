@@ -52,9 +52,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = _indexBuilder.getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -75,9 +73,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -98,9 +94,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -121,9 +115,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -148,9 +140,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -182,9 +172,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -205,9 +193,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -229,9 +215,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -252,9 +236,7 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 
   @Test
@@ -280,8 +262,6 @@ public class DatasetIndexBuilderTest {
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs.size()).isEqualTo(2);
-    assertThat(actualDocs).contains(expectedDocument1);
-    assertThat(actualDocs).contains(expectedDocument2);
+    assertThat(actualDocs).containsExactly(expectedDocument1, expectedDocument2);
   }
 }
