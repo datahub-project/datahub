@@ -171,7 +171,7 @@ public class CorpUsers extends BaseSearchableClient<CorpUser> {
 
   @Nonnull
   private CorpUserKey toCorpUserKey(@Nonnull CorpuserUrn urn) {
-    return new CorpUserKey().setName(urn.getUsername());
+    return new CorpUserKey().setName(urn.getUsernameEntity());
   }
 
   @Nonnull

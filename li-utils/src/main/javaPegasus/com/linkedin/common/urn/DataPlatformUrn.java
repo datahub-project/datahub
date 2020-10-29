@@ -18,7 +18,7 @@ public final class DataPlatformUrn extends Urn {
     this._platformName = platformName;
   }
 
-  public String getPlatformName() {
+  public String getPlatformNameEntity() {
     return _platformName;
   }
 

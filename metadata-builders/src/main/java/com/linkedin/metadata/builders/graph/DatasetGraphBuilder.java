@@ -31,9 +31,9 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
   protected List<? extends RecordTemplate> buildEntities(@Nonnull DatasetSnapshot snapshot) {
     final DatasetUrn urn = snapshot.getUrn();
     final DatasetEntity entity = new DatasetEntity().setUrn(urn)
-        .setName(urn.getDatasetName())
-        .setPlatform(urn.getPlatform())
-        .setOrigin(urn.getOrigin());
+        .setName(urn.getDatasetNameEntity())
+        .setPlatform(urn.getPlatformEntity())
+        .setOrigin(urn.getOriginEntity());
 
     setRemovedProperty(snapshot, entity);
 

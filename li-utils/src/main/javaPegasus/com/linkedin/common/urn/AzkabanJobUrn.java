@@ -19,11 +19,11 @@ public final class AzkabanJobUrn extends Urn {
     this._jobId = jobId;
   }
 
-  public AzkabanFlowUrn getFlow() {
+  public AzkabanFlowUrn getFlowEntity() {
     return _flow;
   }
 
-  public String getJobId() {
+  public String getJobIdEntity() {
     return _jobId;
   }
 

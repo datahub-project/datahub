@@ -24,15 +24,15 @@ public class DataProcessUrn extends Urn {
     this._origin = origin;
   }
 
-  public String getName() {
+  public String getNameEntity() {
     return _name;
   }
 
-  public String getOrchestrator() {
+  public String getOrchestratorEntity() {
     return _orchestrator;
   }
 
-  public FabricType getOrigin() {
+  public FabricType getOriginEntity() {
     return _origin;
   }
 

@@ -19,9 +19,9 @@ public class DataProcessGraphBuilderTest {
     DataProcessUrn urn = makeDataProcessUrn("Sqoop ETL");
     DataProcessSnapshot snapshot = new DataProcessSnapshot().setUrn(urn).setAspects(new DataProcessAspectArray());
     DataProcessEntity expected = new DataProcessEntity().setUrn(urn)
-        .setName(urn.getName())
-        .setOrchestrator(urn.getOrchestrator())
-        .setOrigin(urn.getOrigin());
+        .setName(urn.getNameEntity())
+        .setOrchestrator(urn.getOrchestratorEntity())
+        .setOrigin(urn.getOriginEntity());
 
     List<? extends RecordTemplate> dataProcessEntities = new DataProcessGraphBuilder().buildEntities(snapshot);
 

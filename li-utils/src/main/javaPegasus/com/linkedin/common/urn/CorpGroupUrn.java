@@ -22,7 +22,7 @@ public final class CorpGroupUrn extends Urn {
     this._groupName = groupName;
   }
 
-  public String getGroupName() {
+  public String getGroupNameEntity() {
     return _groupName;
   }
 

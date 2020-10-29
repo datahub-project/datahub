@@ -117,7 +117,7 @@ public class CorpGroups extends BaseSearchableClient<CorpGroup> {
 
   @Nonnull
   private CorpGroupKey toCorpGroupKey(@Nonnull CorpGroupUrn urn) {
-    return new CorpGroupKey().setName(urn.getGroupName());
+    return new CorpGroupKey().setName(urn.getGroupNameEntity());
   }
 
   @Nonnull

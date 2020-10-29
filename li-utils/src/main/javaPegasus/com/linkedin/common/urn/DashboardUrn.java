@@ -19,11 +19,11 @@ public final class DashboardUrn extends Urn {
     this._dashboardId = dashboardId;
   }
 
-  public String getDashboardTool() {
+  public String getDashboardToolEntity() {
     return _dashboardTool;
   }
 
-  public String getDashboardId() {
+  public String getDashboardIdEntity() {
     return _dashboardId;
   }
 

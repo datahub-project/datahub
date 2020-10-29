@@ -17,7 +17,7 @@ public final class FabricUrn extends Urn {
     this._name = name;
   }
 
-  public String getName() {
+  public String getNameEntity() {
     return _name;
   }
 

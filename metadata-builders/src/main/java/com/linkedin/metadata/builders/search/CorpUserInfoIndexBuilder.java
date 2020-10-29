@@ -28,9 +28,9 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
     final String fullName = corpUserInfo.getFullName() == null ? "" : corpUserInfo.getFullName();
     final String title = corpUserInfo.getTitle() == null ? "" : corpUserInfo.getTitle();
     final String managerLdap =
-        corpUserInfo.getManagerUrn() == null ? "" : corpUserInfo.getManagerUrn().getUsername();
+        corpUserInfo.getManagerUrn() == null ? "" : corpUserInfo.getManagerUrn().getUsernameEntity();
     return new CorpUserInfoDocument().setUrn(urn)
-        .setLdap(urn.getUsername())
+        .setLdap(urn.getUsernameEntity())
         .setFullName(fullName)
         .setTitle(title)
         .setActive(corpUserInfo.isActive())

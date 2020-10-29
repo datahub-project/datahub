@@ -21,15 +21,15 @@ public final class AzkabanFlowUrn extends Urn {
     this._flowId = flowId;
   }
 
-  public String getCluster() {
+  public String getClusterEntity() {
     return _cluster;
   }
 
-  public String getProject() {
+  public String getProjectEntity() {
     return _project;
   }
 
-  public String getFlowId() {
+  public String getFlowIdEntity() {
     return _flowId;
   }
 

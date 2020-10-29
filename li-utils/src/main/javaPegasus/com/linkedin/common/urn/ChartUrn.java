@@ -20,11 +20,11 @@ public final class ChartUrn extends Urn {
     this._chartId = chartId;
   }
 
-  public String getDashboardTool() {
+  public String getDashboardToolEntity() {
     return _dashboardTool;
   }
 
-  public String getChartId() {
+  public String getChartIdEntity() {
     return _chartId;
   }
 

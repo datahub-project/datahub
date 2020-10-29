@@ -22,15 +22,15 @@ public final class DatasetUrn extends Urn {
     this._origin = origin;
   }
 
-  public DataPlatformUrn getPlatform() {
+  public DataPlatformUrn getPlatformEntity() {
     return _platform;
   }
 
-  public String getDatasetName() {
+  public String getDatasetNameEntity() {
     return _datasetName;
   }
 
-  public FabricType getOrigin() {
+  public FabricType getOriginEntity() {
     return _origin;
   }
 

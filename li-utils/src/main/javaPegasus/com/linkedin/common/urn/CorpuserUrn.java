@@ -19,7 +19,7 @@ public final class CorpuserUrn extends Urn {
     this._username = username;
   }
 
-  public String getUsername() {
+  public String getUsernameEntity() {
     return _username;
   }
 

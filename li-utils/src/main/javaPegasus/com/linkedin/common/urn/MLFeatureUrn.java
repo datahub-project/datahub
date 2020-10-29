@@ -20,11 +20,11 @@ public final class MLFeatureUrn extends Urn {
     this._mlFeatureName = mlFeatureName;
   }
 
-  public String getMlFeatureName() {
+  public String getMlFeatureNameEntity() {
     return _mlFeatureName;
   }
 
-  public String getMlFeatureNamespace() {
+  public String getMlFeatureNamespaceEntity() {
     return _mlFeatureNamespace;
   }
 

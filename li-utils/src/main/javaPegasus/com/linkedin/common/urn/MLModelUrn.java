@@ -25,15 +25,15 @@ public final class MLModelUrn extends Urn {
     this._origin = origin;
   }
 
-  public DataPlatformUrn getPlatform() {
+  public DataPlatformUrn getPlatformEntity() {
     return _platform;
   }
 
-  public String getMlModelName() {
+  public String getMlModelNameEntity() {
     return _mlModelName;
   }
 
-  public FabricType getOrigin() {
+  public FabricType getOriginEntity() {
     return _origin;
   }
 
