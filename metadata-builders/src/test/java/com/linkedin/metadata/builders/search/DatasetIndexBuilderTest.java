@@ -29,7 +29,6 @@ import java.util.List;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.testng.Assert.*;
 
 
 public class DatasetIndexBuilderTest {
@@ -42,18 +41,20 @@ public class DatasetIndexBuilderTest {
     final DatasetProperties datasetProperties = new DatasetProperties().setDescription("baz");
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setDescription("baz");
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setDescription("baz");
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = _indexBuilder.getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -63,18 +64,20 @@ public class DatasetIndexBuilderTest {
     final DatasetProperties datasetProperties = new DatasetProperties();
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetProperties)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setDescription("");
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -84,18 +87,20 @@ public class DatasetIndexBuilderTest {
     final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(true);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetDeprecation)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setDeprecated(true);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setDeprecated(true);
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -105,18 +110,20 @@ public class DatasetIndexBuilderTest {
     final DatasetDeprecation datasetDeprecation = new DatasetDeprecation().setDeprecated(false);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, datasetDeprecation)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setDeprecated(false);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setDeprecated(false);
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -129,19 +136,21 @@ public class DatasetIndexBuilderTest {
     final Ownership ownership = new Ownership().setOwners(new OwnerArray(owner));
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, ownership)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 =
+        new DatasetDocument().setUrn(datasetUrn).setHasOwners(true).setOwners(new StringArray("testUser"));
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setHasOwners(true)
-        .setOwners(new StringArray("testUser"));
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -160,19 +169,22 @@ public class DatasetIndexBuilderTest {
     final Ownership ownership = new Ownership().setOwners(new OwnerArray(owner1, owner2, owner3));
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, ownership)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn)
+        .setHasOwners(true)
+        .setOwners(new StringArray("testUser1", "testUser2"));
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setHasOwners(true)
-        .setOwners(new StringArray("testUser1", "testUser2"));
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -182,18 +194,20 @@ public class DatasetIndexBuilderTest {
     final SchemaMetadata schemaMetadata = new SchemaMetadata();
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, schemaMetadata)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setHasSchema(true);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setHasSchema(true);
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -203,18 +217,21 @@ public class DatasetIndexBuilderTest {
     final Status status = new Status().setRemoved(true);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn)
+        .setRemoved(true);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setRemoved(true);
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -224,18 +241,20 @@ public class DatasetIndexBuilderTest {
     final Status status = new Status().setRemoved(false);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setRemoved(false);
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setRemoved(false);
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 
   @Test
@@ -249,17 +268,20 @@ public class DatasetIndexBuilderTest {
     final UpstreamLineage upstreamLineage = new UpstreamLineage().setUpstreams(new UpstreamArray(upstream1, upstream2));
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, upstreamLineage)));
-    final DatasetDocument expectedDocument = new DatasetDocument().setUrn(datasetUrn)
+    final DatasetDocument expectedDocument1 =
+        new DatasetDocument().setUrn(datasetUrn).setUpstreams(new DatasetUrnArray(upstreamUrn1, upstreamUrn2));
+    final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
         .setName("bar")
-        .setPlatform("foo")
-        .setUpstreams(new DatasetUrnArray(upstreamUrn1, upstreamUrn2));
+        .setPlatform("foo");
 
     // when
     final List<DatasetDocument> actualDocs = new DatasetIndexBuilder().getDocumentsToUpdate(datasetSnapshot);
 
     // then
-    assertThat(actualDocs).containsExactly(expectedDocument);
+    assertThat(actualDocs.size()).isEqualTo(2);
+    assertThat(actualDocs).contains(expectedDocument1);
+    assertThat(actualDocs).contains(expectedDocument2);
   }
 }
