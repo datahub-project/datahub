@@ -20,10 +20,9 @@
 
     &:after {
       color: shade($color, 20%);
-      content: '\e259';
+      content: '▼';
       font-weight: fw(normal, 6);
       pointer-events: none;
-      font-family: $glyphicons-stack;
       position: absolute;
       right: item-spacing(2);
     }

@@ -5,7 +5,7 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { IGridGroupEntity } from '@datahub/shared/types/grid-group';
 import { TopConsumer } from '@datahub/metadata-types/constants/metadata/top-consumers';
 import { IDynamicLinkParams } from 'dynamic-link/components/dynamic-link';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 interface ITopConsumersInsightTopConsumerModalArgs {
   /**

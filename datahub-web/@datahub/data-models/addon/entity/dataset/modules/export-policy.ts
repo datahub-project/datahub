@@ -1,7 +1,8 @@
 import { IDatasetExportPolicy } from '@datahub/metadata-types/types/entity/dataset/compliance/export-policy';
 import { alias } from '@ember/object/computed';
 import { setProperties } from '@ember/object';
-import { Omit, omit } from 'lodash';
+import { omit } from 'lodash-es';
+import { Omit } from 'lodash';
 import { arrayEvery } from '@datahub/utils/array/every';
 import { computed } from '@ember/object';
 

@@ -1,5 +1,5 @@
 import { IMetadataType } from '@datahub/data-models/types/entity/validators';
-import { every, difference } from 'lodash';
+import { every, difference } from 'lodash-es';
 import { typeOf } from '@ember/utils';
 import { isObject } from '@datahub/utils/validators/object';
 

@@ -13,6 +13,14 @@
       "*": ["types/*"],
       "@datahub/utils": ["../../@datahub/utils/addon"],
       "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "@datahub/data-models": ["../../@datahub/data-models/addon"],
+      "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
+      "@datahub/shared": ["../../@datahub/shared/addon"],
+      "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
+      "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
+      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "@nacho-ui/core": ["../../@nacho-ui/core/addon"],
+      "@nacho-ui/core/*": ["../../@nacho-ui/core/addon/*"]
     }
   },
   "include": [
@@ -23,6 +31,14 @@
     "test-support/**/*",
     "addon-test-support/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*"
+    "../../@datahub/utils/types/**/*",
+    "../../@datahub/data-models/addon/**/*",
+    "../../@datahub/data-models/types/**/*",
+    "../../@datahub/shared/addon/**/*",
+    "../../@datahub/shared/types/**/*",
+    "../../@datahub/metadata-types/addon/**/*",
+    "../../@datahub/metadata-types/types/**/*",
+    "../../@datahub/nacho-core/addon/**/*",
+    "../../@datahub/nacho-core/types/**/*"
   ]
 }

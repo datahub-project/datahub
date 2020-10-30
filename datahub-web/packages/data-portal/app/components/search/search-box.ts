@@ -1,6 +1,5 @@
 import Component from '@ember/component';
 import { set, setProperties, computed, action } from '@ember/object';
-import { IPowerSelectAPI } from '@nacho-ui/search/types/nacho-search';
 import { ISuggestion, ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';
 import { inject as service } from '@ember/service';
 import HotKeys from 'datahub-web/services/hot-keys';
@@ -17,6 +16,8 @@ import { stringListOfEntities } from '@datahub/data-models/entity/utils/entities
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { isSearchable } from '@datahub/shared/utils/search/entities';
+import { IPowerSelectAPI } from '@datahub/utils/types/vendor/power-select';
+
 /**
  * Presentation component that renders a search box
  */

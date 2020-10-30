@@ -1,7 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, findAll, fillIn, click, find, triggerKeyEvent } from '@ember/test-helpers';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import hbs from 'htmlbars-inline-precompile';
 import { baseModalClass } from '@datahub/shared/components/change-management/add-change-log-modal';
 import { IAddChangeLogModalProps } from '@datahub/shared/types/change-management/change-log';
@@ -73,6 +73,7 @@ module('Integration | Component | change-management/add-change-log-modal', funct
     const actions = findAll(`.${baseModalClass}__action`);
     assert.dom(actions[1]).hasText('Continue to send email', 'button text is rendered as expected');
     await click(actions[1]);
+
     // Focus pill
     await click('.nacho-pill-input:nth-child(1)');
     const nachoPillInputs = findAll('.nacho-pill-input__input');

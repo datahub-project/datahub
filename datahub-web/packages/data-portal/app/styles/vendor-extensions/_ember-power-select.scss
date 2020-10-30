@@ -14,10 +14,9 @@ $ember-power-select-border-color: shade($color, 20%);
 /// Overrides the default styles for ember-power-select trigger
 .ember-power-select-trigger {
   &::before {
-    content: '\e259';
+    content: '▼';
     font-weight: fw(normal, 6);
     pointer-events: none;
-    font-family: $glyphicons-stack;
     position: absolute;
     right: 5px;
     color: $ember-power-select-border-color;

@@ -1,7 +1,7 @@
 {{#if this.handleAsyncStateOnly}}
   {{#if @task.isRunning}}
     <div class="concurrency-task-state-handler">
-      {{pendulum-ellipsis-animation}}
+      <NachoAnimation::PendulumEllipsis />
     </div>
   {{else}}
     {{yield}}
@@ -46,7 +46,7 @@
   {{else}}
     {{#if @task.isRunning}}
       <div class="concurrency-task-state-handler">
-        {{pendulum-ellipsis-animation}}
+        <NachoAnimation::PendulumEllipsis />
       </div>
     {{else}}
       {{yield}}

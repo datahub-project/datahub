@@ -1,5 +1,5 @@
 import DatasetComplianceAnnotation from '@datahub/data-models/entity/dataset/modules/compliance-annotation';
-import { groupBy, uniq } from 'lodash';
+import { groupBy, uniq } from 'lodash-es';
 import { annotationsMatchByRelevantKeys } from '@datahub/data-models/entity/dataset/helpers/validators/compliance/comparators';
 
 /**

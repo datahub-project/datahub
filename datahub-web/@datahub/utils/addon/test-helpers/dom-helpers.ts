@@ -8,8 +8,8 @@ export const getTextNoSpaces = (test: TestContext): string => {
   return getText(test).replace(/\s/gi, '');
 };
 
-export const getTextNoSpacesFromElement = (element: Element): string => {
-  return (element.textContent || '').replace(/\s/gi, '');
+export const getTextNoSpacesFromElement = (element: Element | undefined | null): string => {
+  return (element && (element.textContent || '').replace(/\s/gi, '')) || '';
 };
 
 export const getTextNoSpacesFromElements = (elements: Array<Element>): string => {

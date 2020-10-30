@@ -4,7 +4,7 @@ import template from '../../../templates/components/institutional-memory/contain
 import { layout } from '@ember-decorators/component';
 import { action, computed } from '@ember/object';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { isEqual } from 'lodash';
+import { isEqual } from 'lodash-es';
 import { InstitutionalMemory, InstitutionalMemories } from '@datahub/data-models/models/aspects/institutional-memory';
 import { run, schedule } from '@ember/runloop';
 import { task } from 'ember-concurrency';

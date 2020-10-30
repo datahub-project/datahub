@@ -1,4 +1,4 @@
-import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 import { KeyNamesWithValueType } from '@datahub/utils/types/base';
 import { IDynamicComponent } from '@datahub/shared/types/dynamic-component';
 import { IStandardDynamicProperty } from '@datahub/data-models/types/entity/rendering/properties-panel';
