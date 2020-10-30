@@ -1,5 +1,5 @@
 import Component from '@glimmer/component';
-import { NachoTableCustomColumnConfig, INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { NachoTableCustomColumnConfig, INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 import { Dictionary } from 'lodash';
 import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { getDatasetUrnParts } from '@datahub/data-models/entity/dataset/utils/urn';

@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { action } from '@ember/object';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../templates/components/browser/browse-card';

@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, find, findAll, click, fillIn } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 const findInput = (selector: string): HTMLInputElement => {
   const input: HTMLInputElement = find(selector) as HTMLInputElement;

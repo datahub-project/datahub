@@ -1,6 +1,6 @@
 import { get, getProperties } from '@ember/object';
 import { isEqual } from '@ember/utils';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import Component from '@ember/component';
 
 /**

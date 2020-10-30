@@ -39,11 +39,11 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }],
     'ember/no-ember-super-in-es-classes': 'error',
-    '@datahub/no-addon-import': 'error',
-    '@datahub/no-linkedin-import': 'warn',
+    '@dh-tools/no-addon-import': 'error',
+    '@dh-tools/no-linkedin-import': 'warn',
     eqeqeq: ['error', 'always']
   },
-  plugins: ['prettier', 'ember', '@typescript-eslint', '@datahub'],
+  plugins: ['prettier', 'ember', '@typescript-eslint', '@dh-tools'],
   overrides: [
     // node files
     {
@@ -78,7 +78,7 @@ module.exports = {
         'packages/data-portal-internal-clone/**/*.js'
       ],
       rules: {
-        '@datahub/no-linkedin-import': 'off'
+        '@dh-tools/no-linkedin-import': 'off'
       }
     }
   ]

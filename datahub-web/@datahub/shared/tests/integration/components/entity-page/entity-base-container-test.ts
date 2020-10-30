@@ -7,7 +7,7 @@ import { getRenderedComponent } from '@datahub/utils/test-helpers/register-compo
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
 import EntityBaseContainer from '@datahub/shared/components/entity-page/entity-base-container';
 import sinon from 'sinon';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 const name = 'fake-entity-class';
 class DummyEntityTestClass {

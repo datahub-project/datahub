@@ -1,5 +1,5 @@
 import Component from '@glimmer/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { ITabProperties } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 
 interface ITabContentModalModalArgs {

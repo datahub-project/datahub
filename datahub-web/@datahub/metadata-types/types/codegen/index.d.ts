@@ -97,7 +97,13 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/cap2/dm/pub/avro/WebsiteType.pdsc
 
-              export type WebsiteType = 'BLOG' | 'COMPANY' | 'PERSONAL' | 'PORTFOLIO' | 'RSSFEED' | 'OTHER';
+              export type WebsiteType =
+                | 'BLOG'
+                | 'COMPANY'
+                | 'PERSONAL'
+                | 'PORTFOLIO'
+                | 'RSSFEED'
+                | 'OTHER';
               namespace Prospect {
                 // Generated from: com/linkedin/avro2pegasus/cap2/dm/pub/avro/prospect/CheckInEvent.pdsc
 
@@ -513,10 +519,15 @@ declare namespace Com {
               | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/common/azkaban/plugins/FlowLifeCycleEventType.pdsc
 
-            export type FlowLifeCycleEventType = 'FLOW_STARTED' | 'FLOW_FINISHED';
+            export type FlowLifeCycleEventType =
+              | 'FLOW_STARTED'
+              | 'FLOW_FINISHED';
             // Generated from: com/linkedin/avro2pegasus/common/azkaban/plugins/JobLifeCycleEventType.pdsc
 
-            export type JobLifeCycleEventType = 'JOB_STARTED' | 'JOB_FINISHED' | 'JOB_STATUS_CHANGED';
+            export type JobLifeCycleEventType =
+              | 'JOB_STARTED'
+              | 'JOB_FINISHED'
+              | 'JOB_STATUS_CHANGED';
             // Generated from: com/linkedin/avro2pegasus/common/azkaban/plugins/LifeCycleCommonProperties.pdsc
 
             export interface LifeCycleCommonProperties {
@@ -532,7 +543,13 @@ declare namespace Com {
         namespace Badge {
           // Generated from: com/linkedin/avro2pegasus/common/badge/AppTabType.pdsc
 
-          export type AppTabType = 'FEED' | 'MY_NETWORK' | 'MESSAGING' | 'NOTIFICATIONS' | 'ME' | 'JOBS';
+          export type AppTabType =
+            | 'FEED'
+            | 'MY_NETWORK'
+            | 'MESSAGING'
+            | 'NOTIFICATIONS'
+            | 'ME'
+            | 'JOBS';
           // Generated from: com/linkedin/avro2pegasus/common/badge/TabBadgeDetails.pdsc
 
           export interface TabBadgeDetails {
@@ -586,13 +603,21 @@ declare namespace Com {
         namespace Codesearch {
           // Generated from: com/linkedin/avro2pegasus/common/codesearch/SourceFileChangeOperation.pdsc
 
-          export type SourceFileChangeOperation = 'ADDED' | 'DELETED' | 'MODIFIED';
+          export type SourceFileChangeOperation =
+            | 'ADDED'
+            | 'DELETED'
+            | 'MODIFIED';
           // Generated from: com/linkedin/avro2pegasus/common/codesearch/SourceFileRepoType.pdsc
 
           export type SourceFileRepoType = 'GIT' | 'SVN';
           // Generated from: com/linkedin/avro2pegasus/common/codesearch/SourceFileSourceControl.pdsc
 
-          export type SourceFileSourceControl = 'GITHUB' | 'GITORIOUS' | 'GERRIT' | 'SVN' | 'GERRIT_BETA';
+          export type SourceFileSourceControl =
+            | 'GITHUB'
+            | 'GITORIOUS'
+            | 'GERRIT'
+            | 'SVN'
+            | 'GERRIT_BETA';
         }
         namespace Cohorts {
           // Generated from: com/linkedin/avro2pegasus/common/cohorts/Cohort.pdsc
@@ -611,7 +636,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/cohorts/CohortEntityType.pdsc
 
-          export type CohortEntityType = 'MEMBER_CONNECT' | 'FOLLOW_HASHTAGS' | 'PENDING_INVITATIONS' | 'EVENTS';
+          export type CohortEntityType =
+            | 'MEMBER_CONNECT'
+            | 'FOLLOW_HASHTAGS'
+            | 'PENDING_INVITATIONS'
+            | 'EVENTS';
           // Generated from: com/linkedin/avro2pegasus/common/cohorts/CohortOnlineFeature.pdsc
 
           export interface CohortOnlineFeature {
@@ -699,7 +728,10 @@ declare namespace Com {
           export type GrantAuthorizationAction = 'AUTHORIZE' | 'DEAUTHORIZE';
           // Generated from: com/linkedin/avro2pegasus/common/compliance/GrantAuthorizationActionErrorType.pdsc
 
-          export type GrantAuthorizationActionErrorType = 'DATA_INCONSISTENT' | 'ASYNC_ACTION_FAILED' | 'MINOR';
+          export type GrantAuthorizationActionErrorType =
+            | 'DATA_INCONSISTENT'
+            | 'ASYNC_ACTION_FAILED'
+            | 'MINOR';
         }
         namespace Contentfilter {
           // Generated from: com/linkedin/avro2pegasus/common/contentfilter/ContentMetaInformation.pdsc
@@ -978,7 +1010,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/common/events/ucv/HandlesChangeAction.pdsc
 
-            export type HandlesChangeAction = 'ADD_HANDLE' | 'REMOVE_HANDLE' | 'MAKE_PRIMARY';
+            export type HandlesChangeAction =
+              | 'ADD_HANDLE'
+              | 'REMOVE_HANDLE'
+              | 'MAKE_PRIMARY';
             // Generated from: com/linkedin/avro2pegasus/common/events/ucv/ScoreDecisionReason.pdsc
 
             export type ScoreDecisionReason =
@@ -1086,10 +1121,19 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/guidededit/GuidedEditEntryAction.pdsc
 
-          export type GuidedEditEntryAction = 'DISMISS' | 'ENTER' | 'NOT_MINE' | 'SKIP' | 'DO_NOT_APPLY';
+          export type GuidedEditEntryAction =
+            | 'DISMISS'
+            | 'ENTER'
+            | 'NOT_MINE'
+            | 'SKIP'
+            | 'DO_NOT_APPLY';
           // Generated from: com/linkedin/avro2pegasus/common/guidededit/GuidedEditFlowNavAction.pdsc
 
-          export type GuidedEditFlowNavAction = 'DISMISS' | 'SKIP' | 'START_OVER' | 'EXIT';
+          export type GuidedEditFlowNavAction =
+            | 'DISMISS'
+            | 'SKIP'
+            | 'START_OVER'
+            | 'EXIT';
           // Generated from: com/linkedin/avro2pegasus/common/guidededit/GuidedEditPositionsField.pdsc
 
           export interface GuidedEditPositionsField {
@@ -1121,7 +1165,10 @@ declare namespace Com {
             | 'HEADLINE';
           // Generated from: com/linkedin/avro2pegasus/common/guidededit/SearchAppearancesModuleType.pdsc
 
-          export type SearchAppearancesModuleType = 'COMPANY' | 'TITLE' | 'KEYWORD';
+          export type SearchAppearancesModuleType =
+            | 'COMPANY'
+            | 'TITLE'
+            | 'KEYWORD';
         }
         namespace Hadoop {
           // Generated from: com/linkedin/avro2pegasus/common/hadoop/AzkabanContext.pdsc
@@ -1178,7 +1225,11 @@ declare namespace Com {
             | 'PROMO_BREADCRUMBS';
           // Generated from: com/linkedin/avro2pegasus/common/identity/ProfileDashboardSectionType.pdsc
 
-          export type ProfileDashboardSectionType = 'ANALYTICS' | 'BUILD_PROFILE' | 'CAREER_TOOLS' | 'NEXT_STEPS';
+          export type ProfileDashboardSectionType =
+            | 'ANALYTICS'
+            | 'BUILD_PROFILE'
+            | 'CAREER_TOOLS'
+            | 'NEXT_STEPS';
         }
         namespace Jobs {
           // Generated from: com/linkedin/avro2pegasus/common/jobs/PeopleRecommendation.pdsc
@@ -1192,7 +1243,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/jobs/PeopleRecommendationSprinkleType.pdsc
 
-          export type PeopleRecommendationSprinkleType = 'MUTUAL_SCHOOL' | 'MUTUAL_COMPANY' | 'MUTUAL_CONNECTION';
+          export type PeopleRecommendationSprinkleType =
+            | 'MUTUAL_SCHOOL'
+            | 'MUTUAL_COMPANY'
+            | 'MUTUAL_CONNECTION';
         }
         namespace Jobseeker {
           // Generated from: com/linkedin/avro2pegasus/common/jobseeker/JobSeekerEventHeader.pdsc
@@ -1258,7 +1312,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningActivityType.pdsc
 
-          export type LearningActivityType = 'SAVED' | 'IN_PROGRESS' | 'ASSIGNED' | 'HISTORY' | 'DOWNLOADED';
+          export type LearningActivityType =
+            | 'SAVED'
+            | 'IN_PROGRESS'
+            | 'ASSIGNED'
+            | 'HISTORY'
+            | 'DOWNLOADED';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningCommonAction.pdsc
 
           export interface LearningCommonAction {
@@ -1376,7 +1435,10 @@ declare namespace Com {
             | 'ARTICLE';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchFilterContentBy.pdsc
 
-          export type LearningSearchFilterContentBy = 'ALL' | 'LYNDA' | 'COMPANY';
+          export type LearningSearchFilterContentBy =
+            | 'ALL'
+            | 'LYNDA'
+            | 'COMPANY';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchFilterEntity.pdsc
 
           export type LearningSearchFilterEntity =
@@ -1388,7 +1450,10 @@ declare namespace Com {
             | 'COLLECTIONS';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchFilterLevel.pdsc
 
-          export type LearningSearchFilterLevel = 'ALL' | 'BEGINNER' | 'ADVANCED';
+          export type LearningSearchFilterLevel =
+            | 'ALL'
+            | 'BEGINNER'
+            | 'ADVANCED';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchFilterName.pdsc
 
           export type LearningSearchFilterName =
@@ -1403,10 +1468,16 @@ declare namespace Com {
             | 'CONTINUING_EDUCATION_UNITS';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchFilterOrder.pdsc
 
-          export type LearningSearchFilterOrder = 'MOST_POPULAR' | 'MOST_RELEVANT' | 'NEWEST';
+          export type LearningSearchFilterOrder =
+            | 'MOST_POPULAR'
+            | 'MOST_RELEVANT'
+            | 'NEWEST';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchPlatformType.pdsc
 
-          export type LearningSearchPlatformType = 'TYPEAHEAD' | 'SEARCH_RESULT_PAGE' | 'RELATED_COURSES';
+          export type LearningSearchPlatformType =
+            | 'TYPEAHEAD'
+            | 'SEARCH_RESULT_PAGE'
+            | 'RELATED_COURSES';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchResultHit.pdsc
 
           export interface LearningSearchResultHit {
@@ -1435,7 +1506,9 @@ declare namespace Com {
             | 'ONBOARDING_FIRST_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchResultSource.pdsc
 
-          export type LearningSearchResultSource = 'FEDERATED_LEARNING_TYPEAHEAD' | 'FEDERATED_LEARNING_SEARCH';
+          export type LearningSearchResultSource =
+            | 'FEDERATED_LEARNING_TYPEAHEAD'
+            | 'FEDERATED_LEARNING_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSearchResultType.pdsc
 
           export type LearningSearchResultType =
@@ -1463,7 +1536,9 @@ declare namespace Com {
           export type LearningSearchSpellcheckType = 'SUGGESTION' | 'REWRITE';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSkillUpdateContext.pdsc
 
-          export type LearningSkillUpdateContext = 'LEARNING_ME' | 'LEARNING_ONBOARDING';
+          export type LearningSkillUpdateContext =
+            | 'LEARNING_ME'
+            | 'LEARNING_ONBOARDING';
           // Generated from: com/linkedin/avro2pegasus/common/learning/LearningSocialProofReason.pdsc
 
           export interface LearningSocialProofReason {
@@ -1573,7 +1648,10 @@ declare namespace Com {
         namespace Marketplaceplatform {
           // Generated from: com/linkedin/avro2pegasus/common/marketplaceplatform/MarketplaceType.pdsc
 
-          export type MarketplaceType = 'CAREER_ADVICE' | 'SERVICE_MARKETPLACE' | 'CAREER_EXPERTS';
+          export type MarketplaceType =
+            | 'CAREER_ADVICE'
+            | 'SERVICE_MARKETPLACE'
+            | 'CAREER_EXPERTS';
         }
         namespace Messages {
           // Generated from: com/linkedin/avro2pegasus/common/messages/ContentLink.pdsc
@@ -1611,7 +1689,11 @@ declare namespace Com {
           namespace Flock {
             // Generated from: com/linkedin/avro2pegasus/common/messages/flock/CarrierLookupProvider.pdsc
 
-            export type CarrierLookupProvider = 'GOOGLE_PHONELIB' | 'NEUSTAR' | 'INFOBIP' | 'SYNIVERSE';
+            export type CarrierLookupProvider =
+              | 'GOOGLE_PHONELIB'
+              | 'NEUSTAR'
+              | 'INFOBIP'
+              | 'SYNIVERSE';
             // Generated from: com/linkedin/avro2pegasus/common/messages/flock/DeliveryProvider.pdsc
 
             export type DeliveryProvider =
@@ -1791,7 +1873,10 @@ declare namespace Com {
           export type ModelOutputMode = 'NONE' | 'BEST' | 'ALL';
           // Generated from: com/linkedin/avro2pegasus/common/ml/Normalization.pdsc
 
-          export type Normalization = 'SCALE_WITH_STANDARD_DEVIATION' | 'SCALE_WITH_MAX_MAGNITUDE' | 'STANDARDIZATION';
+          export type Normalization =
+            | 'SCALE_WITH_STANDARD_DEVIATION'
+            | 'SCALE_WITH_MAX_MAGNITUDE'
+            | 'STANDARDIZATION';
           // Generated from: com/linkedin/avro2pegasus/common/ml/OptimizationState.pdsc
 
           export interface OptimizationState {
@@ -1887,7 +1972,14 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/common/ml/xgboost/Evaluator.pdsc
 
-            export type Evaluator = 'ACCURACY' | 'AUPR' | 'AUROC' | 'CONFUSIONMATRIX' | 'MSE' | 'MAE' | 'NDCG_K';
+            export type Evaluator =
+              | 'ACCURACY'
+              | 'AUPR'
+              | 'AUROC'
+              | 'CONFUSIONMATRIX'
+              | 'MSE'
+              | 'MAE'
+              | 'NDCG_K';
             // Generated from: com/linkedin/avro2pegasus/common/ml/xgboost/LinearBoosterOptimizationParameters.pdsc
 
             export interface LinearBoosterOptimizationParameters {
@@ -1982,7 +2074,10 @@ declare namespace Com {
           export type ApplicationType = 'RAIN' | 'SAMZA';
           // Generated from: com/linkedin/avro2pegasus/common/mlmodellifecycle/ErrorType.pdsc
 
-          export type ErrorType = 'APP_ERROR' | 'SETUP_ERROR' | 'INFRASTRUCTURE_ERROR';
+          export type ErrorType =
+            | 'APP_ERROR'
+            | 'SETUP_ERROR'
+            | 'INFRASTRUCTURE_ERROR';
           // Generated from: com/linkedin/avro2pegasus/common/mlmodellifecycle/FailureStatistic.pdsc
 
           export interface FailureStatistic {
@@ -2000,15 +2095,26 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/mlmodellifecycle/MLModelDeploymentStatus.pdsc
 
-          export type MLModelDeploymentStatus = 'CANCELED' | 'SUCCESS' | 'FAILED';
+          export type MLModelDeploymentStatus =
+            | 'CANCELED'
+            | 'SUCCESS'
+            | 'FAILED';
           // Generated from: com/linkedin/avro2pegasus/common/mlmodellifecycle/MlModelPublishState.pdsc
 
-          export type MlModelPublishState = 'QUEUED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED';
+          export type MlModelPublishState =
+            | 'QUEUED'
+            | 'IN_PROGRESS'
+            | 'SUCCEEDED'
+            | 'FAILED';
         }
         namespace Opportunitymarketplace {
           // Generated from: com/linkedin/avro2pegasus/common/opportunitymarketplace/MarketplaceRole.pdsc
 
-          export type MarketplaceRole = 'MENTOR' | 'MENTEE' | 'ENTREPRENEUR' | 'INVESTOR';
+          export type MarketplaceRole =
+            | 'MENTOR'
+            | 'MENTEE'
+            | 'ENTREPRENEUR'
+            | 'INVESTOR';
           // Generated from: com/linkedin/avro2pegasus/common/opportunitymarketplace/MarketplaceType.pdsc
 
           export type MarketplaceType = 'CAREER_ADVICE' | 'INVESTOR';
@@ -2034,7 +2140,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/pie/DeviceOperationalStatus.pdsc
 
-          export type DeviceOperationalStatus = 'ON' | 'OFF' | 'NOT_PRESENT' | 'NO_AC_INPUT';
+          export type DeviceOperationalStatus =
+            | 'ON'
+            | 'OFF'
+            | 'NOT_PRESENT'
+            | 'NO_AC_INPUT';
           // Generated from: com/linkedin/avro2pegasus/common/pie/EFuse.pdsc
 
           export interface EFuse {
@@ -2342,7 +2452,9 @@ declare namespace Com {
             requestedUrlStatus: Com.Linkedin.Avro2pegasus.Common.Webcrawling.RequestedUrlStatus;
             documentUrlStatusCode: number;
             documentUrlErrorCause: Com.Linkedin.Avro2pegasus.Common.Webcrawling.DocumentUrlErrorCause;
-            redirectionSequence: Array<Com.Linkedin.Avro2pegasus.Common.Webcrawling.RedirectionItem>;
+            redirectionSequence: Array<
+              Com.Linkedin.Avro2pegasus.Common.Webcrawling.RedirectionItem
+            >;
             redirectionAnalysis?: Com.Linkedin.Avro2pegasus.Common.Webcrawling.RedirectionAnalysis;
           }
           // Generated from: com/linkedin/avro2pegasus/common/webcrawling/IngestionError.pdsc
@@ -2394,7 +2506,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/common/webcrawling/RequestedUrlStatus.pdsc
 
-          export type RequestedUrlStatus = 'SUCCESS' | 'REDIRECT' | 'ERROR' | 'REDIRECT_THEN_ERROR';
+          export type RequestedUrlStatus =
+            | 'SUCCESS'
+            | 'REDIRECT'
+            | 'ERROR'
+            | 'REDIRECT_THEN_ERROR';
           // Generated from: com/linkedin/avro2pegasus/common/webcrawling/SearchResultUrl.pdsc
 
           export interface SearchResultUrl {
@@ -2538,10 +2654,24 @@ declare namespace Com {
                 }
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizCompanyStatus.pdsc
 
-                export type BizCompanyStatus = 'OPR' | 'OPS' | 'RRG' | 'OOB' | 'ACQ';
+                export type BizCompanyStatus =
+                  | 'OPR'
+                  | 'OPS'
+                  | 'RRG'
+                  | 'OOB'
+                  | 'ACQ';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizCompanyType.pdsc
 
-                export type BizCompanyType = 'C' | 'D' | 'E' | 'G' | 'N' | 'O' | 'P' | 'S' | 'A';
+                export type BizCompanyType =
+                  | 'C'
+                  | 'D'
+                  | 'E'
+                  | 'G'
+                  | 'N'
+                  | 'O'
+                  | 'P'
+                  | 'S'
+                  | 'A';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizCropInfo.pdsc
 
                 export interface BizCropInfo {
@@ -2573,10 +2703,26 @@ declare namespace Com {
                 }
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizEmployeeCountRange.pdsc
 
-                export type BizEmployeeCountRange = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I';
+                export type BizEmployeeCountRange =
+                  | 'A'
+                  | 'B'
+                  | 'C'
+                  | 'D'
+                  | 'E'
+                  | 'F'
+                  | 'G'
+                  | 'H'
+                  | 'I';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizExchangeSymbol.pdsc
 
-                export type BizExchangeSymbol = 'ASE' | 'NYS' | 'NMS' | 'LSE' | 'FRA' | 'GER' | 'PAR';
+                export type BizExchangeSymbol =
+                  | 'ASE'
+                  | 'NYS'
+                  | 'NMS'
+                  | 'LSE'
+                  | 'FRA'
+                  | 'GER'
+                  | 'PAR';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizHierarchyClassification.pdsc
 
                 export type BizHierarchyClassification =
@@ -2804,7 +2950,14 @@ declare namespace Com {
                 }
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizRelationshipType.pdsc
 
-                export type BizRelationshipType = 'DVSN' | 'SBSD' | 'PRNT' | 'ACQN' | 'MRGR' | 'BRND' | 'SCHL';
+                export type BizRelationshipType =
+                  | 'DVSN'
+                  | 'SBSD'
+                  | 'PRNT'
+                  | 'ACQN'
+                  | 'MRGR'
+                  | 'BRND'
+                  | 'SCHL';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizRelationshipWithParent.pdsc
 
                 export type BizRelationshipWithParent =
@@ -2828,7 +2981,12 @@ declare namespace Com {
                 }
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizRevenuePeriod.pdsc
 
-                export type BizRevenuePeriod = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'ANNUAL';
+                export type BizRevenuePeriod =
+                  | 'Q1'
+                  | 'Q2'
+                  | 'Q3'
+                  | 'Q4'
+                  | 'ANNUAL';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizSchoolAttributes.pdsc
 
                 export interface BizSchoolAttributes {
@@ -2842,7 +3000,10 @@ declare namespace Com {
                 export type BizSchoolType = 'PUBLIC' | 'PRIVATE' | 'PROFIT';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizSchoolYearLevel.pdsc
 
-                export type BizSchoolYearLevel = 'UNDER_TWO_YEAR' | 'TWO_TO_FOUR_YEAR' | 'FOUR_OR_MORE_YEAR';
+                export type BizSchoolYearLevel =
+                  | 'UNDER_TWO_YEAR'
+                  | 'TWO_TO_FOUR_YEAR'
+                  | 'FOUR_OR_MORE_YEAR';
                 // Generated from: com/linkedin/avro2pegasus/company/bizprofile/ds/api/espresso/BizSlideshareCategory.pdsc
 
                 export interface BizSlideshareCategory {
@@ -2908,7 +3069,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/data/espresso/EspressoEventOperation.pdsc
 
-          export type EspressoEventOperation = 'INSERT' | 'UPDATE' | 'DELETE' | 'TRANSITION';
+          export type EspressoEventOperation =
+            | 'INSERT'
+            | 'UPDATE'
+            | 'DELETE'
+            | 'TRANSITION';
           // Generated from: com/linkedin/avro2pegasus/data/espresso/EspressoLuceneIndexRowImage.pdsc
 
           export interface EspressoLuceneIndexRowImage {
@@ -2995,7 +3160,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/datamonitormetadata/DataAssertionFailureAction.pdsc
 
-        export type DataAssertionFailureAction = 'SAMPLE_ON_FAILURE' | 'ABORT_ON_FAILURE' | 'ALERT_ON_FAILURE';
+        export type DataAssertionFailureAction =
+          | 'SAMPLE_ON_FAILURE'
+          | 'ABORT_ON_FAILURE'
+          | 'ALERT_ON_FAILURE';
         // Generated from: com/linkedin/avro2pegasus/datamonitormetadata/DataAssertionOutcome.pdsc
 
         export type DataAssertionOutcome = 'FAILED' | 'PASSED' | 'UNKNOWN';
@@ -3187,7 +3355,9 @@ declare namespace Com {
           | 'MAD';
         // Generated from: com/linkedin/avro2pegasus/datamonitormetadata/DefinitionMultiValuedMetricType.pdsc
 
-        export type DefinitionMultiValuedMetricType = 'TOP_VALUES_BY_COUNT' | 'QUANTILES';
+        export type DefinitionMultiValuedMetricType =
+          | 'TOP_VALUES_BY_COUNT'
+          | 'QUANTILES';
         // Generated from: com/linkedin/avro2pegasus/datamonitormetadata/DefinitionValuesMetric.pdsc
 
         export interface DefinitionValuesMetric {
@@ -3238,13 +3408,18 @@ declare namespace Com {
           export type MlModelTrainingFramework = 'PHOTON_CONNECT' | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/event/mlmodellifecycle/MlModelTrainingOrigin.pdsc
 
-          export type MlModelTrainingOrigin = 'FELLOWSHIP' | 'TRAINING_CODE_MP' | 'OTHER';
+          export type MlModelTrainingOrigin =
+            | 'FELLOWSHIP'
+            | 'TRAINING_CODE_MP'
+            | 'OTHER';
         }
       }
       namespace Events {
         // Generated from: com/linkedin/avro2pegasus/events/AccessControlAction.pdsc
 
-        export type AccessControlAction = 'RESTRICTION' | 'PASSWORD_INVALIDATION';
+        export type AccessControlAction =
+          | 'RESTRICTION'
+          | 'PASSWORD_INVALIDATION';
         // Generated from: com/linkedin/avro2pegasus/events/AccessTokenDeleteEvent.pdsc
 
         export interface AccessTokenDeleteEvent {
@@ -3415,7 +3590,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AccountManagementState.pdsc
 
-        export type AccountManagementState = 'RETRY' | 'REQUEUE' | 'ABORTED' | 'DONE' | 'PRECONDITION_CHECK_FAILED';
+        export type AccountManagementState =
+          | 'RETRY'
+          | 'REQUEUE'
+          | 'ABORTED'
+          | 'DONE'
+          | 'PRECONDITION_CHECK_FAILED';
         // Generated from: com/linkedin/avro2pegasus/events/AccountTakeOverLabelOverrideEvent.pdsc
 
         export interface AccountTakeOverLabelOverrideEvent {
@@ -3440,7 +3620,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/ActivityType.pdsc
 
-        export type ActivityType = 'view' | 'click' | 'expand' | 'collapse' | 'hover' | 'leave';
+        export type ActivityType =
+          | 'view'
+          | 'click'
+          | 'expand'
+          | 'collapse'
+          | 'hover'
+          | 'leave';
         // Generated from: com/linkedin/avro2pegasus/events/ActivityVerb.pdsc
 
         export type ActivityVerb =
@@ -3468,7 +3654,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AdBroadMatchStatus.pdsc
 
-        export type AdBroadMatchStatus = 'NOT_ENABLED' | 'ENABLED' | 'BROAD_MATCHED';
+        export type AdBroadMatchStatus =
+          | 'NOT_ENABLED'
+          | 'ENABLED'
+          | 'BROAD_MATCHED';
         // Generated from: com/linkedin/avro2pegasus/events/AdCampaignCategory.pdsc
 
         export type AdCampaignCategory =
@@ -3566,7 +3755,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AdClientType.pdsc
 
-        export type AdClientType = 'CspClient' | 'GoogleRtbBid' | 'GoogleRtbFetch' | 'PersistentAd' | 'Other';
+        export type AdClientType =
+          | 'CspClient'
+          | 'GoogleRtbBid'
+          | 'GoogleRtbFetch'
+          | 'PersistentAd'
+          | 'Other';
         // Generated from: com/linkedin/avro2pegasus/events/AdConversionEvent.pdsc
 
         export interface AdConversionEvent {
@@ -3876,7 +4070,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AdSlotVisibility.pdsc
 
-        export type AdSlotVisibility = 'Unknown' | 'NoDetection' | 'AboveTheFold' | 'BelowTheFold';
+        export type AdSlotVisibility =
+          | 'Unknown'
+          | 'NoDetection'
+          | 'AboveTheFold'
+          | 'BelowTheFold';
         // Generated from: com/linkedin/avro2pegasus/events/AdStatsEvent.pdsc
 
         export interface AdStatsEvent {
@@ -3917,7 +4115,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AntivirusScanResult.pdsc
 
-        export type AntivirusScanResult = 'VIRUS_DETECTED' | 'VIRUS_NOT_DETECTED' | 'NOT_SCANNED';
+        export type AntivirusScanResult =
+          | 'VIRUS_DETECTED'
+          | 'VIRUS_NOT_DETECTED'
+          | 'NOT_SCANNED';
         // Generated from: com/linkedin/avro2pegasus/events/ApiErrorTrackingEvent.pdsc
 
         export interface ApiErrorTrackingEvent {
@@ -3949,13 +4150,20 @@ declare namespace Com {
         export type AppLaunchMode = 'COLD' | 'WARM' | 'HOT';
         // Generated from: com/linkedin/avro2pegasus/events/AppLaunchSource.pdsc
 
-        export type AppLaunchSource = 'APP_ICON' | 'PUSH_NOTIFICATION' | 'DEEPLINK';
+        export type AppLaunchSource =
+          | 'APP_ICON'
+          | 'PUSH_NOTIFICATION'
+          | 'DEEPLINK';
         // Generated from: com/linkedin/avro2pegasus/events/AppLaunchType.pdsc
 
         export type AppLaunchType = 'WARM' | 'COLD' | 'HOT';
         // Generated from: com/linkedin/avro2pegasus/events/ApplicationBuildType.pdsc
 
-        export type ApplicationBuildType = 'PRODUCTION' | 'INTERNAL' | 'DEVELOPMENT' | 'UNKNOWN';
+        export type ApplicationBuildType =
+          | 'PRODUCTION'
+          | 'INTERNAL'
+          | 'DEVELOPMENT'
+          | 'UNKNOWN';
         // Generated from: com/linkedin/avro2pegasus/events/ApplicationSizeReportEvent.pdsc
 
         export interface ApplicationSizeReportEvent {
@@ -3971,7 +4179,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AppRenderMode.pdsc
 
-        export type AppRenderMode = 'VANILLA' | 'BIG_PIPE' | 'SSR' | 'SSRSEO' | 'SSRPIPE';
+        export type AppRenderMode =
+          | 'VANILLA'
+          | 'BIG_PIPE'
+          | 'SSR'
+          | 'SSRSEO'
+          | 'SSRPIPE';
         // Generated from: com/linkedin/avro2pegasus/events/ArticleViewEvent.pdsc
 
         export interface ArticleViewEvent {
@@ -4104,16 +4317,30 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/AYNSearchEventDiscussionType.pdsc
 
-        export type AYNSearchEventDiscussionType = 'PUBLIC' | 'ANET' | 'MEMBER' | 'COMPANY' | 'UNKNOWN';
+        export type AYNSearchEventDiscussionType =
+          | 'PUBLIC'
+          | 'ANET'
+          | 'MEMBER'
+          | 'COMPANY'
+          | 'UNKNOWN';
         // Generated from: com/linkedin/avro2pegasus/events/AYNSearchEventQuestionStatus.pdsc
 
-        export type AYNSearchEventQuestionStatus = 'all' | 'open' | 'openNoAnswers' | 'unknown';
+        export type AYNSearchEventQuestionStatus =
+          | 'all'
+          | 'open'
+          | 'openNoAnswers'
+          | 'unknown';
         // Generated from: com/linkedin/avro2pegasus/events/AYNSearchEventSearchScope.pdsc
 
-        export type AYNSearchEventSearchScope = 'questionsAndAnswers' | 'questions';
+        export type AYNSearchEventSearchScope =
+          | 'questionsAndAnswers'
+          | 'questions';
         // Generated from: com/linkedin/avro2pegasus/events/AYNSearchEventSortType.pdsc
 
-        export type AYNSearchEventSortType = 'distanceThenRelevance' | 'relevance' | 'date';
+        export type AYNSearchEventSortType =
+          | 'distanceThenRelevance'
+          | 'relevance'
+          | 'date';
         // Generated from: com/linkedin/avro2pegasus/events/BadgeSettingChangeEvent.pdsc
 
         export interface BadgeSettingChangeEvent {
@@ -4281,7 +4508,12 @@ declare namespace Com {
           | 'NO_VALID_JOB_ALERT_TO_CREATE';
         // Generated from: com/linkedin/avro2pegasus/events/ChangeType.pdsc
 
-        export type ChangeType = 'CREATE' | 'UPDATE' | 'DELETE' | 'UNKOWN_MODIFY' | 'UNKNOWN_MODIFY';
+        export type ChangeType =
+          | 'CREATE'
+          | 'UPDATE'
+          | 'DELETE'
+          | 'UNKOWN_MODIFY'
+          | 'UNKNOWN_MODIFY';
         // Generated from: com/linkedin/avro2pegasus/events/ChargeType.pdsc
 
         export type ChargeType = 'CPM' | 'CPC' | 'CPA' | 'OCPM';
@@ -4391,7 +4623,16 @@ declare namespace Com {
           | 'externalEmail';
         // Generated from: com/linkedin/avro2pegasus/events/CompanySize.pdsc
 
-        export type CompanySize = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I';
+        export type CompanySize =
+          | 'A'
+          | 'B'
+          | 'C'
+          | 'D'
+          | 'E'
+          | 'F'
+          | 'G'
+          | 'H'
+          | 'I';
         // Generated from: com/linkedin/avro2pegasus/events/CompanyStandardizationEvent.pdsc
 
         export interface CompanyStandardizationEvent {
@@ -4869,7 +5110,15 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/ContinentCode.pdsc
 
-        export type ContinentCode = 'AF' | 'AQ' | 'AS' | 'EU' | 'LA' | 'ME' | 'NA' | 'OC';
+        export type ContinentCode =
+          | 'AF'
+          | 'AQ'
+          | 'AS'
+          | 'EU'
+          | 'LA'
+          | 'ME'
+          | 'NA'
+          | 'OC';
         // Generated from: com/linkedin/avro2pegasus/events/ControlInteractionEvent.pdsc
 
         export interface ControlInteractionEvent {
@@ -4950,7 +5199,14 @@ declare namespace Com {
         export type dataTypeChoices = 'RICH' | 'LINK' | 'VIDEO' | 'IMAGE';
         // Generated from: com/linkedin/avro2pegasus/events/DayOfWeek.pdsc
 
-        export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+        export type DayOfWeek =
+          | 'MONDAY'
+          | 'TUESDAY'
+          | 'WEDNESDAY'
+          | 'THURSDAY'
+          | 'FRIDAY'
+          | 'SATURDAY'
+          | 'SUNDAY';
         // Generated from: com/linkedin/avro2pegasus/events/DeepLinkValue.pdsc
 
         export type DeepLinkValue = 'TRUE' | 'FALSE' | 'UNKNOWN';
@@ -5043,7 +5299,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/EmailBlockedReason.pdsc
 
-        export type EmailBlockedReason = 'BOUNCED' | 'REDLISTED' | 'INACTIVE' | 'ROLE_ACCOUNT' | 'SENDER_IS_SPAMMER';
+        export type EmailBlockedReason =
+          | 'BOUNCED'
+          | 'REDLISTED'
+          | 'INACTIVE'
+          | 'ROLE_ACCOUNT'
+          | 'SENDER_IS_SPAMMER';
         // Generated from: com/linkedin/avro2pegasus/events/EmailBounceEvent.pdsc
 
         export interface EmailBounceEvent {
@@ -5061,7 +5322,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/EmailBounceEventNotificationType.pdsc
 
-        export type EmailBounceEventNotificationType = 'batch' | 'email' | 'member';
+        export type EmailBounceEventNotificationType =
+          | 'batch'
+          | 'email'
+          | 'member';
         // Generated from: com/linkedin/avro2pegasus/events/EmailClickEvent.pdsc
 
         export interface EmailClickEvent {
@@ -5144,7 +5408,15 @@ declare namespace Com {
           locale: string;
           linkedinClassHeader?: string;
           extra?: {
-            [id: string]: boolean | number | number | number | number | number | string | null;
+            [id: string]:
+              | boolean
+              | number
+              | number
+              | number
+              | number
+              | number
+              | string
+              | null;
           };
         }
         // Generated from: com/linkedin/avro2pegasus/events/EmailSendEvent.pdsc
@@ -5159,7 +5431,15 @@ declare namespace Com {
           hasViewEvent: boolean;
           linkedinClassHeader?: string;
           extra?: {
-            [id: string]: boolean | number | number | number | number | number | string | null;
+            [id: string]:
+              | boolean
+              | number
+              | number
+              | number
+              | number
+              | number
+              | string
+              | null;
           };
           feedbackLoopHeaderValue?: string;
           senderMemberId?: number;
@@ -5318,7 +5598,10 @@ declare namespace Com {
           | 'CLOSED';
         // Generated from: com/linkedin/avro2pegasus/events/EndorsementSuggestionBlockReason.pdsc
 
-        export type EndorsementSuggestionBlockReason = 'INDISCRIMINATE' | 'PROPENSITY' | 'FUSE';
+        export type EndorsementSuggestionBlockReason =
+          | 'INDISCRIMINATE'
+          | 'PROPENSITY'
+          | 'FUSE';
         // Generated from: com/linkedin/avro2pegasus/events/EndorsementSuggestionRequestType.pdsc
 
         export type EndorsementSuggestionRequestType = 'SINGLE' | 'MULTIPLE';
@@ -5356,7 +5639,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/EnterpriseProfileImportApplicationResultStatus.pdsc
 
-        export type EnterpriseProfileImportApplicationResultStatus = 'SUCCESS' | 'ERROR' | 'WARNING';
+        export type EnterpriseProfileImportApplicationResultStatus =
+          | 'SUCCESS'
+          | 'ERROR'
+          | 'WARNING';
         // Generated from: com/linkedin/avro2pegasus/events/EnterpriseProfileImportEvent.pdsc
 
         export interface EnterpriseProfileImportEvent {
@@ -5380,7 +5666,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/EnterpriseProfileImportMessageType.pdsc
 
-        export type EnterpriseProfileImportMessageType = 'CRITICAL' | 'ERROR' | 'WARNING';
+        export type EnterpriseProfileImportMessageType =
+          | 'CRITICAL'
+          | 'ERROR'
+          | 'WARNING';
         // Generated from: com/linkedin/avro2pegasus/events/EnterpriseProfileImportOperation.pdsc
 
         export type EnterpriseProfileImportOperation = 'DELETE' | 'PUT';
@@ -5730,10 +6019,19 @@ declare namespace Com {
           | 'CONTENT_LOW_QUALITY';
         // Generated from: com/linkedin/avro2pegasus/events/FilterType.pdsc
 
-        export type FilterType = 'RESTRICTED_IP_FILTER' | 'BLOCK_FILTER' | 'GUEST_FILTER' | 'QCS_FILTER';
+        export type FilterType =
+          | 'RESTRICTED_IP_FILTER'
+          | 'BLOCK_FILTER'
+          | 'GUEST_FILTER'
+          | 'QCS_FILTER';
         // Generated from: com/linkedin/avro2pegasus/events/FinalAction.pdsc
 
-        export type FinalAction = 'DENY' | 'REDIRECT_TO_LOGIN' | 'TRACK_ONLY' | 'LOG_ONLY' | 'CHALLENGE';
+        export type FinalAction =
+          | 'DENY'
+          | 'REDIRECT_TO_LOGIN'
+          | 'TRACK_ONLY'
+          | 'LOG_ONLY'
+          | 'CHALLENGE';
         // Generated from: com/linkedin/avro2pegasus/events/FirstNameChallengeType.pdsc
 
         export interface FirstNameChallengeType {
@@ -5788,7 +6086,9 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/FuseRestrictionType.pdsc
 
-        export type FuseRestrictionType = 'APPLICATION' | 'APPLICATION_AND_MEMBER';
+        export type FuseRestrictionType =
+          | 'APPLICATION'
+          | 'APPLICATION_AND_MEMBER';
         // Generated from: com/linkedin/avro2pegasus/events/GatewayGetMediaEvent.pdsc
 
         export interface GatewayGetMediaEvent {
@@ -5820,7 +6120,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/GenericConversionIdentifierType.pdsc
 
-        export type GenericConversionIdentifierType = 'EMAIL' | 'PHONE' | 'BLUEKAI_ID';
+        export type GenericConversionIdentifierType =
+          | 'EMAIL'
+          | 'PHONE'
+          | 'BLUEKAI_ID';
         // Generated from: com/linkedin/avro2pegasus/events/GenericConversionMemberIdentifiers.pdsc
 
         export interface GenericConversionMemberIdentifiers {
@@ -5960,7 +6263,10 @@ declare namespace Com {
           | 'other';
         // Generated from: com/linkedin/avro2pegasus/events/GroupFlagEventGroupType.pdsc
 
-        export type GroupFlagEventGroupType = 'COMPANY' | 'USER_CREATED_GROUP' | 'PROFESSIONAL_INTEREST_CENTER';
+        export type GroupFlagEventGroupType =
+          | 'COMPANY'
+          | 'USER_CREATED_GROUP'
+          | 'PROFESSIONAL_INTEREST_CENTER';
         // Generated from: com/linkedin/avro2pegasus/events/GroupItemCategorizeEvent.pdsc
 
         export interface GroupItemCategorizeEvent {
@@ -5971,7 +6277,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/GroupItemCategoryType.pdsc
 
-        export type GroupItemCategoryType = 'job' | 'promotion' | 'news' | 'share' | 'question' | 'premiumJob';
+        export type GroupItemCategoryType =
+          | 'job'
+          | 'promotion'
+          | 'news'
+          | 'share'
+          | 'question'
+          | 'premiumJob';
         // Generated from: com/linkedin/avro2pegasus/events/GroupItemEvent.pdsc
 
         export interface GroupItemEvent {
@@ -6008,7 +6320,11 @@ declare namespace Com {
           | 'UNFEATURE';
         // Generated from: com/linkedin/avro2pegasus/events/GroupItemEventScopeType.pdsc
 
-        export type GroupItemEventScopeType = 'PUBLIC' | 'ANET' | 'MEMBER' | 'COMPANY';
+        export type GroupItemEventScopeType =
+          | 'PUBLIC'
+          | 'ANET'
+          | 'MEMBER'
+          | 'COMPANY';
         // Generated from: com/linkedin/avro2pegasus/events/GroupItemFollowActionType.pdsc
 
         export type GroupItemFollowActionType = 'start' | 'stop' | 'stopAll';
@@ -6034,10 +6350,18 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/GroupModerationEventLevel.pdsc
 
-        export type GroupModerationEventLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+        export type GroupModerationEventLevel =
+          | 'INFO'
+          | 'WARN'
+          | 'ERROR'
+          | 'DEBUG';
         // Generated from: com/linkedin/avro2pegasus/events/GroupModerationEventType.pdsc
 
-        export type GroupModerationEventType = 'flag' | 'submit' | 'approve' | 'delete';
+        export type GroupModerationEventType =
+          | 'flag'
+          | 'submit'
+          | 'approve'
+          | 'delete';
         // Generated from: com/linkedin/avro2pegasus/events/GroupWidget.pdsc
 
         export interface GroupWidget {
@@ -6135,10 +6459,19 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/InferredNumberOwnerType.pdsc
 
-        export type InferredNumberOwnerType = 'GUEST' | 'MEMBER' | 'JUNK' | 'UNCLASSIFIED' | 'REDLISTED';
+        export type InferredNumberOwnerType =
+          | 'GUEST'
+          | 'MEMBER'
+          | 'JUNK'
+          | 'UNCLASSIFIED'
+          | 'REDLISTED';
         // Generated from: com/linkedin/avro2pegasus/events/InmailActionType.pdsc
 
-        export type InmailActionType = 'impression' | 'detail' | 'rejected' | 'accepted';
+        export type InmailActionType =
+          | 'impression'
+          | 'detail'
+          | 'rejected'
+          | 'accepted';
         // Generated from: com/linkedin/avro2pegasus/events/InmailNotifierImpressionEvent.pdsc
 
         export interface InmailNotifierImpressionEvent {
@@ -6161,7 +6494,10 @@ declare namespace Com {
           | 'reconnection';
         // Generated from: com/linkedin/avro2pegasus/events/InmailNotifierType.pdsc
 
-        export type InmailNotifierType = 'talentDirect' | 'sponsoredInmail' | 'proposal';
+        export type InmailNotifierType =
+          | 'talentDirect'
+          | 'sponsoredInmail'
+          | 'proposal';
         // Generated from: com/linkedin/avro2pegasus/events/InmailRecipient.pdsc
 
         export interface InmailRecipient {
@@ -6249,7 +6585,11 @@ declare namespace Com {
         export type IPAddress = string;
         // Generated from: com/linkedin/avro2pegasus/events/IpRestrictionType.pdsc
 
-        export type IpRestrictionType = 'INDIVIDUAL_IP' | 'CLASS_C_NETWORK' | 'ORG' | 'INDIVIDUAL_IP_SOFT_BLOCK';
+        export type IpRestrictionType =
+          | 'INDIVIDUAL_IP'
+          | 'CLASS_C_NETWORK'
+          | 'ORG'
+          | 'INDIVIDUAL_IP_SOFT_BLOCK';
         // Generated from: com/linkedin/avro2pegasus/events/isCacheHit.pdsc
 
         export type isCacheHit = 'HIT' | 'MISS' | 'UNKNOWN';
@@ -6633,7 +6973,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/MergeConnectionsActionStatus.pdsc
 
-        export type MergeConnectionsActionStatus = 'CONNECTIONS_MOVED' | 'HANDLES_MOVED' | 'MERGE_COMPLETED';
+        export type MergeConnectionsActionStatus =
+          | 'CONNECTIONS_MOVED'
+          | 'HANDLES_MOVED'
+          | 'MERGE_COMPLETED';
         // Generated from: com/linkedin/avro2pegasus/events/MergeConnectionsRejectionReason.pdsc
 
         export type MergeConnectionsRejectionReason =
@@ -6682,7 +7025,16 @@ declare namespace Com {
         export type MessageType = 'EMAIL' | 'PUSHNOTIFICATION' | 'SMS';
         // Generated from: com/linkedin/avro2pegasus/events/Method.pdsc
 
-        export type Method = 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | 'CONNECT' | 'EXTENSION';
+        export type Method =
+          | 'OPTIONS'
+          | 'GET'
+          | 'HEAD'
+          | 'POST'
+          | 'PUT'
+          | 'DELETE'
+          | 'TRACE'
+          | 'CONNECT'
+          | 'EXTENSION';
         // Generated from: com/linkedin/avro2pegasus/events/MobileApplicationCrashHint.pdsc
 
         export interface MobileApplicationCrashHint {
@@ -6739,7 +7091,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/MobileConnectionType.pdsc
 
-        export type MobileConnectionType = 'NO_DATA' | 'WIFI' | 'FOUR_G' | 'THREE_G' | 'GPRS' | 'TWO_G';
+        export type MobileConnectionType =
+          | 'NO_DATA'
+          | 'WIFI'
+          | 'FOUR_G'
+          | 'THREE_G'
+          | 'GPRS'
+          | 'TWO_G';
         // Generated from: com/linkedin/avro2pegasus/events/MobileHeader.pdsc
 
         export interface MobileHeader {
@@ -6758,7 +7116,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/MobileNetworkQuality.pdsc
 
-        export type MobileNetworkQuality = 'POOR' | 'AVERAGE' | 'GOOD' | 'EXCELLENT' | 'INDETERMINATE';
+        export type MobileNetworkQuality =
+          | 'POOR'
+          | 'AVERAGE'
+          | 'GOOD'
+          | 'EXCELLENT'
+          | 'INDETERMINATE';
         // Generated from: com/linkedin/avro2pegasus/events/mobileSdk.pdsc
 
         export type mobileSdk = 'IOS_SDK' | 'ANDROID_SDK';
@@ -6873,7 +7236,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/NetworkQuality.pdsc
 
-        export type NetworkQuality = 'POOR' | 'AVERAGE' | 'GOOD' | 'EXCELLENT' | 'UNKNOWN';
+        export type NetworkQuality =
+          | 'POOR'
+          | 'AVERAGE'
+          | 'GOOD'
+          | 'EXCELLENT'
+          | 'UNKNOWN';
         // Generated from: com/linkedin/avro2pegasus/events/networkRequestStatus.pdsc
 
         export type networkRequestStatus = 'SUCCESS' | 'FAIL' | 'CANCEL';
@@ -6990,7 +7358,9 @@ declare namespace Com {
           | 'SECURITY_EXCEPTION';
         // Generated from: com/linkedin/avro2pegasus/events/OAuth2GetOrDeleteAccessTokenFailureReason.pdsc
 
-        export type OAuth2GetOrDeleteAccessTokenFailureReason = 'SQL_EXCEPTION' | 'INVALID_KEY';
+        export type OAuth2GetOrDeleteAccessTokenFailureReason =
+          | 'SQL_EXCEPTION'
+          | 'INVALID_KEY';
         // Generated from: com/linkedin/avro2pegasus/events/OAuth2VerifyAccessTokenFailureReason.pdsc
 
         export type OAuth2VerifyAccessTokenFailureReason =
@@ -7017,7 +7387,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/onlineFeatureName.pdsc
 
-        export type onlineFeatureName = 'PREFERRED_ENTITY' | 'CONTEXTUAL_BOOSTING' | 'IMPRESSION_COUNT';
+        export type onlineFeatureName =
+          | 'PREFERRED_ENTITY'
+          | 'CONTEXTUAL_BOOSTING'
+          | 'IMPRESSION_COUNT';
         // Generated from: com/linkedin/avro2pegasus/events/OptOutUnsubscribeEvent.pdsc
 
         export interface OptOutUnsubscribeEvent {
@@ -7087,7 +7460,15 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/PageType.pdsc
 
-        export type PageType = 'full' | 'ajax' | 'iframe' | 'redirect' | 'api' | 'form' | 'router' | 'error';
+        export type PageType =
+          | 'full'
+          | 'ajax'
+          | 'iframe'
+          | 'redirect'
+          | 'api'
+          | 'form'
+          | 'router'
+          | 'error';
         // Generated from: com/linkedin/avro2pegasus/events/PageViewEvent.pdsc
 
         export interface PageViewEvent {
@@ -7158,10 +7539,19 @@ declare namespace Com {
           | 'INVALIDATED_PASSWORD_SELECTED';
         // Generated from: com/linkedin/avro2pegasus/events/PasswordChangeUseCase.pdsc
 
-        export type PasswordChangeUseCase = 'CHANGE_PASSWORD' | 'FORGOT_PASSWORD' | 'INVALIDATE_PASSWORD';
+        export type PasswordChangeUseCase =
+          | 'CHANGE_PASSWORD'
+          | 'FORGOT_PASSWORD'
+          | 'INVALIDATE_PASSWORD';
         // Generated from: com/linkedin/avro2pegasus/events/PasswordResetMethod.pdsc
 
-        export type PasswordResetMethod = 'EMAIL' | 'SMS' | 'VOICE_CALL' | 'GOOGLE_AUTH' | 'EMAIL_PIN' | 'PHONE_PIN';
+        export type PasswordResetMethod =
+          | 'EMAIL'
+          | 'SMS'
+          | 'VOICE_CALL'
+          | 'GOOGLE_AUTH'
+          | 'EMAIL_PIN'
+          | 'PHONE_PIN';
         // Generated from: com/linkedin/avro2pegasus/events/PctrFeature.pdsc
 
         export interface PctrFeature {
@@ -7261,7 +7651,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/profileElementChoices.pdsc
 
-        export type profileElementChoices = 'SUMMARY' | 'POSITION' | 'EDUCATION';
+        export type profileElementChoices =
+          | 'SUMMARY'
+          | 'POSITION'
+          | 'EDUCATION';
         // Generated from: com/linkedin/avro2pegasus/events/ProfileFlaggingEvent.pdsc
 
         export interface ProfileFlaggingEvent {
@@ -7298,7 +7691,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/ProfileTopKeywordsActionType.pdsc
 
-        export type ProfileTopKeywordsActionType = 'RETRIEVAL' | 'DISMISSAL' | 'SAVE';
+        export type ProfileTopKeywordsActionType =
+          | 'RETRIEVAL'
+          | 'DISMISSAL'
+          | 'SAVE';
         // Generated from: com/linkedin/avro2pegasus/events/ProfileTopKeywordsDismissal.pdsc
 
         export interface ProfileTopKeywordsDismissal {
@@ -7353,7 +7749,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/ProspectCreationType.pdsc
 
-        export type ProspectCreationType = 'DOCUMENT' | 'SPREADSHEET' | 'MANUAL' | 'EMAIL';
+        export type ProspectCreationType =
+          | 'DOCUMENT'
+          | 'SPREADSHEET'
+          | 'MANUAL'
+          | 'EMAIL';
         // Generated from: com/linkedin/avro2pegasus/events/ProspectEditEvent.pdsc
 
         export interface ProspectEditEvent {
@@ -7753,7 +8153,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/RecommendationActionType.pdsc
 
-        export type RecommendationActionType = 'CLICK' | 'HOVER' | 'CLICK_ON_HOVER' | 'CROSS';
+        export type RecommendationActionType =
+          | 'CLICK'
+          | 'HOVER'
+          | 'CLICK_ON_HOVER'
+          | 'CROSS';
         // Generated from: com/linkedin/avro2pegasus/events/RecommendationFeedbackAddEvent.pdsc
 
         export interface RecommendationFeedbackAddEvent {
@@ -7949,7 +8353,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/RehabRestrictionAction.pdsc
 
-        export type RehabRestrictionAction = 'BLOCK' | 'WARN' | 'AUDIT' | 'FINAL_RESTRICTION';
+        export type RehabRestrictionAction =
+          | 'BLOCK'
+          | 'WARN'
+          | 'AUDIT'
+          | 'FINAL_RESTRICTION';
         // Generated from: com/linkedin/avro2pegasus/events/RehabRestrictionData.pdsc
 
         export interface RehabRestrictionData {
@@ -8100,7 +8508,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/ResponseFormat.pdsc
 
-        export type ResponseFormat = 'xml' | 'json' | 'javaMap' | 'jsonp' | 'NULL';
+        export type ResponseFormat =
+          | 'xml'
+          | 'json'
+          | 'javaMap'
+          | 'jsonp'
+          | 'NULL';
         // Generated from: com/linkedin/avro2pegasus/events/RestrictionId.pdsc
 
         export type RestrictionId = string;
@@ -8305,7 +8718,9 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/SecurityChallengeEventType.pdsc
 
-        export type SecurityChallengeEventType = 'SHOW_CHALLENGE' | 'SUBMIT_CHALLENGE';
+        export type SecurityChallengeEventType =
+          | 'SHOW_CHALLENGE'
+          | 'SUBMIT_CHALLENGE';
         // Generated from: com/linkedin/avro2pegasus/events/SecurityChallengeSource.pdsc
 
         export type SecurityChallengeSource =
@@ -8367,10 +8782,19 @@ declare namespace Com {
         export type SendPinMethod = 'SMS' | 'PHONE_CALL';
         // Generated from: com/linkedin/avro2pegasus/events/SendPinResultType.pdsc
 
-        export type SendPinResultType = 'SUCCESS' | 'ERROR' | 'PHONE_NUMBER_INVALID' | 'FUSE_RESTRICTED';
+        export type SendPinResultType =
+          | 'SUCCESS'
+          | 'ERROR'
+          | 'PHONE_NUMBER_INVALID'
+          | 'FUSE_RESTRICTED';
         // Generated from: com/linkedin/avro2pegasus/events/ShareActionType.pdsc
 
-        export type ShareActionType = 'view' | 'deliver' | 'forward' | 'reply' | 'send';
+        export type ShareActionType =
+          | 'view'
+          | 'deliver'
+          | 'forward'
+          | 'reply'
+          | 'send';
         // Generated from: com/linkedin/avro2pegasus/events/SkillsEditEvent.pdsc
 
         export interface SkillsEditEvent {
@@ -8498,7 +8922,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/sourceType.pdsc
 
-        export type sourceType = 'ID_SOURCE' | 'EMAIL_SOURCE' | 'SEARCH_BACKFILL_SOURCE';
+        export type sourceType =
+          | 'ID_SOURCE'
+          | 'EMAIL_SOURCE'
+          | 'SEARCH_BACKFILL_SOURCE';
         // Generated from: com/linkedin/avro2pegasus/events/SpamReportEvent.pdsc
 
         export interface SpamReportEvent {
@@ -8531,10 +8958,22 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/StandardizationOutcome.pdsc
 
-        export type StandardizationOutcome = 'client' | '_none_' | 'url_match' | 'text_match' | 'cs_assign';
+        export type StandardizationOutcome =
+          | 'client'
+          | '_none_'
+          | 'url_match'
+          | 'text_match'
+          | 'cs_assign';
         // Generated from: com/linkedin/avro2pegasus/events/StandardizationSource.pdsc
 
-        export type StandardizationSource = 'reg' | 'addPos' | 'upPos' | 'addCo' | 'idCo' | 'autoGF' | 'cs';
+        export type StandardizationSource =
+          | 'reg'
+          | 'addPos'
+          | 'upPos'
+          | 'addCo'
+          | 'idCo'
+          | 'autoGF'
+          | 'cs';
         // Generated from: com/linkedin/avro2pegasus/events/StandardizedPositionTitle.pdsc
 
         export interface StandardizedPositionTitle {
@@ -8545,7 +8984,9 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/StateChangeType.pdsc
 
-        export type StateChangeType = 'RECIPIENT_MESSAGE_PERSISTED' | 'SENDER_MESSAGE_PERSISTED';
+        export type StateChangeType =
+          | 'RECIPIENT_MESSAGE_PERSISTED'
+          | 'SENDER_MESSAGE_PERSISTED';
         // Generated from: com/linkedin/avro2pegasus/events/StatusUpdateActionType.pdsc
 
         export type StatusUpdateActionType = 'update' | 'clear';
@@ -8689,7 +9130,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/TokenStatus.pdsc
 
-        export type TokenStatus = 'MISSING' | 'INVALID_TOKEN' | 'INVALID_SIGNATURE' | 'EXPIRED' | 'VALID';
+        export type TokenStatus =
+          | 'MISSING'
+          | 'INVALID_TOKEN'
+          | 'INVALID_SIGNATURE'
+          | 'EXPIRED'
+          | 'VALID';
         // Generated from: com/linkedin/avro2pegasus/events/TraceData.pdsc
 
         export interface TraceData {
@@ -8780,10 +9226,19 @@ declare namespace Com {
         export type UnsubscribeSourceType = 'AUTO' | 'USER';
         // Generated from: com/linkedin/avro2pegasus/events/UnsubscriptionSourceType.pdsc
 
-        export type UnsubscriptionSourceType = 'SENDBLOOM' | 'SALESLOFT' | 'MEDALLIA' | 'INTERNAL';
+        export type UnsubscriptionSourceType =
+          | 'SENDBLOOM'
+          | 'SALESLOFT'
+          | 'MEDALLIA'
+          | 'INTERNAL';
         // Generated from: com/linkedin/avro2pegasus/events/UploadNetworkQuality.pdsc
 
-        export type UploadNetworkQuality = 'POOR' | 'AVERAGE' | 'GOOD' | 'EXCELLENT' | 'UNKNOWN';
+        export type UploadNetworkQuality =
+          | 'POOR'
+          | 'AVERAGE'
+          | 'GOOD'
+          | 'EXCELLENT'
+          | 'UNKNOWN';
         // Generated from: com/linkedin/avro2pegasus/events/URLInfoUpdateEvent.pdsc
 
         export interface URLInfoUpdateEvent {
@@ -9114,10 +9569,17 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/events/WebUIFrameWork.pdsc
 
-        export type WebUIFrameWork = 'DUST' | 'EMBER' | 'MARIONETTE' | 'ANGULAR';
+        export type WebUIFrameWork =
+          | 'DUST'
+          | 'EMBER'
+          | 'MARIONETTE'
+          | 'ANGULAR';
         // Generated from: com/linkedin/avro2pegasus/events/WhitelistStatus.pdsc
 
-        export type WhitelistStatus = 'WHITELISTED' | 'UNASSIGNED' | 'BLACKLISTED';
+        export type WhitelistStatus =
+          | 'WHITELISTED'
+          | 'UNASSIGNED'
+          | 'BLACKLISTED';
         // Generated from: com/linkedin/avro2pegasus/events/WidgetManagementClickEvent.pdsc
 
         export interface WidgetManagementClickEvent {
@@ -9302,7 +9764,13 @@ declare namespace Com {
             | 'EMPTY_ADDRESS_BOOK';
           // Generated from: com/linkedin/avro2pegasus/events/abook/AbookImportEmailProvider.pdsc
 
-          export type AbookImportEmailProvider = 'HOTMAIL' | 'GMAIL' | 'OUTLOOK' | 'YAHOO' | 'AOL' | 'OTHERS';
+          export type AbookImportEmailProvider =
+            | 'HOTMAIL'
+            | 'GMAIL'
+            | 'OUTLOOK'
+            | 'YAHOO'
+            | 'AOL'
+            | 'OTHERS';
           // Generated from: com/linkedin/avro2pegasus/events/abook/AbookImportEntryImpressionEvent.pdsc
 
           export interface AbookImportEntryImpressionEvent {
@@ -9503,7 +9971,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/abook/AbookTagOpName.pdsc
 
-          export type AbookTagOpName = 'CREATE' | 'UPDATE' | 'REMOVE' | 'TAG_SUBJECTS' | 'UNTAG' | 'DISPLAY';
+          export type AbookTagOpName =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'REMOVE'
+            | 'TAG_SUBJECTS'
+            | 'UNTAG'
+            | 'DISPLAY';
           // Generated from: com/linkedin/avro2pegasus/events/abook/AbookViewEvent.pdsc
 
           export interface AbookViewEvent {
@@ -9582,13 +10056,23 @@ declare namespace Com {
             | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/abook/Status.pdsc
 
-          export type Status = 'SUCCESS' | 'IN_PROGRESS' | 'ERROR_BAD_LOGIN' | 'ERROR_ZERO_CONTACTS' | 'ERROR_OTHER';
+          export type Status =
+            | 'SUCCESS'
+            | 'IN_PROGRESS'
+            | 'ERROR_BAD_LOGIN'
+            | 'ERROR_ZERO_CONTACTS'
+            | 'ERROR_OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/abook/SuggestedRoute.pdsc
 
           export type SuggestedRoute = 'INTRO' | 'RESULT_LANDING';
           // Generated from: com/linkedin/avro2pegasus/events/abook/TagType.pdsc
 
-          export type TagType = 'CLASSMATES' | 'COLLEAGUES' | 'FRIENDS' | 'GROUP_MEMBERS' | 'PARTNERS';
+          export type TagType =
+            | 'CLASSMATES'
+            | 'COLLEAGUES'
+            | 'FRIENDS'
+            | 'GROUP_MEMBERS'
+            | 'PARTNERS';
         }
         namespace Accessgrantproof {
           // Generated from: com/linkedin/avro2pegasus/events/accessgrantproof/ApplicationGrantProofWriteEvent.pdsc
@@ -9772,7 +10256,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/adconsolidation/RenderingResponseFormat.pdsc
 
-          export type RenderingResponseFormat = 'HTML' | 'JAVASCRIPT' | 'IFRAME' | 'PDSC';
+          export type RenderingResponseFormat =
+            | 'HTML'
+            | 'JAVASCRIPT'
+            | 'IFRAME'
+            | 'PDSC';
           // Generated from: com/linkedin/avro2pegasus/events/adconsolidation/SeatBid.pdsc
 
           export interface SeatBid {
@@ -10133,7 +10621,9 @@ declare namespace Com {
             | 'TALENT_LEADS_EVENT_PROCESSOR';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdConversionMethod.pdsc
 
-          export type AdConversionMethod = 'IMAGE_PIXEL' | 'INSIGHT_TAG_URL_MATCH_RULES';
+          export type AdConversionMethod =
+            | 'IMAGE_PIXEL'
+            | 'INSIGHT_TAG_URL_MATCH_RULES';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdConversionWindowType.pdsc
 
           export type AdConversionWindowType = 'POST_CLICK' | 'POST_VIEW';
@@ -10271,7 +10761,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdFormStatus.pdsc
 
-          export type AdFormStatus = 'DRAFT' | 'SUBMITTED' | 'PAUSED' | 'ARCHIVED' | 'CANCELED';
+          export type AdFormStatus =
+            | 'DRAFT'
+            | 'SUBMITTED'
+            | 'PAUSED'
+            | 'ARCHIVED'
+            | 'CANCELED';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdImageLoadErrorEvent.pdsc
 
           export interface AdImageLoadErrorEvent {
@@ -10284,7 +10779,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdInMailContentType.pdsc
 
-          export type AdInMailContentType = 'EXTERNAL_URL' | 'NATIVE_CONTENT' | 'LEADGEN' | 'GUIDED_REPLIES';
+          export type AdInMailContentType =
+            | 'EXTERNAL_URL'
+            | 'NATIVE_CONTENT'
+            | 'LEADGEN'
+            | 'GUIDED_REPLIES';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdInMailFcapInfo.pdsc
 
           export interface AdInMailFcapInfo {
@@ -10433,10 +10932,19 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdPricingType.pdsc
 
-          export type AdPricingType = 'CPM' | 'CPC' | 'CPA' | 'OCPM' | 'OCPC' | 'CPV';
+          export type AdPricingType =
+            | 'CPM'
+            | 'CPC'
+            | 'CPA'
+            | 'OCPM'
+            | 'OCPC'
+            | 'CPV';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdPuntReason.pdsc
 
-          export type AdPuntReason = 'MEMBER_OPT_OUT' | 'NO_MATCH' | 'UNSUPPORTED_AD_TARGET';
+          export type AdPuntReason =
+            | 'MEMBER_OPT_OUT'
+            | 'NO_MATCH'
+            | 'UNSUPPORTED_AD_TARGET';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdRealTimeBiddingClickEvent.pdsc
 
           export interface AdRealTimeBiddingClickEvent {
@@ -10660,7 +11168,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdReviewItemAction.pdsc
 
-          export type AdReviewItemAction = 'UPSERT_INACTIVE' | 'UPSERT_PENDING' | 'UPDATE_PENDING' | 'UPDATE_CLOSED';
+          export type AdReviewItemAction =
+            | 'UPSERT_INACTIVE'
+            | 'UPSERT_PENDING'
+            | 'UPDATE_PENDING'
+            | 'UPDATE_CLOSED';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdRtbClickEvent.pdsc
 
           export interface AdRtbClickEvent {
@@ -10750,7 +11262,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdSegmentEntityOperationType.pdsc
 
-          export type AdSegmentEntityOperationType = 'DELETE' | 'BATCH_DELETE' | 'UPDATE' | 'BATCH_UPDATE';
+          export type AdSegmentEntityOperationType =
+            | 'DELETE'
+            | 'BATCH_DELETE'
+            | 'UPDATE'
+            | 'BATCH_UPDATE';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdSegmentEntityUpdateEvent.pdsc
 
           export interface AdSegmentEntityUpdateEvent {
@@ -10766,7 +11282,10 @@ declare namespace Com {
           export type AdSegmentEntityUpdateOperation = 'ADD' | 'REMOVE';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdSegmentType.pdsc
 
-          export type AdSegmentType = 'RETARGETING' | 'MARKET_AUTOMATION' | 'ENTITY';
+          export type AdSegmentType =
+            | 'RETARGETING'
+            | 'MARKET_AUTOMATION'
+            | 'ENTITY';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdsInfrastructureMigrationProject.pdsc
 
           export type AdsInfrastructureMigrationProject =
@@ -10776,7 +11295,9 @@ declare namespace Com {
             | 'SPONSORED_CONTENCT_PLATFORMIZATION_UNIFIED_SCHEMA';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdsInfrastructureMigrationStatus.pdsc
 
-          export type AdsInfrastructureMigrationStatus = 'BEFORE_MIGRATION' | 'AFTER_MIGRATION';
+          export type AdsInfrastructureMigrationStatus =
+            | 'BEFORE_MIGRATION'
+            | 'AFTER_MIGRATION';
           // Generated from: com/linkedin/avro2pegasus/events/ads/AdsInfrastructureMigrationValidationEvent.pdsc
 
           export interface AdsInfrastructureMigrationValidationEvent {
@@ -11613,7 +12134,11 @@ declare namespace Com {
           export type Reason = 'FCAP' | 'QUALITY' | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/ads/RecommendationActionType.pdsc
 
-          export type RecommendationActionType = 'SERVE' | 'VIEW' | 'ACCEPT' | 'DISMISS';
+          export type RecommendationActionType =
+            | 'SERVE'
+            | 'VIEW'
+            | 'ACCEPT'
+            | 'DISMISS';
           // Generated from: com/linkedin/avro2pegasus/events/ads/RejectionCode.pdsc
 
           export type RejectionCode =
@@ -11714,7 +12239,12 @@ declare namespace Com {
             | 'PRE_APPROVED';
           // Generated from: com/linkedin/avro2pegasus/events/ads/ReviewSystem.pdsc
 
-          export type ReviewSystem = 'UCV' | 'ADS_POLICY_CHECKER' | 'REVIEW_QUEUE' | 'TSCP_QUALITY' | 'SEMAPHORE';
+          export type ReviewSystem =
+            | 'UCV'
+            | 'ADS_POLICY_CHECKER'
+            | 'REVIEW_QUEUE'
+            | 'TSCP_QUALITY'
+            | 'SEMAPHORE';
           // Generated from: com/linkedin/avro2pegasus/events/ads/RoadblockType.pdsc
 
           export type RoadblockType = 'NONE' | 'AUDIENCE' | 'PAGE';
@@ -12033,7 +12563,10 @@ declare namespace Com {
           export type OperationType = 'PUT' | 'DELETE' | 'TTL_UPDATE';
           // Generated from: com/linkedin/avro2pegasus/events/ambry/ReplicationEventSourceType.pdsc
 
-          export type ReplicationEventSourceType = 'PRIMARY' | 'REPAIRED' | 'BACKUP';
+          export type ReplicationEventSourceType =
+            | 'PRIMARY'
+            | 'REPAIRED'
+            | 'BACKUP';
           // Generated from: com/linkedin/avro2pegasus/events/ambry/ReplicationEventType.pdsc
 
           export type ReplicationEventType = 'CREATED' | 'DELETED' | 'UPDATED';
@@ -12084,7 +12617,11 @@ declare namespace Com {
           export type Rating = 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE';
           // Generated from: com/linkedin/avro2pegasus/events/appactivation/Restriction.pdsc
 
-          export type Restriction = 'PROFILE' | 'MYNETWORK' | 'MESSAGING' | 'FEED';
+          export type Restriction =
+            | 'PROFILE'
+            | 'MYNETWORK'
+            | 'MESSAGING'
+            | 'FEED';
           // Generated from: com/linkedin/avro2pegasus/events/appactivation/UsageRestrictionDecisionEvent.pdsc
 
           export interface UsageRestrictionDecisionEvent {
@@ -12411,7 +12948,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/badge/ClientApplication.pdsc
 
-          export type ClientApplication = 'VOYAGER_IOS' | 'VOYAGER_ANDROID' | 'VOYAGER_WEB' | 'NEPTUNE';
+          export type ClientApplication =
+            | 'VOYAGER_IOS'
+            | 'VOYAGER_ANDROID'
+            | 'VOYAGER_WEB'
+            | 'NEPTUNE';
           // Generated from: com/linkedin/avro2pegasus/events/badge/UpdateType.pdsc
 
           export type UpdateType = 'PUSH' | 'PULL';
@@ -12419,7 +12960,10 @@ declare namespace Com {
         namespace Bazel {
           // Generated from: com/linkedin/avro2pegasus/events/bazel/BazelEnvironment.pdsc
 
-          export type BazelEnvironment = 'REMOTE' | 'CONTINUOUS_INTEGRATION' | 'DEV';
+          export type BazelEnvironment =
+            | 'REMOTE'
+            | 'CONTINUOUS_INTEGRATION'
+            | 'DEV';
           // Generated from: com/linkedin/avro2pegasus/events/bazel/BazelRemoteMetric.pdsc
 
           export interface BazelRemoteMetric {
@@ -12480,7 +13024,10 @@ declare namespace Com {
         namespace Businesscards {
           // Generated from: com/linkedin/avro2pegasus/events/businesscards/BusinessCardOwnerType.pdsc
 
-          export type BusinessCardOwnerType = 'GUEST' | 'NON_CONNECTED_MEMBER' | 'CONNECTED_MEMBER';
+          export type BusinessCardOwnerType =
+            | 'GUEST'
+            | 'NON_CONNECTED_MEMBER'
+            | 'CONNECTED_MEMBER';
           // Generated from: com/linkedin/avro2pegasus/events/businesscards/BusinessCardSaveEvent.pdsc
 
           export interface BusinessCardSaveEvent {
@@ -12523,7 +13070,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/calendar/CalendarSource.pdsc
 
-          export type CalendarSource = 'ANDROID_CALENDAR' | 'IPHONE_CALENDAR' | 'GOOGLE_CALENDAR';
+          export type CalendarSource =
+            | 'ANDROID_CALENDAR'
+            | 'IPHONE_CALENDAR'
+            | 'GOOGLE_CALENDAR';
           // Generated from: com/linkedin/avro2pegasus/events/calendar/GlobalCalendarSyncActionEvent.pdsc
 
           export interface GlobalCalendarSyncActionEvent {
@@ -12688,7 +13238,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/cap/search/PerturbationType.pdsc
 
-            export type PerturbationType = 'FAIRPAIR_EVEN' | 'FAIRPAIR_ODD' | 'NONE';
+            export type PerturbationType =
+              | 'FAIRPAIR_EVEN'
+              | 'FAIRPAIR_ODD'
+              | 'NONE';
             // Generated from: com/linkedin/avro2pegasus/events/cap/search/QueryIntent.pdsc
 
             export type QueryIntent = 'EXPLORATORY' | 'NAVIGATIONAL';
@@ -12758,7 +13311,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/careers/TalentSeekerRecommendationSource.pdsc
 
-          export type TalentSeekerRecommendationSource = 'JOB_SEARCH' | 'JYMBII' | 'PLOTLY';
+          export type TalentSeekerRecommendationSource =
+            | 'JOB_SEARCH'
+            | 'JYMBII'
+            | 'PLOTLY';
           // Generated from: com/linkedin/avro2pegasus/events/careers/TalentSeekerRecommendationsServedEvent.pdsc
 
           export interface TalentSeekerRecommendationsServedEvent {
@@ -12830,7 +13386,9 @@ declare namespace Com {
             | 'RESUME_TEMPLATE';
           // Generated from: com/linkedin/avro2pegasus/events/cascades/ProfileExperienceSnippetFeedbackAction.pdsc
 
-          export type ProfileExperienceSnippetFeedbackAction = 'POSITIVE' | 'NEGATIVE';
+          export type ProfileExperienceSnippetFeedbackAction =
+            | 'POSITIVE'
+            | 'NEGATIVE';
           // Generated from: com/linkedin/avro2pegasus/events/cascades/ProfileExperienceSnippetFeedbackEvent.pdsc
 
           export interface ProfileExperienceSnippetFeedbackEvent {
@@ -12854,7 +13412,9 @@ declare namespace Com {
             | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/cascades/ProfileExperienceSnippetFeedbackSource.pdsc
 
-          export type ProfileExperienceSnippetFeedbackSource = 'CONDENSED_TEXT' | 'EXTENDED_TEXT';
+          export type ProfileExperienceSnippetFeedbackSource =
+            | 'CONDENSED_TEXT'
+            | 'EXTENDED_TEXT';
           // Generated from: com/linkedin/avro2pegasus/events/cascades/ProfileExperienceSnippetImpressionEvent.pdsc
 
           export interface ProfileExperienceSnippetImpressionEvent {
@@ -12960,7 +13520,10 @@ declare namespace Com {
             | 'UNAUTHORIZED';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/EmailState.pdsc
 
-          export type EmailState = 'CONFIRMED' | 'UNCONFIRMED' | 'NOT_APPLICABLE_IN_JUMIO_RESPONSE';
+          export type EmailState =
+            | 'CONFIRMED'
+            | 'UNCONFIRMED'
+            | 'NOT_APPLICABLE_IN_JUMIO_RESPONSE';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/IdVerificationEvent.pdsc
 
           export interface IdVerificationEvent {
@@ -12982,7 +13545,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/IdVerificationEventType.pdsc
 
-          export type IdVerificationEventType = 'IMAGE_UPLOAD' | 'JUMIO_RESPONSE';
+          export type IdVerificationEventType =
+            | 'IMAGE_UPLOAD'
+            | 'JUMIO_RESPONSE';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/IdVerificationIdSubType.pdsc
 
           export type IdVerificationIdSubType =
@@ -12997,7 +13562,10 @@ declare namespace Com {
             | 'E_PASSPORT';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/IdVerificationIdType.pdsc
 
-          export type IdVerificationIdType = 'PASSPORT' | 'DRIVING_LICENSE' | 'ID_CARD';
+          export type IdVerificationIdType =
+            | 'PASSPORT'
+            | 'DRIVING_LICENSE'
+            | 'ID_CARD';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/IdVerificationStatus.pdsc
 
           export type IdVerificationStatus =
@@ -13047,13 +13615,19 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/RememberMeEventType.pdsc
 
-          export type RememberMeEventType = 'OPTED_IN' | 'OPTED_OUT' | 'OPTED_OUT_ALL' | 'FORCE_OPTED_OUT';
+          export type RememberMeEventType =
+            | 'OPTED_IN'
+            | 'OPTED_OUT'
+            | 'OPTED_OUT_ALL'
+            | 'FORCE_OPTED_OUT';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/RememberMeInitiatorType.pdsc
 
           export type RememberMeInitiatorType = 'MEMBER' | 'CS_USER' | 'CV';
           // Generated from: com/linkedin/avro2pegasus/events/checkpoint/SecurityChallengeSource.pdsc
 
-          export type SecurityChallengeSource = 'CONSUMER_LOGIN' | 'PASSWORD_RESET';
+          export type SecurityChallengeSource =
+            | 'CONSUMER_LOGIN'
+            | 'PASSWORD_RESET';
         }
         namespace Chimera {
           // Generated from: com/linkedin/avro2pegasus/events/chimera/AuthType.pdsc
@@ -13192,7 +13766,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/colleagues/ColleagueRelationshipType.pdsc
 
-          export type ColleagueRelationshipType = 'MANAGER' | 'DIRECT_REPORT' | 'PEER' | 'EXTENDED_PEER';
+          export type ColleagueRelationshipType =
+            | 'MANAGER'
+            | 'DIRECT_REPORT'
+            | 'PEER'
+            | 'EXTENDED_PEER';
           // Generated from: com/linkedin/avro2pegasus/events/colleagues/ColleagueRelationshipUpdateRequestEvent.pdsc
 
           export interface ColleagueRelationshipUpdateRequestEvent {
@@ -13361,7 +13939,9 @@ declare namespace Com {
             export type ContractSourceEnum = 'CONTRACT' | 'INVOICE';
             // Generated from: com/linkedin/avro2pegasus/events/commerce/omsbackend/OmsBackendEventEnum.pdsc
 
-            export type OmsBackendEventEnum = 'VALIDATION_PASSED' | 'TASK_QUEUED';
+            export type OmsBackendEventEnum =
+              | 'VALIDATION_PASSED'
+              | 'TASK_QUEUED';
             // Generated from: com/linkedin/avro2pegasus/events/commerce/omsbackend/OnBoardingFromBizappsStartEvent.pdsc
 
             export interface OnBoardingFromBizappsStartEvent {
@@ -13622,7 +14202,13 @@ declare namespace Com {
             | 'LEAD_FORM_FIELD_SELECT';
           // Generated from: com/linkedin/avro2pegasus/events/common/AdPageZone.pdsc
 
-          export type AdPageZone = 'OTHER' | 'HEADER' | 'BODY_LEFT' | 'BODY_MIDDLE' | 'BODY_RIGHT' | 'FOOTER';
+          export type AdPageZone =
+            | 'OTHER'
+            | 'HEADER'
+            | 'BODY_LEFT'
+            | 'BODY_MIDDLE'
+            | 'BODY_RIGHT'
+            | 'FOOTER';
           // Generated from: com/linkedin/avro2pegasus/events/common/AdSlotSize.pdsc
 
           export type AdSlotSize =
@@ -13730,7 +14316,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/ClearSiteDataDirectiveType.pdsc
 
-          export type ClearSiteDataDirectiveType = 'cache' | 'cookies' | 'storage' | 'executionContexts' | 'WILDCARD';
+          export type ClearSiteDataDirectiveType =
+            | 'cache'
+            | 'cookies'
+            | 'storage'
+            | 'executionContexts'
+            | 'WILDCARD';
           // Generated from: com/linkedin/avro2pegasus/events/common/ClosedDoubleRange.pdsc
 
           export interface ClosedDoubleRange {
@@ -13848,7 +14439,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/Fabric.pdsc
 
-          export type Fabric = 'EI4' | 'EI_LTX1' | 'PROD_LOR1' | 'PROD_LTX1' | 'PROD_LVA1' | 'PROD_LSG1';
+          export type Fabric =
+            | 'EI4'
+            | 'EI_LTX1'
+            | 'PROD_LOR1'
+            | 'PROD_LTX1'
+            | 'PROD_LVA1'
+            | 'PROD_LSG1';
           // Generated from: com/linkedin/avro2pegasus/events/common/FeatureItem.pdsc
 
           export interface FeatureItem {
@@ -13872,7 +14469,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/HttpMethod.pdsc
 
-          export type HttpMethod = 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | 'CONNECT';
+          export type HttpMethod =
+            | 'OPTIONS'
+            | 'GET'
+            | 'HEAD'
+            | 'POST'
+            | 'PUT'
+            | 'DELETE'
+            | 'TRACE'
+            | 'CONNECT';
           // Generated from: com/linkedin/avro2pegasus/events/common/HttpTransaction.pdsc
 
           export interface HttpTransaction {
@@ -13949,7 +14554,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/NetworkDistance.pdsc
 
-          export type NetworkDistance = 'SELF' | 'DISTANCE_1' | 'DISTANCE_2' | 'DISTANCE_3' | 'OUT_OF_NETWORK';
+          export type NetworkDistance =
+            | 'SELF'
+            | 'DISTANCE_1'
+            | 'DISTANCE_2'
+            | 'DISTANCE_3'
+            | 'OUT_OF_NETWORK';
           // Generated from: com/linkedin/avro2pegasus/events/common/NormalizingFactor.pdsc
 
           export interface NormalizingFactor {
@@ -14024,7 +14634,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/TimeUnit.pdsc
 
-          export type TimeUnit = 'MILLISECOND' | 'SECOND' | 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+          export type TimeUnit =
+            | 'MILLISECOND'
+            | 'SECOND'
+            | 'MINUTE'
+            | 'HOUR'
+            | 'DAY'
+            | 'WEEK'
+            | 'MONTH'
+            | 'YEAR';
           // Generated from: com/linkedin/avro2pegasus/events/common/TrackingId.pdsc
 
           export type TrackingId = string;
@@ -14054,7 +14672,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/common/ViralCardType.pdsc
 
-          export type ViralCardType = 'JOB_CHANGE_PROP' | 'WORK_ANNIVERSARY_PROP';
+          export type ViralCardType =
+            | 'JOB_CHANGE_PROP'
+            | 'WORK_ANNIVERSARY_PROP';
           // Generated from: com/linkedin/avro2pegasus/events/common/WebViewType.pdsc
 
           export type WebViewType = 'UI_WEBVIEW' | 'WK_WEBVIEW';
@@ -14077,7 +14697,11 @@ declare namespace Com {
             export type AdAudienceMatchType = 'COMPANY' | 'MEMBER';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdBlocker.pdsc
 
-            export type AdBlocker = 'AD_BLOCK' | 'AD_BLOCK_PLUS' | 'UBLOCK' | 'OTHER';
+            export type AdBlocker =
+              | 'AD_BLOCK'
+              | 'AD_BLOCK_PLUS'
+              | 'UBLOCK'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdCardInfo.pdsc
 
             export interface AdCardInfo {
@@ -14362,10 +14986,19 @@ declare namespace Com {
               | 'THIRD_PARTY_TRACKING_TAG';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdEntityNonServableSource.pdsc
 
-            export type AdEntityNonServableSource = 'AD_OPTIMIZATION_AND_FEDERATOR_RESULT' | 'FEED_UPDATE_NOT_SERVED';
+            export type AdEntityNonServableSource =
+              | 'AD_OPTIMIZATION_AND_FEDERATOR_RESULT'
+              | 'FEED_UPDATE_NOT_SERVED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdEntityStatus.pdsc
 
-            export type AdEntityStatus = 'ACTIVE' | 'ARCHIVED' | 'CANCELLED' | 'COMPLETED' | 'DRAFT' | 'NEW' | 'PAUSED';
+            export type AdEntityStatus =
+              | 'ACTIVE'
+              | 'ARCHIVED'
+              | 'CANCELLED'
+              | 'COMPLETED'
+              | 'DRAFT'
+              | 'NEW'
+              | 'PAUSED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdExchangeId.pdsc
 
             export type AdExchangeId =
@@ -14382,7 +15015,12 @@ declare namespace Com {
               | 'PMX';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdExperimentExecutionState.pdsc
 
-            export type AdExperimentExecutionState = 'PENDING' | 'RUNNING' | 'ON_HOLD' | 'STOPPED' | 'ENDED';
+            export type AdExperimentExecutionState =
+              | 'PENDING'
+              | 'RUNNING'
+              | 'ON_HOLD'
+              | 'STOPPED'
+              | 'ENDED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdExperimentState.pdsc
 
             export interface AdExperimentState {
@@ -14477,7 +15115,12 @@ declare namespace Com {
             export type AdSegmentStatus = 'READY' | 'ERROR';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdSegmentType.pdsc
 
-            export type AdSegmentType = 'MEMBER_PERSONA' | 'BULK' | 'RETARGETING' | 'MARKET_AUTOMATION' | 'ENTITY';
+            export type AdSegmentType =
+              | 'MEMBER_PERSONA'
+              | 'BULK'
+              | 'RETARGETING'
+              | 'MARKET_AUTOMATION'
+              | 'ENTITY';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdsFulfillmentGrouping.pdsc
 
             export interface AdsFulfillmentGrouping {
@@ -14488,7 +15131,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdSwapContext.pdsc
 
-            export type AdSwapContext = 'UPDATE_IN_ORIGINAL_FEED' | 'UPDATE_FROM_NEW_UPDATES_PILL_IN_CACHED_FEED';
+            export type AdSwapContext =
+              | 'UPDATE_IN_ORIGINAL_FEED'
+              | 'UPDATE_FROM_NEW_UPDATES_PILL_IN_CACHED_FEED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdTargetingEntity.pdsc
 
             export interface AdTargetingEntity {
@@ -14503,10 +15148,17 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdUnwrappedUrlMatchResult.pdsc
 
-            export type AdUnwrappedUrlMatchResult = 'MATCH' | 'MISMATCH' | 'FAILED';
+            export type AdUnwrappedUrlMatchResult =
+              | 'MATCH'
+              | 'MISMATCH'
+              | 'FAILED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdUserActionStatus.pdsc
 
-            export type AdUserActionStatus = 'SUCCESS' | 'FAILURE' | 'NOT_FOUND' | 'FORBIDDEN';
+            export type AdUserActionStatus =
+              | 'SUCCESS'
+              | 'FAILURE'
+              | 'NOT_FOUND'
+              | 'FORBIDDEN';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/AdUserActionType.pdsc
 
             export type AdUserActionType = 'LEAD_REVOKE';
@@ -14617,13 +15269,18 @@ declare namespace Com {
               | 'REACH_AND_FREQUENCY_CAMPAIGN_LEVEL_FCAP';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/CampaignForecastingFeedbackEnum.pdsc
 
-            export type CampaignForecastingFeedbackEnum = 'NOT_ACCURATE' | 'NOT_USEFUL' | 'NOT_ENOUGH';
+            export type CampaignForecastingFeedbackEnum =
+              | 'NOT_ACCURATE'
+              | 'NOT_USEFUL'
+              | 'NOT_ENOUGH';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/CompanyMatchEntityAction.pdsc
 
             export type CompanyMatchEntityAction = 'ADD' | 'REMOVE' | 'UPDATE';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/ConversionAttributionType.pdsc
 
-            export type ConversionAttributionType = 'LAST_TOUCH_BY_CAMPAIGN' | 'LAST_TOUCH_BY_CONVERSION';
+            export type ConversionAttributionType =
+              | 'LAST_TOUCH_BY_CAMPAIGN'
+              | 'LAST_TOUCH_BY_CONVERSION';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/ConversionSettings.pdsc
 
             export interface ConversionSettings {
@@ -14685,7 +15342,11 @@ declare namespace Com {
             export type FulfillmentLineAccountType = 'BUSINESS' | 'ENTERPRISE';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/InsightTagFormat.pdsc
 
-            export type InsightTagFormat = 'JAVASCRIPT' | 'IMAGE_PIXEL' | 'AMP' | 'OTHER';
+            export type InsightTagFormat =
+              | 'JAVASCRIPT'
+              | 'IMAGE_PIXEL'
+              | 'AMP'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/LanChargePriceModel.pdsc
 
             export type LanChargePriceModel =
@@ -14704,10 +15365,16 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/LeadNotificationUrlStatus.pdsc
 
-            export type LeadNotificationUrlStatus = 'ACTIVE' | 'PAUSED' | 'CANCELED';
+            export type LeadNotificationUrlStatus =
+              | 'ACTIVE'
+              | 'PAUSED'
+              | 'CANCELED';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/LineOfBusiness.pdsc
 
-            export type LineOfBusiness = 'MARKETING_SOLUTIONS' | 'TALENT_SOLUTIONS' | 'LINKEDIN_ON_LINKEDIN';
+            export type LineOfBusiness =
+              | 'MARKETING_SOLUTIONS'
+              | 'TALENT_SOLUTIONS'
+              | 'LINKEDIN_ON_LINKEDIN';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/NameTermValueFeature.pdsc
 
             export interface NameTermValueFeature {
@@ -14783,7 +15450,9 @@ declare namespace Com {
               | 'MAX_REACH';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/OrganizationOnsiteEngagementActionType.pdsc
 
-            export type OrganizationOnsiteEngagementActionType = 'PIPELINE_BUILDER_LEAD_SUBMIT' | 'JOB_APPLY';
+            export type OrganizationOnsiteEngagementActionType =
+              | 'PIPELINE_BUILDER_LEAD_SUBMIT'
+              | 'JOB_APPLY';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/OrganizationOnsiteEngagementContext.pdsc
 
             export interface OrganizationOnsiteEngagementContext {
@@ -14889,7 +15558,12 @@ declare namespace Com {
               | 'SEEK';
             // Generated from: com/linkedin/avro2pegasus/events/common/ads/VideoUIContext.pdsc
 
-            export type VideoUIContext = 'FEED' | 'FULL_SCREEN_PLAYER' | 'PLAYER' | 'FORM' | 'ADS_LANDING_PAGE';
+            export type VideoUIContext =
+              | 'FEED'
+              | 'FULL_SCREEN_PLAYER'
+              | 'PLAYER'
+              | 'FORM'
+              | 'ADS_LANDING_PAGE';
             namespace Pinot {
               // Generated from: com/linkedin/avro2pegasus/events/common/ads/pinot/ServingLocation.pdsc
 
@@ -14899,10 +15573,15 @@ declare namespace Com {
           namespace Amplifier {
             // Generated from: com/linkedin/avro2pegasus/events/common/amplifier/AmplifierNotificationDeliveryChannel.pdsc
 
-            export type AmplifierNotificationDeliveryChannel = 'IN_APP_NOTIFICATION' | 'PUSH' | 'IN_APP_ALERT';
+            export type AmplifierNotificationDeliveryChannel =
+              | 'IN_APP_NOTIFICATION'
+              | 'PUSH'
+              | 'IN_APP_ALERT';
             // Generated from: com/linkedin/avro2pegasus/events/common/amplifier/AmplifierNotificationType.pdsc
 
-            export type AmplifierNotificationType = 'LIVE_VIDEO' | 'LIVE_VIDEO_TEST';
+            export type AmplifierNotificationType =
+              | 'LIVE_VIDEO'
+              | 'LIVE_VIDEO_TEST';
           }
           namespace Approvals {
             // Generated from: com/linkedin/avro2pegasus/events/common/approvals/ActionLogEventType.pdsc
@@ -14950,7 +15629,9 @@ declare namespace Com {
           namespace Businessprocessmonitoring {
             // Generated from: com/linkedin/avro2pegasus/events/common/businessprocessmonitoring/BusinessProcessMonitoringNamespace.pdsc
 
-            export type BusinessProcessMonitoringNamespace = 'HIRING_PLATFORM' | 'JOB_POSTINGS';
+            export type BusinessProcessMonitoringNamespace =
+              | 'HIRING_PLATFORM'
+              | 'JOB_POSTINGS';
           }
           namespace Cap {
             // Generated from: com/linkedin/avro2pegasus/events/common/cap/ProxyPhoneNumberRecord.pdsc
@@ -14997,7 +15678,11 @@ declare namespace Com {
             export type ColleagueRelationshipStatus = 'CURRENT' | 'PAST';
             // Generated from: com/linkedin/avro2pegasus/events/common/colleagues/ColleagueRelationshipType.pdsc
 
-            export type ColleagueRelationshipType = 'MANAGER' | 'DIRECT_REPORT' | 'PEER' | 'EXTENDED_PEER';
+            export type ColleagueRelationshipType =
+              | 'MANAGER'
+              | 'DIRECT_REPORT'
+              | 'PEER'
+              | 'EXTENDED_PEER';
             // Generated from: com/linkedin/avro2pegasus/events/common/colleagues/ColleagueRelationshipUpdateRecord.pdsc
 
             export interface ColleagueRelationshipUpdateRecord {
@@ -15007,7 +15692,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/colleagues/DeleteType.pdsc
 
-            export type DeleteType = 'MEMBER_TRIGGERED' | 'CONNECTION_BREAK' | 'ACCOUNT_PURGE';
+            export type DeleteType =
+              | 'MEMBER_TRIGGERED'
+              | 'CONNECTION_BREAK'
+              | 'ACCOUNT_PURGE';
           }
           namespace Commerce {
             namespace Checkoutwallettracking {
@@ -15044,7 +15732,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/events/common/commerce/checkoutwallettracking/subscriptionsOrderStatus.pdsc
 
-              export type subscriptionsOrderStatus = 'FREE' | 'PAID' | 'UNKNOWN';
+              export type subscriptionsOrderStatus =
+                | 'FREE'
+                | 'PAID'
+                | 'UNKNOWN';
             }
             namespace Contracts {
               // Generated from: com/linkedin/avro2pegasus/events/common/commerce/contracts/CommerceContractAmendedActivity.pdsc
@@ -15109,7 +15800,12 @@ declare namespace Com {
                 | 'EXCHANGED';
               // Generated from: com/linkedin/avro2pegasus/events/common/commerce/subscription/SubscriptionPurchaseChannel.pdsc
 
-              export type SubscriptionPurchaseChannel = 'ONLINE' | 'OFFLINE' | 'CSGRANTED' | 'IOS' | 'FIELD';
+              export type SubscriptionPurchaseChannel =
+                | 'ONLINE'
+                | 'OFFLINE'
+                | 'CSGRANTED'
+                | 'IOS'
+                | 'FIELD';
               // Generated from: com/linkedin/avro2pegasus/events/common/commerce/subscription/SubscriptionType.pdsc
 
               export type SubscriptionType =
@@ -15199,7 +15895,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/CommunicationChainEventType.pdsc
 
-            export type CommunicationChainEventType = 'DROP' | 'INFO' | 'AGGREGATION' | 'QUEUED';
+            export type CommunicationChainEventType =
+              | 'DROP'
+              | 'INFO'
+              | 'AGGREGATION'
+              | 'QUEUED';
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/CommunicationChainInitEvent.pdsc
 
             export interface CommunicationChainInitEvent {
@@ -15942,10 +16642,18 @@ declare namespace Com {
             export interface SkillEndorsement {}
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/SnapshotMechanism.pdsc
 
-            export type SnapshotMechanism = 'MEMBER_ALL' | 'MEMBER_PASS' | 'RANDOM_BUCKET';
+            export type SnapshotMechanism =
+              | 'MEMBER_ALL'
+              | 'MEMBER_PASS'
+              | 'RANDOM_BUCKET';
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/SocialActionType.pdsc
 
-            export type SocialActionType = 'LIKE' | 'COMMENT' | 'MENTION' | 'SHARE' | 'REACT';
+            export type SocialActionType =
+              | 'LIKE'
+              | 'COMMENT'
+              | 'MENTION'
+              | 'SHARE'
+              | 'REACT';
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/SocialConversationAction.pdsc
 
             export interface SocialConversationAction {
@@ -15954,7 +16662,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/SocialConversationRole.pdsc
 
-            export type SocialConversationRole = 'ORIGINATOR' | 'LIKER' | 'COMMENTER' | 'MENTIONEE';
+            export type SocialConversationRole =
+              | 'ORIGINATOR'
+              | 'LIKER'
+              | 'COMMENTER'
+              | 'MENTIONEE';
             // Generated from: com/linkedin/avro2pegasus/events/common/communications/SpeakeasyMention.pdsc
 
             export interface SpeakeasyMention {}
@@ -16131,7 +16843,11 @@ declare namespace Com {
               | 'NO_IN_APP_TYPE_FOUND';
             // Generated from: com/linkedin/avro2pegasus/events/common/concourse/ConcourseSamzaJob.pdsc
 
-            export type ConcourseSamzaJob = 'REPARTITIONER' | 'PREFANOUT' | 'FANOUT' | 'SCORER';
+            export type ConcourseSamzaJob =
+              | 'REPARTITIONER'
+              | 'PREFANOUT'
+              | 'FANOUT'
+              | 'SCORER';
           }
           namespace Content {
             // Generated from: com/linkedin/avro2pegasus/events/common/content/ActionableContent.pdsc
@@ -16256,7 +16972,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/content/ShareboxGuiderPromptType.pdsc
 
-            export type ShareboxGuiderPromptType = 'JOB' | 'NEWS' | 'MULTILINGUAL' | 'FIRST_POST_CREATOR';
+            export type ShareboxGuiderPromptType =
+              | 'JOB'
+              | 'NEWS'
+              | 'MULTILINGUAL'
+              | 'FIRST_POST_CREATOR';
             // Generated from: com/linkedin/avro2pegasus/events/common/content/TaggedEntity.pdsc
 
             export interface TaggedEntity {
@@ -16357,7 +17077,10 @@ declare namespace Com {
           namespace Dataexport {
             // Generated from: com/linkedin/avro2pegasus/events/common/dataexport/DataExportState.pdsc
 
-            export type DataExportState = 'SUCCESSFUL' | 'FAILED' | 'PARTIALLY_SUCCESSFUL';
+            export type DataExportState =
+              | 'SUCCESSFUL'
+              | 'FAILED'
+              | 'PARTIALLY_SUCCESSFUL';
             // Generated from: com/linkedin/avro2pegasus/events/common/dataexport/DatasetExportStatus.pdsc
 
             export interface DatasetExportStatus {
@@ -16494,7 +17217,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/datamonitor/IssueStatus.pdsc
 
-            export type IssueStatus = 'OPEN' | 'WORKING' | 'RESOLVED' | 'BLOCKED';
+            export type IssueStatus =
+              | 'OPEN'
+              | 'WORKING'
+              | 'RESOLVED'
+              | 'BLOCKED';
             // Generated from: com/linkedin/avro2pegasus/events/common/datamonitor/IssueType.pdsc
 
             export type IssueType = 'JIRA' | 'GCN' | 'AUTO_ALERT';
@@ -16833,7 +17560,11 @@ declare namespace Com {
           namespace Follow {
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowActionType.pdsc
 
-            export type FollowActionType = 'FOLLOW' | 'UNFOLLOW' | 'FOLLOW_ALL' | 'DISMISS';
+            export type FollowActionType =
+              | 'FOLLOW'
+              | 'UNFOLLOW'
+              | 'FOLLOW_ALL'
+              | 'DISMISS';
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowDisplayModule.pdsc
 
             export type FollowDisplayModule =
@@ -16885,7 +17616,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowRecommendationContextType.pdsc
 
-            export type FollowRecommendationContextType = 'NEW_FOLLOWEE' | 'NEW_MEMBER';
+            export type FollowRecommendationContextType =
+              | 'NEW_FOLLOWEE'
+              | 'NEW_MEMBER';
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowRecommendationEntityResult.pdsc
 
             export interface FollowRecommendationEntityResult {
@@ -16983,7 +17716,9 @@ declare namespace Com {
               | 'SIMILAR_PAGES';
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowRecommendationViewerCohort.pdsc
 
-            export type FollowRecommendationViewerCohort = 'EXISTING_MEMBER' | 'NEW_MEMBER';
+            export type FollowRecommendationViewerCohort =
+              | 'EXISTING_MEMBER'
+              | 'NEW_MEMBER';
             // Generated from: com/linkedin/avro2pegasus/events/common/follow/FollowRecommenderResult.pdsc
 
             export interface FollowRecommenderResult {
@@ -17003,7 +17738,12 @@ declare namespace Com {
           namespace Fuse {
             // Generated from: com/linkedin/avro2pegasus/events/common/fuse/FuseRestrictionAction.pdsc
 
-            export type FuseRestrictionAction = 'NONE' | 'FLAG' | 'LOG' | 'WARN' | 'DROP';
+            export type FuseRestrictionAction =
+              | 'NONE'
+              | 'FLAG'
+              | 'LOG'
+              | 'WARN'
+              | 'DROP';
           }
           namespace Helpcenter {
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/HelpCenterEntityVersionType.pdsc
@@ -17032,7 +17772,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/HelpCenterInterfaceType.pdsc
 
-            export type HelpCenterInterfaceType = 'HELP_CENTER' | 'IN_PRODUCT_HELP';
+            export type HelpCenterInterfaceType =
+              | 'HELP_CENTER'
+              | 'IN_PRODUCT_HELP';
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/HelpCenterPersonalizedSupportInfo.pdsc
 
             export interface HelpCenterPersonalizedSupportInfo {
@@ -17058,10 +17800,18 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/InteractiveSearchInfoOptionType.pdsc
 
-            export type InteractiveSearchInfoOptionType = 'SINGLE_SELECT' | 'MULTI_SELECT' | 'LINK' | 'INPUT';
+            export type InteractiveSearchInfoOptionType =
+              | 'SINGLE_SELECT'
+              | 'MULTI_SELECT'
+              | 'LINK'
+              | 'INPUT';
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/InteractiveSearchInfoScenario.pdsc
 
-            export type InteractiveSearchInfoScenario = 'AMBIGUOUS' | 'FOLLOW_UP' | 'STEP_BY_STEP' | 'NOT_RELEVANT';
+            export type InteractiveSearchInfoScenario =
+              | 'AMBIGUOUS'
+              | 'FOLLOW_UP'
+              | 'STEP_BY_STEP'
+              | 'NOT_RELEVANT';
             // Generated from: com/linkedin/avro2pegasus/events/common/helpcenter/Type.pdsc
 
             export type Type = 'ARTICLE' | 'EXTERNAL';
@@ -17069,7 +17819,11 @@ declare namespace Com {
           namespace Hiringprofessionalrecommendation {
             // Generated from: com/linkedin/avro2pegasus/events/common/hiringprofessionalrecommendation/HiringProfessionalRecommendationAction.pdsc
 
-            export type HiringProfessionalRecommendationAction = 'PROFILE_VIEW' | 'CONNECT' | 'MESSAGE' | 'DISMISS';
+            export type HiringProfessionalRecommendationAction =
+              | 'PROFILE_VIEW'
+              | 'CONNECT'
+              | 'MESSAGE'
+              | 'DISMISS';
             // Generated from: com/linkedin/avro2pegasus/events/common/hiringprofessionalrecommendation/HiringProfessionalRecommendationItem.pdsc
 
             export interface HiringProfessionalRecommendationItem {
@@ -17186,7 +17940,11 @@ declare namespace Com {
               | 'ZEPHYR_HASHTAG';
             // Generated from: com/linkedin/avro2pegasus/events/common/interest/QueryType.pdsc
 
-            export type QueryType = 'FOLLOWED_TAGS' | 'SEARCH' | 'EDITORIAL_PROMOTIONS' | 'ZERO_ORGANIC_LIQUIDITY';
+            export type QueryType =
+              | 'FOLLOWED_TAGS'
+              | 'SEARCH'
+              | 'EDITORIAL_PROMOTIONS'
+              | 'ZERO_ORGANIC_LIQUIDITY';
             // Generated from: com/linkedin/avro2pegasus/events/common/interest/RecommendedContentFromFollowedEntity.pdsc
 
             export interface RecommendedContentFromFollowedEntity {
@@ -17213,7 +17971,12 @@ declare namespace Com {
           namespace Jobs {
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/ActionReason.pdsc
 
-            export type ActionReason = 'TITLE' | 'SUPER_TITLE' | 'COMPANY' | 'LOCATION' | 'SENIORITY';
+            export type ActionReason =
+              | 'TITLE'
+              | 'SUPER_TITLE'
+              | 'COMPANY'
+              | 'LOCATION'
+              | 'SENIORITY';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/BudgetPageContinueData.pdsc
 
             export interface BudgetPageContinueData {
@@ -17223,7 +17986,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/CompanyStandardizer.pdsc
 
-            export type CompanyStandardizer = 'OMNI_COMPANY_STANDARDIZER' | 'JOB_TO_COMPANY_STANDARDIZER';
+            export type CompanyStandardizer =
+              | 'OMNI_COMPANY_STANDARDIZER'
+              | 'JOB_TO_COMPANY_STANDARDIZER';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/CompensationRange.pdsc
 
             export interface CompensationRange {
@@ -17252,7 +18017,11 @@ declare namespace Com {
               | 'INTERNSHIP';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/EntityRelevanceFeedbackChannel.pdsc
 
-            export type EntityRelevanceFeedbackChannel = 'TOP_JOB' | 'JYMBII' | 'BREAKING_JOB' | 'FAST_TRACK';
+            export type EntityRelevanceFeedbackChannel =
+              | 'TOP_JOB'
+              | 'JYMBII'
+              | 'BREAKING_JOB'
+              | 'FAST_TRACK';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/EntityRelevanceFeedbackType.pdsc
 
             export type EntityRelevanceFeedbackType = 'JOB_POSTING';
@@ -17267,7 +18036,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/GuestWowAccountCreationStatus.pdsc
 
-            export type GuestWowAccountCreationStatus = 'SUCCEEDED' | 'UI_INVALID' | 'API_INVALID' | 'CHALLENGED';
+            export type GuestWowAccountCreationStatus =
+              | 'SUCCEEDED'
+              | 'UI_INVALID'
+              | 'API_INVALID'
+              | 'CHALLENGED';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/GuestWowCreateAccountData.pdsc
 
             export interface GuestWowCreateAccountData {
@@ -17324,7 +18097,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobCandidateRecommendationExcludingReason.pdsc
 
-            export type JobCandidateRecommendationExcludingReason = 'UCF' | 'CUTOFF' | 'EXPERIMENT';
+            export type JobCandidateRecommendationExcludingReason =
+              | 'UCF'
+              | 'CUTOFF'
+              | 'EXPERIMENT';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobDerivedCompanyResult.pdsc
 
             export interface JobDerivedCompanyResult {
@@ -17442,7 +18218,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPostingFormAction.pdsc
 
-            export type JobPostingFormAction = 'SAVE_DRAFT' | 'SAVE_LISTED' | 'SAVE_CONTINUE';
+            export type JobPostingFormAction =
+              | 'SAVE_DRAFT'
+              | 'SAVE_LISTED'
+              | 'SAVE_CONTINUE';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPostingImpressionChannel.pdsc
 
             export type JobPostingImpressionChannel =
@@ -17453,10 +18232,16 @@ declare namespace Com {
               | 'NUS';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPostingImpressionPortal.pdsc
 
-            export type JobPostingImpressionPortal = 'JOB_SEEKER_APP' | 'VOYAGER' | 'NEPTUNE';
+            export type JobPostingImpressionPortal =
+              | 'JOB_SEEKER_APP'
+              | 'VOYAGER'
+              | 'NEPTUNE';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPostingInternalTag.pdsc
 
-            export type JobPostingInternalTag = 'UBIQUITY2' | 'UBIQUITY3' | 'UBIQUITY4';
+            export type JobPostingInternalTag =
+              | 'UBIQUITY2'
+              | 'UBIQUITY3'
+              | 'UBIQUITY4';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPostingSourceType.pdsc
 
             export type JobPostingSourceType =
@@ -17477,16 +18262,23 @@ declare namespace Com {
               | 'ENCRYPTION';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobPromotionType.pdsc
 
-            export type JobPromotionType = 'URL_PROMO_CODE' | 'TEXT_ENTRY_PROMO_OFFER';
+            export type JobPromotionType =
+              | 'URL_PROMO_CODE'
+              | 'TEXT_ENTRY_PROMO_OFFER';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobRankingSlotType.pdsc
 
             export type JobRankingSlotType = 'PROMOTED' | 'ORGANIC';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobResponsePredictionScoreType.pdsc
 
-            export type JobResponsePredictionScoreType = 'CLICK' | 'APPLY' | 'QUALITY';
+            export type JobResponsePredictionScoreType =
+              | 'CLICK'
+              | 'APPLY'
+              | 'QUALITY';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobsTargetingAttributesPrefillType.pdsc
 
-            export type JobsTargetingAttributesPrefillType = 'INFERRED' | 'STORED';
+            export type JobsTargetingAttributesPrefillType =
+              | 'INFERRED'
+              | 'STORED';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/JobToMemberScoringChannel.pdsc
 
             export type JobToMemberScoringChannel = 'INSTANT_SEARCH_ALERTS';
@@ -17587,10 +18379,16 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/SalaryModuleSelectionType.pdsc
 
-            export type SalaryModuleSelectionType = 'ESTIMATION' | 'POSTER_NOT_FILLED' | 'POSTER_FILLED';
+            export type SalaryModuleSelectionType =
+              | 'ESTIMATION'
+              | 'POSTER_NOT_FILLED'
+              | 'POSTER_FILLED';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/SalaryModuleStatusType.pdsc
 
-            export type SalaryModuleStatusType = 'SALARY_MODULE_OFF' | 'ESTIMATION_OFF' | 'ESTIMATION_ON';
+            export type SalaryModuleStatusType =
+              | 'SALARY_MODULE_OFF'
+              | 'ESTIMATION_OFF'
+              | 'ESTIMATION_ON';
             // Generated from: com/linkedin/avro2pegasus/events/common/jobs/SkillSource.pdsc
 
             export type SkillSource =
@@ -17668,7 +18466,10 @@ declare namespace Com {
           namespace Learning {
             // Generated from: com/linkedin/avro2pegasus/events/common/learning/EnterpriseLearningAccountBindingType.pdsc
 
-            export type EnterpriseLearningAccountBindingType = 'OPTIONAL' | 'REQUIRED' | 'FORBIDDEN';
+            export type EnterpriseLearningAccountBindingType =
+              | 'OPTIONAL'
+              | 'REQUIRED'
+              | 'FORBIDDEN';
             // Generated from: com/linkedin/avro2pegasus/events/common/learning/EnterpriseLearningActivationChannelType.pdsc
 
             export type EnterpriseLearningActivationChannelType =
@@ -17746,12 +18547,19 @@ declare namespace Com {
               | 'PARTNERSHIP';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/DepartmentFilter.pdsc
 
-            export interface DepartmentFilter extends Com.Linkedin.Avro2pegasus.Events.Common.IntegerRange {
+            export interface DepartmentFilter
+              extends Com.Linkedin.Avro2pegasus.Events.Common.IntegerRange {
               departmentUrn: string;
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/FilterScope.pdsc
 
-            export type FilterScope = 'LEAD' | 'ACCOUNT' | 'CURRENT_OR_PAST' | 'CURRENT' | 'PAST' | 'PAST_NOT_CURRENT';
+            export type FilterScope =
+              | 'LEAD'
+              | 'ACCOUNT'
+              | 'CURRENT_OR_PAST'
+              | 'CURRENT'
+              | 'PAST'
+              | 'PAST_NOT_CURRENT';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/FollowerRange.pdsc
 
             export type FollowerRange =
@@ -17789,7 +18597,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/MemberRelationship.pdsc
 
-            export type MemberRelationship = 'FIRST_DEGREE' | 'SECOND_DEGREE' | 'THIRD_DEGREE_AND_BEYOND' | 'GROUP';
+            export type MemberRelationship =
+              | 'FIRST_DEGREE'
+              | 'SECOND_DEGREE'
+              | 'THIRD_DEGREE_AND_BEYOND'
+              | 'GROUP';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/MemberSince.pdsc
 
             export type MemberSince =
@@ -17833,10 +18645,16 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/SalesNavigatorApplicationPlatformAnalyticsDataType.pdsc
 
-            export type SalesNavigatorApplicationPlatformAnalyticsDataType = 'ACTIVITY' | 'ACTIVITY_OUTCOME' | 'SEAT';
+            export type SalesNavigatorApplicationPlatformAnalyticsDataType =
+              | 'ACTIVITY'
+              | 'ACTIVITY_OUTCOME'
+              | 'SEAT';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/SearchDataSource.pdsc
 
-            export type SearchDataSource = 'LINKEDIN' | 'SALESFORCE' | 'DYNAMICS';
+            export type SearchDataSource =
+              | 'LINKEDIN'
+              | 'SALESFORCE'
+              | 'DYNAMICS';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/SearchFilter.pdsc
 
             export interface SearchFilter {
@@ -17977,7 +18795,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/SearchSortOrder.pdsc
 
-            export type SearchSortOrder = 'ALPHABETICAL' | 'RECENCY' | 'RELEVANCE';
+            export type SearchSortOrder =
+              | 'ALPHABETICAL'
+              | 'RECENCY'
+              | 'RELEVANCE';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/SearchSpotlight.pdsc
 
             export interface SearchSpotlight {
@@ -18004,7 +18825,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/TimeScope.pdsc
 
-            export type TimeScope = 'CURRENT_OR_PAST' | 'CURRENT' | 'PAST' | 'PAST_NOT_CURRENT';
+            export type TimeScope =
+              | 'CURRENT_OR_PAST'
+              | 'CURRENT'
+              | 'PAST'
+              | 'PAST_NOT_CURRENT';
             // Generated from: com/linkedin/avro2pegasus/events/common/lighthouse/WorkExperienceTimeRange.pdsc
 
             export type WorkExperienceTimeRange =
@@ -18092,7 +18917,10 @@ declare namespace Com {
               | 'STORIES_IMAGE';
             // Generated from: com/linkedin/avro2pegasus/events/common/media/MediaLiveState.pdsc
 
-            export type MediaLiveState = 'IS_LIVE' | 'WAS_LIVE' | 'PRE_RECORDED';
+            export type MediaLiveState =
+              | 'IS_LIVE'
+              | 'WAS_LIVE'
+              | 'PRE_RECORDED';
             // Generated from: com/linkedin/avro2pegasus/events/common/media/MediaTrackTransformation.pdsc
 
             export interface MediaTrackTransformation {
@@ -18127,7 +18955,12 @@ declare namespace Com {
               | 'ENCODER_CONFIGURATION_ERROR';
             // Generated from: com/linkedin/avro2pegasus/events/common/media/TransformerState.pdsc
 
-            export type TransformerState = 'COMPLETED' | 'TIMEOUT' | 'CANCELLED' | 'FAILED' | 'SKIPPED';
+            export type TransformerState =
+              | 'COMPLETED'
+              | 'TIMEOUT'
+              | 'CANCELLED'
+              | 'FAILED'
+              | 'SKIPPED';
             // Generated from: com/linkedin/avro2pegasus/events/common/media/VideoTrackMetadata.pdsc
 
             export interface VideoTrackMetadata {
@@ -18153,7 +18986,12 @@ declare namespace Com {
           namespace Merlin {
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinActionType.pdsc
 
-            export type MerlinActionType = 'CLICK' | 'SELECT' | 'UNSELECT' | 'SAVE' | 'UNSAVE';
+            export type MerlinActionType =
+              | 'CLICK'
+              | 'SELECT'
+              | 'UNSELECT'
+              | 'SAVE'
+              | 'UNSAVE';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinCampaignCustomViewKey.pdsc
 
             export interface MerlinCampaignCustomViewKey {
@@ -18168,7 +19006,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinCampaignNoteUsageContextType.pdsc
 
-            export type MerlinCampaignNoteUsageContextType = 'NOTE_LIST' | 'NOTIFICATION';
+            export type MerlinCampaignNoteUsageContextType =
+              | 'NOTE_LIST'
+              | 'NOTIFICATION';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinCrmContact.pdsc
 
             export interface MerlinCrmContact {
@@ -18185,7 +19025,14 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinLineOfBusiness.pdsc
 
-            export type MerlinLineOfBusiness = 'LMS' | 'LSS' | 'LTS' | 'LLS' | 'EL8' | 'CEG' | 'TAL';
+            export type MerlinLineOfBusiness =
+              | 'LMS'
+              | 'LSS'
+              | 'LTS'
+              | 'LLS'
+              | 'EL8'
+              | 'CEG'
+              | 'TAL';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinRecommendation.pdsc
 
             export interface MerlinRecommendation {
@@ -18216,7 +19063,9 @@ declare namespace Com {
               | 'UNFAVORITE';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinRecommendationCategory.pdsc
 
-            export type MerlinRecommendationCategory = 'QUICK_WIN' | 'STRATEGIC_ACCOUNT';
+            export type MerlinRecommendationCategory =
+              | 'QUICK_WIN'
+              | 'STRATEGIC_ACCOUNT';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchActionType.pdsc
 
             export type MerlinSearchActionType =
@@ -18300,19 +19149,30 @@ declare namespace Com {
               | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchIndexLTSSubscriptionType.pdsc
 
-            export type MerlinSearchIndexLTSSubscriptionType = 'RCORP' | 'RLITE';
+            export type MerlinSearchIndexLTSSubscriptionType =
+              | 'RCORP'
+              | 'RLITE';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchIndexSubscriptionChannel.pdsc
 
-            export type MerlinSearchIndexSubscriptionChannel = 'FIELD' | 'ONLINE';
+            export type MerlinSearchIndexSubscriptionChannel =
+              | 'FIELD'
+              | 'ONLINE';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchIndexSubscriptionTimeScope.pdsc
 
-            export type MerlinSearchIndexSubscriptionTimeScope = 'CURRENT' | 'PAST';
+            export type MerlinSearchIndexSubscriptionTimeScope =
+              | 'CURRENT'
+              | 'PAST';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchIndexUpdateAction.pdsc
 
-            export type MerlinSearchIndexUpdateAction = 'CREATE' | 'UPDATE' | 'DELETE';
+            export type MerlinSearchIndexUpdateAction =
+              | 'CREATE'
+              | 'UPDATE'
+              | 'DELETE';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchModuleKey.pdsc
 
-            export type MerlinSearchModuleKey = 'PROSPECT_FINDER_MEMBER_CARD' | 'PROSPECT_FINDER_INSIGHT_CARD';
+            export type MerlinSearchModuleKey =
+              | 'PROSPECT_FINDER_MEMBER_CARD'
+              | 'PROSPECT_FINDER_INSIGHT_CARD';
             // Generated from: com/linkedin/avro2pegasus/events/common/merlin/MerlinSearchOrigin.pdsc
 
             export type MerlinSearchOrigin = 'COMPANY_TYPEAHEAD' | 'PROSPECT';
@@ -18414,7 +19274,12 @@ declare namespace Com {
             export type MessageReferrerType = 'ASSISTANT';
             // Generated from: com/linkedin/avro2pegasus/events/common/messaging/MessageSourceType.pdsc
 
-            export type MessageSourceType = 'OVERLAY' | 'PILLAR' | 'MOBILE' | 'REMAILER' | 'OTHER';
+            export type MessageSourceType =
+              | 'OVERLAY'
+              | 'PILLAR'
+              | 'MOBILE'
+              | 'REMAILER'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/messaging/MessagingDeliveryHeader.pdsc
 
             export interface MessagingDeliveryHeader {
@@ -18475,7 +19340,10 @@ declare namespace Com {
             export type ActorEntityType = 'MEMBER' | 'COMPANY';
             // Generated from: com/linkedin/avro2pegasus/events/common/mirror/GesturePrivacySetting.pdsc
 
-            export type GesturePrivacySetting = 'PUBLIC' | 'OBFUSCATED' | 'ANONYMOUS';
+            export type GesturePrivacySetting =
+              | 'PUBLIC'
+              | 'OBFUSCATED'
+              | 'ANONYMOUS';
             // Generated from: com/linkedin/avro2pegasus/events/common/mirror/GestureType.pdsc
 
             export type GestureType =
@@ -18627,7 +19495,10 @@ declare namespace Com {
               | 'XMPP_SERVER';
             // Generated from: com/linkedin/avro2pegasus/events/common/pem/NetworkErrorReportRequestPhase.pdsc
 
-            export type NetworkErrorReportRequestPhase = 'DNS' | 'CONNECTION' | 'APPLICATION';
+            export type NetworkErrorReportRequestPhase =
+              | 'DNS'
+              | 'CONNECTION'
+              | 'APPLICATION';
             // Generated from: com/linkedin/avro2pegasus/events/common/pem/NetworkErrorType.pdsc
 
             export type NetworkErrorType =
@@ -18708,13 +19579,25 @@ declare namespace Com {
               | 'WORKING_WITH_JIRA';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/IncidentModificationType.pdsc
 
-            export type IncidentModificationType = 'CREATE' | 'UPDATE' | 'EVENTS_ADDED' | 'LIVE_STATUS_UPDATED';
+            export type IncidentModificationType =
+              | 'CREATE'
+              | 'UPDATE'
+              | 'EVENTS_ADDED'
+              | 'LIVE_STATUS_UPDATED';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/IncidentState.pdsc
 
-            export type IncidentState = 'UNCLAIMED' | 'CLAIMED' | 'CLAIMED_WO_JIRA' | 'ONHOLD' | 'RESOLVED';
+            export type IncidentState =
+              | 'UNCLAIMED'
+              | 'CLAIMED'
+              | 'CLAIMED_WO_JIRA'
+              | 'ONHOLD'
+              | 'RESOLVED';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/IncidentUpdateSource.pdsc
 
-            export type IncidentUpdateSource = 'INCIDENT_POST_API' | 'INCIDENT_ALERT_POST_API' | 'OFFLINE_PROCESS';
+            export type IncidentUpdateSource =
+              | 'INCIDENT_POST_API'
+              | 'INCIDENT_ALERT_POST_API'
+              | 'OFFLINE_PROCESS';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/ServerUsageCheckCheckerType.pdsc
 
             export type ServerUsageCheckCheckerType = 'RAIN' | 'RANGE' | 'VIP';
@@ -18723,7 +19606,12 @@ declare namespace Com {
             export type ServerUsageCheckResultType = 'PASS' | 'FAIL' | 'ERROR';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/TriageRecordStatus.pdsc
 
-            export type TriageRecordStatus = 'CLAIMED' | 'UNCLAIMED' | 'OPEN' | 'CLOSED' | 'TO_BE_CREATED';
+            export type TriageRecordStatus =
+              | 'CLAIMED'
+              | 'UNCLAIMED'
+              | 'OPEN'
+              | 'CLOSED'
+              | 'TO_BE_CREATED';
             // Generated from: com/linkedin/avro2pegasus/events/common/pie/TriageRecordType.pdsc
 
             export type TriageRecordType = 'JIRA' | 'IRIS' | 'CLAIMED_WO_JIRA';
@@ -18731,7 +19619,11 @@ declare namespace Com {
           namespace Premium {
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/CancelReason.pdsc
 
-            export type CancelReason = 'NOT_HIRING_ANYMORE' | 'PRICE_TOO_HIGH' | 'FEATURES_NOT_WORKING' | 'OTHER';
+            export type CancelReason =
+              | 'NOT_HIRING_ANYMORE'
+              | 'PRICE_TOO_HIGH'
+              | 'FEATURES_NOT_WORKING'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/ChooserPageCard.pdsc
 
             export interface ChooserPageCard {
@@ -18803,10 +19695,16 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumEntityContextType.pdsc
 
-            export type PremiumEntityContextType = 'CAREER_INTERESTS_OPEN_CANDIDATE' | 'INTERVIEW_PREP_ASSESSMENT';
+            export type PremiumEntityContextType =
+              | 'CAREER_INTERESTS_OPEN_CANDIDATE'
+              | 'INTERVIEW_PREP_ASSESSMENT';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumEntityFeedbackActionType.pdsc
 
-            export type PremiumEntityFeedbackActionType = 'LIKE' | 'DISLIKE' | 'NOT_RELEVANT' | 'CONTAINS_ERROR';
+            export type PremiumEntityFeedbackActionType =
+              | 'LIKE'
+              | 'DISLIKE'
+              | 'NOT_RELEVANT'
+              | 'CONTAINS_ERROR';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumFeature.pdsc
 
             export type PremiumFeature =
@@ -18845,10 +19743,17 @@ declare namespace Com {
               | 'INTERVIEW_PREP';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumInMailMessageAction.pdsc
 
-            export type PremiumInMailMessageAction = 'INITIAL' | 'ACCEPT' | 'DECLINE';
+            export type PremiumInMailMessageAction =
+              | 'INITIAL'
+              | 'ACCEPT'
+              | 'DECLINE';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumInMailThreadStatus.pdsc
 
-            export type PremiumInMailThreadStatus = 'CREATED' | 'RECEIVED' | 'ACCEPTED' | 'DECLINED';
+            export type PremiumInMailThreadStatus =
+              | 'CREATED'
+              | 'RECEIVED'
+              | 'ACCEPTED'
+              | 'DECLINED';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumNotificationSetting.pdsc
 
             export interface PremiumNotificationSetting {
@@ -18857,10 +19762,19 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumPriceType.pdsc
 
-            export type PremiumPriceType = 'NON_RECURRING' | 'MONTHLY' | 'ANNUALLY';
+            export type PremiumPriceType =
+              | 'NON_RECURRING'
+              | 'MONTHLY'
+              | 'ANNUALLY';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumProductFamily.pdsc
 
-            export type PremiumProductFamily = 'JSS' | 'GENERAL' | 'SALES' | 'TALENT' | 'LEARNING' | 'ESSENTIALS';
+            export type PremiumProductFamily =
+              | 'JSS'
+              | 'GENERAL'
+              | 'SALES'
+              | 'TALENT'
+              | 'LEARNING'
+              | 'ESSENTIALS';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumPurchaseIntentType.pdsc
 
             export type PremiumPurchaseIntentType =
@@ -18888,10 +19802,15 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumSettingDiscloseAsProfileViewer.pdsc
 
-            export type PremiumSettingDiscloseAsProfileViewer = 'HIDE' | 'DISCLOSE_ANONYMOUS' | 'DISCLOSE_FULL';
+            export type PremiumSettingDiscloseAsProfileViewer =
+              | 'HIDE'
+              | 'DISCLOSE_ANONYMOUS'
+              | 'DISCLOSE_FULL';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumSettingName.pdsc
 
-            export type PremiumSettingName = 'ALLOW_OPEN_PROFILE' | 'DISCLOSE_AS_PROFILE_VIEWER';
+            export type PremiumSettingName =
+              | 'ALLOW_OPEN_PROFILE'
+              | 'DISCLOSE_AS_PROFILE_VIEWER';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/PremiumSubscription.pdsc
 
             export interface PremiumSubscription {
@@ -18903,7 +19822,9 @@ declare namespace Com {
             export type PremiumUpsellBlockingReasons = 'IOS' | 'CS_GRANTED';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/ProfileOptimizationSectionType.pdsc
 
-            export type ProfileOptimizationSectionType = 'SUMMARY' | 'POSITIONS';
+            export type ProfileOptimizationSectionType =
+              | 'SUMMARY'
+              | 'POSITIONS';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/ResumeOptimizationInsight.pdsc
 
             export interface ResumeOptimizationInsight {
@@ -18931,7 +19852,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/SuggestedContentType.pdsc
 
-            export type SuggestedContentType = 'ACHIEVEMENTS' | 'MEASURABLE_RESULTS' | 'RELATED_TITLE_DESCRIPTION';
+            export type SuggestedContentType =
+              | 'ACHIEVEMENTS'
+              | 'MEASURABLE_RESULTS'
+              | 'RELATED_TITLE_DESCRIPTION';
             // Generated from: com/linkedin/avro2pegasus/events/common/premium/SuggestedPhraseSkillActionType.pdsc
 
             export type SuggestedPhraseSkillActionType = 'CLICK';
@@ -19132,7 +20056,9 @@ declare namespace Com {
               | 'APPLY_STARTER_EXPLORER';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/CalendarSchedulingEntryPoint.pdsc
 
-            export type CalendarSchedulingEntryPoint = 'RECRUITER_INMAIL_COMPOSE' | 'RECRUITER_MAILBOX_REPLY';
+            export type CalendarSchedulingEntryPoint =
+              | 'RECRUITER_INMAIL_COMPOSE'
+              | 'RECRUITER_MAILBOX_REPLY';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/CandidateProfileUIDecoration.pdsc
 
             export type CandidateProfileUIDecoration =
@@ -19353,7 +20279,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterProxyPhoneDirectionType.pdsc
 
-            export type RecruiterProxyPhoneDirectionType = 'INBOUND' | 'OUTBOUND_API' | 'OUTBOUND_DIAL' | 'OTHER';
+            export type RecruiterProxyPhoneDirectionType =
+              | 'INBOUND'
+              | 'OUTBOUND_API'
+              | 'OUTBOUND_DIAL'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterProxyPhoneDurationAggregate.pdsc
 
             export interface RecruiterProxyPhoneDurationAggregate {
@@ -19378,7 +20308,12 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterProxyPhoneStatusType.pdsc
 
-            export type RecruiterProxyPhoneStatusType = 'IN_PROGRESS' | 'CANCELED' | 'COMPLETED' | 'FAILED' | 'OTHER';
+            export type RecruiterProxyPhoneStatusType =
+              | 'IN_PROGRESS'
+              | 'CANCELED'
+              | 'COMPLETED'
+              | 'FAILED'
+              | 'OTHER';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterSavedSearchDetails.pdsc
 
             export interface RecruiterSavedSearchDetails {
@@ -19459,10 +20394,17 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterSearchVersion.pdsc
 
-            export type RecruiterSearchVersion = 'SEARCHV2' | 'SMART_SEARCH' | 'SEARCHV1' | 'HIRING_PLATFORM_SEARCH';
+            export type RecruiterSearchVersion =
+              | 'SEARCHV2'
+              | 'SMART_SEARCH'
+              | 'SEARCHV1'
+              | 'HIRING_PLATFORM_SEARCH';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterSearchWorkflowType.pdsc
 
-            export type RecruiterSearchWorkflowType = 'BOOLEAN_KEYWORD_CRITERIA' | 'BY_JOB' | 'BY_IDEAL_CANDIDATE';
+            export type RecruiterSearchWorkflowType =
+              | 'BOOLEAN_KEYWORD_CRITERIA'
+              | 'BY_JOB'
+              | 'BY_IDEAL_CANDIDATE';
             // Generated from: com/linkedin/avro2pegasus/events/common/recruiter/RecruiterSmartSearchSuggestionType.pdsc
 
             export type RecruiterSmartSearchSuggestionType =
@@ -19564,7 +20506,11 @@ declare namespace Com {
               | 'LOAD_RESUME';
             // Generated from: com/linkedin/avro2pegasus/events/common/resume/ResumeParserName.pdsc
 
-            export type ResumeParserName = 'CONNECTIFIER' | 'DAXTRA' | 'LENS' | 'LINKEDIN';
+            export type ResumeParserName =
+              | 'CONNECTIFIER'
+              | 'DAXTRA'
+              | 'LENS'
+              | 'LINKEDIN';
             // Generated from: com/linkedin/avro2pegasus/events/common/resume/ResumePhoneNumber.pdsc
 
             export interface ResumePhoneNumber {
@@ -19584,7 +20530,11 @@ declare namespace Com {
           namespace Salesinsights {
             // Generated from: com/linkedin/avro2pegasus/events/common/salesinsights/ComparisonOperator.pdsc
 
-            export type ComparisonOperator = 'GREATER_THAN' | 'GREATER_EQUAL' | 'LESS_THAN' | 'LESS_EQUAL';
+            export type ComparisonOperator =
+              | 'GREATER_THAN'
+              | 'GREATER_EQUAL'
+              | 'LESS_THAN'
+              | 'LESS_EQUAL';
             // Generated from: com/linkedin/avro2pegasus/events/common/salesinsights/FacetComparisonClause.pdsc
 
             export interface FacetComparisonClause {
@@ -19608,7 +20558,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/salesinsights/MetricsReportExportType.pdsc
 
-            export type MetricsReportExportType = 'CRM' | 'CSV' | 'SALES_NAVIGATOR';
+            export type MetricsReportExportType =
+              | 'CRM'
+              | 'CSV'
+              | 'SALES_NAVIGATOR';
             // Generated from: com/linkedin/avro2pegasus/events/common/salesinsights/SalesInsightsMetricsQuery.pdsc
 
             export interface SalesInsightsMetricsQuery {
@@ -19706,10 +20659,16 @@ declare namespace Com {
           namespace Stories {
             // Generated from: com/linkedin/avro2pegasus/events/common/stories/PrivacySetting.pdsc
 
-            export type PrivacySetting = 'FULLY_VISIBLE' | 'OBFUSCATED' | 'INVISIBLE';
+            export type PrivacySetting =
+              | 'FULLY_VISIBLE'
+              | 'OBFUSCATED'
+              | 'INVISIBLE';
             // Generated from: com/linkedin/avro2pegasus/events/common/stories/StoryItemActionType.pdsc
 
-            export type StoryItemActionType = 'VIEW' | 'PROFILE_VIEW' | 'MESSAGE';
+            export type StoryItemActionType =
+              | 'VIEW'
+              | 'PROFILE_VIEW'
+              | 'MESSAGE';
           }
           namespace Talent {
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/DecoratedCandidateHiringState.pdsc
@@ -19751,7 +20710,11 @@ declare namespace Com {
               | 'PRESCREENING';
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/HiringProjectState.pdsc
 
-            export type HiringProjectState = 'ACTIVE' | 'CLOSED' | 'DRAFT' | 'DORMANT';
+            export type HiringProjectState =
+              | 'ACTIVE'
+              | 'CLOSED'
+              | 'DRAFT'
+              | 'DORMANT';
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/HiringProjectType.pdsc
 
             export type HiringProjectType =
@@ -19843,7 +20806,9 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/TalentInterviewType.pdsc
 
-            export type TalentInterviewType = 'SINGLE_CONVERSATION' | 'FULL_INTERVIEW_LOOP';
+            export type TalentInterviewType =
+              | 'SINGLE_CONVERSATION'
+              | 'FULL_INTERVIEW_LOOP';
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/TalentLandingPageCallToActionSecondaryTextType.pdsc
 
             export type TalentLandingPageCallToActionSecondaryTextType =
@@ -19857,7 +20822,11 @@ declare namespace Com {
               | 'NO_TEXT';
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/TalentLandingPageCallToActionType.pdsc
 
-            export type TalentLandingPageCallToActionType = 'IM_INTERESTED' | 'LEARN_MORE' | 'CONTACT_ME' | 'REGISTER';
+            export type TalentLandingPageCallToActionType =
+              | 'IM_INTERESTED'
+              | 'LEARN_MORE'
+              | 'CONTACT_ME'
+              | 'REGISTER';
             // Generated from: com/linkedin/avro2pegasus/events/common/talent/TalentLandingPageState.pdsc
 
             export type TalentLandingPageState = 'DRAFT' | 'PUBLISHED';
@@ -20005,7 +20974,12 @@ declare namespace Com {
           namespace Thirdparty {
             // Generated from: com/linkedin/avro2pegasus/events/common/thirdparty/ThirdPartyAuthorizationFlowErrorType.pdsc
 
-            export type ThirdPartyAuthorizationFlowErrorType = 'INTERNAL' | 'DOWNSTREAM' | 'FUSE' | 'CLIENT' | 'USER';
+            export type ThirdPartyAuthorizationFlowErrorType =
+              | 'INTERNAL'
+              | 'DOWNSTREAM'
+              | 'FUSE'
+              | 'CLIENT'
+              | 'USER';
           }
           namespace Ucv {
             // Generated from: com/linkedin/avro2pegasus/events/common/ucv/ActivityStatistics.pdsc
@@ -20086,10 +21060,16 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/ugc/ExternalDistributionChannelType.pdsc
 
-            export type ExternalDistributionChannelType = 'TWITTER' | 'TENCENT' | 'WEIBO';
+            export type ExternalDistributionChannelType =
+              | 'TWITTER'
+              | 'TENCENT'
+              | 'WEIBO';
             // Generated from: com/linkedin/avro2pegasus/events/common/ugc/FeedDistribution.pdsc
 
-            export type FeedDistribution = 'NONE' | 'MAIN_FEED' | 'CONTAINER_ONLY';
+            export type FeedDistribution =
+              | 'NONE'
+              | 'MAIN_FEED'
+              | 'CONTAINER_ONLY';
             // Generated from: com/linkedin/avro2pegasus/events/common/ugc/ProcessingState.pdsc
 
             export type ProcessingState = 'PENDING' | 'PROCESSING';
@@ -20128,7 +21108,10 @@ declare namespace Com {
               | 'WORK_EXPERIENCE';
             // Generated from: com/linkedin/avro2pegasus/events/common/unify/ResumeSource.pdsc
 
-            export type ResumeSource = 'SELECTED_RECENT' | 'UPLOADED_NEW' | 'USED_DEFAULT';
+            export type ResumeSource =
+              | 'SELECTED_RECENT'
+              | 'UPLOADED_NEW'
+              | 'USED_DEFAULT';
           }
           namespace Video {
             namespace Prefetching {
@@ -20158,10 +21141,16 @@ declare namespace Com {
               | 'DELETE';
             // Generated from: com/linkedin/avro2pegasus/events/common/voyager/LixEnforcerRequestState.pdsc
 
-            export type LixEnforcerRequestState = 'IN_PROGRESS' | 'PRE_APPROVED' | 'APPROVED' | 'REJECTED';
+            export type LixEnforcerRequestState =
+              | 'IN_PROGRESS'
+              | 'PRE_APPROVED'
+              | 'APPROVED'
+              | 'REJECTED';
             // Generated from: com/linkedin/avro2pegasus/events/common/voyager/LixEnforcerRequestType.pdsc
 
-            export type LixEnforcerRequestType = 'WHITELISTING' | 'PILLAR_TRANSFER';
+            export type LixEnforcerRequestType =
+              | 'WHITELISTING'
+              | 'PILLAR_TRANSFER';
             // Generated from: com/linkedin/avro2pegasus/events/common/voyager/ReviewButlerCodeReviewState.pdsc
 
             export type ReviewButlerCodeReviewState =
@@ -20208,7 +21197,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/webframeworks/effectiveType.pdsc
 
-            export type effectiveType = 'SLOW_2G' | 'REGULAR_2G' | 'REGULAR_3G' | 'REGULAR_4G';
+            export type effectiveType =
+              | 'SLOW_2G'
+              | 'REGULAR_2G'
+              | 'REGULAR_3G'
+              | 'REGULAR_4G';
             // Generated from: com/linkedin/avro2pegasus/events/common/webframeworks/PemberlyBuildHardware.pdsc
 
             export interface PemberlyBuildHardware {
@@ -20235,7 +21228,15 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/common/webframeworks/type.pdsc
 
-            export type type = 'BLUETOOTH' | 'CELLULAR' | 'ETHERNET' | 'WIFI' | 'WIMAX' | 'OTHER' | 'UNKNOWN' | 'NONE';
+            export type type =
+              | 'BLUETOOTH'
+              | 'CELLULAR'
+              | 'ETHERNET'
+              | 'WIFI'
+              | 'WIMAX'
+              | 'OTHER'
+              | 'UNKNOWN'
+              | 'NONE';
           }
         }
         namespace Communications {
@@ -20518,7 +21519,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/communications/EditorCuratedContentType.pdsc
 
-          export type EditorCuratedContentType = 'BREAKING_NEWS' | 'DAILY_DIGEST';
+          export type EditorCuratedContentType =
+            | 'BREAKING_NEWS'
+            | 'DAILY_DIGEST';
           // Generated from: com/linkedin/avro2pegasus/events/communications/EmailCommunicationFeedbackEvent.pdsc
 
           export interface EmailCommunicationFeedbackEvent {
@@ -20557,10 +21560,17 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/communications/FeedConversationActionType.pdsc
 
-          export type FeedConversationActionType = 'LIKE' | 'COMMENT' | 'MENTION';
+          export type FeedConversationActionType =
+            | 'LIKE'
+            | 'COMMENT'
+            | 'MENTION';
           // Generated from: com/linkedin/avro2pegasus/events/communications/FeedConversationRole.pdsc
 
-          export type FeedConversationRole = 'ORIGINATOR' | 'LIKER' | 'COMMENTER' | 'MENTIONEE';
+          export type FeedConversationRole =
+            | 'ORIGINATOR'
+            | 'LIKER'
+            | 'COMMENTER'
+            | 'MENTIONEE';
           // Generated from: com/linkedin/avro2pegasus/events/communications/GenericRecipient.pdsc
 
           export interface GenericRecipient {
@@ -20725,7 +21735,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/communications/RichContentType.pdsc
 
-          export type RichContentType = 'IMAGE' | 'AUDIO' | 'VIDEO' | 'TENOR_GIF' | 'POST_SHARE' | 'OTHER_ATTACHMENT';
+          export type RichContentType =
+            | 'IMAGE'
+            | 'AUDIO'
+            | 'VIDEO'
+            | 'TENOR_GIF'
+            | 'POST_SHARE'
+            | 'OTHER_ATTACHMENT';
           // Generated from: com/linkedin/avro2pegasus/events/communications/SalesInmailMessage.pdsc
 
           export interface SalesInmailMessage {
@@ -20759,7 +21775,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/communications/UserGeneratedContentActionType.pdsc
 
-          export type UserGeneratedContentActionType = 'CONTENT_UPLOAD_COMPLETE' | 'MENTIONED_IN_CONTENT';
+          export type UserGeneratedContentActionType =
+            | 'CONTENT_UPLOAD_COMPLETE'
+            | 'MENTIONED_IN_CONTENT';
           // Generated from: com/linkedin/avro2pegasus/events/communications/UserMessageRequest.pdsc
 
           export interface UserMessageRequest {
@@ -20961,7 +21979,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/company/IndustryCodeType.pdsc
 
-          export type IndustryCodeType = 'SIC' | 'GICS' | 'ISIC' | 'LI' | 'UNKNOWN';
+          export type IndustryCodeType =
+            | 'SIC'
+            | 'GICS'
+            | 'ISIC'
+            | 'LI'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/company/RawBizCompany.pdsc
 
           export interface RawBizCompany {
@@ -21377,7 +22400,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/connectifier/ConnectifierProductSource.pdsc
 
-          export type ConnectifierProductSource = 'SIDEBAR' | 'DASHBOARD' | 'SEARCH' | 'GMAIL_SIDEBAR';
+          export type ConnectifierProductSource =
+            | 'SIDEBAR'
+            | 'DASHBOARD'
+            | 'SEARCH'
+            | 'GMAIL_SIDEBAR';
           // Generated from: com/linkedin/avro2pegasus/events/connectifier/ConnectifierProfileKey.pdsc
 
           export interface ConnectifierProfileKey {
@@ -21942,7 +22969,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/content/MentionActionType.pdsc
 
-          export type MentionActionType = 'MENTION' | 'EDIT_MENTION' | 'UNMENTION';
+          export type MentionActionType =
+            | 'MENTION'
+            | 'EDIT_MENTION'
+            | 'UNMENTION';
           // Generated from: com/linkedin/avro2pegasus/events/content/ModelSpecification.pdsc
 
           export interface ModelSpecification {
@@ -22112,7 +23142,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/content/RecognizedEntityClassification.pdsc
 
-          export type RecognizedEntityClassification = 'PERSON' | 'LOCATION' | 'ORGANIZATION';
+          export type RecognizedEntityClassification =
+            | 'PERSON'
+            | 'LOCATION'
+            | 'ORGANIZATION';
           // Generated from: com/linkedin/avro2pegasus/events/content/ScoredArticle.pdsc
 
           export interface ScoredArticle {
@@ -22142,7 +23175,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/content/TakeDownReason.pdsc
 
-          export type TakeDownReason = 'ACCOUNT_CLOSE' | 'BLACKLIST' | 'DELETE_ONLY';
+          export type TakeDownReason =
+            | 'ACCOUNT_CLOSE'
+            | 'BLACKLIST'
+            | 'DELETE_ONLY';
           // Generated from: com/linkedin/avro2pegasus/events/content/TrendingStorylineEvent.pdsc
 
           export interface TrendingStorylineEvent {
@@ -22203,7 +23239,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/contentfilter/AlterationTopic.pdsc
 
-          export type AlterationTopic = 'CCRM' | 'CSRE' | 'CCSUM' | 'CRAE' | 'URFE' | 'SYNC';
+          export type AlterationTopic =
+            | 'CCRM'
+            | 'CSRE'
+            | 'CCSUM'
+            | 'CRAE'
+            | 'URFE'
+            | 'SYNC';
           // Generated from: com/linkedin/avro2pegasus/events/contentfilter/AnomalyDetectedEvent.pdsc
 
           export interface AnomalyDetectedEvent {
@@ -22328,7 +23370,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/contentfilter/PhotoDnaHashDatabase.pdsc
 
-          export type PhotoDnaHashDatabase = 'NCMEC' | 'NCMEC_INDUSTRY_PARTNERS';
+          export type PhotoDnaHashDatabase =
+            | 'NCMEC'
+            | 'NCMEC_INDUSTRY_PARTNERS';
           // Generated from: com/linkedin/avro2pegasus/events/contentfilter/RegexAlteredEvent.pdsc
 
           export interface RegexAlteredEvent {
@@ -22431,7 +23475,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/contentrelevance/ClassificationPipeline.pdsc
 
-          export type ClassificationPipeline = 'ONLINE_SYNC' | 'ONLINE_ASYNC' | 'OFFLINE' | 'NEARLINE';
+          export type ClassificationPipeline =
+            | 'ONLINE_SYNC'
+            | 'ONLINE_ASYNC'
+            | 'OFFLINE'
+            | 'NEARLINE';
           // Generated from: com/linkedin/avro2pegasus/events/contentrelevance/ClassifierDecisionMetaInformation.pdsc
 
           export interface ClassifierDecisionMetaInformation {
@@ -22760,7 +23808,10 @@ declare namespace Com {
           export type ActionType = 'ADD' | 'REMOVE';
           // Generated from: com/linkedin/avro2pegasus/events/cstool/SecurityLabel.pdsc
 
-          export type SecurityLabel = 'HIGH_VALUE_REAL' | 'HIGH_VALUE_FAKE' | 'STATE_SPONSORED';
+          export type SecurityLabel =
+            | 'HIGH_VALUE_REAL'
+            | 'HIGH_VALUE_FAKE'
+            | 'STATE_SPONSORED';
           // Generated from: com/linkedin/avro2pegasus/events/cstool/SecurityLabelUpdateEvent.pdsc
 
           export interface SecurityLabelUpdateEvent {
@@ -23027,7 +24078,10 @@ declare namespace Com {
           export type AccessType = 'READ' | 'WRITE' | 'READ_WRITE';
           // Generated from: com/linkedin/avro2pegasus/events/datahub/actionCategory.pdsc
 
-          export type actionCategory = 'SEARCHCLICK' | 'SEARCHSATCLICK' | 'FACETCLICK';
+          export type actionCategory =
+            | 'SEARCHCLICK'
+            | 'SEARCHSATCLICK'
+            | 'FACETCLICK';
           // Generated from: com/linkedin/avro2pegasus/events/datahub/DataHubBrowseActionEvent.pdsc
 
           export interface DataHubBrowseActionEvent {
@@ -23094,7 +24148,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/datahub/SourceRelationship.pdsc
 
-          export type SourceRelationship = 'UPSTREAMS' | 'DOWNSTREAMS' | 'INPUTS' | 'OUTPUTS';
+          export type SourceRelationship =
+            | 'UPSTREAMS'
+            | 'DOWNSTREAMS'
+            | 'INPUTS'
+            | 'OUTPUTS';
         }
         namespace Datamonitor {
           // Generated from: com/linkedin/avro2pegasus/events/datamonitor/DatasetPartitionGroupChangeEvent.pdsc
@@ -23158,7 +24216,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/datamonitor/TriggerReason.pdsc
 
-          export type TriggerReason = 'STATUS_CHANGE' | 'GRAPH_CHANGE' | 'METADATA_CHANGE' | 'METRICS_CHANGE';
+          export type TriggerReason =
+            | 'STATUS_CHANGE'
+            | 'GRAPH_CHANGE'
+            | 'METADATA_CHANGE'
+            | 'METRICS_CHANGE';
         }
         namespace Datavault {
           // Generated from: com/linkedin/avro2pegasus/events/datavault/AccessControlChangeEvent.pdsc
@@ -23206,7 +24268,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/datavault/AccessControlScopeType.pdsc
 
-          export type AccessControlScopeType = 'FABRIC' | 'FABRIC_GROUP' | 'APPLICATION_INSTANCE';
+          export type AccessControlScopeType =
+            | 'FABRIC'
+            | 'FABRIC_GROUP'
+            | 'APPLICATION_INSTANCE';
           // Generated from: com/linkedin/avro2pegasus/events/datavault/AccessControlState.pdsc
 
           export type AccessControlState = 'DISABLED' | 'ENABLED';
@@ -23457,7 +24522,9 @@ declare namespace Com {
           export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE';
           // Generated from: com/linkedin/avro2pegasus/events/developerportal/ApplicationVerificationRequestActionType.pdsc
 
-          export type ApplicationVerificationRequestActionType = 'APPROVE' | 'REJECT';
+          export type ApplicationVerificationRequestActionType =
+            | 'APPROVE'
+            | 'REJECT';
           // Generated from: com/linkedin/avro2pegasus/events/developerportal/DeveloperApplicationActionEvent.pdsc
 
           export interface DeveloperApplicationActionEvent {
@@ -23517,10 +24584,19 @@ declare namespace Com {
           export type ProductChangeType = 'ADD' | 'REMOVE';
           // Generated from: com/linkedin/avro2pegasus/events/developerportal/TestEventStatus.pdsc
 
-          export type TestEventStatus = 'SUCCESS' | 'FAILURE' | 'TIMEOUT' | 'UNABLE_TO_SEND';
+          export type TestEventStatus =
+            | 'SUCCESS'
+            | 'FAILURE'
+            | 'TIMEOUT'
+            | 'UNABLE_TO_SEND';
           // Generated from: com/linkedin/avro2pegasus/events/developerportal/WebhookActionType.pdsc
 
-          export type WebhookActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'VALIDATE' | 'GET';
+          export type WebhookActionType =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'DELETE'
+            | 'VALIDATE'
+            | 'GET';
         }
         namespace Dfw {
           // Generated from: com/linkedin/avro2pegasus/events/dfw/action.pdsc
@@ -23558,7 +24634,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/dfw/severity.pdsc
 
-          export type severity = 'CRITICAL' | 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG';
+          export type severity =
+            | 'CRITICAL'
+            | 'ERROR'
+            | 'WARNING'
+            | 'INFO'
+            | 'DEBUG';
           // Generated from: com/linkedin/avro2pegasus/events/dfw/type.pdsc
 
           export type type =
@@ -23604,7 +24685,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/directory/LedInviteMessageType.pdsc
 
-          export type LedInviteMessageType = 'GROUP_INMAIL' | 'TEXT' | 'EMAIL' | 'PUSH_NOTIFICATION';
+          export type LedInviteMessageType =
+            | 'GROUP_INMAIL'
+            | 'TEXT'
+            | 'EMAIL'
+            | 'PUSH_NOTIFICATION';
         }
         namespace Discovery {
           // Generated from: com/linkedin/avro2pegasus/events/discovery/DiscoveryFunnelEvent.pdsc
@@ -23628,7 +24713,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/discovery/FunnelStep.pdsc
 
-          export type FunnelStep = 'IMPRESSION' | 'ACTION' | 'SERVED' | 'RECOMMENDED';
+          export type FunnelStep =
+            | 'IMPRESSION'
+            | 'ACTION'
+            | 'SERVED'
+            | 'RECOMMENDED';
         }
         namespace Easyapply {
           // Generated from: com/linkedin/avro2pegasus/events/easyapply/PostApplyActionEvent.pdsc
@@ -23679,7 +24768,12 @@ declare namespace Com {
         namespace Edge {
           // Generated from: com/linkedin/avro2pegasus/events/edge/ActorType.pdsc
 
-          export type ActorType = 'BULKLOAD' | 'DATAFIX' | 'NEARLINE' | 'ONLINE' | 'UNSPECIFIED';
+          export type ActorType =
+            | 'BULKLOAD'
+            | 'DATAFIX'
+            | 'NEARLINE'
+            | 'ONLINE'
+            | 'UNSPECIFIED';
           // Generated from: com/linkedin/avro2pegasus/events/edge/Operation.pdsc
 
           export type Operation = 'CREATE' | 'UPDATE' | 'DELETE';
@@ -23757,7 +24851,11 @@ declare namespace Com {
         namespace Editorial {
           // Generated from: com/linkedin/avro2pegasus/events/editorial/ViralObjectLabel.pdsc
 
-          export type ViralObjectLabel = 'UNPROFESSIONAL' | 'SPAM' | 'OKAY' | 'UNSURE';
+          export type ViralObjectLabel =
+            | 'UNPROFESSIONAL'
+            | 'SPAM'
+            | 'OKAY'
+            | 'UNSURE';
           // Generated from: com/linkedin/avro2pegasus/events/editorial/ViralObjectLabelingEvent.pdsc
 
           export interface ViralObjectLabelingEvent {
@@ -23987,8 +25085,12 @@ declare namespace Com {
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/ComplianceTargetScope.pdsc
 
           export interface ComplianceTargetScope {
-            ltsTargetScopes: Array<Com.Linkedin.Avro2pegasus.Events.Enterprise.LTSTargetScope>;
-            lssTargetScopes: Array<Com.Linkedin.Avro2pegasus.Events.Enterprise.LSSTargetScope>;
+            ltsTargetScopes: Array<
+              Com.Linkedin.Avro2pegasus.Events.Enterprise.LTSTargetScope
+            >;
+            lssTargetScopes: Array<
+              Com.Linkedin.Avro2pegasus.Events.Enterprise.LSSTargetScope
+            >;
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/CuType.pdsc
 
@@ -24231,7 +25333,9 @@ declare namespace Com {
           export interface EnterpriseComplianceExecuteEvent {
             header: Com.Linkedin.Avro2pegasus.Events.EventHeader;
             parentRequestId: number;
-            subrequestKeys: Array<Com.Linkedin.Avro2pegasus.Events.Enterprise.SubrequestKeyItem>;
+            subrequestKeys: Array<
+              Com.Linkedin.Avro2pegasus.Events.Enterprise.SubrequestKeyItem
+            >;
             requestScope?: Com.Linkedin.Avro2pegasus.Events.Enterprise.EnterpriseComplianceRequestScope;
             requestType: Com.Linkedin.Avro2pegasus.Events.Enterprise.ComplianceRequestType;
             targetMemberUrn?: string;
@@ -24255,7 +25359,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseComplianceRequestScope.pdsc
 
-          export type EnterpriseComplianceRequestScope = 'MEMBER_DATA' | 'ENTERPRISE_DATA';
+          export type EnterpriseComplianceRequestScope =
+            | 'MEMBER_DATA'
+            | 'ENTERPRISE_DATA';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseComplianceRequestUpdateEvent.pdsc
 
           export interface EnterpriseComplianceRequestUpdateEvent {
@@ -24266,7 +25372,9 @@ declare namespace Com {
             status: Com.Linkedin.Avro2pegasus.Events.Enterprise.ComplianceRequestStatus;
             task: string;
             errorMessages?: string[];
-            exports?: Array<Com.Linkedin.Avro2pegasus.Events.Enterprise.EnterpriseComplianceExport>;
+            exports?: Array<
+              Com.Linkedin.Avro2pegasus.Events.Enterprise.EnterpriseComplianceExport
+            >;
             estimatedDeletionTime?: number;
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseGroupEvent.pdsc
@@ -24509,10 +25617,18 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseRoleAssignmentType.pdsc
 
-          export type EnterpriseRoleAssignmentType = 'ASSIGN' | 'REVOKE' | 'PARK';
+          export type EnterpriseRoleAssignmentType =
+            | 'ASSIGN'
+            | 'REVOKE'
+            | 'PARK';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseScimOperation.pdsc
 
-          export type EnterpriseScimOperation = 'CREATE' | 'UPDATE' | 'DELETE' | 'GET' | 'QUERY';
+          export type EnterpriseScimOperation =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'DELETE'
+            | 'GET'
+            | 'QUERY';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseScimRequestEvent.pdsc
 
           export interface EnterpriseScimRequestEvent {
@@ -24559,7 +25675,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseSftpFileActionType.pdsc
 
-          export type EnterpriseSftpFileActionType = 'GET' | 'PUT' | 'DELETE' | 'MKDIR' | 'RMDIR';
+          export type EnterpriseSftpFileActionType =
+            | 'GET'
+            | 'PUT'
+            | 'DELETE'
+            | 'MKDIR'
+            | 'RMDIR';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseSsoLoginErrorType.pdsc
 
           export type EnterpriseSsoLoginErrorType =
@@ -24589,7 +25710,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/EnterpriseUserType.pdsc
 
-          export type EnterpriseUserType = 'CONTRACT_ADMIN' | 'BILLING_ADMIN' | 'INTERNAL_USER' | 'EXTERNAL_USER';
+          export type EnterpriseUserType =
+            | 'CONTRACT_ADMIN'
+            | 'BILLING_ADMIN'
+            | 'INTERNAL_USER'
+            | 'EXTERNAL_USER';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/fullEspressoKey.pdsc
 
           export interface fullEspressoKey {
@@ -24636,7 +25761,12 @@ declare namespace Com {
           export type OperationResult = 'SUCCESS' | 'ERROR' | 'FAILURE';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/OperationType.pdsc
 
-          export type OperationType = 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTION' | 'USER_ACTION';
+          export type OperationType =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'DELETE'
+            | 'ACTION'
+            | 'USER_ACTION';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/OriginationService.pdsc
 
           export type OriginationService =
@@ -24660,7 +25790,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/ProfileMergeScenario.pdsc
 
-          export type ProfileMergeScenario = 'MANUAL_TRIGGERED' | 'MEMBER_BINDING' | 'PROFILE_UPDATE';
+          export type ProfileMergeScenario =
+            | 'MANUAL_TRIGGERED'
+            | 'MEMBER_BINDING'
+            | 'PROFILE_UPDATE';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/ProfileMergeStep.pdsc
 
           export type ProfileMergeStep =
@@ -24743,7 +25876,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/SSOType.pdsc
 
-          export type SSOType = 'SAML' | 'OpenID' | 'LTI' | 'CAS' | 'GOOGLE_OAUTH' | 'LIBRARY_AUTHENTICATION';
+          export type SSOType =
+            | 'SAML'
+            | 'OpenID'
+            | 'LTI'
+            | 'CAS'
+            | 'GOOGLE_OAUTH'
+            | 'LIBRARY_AUTHENTICATION';
           // Generated from: com/linkedin/avro2pegasus/events/enterprise/SubrequestKeyItem.pdsc
 
           export interface SubrequestKeyItem {
@@ -24904,7 +26043,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/entities/FlagshipGroupItemType.pdsc
 
-          export type FlagshipGroupItemType = 'SIMILAR_GROUPS' | 'ABOUT' | 'RULES' | 'OWNERS' | 'ADMINS' | 'MEMBERS';
+          export type FlagshipGroupItemType =
+            | 'SIMILAR_GROUPS'
+            | 'ABOUT'
+            | 'RULES'
+            | 'OWNERS'
+            | 'ADMINS'
+            | 'MEMBERS';
           // Generated from: com/linkedin/avro2pegasus/events/entities/FlagshipGroupServedEvent.pdsc
 
           export interface FlagshipGroupServedEvent {
@@ -25251,7 +26396,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/errors/BrowserTelemetryEventAction.pdsc
 
-          export type BrowserTelemetryEventAction = 'CLICK' | 'INPUT' | 'GET' | 'POST' | 'CONSOLE';
+          export type BrowserTelemetryEventAction =
+            | 'CLICK'
+            | 'INPUT'
+            | 'GET'
+            | 'POST'
+            | 'CONSOLE';
           // Generated from: com/linkedin/avro2pegasus/events/errors/BrowserTelemetryEventResult.pdsc
 
           export interface BrowserTelemetryEventResult {
@@ -25443,7 +26593,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/externaltracking/ExternalTrackingProvider.pdsc
 
-          export type ExternalTrackingProvider = 'COMSCORE' | 'GOOGLE_ANALYTICS' | 'NIELSEN';
+          export type ExternalTrackingProvider =
+            | 'COMSCORE'
+            | 'GOOGLE_ANALYTICS'
+            | 'NIELSEN';
         }
         namespace Federator {
           // Generated from: com/linkedin/avro2pegasus/events/federator/ActionDetail.pdsc
@@ -25574,7 +26727,9 @@ declare namespace Com {
           export interface FederatorBlendingEvent {
             header: Com.Linkedin.Avro2pegasus.Events.EventHeader;
             input: Com.Linkedin.Avro2pegasus.Events.Federator.FederatorInput;
-            results: Array<Com.Linkedin.Avro2pegasus.Events.Federator.FederatorBlendingResult[]>;
+            results: Array<
+              Com.Linkedin.Avro2pegasus.Events.Federator.FederatorBlendingResult[]
+            >;
             memberFeatures: { [id: string]: string };
           }
           // Generated from: com/linkedin/avro2pegasus/events/federator/FederatorBlendingResult.pdsc
@@ -25622,7 +26777,9 @@ declare namespace Com {
           export interface FederatorResultEvent {
             header: Com.Linkedin.Avro2pegasus.Events.EventHeader;
             input: Com.Linkedin.Avro2pegasus.Events.Federator.FederatorInput;
-            results: Array<Com.Linkedin.Avro2pegasus.Events.Federator.FederatorResult[]>;
+            results: Array<
+              Com.Linkedin.Avro2pegasus.Events.Federator.FederatorResult[]
+            >;
             aggregatedItems?: Com.Linkedin.Avro2pegasus.Events.Federator.AggregatedItem[];
             sponsoredResults?: Com.Linkedin.Avro2pegasus.Events.Federator.SponsoredResults;
             shadowBid?: number;
@@ -25925,7 +27082,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/feed/ConversationStartersFinalState.pdsc
 
-          export type ConversationStartersFinalState = 'ORIGINAL' | 'EDITED' | 'DELETED';
+          export type ConversationStartersFinalState =
+            | 'ORIGINAL'
+            | 'EDITED'
+            | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/feed/ConversationStartersImpressionEvent.pdsc
 
           export interface ConversationStartersImpressionEvent {
@@ -25958,7 +27118,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/feed/ConversationStartersTrigger.pdsc
 
-          export type ConversationStartersTrigger = 'FEED_LOAD' | 'DWELL_TIME' | 'COMMENT' | 'REACTION' | 'FEED_DETAIL';
+          export type ConversationStartersTrigger =
+            | 'FEED_LOAD'
+            | 'DWELL_TIME'
+            | 'COMMENT'
+            | 'REACTION'
+            | 'FEED_DETAIL';
           // Generated from: com/linkedin/avro2pegasus/events/feed/DecoratedFeedUpdateData.pdsc
 
           export interface DecoratedFeedUpdateData {
@@ -26209,7 +27374,11 @@ declare namespace Com {
           export type impressionTypeEnum = 'ONCLICK' | 'VIEWABLE';
           // Generated from: com/linkedin/avro2pegasus/events/feed/pageContextEnum.pdsc
 
-          export type pageContextEnum = 'FEED' | 'VIDEO_WITH_FORM' | 'VIDEO_WITH_WEB_PAGE' | 'FULL_SCREEN_PLAYER';
+          export type pageContextEnum =
+            | 'FEED'
+            | 'VIDEO_WITH_FORM'
+            | 'VIDEO_WITH_WEB_PAGE'
+            | 'FULL_SCREEN_PLAYER';
           // Generated from: com/linkedin/avro2pegasus/events/feed/PromptActionEvent.pdsc
 
           export interface PromptActionEvent {
@@ -26558,10 +27727,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/follow/FollowType.pdsc
 
-          export type FollowType = 'M2M_AUTO_FOLLOW_ON_INVITE' | 'M2M_MANUAL_FOLLOW';
+          export type FollowType =
+            | 'M2M_AUTO_FOLLOW_ON_INVITE'
+            | 'M2M_MANUAL_FOLLOW';
           // Generated from: com/linkedin/avro2pegasus/events/follow/NotificationType.pdsc
 
-          export type NotificationType = 'PEOPLE_FOLLOW' | 'PEOPLE_FOLLOW_MILESTONE';
+          export type NotificationType =
+            | 'PEOPLE_FOLLOW'
+            | 'PEOPLE_FOLLOW_MILESTONE';
         }
         namespace Forecast {
           // Generated from: com/linkedin/avro2pegasus/events/forecast/BidType.pdsc
@@ -26620,7 +27793,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/forecast/ForecastType.pdsc
 
-          export type ForecastType = 'AD_TOTAL_INVENTORY' | 'AD_CAMPAIGN_INVENTORY' | 'PAGE_VIEW' | 'MEMBER_COUNT';
+          export type ForecastType =
+            | 'AD_TOTAL_INVENTORY'
+            | 'AD_CAMPAIGN_INVENTORY'
+            | 'PAGE_VIEW'
+            | 'MEMBER_COUNT';
           // Generated from: com/linkedin/avro2pegasus/events/forecast/FrequencyCap.pdsc
 
           export interface FrequencyCap {
@@ -26745,7 +27922,10 @@ declare namespace Com {
           export type BindingChangeType = 'CREATED' | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/gaap/CredentialAuditType.pdsc
 
-          export type CredentialAuditType = 'CREATE' | 'UPDATE' | 'VIEW_PASSWORD';
+          export type CredentialAuditType =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'VIEW_PASSWORD';
           // Generated from: com/linkedin/avro2pegasus/events/gaap/GaapAdminCredentialAuditEvent.pdsc
 
           export interface GaapAdminCredentialAuditEvent {
@@ -27011,7 +28191,11 @@ declare namespace Com {
         namespace Groups {
           // Generated from: com/linkedin/avro2pegasus/events/groups/GroupCommentActionType.pdsc
 
-          export type GroupCommentActionType = 'CREATE' | 'DELETE' | 'EDIT' | 'UNDELETE';
+          export type GroupCommentActionType =
+            | 'CREATE'
+            | 'DELETE'
+            | 'EDIT'
+            | 'UNDELETE';
           // Generated from: com/linkedin/avro2pegasus/events/groups/GroupCommentResultActionEvent.pdsc
 
           export interface GroupCommentResultActionEvent {
@@ -27024,7 +28208,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/groups/GroupDiscussionActionType.pdsc
 
-          export type GroupDiscussionActionType = 'CREATE' | 'DELETE' | 'EDIT' | 'UNDELETE';
+          export type GroupDiscussionActionType =
+            | 'CREATE'
+            | 'DELETE'
+            | 'EDIT'
+            | 'UNDELETE';
           // Generated from: com/linkedin/avro2pegasus/events/groups/GroupDiscussionResultActionEvent.pdsc
 
           export interface GroupDiscussionResultActionEvent {
@@ -27584,7 +28772,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/handle/PhoneAccountEventType.pdsc
 
-          export type PhoneAccountEventType = 'REDLIST' | 'UNREDLIST' | 'MARKUNREACHABLE' | 'MARKREACHABLE';
+          export type PhoneAccountEventType =
+            | 'REDLIST'
+            | 'UNREDLIST'
+            | 'MARKUNREACHABLE'
+            | 'MARKREACHABLE';
           // Generated from: com/linkedin/avro2pegasus/events/handle/ProcessedPhoneNumbers.pdsc
 
           export interface ProcessedPhoneNumbers {
@@ -27595,7 +28787,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/handle/State.pdsc
 
-          export type State = 'CONFIRMED' | 'CLAIMED' | 'INFERRED' | 'RECOVERY' | 'TAKENOVER';
+          export type State =
+            | 'CONFIRMED'
+            | 'CLAIMED'
+            | 'INFERRED'
+            | 'RECOVERY'
+            | 'TAKENOVER';
         }
         namespace Helpcenter {
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/ActivityActionType.pdsc
@@ -28211,7 +29408,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/InProductHelpHeaderClickScenario.pdsc
 
-          export type InProductHelpHeaderClickScenario = 'BACK' | 'HOME' | 'SEARCH' | 'CLOSE';
+          export type InProductHelpHeaderClickScenario =
+            | 'BACK'
+            | 'HOME'
+            | 'SEARCH'
+            | 'CLOSE';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/InProductHelpHelpfulnessVoteScenario.pdsc
 
           export type InProductHelpHelpfulnessVoteScenario = 'YES' | 'NO';
@@ -28220,19 +29421,36 @@ declare namespace Com {
           export type InProductHelpLandingPageScenario = 'HOME' | 'ARTICLE';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/InProductHelpRepositionScenario.pdsc
 
-          export type InProductHelpRepositionScenario = 'DRAG' | 'VERTICAL_RESIZE_EXPAND' | 'VERTICAL_RESIZE_SHRINK';
+          export type InProductHelpRepositionScenario =
+            | 'DRAG'
+            | 'VERTICAL_RESIZE_EXPAND'
+            | 'VERTICAL_RESIZE_SHRINK';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/QuestionRelationshipType.pdsc
 
-          export type QuestionRelationshipType = 'RECENT' | 'FOLLOWING' | 'ASKED' | 'ANSWERED';
+          export type QuestionRelationshipType =
+            | 'RECENT'
+            | 'FOLLOWING'
+            | 'ASKED'
+            | 'ANSWERED';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/SmartAssistClickType.pdsc
 
-          export type SmartAssistClickType = 'CREATE_TICKET_BUTTON' | 'ARTICLE_EXPAND_BUTTON' | 'TOPIC_PILL';
+          export type SmartAssistClickType =
+            | 'CREATE_TICKET_BUTTON'
+            | 'ARTICLE_EXPAND_BUTTON'
+            | 'TOPIC_PILL';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/SmartAssistCreateTicketPosition.pdsc
 
-          export type SmartAssistCreateTicketPosition = 'IN_ARTICLE_DROPDOWN' | 'IN_SEARCH';
+          export type SmartAssistCreateTicketPosition =
+            | 'IN_ARTICLE_DROPDOWN'
+            | 'IN_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/SurveyQuestionActionType.pdsc
 
-          export type SurveyQuestionActionType = 'OPEN' | 'NEXT' | 'PREVIOUS' | 'SUBMIT' | 'CLOSE';
+          export type SurveyQuestionActionType =
+            | 'OPEN'
+            | 'NEXT'
+            | 'PREVIOUS'
+            | 'SUBMIT'
+            | 'CLOSE';
           // Generated from: com/linkedin/avro2pegasus/events/helpcenter/TabTypeName.pdsc
 
           export type TabTypeName = 'QUESTION' | 'USERHUB';
@@ -28448,7 +29666,12 @@ declare namespace Com {
         namespace House {
           // Generated from: com/linkedin/avro2pegasus/events/house/AlertLevel.pdsc
 
-          export type AlertLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'INFO' | 'CRITICAL';
+          export type AlertLevel =
+            | 'LOW'
+            | 'MEDIUM'
+            | 'HIGH'
+            | 'INFO'
+            | 'CRITICAL';
           // Generated from: com/linkedin/avro2pegasus/events/house/ArcturusAlertEvent.pdsc
 
           export interface ArcturusAlertEvent {
@@ -28649,7 +29872,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/house/CEFEventType.pdsc
 
-          export type CEFEventType = 'BASEEVENT' | 'AGGREGATED' | 'CORRELATION' | 'ACTION';
+          export type CEFEventType =
+            | 'BASEEVENT'
+            | 'AGGREGATED'
+            | 'CORRELATION'
+            | 'ACTION';
           // Generated from: com/linkedin/avro2pegasus/events/house/DeviceTrafficDirections.pdsc
 
           export type DeviceTrafficDirections = 'INBOUND' | 'OUTBOUND';
@@ -28680,7 +29907,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/house/EventType.pdsc
 
-          export type EventType = 'AUTHENTICATION' | 'FAILURE' | 'DISCONNECT' | 'OPEN' | 'CLOSE' | 'ERROR';
+          export type EventType =
+            | 'AUTHENTICATION'
+            | 'FAILURE'
+            | 'DISCONNECT'
+            | 'OPEN'
+            | 'CLOSE'
+            | 'ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/house/ExtendedCEFRecord.pdsc
 
           export interface ExtendedCEFRecord {
@@ -28759,7 +29992,11 @@ declare namespace Com {
           export type Protocol = 'SSH1' | 'SSH2';
           // Generated from: com/linkedin/avro2pegasus/events/house/RejectReason.pdsc
 
-          export type RejectReason = 'BAD_CERT' | 'INVALID_KEY_NAME' | 'BAD_REQUEST' | 'INTERNAL_ERROR';
+          export type RejectReason =
+            | 'BAD_CERT'
+            | 'INVALID_KEY_NAME'
+            | 'BAD_REQUEST'
+            | 'INTERNAL_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/house/SaltRekeyAuditEvent.pdsc
 
           export interface SaltRekeyAuditEvent {
@@ -28964,7 +30201,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/humanannotation/UnitState.pdsc
 
-          export type UnitState = 'NEW' | 'IN_PROGRESS' | 'FINALIZED' | 'TEST_UNIT';
+          export type UnitState =
+            | 'NEW'
+            | 'IN_PROGRESS'
+            | 'FINALIZED'
+            | 'TEST_UNIT';
         }
         namespace Identity {
           // Generated from: com/linkedin/avro2pegasus/events/identity/BackgroundPictureCharacteristics.pdsc
@@ -29060,7 +30301,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/identity/ExceptionErrorType.pdsc
 
-          export type ExceptionErrorType = 'TERMS_OF_SERVICE' | 'DATA_VALIDATION';
+          export type ExceptionErrorType =
+            | 'TERMS_OF_SERVICE'
+            | 'DATA_VALIDATION';
           // Generated from: com/linkedin/avro2pegasus/events/identity/ExternalMatchOptOutEvent.pdsc
 
           export interface ExternalMatchOptOutEvent {
@@ -29612,7 +30855,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/identity/PublicationFromEmailNonSavingActionType.pdsc
 
-          export type PublicationFromEmailNonSavingActionType = 'START_EDIT' | 'SKIP_PUB_ADD' | 'SKIP_AUTHOR_ADD';
+          export type PublicationFromEmailNonSavingActionType =
+            | 'START_EDIT'
+            | 'SKIP_PUB_ADD'
+            | 'SKIP_AUTHOR_ADD';
           // Generated from: com/linkedin/avro2pegasus/events/identity/PublicationFromEmailNotMeEvent.pdsc
 
           export interface PublicationFromEmailNotMeEvent {
@@ -29651,7 +30897,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/identity/PublicationFromEmailSaveEventType.pdsc
 
-          export type PublicationFromEmailSaveEventType = 'CREATE_SUCCESS' | 'CREATE_FAILURE';
+          export type PublicationFromEmailSaveEventType =
+            | 'CREATE_SUCCESS'
+            | 'CREATE_FAILURE';
           // Generated from: com/linkedin/avro2pegasus/events/identity/SectionField.pdsc
 
           export interface SectionField {
@@ -29705,7 +30953,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/identity/SuggestedEditActionType.pdsc
 
-          export type SuggestedEditActionType = 'ACCEPT' | 'REJECT' | 'DISMISS' | 'CANCEL';
+          export type SuggestedEditActionType =
+            | 'ACCEPT'
+            | 'REJECT'
+            | 'DISMISS'
+            | 'CANCEL';
           // Generated from: com/linkedin/avro2pegasus/events/identity/SuggestedEditImpressionEvent.pdsc
 
           export interface SuggestedEditImpressionEvent {
@@ -29855,7 +31107,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/impression/ItemType.pdsc
 
-          export type ItemType = 'person' | 'job' | 'group' | 'company' | 'nus' | 'news' | 'ayn';
+          export type ItemType =
+            | 'person'
+            | 'job'
+            | 'group'
+            | 'company'
+            | 'nus'
+            | 'news'
+            | 'ayn';
           // Generated from: com/linkedin/avro2pegasus/events/impression/JobMatchReferralImpression.pdsc
 
           export interface JobMatchReferralImpression {
@@ -30084,7 +31343,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/internalmentorship/MentorshipContactActionType.pdsc
 
-          export type MentorshipContactActionType = 'MESSAGE' | 'EMAIL' | 'SLACK' | 'VIEW';
+          export type MentorshipContactActionType =
+            | 'MESSAGE'
+            | 'EMAIL'
+            | 'SLACK'
+            | 'VIEW';
           // Generated from: com/linkedin/avro2pegasus/events/internalmentorship/MentorshipRecommendationType.pdsc
 
           export type MentorshipRecommendationType = 'MENTOR' | 'MENTEE';
@@ -30265,7 +31528,11 @@ declare namespace Com {
             | 'PUSH_NOTIFICATION';
           // Generated from: com/linkedin/avro2pegasus/events/invitations/DropReason.pdsc
 
-          export type DropReason = 'FUSE_LIMIT' | 'FUSE_LIMIT_HOUR' | 'FUSE_LIMIT_DAY' | 'FUSE_LIMIT_WEEK';
+          export type DropReason =
+            | 'FUSE_LIMIT'
+            | 'FUSE_LIMIT_HOUR'
+            | 'FUSE_LIMIT_DAY'
+            | 'FUSE_LIMIT_WEEK';
           // Generated from: com/linkedin/avro2pegasus/events/invitations/ExperimentSetting.pdsc
 
           export interface ExperimentSetting {
@@ -30417,7 +31684,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/invitations/invitationRelevantLevel.pdsc
 
-          export type invitationRelevantLevel = 'NOTABLE' | 'NOT_RELEVANT' | 'NOT_COMPUTED';
+          export type invitationRelevantLevel =
+            | 'NOTABLE'
+            | 'NOT_RELEVANT'
+            | 'NOT_COMPUTED';
           // Generated from: com/linkedin/avro2pegasus/events/invitations/InvitationRequestEvent.pdsc
 
           export interface InvitationRequestEvent {
@@ -30504,7 +31774,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/invitations/InvitationTargetType.pdsc
 
-          export type InvitationTargetType = 'MEMBER' | 'GUEST' | 'EVENT' | 'ORGANIZATION' | 'CONTENT_SERIES';
+          export type InvitationTargetType =
+            | 'MEMBER'
+            | 'GUEST'
+            | 'EVENT'
+            | 'ORGANIZATION'
+            | 'CONTENT_SERIES';
           // Generated from: com/linkedin/avro2pegasus/events/invitations/InvitationTrackingInfo.pdsc
 
           export interface InvitationTrackingInfo {
@@ -30653,7 +31928,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobposterbadge/JobPosterBadgeProcessingFailure.pdsc
 
-          export type JobPosterBadgeProcessingFailure = 'UPDATE_CONVERSATION_STATUS_FAILED' | 'UPDATE_BADGE_FAILED';
+          export type JobPosterBadgeProcessingFailure =
+            | 'UPDATE_CONVERSATION_STATUS_FAILED'
+            | 'UPDATE_BADGE_FAILED';
           // Generated from: com/linkedin/avro2pegasus/events/jobposterbadge/JobPosterBadgeSkipProcessingReason.pdsc
 
           export type JobPosterBadgeSkipProcessingReason =
@@ -30665,7 +31942,11 @@ declare namespace Com {
         namespace Jobs {
           // Generated from: com/linkedin/avro2pegasus/events/jobs/actionType.pdsc
 
-          export type actionType = 'CLICK' | 'DISMISS' | 'SWIPE_LEFT' | 'SWIPE_RIGHT';
+          export type actionType =
+            | 'CLICK'
+            | 'DISMISS'
+            | 'SWIPE_LEFT'
+            | 'SWIPE_RIGHT';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/additionalInfoPair.pdsc
 
           export interface additionalInfoPair {
@@ -30696,7 +31977,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/ApplyWithLinkedInWidgetActionType.pdsc
 
-          export type ApplyWithLinkedInWidgetActionType = 'CLICK' | 'SUBMIT' | 'SIGNIN_CLICK';
+          export type ApplyWithLinkedInWidgetActionType =
+            | 'CLICK'
+            | 'SUBMIT'
+            | 'SIGNIN_CLICK';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/ApplyWithLinkedInWidgetImpressionEvent.pdsc
 
           export interface ApplyWithLinkedInWidgetImpressionEvent {
@@ -30728,7 +32012,11 @@ declare namespace Com {
           export type CampaignExecutionStage = 'FETCH' | 'ASSEMBLE' | 'DELIVER';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/CardType.pdsc
 
-          export type CardType = 'APPLICATION_VIEWED' | 'APPLY_REMINDER' | 'INMAIL_REMINDER' | 'RESUME_DOWNLOADED';
+          export type CardType =
+            | 'APPLICATION_VIEWED'
+            | 'APPLY_REMINDER'
+            | 'INMAIL_REMINDER'
+            | 'RESUME_DOWNLOADED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/Channel.pdsc
 
           export type Channel = 'EMAIL' | 'PUSH' | 'IN_APP_NOTIFICATION';
@@ -30881,7 +32169,9 @@ declare namespace Com {
           export type FinderType = 'OWNER';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/FlagshipJobPostingCreationFlowChangeStatus.pdsc
 
-          export type FlagshipJobPostingCreationFlowChangeStatus = 'UNCHANGED' | 'CHANGED';
+          export type FlagshipJobPostingCreationFlowChangeStatus =
+            | 'UNCHANGED'
+            | 'CHANGED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/FlagshipJobPostingCreationFlowField.pdsc
 
           export type FlagshipJobPostingCreationFlowField =
@@ -31064,10 +32354,14 @@ declare namespace Com {
             | 'DOWNLOAD_RESUME';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobCandidateManagementEntityProperty.pdsc
 
-          export type JobCandidateManagementEntityProperty = 'FEATURED' | 'NORMAL';
+          export type JobCandidateManagementEntityProperty =
+            | 'FEATURED'
+            | 'NORMAL';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobCandidateManagementEntityType.pdsc
 
-          export type JobCandidateManagementEntityType = 'APPLICANT' | 'TALENT_MATCH';
+          export type JobCandidateManagementEntityType =
+            | 'APPLICANT'
+            | 'TALENT_MATCH';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobCandidateManagementImpressionEvent.pdsc
 
           export interface JobCandidateManagementImpressionEvent {
@@ -31152,7 +32446,10 @@ declare namespace Com {
           export type JobCreationEntityType = 'JOB' | 'REFERRAL_JOB';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobDedupeSource.pdsc
 
-          export type JobDedupeSource = 'ASYNC_POST_DEDUPE' | 'SYNC_PRE_DEDUPE' | 'SYNC_POST_DEDUPE';
+          export type JobDedupeSource =
+            | 'ASYNC_POST_DEDUPE'
+            | 'SYNC_PRE_DEDUPE'
+            | 'SYNC_POST_DEDUPE';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobDetailsPeopleToContactImpressionEvent.pdsc
 
           export interface JobDetailsPeopleToContactImpressionEvent {
@@ -31335,7 +32632,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobImpressionType.pdsc
 
-          export type JobImpressionType = 'RECOMMENDED' | 'SIMILAR' | 'TALENT_MATCH';
+          export type JobImpressionType =
+            | 'RECOMMENDED'
+            | 'SIMILAR'
+            | 'TALENT_MATCH';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobImpressionTypeV2.pdsc
 
           export type JobImpressionTypeV2 =
@@ -31462,7 +32762,11 @@ declare namespace Com {
             | 'INDUSTRIES';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobKeywordType.pdsc
 
-          export type JobKeywordType = 'OCCUPATION' | 'SKILL' | 'INDUSTRY' | 'FUNCTION';
+          export type JobKeywordType =
+            | 'OCCUPATION'
+            | 'SKILL'
+            | 'INDUSTRY'
+            | 'FUNCTION';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobListingType.pdsc
 
           export type JobListingType = 'PREMIUM' | 'BASIC';
@@ -31489,7 +32793,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPosterComplianceVerificationType.pdsc
 
-          export type JobPosterComplianceVerificationType = 'PERSONAL_IDENTITY' | 'COMPANY_LICENSE' | 'EMPLOYMENT';
+          export type JobPosterComplianceVerificationType =
+            | 'PERSONAL_IDENTITY'
+            | 'COMPANY_LICENSE'
+            | 'EMPLOYMENT';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPosterReachOutBulkSendEvent.pdsc
 
           export interface JobPosterReachOutBulkSendEvent {
@@ -31502,7 +32809,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPosterVerificationStatus.pdsc
 
-          export type JobPosterVerificationStatus = 'PENDING' | 'REJECTED' | 'APPROVED';
+          export type JobPosterVerificationStatus =
+            | 'PENDING'
+            | 'REJECTED'
+            | 'APPROVED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPosterVerificationStatusData.pdsc
 
           export interface JobPosterVerificationStatusData {
@@ -31630,7 +32940,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingCloseSurveyWillPostAnotherJobAnswer.pdsc
 
-          export type JobPostingCloseSurveyWillPostAnotherJobAnswer = 'YES' | 'I_DO_NOT_KNOW' | 'NO';
+          export type JobPostingCloseSurveyWillPostAnotherJobAnswer =
+            | 'YES'
+            | 'I_DO_NOT_KNOW'
+            | 'NO';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingCloseSurveyWillPostAnotherJobResponse.pdsc
 
           export interface JobPostingCloseSurveyWillPostAnotherJobResponse {
@@ -31778,7 +33091,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingImpressionType.pdsc
 
-          export type JobPostingImpressionType = 'JYMBII' | 'JOB_SEARCH' | 'BROWSE_MAP' | 'SIMILAR_JOBS' | 'FLAVOR';
+          export type JobPostingImpressionType =
+            | 'JYMBII'
+            | 'JOB_SEARCH'
+            | 'BROWSE_MAP'
+            | 'SIMILAR_JOBS'
+            | 'FLAVOR';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingListEvent.pdsc
 
           export interface JobPostingListEvent {
@@ -31837,7 +33155,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingRejectedGroup.pdsc
 
-          export type JobPostingRejectedGroup = 'ARCHIVED_APPLICANTS' | 'ALL_APPLICANTS_EXCLUDE_HIRED';
+          export type JobPostingRejectedGroup =
+            | 'ARCHIVED_APPLICANTS'
+            | 'ALL_APPLICANTS_EXCLUDE_HIRED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobPostingReviewEmailNotificationMessage.pdsc
 
           export interface JobPostingReviewEmailNotificationMessage {
@@ -32171,7 +33491,9 @@ declare namespace Com {
             | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobSearchAlertStateTransitionResultType.pdsc
 
-          export type JobSearchAlertStateTransitionResultType = 'SUCCESS' | 'FAILURE';
+          export type JobSearchAlertStateTransitionResultType =
+            | 'SUCCESS'
+            | 'FAILURE';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobSearchAlertStateTransitionType.pdsc
 
           export type JobSearchAlertStateTransitionType =
@@ -32211,7 +33533,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobSearchFeedbackReason.pdsc
 
-          export type JobSearchFeedbackReason = 'BUG' | 'CONFUSED' | 'FILTERS' | 'RELEVANCE';
+          export type JobSearchFeedbackReason =
+            | 'BUG'
+            | 'CONFUSED'
+            | 'FILTERS'
+            | 'RELEVANCE';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobSearchImpressionEvent.pdsc
 
           export interface JobSearchImpressionEvent {
@@ -32424,7 +33750,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobsTargetingAttributesPrefillType.pdsc
 
-          export type JobsTargetingAttributesPrefillType = 'INFERRED' | 'STORED';
+          export type JobsTargetingAttributesPrefillType =
+            | 'INFERRED'
+            | 'STORED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobsTargetingAttributesSavedEvent.pdsc
 
           export interface JobsTargetingAttributesSavedEvent {
@@ -32457,7 +33785,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobState.pdsc
 
-          export type JobState = 'DRAFT' | 'BEING_LISTED' | 'LISTED' | 'CLOSED' | 'DELETED' | 'REVIEW' | 'SUSPENDED';
+          export type JobState =
+            | 'DRAFT'
+            | 'BEING_LISTED'
+            | 'LISTED'
+            | 'CLOSED'
+            | 'DELETED'
+            | 'REVIEW'
+            | 'SUSPENDED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/JobStatisticsInfo.pdsc
 
           export interface JobStatisticsInfo {
@@ -32691,7 +34026,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobs/PostApplyPromoCardType.pdsc
 
-          export type PostApplyPromoCardType = 'SKILL_ASSESSMENTS' | 'REFERRALS' | 'INTERVIEW_PREP';
+          export type PostApplyPromoCardType =
+            | 'SKILL_ASSESSMENTS'
+            | 'REFERRALS'
+            | 'INTERVIEW_PREP';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/RevenueSplitCalibrationModelInfo.pdsc
 
           export interface RevenueSplitCalibrationModelInfo {
@@ -32848,7 +34186,10 @@ declare namespace Com {
             | 'MAXIMUM_ATTEMPT';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/VerificationStatus.pdsc
 
-          export type VerificationStatus = 'VERIFIED' | 'UNVERIFIED' | 'BLOCKED';
+          export type VerificationStatus =
+            | 'VERIFIED'
+            | 'UNVERIFIED'
+            | 'BLOCKED';
           // Generated from: com/linkedin/avro2pegasus/events/jobs/VolumeDiscountJobCreditImpressionEvent.pdsc
 
           export interface VolumeDiscountJobCreditImpressionEvent {
@@ -33107,7 +34448,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerLaunchOrigin.pdsc
 
-          export type JobSeekerLaunchOrigin = 'USER_INITIATED' | 'NOTIFICATION' | 'DEEP_LINK' | 'CROSS_LINK';
+          export type JobSeekerLaunchOrigin =
+            | 'USER_INITIATED'
+            | 'NOTIFICATION'
+            | 'DEEP_LINK'
+            | 'CROSS_LINK';
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerLaunchType.pdsc
 
           export type JobSeekerLaunchType = 'COLD' | 'WARM';
@@ -33172,7 +34517,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerPremiumUpsellType.pdsc
 
-          export type JobSeekerPremiumUpsellType = 'INMAIL_UPSELL' | 'JOB_POSTING_UPSELL';
+          export type JobSeekerPremiumUpsellType =
+            | 'INMAIL_UPSELL'
+            | 'JOB_POSTING_UPSELL';
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerSearchFacets.pdsc
 
           export interface JobSeekerSearchFacets {
@@ -33235,7 +34582,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerSearchSortByType.pdsc
 
-          export type JobSeekerSearchSortByType = 'MOST_RELEVANT' | 'MOST_RECENT';
+          export type JobSeekerSearchSortByType =
+            | 'MOST_RELEVANT'
+            | 'MOST_RECENT';
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerSignInEvent.pdsc
 
           export interface JobSeekerSignInEvent {
@@ -33249,7 +34598,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerSignInType.pdsc
 
-          export type JobSeekerSignInType = 'GUEST' | 'JOIN' | 'CREDENTIALS' | 'SSO';
+          export type JobSeekerSignInType =
+            | 'GUEST'
+            | 'JOIN'
+            | 'CREDENTIALS'
+            | 'SSO';
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerTypeaheadActionEvent.pdsc
 
           export interface JobSeekerTypeaheadActionEvent {
@@ -33302,7 +34655,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/jobseeker/JobSeekerTypeaheadType.pdsc
 
-          export type JobSeekerTypeaheadType = 'KEYWORDS' | 'LOCATION' | 'STARTERS';
+          export type JobSeekerTypeaheadType =
+            | 'KEYWORDS'
+            | 'LOCATION'
+            | 'STARTERS';
         }
         namespace K2 {
           // Generated from: com/linkedin/avro2pegasus/events/k2/deploymentResultType.pdsc
@@ -33694,7 +35050,13 @@ declare namespace Com {
         namespace Leadgen {
           // Generated from: com/linkedin/avro2pegasus/events/leadgen/LeadgenDataSource.pdsc
 
-          export type LeadgenDataSource = 'SALES_FORM' | 'ELOQUA' | 'SILO' | 'THIRDPARTY' | 'MICROSOFT' | 'UNKNOWN';
+          export type LeadgenDataSource =
+            | 'SALES_FORM'
+            | 'ELOQUA'
+            | 'SILO'
+            | 'THIRDPARTY'
+            | 'MICROSOFT'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/leadgen/SalesLeadPostEvent.pdsc
 
           export interface SalesLeadPostEvent {
@@ -33719,7 +35081,11 @@ declare namespace Com {
             | 'VIEW_BROADCASTER_LI_PROFILE';
           // Generated from: com/linkedin/avro2pegasus/events/leap/AuditEngagementType.pdsc
 
-          export type AuditEngagementType = 'CLICK' | 'COMMENT' | 'LIKE' | 'RESHARE';
+          export type AuditEngagementType =
+            | 'CLICK'
+            | 'COMMENT'
+            | 'LIKE'
+            | 'RESHARE';
           // Generated from: com/linkedin/avro2pegasus/events/leap/Broadcast.pdsc
 
           export interface Broadcast {
@@ -33808,7 +35174,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/leap/LeapInsightType.pdsc
 
-          export type LeapInsightType = 'TRENDING_WITH_COWORKERS' | 'PROMOTE_YOUR_COMPANY' | 'NETWORK_HAS_NOT_SEEN';
+          export type LeapInsightType =
+            | 'TRENDING_WITH_COWORKERS'
+            | 'PROMOTE_YOUR_COMPANY'
+            | 'NETWORK_HAS_NOT_SEEN';
           // Generated from: com/linkedin/avro2pegasus/events/leap/LeapPinotAuditEvent.pdsc
 
           export interface LeapPinotAuditEvent {
@@ -33965,7 +35334,10 @@ declare namespace Com {
           export type ProfileActionType = 'CLICK_TO_VIEW_PROFILE';
           // Generated from: com/linkedin/avro2pegasus/events/leap/QuantumEventProcessingStage.pdsc
 
-          export type QuantumEventProcessingStage = 'SCHEDULING' | 'PROCESSING' | 'FAILED';
+          export type QuantumEventProcessingStage =
+            | 'SCHEDULING'
+            | 'PROCESSING'
+            | 'FAILED';
           // Generated from: com/linkedin/avro2pegasus/events/leap/SeatActionType.pdsc
 
           export type SeatActionType = 'CREATE' | 'EDIT' | 'DELETE';
@@ -33980,16 +35352,29 @@ declare namespace Com {
             | 'SHARE_NOW';
           // Generated from: com/linkedin/avro2pegasus/events/leap/shareLifecycleStep.pdsc
 
-          export type shareLifecycleStep = 'CREATE' | 'PUBLISH' | 'RESCHEDULE' | 'DELETE';
+          export type shareLifecycleStep =
+            | 'CREATE'
+            | 'PUBLISH'
+            | 'RESCHEDULE'
+            | 'DELETE';
           // Generated from: com/linkedin/avro2pegasus/events/leap/ShareNetworkType.pdsc
 
-          export type ShareNetworkType = 'LINKEDIN' | 'TWITTER' | 'FACEBOOK' | 'WEIBO';
+          export type ShareNetworkType =
+            | 'LINKEDIN'
+            | 'TWITTER'
+            | 'FACEBOOK'
+            | 'WEIBO';
           // Generated from: com/linkedin/avro2pegasus/events/leap/ShareOrigin.pdsc
 
-          export type ShareOrigin = 'ELEVATE_FEED' | 'DAILY_DIGEST_EMAIL' | 'LSS_NOTIFICATION_FEED';
+          export type ShareOrigin =
+            | 'ELEVATE_FEED'
+            | 'DAILY_DIGEST_EMAIL'
+            | 'LSS_NOTIFICATION_FEED';
           // Generated from: com/linkedin/avro2pegasus/events/leap/TopicActionType.pdsc
 
-          export type TopicActionType = 'SELECT_TOPIC_FILTER' | 'DESELCT_TOPIC_FILTER';
+          export type TopicActionType =
+            | 'SELECT_TOPIC_FILTER'
+            | 'DESELCT_TOPIC_FILTER';
         }
         namespace Learning {
           // Generated from: com/linkedin/avro2pegasus/events/learning/AccessControlPolicyEvaluationResult.pdsc
@@ -34032,10 +35417,16 @@ declare namespace Com {
           export type AggregationTimeUnit = 'DAY' | 'WEEK' | 'MONTH' | 'FULL';
           // Generated from: com/linkedin/avro2pegasus/events/learning/ArticleProgressState.pdsc
 
-          export type ArticleProgressState = 'IN_PROGRESS' | 'DONE' | 'COMPLETED';
+          export type ArticleProgressState =
+            | 'IN_PROGRESS'
+            | 'DONE'
+            | 'COMPLETED';
           // Generated from: com/linkedin/avro2pegasus/events/learning/AssessmentStatusType.pdsc
 
-          export type AssessmentStatusType = 'IN_PROGRESS' | 'COMPLETED' | 'REVIEWING_SKIPPED';
+          export type AssessmentStatusType =
+            | 'IN_PROGRESS'
+            | 'COMPLETED'
+            | 'REVIEWING_SKIPPED';
           // Generated from: com/linkedin/avro2pegasus/events/learning/BrowseResult.pdsc
 
           export interface BrowseResult {
@@ -34064,7 +35455,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/CourseNotServedReasonType.pdsc
 
-          export type CourseNotServedReasonType = 'UNRESOLVABLE_ENTITY' | 'INCOMPLETE_DECORATION' | 'UNKNOWN';
+          export type CourseNotServedReasonType =
+            | 'UNRESOLVABLE_ENTITY'
+            | 'INCOMPLETE_DECORATION'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/learning/CourseRecommendationActionType.pdsc
 
           export type CourseRecommendationActionType = 'SELECT_COURSE';
@@ -34223,7 +35617,10 @@ declare namespace Com {
           export type LearnerSubscriptionType = 'SUBSCRIBER' | 'NON_SUBSCRIBER';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearnerType.pdsc
 
-          export type LearnerType = 'UNBOUND_ENTERPRISE' | 'BOUND_ENTERPRISE' | 'CONSUMER';
+          export type LearnerType =
+            | 'UNBOUND_ENTERPRISE'
+            | 'BOUND_ENTERPRISE'
+            | 'CONSUMER';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningActivityActionEvent.pdsc
 
           export interface LearningActivityActionEvent {
@@ -34475,7 +35872,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningContentViewType.pdsc
 
-          export type LearningContentViewType = 'COURSE' | 'VIDEO' | 'QUIZ' | 'LEARNING_PATH';
+          export type LearningContentViewType =
+            | 'COURSE'
+            | 'VIDEO'
+            | 'QUIZ'
+            | 'LEARNING_PATH';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningCourseActionEvent.pdsc
 
           export interface LearningCourseActionEvent {
@@ -34781,7 +36182,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningLoginErrorOrigin.pdsc
 
-          export type LearningLoginErrorOrigin = 'CHECKPOINT' | 'LEARNING_LOGIN_FRONTEND';
+          export type LearningLoginErrorOrigin =
+            | 'CHECKPOINT'
+            | 'LEARNING_LOGIN_FRONTEND';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningLoginFrontendErrorType.pdsc
 
           export type LearningLoginFrontendErrorType =
@@ -34844,13 +36247,23 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningManagementSystemContentSyncStepType.pdsc
 
-          export type LearningManagementSystemContentSyncStepType = 'ENQUEUED_QUERY' | 'ENQUEUED_SEND' | 'SEND';
+          export type LearningManagementSystemContentSyncStepType =
+            | 'ENQUEUED_QUERY'
+            | 'ENQUEUED_SEND'
+            | 'SEND';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningManagementSystemContentSyncType.pdsc
 
-          export type LearningManagementSystemContentSyncType = 'BOOTSTRAP' | 'DELTA' | 'BACKFILL';
+          export type LearningManagementSystemContentSyncType =
+            | 'BOOTSTRAP'
+            | 'DELTA'
+            | 'BACKFILL';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningManagementSystemIntegrationType.pdsc
 
-          export type LearningManagementSystemIntegrationType = 'OCN' | 'XAPI' | 'LTI' | 'AICC';
+          export type LearningManagementSystemIntegrationType =
+            | 'OCN'
+            | 'XAPI'
+            | 'LTI'
+            | 'AICC';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningManagementSystemInvocationActivityEvent.pdsc
 
           export interface LearningManagementSystemInvocationActivityEvent {
@@ -34929,7 +36342,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningPathStatusType.pdsc
 
-          export type LearningPathStatusType = 'IN_PROGRESS' | 'SUSPENDED' | 'COMPLETED';
+          export type LearningPathStatusType =
+            | 'IN_PROGRESS'
+            | 'SUSPENDED'
+            | 'COMPLETED';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningRecommendation.pdsc
 
           export interface LearningRecommendation {
@@ -35253,7 +36669,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningUpsellType.pdsc
 
-          export type LearningUpsellType = 'ENTERPRISE' | 'CONSUMER_SUBSCRIPTION' | 'A_LA_CARTE' | 'SHOPPING_CART';
+          export type LearningUpsellType =
+            | 'ENTERPRISE'
+            | 'CONSUMER_SUBSCRIPTION'
+            | 'A_LA_CARTE'
+            | 'SHOPPING_CART';
           // Generated from: com/linkedin/avro2pegasus/events/learning/LearningVideoEngagementEvent.pdsc
 
           export interface LearningVideoEngagementEvent {
@@ -35369,7 +36789,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/LyndaMigrationInputType.pdsc
 
-          export type LyndaMigrationInputType = 'EMAIL_CONFIRMATION' | 'CVV' | 'PAYMENT_METHOD' | 'LOGIN_REGISTRATION';
+          export type LyndaMigrationInputType =
+            | 'EMAIL_CONFIRMATION'
+            | 'CVV'
+            | 'PAYMENT_METHOD'
+            | 'LOGIN_REGISTRATION';
           // Generated from: com/linkedin/avro2pegasus/events/learning/MyPremiumCourseRecommendationActionEvent.pdsc
 
           export interface MyPremiumCourseRecommendationActionEvent {
@@ -35451,7 +36875,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/learning/PublishingTaskStatus.pdsc
 
-          export type PublishingTaskStatus = 'NEW' | 'PUBLISHING' | 'PUBLISHED' | 'ERROR';
+          export type PublishingTaskStatus =
+            | 'NEW'
+            | 'PUBLISHING'
+            | 'PUBLISHED'
+            | 'ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/learning/PublishingTaskUpdate.pdsc
 
           export interface PublishingTaskUpdate {
@@ -35475,7 +36903,11 @@ declare namespace Com {
             | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/learning/RedirectType.pdsc
 
-          export type RedirectType = 'BINDING_ACTION' | 'BINDING_OPTION' | 'ENTERPRISE_LOGIN' | 'MEMBER_LOGIN';
+          export type RedirectType =
+            | 'BINDING_ACTION'
+            | 'BINDING_OPTION'
+            | 'ENTERPRISE_LOGIN'
+            | 'MEMBER_LOGIN';
           // Generated from: com/linkedin/avro2pegasus/events/learning/ReportStatus.pdsc
 
           export type ReportStatus = 'SUCCESS' | 'FAILURE';
@@ -35588,7 +37020,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/lego/WidgetActionCategory.pdsc
 
-          export type WidgetActionCategory = 'PRIMARY_ACTION' | 'SECONDARY_ACTION' | 'SKIP' | 'DISMISS';
+          export type WidgetActionCategory =
+            | 'PRIMARY_ACTION'
+            | 'SECONDARY_ACTION'
+            | 'SKIP'
+            | 'DISMISS';
           // Generated from: com/linkedin/avro2pegasus/events/lego/WidgetVisibility.pdsc
 
           export type WidgetVisibility = 'SHOW' | 'NO_DATA';
@@ -35698,7 +37134,10 @@ declare namespace Com {
             | 'FIND_MEMBER_WITH_UER_OPTIMIZED_QUERY';
           // Generated from: com/linkedin/avro2pegasus/events/lighthouse/NotificationSettingFrequency.pdsc
 
-          export type NotificationSettingFrequency = 'ALWAYS' | 'DISABLED' | 'REMOVED';
+          export type NotificationSettingFrequency =
+            | 'ALWAYS'
+            | 'DISABLED'
+            | 'REMOVED';
           // Generated from: com/linkedin/avro2pegasus/events/lighthouse/NotificationSettingType.pdsc
 
           export type NotificationSettingType =
@@ -35857,7 +37296,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/lighthouse/SalesFunnelStage.pdsc
 
-          export type SalesFunnelStage = 'PROSPECT' | 'OPPORTUNITY' | 'CUSTOMER';
+          export type SalesFunnelStage =
+            | 'PROSPECT'
+            | 'OPPORTUNITY'
+            | 'CUSTOMER';
           // Generated from: com/linkedin/avro2pegasus/events/lighthouse/SalesImpressionV2Event.pdsc
 
           export interface SalesImpressionV2Event {
@@ -36096,7 +37538,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/lix/ExperimentChangeEventType.pdsc
 
-          export type ExperimentChangeEventType = 'ACTIVATION' | 'CHANGE' | 'TERMINATION';
+          export type ExperimentChangeEventType =
+            | 'ACTIVATION'
+            | 'CHANGE'
+            | 'TERMINATION';
           // Generated from: com/linkedin/avro2pegasus/events/lix/LixCustomAttributeUpdateEvent.pdsc
 
           export interface LixCustomAttributeUpdateEvent {
@@ -36187,7 +37632,11 @@ declare namespace Com {
         namespace Login {
           // Generated from: com/linkedin/avro2pegasus/events/login/FilterType.pdsc
 
-          export type FilterType = 'BLOCK_FILTER' | 'GUEST_FILTER' | 'RESTRICTED_IP_FILTER' | 'UNKNOWN';
+          export type FilterType =
+            | 'BLOCK_FILTER'
+            | 'GUEST_FILTER'
+            | 'RESTRICTED_IP_FILTER'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/login/KeepMeLoggedInActionEvent.pdsc
 
           export interface KeepMeLoggedInActionEvent {
@@ -36264,7 +37713,11 @@ declare namespace Com {
           export type LogoutResult = 'PASS' | 'FAIL' | 'CSRF_INVALID';
           // Generated from: com/linkedin/avro2pegasus/events/login/PasswordChangeType.pdsc
 
-          export type PasswordChangeType = 'CREATE' | 'CHANGE' | 'RESET' | 'INVALIDATE';
+          export type PasswordChangeType =
+            | 'CREATE'
+            | 'CHANGE'
+            | 'RESET'
+            | 'INVALIDATE';
           // Generated from: com/linkedin/avro2pegasus/events/login/PasswordResetMethod.pdsc
 
           export type PasswordResetMethod = 'EMAIL' | 'PHONE';
@@ -36291,15 +37744,27 @@ declare namespace Com {
           export type SSOLoginResult = 'SUCCESS' | 'FAIL';
           // Generated from: com/linkedin/avro2pegasus/events/login/Stage.pdsc
 
-          export type Stage = 'CREATED' | 'VERIFIED' | 'REJECTED_BSCOOKIE_MISMATCH' | 'REJECTED' | 'USED';
+          export type Stage =
+            | 'CREATED'
+            | 'VERIFIED'
+            | 'REJECTED_BSCOOKIE_MISMATCH'
+            | 'REJECTED'
+            | 'USED';
         }
         namespace Lookup {
           // Generated from: com/linkedin/avro2pegasus/events/lookup/InferredBindingFeedbackSourceType.pdsc
 
-          export type InferredBindingFeedbackSourceType = 'USER_ONBOARDING' | 'NEW_MEMBER' | 'USER_FEEDBACK';
+          export type InferredBindingFeedbackSourceType =
+            | 'USER_ONBOARDING'
+            | 'NEW_MEMBER'
+            | 'USER_FEEDBACK';
           // Generated from: com/linkedin/avro2pegasus/events/lookup/LedInviteMessageType.pdsc
 
-          export type LedInviteMessageType = 'GROUP_INMAIL' | 'TEXT' | 'EMAIL' | 'PUSH_NOTIFICATION';
+          export type LedInviteMessageType =
+            | 'GROUP_INMAIL'
+            | 'TEXT'
+            | 'EMAIL'
+            | 'PUSH_NOTIFICATION';
           // Generated from: com/linkedin/avro2pegasus/events/lookup/LookupInferredBindingFeedbackEvent.pdsc
 
           export interface LookupInferredBindingFeedbackEvent {
@@ -36436,10 +37901,18 @@ declare namespace Com {
         namespace Lynda {
           // Generated from: com/linkedin/avro2pegasus/events/lynda/accessTypeId.pdsc
 
-          export type accessTypeId = 'VIDEO_VIEW' | 'EXERCISE_FILE' | 'VIDEO_DOWNLOAD' | 'OFFLINE_VIDEO_VIEW';
+          export type accessTypeId =
+            | 'VIDEO_VIEW'
+            | 'EXERCISE_FILE'
+            | 'VIDEO_DOWNLOAD'
+            | 'OFFLINE_VIDEO_VIEW';
           // Generated from: com/linkedin/avro2pegasus/events/lynda/calendarClientId.pdsc
 
-          export type calendarClientId = 'GOOGLE' | 'YAHOO' | 'APPLE' | 'OUTLOOK';
+          export type calendarClientId =
+            | 'GOOGLE'
+            | 'YAHOO'
+            | 'APPLE'
+            | 'OUTLOOK';
           // Generated from: com/linkedin/avro2pegasus/events/lynda/LyndaAccessedProductEvent.pdsc
 
           export interface LyndaAccessedProductEvent {
@@ -36883,7 +38356,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsEntryPointType.pdsc
 
-          export type SocialUpdateAnalyticsEntryPointType = 'FEED_DETAIL' | 'POSTS' | 'SHARES';
+          export type SocialUpdateAnalyticsEntryPointType =
+            | 'FEED_DETAIL'
+            | 'POSTS'
+            | 'SHARES';
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsHeaderServedEvent.pdsc
 
           export interface SocialUpdateAnalyticsHeaderServedEvent {
@@ -36912,7 +38388,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsHighlightType.pdsc
 
-          export type SocialUpdateAnalyticsHighlightType = 'COMPANY' | 'OCCUPATION' | 'REFERRER_SOURCE' | 'REGION';
+          export type SocialUpdateAnalyticsHighlightType =
+            | 'COMPANY'
+            | 'OCCUPATION'
+            | 'REFERRER_SOURCE'
+            | 'REGION';
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsModuleImpressionEvent.pdsc
 
           export interface SocialUpdateAnalyticsModuleImpressionEvent {
@@ -36924,7 +38404,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsModuleType.pdsc
 
-          export type SocialUpdateAnalyticsModuleType = 'HIGHLIGHTS' | 'REACH' | 'SUGGESTED_ARTICLE';
+          export type SocialUpdateAnalyticsModuleType =
+            | 'HIGHLIGHTS'
+            | 'REACH'
+            | 'SUGGESTED_ARTICLE';
           // Generated from: com/linkedin/avro2pegasus/events/me/SocialUpdateAnalyticsReachInfo.pdsc
 
           export interface SocialUpdateAnalyticsReachInfo {
@@ -37097,7 +38580,11 @@ declare namespace Com {
         namespace Media {
           // Generated from: com/linkedin/avro2pegasus/events/media/AccountAccessType.pdsc
 
-          export type AccountAccessType = 'FREE' | 'PAID' | 'ENTERPRISE' | 'GUEST';
+          export type AccountAccessType =
+            | 'FREE'
+            | 'PAID'
+            | 'ENTERPRISE'
+            | 'GUEST';
           // Generated from: com/linkedin/avro2pegasus/events/media/BufferingCauseType.pdsc
 
           export type BufferingCauseType = 'SEEK' | 'UNKNOWN';
@@ -37251,10 +38738,19 @@ declare namespace Com {
           export type MediaType = 'VIDEO' | 'IMAGE';
           // Generated from: com/linkedin/avro2pegasus/events/media/MediaUploadState.pdsc
 
-          export type MediaUploadState = 'STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'REFRESHED' | 'CANCELLED';
+          export type MediaUploadState =
+            | 'STARTED'
+            | 'IN_PROGRESS'
+            | 'COMPLETED'
+            | 'FAILED'
+            | 'REFRESHED'
+            | 'CANCELLED';
           // Generated from: com/linkedin/avro2pegasus/events/media/MediaUploadUseCase.pdsc
 
-          export type MediaUploadUseCase = 'VIDEO_SHARING' | 'IMAGE_SHARING' | 'UNKNOWN';
+          export type MediaUploadUseCase =
+            | 'VIDEO_SHARING'
+            | 'IMAGE_SHARING'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/media/PartUploadCompletedEvent.pdsc
 
           export interface PartUploadCompletedEvent {
@@ -37289,7 +38785,9 @@ declare namespace Com {
           export type PlayerType = 'HTML5' | 'AV_FOUNDATION' | 'EXO_PLAYER';
           // Generated from: com/linkedin/avro2pegasus/events/media/RichMediaDeleteAction.pdsc
 
-          export type RichMediaDeleteAction = 'DELETE_REQUESTED' | 'DELETE_COMPLETED';
+          export type RichMediaDeleteAction =
+            | 'DELETE_REQUESTED'
+            | 'DELETE_COMPLETED';
           // Generated from: com/linkedin/avro2pegasus/events/media/RichMediaDeleteEvent.pdsc
 
           export interface RichMediaDeleteEvent {
@@ -37338,7 +38836,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/media/upload/UploadMechanism.pdsc
 
-            export type UploadMechanism = 'SINGLE' | 'MULTIPART' | 'PARTIAL_MULTIPART';
+            export type UploadMechanism =
+              | 'SINGLE'
+              | 'MULTIPART'
+              | 'PARTIAL_MULTIPART';
           }
         }
         namespace Mediaoverlays {
@@ -37434,7 +38935,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/mediaupload/MediaUploadFilterType.pdsc
 
-          export type MediaUploadFilterType = 'IMAGE_NORMALIZE' | 'IMAGE_PROFILE_BACKGROUND' | 'IMAGE_SCHOOL_LOGO';
+          export type MediaUploadFilterType =
+            | 'IMAGE_NORMALIZE'
+            | 'IMAGE_PROFILE_BACKGROUND'
+            | 'IMAGE_SCHOOL_LOGO';
           // Generated from: com/linkedin/avro2pegasus/events/mediaupload/MediaUploadStatusCodes.pdsc
 
           export type MediaUploadStatusCodes =
@@ -37453,7 +38957,11 @@ declare namespace Com {
         namespace Mentions {
           // Generated from: com/linkedin/avro2pegasus/events/mentions/MentionActionType.pdsc
 
-          export type MentionActionType = 'SELECT' | 'DELETE' | 'DISMISS' | 'PERSONALIZE';
+          export type MentionActionType =
+            | 'SELECT'
+            | 'DELETE'
+            | 'DISMISS'
+            | 'PERSONALIZE';
           // Generated from: com/linkedin/avro2pegasus/events/mentions/MentionResultHit.pdsc
 
           export interface MentionResultHit {
@@ -37537,7 +39045,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/mentorship/MentorshipRoleType.pdsc
 
-          export type MentorshipRoleType = 'VIEWED_BY_MENTOR' | 'VIEWED_BY_MENTEE';
+          export type MentorshipRoleType =
+            | 'VIEWED_BY_MENTOR'
+            | 'VIEWED_BY_MENTEE';
           // Generated from: com/linkedin/avro2pegasus/events/mentorship/MentorshipServedEvent.pdsc
 
           export interface MentorshipServedEvent {
@@ -37566,7 +39076,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/merlin/CampaignCustomViewActionType.pdsc
 
-          export type CampaignCustomViewActionType = 'APPLY' | 'SAVE' | 'DELETE';
+          export type CampaignCustomViewActionType =
+            | 'APPLY'
+            | 'SAVE'
+            | 'DELETE';
           // Generated from: com/linkedin/avro2pegasus/events/merlin/CampaignFilteringQuery.pdsc
 
           export interface CampaignFilteringQuery {
@@ -37876,7 +39389,12 @@ declare namespace Com {
         namespace Messages {
           // Generated from: com/linkedin/avro2pegasus/events/messages/actionType.pdsc
 
-          export type actionType = 'TAP' | 'CLICK' | 'VIEW' | 'DISMISS' | 'CONTENT_VIEW';
+          export type actionType =
+            | 'TAP'
+            | 'CLICK'
+            | 'VIEW'
+            | 'DISMISS'
+            | 'CONTENT_VIEW';
           // Generated from: com/linkedin/avro2pegasus/events/messages/BlockedReason.pdsc
 
           export type BlockedReason =
@@ -38056,7 +39574,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/messages/messageType.pdsc
 
-          export type messageType = 'PUSHNOTIFICATION' | 'SMS' | 'WECHAT' | 'EMAIL';
+          export type messageType =
+            | 'PUSHNOTIFICATION'
+            | 'SMS'
+            | 'WECHAT'
+            | 'EMAIL';
           // Generated from: com/linkedin/avro2pegasus/events/messages/MessageUnsubscribeEvent.pdsc
 
           export interface MessageUnsubscribeEvent {
@@ -38310,7 +39832,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessageSentimentType.pdsc
 
-          export type MessageSentimentType = 'VERY_NEGATIVE' | 'NEGATIVE' | 'NEUTRAL' | 'POSITIVE' | 'VERY_POSITIVE';
+          export type MessageSentimentType =
+            | 'VERY_NEGATIVE'
+            | 'NEGATIVE'
+            | 'NEUTRAL'
+            | 'POSITIVE'
+            | 'VERY_POSITIVE';
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessagingClientSendEvent.pdsc
 
           export interface MessagingClientSendEvent {
@@ -38446,7 +39973,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessagingRecommendationActionType.pdsc
 
-          export type MessagingRecommendationActionType = 'EXPAND' | 'SKIP' | 'MESSAGE' | 'SELECT';
+          export type MessagingRecommendationActionType =
+            | 'EXPAND'
+            | 'SKIP'
+            | 'MESSAGE'
+            | 'SELECT';
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessagingRecommendationBriefType.pdsc
 
           export type MessagingRecommendationBriefType =
@@ -38495,7 +40026,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessagingRecommendationServedMethod.pdsc
 
-          export type MessagingRecommendationServedMethod = 'REALTIME' | 'BOOTSTRAP';
+          export type MessagingRecommendationServedMethod =
+            | 'REALTIME'
+            | 'BOOTSTRAP';
           // Generated from: com/linkedin/avro2pegasus/events/messaging/MessagingRecommendationUsecase.pdsc
 
           export type MessagingRecommendationUsecase =
@@ -38810,12 +40343,20 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/metrics/UMPMetricsJobStatusType.pdsc
 
-          export type UMPMetricsJobStatusType = 'STARTED' | 'SUCCEEDED' | 'FAILED';
+          export type UMPMetricsJobStatusType =
+            | 'STARTED'
+            | 'SUCCEEDED'
+            | 'FAILED';
         }
         namespace Microsites {
           // Generated from: com/linkedin/avro2pegasus/events/microsites/ClickEventCategory.pdsc
 
-          export type ClickEventCategory = 'FORM' | 'SOCIAL' | 'LINK' | 'CHAT' | 'CALL';
+          export type ClickEventCategory =
+            | 'FORM'
+            | 'SOCIAL'
+            | 'LINK'
+            | 'CHAT'
+            | 'CALL';
           // Generated from: com/linkedin/avro2pegasus/events/microsites/FormSubmissionGUID.pdsc
 
           export type FormSubmissionGUID = string;
@@ -38881,7 +40422,12 @@ declare namespace Com {
         namespace Mirror {
           // Generated from: com/linkedin/avro2pegasus/events/mirror/ActionType.pdsc
 
-          export type ActionType = 'VIEW' | 'LIKE' | 'COMMENT' | 'RESHARE' | 'REPLY_TO_COMMENT';
+          export type ActionType =
+            | 'VIEW'
+            | 'LIKE'
+            | 'COMMENT'
+            | 'RESHARE'
+            | 'REPLY_TO_COMMENT';
           // Generated from: com/linkedin/avro2pegasus/events/mirror/MirrorShareCreationEvent.pdsc
 
           export interface MirrorShareCreationEvent {
@@ -38979,7 +40525,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/mitn/RetractionReason.pdsc
 
-          export type RetractionReason = 'SELF_REPORT' | 'SERVICE_REP_VERIFIED' | 'SERVER_RETRACTED';
+          export type RetractionReason =
+            | 'SELF_REPORT'
+            | 'SERVICE_REP_VERIFIED'
+            | 'SERVER_RETRACTED';
         }
         namespace Ml {
           // Generated from: com/linkedin/avro2pegasus/events/ml/MemberModelScoringEvent.pdsc
@@ -39134,7 +40683,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/mobile/ApplicationBuildType.pdsc
 
-          export type ApplicationBuildType = 'PRODUCTION' | 'INTERNAL' | 'DEVELOPMENT' | 'UNKNOWN';
+          export type ApplicationBuildType =
+            | 'PRODUCTION'
+            | 'INTERNAL'
+            | 'DEVELOPMENT'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/mobile/ApplicationStateChangeType.pdsc
 
           export type ApplicationStateChangeType =
@@ -39156,7 +40709,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/mobile/DeferredDeepLinkResultType.pdsc
 
-          export type DeferredDeepLinkResultType = 'EXPIRED' | 'UNIMPLEMENTED' | 'EXECUTED' | 'DETECTED';
+          export type DeferredDeepLinkResultType =
+            | 'EXPIRED'
+            | 'UNIMPLEMENTED'
+            | 'EXECUTED'
+            | 'DETECTED';
           // Generated from: com/linkedin/avro2pegasus/events/mobile/DestinationIP.pdsc
 
           export type DestinationIP = string;
@@ -39807,7 +41364,13 @@ declare namespace Com {
           export type LogInfoType = 'DEFAULTLOG' | 'CPPLOG';
           // Generated from: com/linkedin/avro2pegasus/events/monitoring/LogLevel.pdsc
 
-          export type LogLevel = 'TRACE' | 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'FATAL';
+          export type LogLevel =
+            | 'TRACE'
+            | 'DEBUG'
+            | 'INFO'
+            | 'WARNING'
+            | 'ERROR'
+            | 'FATAL';
           // Generated from: com/linkedin/avro2pegasus/events/monitoring/LogSessionMarker.pdsc
 
           export type LogSessionMarker = 'POINT' | 'START' | 'END';
@@ -39956,7 +41519,11 @@ declare namespace Com {
           export type RenderType = 'EMBED' | 'PAGE' | 'EMAIL' | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/monitoring/ResultType.pdsc
 
-          export type ResultType = 'SUCCESS' | 'ERROR' | 'EARLY_FINISH' | 'UNFINISHED';
+          export type ResultType =
+            | 'SUCCESS'
+            | 'ERROR'
+            | 'EARLY_FINISH'
+            | 'UNFINISHED';
           // Generated from: com/linkedin/avro2pegasus/events/monitoring/SamplingProfilerEvent.pdsc
 
           export interface SamplingProfilerEvent {
@@ -40207,7 +41774,10 @@ declare namespace Com {
           export type X509MonitoringOS = 'LINUX' | 'SOLARIS' | 'MACOSX';
           // Generated from: com/linkedin/avro2pegasus/events/monitoring/X509MonitoringTestSubject.pdsc
 
-          export type X509MonitoringTestSubject = 'HOST' | 'SERVICE' | 'TRUSTSTORE';
+          export type X509MonitoringTestSubject =
+            | 'HOST'
+            | 'SERVICE'
+            | 'TRUSTSTORE';
           namespace Sshcertificates {
             // Generated from: com/linkedin/avro2pegasus/events/monitoring/sshcertificates/IdentityProvider.pdsc
 
@@ -40316,7 +41886,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/nativerum/httpProtocol.pdsc
 
-          export type httpProtocol = 'HTTP0_9' | 'HTTP1_0' | 'HTTP1_1' | 'HTTP2' | 'UNKNOWN';
+          export type httpProtocol =
+            | 'HTTP0_9'
+            | 'HTTP1_0'
+            | 'HTTP1_1'
+            | 'HTTP2'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/nativerum/NativePageLoadEvent.pdsc
 
           export interface NativePageLoadEvent {
@@ -40395,7 +41970,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/nearby/NearbyPeopleIntentActionType.pdsc
 
-          export type NearbyPeopleIntentActionType = 'ACCEPT' | 'IGNORE' | 'CREATE';
+          export type NearbyPeopleIntentActionType =
+            | 'ACCEPT'
+            | 'IGNORE'
+            | 'CREATE';
         }
         namespace Newsle {
           // Generated from: com/linkedin/avro2pegasus/events/newsle/IncorrectMentionedEntityFeedbackEvent.pdsc
@@ -40744,7 +42322,13 @@ declare namespace Com {
                 }
                 // Generated from: com/linkedin/avro2pegasus/events/oms/dm/pub/report/RecurrenceType.pdsc
 
-                export type RecurrenceType = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'CUSTOM';
+                export type RecurrenceType =
+                  | 'DAILY'
+                  | 'WEEKLY'
+                  | 'MONTHLY'
+                  | 'QUARTERLY'
+                  | 'ANNUAL'
+                  | 'CUSTOM';
               }
             }
           }
@@ -40813,7 +42397,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/operationalalerts/Platform.pdsc
 
-          export type Platform = 'UMP' | 'GOBBLIN' | 'FETL' | 'XLNT' | 'AZKABAN' | 'ADHOC';
+          export type Platform =
+            | 'UMP'
+            | 'GOBBLIN'
+            | 'FETL'
+            | 'XLNT'
+            | 'AZKABAN'
+            | 'ADHOC';
           // Generated from: com/linkedin/avro2pegasus/events/operationalalerts/Source.pdsc
 
           export type Source = 'WIMD' | 'AZKABAN' | 'ADHOC';
@@ -40832,7 +42422,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/opportunitymarketplace/MarketplaceActionType.pdsc
 
-          export type MarketplaceActionType = 'MESSAGE_CLICKED' | 'RECOMMENDATION_REJECTED' | 'MESSAGE_SENT';
+          export type MarketplaceActionType =
+            | 'MESSAGE_CLICKED'
+            | 'RECOMMENDATION_REJECTED'
+            | 'MESSAGE_SENT';
           // Generated from: com/linkedin/avro2pegasus/events/opportunitymarketplace/MarketplaceImpressionEvent.pdsc
 
           export interface MarketplaceImpressionEvent {
@@ -40871,7 +42464,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/opportunitymarketplace/MarketplaceSignupOrigin.pdsc
 
-          export type MarketplaceSignupOrigin = 'LINK' | 'PROFILE_DASHBOARD' | 'JOBS_HERO' | 'TAKEOVER';
+          export type MarketplaceSignupOrigin =
+            | 'LINK'
+            | 'PROFILE_DASHBOARD'
+            | 'JOBS_HERO'
+            | 'TAKEOVER';
           // Generated from: com/linkedin/avro2pegasus/events/opportunitymarketplace/RecommendationType.pdsc
 
           export type RecommendationType =
@@ -41006,13 +42603,24 @@ declare namespace Com {
             | 'RETRYABLE_HARD_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/payments/CreditCardType.pdsc
 
-          export type CreditCardType = 'AMERICAN_EXPRESS' | 'MASTERCARD' | 'VISA' | 'DISCOVER' | 'DINERS_CLUB' | 'JCB';
+          export type CreditCardType =
+            | 'AMERICAN_EXPRESS'
+            | 'MASTERCARD'
+            | 'VISA'
+            | 'DISCOVER'
+            | 'DINERS_CLUB'
+            | 'JCB';
           // Generated from: com/linkedin/avro2pegasus/events/payments/FailureType.pdsc
 
           export type FailureType = 'EXECUTION_ERROR' | 'UNSUPPORTED_REQUEST';
           // Generated from: com/linkedin/avro2pegasus/events/payments/FulfillmentStatus.pdsc
 
-          export type FulfillmentStatus = 'NOT_FULFILLED' | 'FULFILLED' | 'CANCELED' | 'ERROR' | 'CANCELLING_ERROR';
+          export type FulfillmentStatus =
+            | 'NOT_FULFILLED'
+            | 'FULFILLED'
+            | 'CANCELED'
+            | 'ERROR'
+            | 'CANCELLING_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/payments/InAppPaymentEvent.pdsc
 
           export interface InAppPaymentEvent {
@@ -41040,7 +42648,13 @@ declare namespace Com {
             | 'NOTIFY_FAILURE';
           // Generated from: com/linkedin/avro2pegasus/events/payments/OnlineApplicationChannel.pdsc
 
-          export type OnlineApplicationChannel = 'WEBSITE' | 'APP_IOS' | 'APP_ANDROID' | 'TOUCHWEB' | 'API' | 'UNKNOWN';
+          export type OnlineApplicationChannel =
+            | 'WEBSITE'
+            | 'APP_IOS'
+            | 'APP_ANDROID'
+            | 'TOUCHWEB'
+            | 'API'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/payments/OrderLifecycleEvent.pdsc
 
           export interface OrderLifecycleEvent {
@@ -41180,7 +42794,11 @@ declare namespace Com {
             | 'HARD_ERROR_RETRY_LIMIT';
           // Generated from: com/linkedin/avro2pegasus/events/payments/RChargeStatus.pdsc
 
-          export type RChargeStatus = 'IN_PROCESS' | 'SUCCESS' | 'FAIL' | 'ABORT';
+          export type RChargeStatus =
+            | 'IN_PROCESS'
+            | 'SUCCESS'
+            | 'FAIL'
+            | 'ABORT';
           // Generated from: com/linkedin/avro2pegasus/events/payments/ReacquireType.pdsc
 
           export type ReacquireType = 'SUBS_PURCHASE';
@@ -41193,7 +42811,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/payments/RecurrenceType.pdsc
 
-          export type RecurrenceType = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'CUSTOM';
+          export type RecurrenceType =
+            | 'DAILY'
+            | 'WEEKLY'
+            | 'MONTHLY'
+            | 'QUARTERLY'
+            | 'ANNUAL'
+            | 'CUSTOM';
           // Generated from: com/linkedin/avro2pegasus/events/payments/RefundReason.pdsc
 
           export type RefundReason =
@@ -41279,7 +42903,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/paymentsfrontend/PaymentMethod.pdsc
 
-          export type PaymentMethod = 'CREDIT_CARD' | 'PAYPAL' | 'SEPA_DIRECT_DEBIT' | 'ALIPAY' | 'IDEAL' | 'SOFORT';
+          export type PaymentMethod =
+            | 'CREDIT_CARD'
+            | 'PAYPAL'
+            | 'SEPA_DIRECT_DEBIT'
+            | 'ALIPAY'
+            | 'IDEAL'
+            | 'SOFORT';
           // Generated from: com/linkedin/avro2pegasus/events/paymentsfrontend/PaymentMethodActionEvent.pdsc
 
           export interface PaymentMethodActionEvent {
@@ -41315,7 +42945,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/pem/DegradationReason.pdsc
 
-          export type DegradationReason = 'SERVER_ERROR' | 'TIMEOUT' | 'ABORTED' | 'NETWORK_ERROR';
+          export type DegradationReason =
+            | 'SERVER_ERROR'
+            | 'TIMEOUT'
+            | 'ABORTED'
+            | 'NETWORK_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/pem/DownstreamRequest.pdsc
 
           export interface DownstreamRequest {
@@ -41356,7 +42990,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/pemberly/BPRRenderModeType.pdsc
 
-          export type BPRRenderModeType = 'BIGPIPE' | 'SSR' | 'VANILLA' | 'SSRPIPE' | 'SSRFAST' | 'SSRLITE' | 'SSRSEO';
+          export type BPRRenderModeType =
+            | 'BIGPIPE'
+            | 'SSR'
+            | 'VANILLA'
+            | 'SSRPIPE'
+            | 'SSRFAST'
+            | 'SSRLITE'
+            | 'SSRSEO';
           // Generated from: com/linkedin/avro2pegasus/events/pemberly/BPRResponseEvent.pdsc
 
           export interface BPRResponseEvent {
@@ -41432,7 +43073,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/peoplecard/RestrictionStatus.pdsc
 
-          export type RestrictionStatus = 'PREFERRED' | 'BASIC' | 'BASIC_MINUS' | 'SUSPEND';
+          export type RestrictionStatus =
+            | 'PREFERRED'
+            | 'BASIC'
+            | 'BASIC_MINUS'
+            | 'SUSPEND';
         }
         namespace Perf {
           // Generated from: com/linkedin/avro2pegasus/events/perf/ConcatBundle.pdsc
@@ -41469,7 +43114,11 @@ declare namespace Com {
             | 'WIMAX';
           // Generated from: com/linkedin/avro2pegasus/events/performance/EffectiveConnectionType.pdsc
 
-          export type EffectiveConnectionType = 'SLOW_2G' | 'TWO_G' | 'THREE_G' | 'FOUR_G';
+          export type EffectiveConnectionType =
+            | 'SLOW_2G'
+            | 'TWO_G'
+            | 'THREE_G'
+            | 'FOUR_G';
           // Generated from: com/linkedin/avro2pegasus/events/performance/ExperimentalPerformanceTimingEvent.pdsc
 
           export interface ExperimentalPerformanceTimingEvent {
@@ -41539,7 +43188,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/pie/EventSeverity.pdsc
 
-          export type EventSeverity = 'IGNORE' | 'INFO' | 'WARNING' | 'CRITICAL' | 'FATAL';
+          export type EventSeverity =
+            | 'IGNORE'
+            | 'INFO'
+            | 'WARNING'
+            | 'CRITICAL'
+            | 'FATAL';
           // Generated from: com/linkedin/avro2pegasus/events/pie/EventSource.pdsc
 
           export type EventSource =
@@ -41732,7 +43386,11 @@ declare namespace Com {
             | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/pinot/PinotFanoutType.pdsc
 
-          export type PinotFanoutType = 'OFFLINE' | 'REALTIME' | 'HYBRID' | 'UNKNOWN';
+          export type PinotFanoutType =
+            | 'OFFLINE'
+            | 'REALTIME'
+            | 'HYBRID'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/events/pinot/PinotQueryEvent.pdsc
 
           export interface PinotQueryEvent {
@@ -41882,7 +43540,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/ads/AdClickType.pdsc
 
-              export type AdClickType = 'CAMPAIGN' | 'OTHER' | 'CANCEL' | 'LEADGEN';
+              export type AdClickType =
+                | 'CAMPAIGN'
+                | 'OTHER'
+                | 'CANCEL'
+                | 'LEADGEN';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/ads/AdCreativeStatsEvent.pdsc
 
               export interface AdCreativeStatsEvent {
@@ -42014,7 +43676,16 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/ads/CompanySize.pdsc
 
-              export type CompanySize = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I';
+              export type CompanySize =
+                | 'A'
+                | 'B'
+                | 'C'
+                | 'D'
+                | 'E'
+                | 'F'
+                | 'G'
+                | 'H'
+                | 'I';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/ads/SponsoredInMailActivityEvent.pdsc
 
               export interface SponsoredInMailActivityEvent {
@@ -42242,10 +43913,20 @@ declare namespace Com {
               export type PayloadType = 'BROADCAST' | 'CONTENT';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/leap/SocialActionType.pdsc
 
-              export type SocialActionType = 'LIKE' | 'COMMENT' | 'RESHARE' | 'CLICK' | 'UNLIKE' | 'UNCOMMENT';
+              export type SocialActionType =
+                | 'LIKE'
+                | 'COMMENT'
+                | 'RESHARE'
+                | 'CLICK'
+                | 'UNLIKE'
+                | 'UNCOMMENT';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/leap/SocialNetwork.pdsc
 
-              export type SocialNetwork = 'TWITTER' | 'FACEBOOK' | 'LINKEDIN' | 'WEIBO';
+              export type SocialNetwork =
+                | 'TWITTER'
+                | 'FACEBOOK'
+                | 'LINKEDIN'
+                | 'WEIBO';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/leap/TopicType.pdsc
 
               export type TopicType = 'INDUSTRY' | 'COMPANY' | 'RSS';
@@ -42264,10 +43945,19 @@ declare namespace Com {
             namespace Mirror {
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/mirror/ContentEntityType.pdsc
 
-              export type ContentEntityType = 'UGC_POST' | 'SHARE' | 'GROUP_POST';
+              export type ContentEntityType =
+                | 'UGC_POST'
+                | 'SHARE'
+                | 'GROUP_POST';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/mirror/GestureType.pdsc
 
-              export type GestureType = 'COMMENT' | 'LIKE' | 'IMPRESSION' | 'PLAY' | 'RESHARE' | 'REPLY_TO_COMMENT';
+              export type GestureType =
+                | 'COMMENT'
+                | 'LIKE'
+                | 'IMPRESSION'
+                | 'PLAY'
+                | 'RESHARE'
+                | 'REPLY_TO_COMMENT';
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/mirror/ShareSocialGestureEvent.pdsc
 
               export interface ShareSocialGestureEvent {
@@ -42396,7 +44086,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/premium/SubsFeatureKey.pdsc
 
-              export type SubsFeatureKey = 'APPLICANT_INSIGHTS' | 'INMAIL' | 'UNLIMITED_SEARCH' | 'WVMP';
+              export type SubsFeatureKey =
+                | 'APPLICANT_INSIGHTS'
+                | 'INMAIL'
+                | 'UNLIMITED_SEARCH'
+                | 'WVMP';
             }
             namespace Publishing {
               // Generated from: com/linkedin/avro2pegasus/events/pinot/derived/publishing/ArticleSocialGestureEvent.pdsc
@@ -42751,7 +44445,14 @@ declare namespace Com {
           export type Interval = 'ONE_SECOND' | 'THREE_SECONDS';
           // Generated from: com/linkedin/avro2pegasus/events/player/NetworkState.pdsc
 
-          export type NetworkState = 'UNKNOWN' | 'NO_DATA' | 'WIFI' | 'LTE' | 'FOUR_G' | 'THREE_G' | 'GPRS';
+          export type NetworkState =
+            | 'UNKNOWN'
+            | 'NO_DATA'
+            | 'WIFI'
+            | 'LTE'
+            | 'FOUR_G'
+            | 'THREE_G'
+            | 'GPRS';
           // Generated from: com/linkedin/avro2pegasus/events/player/PlayerBeaconEvent.pdsc
 
           export interface PlayerBeaconEvent {
@@ -42765,7 +44466,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/player/PlayerFeatureFlag.pdsc
 
-          export type PlayerFeatureFlag = 'ON' | 'OFF' | 'NOT_SUPPORTED' | 'NOT_MEASURED';
+          export type PlayerFeatureFlag =
+            | 'ON'
+            | 'OFF'
+            | 'NOT_SUPPORTED'
+            | 'NOT_MEASURED';
           // Generated from: com/linkedin/avro2pegasus/events/player/PlayerLiveState.pdsc
 
           export type PlayerLiveState = 'IS_LIVE' | 'WAS_LIVE' | 'PRE_RECORDED';
@@ -42792,7 +44497,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/player/PlayerPositionChangedReason.pdsc
 
-          export type PlayerPositionChangedReason = 'USER_TRIGGERED' | 'ENTERED_VIEWPORT';
+          export type PlayerPositionChangedReason =
+            | 'USER_TRIGGERED'
+            | 'ENTERED_VIEWPORT';
           // Generated from: com/linkedin/avro2pegasus/events/player/PlayerSeekEvent.pdsc
 
           export interface PlayerSeekEvent {
@@ -42945,7 +44652,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premium/CompetitorsOrganizationActionType.pdsc
 
-          export type CompetitorsOrganizationActionType = 'HOVER' | 'ADD' | 'REMOVE';
+          export type CompetitorsOrganizationActionType =
+            | 'HOVER'
+            | 'ADD'
+            | 'REMOVE';
           // Generated from: com/linkedin/avro2pegasus/events/premium/FastGrowingCompaniesServedRecord.pdsc
 
           export interface FastGrowingCompaniesServedRecord {
@@ -43094,10 +44804,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premium/PivotDimension.pdsc
 
-          export type PivotDimension = 'INDUSTRY' | 'TITLE' | 'INDUSTRY_AND_TITLE';
+          export type PivotDimension =
+            | 'INDUSTRY'
+            | 'TITLE'
+            | 'INDUSTRY_AND_TITLE';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PlanCardDisplayStatus.pdsc
 
-          export type PlanCardDisplayStatus = 'GRAYED_OUT' | 'POPPED_OUT' | 'DEFAULT';
+          export type PlanCardDisplayStatus =
+            | 'GRAYED_OUT'
+            | 'POPPED_OUT'
+            | 'DEFAULT';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumApplicantInsight.pdsc
 
           export interface PremiumApplicantInsight {
@@ -43655,7 +45371,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumPaywallActionType.pdsc
 
-          export type PremiumPaywallActionType = 'UPGRADE_CLICKED' | 'LEARN_MORE_CLICKED' | 'DISMISS';
+          export type PremiumPaywallActionType =
+            | 'UPGRADE_CLICKED'
+            | 'LEARN_MORE_CLICKED'
+            | 'DISMISS';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumPaywallImpressionEvent.pdsc
 
           export interface PremiumPaywallImpressionEvent {
@@ -43694,7 +45413,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumProductPopupType.pdsc
 
-          export type PremiumProductPopupType = 'ABUSE' | 'EMBARGO' | 'NOT_SUPPORTED';
+          export type PremiumProductPopupType =
+            | 'ABUSE'
+            | 'EMBARGO'
+            | 'NOT_SUPPORTED';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumRedeemPageComponent.pdsc
 
           export type PremiumRedeemPageComponent =
@@ -43744,10 +45466,14 @@ declare namespace Com {
             | 'INDUSTRY';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumSubscriptionAutomationActionType.pdsc
 
-          export type PremiumSubscriptionAutomationActionType = 'NEW_PROVISION' | 'RENEWAL';
+          export type PremiumSubscriptionAutomationActionType =
+            | 'NEW_PROVISION'
+            | 'RENEWAL';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumSubscriptionAutomationGrantMemberType.pdsc
 
-          export type PremiumSubscriptionAutomationGrantMemberType = 'FULLTIME_EMPLOYEE' | 'ALUMNUS';
+          export type PremiumSubscriptionAutomationGrantMemberType =
+            | 'FULLTIME_EMPLOYEE'
+            | 'ALUMNUS';
           // Generated from: com/linkedin/avro2pegasus/events/premium/PremiumSubscriptionAutomationRequestProcessedEvent.pdsc
 
           export interface PremiumSubscriptionAutomationRequestProcessedEvent {
@@ -43965,7 +45691,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premium/ProductSubsFamily.pdsc
 
-          export type ProductSubsFamily = 'JSS' | 'GENERAL' | 'SALES' | 'TALENT' | 'LEARNING' | 'ESSENTIALS';
+          export type ProductSubsFamily =
+            | 'JSS'
+            | 'GENERAL'
+            | 'SALES'
+            | 'TALENT'
+            | 'LEARNING'
+            | 'ESSENTIALS';
           // Generated from: com/linkedin/avro2pegasus/events/premium/RedeemedType.pdsc
 
           export type RedeemedType = 'PRE_CANCEL' | 'POST_CANCEL';
@@ -44055,7 +45787,10 @@ declare namespace Com {
             | 'SWITCH_BUTTON';
           // Generated from: com/linkedin/avro2pegasus/events/premium/SwitcherPlanCardDisplayStatus.pdsc
 
-          export type SwitcherPlanCardDisplayStatus = 'GRAYED_OUT' | 'POPPED_OUT' | 'DEFAULT';
+          export type SwitcherPlanCardDisplayStatus =
+            | 'GRAYED_OUT'
+            | 'POPPED_OUT'
+            | 'DEFAULT';
           // Generated from: com/linkedin/avro2pegasus/events/premium/SwitcherSubHeaderType.pdsc
 
           export type SwitcherSubHeaderType =
@@ -44075,10 +45810,17 @@ declare namespace Com {
         namespace Premiuminsights {
           // Generated from: com/linkedin/avro2pegasus/events/premiuminsights/HopscotchShownOnPageType.pdsc
 
-          export type HopscotchShownOnPageType = 'LINKEDIN_HOME' | 'COMPANY_OVERVIEW' | 'COMPANIES_HOME';
+          export type HopscotchShownOnPageType =
+            | 'LINKEDIN_HOME'
+            | 'COMPANY_OVERVIEW'
+            | 'COMPANIES_HOME';
           // Generated from: com/linkedin/avro2pegasus/events/premiuminsights/MemberCardClickType.pdsc
 
-          export type MemberCardClickType = 'NAME' | 'PICTURE' | 'MINI_PROFILE' | 'CURRENT_COMPANY_LINK';
+          export type MemberCardClickType =
+            | 'NAME'
+            | 'PICTURE'
+            | 'MINI_PROFILE'
+            | 'CURRENT_COMPANY_LINK';
           // Generated from: com/linkedin/avro2pegasus/events/premiuminsights/MemberPositionType.pdsc
 
           export type MemberPositionType = 'CURRENT' | 'PREVIOUS';
@@ -44181,7 +45923,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/premiuminsights/PremiumInsightsHopscotchButtonType.pdsc
 
-          export type PremiumInsightsHopscotchButtonType = 'CALL_TO_ACTION' | 'DISMISS';
+          export type PremiumInsightsHopscotchButtonType =
+            | 'CALL_TO_ACTION'
+            | 'DISMISS';
           // Generated from: com/linkedin/avro2pegasus/events/premiuminsights/PremiumInsightsHopscotchClickedEvent.pdsc
 
           export interface PremiumInsightsHopscotchClickedEvent {
@@ -44592,7 +46336,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/profinder/ConsumerRfpStatus.pdsc
 
-          export type ConsumerRfpStatus = 'PUBLISHED' | 'FLAGGED' | 'ACCEPTED' | 'COMPLETED' | 'CLOSED';
+          export type ConsumerRfpStatus =
+            | 'PUBLISHED'
+            | 'FLAGGED'
+            | 'ACCEPTED'
+            | 'COMPLETED'
+            | 'CLOSED';
           // Generated from: com/linkedin/avro2pegasus/events/profinder/ConsumerRfpSummary.pdsc
 
           export interface ConsumerRfpSummary {
@@ -44877,7 +46626,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/profinder/ServiceProposalQuickReply.pdsc
 
-          export type ServiceProposalQuickReply = 'NOT_A_FIT' | 'REVIEWING_PROPOSALS' | 'WANT_TO_LEARN_MORE';
+          export type ServiceProposalQuickReply =
+            | 'NOT_A_FIT'
+            | 'REVIEWING_PROPOSALS'
+            | 'WANT_TO_LEARN_MORE';
           // Generated from: com/linkedin/avro2pegasus/events/profinder/ServiceProposalQuickReplyActionEvent.pdsc
 
           export interface ServiceProposalQuickReplyActionEvent {
@@ -45049,7 +46801,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/prop/BriefingType.pdsc
 
-          export type BriefingType = 'ALL_PROPS' | 'ALL_PROPS_WITHOUT_INVITATION';
+          export type BriefingType =
+            | 'ALL_PROPS'
+            | 'ALL_PROPS_WITHOUT_INVITATION';
           // Generated from: com/linkedin/avro2pegasus/events/prop/DecoratedPropUpdateData.pdsc
 
           export interface DecoratedPropUpdateData {
@@ -45186,7 +46940,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/publishing/ArticleStateV2.pdsc
 
-          export type ArticleStateV2 = 'PUBLISHED' | 'DELETED' | 'DRAFT' | 'DRAFT_OF_PUBLISHED' | 'PUBLIC_DRAFT';
+          export type ArticleStateV2 =
+            | 'PUBLISHED'
+            | 'DELETED'
+            | 'DRAFT'
+            | 'DRAFT_OF_PUBLISHED'
+            | 'PUBLIC_DRAFT';
           // Generated from: com/linkedin/avro2pegasus/events/publishing/Author.pdsc
 
           export interface Author {
@@ -45213,7 +46972,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/publishing/ContentUpdateErrorCode.pdsc
 
-          export type ContentUpdateErrorCode = 'CONTENT_ERROR' | 'INVALID_MEDIA';
+          export type ContentUpdateErrorCode =
+            | 'CONTENT_ERROR'
+            | 'INVALID_MEDIA';
           // Generated from: com/linkedin/avro2pegasus/events/publishing/CoverImage.pdsc
 
           export interface CoverImage {
@@ -45404,7 +47165,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/pulse/CommentLevel.pdsc
 
-          export type CommentLevel = 'TOP_LEVEL' | 'REPLY_TO_TOP_LEVEL' | 'REPLY_TO_REPLY';
+          export type CommentLevel =
+            | 'TOP_LEVEL'
+            | 'REPLY_TO_TOP_LEVEL'
+            | 'REPLY_TO_REPLY';
           // Generated from: com/linkedin/avro2pegasus/events/pulse/Entity.pdsc
 
           export interface Entity {
@@ -45725,7 +47489,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/pymk/PymkDiagnosticEventEmittedReason.pdsc
 
-          export type PymkDiagnosticEventEmittedReason = 'SLOW_REQUEST' | 'DEBUG_TRACE_ENABLED';
+          export type PymkDiagnosticEventEmittedReason =
+            | 'SLOW_REQUEST'
+            | 'DEBUG_TRACE_ENABLED';
           // Generated from: com/linkedin/avro2pegasus/events/pymk/PymkRecommendation.pdsc
 
           export interface PymkRecommendation {
@@ -45842,7 +47608,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/qap/QueryTaggerLanguageType.pdsc
 
-          export type QueryTaggerLanguageType = 'DEFAULT' | 'INTL' | 'CHINESE' | 'JAPANESE' | 'GERMAN' | 'MULTILINGUAL';
+          export type QueryTaggerLanguageType =
+            | 'DEFAULT'
+            | 'INTL'
+            | 'CHINESE'
+            | 'JAPANESE'
+            | 'GERMAN'
+            | 'MULTILINGUAL';
           // Generated from: com/linkedin/avro2pegasus/events/qap/QueryTaggerModelType.pdsc
 
           export type QueryTaggerModelType =
@@ -45857,7 +47629,10 @@ declare namespace Com {
           export type QueryTaggerVersion = 'V201701' | 'V201906';
           // Generated from: com/linkedin/avro2pegasus/events/qap/SearchFunction.pdsc
 
-          export type SearchFunction = 'DEFAULT' | 'QUERY_INTENTION' | 'RESULTS_MERGING';
+          export type SearchFunction =
+            | 'DEFAULT'
+            | 'QUERY_INTENTION'
+            | 'RESULTS_MERGING';
           // Generated from: com/linkedin/avro2pegasus/events/qap/SearchRequestRecord.pdsc
 
           export interface SearchRequestRecord {
@@ -46056,10 +47831,20 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/raptor/RollupFunction.pdsc
 
-          export type RollupFunction = 'SUM' | 'MIN' | 'MAX' | 'UNIQUE' | 'COUNT';
+          export type RollupFunction =
+            | 'SUM'
+            | 'MIN'
+            | 'MAX'
+            | 'UNIQUE'
+            | 'COUNT';
           // Generated from: com/linkedin/avro2pegasus/events/raptor/RollupGranularity.pdsc
 
-          export type RollupGranularity = 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+          export type RollupGranularity =
+            | 'HOUR'
+            | 'DAY'
+            | 'WEEK'
+            | 'MONTH'
+            | 'YEAR';
         }
         namespace Rbmf {
           // Generated from: com/linkedin/avro2pegasus/events/rbmf/PackageRecommendationActionEvent.pdsc
@@ -46092,7 +47877,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/rbmf/PackageRecommendationType.pdsc
 
-          export type PackageRecommendationType = 'FOLLOW' | 'UNFOLLOW' | 'EXPAND';
+          export type PackageRecommendationType =
+            | 'FOLLOW'
+            | 'UNFOLLOW'
+            | 'EXPAND';
           // Generated from: com/linkedin/avro2pegasus/events/rbmf/PackageRecommendationUserAction.pdsc
 
           export type PackageRecommendationUserAction = 'FOLLOW' | 'UNFOLLOW';
@@ -46280,7 +48068,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recommendations/RecommendationVisibility.pdsc
 
-          export type RecommendationVisibility = 'EVERYONE' | 'CONNECTION' | 'NONE';
+          export type RecommendationVisibility =
+            | 'EVERYONE'
+            | 'CONNECTION'
+            | 'NONE';
           // Generated from: com/linkedin/avro2pegasus/events/recommendations/RecommendationVisibilityUpdate.pdsc
 
           export interface RecommendationVisibilityUpdate {
@@ -46383,10 +48174,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/AutomatedSourcingCandidateRatingType.pdsc
 
-          export type AutomatedSourcingCandidateRatingType = 'INTERESTED' | 'DEFERRED' | 'REJECTED';
+          export type AutomatedSourcingCandidateRatingType =
+            | 'INTERESTED'
+            | 'DEFERRED'
+            | 'REJECTED';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/AutomatedSourcingCloseStreamReason.pdsc
 
-          export type AutomatedSourcingCloseStreamReason = 'FILLED_POSITION' | 'NO_GOOD_FITS' | 'USER_SPECIFIED';
+          export type AutomatedSourcingCloseStreamReason =
+            | 'FILLED_POSITION'
+            | 'NO_GOOD_FITS'
+            | 'USER_SPECIFIED';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/AutomatedSourcingImpressionEventLixKeyTreatmentPair.pdsc
 
           export interface AutomatedSourcingImpressionEventLixKeyTreatmentPair {
@@ -46573,7 +48370,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/featureContentLinkType.pdsc
 
-          export type featureContentLinkType = 'SEE_ALL_PRODUCT_UPDATE' | 'SHOW_ME_HOW' | 'CUSTOM_LINK';
+          export type featureContentLinkType =
+            | 'SEE_ALL_PRODUCT_UPDATE'
+            | 'SHOW_ME_HOW'
+            | 'CUSTOM_LINK';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/FeatureSelected.pdsc
 
           export interface FeatureSelected {
@@ -46624,7 +48424,10 @@ declare namespace Com {
             | 'DATA_DISCREPANCY';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/HiringPlatformDualReadMethodType.pdsc
 
-          export type HiringPlatformDualReadMethodType = 'GET' | 'BATCH_GET' | 'FINDER';
+          export type HiringPlatformDualReadMethodType =
+            | 'GET'
+            | 'BATCH_GET'
+            | 'FINDER';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/HiringPlatformDualReadUseCase.pdsc
 
           export type HiringPlatformDualReadUseCase =
@@ -46934,7 +48737,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/ProspectToRecruiterMessageReplyType.pdsc
 
-          export type ProspectToRecruiterMessageReplyType = 'ACCEPTED' | 'REJECTED';
+          export type ProspectToRecruiterMessageReplyType =
+            | 'ACCEPTED'
+            | 'REJECTED';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/ProspectToRecruiterMessageReplyV2Event.pdsc
 
           export interface ProspectToRecruiterMessageReplyV2Event {
@@ -47097,10 +48902,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterAnalyticsMessageCharCountRange.pdsc
 
-          export type RecruiterAnalyticsMessageCharCountRange = 'SMALL' | 'MEDIUM' | 'LARGE';
+          export type RecruiterAnalyticsMessageCharCountRange =
+            | 'SMALL'
+            | 'MEDIUM'
+            | 'LARGE';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterAnalyticsMessageNumRecipientsRange.pdsc
 
-          export type RecruiterAnalyticsMessageNumRecipientsRange = 'SINGLE' | 'FEW' | 'MANY';
+          export type RecruiterAnalyticsMessageNumRecipientsRange =
+            | 'SINGLE'
+            | 'FEW'
+            | 'MANY';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterBackendApiCallEvent.pdsc
 
           export interface RecruiterBackendApiCallEvent {
@@ -47244,7 +49055,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterMessageEventSourceType.pdsc
 
-          export type RecruiterMessageEventSourceType = 'PROFILE' | 'PROJECT' | 'SEARCH' | 'CLIPBOARD';
+          export type RecruiterMessageEventSourceType =
+            | 'PROFILE'
+            | 'PROJECT'
+            | 'SEARCH'
+            | 'CLIPBOARD';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterNoteActionEvent.pdsc
 
           export interface RecruiterNoteActionEvent {
@@ -47396,7 +49211,9 @@ declare namespace Com {
             | 'PIPELINE_BUILDER';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterProspectMessageType.pdsc
 
-          export type RecruiterProspectMessageType = 'REACH_OUT_ATTEMPT' | 'REPLY_FROM_PROSPECT';
+          export type RecruiterProspectMessageType =
+            | 'REACH_OUT_ATTEMPT'
+            | 'REPLY_FROM_PROSPECT';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterProspectStatusChangeEvent.pdsc
 
           export interface RecruiterProspectStatusChangeEvent {
@@ -47509,7 +49326,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterSearchAlertFrequency.pdsc
 
-          export type RecruiterSearchAlertFrequency = 'NEVER' | 'DAILY' | 'WEEKLY';
+          export type RecruiterSearchAlertFrequency =
+            | 'NEVER'
+            | 'DAILY'
+            | 'WEEKLY';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RecruiterSearchAlertFrequencyChangeEvent.pdsc
 
           export interface RecruiterSearchAlertFrequencyChangeEvent {
@@ -47689,7 +49509,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RoleRefinementQuestion.pdsc
 
-          export type RoleRefinementQuestion = 'IDEAL_CANDIDATE' | 'AREA_OF_EXPERTISE' | 'COMPANY';
+          export type RoleRefinementQuestion =
+            | 'IDEAL_CANDIDATE'
+            | 'AREA_OF_EXPERTISE'
+            | 'COMPANY';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/RoleRefinementSuggestionsEvent.pdsc
 
           export interface RoleRefinementSuggestionsEvent {
@@ -47717,7 +49540,11 @@ declare namespace Com {
             | 'GREET_FIRST_LAST';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/section.pdsc
 
-          export type section = 'SEE_ALL_PRODUCT_UPDATE_SECTION' | 'FEATURE_SECTION' | 'OPEN_SECTION' | 'CLOSE_SECTION';
+          export type section =
+            | 'SEE_ALL_PRODUCT_UPDATE_SECTION'
+            | 'FEATURE_SECTION'
+            | 'OPEN_SECTION'
+            | 'CLOSE_SECTION';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/SkillTermKey.pdsc
 
           export interface SkillTermKey {
@@ -47725,7 +49552,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/StreamRefinementQuestion.pdsc
 
-          export type StreamRefinementQuestion = 'IDEAL_CANDIDATES' | 'AREA_OF_EXPERTISE' | 'KEYWORD' | 'COMPANIES';
+          export type StreamRefinementQuestion =
+            | 'IDEAL_CANDIDATES'
+            | 'AREA_OF_EXPERTISE'
+            | 'KEYWORD'
+            | 'COMPANIES';
           // Generated from: com/linkedin/avro2pegasus/events/recruiter/TalentPackageSearchResultsImpressionEvent.pdsc
 
           export interface TalentPackageSearchResultsImpressionEvent {
@@ -47794,7 +49625,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/redpacket/RedPacketAlipayAccountActionStatus.pdsc
 
-          export type RedPacketAlipayAccountActionStatus = 'ATTEMPT' | 'SUCCESS' | 'FAILURE';
+          export type RedPacketAlipayAccountActionStatus =
+            | 'ATTEMPT'
+            | 'SUCCESS'
+            | 'FAILURE';
           // Generated from: com/linkedin/avro2pegasus/events/redpacket/RedPacketAlipayAccountActionType.pdsc
 
           export type RedPacketAlipayAccountActionType = 'BIND' | 'UNBIND';
@@ -47865,7 +49699,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/referrals/JobReferralState.pdsc
 
-          export type JobReferralState = 'NOT_REQUESTED' | 'DISMISSED' | 'PENDING' | 'REFERRED';
+          export type JobReferralState =
+            | 'NOT_REQUESTED'
+            | 'DISMISSED'
+            | 'PENDING'
+            | 'REFERRED';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralAction.pdsc
 
           export type ReferralAction =
@@ -47945,7 +49783,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralDeliveryType.pdsc
 
-          export type ReferralDeliveryType = 'HIRING_PLATFORM' | 'FORWARD_TO_POSTER';
+          export type ReferralDeliveryType =
+            | 'HIRING_PLATFORM'
+            | 'FORWARD_TO_POSTER';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralHomepageActionEvent.pdsc
 
           export interface ReferralHomepageActionEvent {
@@ -47977,7 +49817,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralJobDetailPageUIComponents.pdsc
 
-          export type ReferralJobDetailPageUIComponents = 'REFER' | 'NEW_CONNECTION_REFER';
+          export type ReferralJobDetailPageUIComponents =
+            | 'REFER'
+            | 'NEW_CONNECTION_REFER';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralJobDismissReason.pdsc
 
           export type ReferralJobDismissReason = 'ROLE' | 'SENIORITY' | 'SKILL';
@@ -48123,7 +49965,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralReferModalUIComponents.pdsc
 
-          export type ReferralReferModalUIComponents = 'IN_MAIL' | 'COPY_LINK' | 'EMAIL' | 'CANCEL';
+          export type ReferralReferModalUIComponents =
+            | 'IN_MAIL'
+            | 'COPY_LINK'
+            | 'EMAIL'
+            | 'CANCEL';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralRelationship.pdsc
 
           export type ReferralRelationship =
@@ -48159,10 +50005,18 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralShareModalUIComponents.pdsc
 
-          export type ReferralShareModalUIComponents = 'LINKED_IN' | 'TWITTER' | 'FACEBOOK' | 'GOOGLE_PLUS' | 'CANCEL';
+          export type ReferralShareModalUIComponents =
+            | 'LINKED_IN'
+            | 'TWITTER'
+            | 'FACEBOOK'
+            | 'GOOGLE_PLUS'
+            | 'CANCEL';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralStatus.pdsc
 
-          export type ReferralStatus = 'REQUESTED' | 'RECEIVED' | 'ACKNOWLEDGED';
+          export type ReferralStatus =
+            | 'REQUESTED'
+            | 'RECEIVED'
+            | 'ACKNOWLEDGED';
           // Generated from: com/linkedin/avro2pegasus/events/referrals/ReferralStatusChangeEvent.pdsc
 
           export interface ReferralStatusChangeEvent {
@@ -48425,7 +50279,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/restrictions/HarassmentRestrictionLabel.pdsc
 
-          export type HarassmentRestrictionLabel = 'HARASSMENT_ONCE' | 'HARASSMENT_TWICE';
+          export type HarassmentRestrictionLabel =
+            | 'HARASSMENT_ONCE'
+            | 'HARASSMENT_TWICE';
           // Generated from: com/linkedin/avro2pegasus/events/restrictions/HibernateRestrictionInfo.pdsc
 
           export interface HibernateRestrictionInfo {
@@ -48464,7 +50320,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/restrictions/ViolationType.pdsc
 
-          export type ViolationType = 'BLACKLISTED_EXTENSION' | 'SCRAPING_DETECTION';
+          export type ViolationType =
+            | 'BLACKLISTED_EXTENSION'
+            | 'SCRAPING_DETECTION';
         }
         namespace Resume {
           // Generated from: com/linkedin/avro2pegasus/events/resume/Education.pdsc
@@ -48482,7 +50340,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/resume/parserName.pdsc
 
-          export type parserName = 'LENS' | 'DAXTRA' | 'CONNECTIFIER' | 'LINKEDIN';
+          export type parserName =
+            | 'LENS'
+            | 'DAXTRA'
+            | 'CONNECTIFIER'
+            | 'LINKEDIN';
           // Generated from: com/linkedin/avro2pegasus/events/resume/Position.pdsc
 
           export interface Position {
@@ -48726,7 +50588,11 @@ declare namespace Com {
         namespace Routing {
           // Generated from: com/linkedin/avro2pegasus/events/routing/EntityAssignmentContext.pdsc
 
-          export type EntityAssignmentContext = 'ADS' | 'PAYMENTS' | 'RECRUITER' | 'SALES';
+          export type EntityAssignmentContext =
+            | 'ADS'
+            | 'PAYMENTS'
+            | 'RECRUITER'
+            | 'SALES';
           // Generated from: com/linkedin/avro2pegasus/events/routing/EntityAssignmentEvent.pdsc
 
           export interface EntityAssignmentEvent {
@@ -49189,7 +51055,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/FederatedSearchComponentType.pdsc
 
-          export type FederatedSearchComponentType = 'SEARCH' | 'HERO' | 'RELATED_SEARCHES' | 'SPELLING_SUGGESTIONS';
+          export type FederatedSearchComponentType =
+            | 'SEARCH'
+            | 'HERO'
+            | 'RELATED_SEARCHES'
+            | 'SPELLING_SUGGESTIONS';
           // Generated from: com/linkedin/avro2pegasus/events/search/FederatedSearchEvent.pdsc
 
           export interface FederatedSearchEvent {
@@ -49203,7 +51073,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/FeedbackActionType.pdsc
 
-          export type FeedbackActionType = 'YES' | 'NO' | 'SUBMIT' | 'REPORT' | 'IRRELEVANT';
+          export type FeedbackActionType =
+            | 'YES'
+            | 'NO'
+            | 'SUBMIT'
+            | 'REPORT'
+            | 'IRRELEVANT';
           // Generated from: com/linkedin/avro2pegasus/events/search/Filter.pdsc
 
           export interface Filter {
@@ -49339,7 +51214,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/GenericSearchRequestType.pdsc
 
-          export type GenericSearchRequestType = 'TYPE_AHEAD_SEARCH' | 'DOCUMENT_SEARCH' | 'HIT_COUNT_SEARCH';
+          export type GenericSearchRequestType =
+            | 'TYPE_AHEAD_SEARCH'
+            | 'DOCUMENT_SEARCH'
+            | 'HIT_COUNT_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/events/search/GenericSearchResult.pdsc
 
           export interface GenericSearchResult {
@@ -49494,10 +51372,17 @@ declare namespace Com {
             | 'FACETED_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/events/search/LookupSearchResultType.pdsc
 
-          export type LookupSearchResultType = 'TYPEAHEAD' | 'SERVER_SEARCH' | 'INSTANT_SEARCH' | 'RECENT_SEARCH';
+          export type LookupSearchResultType =
+            | 'TYPEAHEAD'
+            | 'SERVER_SEARCH'
+            | 'INSTANT_SEARCH'
+            | 'RECENT_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/events/search/MatchMode.pdsc
 
-          export type MatchMode = 'PREFER_TEXT' | 'PREFER_ID' | 'MATCH_TEXT_OR_ID';
+          export type MatchMode =
+            | 'PREFER_TEXT'
+            | 'PREFER_ID'
+            | 'MATCH_TEXT_OR_ID';
           // Generated from: com/linkedin/avro2pegasus/events/search/MemberContext.pdsc
 
           export interface MemberContext {
@@ -49731,7 +51616,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchActivityType.pdsc
 
-          export type SearchActivityType = 'view' | 'click' | 'expand' | 'collapse' | 'hover' | 'select' | 'unselect';
+          export type SearchActivityType =
+            | 'view'
+            | 'click'
+            | 'expand'
+            | 'collapse'
+            | 'hover'
+            | 'select'
+            | 'unselect';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchAdsActionEvent.pdsc
 
           export interface SearchAdsActionEvent {
@@ -49746,7 +51638,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchAdsActionType.pdsc
 
-          export type SearchAdsActionType = 'CLICK' | 'HOVER' | 'ADCHOICE_CLICK';
+          export type SearchAdsActionType =
+            | 'CLICK'
+            | 'HOVER'
+            | 'ADCHOICE_CLICK';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchAdsImpressionEvent.pdsc
 
           export interface SearchAdsImpressionEvent {
@@ -49772,7 +51667,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchAdsPositionType.pdsc
 
-          export type SearchAdsPositionType = 'MAINLINE_TOP' | 'MAINLINE_BOTTOM' | 'SIDEBAR';
+          export type SearchAdsPositionType =
+            | 'MAINLINE_TOP'
+            | 'MAINLINE_BOTTOM'
+            | 'SIDEBAR';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchAuditEvent.pdsc
 
           export interface SearchAuditEvent {
@@ -49783,7 +51681,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchClusterType.pdsc
 
-          export type SearchClusterType = 'FIRST_DEGREE_CONNECTIONS' | 'CURRENT_COWORKERS' | 'ALUMNI_FROM_LAST_SCHOOL';
+          export type SearchClusterType =
+            | 'FIRST_DEGREE_CONNECTIONS'
+            | 'CURRENT_COWORKERS'
+            | 'ALUMNI_FROM_LAST_SCHOOL';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchEntityType.pdsc
 
           export type SearchEntityType =
@@ -49817,7 +51718,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchFacetType.pdsc
 
-          export type SearchFacetType = 'CURRENT_COMPANY' | 'GEO_REGION' | 'INDUSTRY' | 'NETWORK';
+          export type SearchFacetType =
+            | 'CURRENT_COMPANY'
+            | 'GEO_REGION'
+            | 'INDUSTRY'
+            | 'NETWORK';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchFacetTypeV2.pdsc
 
           export interface SearchFacetTypeV2 {
@@ -49958,13 +51863,23 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchLocationType.pdsc
 
-          export type SearchLocationType = 'CITY' | 'STATE' | 'REGION' | 'COUNTRY' | 'POSTAL' | 'WORLDWIDE';
+          export type SearchLocationType =
+            | 'CITY'
+            | 'STATE'
+            | 'REGION'
+            | 'COUNTRY'
+            | 'POSTAL'
+            | 'WORLDWIDE';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchOrigin.pdsc
 
           export type SearchOrigin = 'DESKTOP' | 'TABLET' | 'PHONE' | 'API';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchPlatformType.pdsc
 
-          export type SearchPlatformType = 'TYPEAHEAD' | 'SRP' | 'SEARCH_HOME' | 'NONE';
+          export type SearchPlatformType =
+            | 'TYPEAHEAD'
+            | 'SRP'
+            | 'SEARCH_HOME'
+            | 'NONE';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchProduct.pdsc
 
           export type SearchProduct = 'RECRUITER' | 'LIGHTHOUSE' | 'CONSUMER';
@@ -50075,10 +51990,18 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchResultComponentLayoutType.pdsc
 
-          export type SearchResultComponentLayoutType = 'HORIZONTAL' | 'VERTICAL';
+          export type SearchResultComponentLayoutType =
+            | 'HORIZONTAL'
+            | 'VERTICAL';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchResultComponentType.pdsc
 
-          export type SearchResultComponentType = 'PRIMARY' | 'LARGE' | 'MEDIUM' | 'SMALL' | 'VARIABLE' | 'HERO';
+          export type SearchResultComponentType =
+            | 'PRIMARY'
+            | 'LARGE'
+            | 'MEDIUM'
+            | 'SMALL'
+            | 'VARIABLE'
+            | 'HERO';
           // Generated from: com/linkedin/avro2pegasus/events/search/SearchResultComponentV2.pdsc
 
           export interface SearchResultComponentV2 {
@@ -50269,7 +52192,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/search/SuggestedEntityType.pdsc
 
-          export type SuggestedEntityType = 'COMPANY' | 'SKILL' | 'TITLE' | 'SCHOOL' | 'TOPIC';
+          export type SuggestedEntityType =
+            | 'COMPANY'
+            | 'SKILL'
+            | 'TITLE'
+            | 'SCHOOL'
+            | 'TOPIC';
           // Generated from: com/linkedin/avro2pegasus/events/search/SuggestionDetail.pdsc
 
           export interface SuggestionDetail {
@@ -50373,7 +52301,9 @@ declare namespace Com {
             ciaExecutionId?: string;
             pclType?: Com.Linkedin.Avro2pegasus.Events.Seas.PclType;
             eventName: string;
-            parameters: Array<Com.Linkedin.Avro2pegasus.Events.Seas.KeywordArgument | string>;
+            parameters: Array<
+              Com.Linkedin.Avro2pegasus.Events.Seas.KeywordArgument | string
+            >;
             multiProductUrn: string;
             branchName: string;
             baselineVersion: string;
@@ -50482,7 +52412,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/security/DenialReason.pdsc
 
-          export type DenialReason = 'INVALID_FCOOKIE' | 'INVALID_FID' | 'MISSING_FID';
+          export type DenialReason =
+            | 'INVALID_FCOOKIE'
+            | 'INVALID_FID'
+            | 'MISSING_FID';
           // Generated from: com/linkedin/avro2pegasus/events/security/DomainType.pdsc
 
           export interface DomainType {
@@ -50615,7 +52548,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/security/QuickCountingNewRestrictionAction.pdsc
 
-          export type QuickCountingNewRestrictionAction = 'BLOCK' | 'TRACK_ONLY';
+          export type QuickCountingNewRestrictionAction =
+            | 'BLOCK'
+            | 'TRACK_ONLY';
           // Generated from: com/linkedin/avro2pegasus/events/security/QuickCountingNewRestrictionEvent.pdsc
 
           export interface QuickCountingNewRestrictionEvent {
@@ -50726,7 +52661,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/security/rollupCountersOperation.pdsc
 
-          export type rollupCountersOperation = 'ACCUMULATION' | 'PERSISTENCE' | 'GET' | 'PUT';
+          export type rollupCountersOperation =
+            | 'ACCUMULATION'
+            | 'PERSISTENCE'
+            | 'GET'
+            | 'PUT';
           // Generated from: com/linkedin/avro2pegasus/events/security/SctSourceType.pdsc
 
           export type SctSourceType = 'TLS_EXTENSION' | 'OCSP' | 'EMBEDDED';
@@ -50910,7 +52849,11 @@ declare namespace Com {
           export type CompressionMethod = 'ZLIB' | 'MSGPACK';
           // Generated from: com/linkedin/avro2pegasus/events/sessionreplay/Product.pdsc
 
-          export type Product = 'SALES_SOLUTIONS' | 'TALENT_SOLUTIONS' | 'MARKETING_SOLUTIONS' | 'RETINA';
+          export type Product =
+            | 'SALES_SOLUTIONS'
+            | 'TALENT_SOLUTIONS'
+            | 'MARKETING_SOLUTIONS'
+            | 'RETINA';
           // Generated from: com/linkedin/avro2pegasus/events/sessionreplay/RrWebSessionSnapshotEvent.pdsc
 
           export interface RrWebSessionSnapshotEvent {
@@ -50946,7 +52889,10 @@ declare namespace Com {
         namespace Settings {
           // Generated from: com/linkedin/avro2pegasus/events/settings/ActionType.pdsc
 
-          export type ActionType = 'OPT_IN' | 'OPT_OUT' | 'TIMEOUT_SETTING_CHANGE';
+          export type ActionType =
+            | 'OPT_IN'
+            | 'OPT_OUT'
+            | 'TIMEOUT_SETTING_CHANGE';
           // Generated from: com/linkedin/avro2pegasus/events/settings/AppLockConfigEditEvent.pdsc
 
           export interface AppLockConfigEditEvent {
@@ -51034,12 +52980,22 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/settings/TimeoutConfiguration.pdsc
 
-          export type TimeoutConfiguration = 'IMMEDIATELY' | 'FIVE_MINUTES' | 'FIFTEEN_MINUTES' | 'THIRTY_MINUTES';
+          export type TimeoutConfiguration =
+            | 'IMMEDIATELY'
+            | 'FIVE_MINUTES'
+            | 'FIFTEEN_MINUTES'
+            | 'THIRTY_MINUTES';
         }
         namespace Share {
           // Generated from: com/linkedin/avro2pegasus/events/share/contentType.pdsc
 
-          export type contentType = 'TEXT' | 'RMS' | 'ARTICLE' | 'JOB' | 'GROUP' | 'VIDEO';
+          export type contentType =
+            | 'TEXT'
+            | 'RMS'
+            | 'ARTICLE'
+            | 'JOB'
+            | 'GROUP'
+            | 'VIDEO';
           // Generated from: com/linkedin/avro2pegasus/events/share/destination.pdsc
 
           export interface destination {
@@ -51320,7 +53276,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/skillassessment/SkillAssessmentActionType.pdsc
 
-          export type SkillAssessmentActionType = 'STARTED' | 'COMPLETED' | 'DELETED';
+          export type SkillAssessmentActionType =
+            | 'STARTED'
+            | 'COMPLETED'
+            | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/skillassessment/SkillAssessmentEmailSentEvent.pdsc
 
           export interface SkillAssessmentEmailSentEvent {
@@ -51354,7 +53313,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/skillassessment/SkillAssessmentStatusUpdateType.pdsc
 
-          export type SkillAssessmentStatusUpdateType = 'PASSED' | 'FAILED' | 'DELETED';
+          export type SkillAssessmentStatusUpdateType =
+            | 'PASSED'
+            | 'FAILED'
+            | 'DELETED';
         }
         namespace Skills {
           // Generated from: com/linkedin/avro2pegasus/events/skills/ContentSkillsSubmittedEvent.pdsc
@@ -51411,13 +53373,24 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SearchContentCreatedAtRange.pdsc
 
-          export type SearchContentCreatedAtRange = 'LAST_WEEK' | 'LAST_MONTH' | 'LAST_YEAR';
+          export type SearchContentCreatedAtRange =
+            | 'LAST_WEEK'
+            | 'LAST_MONTH'
+            | 'LAST_YEAR';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SearchResultContentType.pdsc
 
-          export type SearchResultContentType = 'PRESENTATION' | 'DOCUMENT' | 'VIDEO' | 'INFOGRAPHIC' | 'CLIPBOARD';
+          export type SearchResultContentType =
+            | 'PRESENTATION'
+            | 'DOCUMENT'
+            | 'VIDEO'
+            | 'INFOGRAPHIC'
+            | 'CLIPBOARD';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SearchResultSortAttribute.pdsc
 
-          export type SearchResultSortAttribute = 'VIEW_COUNT' | 'CONTENT_CREATION_DATE' | 'RELEVANCE';
+          export type SearchResultSortAttribute =
+            | 'VIEW_COUNT'
+            | 'CONTENT_CREATION_DATE'
+            | 'RELEVANCE';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideShareAccountCreationEvent.pdsc
 
           export interface SlideShareAccountCreationEvent {
@@ -51640,7 +53613,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideShareSlideviewPlayerNavigationActionType.pdsc
 
-          export type SlideShareSlideviewPlayerNavigationActionType = 'PREV' | 'NEXT';
+          export type SlideShareSlideviewPlayerNavigationActionType =
+            | 'PREV'
+            | 'NEXT';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideShareSlideviewPlayerNavigationEvent.pdsc
 
           export interface SlideShareSlideviewPlayerNavigationEvent {
@@ -51654,7 +53629,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideShareUserAclActionType.pdsc
 
-          export type SlideShareUserAclActionType = 'CREATE' | 'UPDATE' | 'DELETE';
+          export type SlideShareUserAclActionType =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'DELETE';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideShareUserAclChangeEvent.pdsc
 
           export interface SlideShareUserAclChangeEvent {
@@ -51677,13 +53655,26 @@ declare namespace Com {
             | 'EDITOR_ADMIN_USER';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideshowType.pdsc
 
-          export type SlideshowType = 'PRESENTATION' | 'DOCUMENT' | 'VIDEO' | 'INFOGRAPHIC' | 'HTML';
+          export type SlideshowType =
+            | 'PRESENTATION'
+            | 'DOCUMENT'
+            | 'VIDEO'
+            | 'INFOGRAPHIC'
+            | 'HTML';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideshowViewPlayerType.pdsc
 
-          export type SlideshowViewPlayerType = 'EMBED' | 'MOBILE' | 'SLIDEVIEW';
+          export type SlideshowViewPlayerType =
+            | 'EMBED'
+            | 'MOBILE'
+            | 'SLIDEVIEW';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SlideshowViewRefererType.pdsc
 
-          export type SlideshowViewRefererType = 'DIRECT' | 'REFERRAL' | 'SEARCH' | 'SLIDESHARE' | 'SOCIAL';
+          export type SlideshowViewRefererType =
+            | 'DIRECT'
+            | 'REFERRAL'
+            | 'SEARCH'
+            | 'SLIDESHARE'
+            | 'SOCIAL';
           // Generated from: com/linkedin/avro2pegasus/events/slideshare/SourceType.pdsc
 
           export type SourceType =
@@ -51725,7 +53716,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/clipping/SlideShareClipboardActionType.pdsc
 
-            export type SlideShareClipboardActionType = 'CREATE' | 'DELETE' | 'EDIT';
+            export type SlideShareClipboardActionType =
+              | 'CREATE'
+              | 'DELETE'
+              | 'EDIT';
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/clipping/SlideShareClipOrganizeActionEvent.pdsc
 
             export interface SlideShareClipOrganizeActionEvent {
@@ -51741,7 +53735,13 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/clipping/SlideShareClipOrganizeActionType.pdsc
 
-            export type SlideShareClipOrganizeActionType = 'ADD' | 'COPY' | 'MOVE' | 'REMOVE' | 'REORDER' | 'RECLIP';
+            export type SlideShareClipOrganizeActionType =
+              | 'ADD'
+              | 'COPY'
+              | 'MOVE'
+              | 'REMOVE'
+              | 'REORDER'
+              | 'RECLIP';
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/clipping/SlideShareClipOrganizeQuantityType.pdsc
 
             export type SlideShareClipOrganizeQuantityType = 'BATCH' | 'SINGLE';
@@ -51831,7 +53831,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/leads/SlideShareLeadFormTriggerType.pdsc
 
-            export type SlideShareLeadFormTriggerType = 'GET_IN_TOUCH' | 'ON_SLIDE' | 'ON_END' | 'ON_DOWNLOAD';
+            export type SlideShareLeadFormTriggerType =
+              | 'GET_IN_TOUCH'
+              | 'ON_SLIDE'
+              | 'ON_END'
+              | 'ON_DOWNLOAD';
             // Generated from: com/linkedin/avro2pegasus/events/slideshare/leads/SlideShareLeadFormViewEvent.pdsc
 
             export interface SlideShareLeadFormViewEvent {
@@ -52018,7 +54022,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/SlideshowDeletionReason.pdsc
 
-          export type SlideshowDeletionReason = 'AUTHOR_DELETION' | 'ADMIN_DELETION' | 'MADE_PRIVATE' | 'SPAM';
+          export type SlideshowDeletionReason =
+            | 'AUTHOR_DELETION'
+            | 'ADMIN_DELETION'
+            | 'MADE_PRIVATE'
+            | 'SPAM';
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/SlideshowDownloadEvent.pdsc
 
           export interface SlideshowDownloadEvent {
@@ -52089,7 +54097,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/slideshowShareTypeEnum.pdsc
 
-          export type slideshowShareTypeEnum = 'FACEBOOK' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST' | 'GOOGLE_PLUS';
+          export type slideshowShareTypeEnum =
+            | 'FACEBOOK'
+            | 'TWITTER'
+            | 'LINKEDIN'
+            | 'PINTEREST'
+            | 'GOOGLE_PLUS';
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/SlideshowTagEvent.pdsc
 
           export interface SlideshowTagEvent {
@@ -52101,7 +54114,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/slideshowTypeEnum.pdsc
 
-          export type slideshowTypeEnum = 'SLIDESHOW' | 'DOCUMENT' | 'VIDEO' | 'INFOGRAPHIC';
+          export type slideshowTypeEnum =
+            | 'SLIDESHOW'
+            | 'DOCUMENT'
+            | 'VIDEO'
+            | 'INFOGRAPHIC';
           // Generated from: com/linkedin/avro2pegasus/events/slideshow/SlideshowViewEvent.pdsc
 
           export interface SlideshowViewEvent {
@@ -52377,7 +54394,9 @@ declare namespace Com {
             | 'HIDDEN';
           // Generated from: com/linkedin/avro2pegasus/events/talent/ConversationDirection.pdsc
 
-          export type ConversationDirection = 'FROM_CANDIDATE' | 'FROM_RECRUITER';
+          export type ConversationDirection =
+            | 'FROM_CANDIDATE'
+            | 'FROM_RECRUITER';
           // Generated from: com/linkedin/avro2pegasus/events/talent/HiringManagerCandidateActionEvent.pdsc
 
           export interface HiringManagerCandidateActionEvent {
@@ -52426,7 +54445,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/talent/InterviewScheduleOptionType.pdsc
 
-          export type InterviewScheduleOptionType = 'CREATED' | 'RESCHEDULED' | 'CANCELLED';
+          export type InterviewScheduleOptionType =
+            | 'CREATED'
+            | 'RESCHEDULED'
+            | 'CANCELLED';
           // Generated from: com/linkedin/avro2pegasus/events/talent/PipelineBuilderLeadCreationEvent.pdsc
 
           export interface PipelineBuilderLeadCreationEvent {
@@ -52496,10 +54518,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/talent/ResumeDownloadProcess.pdsc
 
-          export type ResumeDownloadProcess = 'APPLICANT_VIEW_PAGE' | 'NEW_APPLICANT_EMAIL';
+          export type ResumeDownloadProcess =
+            | 'APPLICANT_VIEW_PAGE'
+            | 'NEW_APPLICANT_EMAIL';
           // Generated from: com/linkedin/avro2pegasus/events/talent/ResumeDownloadStatus.pdsc
 
-          export type ResumeDownloadStatus = 'SUCCEEDED' | 'BLOCKED_FOR_TOO_MANY_TRIES' | 'BLOCKED_FOR_EXPIRED_URL';
+          export type ResumeDownloadStatus =
+            | 'SUCCEEDED'
+            | 'BLOCKED_FOR_TOO_MANY_TRIES'
+            | 'BLOCKED_FOR_EXPIRED_URL';
           // Generated from: com/linkedin/avro2pegasus/events/talent/ScreeningBasedJobRecommendationsEvent.pdsc
 
           export interface ScreeningBasedJobRecommendationsEvent {
@@ -52929,13 +54956,21 @@ declare namespace Com {
           export type ReportExportFormat = 'PDF' | 'PPT' | 'CSV' | 'XLS';
           // Generated from: com/linkedin/avro2pegasus/events/talentinsights/ServingImpressionAction.pdsc
 
-          export type ServingImpressionAction = 'SERVE' | 'IMPRESS' | 'SELECT' | 'DISMISS';
+          export type ServingImpressionAction =
+            | 'SERVE'
+            | 'IMPRESS'
+            | 'SELECT'
+            | 'DISMISS';
           // Generated from: com/linkedin/avro2pegasus/events/talentinsights/SharedReportLinkShareErrorType.pdsc
 
-          export type SharedReportLinkShareErrorType = 'NOT_FOUND' | 'INVALID_ACCESS';
+          export type SharedReportLinkShareErrorType =
+            | 'NOT_FOUND'
+            | 'INVALID_ACCESS';
           // Generated from: com/linkedin/avro2pegasus/events/talentinsights/SharedReportLinkVisitErrorType.pdsc
 
-          export type SharedReportLinkVisitErrorType = 'NOT_FOUND' | 'INVALID_ACCESS';
+          export type SharedReportLinkVisitErrorType =
+            | 'NOT_FOUND'
+            | 'INVALID_ACCESS';
           // Generated from: com/linkedin/avro2pegasus/events/talentinsights/TalentInsightsAutomatedInsightActionEvent.pdsc
 
           export interface TalentInsightsAutomatedInsightActionEvent {
@@ -53200,7 +55235,9 @@ declare namespace Com {
             | 'UNKNOWN_PASSWORD';
           // Generated from: com/linkedin/avro2pegasus/events/thirdparty/LoginType.pdsc
 
-          export type LoginType = 'SINGLE_PAGE_EMAIL_PASSWORD' | 'SINGLE_PAGE_EMAIL_PHONE_PASSWORD';
+          export type LoginType =
+            | 'SINGLE_PAGE_EMAIL_PASSWORD'
+            | 'SINGLE_PAGE_EMAIL_PHONE_PASSWORD';
           // Generated from: com/linkedin/avro2pegasus/events/thirdparty/MemberAuthorizationConfirmAccountActionEvent.pdsc
 
           export interface MemberAuthorizationConfirmAccountActionEvent {
@@ -53361,7 +55398,10 @@ declare namespace Com {
             | 'PAYLOAD_GENERATION_FAILED';
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushEventExecutionStatus.pdsc
 
-          export type ThirdPartyPushEventExecutionStatus = 'SUCCESSFULLY_DELIVERED' | 'RETRY_SCHEDULED' | 'ABORTED';
+          export type ThirdPartyPushEventExecutionStatus =
+            | 'SUCCESSFULLY_DELIVERED'
+            | 'RETRY_SCHEDULED'
+            | 'ABORTED';
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushEventExecutionStatusEvent.pdsc
 
           export interface ThirdPartyPushEventExecutionStatusEvent {
@@ -53378,10 +55418,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushEventRetryReason.pdsc
 
-          export type ThirdPartyPushEventRetryReason = 'RESTLI_INVOCATION_ERROR' | 'GAAP_SCRIPT_EXECUTION_ERROR';
+          export type ThirdPartyPushEventRetryReason =
+            | 'RESTLI_INVOCATION_ERROR'
+            | 'GAAP_SCRIPT_EXECUTION_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushExecutionStatus.pdsc
 
-          export type ThirdPartyPushExecutionStatus = 'SUCCESSFULLY_DELIVERED' | 'RETRY_SCHEDULED' | 'ABORTED';
+          export type ThirdPartyPushExecutionStatus =
+            | 'SUCCESSFULLY_DELIVERED'
+            | 'RETRY_SCHEDULED'
+            | 'ABORTED';
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushExecutionStatusEvent.pdsc
 
           export interface ThirdPartyPushExecutionStatusEvent {
@@ -53400,7 +55445,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartypushevents/ThirdPartyPushRetryReason.pdsc
 
-          export type ThirdPartyPushRetryReason = 'RESTLI_INVOCATION_ERROR' | 'GAAP_SCRIPT_EXECUTION_ERROR';
+          export type ThirdPartyPushRetryReason =
+            | 'RESTLI_INVOCATION_ERROR'
+            | 'GAAP_SCRIPT_EXECUTION_ERROR';
         }
         namespace Thirdpartywebhooks {
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartywebhooks/ThirdPartyWebhookValidationEvent.pdsc
@@ -53423,7 +55470,10 @@ declare namespace Com {
             | 'DISABLED_BY_APP';
           // Generated from: com/linkedin/avro2pegasus/events/thirdpartywebhooks/ThirdPartyWebhookValidationStatus.pdsc
 
-          export type ThirdPartyWebhookValidationStatus = 'PASSED' | 'FAILED' | 'TIMED_OUT';
+          export type ThirdPartyWebhookValidationStatus =
+            | 'PASSED'
+            | 'FAILED'
+            | 'TIMED_OUT';
         }
         namespace Tools {
           // Generated from: com/linkedin/avro2pegasus/events/tools/RecordingStore.pdsc
@@ -53450,7 +55500,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/tools/RtfInterface.pdsc
 
-          export type RtfInterface = 'R2' | 'D2' | 'LIX' | 'HTTP' | 'PARAMETERS';
+          export type RtfInterface =
+            | 'R2'
+            | 'D2'
+            | 'LIX'
+            | 'HTTP'
+            | 'PARAMETERS';
           // Generated from: com/linkedin/avro2pegasus/events/tools/RtfLanguageSource.pdsc
 
           export type RtfLanguageSource = 'PYTHON' | 'JAVA';
@@ -53505,7 +55560,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/tracking/MetricLifeCycleProcessCheckPoint.pdsc
 
-          export type MetricLifeCycleProcessCheckPoint = 'FAILED' | 'STARTED' | 'SUCCEEDED' | 'IN_PROGRESS';
+          export type MetricLifeCycleProcessCheckPoint =
+            | 'FAILED'
+            | 'STARTED'
+            | 'SUCCEEDED'
+            | 'IN_PROGRESS';
           // Generated from: com/linkedin/avro2pegasus/events/tracking/MetricLifeCycleProcessCheckPointBody.pdsc
 
           export interface MetricLifeCycleProcessCheckPointBody {
@@ -53715,7 +55774,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/CacheLookupResult.pdsc
 
-          export type CacheLookupResult = 'CACHE_HIT' | 'CACHE_MISS' | 'CACHE_ERROR';
+          export type CacheLookupResult =
+            | 'CACHE_HIT'
+            | 'CACHE_MISS'
+            | 'CACHE_ERROR';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ChallengeResult.pdsc
 
           export interface ChallengeResult {
@@ -53771,16 +55833,27 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ClusterLabel.pdsc
 
-          export type ClusterLabel = 'SUSPICIOUS' | 'FAKE' | 'ACCOUNT_TAKE_OVER' | 'WHITELISTED' | 'NOT_CLASSIFIED';
+          export type ClusterLabel =
+            | 'SUSPICIOUS'
+            | 'FAKE'
+            | 'ACCOUNT_TAKE_OVER'
+            | 'WHITELISTED'
+            | 'NOT_CLASSIFIED';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ClusterReputationSource.pdsc
 
-          export type ClusterReputationSource = 'OFFLINE' | 'FANOUT' | 'CLUSTERING';
+          export type ClusterReputationSource =
+            | 'OFFLINE'
+            | 'FANOUT'
+            | 'CLUSTERING';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ClusterType.pdsc
 
           export type ClusterType = 'BCOOKIE_USE' | 'IP_USE';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ClusterWindow.pdsc
 
-          export type ClusterWindow = 'SEVEN_DAYS' | 'TWENTY_FOUR_HOURS' | 'INFINITY';
+          export type ClusterWindow =
+            | 'SEVEN_DAYS'
+            | 'TWENTY_FOUR_HOURS'
+            | 'INFINITY';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ContentClassificationFlow.pdsc
 
           export type ContentClassificationFlow =
@@ -54036,7 +56109,10 @@ declare namespace Com {
           export type InvitationScoreResult = 'APPROVED' | 'NOT_APPROVED';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/InvitationWithoutEmailRestrictionLevel.pdsc
 
-          export type InvitationWithoutEmailRestrictionLevel = 'SELF_HEAL' | 'TWENTY_FOUR_HOURS' | 'PERMANENT';
+          export type InvitationWithoutEmailRestrictionLevel =
+            | 'SELF_HEAL'
+            | 'TWENTY_FOUR_HOURS'
+            | 'PERMANENT';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/IPSubnetReputation.pdsc
 
           export interface IPSubnetReputation {
@@ -54111,7 +56187,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/MediaScanErrorType.pdsc
 
-          export type MediaScanErrorType = 'DOWNLOAD' | 'OTHER' | 'DOWNLOAD_FAILED';
+          export type MediaScanErrorType =
+            | 'DOWNLOAD'
+            | 'OTHER'
+            | 'DOWNLOAD_FAILED';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/MediaScannedEvent.pdsc
 
           export interface MediaScannedEvent {
@@ -54216,7 +56295,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/MergeConnectionsScoringResult.pdsc
 
-          export type MergeConnectionsScoringResult = 'APPROVED' | 'AUDIT_APPROVED' | 'REVIEW_REQUIRED';
+          export type MergeConnectionsScoringResult =
+            | 'APPROVED'
+            | 'AUDIT_APPROVED'
+            | 'REVIEW_REQUIRED';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/MinorExplicitClassificationMetadata.pdsc
 
           export interface MinorExplicitClassificationMetadata {
@@ -54225,7 +56307,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/MinorExplicitMatchType.pdsc
 
-          export type MinorExplicitMatchType = 'NCMEC_HASHES' | 'NCMEC_INDUSTRY_HASHES';
+          export type MinorExplicitMatchType =
+            | 'NCMEC_HASHES'
+            | 'NCMEC_INDUSTRY_HASHES';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ModelResult.pdsc
 
           export interface ModelResult {
@@ -54347,10 +56431,17 @@ declare namespace Com {
           export type RegistrationType = 'COLD' | 'WARM';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/RegistrationValidationFailureReason.pdsc
 
-          export type RegistrationValidationFailureReason = 'HANDLE_TAKEN' | 'INVALID_NAME' | 'MALFORMED_HANDLE';
+          export type RegistrationValidationFailureReason =
+            | 'HANDLE_TAKEN'
+            | 'INVALID_NAME'
+            | 'MALFORMED_HANDLE';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ReporterType.pdsc
 
-          export type ReporterType = 'INFLUENCER' | 'THREAD_AUTHOR' | 'LI_EMPLOYEE' | 'OTHER';
+          export type ReporterType =
+            | 'INFLUENCER'
+            | 'THREAD_AUTHOR'
+            | 'LI_EMPLOYEE'
+            | 'OTHER';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ReportSpamEvent.pdsc
 
           export interface ReportSpamEvent {
@@ -54437,7 +56528,12 @@ declare namespace Com {
           export type ReviewPriority = 'LOW' | 'MEDIUM' | 'HIGH';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ScanType.pdsc
 
-          export type ScanType = 'ANTIVIRUS' | 'NUDITY' | 'MINOR_EXPLICIT' | 'MEDIA_REPUTATION' | 'DETONATION';
+          export type ScanType =
+            | 'ANTIVIRUS'
+            | 'NUDITY'
+            | 'MINOR_EXPLICIT'
+            | 'MEDIA_REPUTATION'
+            | 'DETONATION';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ScoreAddressBookContact.pdsc
 
           export interface ScoreAddressBookContact {
@@ -54522,7 +56618,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/ScrapingScoringResult.pdsc
 
-          export type ScrapingScoringResult = 'ACCEPT' | 'REDIRECT' | 'REJECT' | 'CHALLENGE';
+          export type ScrapingScoringResult =
+            | 'ACCEPT'
+            | 'REDIRECT'
+            | 'REJECT'
+            | 'CHALLENGE';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/SecondaryScore.pdsc
 
           export interface SecondaryScore {
@@ -54621,10 +56721,17 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ucv/TwoStepOptinStatus.pdsc
 
-          export type TwoStepOptinStatus = 'OPTED_IN' | 'OPTED_OUT' | 'FORCE_OPTED_OUT';
+          export type TwoStepOptinStatus =
+            | 'OPTED_IN'
+            | 'OPTED_OUT'
+            | 'FORCE_OPTED_OUT';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/UgcSubmitResultType.pdsc
 
-          export type UgcSubmitResultType = 'QUEUE_FULL' | 'ALREADY_SPAMMER' | 'QUEUED_FOR_SCORING' | 'MISSING_MEMBER';
+          export type UgcSubmitResultType =
+            | 'QUEUE_FULL'
+            | 'ALREADY_SPAMMER'
+            | 'QUEUED_FOR_SCORING'
+            | 'MISSING_MEMBER';
           // Generated from: com/linkedin/avro2pegasus/events/ucv/UgcValidationRequestEvent.pdsc
 
           export interface UgcValidationRequestEvent {
@@ -54849,10 +56956,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ugc/ExternalDistributionChannelType.pdsc
 
-          export type ExternalDistributionChannelType = 'TWITTER' | 'TENCENT' | 'WEIBO';
+          export type ExternalDistributionChannelType =
+            | 'TWITTER'
+            | 'TENCENT'
+            | 'WEIBO';
           // Generated from: com/linkedin/avro2pegasus/events/ugc/FeedDistribution.pdsc
 
-          export type FeedDistribution = 'NONE' | 'MAIN_FEED' | 'CONTAINER_ONLY';
+          export type FeedDistribution =
+            | 'NONE'
+            | 'MAIN_FEED'
+            | 'CONTAINER_ONLY';
           // Generated from: com/linkedin/avro2pegasus/events/ugc/GroupContentVisibility.pdsc
 
           export type GroupContentVisibility = 'GROUP_MEMBERS';
@@ -54875,7 +56988,11 @@ declare namespace Com {
             | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/ugc/MemberNetworkVisibility.pdsc
 
-          export type MemberNetworkVisibility = 'CONNECTIONS' | 'PUBLIC' | 'LOGGED_IN' | 'CONTAINER';
+          export type MemberNetworkVisibility =
+            | 'CONNECTIONS'
+            | 'PUBLIC'
+            | 'LOGGED_IN'
+            | 'CONTAINER';
           // Generated from: com/linkedin/avro2pegasus/events/ugc/NativeMediaSource.pdsc
 
           export type NativeMediaSource = 'APP_CAPTURED' | 'PRE_RECORDED';
@@ -55173,7 +57290,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/events/ugc/VisibilityType.pdsc
 
-          export type VisibilityType = 'MEMBER_NETWORK' | 'SPONSORED_CONTENT' | 'GROUP_CONTENT';
+          export type VisibilityType =
+            | 'MEMBER_NETWORK'
+            | 'SPONSORED_CONTENT'
+            | 'GROUP_CONTENT';
         }
         namespace Vector {
           // Generated from: com/linkedin/avro2pegasus/events/vector/CompleteStatus.pdsc
@@ -55181,7 +57301,10 @@ declare namespace Com {
           export type CompleteStatus = 'SUCCESS' | 'FAILED' | 'CANCELLED';
           // Generated from: com/linkedin/avro2pegasus/events/vector/LiveEventAllocationResult.pdsc
 
-          export type LiveEventAllocationResult = 'ALLOCATED' | 'UNAVAILABLE' | 'ERRORS';
+          export type LiveEventAllocationResult =
+            | 'ALLOCATED'
+            | 'UNAVAILABLE'
+            | 'ERRORS';
           // Generated from: com/linkedin/avro2pegasus/events/vector/LiveEventOperationType.pdsc
 
           export type LiveEventOperationType =
@@ -55193,7 +57316,12 @@ declare namespace Com {
             | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/vector/OperationType.pdsc
 
-          export type OperationType = 'CREATED' | 'COMMITTED' | 'REPROCESSED' | 'DELETION_SCHEDULED' | 'DELETED';
+          export type OperationType =
+            | 'CREATED'
+            | 'COMMITTED'
+            | 'REPROCESSED'
+            | 'DELETION_SCHEDULED'
+            | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/events/vector/VectorLiveAllocationRequestEvent.pdsc
 
           export interface VectorLiveAllocationRequestEvent {
@@ -56037,13 +58165,22 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/jobwrapping/events/PostedJobStatusEnum.pdsc
 
-          export type PostedJobStatusEnum = 'NEW' | 'RENEWED' | 'UPDATED' | 'DELETED' | 'UNCHANGED' | 'EXCLUDED';
+          export type PostedJobStatusEnum =
+            | 'NEW'
+            | 'RENEWED'
+            | 'UPDATED'
+            | 'DELETED'
+            | 'UNCHANGED'
+            | 'EXCLUDED';
         }
       }
       namespace Learning {
         // Generated from: com/linkedin/avro2pegasus/learning/EmailResultType.pdsc
 
-        export type EmailResultType = 'SUCCESS' | 'MESSAGE_DROPPED' | 'DELIVERY_FAILED';
+        export type EmailResultType =
+          | 'SUCCESS'
+          | 'MESSAGE_DROPPED'
+          | 'DELIVERY_FAILED';
         // Generated from: com/linkedin/avro2pegasus/learning/LearningEnterpriseEmailStatusMessage.pdsc
 
         export interface LearningEnterpriseEmailStatusMessage {
@@ -56250,7 +58387,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/message/commerce/orderStateEnum.pdsc
 
-          export type orderStateEnum = 'COMPLETE' | 'CANCELED' | 'DEMOTED' | 'PROMOTED' | 'PLACED';
+          export type orderStateEnum =
+            | 'COMPLETE'
+            | 'CANCELED'
+            | 'DEMOTED'
+            | 'PROMOTED'
+            | 'PLACED';
           // Generated from: com/linkedin/avro2pegasus/message/commerce/SalesProposalChangeType.pdsc
 
           export type SalesProposalChangeType =
@@ -56308,7 +58450,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/messages/CapSeatSharingEnforcement.pdsc
 
-        export type CapSeatSharingEnforcement = 'NONE' | 'EMAIL' | 'WARNING' | 'TWO_FACTOR_AUTHENTICATION';
+        export type CapSeatSharingEnforcement =
+          | 'NONE'
+          | 'EMAIL'
+          | 'WARNING'
+          | 'TWO_FACTOR_AUTHENTICATION';
         // Generated from: com/linkedin/avro2pegasus/messages/CapSeatSharingMessage.pdsc
 
         export interface CapSeatSharingMessage {
@@ -56361,7 +58507,16 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/messages/CompanySize.pdsc
 
-        export type CompanySize = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I';
+        export type CompanySize =
+          | 'A'
+          | 'B'
+          | 'C'
+          | 'D'
+          | 'E'
+          | 'F'
+          | 'G'
+          | 'H'
+          | 'I';
         // Generated from: com/linkedin/avro2pegasus/messages/CompanyViewEvent.pdsc
 
         export interface CompanyViewEvent {
@@ -56518,7 +58673,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/messages/Fabric.pdsc
 
-        export type Fabric = 'EI_LCA1' | 'EI_LTX1' | 'PROD_LOR1' | 'PROD_LTX1' | 'PROD_LVA1' | 'PROD_LSG1';
+        export type Fabric =
+          | 'EI_LCA1'
+          | 'EI_LTX1'
+          | 'PROD_LOR1'
+          | 'PROD_LTX1'
+          | 'PROD_LVA1'
+          | 'PROD_LSG1';
         // Generated from: com/linkedin/avro2pegasus/messages/FuseRequestEvent.pdsc
 
         export interface FuseRequestEvent {
@@ -56841,7 +59002,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/avro2pegasus/messages/PremiumTypeEnum.pdsc
 
-        export type PremiumTypeEnum = 'BASIC' | 'PRO' | 'JOB_SEEKER' | 'TALENT' | 'SALES';
+        export type PremiumTypeEnum =
+          | 'BASIC'
+          | 'PRO'
+          | 'JOB_SEEKER'
+          | 'TALENT'
+          | 'SALES';
         // Generated from: com/linkedin/avro2pegasus/messages/ProfileSnapshotPublishEvent.pdsc
 
         export interface ProfileSnapshotPublishEvent {
@@ -57148,7 +59314,12 @@ declare namespace Com {
           export type subjectTypeEnum = 'MEMBER' | 'ABOOK_CONTACT';
           // Generated from: com/linkedin/avro2pegasus/messages/abook/tagTypeEnum.pdsc
 
-          export type tagTypeEnum = 'CLASSMATES' | 'COLLEAGUES' | 'FRIENDS' | 'GROUP_MEMBERS' | 'PARTNERS';
+          export type tagTypeEnum =
+            | 'CLASSMATES'
+            | 'COLLEAGUES'
+            | 'FRIENDS'
+            | 'GROUP_MEMBERS'
+            | 'PARTNERS';
           // Generated from: com/linkedin/avro2pegasus/messages/abook/versionNumberEnum.pdsc
 
           export type versionNumberEnum =
@@ -57190,7 +59361,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/accessgrantproof/AccessTokenProofStatus.pdsc
 
-          export type AccessTokenProofStatus = 'VALID' | 'REVOKED' | 'MEMBER_RESTRICTED';
+          export type AccessTokenProofStatus =
+            | 'VALID'
+            | 'REVOKED'
+            | 'MEMBER_RESTRICTED';
           // Generated from: com/linkedin/avro2pegasus/messages/accessgrantproof/ApplicationAccessGrantProofContent.pdsc
 
           export interface ApplicationAccessGrantProofContent {
@@ -57525,10 +59699,18 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/ads/CampaignInsightSource.pdsc
 
-          export type CampaignInsightSource = 'ADS_ENGINEERING' | 'DATA_TEAM' | 'BIZ_ANALYTICS' | 'CUSTOM';
+          export type CampaignInsightSource =
+            | 'ADS_ENGINEERING'
+            | 'DATA_TEAM'
+            | 'BIZ_ANALYTICS'
+            | 'CUSTOM';
           // Generated from: com/linkedin/avro2pegasus/messages/ads/CampaignInsightStatus.pdsc
 
-          export type CampaignInsightStatus = 'ACTIVE' | 'DISMISSED' | 'COMPLETED' | 'DELETED';
+          export type CampaignInsightStatus =
+            | 'ACTIVE'
+            | 'DISMISSED'
+            | 'COMPLETED'
+            | 'DELETED';
           // Generated from: com/linkedin/avro2pegasus/messages/ads/CampaignInsightType.pdsc
 
           export type CampaignInsightType =
@@ -57549,7 +59731,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/ads/CampaignStatus.pdsc
 
-          export type CampaignStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'COMPLETED' | 'CANCELED';
+          export type CampaignStatus =
+            | 'ACTIVE'
+            | 'PAUSED'
+            | 'ARCHIVED'
+            | 'COMPLETED'
+            | 'CANCELED';
           // Generated from: com/linkedin/avro2pegasus/messages/ads/CampaignTargetingExpressionRegenerationEvent.pdsc
 
           export interface CampaignTargetingExpressionRegenerationEvent {
@@ -57841,7 +60028,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/ads/PublisherInformationType.pdsc
 
-          export type PublisherInformationType = 'GENERAL' | 'FRAUD' | 'CONTEXTUAL' | 'AUTHORIZED_DIGITAL_SELLERS';
+          export type PublisherInformationType =
+            | 'GENERAL'
+            | 'FRAUD'
+            | 'CONTEXTUAL'
+            | 'AUTHORIZED_DIGITAL_SELLERS';
           // Generated from: com/linkedin/avro2pegasus/messages/ads/Recommendations.pdsc
 
           export interface Recommendations {
@@ -57868,7 +60059,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/ads/RecommendationStatus.pdsc
 
-          export type RecommendationStatus = 'ACTIVE' | 'ACCEPTED' | 'REJECTED' | 'OUT_OF_DATE' | 'INACTIVE';
+          export type RecommendationStatus =
+            | 'ACTIVE'
+            | 'ACCEPTED'
+            | 'REJECTED'
+            | 'OUT_OF_DATE'
+            | 'INACTIVE';
           // Generated from: com/linkedin/avro2pegasus/messages/ads/ReportedFraudulentEntity.pdsc
 
           export interface ReportedFraudulentEntity {
@@ -58198,7 +60394,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/ads/review/ReviewDecisionOutcome.pdsc
 
-            export type ReviewDecisionOutcome = 'APPROVED' | 'REJECTED' | 'UNREVIEWED';
+            export type ReviewDecisionOutcome =
+              | 'APPROVED'
+              | 'REJECTED'
+              | 'UNREVIEWED';
             // Generated from: com/linkedin/avro2pegasus/messages/ads/review/Reviewee.pdsc
 
             export interface Reviewee {
@@ -58355,7 +60554,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/approvals/ApprovalCompletionType.pdsc
 
-          export type ApprovalCompletionType = 'APPROVED' | 'REJECTED' | 'CANCELED';
+          export type ApprovalCompletionType =
+            | 'APPROVED'
+            | 'REJECTED'
+            | 'CANCELED';
         }
         namespace Assessments {
           // Generated from: com/linkedin/avro2pegasus/messages/assessments/SkillAssessmentCalibrationCompletionMessage.pdsc
@@ -58708,10 +60910,21 @@ declare namespace Com {
           export type CrmType = 'DYNAMICS' | 'SALESFORCE';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/ElevateAccountTier.pdsc
 
-          export type ElevateAccountTier = 'TIER_1' | 'TIER_2' | 'TIER_3' | 'TIER_4';
+          export type ElevateAccountTier =
+            | 'TIER_1'
+            | 'TIER_2'
+            | 'TIER_3'
+            | 'TIER_4';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/LeadRegion.pdsc
 
-          export type LeadRegion = 'APAC' | 'INDIA' | 'LATAM' | 'EMEA' | 'CHINA' | 'NAMER' | 'UNKNOWN';
+          export type LeadRegion =
+            | 'APAC'
+            | 'INDIA'
+            | 'LATAM'
+            | 'EMEA'
+            | 'CHINA'
+            | 'NAMER'
+            | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/LeadScores.pdsc
 
           export interface LeadScores {
@@ -58720,7 +60933,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/LeadSource.pdsc
 
-          export type LeadSource = 'SALES_FORM' | 'ELOQUA' | 'SILO' | 'MICROSOFT' | 'THIRD_PARTY';
+          export type LeadSource =
+            | 'SALES_FORM'
+            | 'ELOQUA'
+            | 'SILO'
+            | 'MICROSOFT'
+            | 'THIRD_PARTY';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/LeadSubregion.pdsc
 
           export type LeadSubregion =
@@ -58747,7 +60965,12 @@ declare namespace Com {
             | 'UNKNOWN';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/LeadType.pdsc
 
-          export type LeadType = 'A' | 'B' | 'REQUEST_CONTENT' | 'EVENT_BASED_ACCOUNT_MARKETING' | 'REFERRAL';
+          export type LeadType =
+            | 'A'
+            | 'B'
+            | 'REQUEST_CONTENT'
+            | 'EVENT_BASED_ACCOUNT_MARKETING'
+            | 'REFERRAL';
           // Generated from: com/linkedin/avro2pegasus/messages/citadel/MemberStatus.pdsc
 
           export type MemberStatus =
@@ -58972,7 +61195,10 @@ declare namespace Com {
             | 'APPROVAL';
           // Generated from: com/linkedin/avro2pegasus/messages/comm/MBoxItemActionStatus.pdsc
 
-          export type MBoxItemActionStatus = 'NOACTION' | 'PENDING' | 'ACTIONED';
+          export type MBoxItemActionStatus =
+            | 'NOACTION'
+            | 'PENDING'
+            | 'ACTIONED';
           // Generated from: com/linkedin/avro2pegasus/messages/comm/MBoxItemActionType.pdsc
 
           export type MBoxItemActionType =
@@ -59228,7 +61454,10 @@ declare namespace Com {
           export type LineOfBusiness = 'LMS' | 'LTS';
           // Generated from: com/linkedin/avro2pegasus/messages/commerce/SourceApplication.pdsc
 
-          export type SourceApplication = 'CAMPAIGN_MANAGER' | 'ABACUS' | 'ABACUS_PROPOSAL';
+          export type SourceApplication =
+            | 'CAMPAIGN_MANAGER'
+            | 'ABACUS'
+            | 'ABACUS_PROPOSAL';
           // Generated from: com/linkedin/avro2pegasus/messages/commerce/TsepOutputPricingSheetUploadMessage.pdsc
 
           export interface TsepOutputPricingSheetUploadMessage {
@@ -59296,22 +61525,41 @@ declare namespace Com {
           namespace Ads {
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/AdEntityType.pdsc
 
-            export type AdEntityType = 'ACCOUNT' | 'CAMPAIGN_GROUP' | 'CAMPAIGN' | 'CREATIVE';
+            export type AdEntityType =
+              | 'ACCOUNT'
+              | 'CAMPAIGN_GROUP'
+              | 'CAMPAIGN'
+              | 'CREATIVE';
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/AdSegmentStatus.pdsc
 
-            export type AdSegmentStatus = 'READY' | 'FAILED' | 'ARCHIVED' | 'BUILDING' | 'UPDATING' | 'EXPIRED';
+            export type AdSegmentStatus =
+              | 'READY'
+              | 'FAILED'
+              | 'ARCHIVED'
+              | 'BUILDING'
+              | 'UPDATING'
+              | 'EXPIRED';
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/AdsPublisherInventoryType.pdsc
 
             export type AdsPublisherInventoryType = 'IOS' | 'ANDROID' | 'WEB';
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/AssetCopyActionState.pdsc
 
-            export type AssetCopyActionState = 'PENDING' | 'COMPLETED' | 'FAILED';
+            export type AssetCopyActionState =
+              | 'PENDING'
+              | 'COMPLETED'
+              | 'FAILED';
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/DMPDestination.pdsc
 
             export type DMPDestination = 'APPNEXUS' | 'LINKEDIN';
             // Generated from: com/linkedin/avro2pegasus/messages/common/ads/DMPSegmentStatus.pdsc
 
-            export type DMPSegmentStatus = 'READY' | 'FAILED' | 'ARCHIVED' | 'BUILDING' | 'UPDATING' | 'EXPIRED';
+            export type DMPSegmentStatus =
+              | 'READY'
+              | 'FAILED'
+              | 'ARCHIVED'
+              | 'BUILDING'
+              | 'UPDATING'
+              | 'EXPIRED';
           }
           namespace Compensation {
             // Generated from: com/linkedin/avro2pegasus/messages/common/compensation/BookingAttribution.pdsc
@@ -59326,7 +61574,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/common/compensation/BookingEventType.pdsc
 
-            export type BookingEventType = 'CANCELLATION' | 'OWNER_CHANGE' | 'PURCHASE' | 'SPLIT';
+            export type BookingEventType =
+              | 'CANCELLATION'
+              | 'OWNER_CHANGE'
+              | 'PURCHASE'
+              | 'SPLIT';
             // Generated from: com/linkedin/avro2pegasus/messages/common/compensation/BookingLineItemModification.pdsc
 
             export interface BookingLineItemModification {
@@ -59407,7 +61659,14 @@ declare namespace Com {
             export interface CouchbaseXdcrGenericMessage {
               replicationHeader: Com.Linkedin.Avro2pegasus.Messages.CouchbaseXdcrHeader;
               key: string;
-              value?: boolean | number | number | number | number | string | number;
+              value?:
+                | boolean
+                | number
+                | number
+                | number
+                | number
+                | string
+                | number;
             }
           }
           namespace Exception {
@@ -59480,7 +61739,12 @@ declare namespace Com {
             export type HiringProjectCandidateState = 'ACTIVE' | 'ARCHIVED';
             // Generated from: com/linkedin/avro2pegasus/messages/common/mcm/HiringProjectState.pdsc
 
-            export type HiringProjectState = 'ACTIVE' | 'CLOSED' | 'DRAFT' | 'DELETED' | 'DORMANT';
+            export type HiringProjectState =
+              | 'ACTIVE'
+              | 'CLOSED'
+              | 'DRAFT'
+              | 'DELETED'
+              | 'DORMANT';
           }
           namespace Messaging {
             // Generated from: com/linkedin/avro2pegasus/messages/common/messaging/ThreadExtensionContent.pdsc
@@ -59743,7 +62007,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/company/BizImageType.pdsc
 
-          export type BizImageType = 'SQUARE_LOGO' | 'LOGO_LEGACY' | 'SQUARE_LOGO_LEGACY';
+          export type BizImageType =
+            | 'SQUARE_LOGO'
+            | 'LOGO_LEGACY'
+            | 'SQUARE_LOGO_LEGACY';
           // Generated from: com/linkedin/avro2pegasus/messages/company/BizIndustry.pdsc
 
           export type BizIndustry =
@@ -60100,10 +62367,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/company/OrganizationActivationOperation.pdsc
 
-          export type OrganizationActivationOperation = 'ACTIVATE' | 'DEACTIVATE';
+          export type OrganizationActivationOperation =
+            | 'ACTIVATE'
+            | 'DEACTIVATE';
           // Generated from: com/linkedin/avro2pegasus/messages/company/OrganizationActivationReason.pdsc
 
-          export type OrganizationActivationReason = 'DUPLICATE' | 'FAKE' | 'LOW_QUALITY';
+          export type OrganizationActivationReason =
+            | 'DUPLICATE'
+            | 'FAKE'
+            | 'LOW_QUALITY';
           // Generated from: com/linkedin/avro2pegasus/messages/company/OrganizationContentPurgeMemberMessage.pdsc
 
           export interface OrganizationContentPurgeMemberMessage {
@@ -60129,7 +62401,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/company/OrganizationRelationshipType.pdsc
 
-          export type OrganizationRelationshipType = 'SUBSIDIARY' | 'ACQUISITION' | 'SCHOOL';
+          export type OrganizationRelationshipType =
+            | 'SUBSIDIARY'
+            | 'ACQUISITION'
+            | 'SCHOOL';
           // Generated from: com/linkedin/avro2pegasus/messages/company/PartnerSource.pdsc
 
           export interface PartnerSource {
@@ -60141,7 +62416,10 @@ declare namespace Com {
         namespace Compensation {
           // Generated from: com/linkedin/avro2pegasus/messages/compensation/AdjustmentEventType.pdsc
 
-          export type AdjustmentEventType = 'SPLIT' | 'DOUBLE_BUBBLE' | 'OWNER_DETAIL_CHANGE';
+          export type AdjustmentEventType =
+            | 'SPLIT'
+            | 'DOUBLE_BUBBLE'
+            | 'OWNER_DETAIL_CHANGE';
           // Generated from: com/linkedin/avro2pegasus/messages/compensation/AmountsByYear.pdsc
 
           export interface AmountsByYear {
@@ -60381,7 +62659,10 @@ declare namespace Com {
         namespace Content {
           // Generated from: com/linkedin/avro2pegasus/messages/content/ApiProvider.pdsc
 
-          export type ApiProvider = 'UNKNOWN' | 'BING_NEWS_FEED' | 'BING_NEWS_SEARCH';
+          export type ApiProvider =
+            | 'UNKNOWN'
+            | 'BING_NEWS_FEED'
+            | 'BING_NEWS_SEARCH';
           // Generated from: com/linkedin/avro2pegasus/messages/content/ContentIngestionRequestMessage.pdsc
 
           export interface ContentIngestionRequestMessage {
@@ -60396,7 +62677,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/content/ContentType.pdsc
 
-          export type ContentType = 'UNKNOWN' | 'ARTICLE' | 'IMAGE' | 'RICH' | 'VIDEO';
+          export type ContentType =
+            | 'UNKNOWN'
+            | 'ARTICLE'
+            | 'IMAGE'
+            | 'RICH'
+            | 'VIDEO';
           // Generated from: com/linkedin/avro2pegasus/messages/content/InterestGaapTaskRequest.pdsc
 
           export interface InterestGaapTaskRequest {
@@ -61098,7 +63384,10 @@ declare namespace Com {
             | 'PREPAY_INSUFFICIENT_INFO';
           // Generated from: com/linkedin/avro2pegasus/messages/creditcheck/SourceApplication.pdsc
 
-          export type SourceApplication = 'CAMPAIGN_MANAGER' | 'ABACUS' | 'ABACUS_PROPOSAL';
+          export type SourceApplication =
+            | 'CAMPAIGN_MANAGER'
+            | 'ABACUS'
+            | 'ABACUS_PROPOSAL';
           // Generated from: com/linkedin/avro2pegasus/messages/creditcheck/TransactionCreditStatus.pdsc
 
           export type TransactionCreditStatus =
@@ -61163,7 +63452,12 @@ declare namespace Com {
         namespace Datasift {
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/Age.pdsc
 
-          export type Age = 'UNKNOWN' | 'AGE_18_TO_24' | 'AGE_25_TO_34' | 'AGE_35_TO_54' | 'AGE_55_OR_MORE';
+          export type Age =
+            | 'UNKNOWN'
+            | 'AGE_18_TO_24'
+            | 'AGE_25_TO_34'
+            | 'AGE_35_TO_54'
+            | 'AGE_55_OR_MORE';
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/Article.pdsc
 
           export interface Article {
@@ -61191,7 +63485,13 @@ declare namespace Com {
             | 'SHARE';
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/ClickTagParentGroup.pdsc
 
-          export type ClickTagParentGroup = 'VIEW' | 'EXPAND' | 'FOLLOW' | 'LIKE' | 'COMMENT' | 'SHARE';
+          export type ClickTagParentGroup =
+            | 'VIEW'
+            | 'EXPAND'
+            | 'FOLLOW'
+            | 'LIKE'
+            | 'COMMENT'
+            | 'SHARE';
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/CompanySize.pdsc
 
           export type CompanySize =
@@ -61352,7 +63652,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/DatasiftCompanyNameType.pdsc
 
-          export type DatasiftCompanyNameType = 'UNKNOWN' | 'CANONICAL' | 'ALTERNATE';
+          export type DatasiftCompanyNameType =
+            | 'UNKNOWN'
+            | 'CANONICAL'
+            | 'ALTERNATE';
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/DatasiftDelete.pdsc
 
           export interface DatasiftDelete {
@@ -61474,7 +63777,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/EducationStatus.pdsc
 
-          export type EducationStatus = 'UNKNOWN' | 'CURRENT_STUDENT' | 'CURRENT_POSTGRAD' | 'NOT_STUDENT';
+          export type EducationStatus =
+            | 'UNKNOWN'
+            | 'CURRENT_STUDENT'
+            | 'CURRENT_POSTGRAD'
+            | 'NOT_STUDENT';
           // Generated from: com/linkedin/avro2pegasus/messages/datasift/Gender.pdsc
 
           export type Gender = 'UNKNOWN' | 'MALE' | 'FEMALE';
@@ -61646,10 +63953,17 @@ declare namespace Com {
           export type AdaptiveStreamMediaPlaylistType = 'VOD' | 'EVENT';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/AdaptiveStreamMediaSegmentType.pdsc
 
-          export type AdaptiveStreamMediaSegmentType = 'INDEX' | 'INITIALIZATION' | 'MEDIA';
+          export type AdaptiveStreamMediaSegmentType =
+            | 'INDEX'
+            | 'INITIALIZATION'
+            | 'MEDIA';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/AdaptiveStreamProtocol.pdsc
 
-          export type AdaptiveStreamProtocol = 'HLS' | 'DASH' | 'SMOOTH' | 'HDS';
+          export type AdaptiveStreamProtocol =
+            | 'HLS'
+            | 'DASH'
+            | 'SMOOTH'
+            | 'HDS';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/AdaptiveStreamVideo.pdsc
 
           export interface AdaptiveStreamVideo {
@@ -61790,7 +64104,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/AssetFlaggingAnalysisResult.pdsc
 
-          export type AssetFlaggingAnalysisResult = 'ANALYSIS_IN_PROGRESS' | 'ALLOWED' | 'BLOCKED';
+          export type AssetFlaggingAnalysisResult =
+            | 'ANALYSIS_IN_PROGRESS'
+            | 'ALLOWED'
+            | 'BLOCKED';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/AssetTimeoutMessage.pdsc
 
           export interface AssetTimeoutMessage {
@@ -61970,7 +64287,12 @@ declare namespace Com {
           export type ContentSource = 'DIGITALMEDIA_ASSET';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/ContentStatus.pdsc
 
-          export type ContentStatus = 'PURGED' | 'REPORTED' | 'REPORT_IN_PROGRESS' | 'REPORT_FAILED' | 'PURGE_FAILED';
+          export type ContentStatus =
+            | 'PURGED'
+            | 'REPORTED'
+            | 'REPORT_IN_PROGRESS'
+            | 'REPORT_FAILED'
+            | 'PURGE_FAILED';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/CoreMetadata.pdsc
 
           export interface CoreMetadata {
@@ -62079,7 +64401,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/DocumentType.pdsc
 
-          export type DocumentType = 'DOC' | 'DOCX' | 'ODT' | 'PPT' | 'PPTX' | 'PPS' | 'PPSX' | 'ODP' | 'PDF';
+          export type DocumentType =
+            | 'DOC'
+            | 'DOCX'
+            | 'ODT'
+            | 'PPT'
+            | 'PPTX'
+            | 'PPS'
+            | 'PPSX'
+            | 'ODP'
+            | 'PDF';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/EncryptedContent.pdsc
 
           export interface EncryptedContent {
@@ -62089,7 +64420,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/EncryptionScheme.pdsc
 
-          export type EncryptionScheme = 'AES_GCM' | 'AES_GCM_WITH_PBKDF2' | 'AES_GCM_WITH_FIXED_IV' | 'AES_CBC_128_16';
+          export type EncryptionScheme =
+            | 'AES_GCM'
+            | 'AES_GCM_WITH_PBKDF2'
+            | 'AES_GCM_WITH_FIXED_IV'
+            | 'AES_CBC_128_16';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/ExecutedAction.pdsc
 
           export interface ExecutedAction {
@@ -62240,7 +64575,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/MediaArtifactAuthorizationMethod.pdsc
 
-          export type MediaArtifactAuthorizationMethod = 'NONE' | 'PUBLIC' | 'INTERNAL' | 'PRIVATE';
+          export type MediaArtifactAuthorizationMethod =
+            | 'NONE'
+            | 'PUBLIC'
+            | 'INTERNAL'
+            | 'PRIVATE';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/MediaArtifactsDeletionMessage.pdsc
 
           export interface MediaArtifactsDeletionMessage {
@@ -62322,7 +64661,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/PhotoDnaHashDatabase.pdsc
 
-          export type PhotoDnaHashDatabase = 'NONE' | 'NCMEC' | 'NCMEC_INDUSTRY_PARTNERS';
+          export type PhotoDnaHashDatabase =
+            | 'NONE'
+            | 'NCMEC'
+            | 'NCMEC_INDUSTRY_PARTNERS';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/Publisher.pdsc
 
           export interface Publisher {
@@ -62393,7 +64735,9 @@ declare namespace Com {
           export type ReprocessingType = 'NORMAL' | 'CLIENT_TRIGGERED';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/RequestedAction.pdsc
 
-          export type RequestedAction = 'INITIAL_UPLOAD_PROCESSING' | 'REPROCESSING';
+          export type RequestedAction =
+            | 'INITIAL_UPLOAD_PROCESSING'
+            | 'REPROCESSING';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/RequestedArtifactClassDeletionInfo.pdsc
 
           export interface RequestedArtifactClassDeletionInfo {
@@ -62405,7 +64749,11 @@ declare namespace Com {
           export type ScanClassification = 'DIRTY' | 'CLEAN';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/ScanType.pdsc
 
-          export type ScanType = 'ANTIVIRUS' | 'NUDITY' | 'MINOR_EXPLICIT' | 'MEDIA_REPUTATION';
+          export type ScanType =
+            | 'ANTIVIRUS'
+            | 'NUDITY'
+            | 'MINOR_EXPLICIT'
+            | 'MEDIA_REPUTATION';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/SchedulerJobInfo.pdsc
 
           export interface SchedulerJobInfo {
@@ -62506,7 +64854,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/UnitsOfMeasureForLength.pdsc
 
-          export type UnitsOfMeasureForLength = 'PX' | 'DP' | 'IN' | 'CM' | 'MM' | 'PT' | 'PC' | 'Q';
+          export type UnitsOfMeasureForLength =
+            | 'PX'
+            | 'DP'
+            | 'IN'
+            | 'CM'
+            | 'MM'
+            | 'PT'
+            | 'PC'
+            | 'Q';
           // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/UnpackedSCORM.pdsc
 
           export interface UnpackedSCORM {
@@ -62593,10 +64949,15 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/assetvalues/ServiceRelationshipSource.pdsc
 
-            export type ServiceRelationshipSource = 'PROVIDED' | 'AUTHENTICATION';
+            export type ServiceRelationshipSource =
+              | 'PROVIDED'
+              | 'AUTHENTICATION';
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/assetvalues/ServiceRelationshipType.pdsc
 
-            export type ServiceRelationshipType = 'GENERIC' | 'CREATOR' | 'OWNER';
+            export type ServiceRelationshipType =
+              | 'GENERIC'
+              | 'CREATOR'
+              | 'OWNER';
           }
           namespace Processing {
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/RetryMessage.pdsc
@@ -62663,10 +65024,17 @@ declare namespace Com {
               export type AdaptiveStreamMediaPlaylistType = 'VOD' | 'EVENT';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AdaptiveStreamMediaSegmentType.pdsc
 
-              export type AdaptiveStreamMediaSegmentType = 'INDEX' | 'INITIALIZATION' | 'MEDIA';
+              export type AdaptiveStreamMediaSegmentType =
+                | 'INDEX'
+                | 'INITIALIZATION'
+                | 'MEDIA';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AdaptiveStreamProtocol.pdsc
 
-              export type AdaptiveStreamProtocol = 'HLS' | 'DASH' | 'SMOOTH' | 'HDS';
+              export type AdaptiveStreamProtocol =
+                | 'HLS'
+                | 'DASH'
+                | 'SMOOTH'
+                | 'HDS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AdaptiveStreamVideo.pdsc
 
               export interface AdaptiveStreamVideo {
@@ -62768,7 +65136,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AMSLiveOutputStatus.pdsc
 
-              export type AMSLiveOutputStatus = 'CREATING' | 'RUNNING' | 'DELETING';
+              export type AMSLiveOutputStatus =
+                | 'CREATING'
+                | 'RUNNING'
+                | 'DELETING';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AMSLiveTrimmingFilter.pdsc
 
               export interface AMSLiveTrimmingFilter {
@@ -62893,7 +65264,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AssetFlaggingAnalysisResult.pdsc
 
-              export type AssetFlaggingAnalysisResult = 'ANALYSIS_IN_PROGRESS' | 'ALLOWED' | 'BLOCKED';
+              export type AssetFlaggingAnalysisResult =
+                | 'ANALYSIS_IN_PROGRESS'
+                | 'ALLOWED'
+                | 'BLOCKED';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AssetRecipe.pdsc
 
               export interface AssetRecipe {
@@ -62912,7 +65286,12 @@ declare namespace Com {
               export type AssetSourceIndicatorDiscriminator = 'source';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AssetStatus.pdsc
 
-              export type AssetStatus = 'ALLOWED' | 'BLOCKED' | 'ABANDONED' | 'DELETED' | 'SCHEDULED_DELETION';
+              export type AssetStatus =
+                | 'ALLOWED'
+                | 'BLOCKED'
+                | 'ABANDONED'
+                | 'DELETED'
+                | 'SCHEDULED_DELETION';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/Audio.pdsc
 
               export interface Audio {
@@ -62950,7 +65329,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/AzureArtifactType.pdsc
 
-              export type AzureArtifactType = 'NONE' | 'WEBVTT' | 'IMAGE_ANALYSIS';
+              export type AzureArtifactType =
+                | 'NONE'
+                | 'WEBVTT'
+                | 'IMAGE_ANALYSIS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/BinaryRunError.pdsc
 
               export interface BinaryRunError {
@@ -63004,7 +65386,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/CacheControlMechanism.pdsc
 
-              export type CacheControlMechanism = 'PUBLIC' | 'PRIVATE' | 'NO_CACHE';
+              export type CacheControlMechanism =
+                | 'PUBLIC'
+                | 'PRIVATE'
+                | 'NO_CACHE';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/Captions.pdsc
 
               export interface Captions {
@@ -63275,7 +65660,16 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/DocumentType.pdsc
 
-              export type DocumentType = 'DOC' | 'DOCX' | 'ODT' | 'PPT' | 'PPTX' | 'PPS' | 'PPSX' | 'ODP' | 'PDF';
+              export type DocumentType =
+                | 'DOC'
+                | 'DOCX'
+                | 'ODT'
+                | 'PPT'
+                | 'PPTX'
+                | 'PPS'
+                | 'PPSX'
+                | 'ODP'
+                | 'PDF';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/EncryptedContent.pdsc
 
               export interface EncryptedContent {
@@ -63440,7 +65834,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/LiveStreamingDeliveryProtocol.pdsc
 
-              export type LiveStreamingDeliveryProtocol = 'HLS' | 'DASH' | 'SMOOTH' | 'PROGRESSIVE';
+              export type LiveStreamingDeliveryProtocol =
+                | 'HLS'
+                | 'DASH'
+                | 'SMOOTH'
+                | 'PROGRESSIVE';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/LiveStreamingIngestProtocol.pdsc
 
               export type LiveStreamingIngestProtocol = 'RTMP' | 'RTMPS';
@@ -63515,7 +65913,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/MediaArtifactAuthorizationMethod.pdsc
 
-              export type MediaArtifactAuthorizationMethod = 'NONE' | 'PUBLIC' | 'INTERNAL' | 'PRIVATE';
+              export type MediaArtifactAuthorizationMethod =
+                | 'NONE'
+                | 'PUBLIC'
+                | 'INTERNAL'
+                | 'PRIVATE';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/MediaArtifactClass.pdsc
 
               export interface MediaArtifactClass {
@@ -63559,7 +65961,10 @@ declare namespace Com {
                 | 'MACHINEANALYSIS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/MediaArtifactClassKind.pdsc
 
-              export type MediaArtifactClassKind = 'RENDITION' | 'COMPONENT' | 'COMPLEMENT';
+              export type MediaArtifactClassKind =
+                | 'RENDITION'
+                | 'COMPONENT'
+                | 'COMPLEMENT';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/MediaScanAnalysis.pdsc
 
               export interface MediaScanAnalysis {
@@ -63612,7 +66017,10 @@ declare namespace Com {
               export type PaddingOperationType = 'WHITE' | 'TRANSPARENT';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/PhotoDnaHashDatabase.pdsc
 
-              export type PhotoDnaHashDatabase = 'NONE' | 'NCMEC' | 'NCMEC_INDUSTRY_PARTNERS';
+              export type PhotoDnaHashDatabase =
+                | 'NONE'
+                | 'NCMEC'
+                | 'NCMEC_INDUSTRY_PARTNERS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ProcessInstructions.pdsc
 
               export interface ProcessInstructions {
@@ -63666,7 +66074,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ReprocessingSourceType.pdsc
 
-              export type ReprocessingSourceType = 'NORMAL' | 'NEW_INSTANCE' | 'REFRESH' | 'UCF';
+              export type ReprocessingSourceType =
+                | 'NORMAL'
+                | 'NEW_INSTANCE'
+                | 'REFRESH'
+                | 'UCF';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ReprocessingType.pdsc
 
               export type ReprocessingType = 'NORMAL' | 'CLIENT_TRIGGERED';
@@ -63697,7 +66109,11 @@ declare namespace Com {
               export type ScanClassification = 'DIRTY' | 'CLEAN';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ScanType.pdsc
 
-              export type ScanType = 'ANTIVIRUS' | 'NUDITY' | 'MINOR_EXPLICIT' | 'MEDIA_REPUTATION';
+              export type ScanType =
+                | 'ANTIVIRUS'
+                | 'NUDITY'
+                | 'MINOR_EXPLICIT'
+                | 'MEDIA_REPUTATION';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ServiceRelationship.pdsc
 
               export interface ServiceRelationship {
@@ -63707,10 +66123,15 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ServiceRelationshipSource.pdsc
 
-              export type ServiceRelationshipSource = 'PROVIDED' | 'AUTHENTICATION';
+              export type ServiceRelationshipSource =
+                | 'PROVIDED'
+                | 'AUTHENTICATION';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/ServiceRelationshipType.pdsc
 
-              export type ServiceRelationshipType = 'GENERIC' | 'CREATOR' | 'OWNER';
+              export type ServiceRelationshipType =
+                | 'GENERIC'
+                | 'CREATOR'
+                | 'OWNER';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/SoftwareApplication.pdsc
 
               export interface SoftwareApplication {
@@ -63804,10 +66225,26 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/TimeUnit.pdsc
 
-              export type TimeUnit = 'MILLISECOND' | 'SECOND' | 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+              export type TimeUnit =
+                | 'MILLISECOND'
+                | 'SECOND'
+                | 'MINUTE'
+                | 'HOUR'
+                | 'DAY'
+                | 'WEEK'
+                | 'MONTH'
+                | 'YEAR';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/UnitsOfMeasureForLength.pdsc
 
-              export type UnitsOfMeasureForLength = 'PX' | 'DP' | 'IN' | 'CM' | 'MM' | 'PT' | 'PC' | 'Q';
+              export type UnitsOfMeasureForLength =
+                | 'PX'
+                | 'DP'
+                | 'IN'
+                | 'CM'
+                | 'MM'
+                | 'PT'
+                | 'PC'
+                | 'Q';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v1/UnpackedSCORM.pdsc
 
               export interface UnpackedSCORM {
@@ -63928,10 +66365,17 @@ declare namespace Com {
               export type AdaptiveStreamMediaPlaylistType = 'VOD' | 'EVENT';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AdaptiveStreamMediaSegmentType.pdsc
 
-              export type AdaptiveStreamMediaSegmentType = 'INDEX' | 'INITIALIZATION' | 'MEDIA';
+              export type AdaptiveStreamMediaSegmentType =
+                | 'INDEX'
+                | 'INITIALIZATION'
+                | 'MEDIA';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AdaptiveStreamProtocol.pdsc
 
-              export type AdaptiveStreamProtocol = 'HLS' | 'DASH' | 'SMOOTH' | 'HDS';
+              export type AdaptiveStreamProtocol =
+                | 'HLS'
+                | 'DASH'
+                | 'SMOOTH'
+                | 'HDS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AdaptiveStreamVideoProcessingData.pdsc
 
               export interface AdaptiveStreamVideoProcessingData {
@@ -63999,7 +66443,10 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AMSLiveOutputStatus.pdsc
 
-              export type AMSLiveOutputStatus = 'CREATING' | 'RUNNING' | 'DELETING';
+              export type AMSLiveOutputStatus =
+                | 'CREATING'
+                | 'RUNNING'
+                | 'DELETING';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AMSLiveTrimmingFilter.pdsc
 
               export interface AMSLiveTrimmingFilter {
@@ -64045,7 +66492,12 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AssetStatus.pdsc
 
-              export type AssetStatus = 'ALLOWED' | 'BLOCKED' | 'ABANDONED' | 'DELETED' | 'SCHEDULED_DELETION';
+              export type AssetStatus =
+                | 'ALLOWED'
+                | 'BLOCKED'
+                | 'ABANDONED'
+                | 'DELETED'
+                | 'SCHEDULED_DELETION';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/AudioProcessingData.pdsc
 
               export interface AudioProcessingData {}
@@ -64175,7 +66627,16 @@ declare namespace Com {
               export interface DocumentTranscriptProcessingData {}
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/DocumentType.pdsc
 
-              export type DocumentType = 'DOC' | 'DOCX' | 'ODT' | 'PPT' | 'PPTX' | 'PPS' | 'PPSX' | 'ODP' | 'PDF';
+              export type DocumentType =
+                | 'DOC'
+                | 'DOCX'
+                | 'ODT'
+                | 'PPT'
+                | 'PPTX'
+                | 'PPS'
+                | 'PPSX'
+                | 'ODP'
+                | 'PDF';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/EncryptedContentProcessingData.pdsc
 
               export interface EncryptedContentProcessingData {
@@ -64258,7 +66719,11 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/LiveStreamingDeliveryProtocol.pdsc
 
-              export type LiveStreamingDeliveryProtocol = 'HLS' | 'DASH' | 'SMOOTH' | 'PROGRESSIVE';
+              export type LiveStreamingDeliveryProtocol =
+                | 'HLS'
+                | 'DASH'
+                | 'SMOOTH'
+                | 'PROGRESSIVE';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/Locale.pdsc
 
               export interface Locale {
@@ -64318,7 +66783,10 @@ declare namespace Com {
               export interface NullSchemaProcessingData {}
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/PhotoDnaHashDatabase.pdsc
 
-              export type PhotoDnaHashDatabase = 'NONE' | 'NCMEC' | 'NCMEC_INDUSTRY_PARTNERS';
+              export type PhotoDnaHashDatabase =
+                | 'NONE'
+                | 'NCMEC'
+                | 'NCMEC_INDUSTRY_PARTNERS';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/ProcessInstructions.pdsc
 
               export interface ProcessInstructions {
@@ -64378,7 +66846,11 @@ declare namespace Com {
               export type ScanClassification = 'DIRTY' | 'CLEAN';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/ScanType.pdsc
 
-              export type ScanType = 'ANTIVIRUS' | 'NUDITY' | 'MINOR_EXPLICIT' | 'MEDIA_REPUTATION';
+              export type ScanType =
+                | 'ANTIVIRUS'
+                | 'NUDITY'
+                | 'MINOR_EXPLICIT'
+                | 'MEDIA_REPUTATION';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/StillImageProcessingData.pdsc
 
               export interface StillImageProcessingData {
@@ -64416,10 +66888,26 @@ declare namespace Com {
               }
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/TimeUnit.pdsc
 
-              export type TimeUnit = 'MILLISECOND' | 'SECOND' | 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+              export type TimeUnit =
+                | 'MILLISECOND'
+                | 'SECOND'
+                | 'MINUTE'
+                | 'HOUR'
+                | 'DAY'
+                | 'WEEK'
+                | 'MONTH'
+                | 'YEAR';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/UnitsOfMeasureForLength.pdsc
 
-              export type UnitsOfMeasureForLength = 'PX' | 'DP' | 'IN' | 'CM' | 'MM' | 'PT' | 'PC' | 'Q';
+              export type UnitsOfMeasureForLength =
+                | 'PX'
+                | 'DP'
+                | 'IN'
+                | 'CM'
+                | 'MM'
+                | 'PT'
+                | 'PC'
+                | 'Q';
               // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/processing/v2/UnpackedSCORMProcessingData.pdsc
 
               export interface UnpackedSCORMProcessingData {
@@ -64505,7 +66993,12 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/update/AssetStatus.pdsc
 
-            export type AssetStatus = 'ALLOWED' | 'BLOCKED' | 'ABANDONED' | 'DELETED' | 'SCHEDULED_DELETION';
+            export type AssetStatus =
+              | 'ALLOWED'
+              | 'BLOCKED'
+              | 'ABANDONED'
+              | 'DELETED'
+              | 'SCHEDULED_DELETION';
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/update/AssetStatusUpdate.pdsc
 
             export interface AssetStatusUpdate {
@@ -64530,7 +67023,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/digitalmedia/update/ReprocessingStatus.pdsc
 
-            export type ReprocessingStatus = 'STARTED' | 'COMPLETED' | 'CANCELLED';
+            export type ReprocessingStatus =
+              | 'STARTED'
+              | 'COMPLETED'
+              | 'CANCELLED';
           }
         }
         namespace Elevate {
@@ -64643,7 +67139,11 @@ declare namespace Com {
             | 'RECONCILIATION_ERROR';
           // Generated from: com/linkedin/avro2pegasus/messages/enterprise/ProfileMoveType.pdsc
 
-          export type ProfileMoveType = 'REASSIGN' | 'TRANSFER' | 'UNDO_REASSIGN' | 'UNDO_TRANSFER';
+          export type ProfileMoveType =
+            | 'REASSIGN'
+            | 'TRANSFER'
+            | 'UNDO_REASSIGN'
+            | 'UNDO_TRANSFER';
         }
         namespace Entitylinking {
           // Generated from: com/linkedin/avro2pegasus/messages/entitylinking/ContentType.pdsc
@@ -64791,7 +67291,9 @@ declare namespace Com {
 
           export interface UsageControlRestrictionMessage {
             auditHeader: Com.Linkedin.Avro2pegasus.Events.KafkaAuditHeader;
-            restrictionTarget: Com.Linkedin.Avro2pegasus.Events.IPAddress | string;
+            restrictionTarget:
+              | Com.Linkedin.Avro2pegasus.Events.IPAddress
+              | string;
             restrictionType: Com.Linkedin.Avro2pegasus.Events.IpRestrictionType;
             expirationTime?: number;
             creator?: string;
@@ -64997,7 +67499,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/groups/GroupCleanupRequestEventType.pdsc
 
-          export type GroupCleanupRequestEventType = 'DELETE_DUPLICATE_ANET_CONTACTS' | 'DELETE_GROUP';
+          export type GroupCleanupRequestEventType =
+            | 'DELETE_DUPLICATE_ANET_CONTACTS'
+            | 'DELETE_GROUP';
           // Generated from: com/linkedin/avro2pegasus/messages/groups/GroupDefinitionDeletionMessage.pdsc
 
           export interface GroupDefinitionDeletionMessage {
@@ -65069,7 +67573,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/groups/content/GroupPostDisplayCategory.pdsc
 
-            export type GroupPostDisplayCategory = 'DISCUSSION' | 'JOB' | 'PROMOTION' | 'PREMIUM_JOB';
+            export type GroupPostDisplayCategory =
+              | 'DISCUSSION'
+              | 'JOB'
+              | 'PROMOTION'
+              | 'PREMIUM_JOB';
             // Generated from: com/linkedin/avro2pegasus/messages/groups/content/GroupPostType.pdsc
 
             export type GroupPostType = 'QUESTION' | 'SHARED_ARTICLE';
@@ -65160,7 +67668,13 @@ declare namespace Com {
         namespace Handle {
           // Generated from: com/linkedin/avro2pegasus/messages/handle/HandleState.pdsc
 
-          export type HandleState = 'CONFIRMED' | 'CLAIMED' | 'INFERRED' | 'RECOVERY' | 'NONE' | 'TAKENOVER';
+          export type HandleState =
+            | 'CONFIRMED'
+            | 'CLAIMED'
+            | 'INFERRED'
+            | 'RECOVERY'
+            | 'NONE'
+            | 'TAKENOVER';
           // Generated from: com/linkedin/avro2pegasus/messages/handle/HandleStateChangedMessage.pdsc
 
           export interface HandleStateChangedMessage {
@@ -65303,7 +67817,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/hire/MessageType.pdsc
 
-          export type MessageType = 'MESSAGE_READ' | 'MESSAGE_READ_LINK_NOT_CLICKED' | 'LINK_CLICKED' | 'JOB_APPLIED';
+          export type MessageType =
+            | 'MESSAGE_READ'
+            | 'MESSAGE_READ_LINK_NOT_CLICKED'
+            | 'LINK_CLICKED'
+            | 'JOB_APPLIED';
           // Generated from: com/linkedin/avro2pegasus/messages/hire/OutreachFollowUpSchedulingMessage.pdsc
 
           export interface OutreachFollowUpSchedulingMessage {
@@ -65350,7 +67868,17 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/hubble/BusinessUnit.pdsc
 
-          export type BusinessUnit = 'LTS' | 'LLS' | 'LSS' | 'LMS' | 'CEG' | 'EL8' | 'LDC' | 'LV8' | 'OTHER' | 'TAL';
+          export type BusinessUnit =
+            | 'LTS'
+            | 'LLS'
+            | 'LSS'
+            | 'LMS'
+            | 'CEG'
+            | 'EL8'
+            | 'LDC'
+            | 'LV8'
+            | 'OTHER'
+            | 'TAL';
           // Generated from: com/linkedin/avro2pegasus/messages/hubble/RemoveEmployeeRecord.pdsc
 
           export interface RemoveEmployeeRecord {
@@ -65461,7 +67989,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/invitations/GenericInvitationType.pdsc
 
-          export type GenericInvitationType = 'CONNECTION' | 'EVENT' | 'ORGANIZATION' | 'CONTENT_SERIES';
+          export type GenericInvitationType =
+            | 'CONNECTION'
+            | 'EVENT'
+            | 'ORGANIZATION'
+            | 'CONTENT_SERIES';
           // Generated from: com/linkedin/avro2pegasus/messages/invitations/InvitationBatchCreateEvent.pdsc
 
           export interface InvitationBatchCreateEvent {
@@ -65633,7 +68165,16 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/CompanySize.pdsc
 
-          export type CompanySize = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I';
+          export type CompanySize =
+            | 'A'
+            | 'B'
+            | 'C'
+            | 'D'
+            | 'E'
+            | 'F'
+            | 'G'
+            | 'H'
+            | 'I';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/CountedIdInt.pdsc
 
           export interface CountedIdInt {
@@ -65672,7 +68213,12 @@ declare namespace Com {
           export type EmployeeSchedule = 'FULL_TIME' | 'PART_TIME';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/EmployeeType.pdsc
 
-          export type EmployeeType = 'EMPLOYEE' | 'CONTRACT' | 'TEMPORARY' | 'INTERNSHIP' | 'VOLUNTEER';
+          export type EmployeeType =
+            | 'EMPLOYEE'
+            | 'CONTRACT'
+            | 'TEMPORARY'
+            | 'INTERNSHIP'
+            | 'VOLUNTEER';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/EmploymentStatus.pdsc
 
           export type EmploymentStatus =
@@ -65701,13 +68247,23 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/FieldProcessorPipelineType.pdsc
 
-          export type FieldProcessorPipelineType = 'ATS_MIDDLEWARE' | 'DEFAULT' | 'FORAGER_LEGACY';
+          export type FieldProcessorPipelineType =
+            | 'ATS_MIDDLEWARE'
+            | 'DEFAULT'
+            | 'FORAGER_LEGACY';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/ForecastMetricTypeEnum.pdsc
 
-          export type ForecastMetricTypeEnum = 'IMPRESSION' | 'VIEW' | 'APPLY' | 'UNIQUE_APPLY';
+          export type ForecastMetricTypeEnum =
+            | 'IMPRESSION'
+            | 'VIEW'
+            | 'APPLY'
+            | 'UNIQUE_APPLY';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/IndicationReason.pdsc
 
-          export type IndicationReason = 'EXPIRED' | 'UNRESPONSIVE' | 'LOW_PROFILE_QUALITY';
+          export type IndicationReason =
+            | 'EXPIRED'
+            | 'UNRESPONSIVE'
+            | 'LOW_PROFILE_QUALITY';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/IndicationType.pdsc
 
           export type IndicationType =
@@ -65989,7 +68545,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobIngestionMessageType.pdsc
 
-          export type JobIngestionMessageType = 'START_MESSAGE' | 'END_MESSAGE' | 'JOB_MESSAGE' | 'RAW_MESSAGE';
+          export type JobIngestionMessageType =
+            | 'START_MESSAGE'
+            | 'END_MESSAGE'
+            | 'JOB_MESSAGE'
+            | 'RAW_MESSAGE';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobIngestionNormalizedQuestionSetsMessage.pdsc
 
           export interface JobIngestionNormalizedQuestionSetsMessage {
@@ -66260,7 +68820,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobPostingInternalTag.pdsc
 
-          export type JobPostingInternalTag = 'UBIQUITY2' | 'UBIQUITY3' | 'UBIQUITY4';
+          export type JobPostingInternalTag =
+            | 'UBIQUITY2'
+            | 'UBIQUITY3'
+            | 'UBIQUITY4';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobPostingLifeCycleMessage.pdsc
 
           export interface JobPostingLifeCycleMessage {
@@ -66270,7 +68833,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobPostingOperationType.pdsc
 
-          export type JobPostingOperationType = 'CLOSE' | 'CREATE' | 'RENEW' | 'UPDATE';
+          export type JobPostingOperationType =
+            | 'CLOSE'
+            | 'CREATE'
+            | 'RENEW'
+            | 'UPDATE';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobPostingPacingMessage.pdsc
 
           export interface JobPostingPacingMessage {
@@ -66340,7 +68907,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobReportingListingType.pdsc
 
-          export type JobReportingListingType = 'PREMIUM' | 'FREEMIUM' | 'BASIC';
+          export type JobReportingListingType =
+            | 'PREMIUM'
+            | 'FREEMIUM'
+            | 'BASIC';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/JobsCompensationGenerationMessage.pdsc
 
           export interface JobsCompensationGenerationMessage {
@@ -66467,7 +69037,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/MiningTaskFailureReason.pdsc
 
-          export type MiningTaskFailureReason = 'SCRAPER_STALE' | 'MANUAL_CANCELLATION';
+          export type MiningTaskFailureReason =
+            | 'SCRAPER_STALE'
+            | 'MANUAL_CANCELLATION';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/NewJobSeeker.pdsc
 
           export interface NewJobSeeker {
@@ -66545,7 +69117,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/PostpaidBillingComputationTrigger.pdsc
 
-          export type PostpaidBillingComputationTrigger = 'REGULAR_USAGE' | 'BUDGET_UPDATE' | 'INT_OPERATION';
+          export type PostpaidBillingComputationTrigger =
+            | 'REGULAR_USAGE'
+            | 'BUDGET_UPDATE'
+            | 'INT_OPERATION';
           // Generated from: com/linkedin/avro2pegasus/messages/jobs/PostpaidBillingStats.pdsc
 
           export interface PostpaidBillingStats {
@@ -66659,7 +69234,10 @@ declare namespace Com {
             export type CompensationType = 'BASE_SALARY' | 'TOTAL_ADDITIONAL';
             // Generated from: com/linkedin/avro2pegasus/messages/jobs/common/InferableField.pdsc
 
-            export type InferableField = 'DESIRED_EDUCATION' | 'SKILLS' | 'YEARS_OF_EXPERIENCE';
+            export type InferableField =
+              | 'DESIRED_EDUCATION'
+              | 'SKILLS'
+              | 'YEARS_OF_EXPERIENCE';
             // Generated from: com/linkedin/avro2pegasus/messages/jobs/common/JobCompensation.pdsc
 
             export interface JobCompensation {
@@ -66950,7 +69528,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/kairos/ReviewStatus.pdsc
 
-          export type ReviewStatus = 'AUTO_APPROVED' | 'APPROVED' | 'PREAPPROVED' | 'AUDIT_PREAPPROVED';
+          export type ReviewStatus =
+            | 'AUTO_APPROVED'
+            | 'APPROVED'
+            | 'PREAPPROVED'
+            | 'AUDIT_PREAPPROVED';
           // Generated from: com/linkedin/avro2pegasus/messages/kairos/SasRChargeScheduleMessage.pdsc
 
           export interface SasRChargeScheduleMessage {
@@ -67077,7 +69659,11 @@ declare namespace Com {
         namespace Khronos {
           // Generated from: com/linkedin/avro2pegasus/messages/khronos/AdExperimentScheduledAction.pdsc
 
-          export type AdExperimentScheduledAction = 'START' | 'END' | 'TERMINATE' | 'CAMPAIGN_START';
+          export type AdExperimentScheduledAction =
+            | 'START'
+            | 'END'
+            | 'TERMINATE'
+            | 'CAMPAIGN_START';
           // Generated from: com/linkedin/avro2pegasus/messages/khronos/AdExperimentScheduleKhronosMessage.pdsc
 
           export interface AdExperimentScheduleKhronosMessage {
@@ -67145,7 +69731,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/khronos/Frequency.pdsc
 
-          export type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'IMMEDIATELY';
+          export type Frequency =
+            | 'DAILY'
+            | 'WEEKLY'
+            | 'MONTHLY'
+            | 'IMMEDIATELY';
           // Generated from: com/linkedin/avro2pegasus/messages/khronos/LearningContentIngestionSchedulerTriggerKhronosMessage.pdsc
 
           export interface LearningContentIngestionSchedulerTriggerKhronosMessage {
@@ -67283,7 +69873,14 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CaptionFormat.pdsc
 
-            export type CaptionFormat = 'QTSMIL' | 'QTTEXT' | 'SCC' | 'SRT' | 'TTLXML' | 'TXT' | 'WEBVTT';
+            export type CaptionFormat =
+              | 'QTSMIL'
+              | 'QTTEXT'
+              | 'SCC'
+              | 'SRT'
+              | 'TTLXML'
+              | 'TXT'
+              | 'WEBVTT';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CaptionGroupCaptionAssociation.pdsc
 
             export interface CaptionGroupCaptionAssociation {
@@ -67349,7 +69946,10 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/ContentOrigin.pdsc
 
-            export type ContentOrigin = 'CONTRACT' | 'STAFF' | 'STAFF_AND_CONTRACT';
+            export type ContentOrigin =
+              | 'CONTRACT'
+              | 'STAFF'
+              | 'STAFF_AND_CONTRACT';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/ContentSkillAssociation.pdsc
 
             export interface ContentSkillAssociation {
@@ -67398,7 +69998,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CourseAssociationType.pdsc
 
-            export type CourseAssociationType = 'TRANSLATED_FROM' | 'REPLACED_BY' | 'RELATED_TO' | 'ADAPTED_FROM';
+            export type CourseAssociationType =
+              | 'TRANSLATED_FROM'
+              | 'REPLACED_BY'
+              | 'RELATED_TO'
+              | 'ADAPTED_FROM';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CourseContent.pdsc
 
             export interface CourseContent {
@@ -67480,7 +70084,11 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CourseMessageType.pdsc
 
-            export type CourseMessageType = 'COURSE' | 'VIDEO' | 'CAPTION' | 'COMPLETE';
+            export type CourseMessageType =
+              | 'COURSE'
+              | 'VIDEO'
+              | 'CAPTION'
+              | 'COMPLETE';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CourseThumbnail.pdsc
 
             export interface CourseThumbnail {
@@ -67493,7 +70101,12 @@ declare namespace Com {
             }
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/CourseThumbnailImageType.pdsc
 
-            export type CourseThumbnailImageType = 'MASTER' | 'HD1080' | 'UHD1' | 'UHD2' | 'TRAILER_GRAPHIC';
+            export type CourseThumbnailImageType =
+              | 'MASTER'
+              | 'HD1080'
+              | 'UHD1'
+              | 'UHD2'
+              | 'TRAILER_GRAPHIC';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/Dimensions.pdsc
 
             export interface Dimensions {
@@ -67633,7 +70246,10 @@ declare namespace Com {
             export type VideoExtension = '_3GP' | 'F4V' | 'MOV' | 'MP4' | 'WMV';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/VideoFeature.pdsc
 
-            export type VideoFeature = 'COMPILR_LESSON' | 'PRACTICE_ENVIRONMENT' | 'USED_FOR_CERTIFICATE_OF_COMPLETION';
+            export type VideoFeature =
+              | 'COMPILR_LESSON'
+              | 'PRACTICE_ENVIRONMENT'
+              | 'USED_FOR_CERTIFICATE_OF_COMPLETION';
             // Generated from: com/linkedin/avro2pegasus/messages/learning/content/VideoFormat.pdsc
 
             export interface VideoFormat {
@@ -67885,7 +70501,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/InsightsNotificationType.pdsc
 
-          export type InsightsNotificationType = 'SAVED_LEADS' | 'WVMP' | 'DISCOVERY' | 'CAMPAIGN' | 'DAILY_BRIEF';
+          export type InsightsNotificationType =
+            | 'SAVED_LEADS'
+            | 'WVMP'
+            | 'DISCOVERY'
+            | 'CAMPAIGN'
+            | 'DAILY_BRIEF';
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/InsightType.pdsc
 
           export type InsightType =
@@ -67968,7 +70589,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/MemberToAccountState.pdsc
 
-          export type MemberToAccountState = 'ACTIVE' | 'INACTIVE' | 'OPTED_OUT';
+          export type MemberToAccountState =
+            | 'ACTIVE'
+            | 'INACTIVE'
+            | 'OPTED_OUT';
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/MemberToContractMessage.pdsc
 
           export interface MemberToContractMessage {
@@ -67981,7 +70605,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/MemberToContractState.pdsc
 
-          export type MemberToContractState = 'ACTIVE' | 'INACTIVE' | 'OPTED_OUT';
+          export type MemberToContractState =
+            | 'ACTIVE'
+            | 'INACTIVE'
+            | 'OPTED_OUT';
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/NotificationFrequency.pdsc
 
           export type NotificationFrequency = 'ALWAYS' | 'DISABLED';
@@ -68020,7 +70647,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/SalesNotificationSettingType.pdsc
 
-          export type SalesNotificationSettingType = 'WVMP_NOTIFICATION' | 'POINTDRIVE_VIEW_NOTIFICATION';
+          export type SalesNotificationSettingType =
+            | 'WVMP_NOTIFICATION'
+            | 'POINTDRIVE_VIEW_NOTIFICATION';
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/SalesNotificationSettingUpdateMessage.pdsc
 
           export interface SalesNotificationSettingUpdateMessage {
@@ -68039,7 +70668,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/TeamlinkExtendStatus.pdsc
 
-          export type TeamlinkExtendStatus = 'ACCEPTED' | 'PENDING' | 'DECLINED';
+          export type TeamlinkExtendStatus =
+            | 'ACCEPTED'
+            | 'PENDING'
+            | 'DECLINED';
           // Generated from: com/linkedin/avro2pegasus/messages/lighthouse/ThirdPartyAuthorizationEvent.pdsc
 
           export interface ThirdPartyAuthorizationEvent {
@@ -68100,7 +70732,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/lithograph/ContentType.pdsc
 
-          export type ContentType = 'BLOG_ARTICLE' | 'EMAIL' | 'HELP_ARTICLE' | 'PAGE';
+          export type ContentType =
+            | 'BLOG_ARTICLE'
+            | 'EMAIL'
+            | 'HELP_ARTICLE'
+            | 'PAGE';
           // Generated from: com/linkedin/avro2pegasus/messages/lithograph/EmailMetadata.pdsc
 
           export interface EmailMetadata {
@@ -68165,7 +70801,10 @@ declare namespace Com {
           export type TranslationMethod = 'MACHINE' | 'HUMAN';
           // Generated from: com/linkedin/avro2pegasus/messages/lithograph/TranslationPriorityType.pdsc
 
-          export type TranslationPriorityType = 'NORMAL' | 'URGENT' | 'INTERNAL';
+          export type TranslationPriorityType =
+            | 'NORMAL'
+            | 'URGENT'
+            | 'INTERNAL';
           // Generated from: com/linkedin/avro2pegasus/messages/lithograph/TranslationStatus.pdsc
 
           export type TranslationStatus = 'PENDING' | 'REVIEW' | 'COMPLETE';
@@ -68296,7 +70935,9 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/media/RichMediaDeleteSecurityClassification.pdsc
 
-          export type RichMediaDeleteSecurityClassification = 'OBJECTIONABLE' | 'STANDARD';
+          export type RichMediaDeleteSecurityClassification =
+            | 'OBJECTIONABLE'
+            | 'STANDARD';
           // Generated from: com/linkedin/avro2pegasus/messages/media/RichMediaRestoreGaapTaskRequest.pdsc
 
           export interface RichMediaRestoreGaapTaskRequest {
@@ -68346,7 +70987,10 @@ declare namespace Com {
         namespace Mes {
           // Generated from: com/linkedin/avro2pegasus/messages/mes/MemberEventInfoType.pdsc
 
-          export type MemberEventInfoType = 'UNWANTED_ADVANCES' | 'COPYRIGHT_VIOLATION' | 'USER_FLAGGED_CONTENT';
+          export type MemberEventInfoType =
+            | 'UNWANTED_ADVANCES'
+            | 'COPYRIGHT_VIOLATION'
+            | 'USER_FLAGGED_CONTENT';
           // Generated from: com/linkedin/avro2pegasus/messages/mes/MemberStateUpdateMessage.pdsc
 
           export interface MemberStateUpdateMessage {
@@ -68454,7 +71098,10 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/messaging/MessagingThreadTimeBoundedReplicationOperationType.pdsc
 
-          export type MessagingThreadTimeBoundedReplicationOperationType = 'DELETE' | 'MARK_READ' | 'MARK_UNREAD';
+          export type MessagingThreadTimeBoundedReplicationOperationType =
+            | 'DELETE'
+            | 'MARK_READ'
+            | 'MARK_UNREAD';
           // Generated from: com/linkedin/avro2pegasus/messages/messaging/PushNotificationListMessage.pdsc
 
           export interface PushNotificationListMessage {
@@ -68527,7 +71174,15 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/mobile/PageType.pdsc
 
-          export type PageType = 'full' | 'ajax' | 'iframe' | 'redirect' | 'api' | 'form' | 'router' | 'error';
+          export type PageType =
+            | 'full'
+            | 'ajax'
+            | 'iframe'
+            | 'redirect'
+            | 'api'
+            | 'form'
+            | 'router'
+            | 'error';
         }
         namespace Modeldeployment {
           // Generated from: com/linkedin/avro2pegasus/messages/modeldeployment/AppliedTopologyUpdateNotificationMessage.pdsc
@@ -68549,7 +71204,11 @@ declare namespace Com {
           export type ActionTypeEnum = 'CREATE' | 'UPDATE' | 'DELETE';
           // Generated from: com/linkedin/avro2pegasus/messages/monarch/ChangeActionType.pdsc
 
-          export type ChangeActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'MERGE';
+          export type ChangeActionType =
+            | 'CREATE'
+            | 'UPDATE'
+            | 'DELETE'
+            | 'MERGE';
           // Generated from: com/linkedin/avro2pegasus/messages/monarch/ConflictDetectionNotificationMessage.pdsc
 
           export interface ConflictDetectionNotificationMessage {
@@ -68594,7 +71253,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/monarch/EntityTypeEnum.pdsc
 
-          export type EntityTypeEnum = 'ACCOUNT' | 'CONTACT' | 'OPPORTUNITY' | 'CASE' | 'INCIDENT';
+          export type EntityTypeEnum =
+            | 'ACCOUNT'
+            | 'CONTACT'
+            | 'OPPORTUNITY'
+            | 'CASE'
+            | 'INCIDENT';
         }
         namespace Moneyentityrouting {
           // Generated from: com/linkedin/avro2pegasus/messages/moneyentityrouting/EntityBasedRoutingDataMessage.pdsc
@@ -68761,7 +71425,11 @@ declare namespace Com {
           export type Protocol = 'TCP' | 'UDP' | 'HTTP' | 'HTTPS';
           // Generated from: com/linkedin/avro2pegasus/messages/obhc/ServiceCheck.pdsc
 
-          export type ServiceCheck = 'PORT' | 'CGROUP_CGROUPSPROCESSCHK' | 'CGROUP_MEMSWFAILCNT' | 'PKI_SERVICECERT';
+          export type ServiceCheck =
+            | 'PORT'
+            | 'CGROUP_CGROUPSPROCESSCHK'
+            | 'CGROUP_MEMSWFAILCNT'
+            | 'PKI_SERVICECERT';
           // Generated from: com/linkedin/avro2pegasus/messages/obhc/ServiceCheckMessage.pdsc
 
           export interface ServiceCheckMessage {
@@ -68816,7 +71484,11 @@ declare namespace Com {
             | 'MF_ACCOUNT_TRANSFER';
           // Generated from: com/linkedin/avro2pegasus/messages/orbitmigration/ModeType.pdsc
 
-          export type ModeType = 'OPPORTUNITIES_ONLY' | 'OPPORTUNITIES_AND_TASKS' | 'TASKS_ONLY' | 'NONE';
+          export type ModeType =
+            | 'OPPORTUNITIES_ONLY'
+            | 'OPPORTUNITIES_AND_TASKS'
+            | 'TASKS_ONLY'
+            | 'NONE';
           // Generated from: com/linkedin/avro2pegasus/messages/orbitmigration/RoleType.pdsc
 
           export type RoleType =
@@ -68854,7 +71526,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/orbitmigration/StatusType.pdsc
 
-          export type StatusType = 'PENDING' | 'QUEUED' | 'IN_PROGRESS' | 'COMPLETE' | 'ERROR';
+          export type StatusType =
+            | 'PENDING'
+            | 'QUEUED'
+            | 'IN_PROGRESS'
+            | 'COMPLETE'
+            | 'ERROR';
         }
         namespace Orca {
           // Generated from: com/linkedin/avro2pegasus/messages/orca/OrcaJobIdMessage.pdsc
@@ -68935,10 +71612,14 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/premium/PremiumSubscriptionAutomationActionType.pdsc
 
-          export type PremiumSubscriptionAutomationActionType = 'NEW_PROVISION' | 'RENEWAL';
+          export type PremiumSubscriptionAutomationActionType =
+            | 'NEW_PROVISION'
+            | 'RENEWAL';
           // Generated from: com/linkedin/avro2pegasus/messages/premium/PremiumSubscriptionAutomationGrantMemberType.pdsc
 
-          export type PremiumSubscriptionAutomationGrantMemberType = 'FULLTIME_EMPLOYEE' | 'ALUMNUS';
+          export type PremiumSubscriptionAutomationGrantMemberType =
+            | 'FULLTIME_EMPLOYEE'
+            | 'ALUMNUS';
           // Generated from: com/linkedin/avro2pegasus/messages/premium/PremiumSubscriptionAutomationMessage.pdsc
 
           export interface PremiumSubscriptionAutomationMessage {
@@ -68974,7 +71655,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/props/PropType.pdsc
 
-          export type PropType = 'BIRTHDAY' | 'INVITATION' | 'JOB_CHANGE' | 'MEETING' | 'WORK_ANNIVERSARY';
+          export type PropType =
+            | 'BIRTHDAY'
+            | 'INVITATION'
+            | 'JOB_CHANGE'
+            | 'MEETING'
+            | 'WORK_ANNIVERSARY';
         }
         namespace Publishing {
           // Generated from: com/linkedin/avro2pegasus/messages/publishing/ArticleDeleteEvent.pdsc
@@ -69056,7 +71742,13 @@ declare namespace Com {
         namespace Pymk {
           // Generated from: com/linkedin/avro2pegasus/messages/pymk/ActivityLevel.pdsc
 
-          export type ActivityLevel = 'Unknown' | 'Onboarding' | 'Dormant' | 'OneByOne' | 'OneByThree' | 'FourByFour';
+          export type ActivityLevel =
+            | 'Unknown'
+            | 'Onboarding'
+            | 'Dormant'
+            | 'OneByOne'
+            | 'OneByThree'
+            | 'FourByFour';
           // Generated from: com/linkedin/avro2pegasus/messages/pymk/PymkHeroTargetsMessage.pdsc
 
           export interface PymkHeroTargetsMessage {
@@ -69235,7 +71927,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/reviewqueue/AdReviewItemAction.pdsc
 
-          export type AdReviewItemAction = 'UPSERT_INACTIVE' | 'UPSERT_PENDING' | 'UPDATE_PENDING' | 'UPDATE_CLOSED';
+          export type AdReviewItemAction =
+            | 'UPSERT_INACTIVE'
+            | 'UPSERT_PENDING'
+            | 'UPDATE_PENDING'
+            | 'UPDATE_CLOSED';
           // Generated from: com/linkedin/avro2pegasus/messages/reviewqueue/AdReviewRequestMessage.pdsc
 
           export interface AdReviewRequestMessage {
@@ -69260,7 +71956,11 @@ declare namespace Com {
             | 'NON_FUNCTIONAL_URL_DETECT';
           // Generated from: com/linkedin/avro2pegasus/messages/reviewqueue/badFieldEnum.pdsc
 
-          export type badFieldEnum = 'FIRST_NAME' | 'LAST_NAME' | 'MAIDEN_NAME' | 'HEADLINE';
+          export type badFieldEnum =
+            | 'FIRST_NAME'
+            | 'LAST_NAME'
+            | 'MAIDEN_NAME'
+            | 'HEADLINE';
           // Generated from: com/linkedin/avro2pegasus/messages/reviewqueue/ChinaJobPosterReviewRequestMessage.pdsc
 
           export interface ChinaJobPosterReviewRequestMessage {
@@ -69720,10 +72420,19 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/sales/SalesNavigatorEnterpriseStatus.pdsc
 
-          export type SalesNavigatorEnterpriseStatus = 'ACTIVATED' | 'DECLINED' | 'INACTIVE' | 'INVITED';
+          export type SalesNavigatorEnterpriseStatus =
+            | 'ACTIVATED'
+            | 'DECLINED'
+            | 'INACTIVE'
+            | 'INVITED';
           // Generated from: com/linkedin/avro2pegasus/messages/sales/SalesNavigatorEnterpriseType.pdsc
 
-          export type SalesNavigatorEnterpriseType = 'TIER_1' | 'TIER_2' | 'TIER_3' | 'TEAM_LINK_EXTEND' | 'ADMIN_ONLY';
+          export type SalesNavigatorEnterpriseType =
+            | 'TIER_1'
+            | 'TIER_2'
+            | 'TIER_3'
+            | 'TEAM_LINK_EXTEND'
+            | 'ADMIN_ONLY';
           // Generated from: com/linkedin/avro2pegasus/messages/sales/SalesNavigatorSeatUpdateMessage.pdsc
 
           export interface SalesNavigatorSeatUpdateMessage {
@@ -69856,10 +72565,17 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/savedsearch/SearchAlertChannel.pdsc
 
-          export type SearchAlertChannel = 'CORP_EMAIL' | 'EMAIL' | 'NOTIFICATION';
+          export type SearchAlertChannel =
+            | 'CORP_EMAIL'
+            | 'EMAIL'
+            | 'NOTIFICATION';
           // Generated from: com/linkedin/avro2pegasus/messages/savedsearch/SearchHitType.pdsc
 
-          export type SearchHitType = 'PEOPLE' | 'JOBS' | 'CONTENT' | 'LSS_COMPANY';
+          export type SearchHitType =
+            | 'PEOPLE'
+            | 'JOBS'
+            | 'CONTENT'
+            | 'LSS_COMPANY';
         }
         namespace Search {
           // Generated from: com/linkedin/avro2pegasus/messages/search/SearchHistoryUpdateMessage.pdsc
@@ -70227,7 +72943,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/seo/KeywordClass.pdsc
 
-          export type KeywordClass = 'SKILL' | 'INDUSTRY' | 'OCCUPATION' | 'JOB_FUNCTION' | 'LOCATION' | 'EMPLOYER';
+          export type KeywordClass =
+            | 'SKILL'
+            | 'INDUSTRY'
+            | 'OCCUPATION'
+            | 'JOB_FUNCTION'
+            | 'LOCATION'
+            | 'EMPLOYER';
           // Generated from: com/linkedin/avro2pegasus/messages/seo/KeywordData.pdsc
 
           export interface KeywordData {
@@ -70465,7 +73187,13 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/seo/WebsiteCategory.pdsc
 
-          export type WebsiteCategory = 'PERSONAL' | 'COMPANY' | 'BLOG' | 'RSS' | 'PORTFOLIO' | 'OTHER';
+          export type WebsiteCategory =
+            | 'PERSONAL'
+            | 'COMPANY'
+            | 'BLOG'
+            | 'RSS'
+            | 'PORTFOLIO'
+            | 'OTHER';
         }
         namespace Settings {
           namespace History {
@@ -71383,7 +74111,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/avro2pegasus/messages/ucv/RestrictionStatus.pdsc
 
-          export type RestrictionStatus = 'PREFERRED' | 'BASIC' | 'BASIC_MINUS' | 'SUSPEND';
+          export type RestrictionStatus =
+            | 'PREFERRED'
+            | 'BASIC'
+            | 'BASIC_MINUS'
+            | 'SUSPEND';
           // Generated from: com/linkedin/avro2pegasus/messages/ucv/ReviewPriority.pdsc
 
           export type ReviewPriority = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -71477,7 +74209,9 @@ declare namespace Com {
 
           export interface STSDMetricValue {
             operator: string;
-            operands?: Array<null | string | number | number | number | number | boolean>;
+            operands?: Array<
+              null | string | number | number | number | number | boolean
+            >;
           }
         }
         namespace Websearch {
@@ -71780,7 +74514,11 @@ declare namespace Com {
         namespace Common {
           // Generated from: com/linkedin/avro2pegasus/oms/common/OrderSubtype.pdsc
 
-          export type OrderSubtype = 'FIRST_CHARGE' | 'SOFT_ERROR_RETRY' | 'HARD_ERROR_RETRY' | 'REACTIVATED_CHARGE';
+          export type OrderSubtype =
+            | 'FIRST_CHARGE'
+            | 'SOFT_ERROR_RETRY'
+            | 'HARD_ERROR_RETRY'
+            | 'REACTIVATED_CHARGE';
           // Generated from: com/linkedin/avro2pegasus/oms/common/OrderType.pdsc
 
           export type OrderType =
@@ -71795,10 +74533,18 @@ declare namespace Com {
           namespace Slim {
             // Generated from: com/linkedin/avro2pegasus/oms/common/slim/RChargeAbortReason.pdsc
 
-            export type RChargeAbortReason = 'NO_SER' | 'NO_HER' | 'SER_LIMIT' | 'HER_LIMIT';
+            export type RChargeAbortReason =
+              | 'NO_SER'
+              | 'NO_HER'
+              | 'SER_LIMIT'
+              | 'HER_LIMIT';
             // Generated from: com/linkedin/avro2pegasus/oms/common/slim/RChargeStatus.pdsc
 
-            export type RChargeStatus = 'IN_PROCESS' | 'SUCCESS' | 'FAIL' | 'ABORT';
+            export type RChargeStatus =
+              | 'IN_PROCESS'
+              | 'SUCCESS'
+              | 'FAIL'
+              | 'ABORT';
           }
           namespace Tax {
             // Generated from: com/linkedin/avro2pegasus/oms/common/tax/TaxType.pdsc
@@ -71810,7 +74556,12 @@ declare namespace Com {
           namespace Pub {
             // Generated from: com/linkedin/avro2pegasus/oms/dm/pub/FulfillmentStatus.pdsc
 
-            export type FulfillmentStatus = 'NOT_FULFILLED' | 'FULFILLED' | 'CANCELED' | 'ERROR' | 'CANCELLING_ERROR';
+            export type FulfillmentStatus =
+              | 'NOT_FULFILLED'
+              | 'FULFILLED'
+              | 'CANCELED'
+              | 'ERROR'
+              | 'CANCELLING_ERROR';
             // Generated from: com/linkedin/avro2pegasus/oms/dm/pub/OrderState.pdsc
 
             export type OrderState =
@@ -71981,7 +74732,13 @@ declare namespace Com {
             | 'HARD_ERROR_GTWY';
           // Generated from: com/linkedin/avro2pegasus/ptagent/pub/CreditCardType.pdsc
 
-          export type CreditCardType = 'AMERICAN_EXPRESS' | 'MASTERCARD' | 'VISA' | 'DISCOVER' | 'DINERS_CLUB' | 'JCB';
+          export type CreditCardType =
+            | 'AMERICAN_EXPRESS'
+            | 'MASTERCARD'
+            | 'VISA'
+            | 'DISCOVER'
+            | 'DINERS_CLUB'
+            | 'JCB';
           namespace Report {
             // Generated from: com/linkedin/avro2pegasus/ptagent/pub/report/CardAccountType.pdsc
 
@@ -72130,10 +74887,16 @@ declare namespace Com {
             export type DMPDestination = 'APPNEXUS' | 'LINKEDIN';
             // Generated from: com/linkedin/avro2pegasus/tracking/common/ads/ThirdPartyTrackingPlatform.pdsc
 
-            export type ThirdPartyTrackingPlatform = 'DOUBLECLICK' | 'ATLAS' | 'MOAT';
+            export type ThirdPartyTrackingPlatform =
+              | 'DOUBLECLICK'
+              | 'ATLAS'
+              | 'MOAT';
             // Generated from: com/linkedin/avro2pegasus/tracking/common/ads/TrackingEventType.pdsc
 
-            export type TrackingEventType = 'IMPRESSION' | 'CLICK' | 'VIDEO_ACTION';
+            export type TrackingEventType =
+              | 'IMPRESSION'
+              | 'CLICK'
+              | 'VIDEO_ACTION';
           }
         }
       }
@@ -72256,7 +75019,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/chart/InchartsChartInstanceMetadata.pdsc
 
-      export interface InchartsChartInstanceMetadata extends Com.Linkedin.Common.ChangeAuditStamps {
+      export interface InchartsChartInstanceMetadata
+        extends Com.Linkedin.Common.ChangeAuditStamps {
         title: Com.Linkedin.Common.MultiLocaleString;
         description?: Com.Linkedin.Common.MultiLocaleString;
         versionDescription?: Com.Linkedin.Common.MultiLocaleString;
@@ -73087,7 +75851,12 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/common/CompensationType.pdsc
 
-      export type CompensationType = 'BASE_SALARY' | 'TIPS' | 'COMMISSION' | 'PROFIT_SHARING' | 'STOCK_OPTIONS';
+      export type CompensationType =
+        | 'BASE_SALARY'
+        | 'TIPS'
+        | 'COMMISSION'
+        | 'PROFIT_SHARING'
+        | 'STOCK_OPTIONS';
       // Generated from: com/linkedin/common/ComplianceDataTypeUrn.pdsc
 
       export type ComplianceDataTypeUrn = string;
@@ -73217,7 +75986,15 @@ declare namespace Com {
       export type ContentUrn = string;
       // Generated from: com/linkedin/common/ContinentCode.pdsc
 
-      export type ContinentCode = 'AF' | 'AQ' | 'AS' | 'EU' | 'LA' | 'ME' | 'NA' | 'OC';
+      export type ContinentCode =
+        | 'AF'
+        | 'AQ'
+        | 'AS'
+        | 'EU'
+        | 'LA'
+        | 'ME'
+        | 'NA'
+        | 'OC';
       // Generated from: com/linkedin/common/ContractGroupUrn.pdsc
 
       export type ContractGroupUrn = string;
@@ -73524,7 +76301,14 @@ declare namespace Com {
       export type DayOfMonth = number;
       // Generated from: com/linkedin/common/DayOfWeek.pdsc
 
-      export type DayOfWeek = 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
+      export type DayOfWeek =
+        | 'SUN'
+        | 'MON'
+        | 'TUE'
+        | 'WED'
+        | 'THU'
+        | 'FRI'
+        | 'SAT';
       // Generated from: com/linkedin/common/DeckGenerationRequestUrn.pdsc
 
       export type DeckGenerationRequestUrn = string;
@@ -73812,7 +76596,11 @@ declare namespace Com {
         | 'REMOTE';
       // Generated from: com/linkedin/common/EncryptionScheme.pdsc
 
-      export type EncryptionScheme = 'AES_GCM' | 'AES_GCM_WITH_PBKDF2' | 'AES_GCM_WITH_FIXED_IV' | 'AES_CBC_128_16';
+      export type EncryptionScheme =
+        | 'AES_GCM'
+        | 'AES_GCM_WITH_PBKDF2'
+        | 'AES_GCM_WITH_FIXED_IV'
+        | 'AES_CBC_128_16';
       // Generated from: com/linkedin/common/EndorsementUrn.pdsc
 
       export type EndorsementUrn = string;
@@ -74607,7 +77395,16 @@ declare namespace Com {
       export type Hostname = string;
       // Generated from: com/linkedin/common/HttpMethod.pdsc
 
-      export type HttpMethod = 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | 'CONNECT' | 'PATCH';
+      export type HttpMethod =
+        | 'OPTIONS'
+        | 'GET'
+        | 'HEAD'
+        | 'POST'
+        | 'PUT'
+        | 'DELETE'
+        | 'TRACE'
+        | 'CONNECT'
+        | 'PATCH';
       // Generated from: com/linkedin/common/HyperlinkAttributedEntity.pdsc
 
       export interface HyperlinkAttributedEntity {
@@ -74920,7 +77717,9 @@ declare namespace Com {
 
       export interface InternetAuthority {
         userName?: string;
-        host: Com.Linkedin.Common.FullyQualifiedDomainName | Com.Linkedin.Common.IPAddress;
+        host:
+          | Com.Linkedin.Common.FullyQualifiedDomainName
+          | Com.Linkedin.Common.IPAddress;
         portNumber?: number;
       }
       // Generated from: com/linkedin/common/InterviewAssignmentUrn.pdsc
@@ -75074,7 +77873,10 @@ declare namespace Com {
         | 'STAFFING_AGENCY';
       // Generated from: com/linkedin/common/JobsSourceOfHireJobSites.pdsc
 
-      export type JobsSourceOfHireJobSites = 'LINKEDIN' | 'INDEED' | 'OTHER_JOB_SITES';
+      export type JobsSourceOfHireJobSites =
+        | 'LINKEDIN'
+        | 'INDEED'
+        | 'OTHER_JOB_SITES';
       // Generated from: com/linkedin/common/JobsTargetingSegmentUrn.pdsc
 
       export type JobsTargetingSegmentUrn = string;
@@ -76156,7 +78958,9 @@ declare namespace Com {
       export type ModelBundleResourceUrn = string;
       // Generated from: com/linkedin/common/ModelResourceType.pdsc
 
-      export type ModelResourceType = 'INTERNAL_MODEL_RESOURCE' | 'EXTERNAL_MODEL_RESOURCE';
+      export type ModelResourceType =
+        | 'INTERNAL_MODEL_RESOURCE'
+        | 'EXTERNAL_MODEL_RESOURCE';
       // Generated from: com/linkedin/common/MoneyAmount.pdsc
 
       export interface MoneyAmount {
@@ -76259,7 +79063,12 @@ declare namespace Com {
       export type NormalizedQuestionUrn = string;
       // Generated from: com/linkedin/common/NotificationCadence.pdsc
 
-      export type NotificationCadence = 'IMMEDIATE' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'QUARTERLY';
+      export type NotificationCadence =
+        | 'IMMEDIATE'
+        | 'HOURLY'
+        | 'DAILY'
+        | 'WEEKLY'
+        | 'QUARTERLY';
       // Generated from: com/linkedin/common/NotificationDefinition.pdsc
 
       export interface NotificationDefinition {
@@ -77354,7 +80163,13 @@ declare namespace Com {
       export type ShepherdViolationUrn = string;
       // Generated from: com/linkedin/common/ShiftScheduleType.pdsc
 
-      export type ShiftScheduleType = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | 'WEEKEND' | 'HOLIDAY';
+      export type ShiftScheduleType =
+        | 'MORNING'
+        | 'AFTERNOON'
+        | 'EVENING'
+        | 'NIGHT'
+        | 'WEEKEND'
+        | 'HOLIDAY';
       // Generated from: com/linkedin/common/ShortlinkUrn.pdsc
 
       export type ShortlinkUrn = string;
@@ -77753,7 +80568,15 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/common/TimeUnit.pdsc
 
-      export type TimeUnit = 'MILLISECOND' | 'SECOND' | 'MINUTE' | 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+      export type TimeUnit =
+        | 'MILLISECOND'
+        | 'SECOND'
+        | 'MINUTE'
+        | 'HOUR'
+        | 'DAY'
+        | 'WEEK'
+        | 'MONTH'
+        | 'YEAR';
       // Generated from: com/linkedin/common/TimeZone.pdsc
 
       export type TimeZone = string;
@@ -77925,10 +80748,16 @@ declare namespace Com {
       export type VirtualCurrencyGrantUrn = string;
       // Generated from: com/linkedin/common/VisibilityScope.pdsc
 
-      export type VisibilityScope = 'PUBLIC' | 'CONNECTIONS' | 'LOGGED_IN' | 'CONTAINER' | 'AUTHOR';
+      export type VisibilityScope =
+        | 'PUBLIC'
+        | 'CONNECTIONS'
+        | 'LOGGED_IN'
+        | 'CONTAINER'
+        | 'AUTHOR';
       // Generated from: com/linkedin/common/VisualMedia.pdsc
 
-      export interface VisualMedia extends Com.Linkedin.Common.VisualMediaMetadata {
+      export interface VisualMedia
+        extends Com.Linkedin.Common.VisualMediaMetadata {
         mediaType?: Com.Linkedin.Common.MediaType;
         alternateText?: Com.Linkedin.Common.MultiLocaleString;
       }
@@ -78026,7 +80855,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/common/error/ConditionalInputError.pdsc
 
-        export interface ConditionalInputError extends Com.Linkedin.Common.Error.InputError {
+        export interface ConditionalInputError
+          extends Com.Linkedin.Common.Error.InputError {
           relatedInputs: Com.Linkedin.Common.Error.Input[];
         }
         // Generated from: com/linkedin/common/error/Input.pdsc
@@ -78316,7 +81146,10 @@ declare namespace Com {
         };
         updateOnlyAtInterval: boolean;
         hashRingPointCleanupRate?: number;
-        consistentHashAlgorithm?: 'POINT_BASED' | 'MULTI_PROBE' | 'DISTRIBUTION_BASED';
+        consistentHashAlgorithm?:
+          | 'POINT_BASED'
+          | 'MULTI_PROBE'
+          | 'DISTRIBUTION_BASED';
         numberOfProbes?: number;
         numberOfPointsPerHost?: number;
         boundedLoadBalancingFactor: number;
@@ -78366,7 +81199,10 @@ declare namespace Com {
           warnOnNoMatch: boolean;
         };
         hashRingPointCleanupRate?: number;
-        consistentHashAlgorithm?: 'POINT_BASED' | 'MULTI_PROBE' | 'DISTRIBUTION_BASED';
+        consistentHashAlgorithm?:
+          | 'POINT_BASED'
+          | 'MULTI_PROBE'
+          | 'DISTRIBUTION_BASED';
         numberOfProbes?: number;
         numberOfPointsPerHost?: number;
         boundedLoadBalancingFactor?: number;
@@ -78443,7 +81279,8 @@ declare namespace Com {
     namespace Dashboard {
       // Generated from: com/linkedin/dashboard/InchartsDashboardChart.pdsc
 
-      export interface InchartsDashboardChart extends Com.Linkedin.Dashboard.InchartsDashboardItemCommon {
+      export interface InchartsDashboardChart
+        extends Com.Linkedin.Dashboard.InchartsDashboardItemCommon {
         summary: boolean;
         chart: string;
       }
@@ -78459,7 +81296,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dashboard/InchartsDashboardGroup.pdsc
 
-      export interface InchartsDashboardGroup extends Com.Linkedin.Dashboard.InchartsDashboardItemCommon {
+      export interface InchartsDashboardGroup
+        extends Com.Linkedin.Dashboard.InchartsDashboardItemCommon {
         layout: 'TAB' | 'GRID';
         items: Com.Linkedin.Dashboard.InchartsDashboardItem[];
         links: Com.Linkedin.Dashboard.InchartsDashboardItemLink[];
@@ -78607,7 +81445,8 @@ declare namespace Com {
       // Generated from: com/linkedin/dataConstructChangeManagement/DataConstructChangeManagement.pdsc
 
       export interface DataConstructChangeManagement
-        extends Com.Linkedin.DataConstructChangeManagement.DataConstructChangeManagementContent {
+        extends Com.Linkedin.DataConstructChangeManagement
+          .DataConstructChangeManagementContent {
         id: number;
       }
       // Generated from: com/linkedin/dataConstructChangeManagement/DataConstructChangeManagementContent.pdsc
@@ -78659,7 +81498,12 @@ declare namespace Com {
       export type OwningEntityType = 'DATASET' | 'METRIC' | 'FEATURE';
       // Generated from: com/linkedin/dataConstructChangeManagement/State.pdsc
 
-      export type State = 'DEPLOYED' | 'DRAFT' | 'IMPLEMENTING' | 'PROPOSED' | 'WITHDRAWN';
+      export type State =
+        | 'DEPLOYED'
+        | 'DRAFT'
+        | 'IMPLEMENTING'
+        | 'PROPOSED'
+        | 'WITHDRAWN';
     }
     namespace DataJob {
       // Generated from: com/linkedin/dataJob/AzkabanFlow.pdsc
@@ -78748,15 +81592,18 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/dataJob/azkaban/AzkabanJobInfo.pdsc
 
-        export interface AzkabanJobInfo extends Com.Linkedin.DataJob.Azkaban.AzkabanFlowInfo {
+        export interface AzkabanJobInfo
+          extends Com.Linkedin.DataJob.Azkaban.AzkabanFlowInfo {
           jobName: string;
         }
         // Generated from: com/linkedin/dataJob/azkaban/AzkabanJobInput.pdsc
 
-        export interface AzkabanJobInput extends Com.Linkedin.DataJob.DataJobInput {}
+        export interface AzkabanJobInput
+          extends Com.Linkedin.DataJob.DataJobInput {}
         // Generated from: com/linkedin/dataJob/azkaban/AzkabanJobOutput.pdsc
 
-        export interface AzkabanJobOutput extends Com.Linkedin.DataJob.DataJobOutput {}
+        export interface AzkabanJobOutput
+          extends Com.Linkedin.DataJob.DataJobOutput {}
         // Generated from: com/linkedin/dataJob/azkaban/AzkabanProjectInfo.pdsc
 
         export interface AzkabanProjectInfo {
@@ -78855,7 +81702,9 @@ declare namespace Com {
       export interface BytesType {}
       // Generated from: com/linkedin/dataset/Compliance.pdsc
 
-      export interface Compliance extends Com.Linkedin.Dataset.ComplianceKey, Com.Linkedin.Common.ChangeAuditStamps {
+      export interface Compliance
+        extends Com.Linkedin.Dataset.ComplianceKey,
+          Com.Linkedin.Common.ChangeAuditStamps {
         compliancePurgeType?: Com.Linkedin.Dataset.CompliancePurgeType;
         compliancePurgeNote?: string;
         originUrns?: string[];
@@ -79073,7 +81922,12 @@ declare namespace Com {
         wormholeDatasetMetadata?: Com.Linkedin.Dataset.Wormhole.WormholeDatasetMetadata;
         wormholeDatasetOperationalMetadata?: Com.Linkedin.Dataset.Wormhole.WormholeDatasetOperationalMetadata;
         status?: Com.Linkedin.Common.Status;
-        platformNativeType?: 'TABLE' | 'VIEW' | 'DIRECTORY' | 'STREAM' | 'BUCKET';
+        platformNativeType?:
+          | 'TABLE'
+          | 'VIEW'
+          | 'DIRECTORY'
+          | 'STREAM'
+          | 'BUCKET';
         uri?: Com.Linkedin.Common.Uri;
         tags: string[];
         properties?: { [id: string]: string };
@@ -79129,7 +81983,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/DatasetFieldMapping.pdsc
 
-      export interface DatasetFieldMapping extends Com.Linkedin.Common.BaseFieldMapping {
+      export interface DatasetFieldMapping
+        extends Com.Linkedin.Common.BaseFieldMapping {
         sourceFields: Com.Linkedin.Dataset.DatasetFieldUpstream[];
         destinationField: string;
         dataJob?: Com.Linkedin.Common.DataJobRef;
@@ -79161,7 +82016,12 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/DatasetLineageType.pdsc
 
-      export type DatasetLineageType = 'COPY' | 'TRANSFORMED' | 'VIEW' | 'MANAGE' | 'OBFUSCATED_COPY';
+      export type DatasetLineageType =
+        | 'COPY'
+        | 'TRANSFORMED'
+        | 'VIEW'
+        | 'MANAGE'
+        | 'OBFUSCATED_COPY';
       // Generated from: com/linkedin/dataset/DatasetMetadataHealth.pdsc
 
       export interface DatasetMetadataHealth {
@@ -79183,7 +82043,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/DatasetSchemaFieldMapping.pdsc
 
-      export interface DatasetSchemaFieldMapping extends Com.Linkedin.Common.BaseFieldMapping {
+      export interface DatasetSchemaFieldMapping
+        extends Com.Linkedin.Common.BaseFieldMapping {
         sourceFields: string[];
         destinationField: string;
       }
@@ -79237,7 +82098,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/FieldCompliance.pdsc
 
-      export interface FieldCompliance extends Com.Linkedin.Dataset.SchemaFieldPaths {
+      export interface FieldCompliance
+        extends Com.Linkedin.Dataset.SchemaFieldPaths {
         dataType: Com.Linkedin.Dataset.ComplianceDataType;
         fieldFormat?: Com.Linkedin.Dataset.FieldFormat;
         valuePattern?: string;
@@ -79270,7 +82132,9 @@ declare namespace Com {
       // Generated from: com/linkedin/dataset/ForeignKeySpec.pdsc
 
       export interface ForeignKeySpec {
-        foreignKey: Com.Linkedin.Dataset.DatasetFieldForeignKey | Com.Linkedin.Dataset.UrnForeignKey;
+        foreignKey:
+          | Com.Linkedin.Dataset.DatasetFieldForeignKey
+          | Com.Linkedin.Dataset.UrnForeignKey;
       }
       // Generated from: com/linkedin/dataset/ForeignKeySpecName.pdsc
 
@@ -79304,7 +82168,11 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/LineageType.pdsc
 
-      export type LineageType = 'DIRECT_COPY' | 'TRANSFORMED' | 'VIEW' | 'MANAGE';
+      export type LineageType =
+        | 'DIRECT_COPY'
+        | 'TRANSFORMED'
+        | 'VIEW'
+        | 'MANAGE';
       // Generated from: com/linkedin/dataset/MapType.pdsc
 
       export interface MapType {
@@ -79347,10 +82215,17 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/OwnerCategory.pdsc
 
-      export type OwnerCategory = 'DATA_OWNER' | 'PRODUCER' | 'DELEGATE' | 'STAKEHOLDER' | 'CONSUMER';
+      export type OwnerCategory =
+        | 'DATA_OWNER'
+        | 'PRODUCER'
+        | 'DELEGATE'
+        | 'STAKEHOLDER'
+        | 'CONSUMER';
       // Generated from: com/linkedin/dataset/Ownership.pdsc
 
-      export interface Ownership extends Com.Linkedin.Dataset.OwnershipKey, Com.Linkedin.Common.ChangeAuditStamps {
+      export interface Ownership
+        extends Com.Linkedin.Dataset.OwnershipKey,
+          Com.Linkedin.Common.ChangeAuditStamps {
         owners: Com.Linkedin.Dataset.Owner[];
       }
       // Generated from: com/linkedin/dataset/OwnershipKey.pdsc
@@ -79414,7 +82289,9 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/Retention.pdsc
 
-      export interface Retention extends Com.Linkedin.Dataset.RetentionKey, Com.Linkedin.Common.ChangeAuditStamps {
+      export interface Retention
+        extends Com.Linkedin.Dataset.RetentionKey,
+          Com.Linkedin.Common.ChangeAuditStamps {
         purgeType: Com.Linkedin.Dataset.CompliancePurgeType;
         purgeNote?: string;
       }
@@ -79562,10 +82439,12 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/dataset/UserEditableDatasetProperties.pdsc
 
-      export interface UserEditableDatasetProperties extends Com.Linkedin.Common.BaseUserEditableInfo {}
+      export interface UserEditableDatasetProperties
+        extends Com.Linkedin.Common.BaseUserEditableInfo {}
       // Generated from: com/linkedin/dataset/UserEditableSchemaFieldInfo.pdsc
 
-      export interface UserEditableSchemaFieldInfo extends Com.Linkedin.Dataset.SchemaFieldPaths {
+      export interface UserEditableSchemaFieldInfo
+        extends Com.Linkedin.Dataset.SchemaFieldPaths {
         description?: string;
       }
       // Generated from: com/linkedin/dataset/UserEditableSchemaInfo.pdsc
@@ -79589,7 +82468,10 @@ declare namespace Com {
         export interface DataFidelityAlertDetails {
           alertInstanceId: number;
           alertConfigurationId: number;
-          alertType: 'MISSING_PARTITION' | 'SLA_VIOLATION' | 'THRESHOLD_VIOLATION';
+          alertType:
+            | 'MISSING_PARTITION'
+            | 'SLA_VIOLATION'
+            | 'THRESHOLD_VIOLATION';
           alertMessage: string;
           severity: 'LOW' | 'MEDIUM' | 'HIGH';
           created: Com.Linkedin.Common.AuditStamp;
@@ -79641,7 +82523,11 @@ declare namespace Com {
       namespace Datasentinel {
         // Generated from: com/linkedin/dataset/datasentinel/CollectionEvaluationType.pdsc
 
-        export type CollectionEvaluationType = 'ALL_TRUE' | 'ALL_FALSE' | 'ANY_TRUE' | 'ANY_FALSE';
+        export type CollectionEvaluationType =
+          | 'ALL_TRUE'
+          | 'ALL_FALSE'
+          | 'ANY_TRUE'
+          | 'ANY_FALSE';
         // Generated from: com/linkedin/dataset/datasentinel/ColumnDefinition.pdsc
 
         export interface ColumnDefinition {
@@ -79825,12 +82711,14 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/dataset/ump/Attribute.pdsc
 
-        export interface Attribute extends Com.Linkedin.Metric.Ump.MetricColumnInfo {
+        export interface Attribute
+          extends Com.Linkedin.Metric.Ump.MetricColumnInfo {
           category: string;
         }
         // Generated from: com/linkedin/dataset/ump/DimensionProperties.pdsc
 
-        export interface DimensionProperties extends Com.Linkedin.Metric.Ump.MetricColumnInfo {
+        export interface DimensionProperties
+          extends Com.Linkedin.Metric.Ump.MetricColumnInfo {
           freq: Com.Linkedin.Metric.MetricFrequencyType;
         }
         // Generated from: com/linkedin/dataset/ump/DownstreamAppData.pdsc
@@ -80050,7 +82938,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/datasetAccessGroup/CorpGroupMapDelta.pdsc
 
-      export interface CorpGroupMapDelta extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
+      export interface CorpGroupMapDelta
+        extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
         corpGroupsToAdd: string[];
         corpGroupsToRemove: string[];
       }
@@ -80060,7 +82949,13 @@ declare namespace Com {
         name: string;
         purpose: string;
         admins: string[];
-        dataType: 'MEMBER' | 'EMPLOYEE' | 'FINANCIAL' | 'CUSTOMER' | 'LINKEDIN' | 'OTHER';
+        dataType:
+          | 'MEMBER'
+          | 'EMPLOYEE'
+          | 'FINANCIAL'
+          | 'CUSTOMER'
+          | 'LINKEDIN'
+          | 'OTHER';
         dataClassification: Com.Linkedin.Dataset.SecurityClassification;
         notes?: string;
       }
@@ -80077,18 +82972,21 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/datasetAccessGroup/DatasetAccessGroupMembershipDelta.pdsc
 
-      export interface DatasetAccessGroupMembershipDelta extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
+      export interface DatasetAccessGroupMembershipDelta
+        extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
         datasetsToAdd: string[];
         datasetsToRemove: string[];
       }
       // Generated from: com/linkedin/datasetAccessGroup/MapCorpGroupAction.pdsc
 
-      export interface MapCorpGroupAction extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
+      export interface MapCorpGroupAction
+        extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
         corpGroup: string;
       }
       // Generated from: com/linkedin/datasetAccessGroup/MapDatasetAction.pdsc
 
-      export interface MapDatasetAction extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
+      export interface MapDatasetAction
+        extends Com.Linkedin.DatasetAccessGroup.ActionMetadata {
         dataset: string;
       }
     }
@@ -80208,7 +83106,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/datasetInstance/wimd/PartitionAvailabilityStatus.pdsc
 
-        export type PartitionAvailabilityStatus = 'NOT_PUBLISHED' | 'PUBLISHED' | 'REMOVED';
+        export type PartitionAvailabilityStatus =
+          | 'NOT_PUBLISHED'
+          | 'PUBLISHED'
+          | 'REMOVED';
         // Generated from: com/linkedin/datasetInstance/wimd/WIMDMetric.pdsc
 
         export interface WIMDMetric {
@@ -80389,7 +83290,9 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/datasetPartition/datasentinel/DefinitionMetricParameterType.pdsc
 
-        export type DefinitionMetricParameterType = 'TOP_VALUES_COUNT' | 'QUANTILES_COUNT';
+        export type DefinitionMetricParameterType =
+          | 'TOP_VALUES_COUNT'
+          | 'QUANTILES_COUNT';
         // Generated from: com/linkedin/datasetPartition/datasentinel/DefinitionMultiValuedMetric.pdsc
 
         export interface DefinitionMultiValuedMetric {
@@ -80398,7 +83301,9 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/datasetPartition/datasentinel/DefinitionMultiValuedMetricType.pdsc
 
-        export type DefinitionMultiValuedMetricType = 'TOP_VALUES_BY_COUNT' | 'QUANTILES';
+        export type DefinitionMultiValuedMetricType =
+          | 'TOP_VALUES_BY_COUNT'
+          | 'QUANTILES';
         // Generated from: com/linkedin/datasetPartition/datasentinel/DefinitionValuesMetric.pdsc
 
         export interface DefinitionValuesMetric {
@@ -80499,7 +83404,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/experiments/TrexExperimentMetricAlertDefinition.pdsc
 
-      export interface TrexExperimentMetricAlertDefinition extends Com.Linkedin.Common.NotificationDefinition {
+      export interface TrexExperimentMetricAlertDefinition
+        extends Com.Linkedin.Common.NotificationDefinition {
         lastModified: Com.Linkedin.Common.AuditStamp;
         expiresAt?: Com.Linkedin.Common.Time;
         lixTestUrn?: string;
@@ -80526,7 +83432,8 @@ declare namespace Com {
       };
       // Generated from: com/linkedin/experiments/TrexNotificationRequest.pdsc
 
-      export interface TrexNotificationRequest extends Com.Linkedin.Common.NotificationPublication {
+      export interface TrexNotificationRequest
+        extends Com.Linkedin.Common.NotificationPublication {
         trexNotificationDefinitionUrn: Com.Linkedin.Experiments.TrexNotificationDefinitionRef;
         trexNotificationSubscriptionUrn?: string;
         notificationParameters: {
@@ -80536,7 +83443,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/experiments/TrexNotificationSubscription.pdsc
 
-      export interface TrexNotificationSubscription extends Com.Linkedin.Common.NotificationSubscription {
+      export interface TrexNotificationSubscription
+        extends Com.Linkedin.Common.NotificationSubscription {
         trexNotificationDefinitionUrn: Com.Linkedin.Experiments.TrexNotificationDefinitionRef;
       }
     }
@@ -80561,7 +83469,10 @@ declare namespace Com {
       namespace Frame {
         // Generated from: com/linkedin/feature/frame/AvailabilityEnvironmentType.pdsc
 
-        export type AvailabilityEnvironmentType = 'ONLINE' | 'OFFLINE' | 'NEARLINE';
+        export type AvailabilityEnvironmentType =
+          | 'ONLINE'
+          | 'OFFLINE'
+          | 'NEARLINE';
         // Generated from: com/linkedin/feature/frame/AvailabilityInfo.pdsc
 
         export interface AvailabilityInfo {
@@ -80577,7 +83488,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FeatureAggregationType.pdsc
 
-        export type FeatureAggregationType = 'AVG' | 'COUNT' | 'LATEST' | 'MAX' | 'SUM' | 'TIMESINCE';
+        export type FeatureAggregationType =
+          | 'AVG'
+          | 'COUNT'
+          | 'LATEST'
+          | 'MAX'
+          | 'SUM'
+          | 'TIMESINCE';
         // Generated from: com/linkedin/feature/frame/FeatureInferType.pdsc
 
         export type FeatureInferType = 'FACT' | 'INFERRED';
@@ -80592,10 +83509,19 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FeatureStatusType.pdsc
 
-        export type FeatureStatusType = 'PUBLISHED' | 'UNPUBLISHED' | 'DELETED' | 'HIDDEN' | 'INCOMPLETE';
+        export type FeatureStatusType =
+          | 'PUBLISHED'
+          | 'UNPUBLISHED'
+          | 'DELETED'
+          | 'HIDDEN'
+          | 'INCOMPLETE';
         // Generated from: com/linkedin/feature/frame/FeatureTierType.pdsc
 
-        export type FeatureTierType = 'DEPRECATED' | 'PRIVATE' | 'PUBLIC' | 'PUBLIC_PRODUCTION';
+        export type FeatureTierType =
+          | 'DEPRECATED'
+          | 'PRIVATE'
+          | 'PUBLIC'
+          | 'PUBLIC_PRODUCTION';
         // Generated from: com/linkedin/feature/frame/FrameAnchorConfig.pdsc
 
         export interface FrameAnchorConfig {
@@ -80607,7 +83533,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FrameDerivedFeatureConfig.pdsc
 
-        export interface FrameDerivedFeatureConfig extends Com.Linkedin.Feature.Frame.FrameFeatureCommonConfig {
+        export interface FrameDerivedFeatureConfig
+          extends Com.Linkedin.Feature.Frame.FrameFeatureCommonConfig {
           key?: string | string[];
           inputs?: Array<{
             name: string;
@@ -80648,10 +83575,18 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FrameFeatureConfig.pdsc
 
-        export interface FrameFeatureConfig extends Com.Linkedin.Feature.Frame.FrameFeatureCommonConfig {
+        export interface FrameFeatureConfig
+          extends Com.Linkedin.Feature.Frame.FrameFeatureCommonConfig {
           udf?: string;
           anchors: Com.Linkedin.Feature.Frame.FrameAnchorConfig[];
-          defaultValue?: string | number | number | number | number | string[] | { [id: string]: string };
+          defaultValue?:
+            | string
+            | number
+            | number
+            | number
+            | number
+            | string[]
+            | { [id: string]: string };
           slidingWindowAggregationInfo?: Com.Linkedin.Feature.Frame.FrameSlidingWindowAggregationInfo;
         }
         // Generated from: com/linkedin/feature/frame/FrameFeatureEditableConfig.pdsc
@@ -80686,7 +83621,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/feature/frame/FrameFeatureType.pdsc
 
-        export type FrameFeatureType = 'CATEGORICAL' | 'CATEGORICAL_SET' | 'TERM_VECTOR' | 'NUMERIC' | 'DENSE_VECTOR';
+        export type FrameFeatureType =
+          | 'CATEGORICAL'
+          | 'CATEGORICAL_SET'
+          | 'TERM_VECTOR'
+          | 'NUMERIC'
+          | 'DENSE_VECTOR';
         // Generated from: com/linkedin/feature/frame/FrameFeatureUsageInfo.pdsc
 
         export interface FrameFeatureUsageInfo {
@@ -80728,7 +83668,13 @@ declare namespace Com {
         };
         // Generated from: com/linkedin/feature/frame/FrameSourceType.pdsc
 
-        export type FrameSourceType = 'HDFS' | 'ESPRESSO' | 'VOLDEMORT' | 'RESTLI' | 'VENICE' | 'PASSTHROUGH';
+        export type FrameSourceType =
+          | 'HDFS'
+          | 'ESPRESSO'
+          | 'VOLDEMORT'
+          | 'RESTLI'
+          | 'VENICE'
+          | 'PASSTHROUGH';
         // Generated from: com/linkedin/feature/frame/HDFSSourceProperties.pdsc
 
         export interface HDFSSourceProperties {
@@ -80780,7 +83726,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/grid/JobExecutionInfo.pdsc
 
-      export interface JobExecutionInfo extends Com.Linkedin.Grid.WorkflowExecutionInfo {
+      export interface JobExecutionInfo
+        extends Com.Linkedin.Grid.WorkflowExecutionInfo {
         jobId: string;
         jobType: string;
       }
@@ -80795,7 +83742,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/grid/WorkflowExecutionInfo.pdsc
 
-      export interface WorkflowExecutionInfo extends Com.Linkedin.Grid.WorkflowInfo {
+      export interface WorkflowExecutionInfo
+        extends Com.Linkedin.Grid.WorkflowInfo {
         workflowExecutionId: string;
       }
       // Generated from: com/linkedin/grid/WorkflowInfo.pdsc
@@ -80834,7 +83782,10 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/grid/execution/ExecutionDriverType.pdsc
 
-        export type ExecutionDriverType = 'AZKABAN_FLOW_EXECUTOR' | 'AZKABAN_JOB_EXECUTOR' | 'YARN_APP_MASTER';
+        export type ExecutionDriverType =
+          | 'AZKABAN_FLOW_EXECUTOR'
+          | 'AZKABAN_JOB_EXECUTOR'
+          | 'YARN_APP_MASTER';
         // Generated from: com/linkedin/grid/execution/ExecutionErrorContextInfo.pdsc
 
         export interface ExecutionErrorContextInfo {
@@ -80853,7 +83804,11 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/grid/execution/ExecutionStatus.pdsc
 
-        export type ExecutionStatus = 'EXECUTING' | 'FAILED' | 'SUCCEEDED' | 'UNKNOWN';
+        export type ExecutionStatus =
+          | 'EXECUTING'
+          | 'FAILED'
+          | 'SUCCEEDED'
+          | 'UNKNOWN';
       }
     }
     namespace Identity {
@@ -80895,7 +83850,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/identity/DatasetRecommendation.pdsc
 
-      export interface DatasetRecommendation extends Com.Linkedin.Identity.BaseRecommendation {
+      export interface DatasetRecommendation
+        extends Com.Linkedin.Identity.BaseRecommendation {
         datasetUrn: string;
       }
       // Generated from: com/linkedin/identity/DatasetRecommendationsInfo.pdsc
@@ -80979,7 +83935,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/incharts/DashboardMetadata.pdsc
 
-      export interface DashboardMetadata extends Com.Linkedin.Dashboard.InchartsDashboardMetadata {
+      export interface DashboardMetadata
+        extends Com.Linkedin.Dashboard.InchartsDashboardMetadata {
         dashboardId: number;
         owners: Com.Linkedin.Common.Ownership;
         editInfo: Com.Linkedin.Dashboard.InchartsDashboardEdit;
@@ -81066,7 +84023,8 @@ declare namespace Com {
       };
       // Generated from: com/linkedin/incharts/RetinaGlobalMessage.pdsc
 
-      export interface RetinaGlobalMessage extends Com.Linkedin.Common.ChangeAuditStamps {
+      export interface RetinaGlobalMessage
+        extends Com.Linkedin.Common.ChangeAuditStamps {
         id: number;
         message: string;
         url?: Com.Linkedin.Common.Url;
@@ -81117,7 +84075,9 @@ declare namespace Com {
       // Generated from: com/linkedin/incharts/XCoordinate.pdsc
 
       export interface XCoordinate {
-        type: Com.Linkedin.Incharts.TimestampXCoordinate | Com.Linkedin.Incharts.CategoryXCoordinate;
+        type:
+          | Com.Linkedin.Incharts.TimestampXCoordinate
+          | Com.Linkedin.Incharts.CategoryXCoordinate;
       }
       // Generated from: com/linkedin/incharts/YCoordinate.pdsc
 
@@ -81189,7 +84149,12 @@ declare namespace Com {
         memberFacingName: string;
         memberFacingDescription: string;
         inferenceCategory?: string;
-        category?: 'ACTIVITY' | 'CHARACTERISTICS' | 'INTEREST' | 'JOB_SEEKING_BEHAVIOR' | 'PURCHASING_BEHAVIOR';
+        category?:
+          | 'ACTIVITY'
+          | 'CHARACTERISTICS'
+          | 'INTEREST'
+          | 'JOB_SEEKING_BEHAVIOR'
+          | 'PURCHASING_BEHAVIOR';
         memberFacingCategoryDesc?: string;
         exportModes?: Com.Linkedin.Inference.ExportModes;
         valueExportable: boolean;
@@ -81923,7 +84888,8 @@ declare namespace Com {
       namespace Entity {
         // Generated from: com/linkedin/metadata/entity/AzkabanFlowBaseEntity.pdsc
 
-        export interface AzkabanFlowBaseEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface AzkabanFlowBaseEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           clusterName?: string;
           hadoopCluster?: Com.Linkedin.Common.HadoopClusterType;
           flowName?: string;
@@ -81931,12 +84897,14 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/AzkabanFlowEntity.pdsc
 
-        export interface AzkabanFlowEntity extends Com.Linkedin.Metadata.Entity.AzkabanFlowBaseEntity {
+        export interface AzkabanFlowEntity
+          extends Com.Linkedin.Metadata.Entity.AzkabanFlowBaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/AzkabanJobEntity.pdsc
 
-        export interface AzkabanJobEntity extends Com.Linkedin.Metadata.Entity.AzkabanFlowBaseEntity {
+        export interface AzkabanJobEntity
+          extends Com.Linkedin.Metadata.Entity.AzkabanFlowBaseEntity {
           urn: string;
           jobName?: string;
         }
@@ -81947,7 +84915,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/ContainerisedApplicationEntity.pdsc
 
-        export interface ContainerisedApplicationEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface ContainerisedApplicationEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           containerCluster?: string;
           executionStatus?: Com.Linkedin.Grid.Execution.ExecutionStatus;
@@ -81956,26 +84925,30 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/CorpGroupEntity.pdsc
 
-        export interface CorpGroupEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface CorpGroupEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/CorpUserEntity.pdsc
 
-        export interface CorpUserEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface CorpUserEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/DataConceptEntity.pdsc
 
-        export interface DataConceptEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DataConceptEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
           description?: string;
         }
         // Generated from: com/linkedin/metadata/entity/DatasetEntity.pdsc
 
-        export interface DatasetEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DatasetEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
           platform?: string;
@@ -81983,7 +84956,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/DatasetFieldEntity.pdsc
 
-        export interface DatasetFieldEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DatasetFieldEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
           platform?: string;
@@ -81992,14 +84966,16 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/DatasetGroupEntity.pdsc
 
-        export interface DatasetGroupEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DatasetGroupEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           namespace?: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/DatasetInstanceEntity.pdsc
 
-        export interface DatasetInstanceEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DatasetInstanceEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           instanceName?: string;
           platform?: string;
@@ -82008,7 +84984,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/DatasetPartitionEntity.pdsc
 
-        export interface DatasetPartitionEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface DatasetPartitionEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           partitionName?: string;
           instanceName?: string;
@@ -82027,7 +85004,8 @@ declare namespace Com {
         };
         // Generated from: com/linkedin/metadata/entity/FeatureEntity.pdsc
 
-        export interface FeatureEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface FeatureEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           namespace?: string;
           name?: string;
@@ -82038,13 +85016,15 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/GridGroupEntity.pdsc
 
-        export interface GridGroupEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface GridGroupEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/GridJobExecutionEntity.pdsc
 
-        export interface GridJobExecutionEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface GridJobExecutionEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           jobType?: string;
           executionStatus?: Com.Linkedin.Grid.Execution.ExecutionStatus;
@@ -82052,20 +85032,23 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/GridUserEntity.pdsc
 
-        export interface GridUserEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface GridUserEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/GridWorkflowEntity.pdsc
 
-        export interface GridWorkflowEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface GridWorkflowEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           schedulerType?: Com.Linkedin.Grid.SchedulerType;
           schedulerId?: string;
         }
         // Generated from: com/linkedin/metadata/entity/GridWorkflowExecutionEntity.pdsc
 
-        export interface GridWorkflowExecutionEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface GridWorkflowExecutionEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           schedulerType?: Com.Linkedin.Grid.SchedulerType;
           schedulerId?: string;
@@ -82074,17 +85057,20 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/InchartsChartEntity.pdsc
 
-        export interface InchartsChartEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface InchartsChartEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/InchartsChartInstanceEntity.pdsc
 
-        export interface InchartsChartInstanceEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface InchartsChartInstanceEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MetricEntity.pdsc
 
-        export interface MetricEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MetricEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           type?: string;
           name?: string;
@@ -82094,55 +85080,65 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/MlArtifactEntity.pdsc
 
-        export interface MlArtifactEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlArtifactEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlExperimentEntity.pdsc
 
-        export interface MlExperimentEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlExperimentEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlPipelineRunEntity.pdsc
 
-        export interface MlPipelineRunEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlPipelineRunEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlPipelineStepRunEntity.pdsc
 
-        export interface MlPipelineStepRunEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlPipelineStepRunEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlPipelineStepRunOutputEntity.pdsc
 
-        export interface MlPipelineStepRunOutputEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlPipelineStepRunOutputEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlProjectEntity.pdsc
 
-        export interface MlProjectEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlProjectEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MlTrainedModelEntity.pdsc
 
-        export interface MlTrainedModelEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MlTrainedModelEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
         }
         // Generated from: com/linkedin/metadata/entity/MultiproductEntity.pdsc
 
-        export interface MultiproductEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface MultiproductEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/RegisteredSchemaEntity.pdsc
 
-        export interface RegisteredSchemaEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface RegisteredSchemaEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           type?: string;
           name?: string;
         }
         // Generated from: com/linkedin/metadata/entity/RegisteredSchemaFieldEntity.pdsc
 
-        export interface RegisteredSchemaFieldEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface RegisteredSchemaFieldEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           type?: string;
           name?: string;
@@ -82150,7 +85146,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/entity/ResourceSensitivityEntity.pdsc
 
-        export interface ResourceSensitivityEntity extends Com.Linkedin.Metadata.Entity.BaseEntity {
+        export interface ResourceSensitivityEntity
+          extends Com.Linkedin.Metadata.Entity.BaseEntity {
           urn: string;
           resourceSensitivity?: string;
         }
@@ -82268,7 +85265,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/query/IndexValue.pdsc
 
-        export type IndexValue = boolean | number | number | number | number | string;
+        export type IndexValue =
+          | boolean
+          | number
+          | number
+          | number
+          | number
+          | string;
         // Generated from: com/linkedin/metadata/query/ListResultMetadata.pdsc
 
         export interface ListResultMetadata {
@@ -82280,10 +85283,14 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/query/RelationshipDirection.pdsc
 
-        export type RelationshipDirection = 'INCOMING' | 'OUTGOING' | 'UNDIRECTED';
+        export type RelationshipDirection =
+          | 'INCOMING'
+          | 'OUTGOING'
+          | 'UNDIRECTED';
         // Generated from: com/linkedin/metadata/query/RelationshipFilter.pdsc
 
-        export interface RelationshipFilter extends Com.Linkedin.Metadata.Query.Filter {
+        export interface RelationshipFilter
+          extends Com.Linkedin.Metadata.Query.Filter {
           direction: Com.Linkedin.Metadata.Query.RelationshipDirection;
         }
         // Generated from: com/linkedin/metadata/query/SearchResultMetadata.pdsc
@@ -82314,36 +85321,46 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/relationship/ComplianceDerivedFrom.pdsc
 
-        export interface ComplianceDerivedFrom extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface ComplianceDerivedFrom
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/Contains.pdsc
 
-        export interface Contains extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface Contains
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/DataDerivedFrom.pdsc
 
-        export interface DataDerivedFrom extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface DataDerivedFrom
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/DownstreamOf.pdsc
 
-        export interface DownstreamOf extends Com.Linkedin.Metadata.Relationship.BaseRelationship {
+        export interface DownstreamOf
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {
           type?: Com.Linkedin.Dataset.DatasetLineageType;
         }
         // Generated from: com/linkedin/metadata/relationship/FollowedBy.pdsc
 
-        export interface FollowedBy extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface FollowedBy
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/GeneratedBy.pdsc
 
-        export interface GeneratedBy extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface GeneratedBy
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/HasField.pdsc
 
-        export interface HasField extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface HasField
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/InstanceOf.pdsc
 
-        export interface InstanceOf extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface InstanceOf
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/IsPartOf.pdsc
 
-        export interface IsPartOf extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface IsPartOf
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/OwnedBy.pdsc
 
-        export interface OwnedBy extends Com.Linkedin.Metadata.Relationship.BaseRelationship {
+        export interface OwnedBy
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {
           type: Com.Linkedin.Common.OwnershipType;
         }
         // Generated from: com/linkedin/metadata/relationship/Relationship.pdsc
@@ -82362,10 +85379,12 @@ declare namespace Com {
         };
         // Generated from: com/linkedin/metadata/relationship/ReportsTo.pdsc
 
-        export interface ReportsTo extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface ReportsTo
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
         // Generated from: com/linkedin/metadata/relationship/SubmittedBy.pdsc
 
-        export interface SubmittedBy extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
+        export interface SubmittedBy
+          extends Com.Linkedin.Metadata.Relationship.BaseRelationship {}
       }
       namespace Restli {
         // Generated from: com/linkedin/metadata/restli/BackfillResult.pdsc
@@ -82380,7 +85399,8 @@ declare namespace Com {
       namespace Search {
         // Generated from: com/linkedin/metadata/search/AzkabanFlowDocument.pdsc
 
-        export interface AzkabanFlowDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface AzkabanFlowDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           clusterName?: string;
           hadoopCluster?: Com.Linkedin.Common.HadoopClusterType;
@@ -82390,7 +85410,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/AzkabanJobDocument.pdsc
 
-        export interface AzkabanJobDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface AzkabanJobDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           clusterName?: string;
           hadoopCluster?: Com.Linkedin.Common.HadoopClusterType;
@@ -82408,7 +85429,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/CorpGroupDocument.pdsc
 
-        export interface CorpGroupDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface CorpGroupDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           email?: string;
           members?: string[];
@@ -82417,7 +85439,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/CorpUserInfoDocument.pdsc
 
-        export interface CorpUserInfoDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface CorpUserInfoDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           ldap?: string;
           title?: string;
@@ -82431,7 +85454,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/DataConceptDocument.pdsc
 
-        export interface DataConceptDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface DataConceptDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           description?: string;
@@ -82444,7 +85468,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/DataConstructChangeManagementDocument.pdsc
 
-        export interface DataConstructChangeManagementDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface DataConstructChangeManagementDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           owningEntity?: string;
           owningEntityType?: Com.Linkedin.DataConstructChangeManagement.OwningEntityType;
@@ -82455,7 +85480,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/DatasetAccessGroupDocument.pdsc
 
-        export interface DatasetAccessGroupDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface DatasetAccessGroupDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           admins?: string[];
@@ -82466,7 +85492,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/DatasetDocument.pdsc
 
-        export interface DatasetDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface DatasetDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           platform?: string;
@@ -82502,7 +85529,8 @@ declare namespace Com {
         };
         // Generated from: com/linkedin/metadata/search/FeatureDocument.pdsc
 
-        export interface FeatureDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface FeatureDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           namespace?: string;
           name?: string;
@@ -82523,7 +85551,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/GridWorkflowDocument.pdsc
 
-        export interface GridWorkflowDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface GridWorkflowDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           schedulerType?: Com.Linkedin.Grid.SchedulerType;
           schedulerId?: string;
@@ -82532,7 +85561,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/GridWorkflowExecutionDocument.pdsc
 
-        export interface GridWorkflowExecutionDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface GridWorkflowExecutionDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           schedulerType?: Com.Linkedin.Grid.SchedulerType;
           schedulerId?: string;
@@ -82543,7 +85573,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/InChartsChartDocument.pdsc
 
-        export interface InChartsChartDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface InChartsChartDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           owners?: string[];
           title?: string;
@@ -82559,7 +85590,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/InChartsDashboardDocument.pdsc
 
-        export interface InChartsDashboardDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface InChartsDashboardDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           owners?: string[];
           title?: string;
@@ -82574,7 +85606,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/InferenceDocument.pdsc
 
-        export interface InferenceDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface InferenceDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           multiproduct?: string;
@@ -82601,7 +85634,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MetricDocument.pdsc
 
-        export interface MetricDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MetricDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           type?: string;
           name?: string;
@@ -82635,7 +85669,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlDeploymentGroupDocument.pdsc
 
-        export interface MlDeploymentGroupDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlDeploymentGroupDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           creator?: string;
@@ -82645,7 +85680,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlExperimentDocument.pdsc
 
-        export interface MlExperimentDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlExperimentDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           creator?: string;
@@ -82655,13 +85691,15 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlFeatureAnchorDocument.pdsc
 
-        export interface MlFeatureAnchorDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlFeatureAnchorDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           mlFeatureVersionUrn?: string;
         }
         // Generated from: com/linkedin/metadata/search/MlFeatureDocument.pdsc
 
-        export interface MlFeatureDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlFeatureDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           namespace?: string;
           name?: string;
@@ -82681,7 +85719,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlPipelineRunDocument.pdsc
 
-        export interface MlPipelineRunDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlPipelineRunDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           creator?: string;
           createdAt?: Com.Linkedin.Common.Time;
@@ -82694,7 +85733,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlProjectDocument.pdsc
 
-        export interface MlProjectDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlProjectDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           creator?: string;
@@ -82705,14 +85745,16 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/MlPublishedModelDocument.pdsc
 
-        export interface MlPublishedModelDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlPublishedModelDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           deploymentGroupName?: string;
         }
         // Generated from: com/linkedin/metadata/search/MlTrainedModelDocument.pdsc
 
-        export interface MlTrainedModelDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface MlTrainedModelDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           name?: string;
           creator?: string;
@@ -82722,7 +85764,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metadata/search/RegisteredSchemaDocument.pdsc
 
-        export interface RegisteredSchemaDocument extends Com.Linkedin.Metadata.Search.BaseDocument {
+        export interface RegisteredSchemaDocument
+          extends Com.Linkedin.Metadata.Search.BaseDocument {
           urn: string;
           registeredSchemaType?: Com.Linkedin.Common.RegisteredSchemaType;
           name?: string;
@@ -83159,7 +86202,12 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/metric/MetricFrequencyType.pdsc
 
-      export type MetricFrequencyType = 'REALTIME' | 'HOURLY' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+      export type MetricFrequencyType =
+        | 'REALTIME'
+        | 'HOURLY'
+        | 'DAILY'
+        | 'WEEKLY'
+        | 'MONTHLY';
       // Generated from: com/linkedin/metric/MetricGovernance.pdsc
 
       export interface MetricGovernance {
@@ -83167,7 +86215,11 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/metric/MetricGovernanceTier.pdsc
 
-      export type MetricGovernanceTier = 'TIER_X' | 'TIER_0' | 'TIER_1' | 'TIER_2';
+      export type MetricGovernanceTier =
+        | 'TIER_X'
+        | 'TIER_0'
+        | 'TIER_1'
+        | 'TIER_2';
       // Generated from: com/linkedin/metric/MetricKey.pdsc
 
       export interface MetricKey {
@@ -83179,7 +86231,8 @@ declare namespace Com {
       export type MetricType = 'UMP';
       // Generated from: com/linkedin/metric/UserEditableMetricProperties.pdsc
 
-      export interface UserEditableMetricProperties extends Com.Linkedin.Common.BaseUserEditableInfo {}
+      export interface UserEditableMetricProperties
+        extends Com.Linkedin.Common.BaseUserEditableInfo {}
       // Generated from: com/linkedin/metric/UserEditableMetricPropertiesDelta.pdsc
 
       export interface UserEditableMetricPropertiesDelta {
@@ -83205,7 +86258,12 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metric/ump/MetricDownstreamAppType.pdsc
 
-        export type MetricDownstreamAppType = 'RAPTOR' | 'THIRDEYE' | 'XLNT' | 'PINOT' | 'VOLDEMORT';
+        export type MetricDownstreamAppType =
+          | 'RAPTOR'
+          | 'THIRDEYE'
+          | 'XLNT'
+          | 'PINOT'
+          | 'VOLDEMORT';
         // Generated from: com/linkedin/metric/ump/TierInfo.pdsc
 
         export interface TierInfo {
@@ -83248,7 +86306,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/metric/ump/UMPMetricInput.pdsc
 
-        export interface UMPMetricInput extends Com.Linkedin.Dataset.Ump.UMPDataInput {}
+        export interface UMPMetricInput
+          extends Com.Linkedin.Dataset.Ump.UMPDataInput {}
         // Generated from: com/linkedin/metric/ump/UMPMetricProperties.pdsc
 
         export interface UMPMetricProperties {
@@ -83375,7 +86434,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/proml/common/MlDeprecation.pdsc
 
-        export interface MlDeprecation extends Com.Linkedin.Common.BaseDeprecation {}
+        export interface MlDeprecation
+          extends Com.Linkedin.Common.BaseDeprecation {}
         namespace Feature {
           // Generated from: com/linkedin/proml/common/feature/PublishInfo.pdsc
 
@@ -83598,7 +86658,8 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/CouchbaseDataSourceAnchor.pdsc
 
           export interface CouchbaseDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+                .TransformationFunctionForOnlineDataSource,
               Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.CouchbaseDataSource;
           }
@@ -83614,20 +86675,23 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/CustomDataSourceAnchor.pdsc
 
           export interface CustomDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+                .TransformationFunctionForOnlineDataSource,
               Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.CustomDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/EspressoDataSourceAnchor.pdsc
 
           export interface EspressoDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+                .TransformationFunctionForOnlineDataSource,
               Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.EspressoDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/HdfsDataSourceAnchor.pdsc
 
-          export interface HdfsDataSourceAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
+          export interface HdfsDataSourceAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.HdfsDataSource;
             transformationFunction:
               | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
@@ -83641,7 +86705,8 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/InMemoryPassthroughDataSourceAnchor.pdsc
 
           export interface InMemoryPassthroughDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+              .TransformationFunctionForOnlineDataSource {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.InMemoryPassthroughDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/ObservationPassthroughDataSourceAnchor.pdsc
@@ -83655,7 +86720,8 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/OfflineFeatureSourcesAnchor.pdsc
 
-          export interface OfflineFeatureSourcesAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
+          export interface OfflineFeatureSourcesAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource[];
             transformationFunction:
               | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
@@ -83665,7 +86731,8 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/OnlineFeatureSourcesAnchor.pdsc
 
-          export interface OnlineFeatureSourcesAnchor extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
+          export interface OnlineFeatureSourcesAnchor
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.FeatureSource[];
             transformationFunction:
               | Com.Linkedin.Proml.MlFeatureAnchor.Common.MvelExpression
@@ -83674,14 +86741,16 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/RestliDataSourceAnchor.pdsc
 
           export interface RestliDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+                .TransformationFunctionForOnlineDataSource,
               Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.RestliDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/RestliFinderDataSourceAnchor.pdsc
 
           export interface RestliFinderDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource {
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+              .TransformationFunctionForOnlineDataSource {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.RestliFinderDataSource;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/SequentialJoinFeatureSourcesAnchor.pdsc
@@ -83706,7 +86775,8 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/anchor/VeniceDataSourceAnchor.pdsc
 
           export interface VeniceDataSourceAnchor
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation.TransformationFunctionForOnlineDataSource,
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Transformation
+                .TransformationFunctionForOnlineDataSource,
               Com.Linkedin.Proml.MlFeatureAnchor.Key.KeyPlaceholders {
             source: Com.Linkedin.Proml.MlFeatureAnchor.Source.VeniceDataSource;
           }
@@ -83767,14 +86837,16 @@ declare namespace Com {
         namespace Source {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/CouchbaseDataSource.pdsc
 
-          export interface CouchbaseDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
+          export interface CouchbaseDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             bucketName: string;
             bootstrapServers: Com.Linkedin.Common.Uri[];
             documentDataModel: Com.Linkedin.Proml.MlFeatureAnchor.Common.Clazz;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/CustomDataSource.pdsc
 
-          export interface CustomDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
+          export interface CustomDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             dataModel: Com.Linkedin.Proml.MlFeatureAnchor.Common.Clazz;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/DataSource.pdsc
@@ -83795,7 +86867,8 @@ declare namespace Com {
           export type DateTimeFormat = string;
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/EspressoDataSource.pdsc
 
-          export interface EspressoDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
+          export interface EspressoDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             databaseName: string;
             tableName: string;
             d2Uri: Com.Linkedin.Common.Uri;
@@ -83809,8 +86882,12 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/HdfsDataSource.pdsc
 
-          export interface HdfsDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OfflineDataSourceKey {
-            datasetLocation: Com.Linkedin.Proml.Common.HdfsLocation | Com.Linkedin.Proml.Common.DaliLocation;
+          export interface HdfsDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key
+              .OfflineDataSourceKey {
+            datasetLocation:
+              | Com.Linkedin.Proml.Common.HdfsLocation
+              | Com.Linkedin.Proml.Common.DaliLocation;
             timeField?: Com.Linkedin.Proml.MlFeatureAnchor.Source.TimeField;
           }
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/InMemoryPassthroughDataSource.pdsc
@@ -83821,7 +86898,8 @@ declare namespace Com {
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/ObservationPassthroughDataSource.pdsc
 
           export interface ObservationPassthroughDataSource
-            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OfflineDataSourceKey {}
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key
+              .OfflineDataSourceKey {}
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/PathSpec.pdsc
 
           export type PathSpec = string;
@@ -83833,7 +86911,8 @@ declare namespace Com {
           };
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/RestliDataSource.pdsc
 
-          export interface RestliDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
+          export interface RestliDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             resourceName: string;
             projections?: Com.Linkedin.Proml.MlFeatureAnchor.Source.PathSpec[];
             requestParameters: {
@@ -83867,7 +86946,8 @@ declare namespace Com {
           export type TimestampGranularity = 'SECONDS' | 'MILLISECONDS';
           // Generated from: com/linkedin/proml/mlFeatureAnchor/source/VeniceDataSource.pdsc
 
-          export interface VeniceDataSource extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
+          export interface VeniceDataSource
+            extends Com.Linkedin.Proml.MlFeatureAnchor.Key.OnlineDataSourceKey {
             storeName: string;
           }
         }
@@ -83969,7 +87049,13 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/proml/mlFeatureVersion/ValueType.pdsc
 
-        export type ValueType = 'INT' | 'LONG' | 'FLOAT' | 'DOUBLE' | 'STRING' | 'BOOLEAN';
+        export type ValueType =
+          | 'INT'
+          | 'LONG'
+          | 'FLOAT'
+          | 'DOUBLE'
+          | 'STRING'
+          | 'BOOLEAN';
       }
       namespace MlFeaturizedDataset {
         // Generated from: com/linkedin/proml/mlFeaturizedDataset/FeaturizedDatasetInfo.pdsc
@@ -84202,7 +87288,14 @@ declare namespace Com {
         export type Platform = 'AZKABAN' | 'UNKNOWN';
         // Generated from: com/linkedin/proml/mlPipelineRun/RunState.pdsc
 
-        export type RunState = 'CANCELED' | 'CANCELING' | 'FAILED' | 'QUEUED' | 'RUNNING' | 'STARTED' | 'SUCCEEDED';
+        export type RunState =
+          | 'CANCELED'
+          | 'CANCELING'
+          | 'FAILED'
+          | 'QUEUED'
+          | 'RUNNING'
+          | 'STARTED'
+          | 'SUCCEEDED';
       }
       namespace MlPipelineStepRun {
         // Generated from: com/linkedin/proml/mlPipelineStepRun/Id.pdsc
@@ -84589,7 +87682,11 @@ declare namespace Com {
           }
           // Generated from: com/linkedin/proml/mlTrainedModel/mlModelPublish/StatusType.pdsc
 
-          export type StatusType = 'FAILED' | 'IN_PROGRESS' | 'NOT_STARTED' | 'SUCCESSFUL';
+          export type StatusType =
+            | 'FAILED'
+            | 'IN_PROGRESS'
+            | 'NOT_STARTED'
+            | 'SUCCESSFUL';
           // Generated from: com/linkedin/proml/mlTrainedModel/mlModelPublish/VersionUpgradeType.pdsc
 
           export type VersionUpgradeType = 'MAJOR' | 'MINOR' | 'PATCH';
@@ -84769,7 +87866,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/ActionsSetSchema.pdsc
 
-        export interface ActionsSetSchema extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
+        export interface ActionsSetSchema
+          extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
           actions: Com.Linkedin.Restli.Restspec.ActionSchema[];
         }
         // Generated from: com/linkedin/restli/restspec/AlternativeKeySchema.pdsc
@@ -84782,7 +87880,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/AssociationSchema.pdsc
 
-        export interface AssociationSchema extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
+        export interface AssociationSchema
+          extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
           identifier?: string;
           assocKeys: Com.Linkedin.Restli.Restspec.AssocKeySchema[];
           alternativeKeys?: Com.Linkedin.Restli.Restspec.AlternativeKeySchema[];
@@ -84801,12 +87900,14 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/BatchFinderSchema.pdsc
 
-        export interface BatchFinderSchema extends Com.Linkedin.Restli.Restspec.FinderSchema {
+        export interface BatchFinderSchema
+          extends Com.Linkedin.Restli.Restspec.FinderSchema {
           batchParam: string;
         }
         // Generated from: com/linkedin/restli/restspec/CollectionSchema.pdsc
 
-        export interface CollectionSchema extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
+        export interface CollectionSchema
+          extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
           identifier: Com.Linkedin.Restli.Restspec.IdentifierSchema;
           alternativeKeys?: Com.Linkedin.Restli.Restspec.AlternativeKeySchema[];
           supports: string[];
@@ -84861,7 +87962,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/ParameterSchema.pdsc
 
-        export interface ParameterSchema extends Com.Linkedin.Restli.Restspec.CustomAnnotationSchema {
+        export interface ParameterSchema
+          extends Com.Linkedin.Restli.Restspec.CustomAnnotationSchema {
           name: string;
           type: string;
           items?: string;
@@ -84871,7 +87973,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/ResourceSchema.pdsc
 
-        export interface ResourceSchema extends Com.Linkedin.Restli.Restspec.CustomAnnotationSchema {
+        export interface ResourceSchema
+          extends Com.Linkedin.Restli.Restspec.CustomAnnotationSchema {
           name: string;
           namespace?: string;
           path: string;
@@ -84911,7 +88014,8 @@ declare namespace Com {
         }
         // Generated from: com/linkedin/restli/restspec/SimpleSchema.pdsc
 
-        export interface SimpleSchema extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
+        export interface SimpleSchema
+          extends Com.Linkedin.Restli.Restspec.ServiceErrorsSchema {
           supports: string[];
           methods?: Com.Linkedin.Restli.Restspec.RestMethodSchema[];
           actions?: Com.Linkedin.Restli.Restspec.ActionSchema[];
@@ -84960,7 +88064,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/schema/FederatedGraphQLSchema.pdsc
 
-      export interface FederatedGraphQLSchema extends Com.Linkedin.Schema.BaseGraphQLSchema {}
+      export interface FederatedGraphQLSchema
+        extends Com.Linkedin.Schema.BaseGraphQLSchema {}
       // Generated from: com/linkedin/schema/KeyValueSchema.pdsc
 
       export interface KeyValueSchema {
@@ -84989,7 +88094,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/schema/OpenCrudGraphQLSchema.pdsc
 
-      export interface OpenCrudGraphQLSchema extends Com.Linkedin.Schema.BaseGraphQLSchema {}
+      export interface OpenCrudGraphQLSchema
+        extends Com.Linkedin.Schema.BaseGraphQLSchema {}
       // Generated from: com/linkedin/schema/OrcSchema.pdsc
 
       export interface OrcSchema {
@@ -85002,10 +88108,12 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/schema/PDLSchema.pdsc
 
-      export interface PDLSchema extends Com.Linkedin.Schema.CommonPegasusSchema {}
+      export interface PDLSchema
+        extends Com.Linkedin.Schema.CommonPegasusSchema {}
       // Generated from: com/linkedin/schema/PDSCSchema.pdsc
 
-      export interface PDSCSchema extends Com.Linkedin.Schema.CommonPegasusSchema {}
+      export interface PDSCSchema
+        extends Com.Linkedin.Schema.CommonPegasusSchema {}
       // Generated from: com/linkedin/schema/RegisteredSchema.pdsc
 
       export interface RegisteredSchema {
@@ -85019,7 +88127,8 @@ declare namespace Com {
       }
       // Generated from: com/linkedin/schema/RegisteredSchemaDeprecation.pdsc
 
-      export interface RegisteredSchemaDeprecation extends Com.Linkedin.Common.BaseDeprecation {
+      export interface RegisteredSchemaDeprecation
+        extends Com.Linkedin.Common.BaseDeprecation {
         actor?: string;
       }
       // Generated from: com/linkedin/schema/RegisteredSchemaKey.pdsc

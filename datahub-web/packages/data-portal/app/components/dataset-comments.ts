@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { CommentTypes } from 'datahub-web/constants';
 import { StringUnionKeyToValue } from 'datahub-web/typings/generic';
 import { DatasetStreamActionsUnion } from 'datahub-web/constants';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { classNames } from '@ember-decorators/component';
 import { action } from '@ember/object';
 

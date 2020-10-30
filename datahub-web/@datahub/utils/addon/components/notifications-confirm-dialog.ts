@@ -3,7 +3,7 @@ import Dialog from 'ember-modal-dialog/components/modal-dialog';
 import template from '../templates/components/notifications-confirm-dialog';
 import { action } from '@ember/object';
 import { layout } from '@ember-decorators/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 /**
  * The default value for content when component is rendered inline

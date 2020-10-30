@@ -7,7 +7,7 @@ import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { readEntityFeatureConfigs } from '@datahub/shared/api/entity-configs';
 import { alias } from '@ember/object/computed';
 import { set } from '@ember/object';
-import { zipObject } from 'lodash';
+import { zipObject } from 'lodash-es';
 import { inject as service } from '@ember/service';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';

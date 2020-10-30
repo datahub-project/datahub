@@ -2,7 +2,7 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../../templates/components/notifications/dialog/dialog-footer';
 import { layout, tagName, classNames } from '@ember-decorators/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 @layout(template)
 @tagName('footer')

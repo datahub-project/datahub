@@ -1,5 +1,5 @@
 import Component from '@glimmer/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { action } from '@ember/object';
 
 interface IButtonsBinaryToggleButtonArgs {

@@ -7,7 +7,7 @@ import UnifiedTracking from '@datahub/shared/services/unified-tracking';
 import { TrackingEventCategory } from '@datahub/shared/constants/tracking/event-tracking';
 import { IBaseTrackingEvent } from '@datahub/shared/types/tracking/event-tracking';
 import { action } from '@ember/object';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 /**
  * Tag-less component / fragment to track user interactions or actions from an hbs template. Removes the need to concern

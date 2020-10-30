@@ -1,23 +1,23 @@
 <div class="{{this.baseClass}}__tag-input">
   {{#if (eq recipientType 'distributionList')}}
     {{#each @distributionLists as |distributionList index|}}
-      <NachoPillInput
-        class="{{this.baseClass}}__pill"
+      <NachoPill::NachoPillInput
+        @class="{{this.baseClass}}__pill"
         @value={{distributionList}}
         @onDelete={{fn @removeRecipient this.recipientType index}}
       />
     {{/each}}
   {{else}}
     {{#each @individualRecipients as |individualRecipient index|}}
-      <NachoPillInput
+      <NachoPill::NachoPillInput
         class="{{this.baseClass}}__pill"
         @value={{individualRecipient}}
         @onDelete={{fn @removeRecipient this.recipientType index}}
       />
     {{/each}}
   {{/if}}
-  <NachoPillInput
-    class="{{this.baseClass}}__pill"
+  <NachoPill::NachoPillInput
+    @class="{{this.baseClass}}__pill"
     @isTypeahead={{true}}
     @placeholder={{if (eq recipientType 'distributionList') "e.g.,datahub-dev" "e.g.,jweiner"}}
     @onComplete={{fn this.onAddRecipient}}
@@ -50,5 +50,5 @@
         </div>
       </div>
     </div>
-  </NachoPillInput>
+  </NachoPill::NachoPillInput>
 </div>

@@ -1,5 +1,5 @@
 import { IBrowseResponse } from '@datahub/data-models/types/entity/browse';
-import { groupBy } from 'lodash';
+import { groupBy } from 'lodash-es';
 import { Schema } from 'ember-cli-mirage';
 
 interface IBrowseTemporalObject {

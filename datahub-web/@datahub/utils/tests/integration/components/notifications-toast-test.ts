@@ -4,7 +4,7 @@ import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { INotification } from '@datahub/utils/types/notifications/service';
 import { NotificationEvent, NotificationType } from '@datahub/utils/constants/notifications';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 const toastBaseClass = '.notifications__toast';
 const makeToast: (props?: { content?: string }) => INotification = (props = { content: 'Success!' }) => ({
@@ -14,7 +14,7 @@ const makeToast: (props?: { content?: string }) => INotification = (props = { co
   },
   type: NotificationType.Toast,
   notificationResolution: {
-    createPromiseToHandleThisNotification: () => Promise.resolve()
+    createPromiseToHandleThisNotification: (): Promise<void> => Promise.resolve()
   }
 });
 

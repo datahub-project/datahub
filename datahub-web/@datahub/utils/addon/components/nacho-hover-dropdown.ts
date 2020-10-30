@@ -8,7 +8,7 @@ import { set } from '@ember/object';
 import { TaskInstance, timeout, task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import { classNames, layout } from '@ember-decorators/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { ETask } from '@datahub/utils/types/concurrency';
 

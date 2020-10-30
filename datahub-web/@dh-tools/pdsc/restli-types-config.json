@@ -1,0 +1,5 @@
+{
+  "cacheFolder": "tmp/codegen",
+  "output": "../../@datahub/metadata-types/types/codegen",
+  "collectionType": "Restli.Common.CollectionResponse"
+}

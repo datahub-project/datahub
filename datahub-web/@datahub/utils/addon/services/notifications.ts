@@ -9,7 +9,7 @@ import {
   notificationHandlers,
   isAConfirmationModal
 } from '@datahub/utils/lib/notifications';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
 import { getOwner } from '@ember/application';
 

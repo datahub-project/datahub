@@ -2,7 +2,7 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../templates/components/tables/simple-record';
 import { layout } from '@ember-decorators/component';
-import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 
 // The default top level class for the simple record component, may be overridden on the component
 const baseClass = 'simple-record-table';

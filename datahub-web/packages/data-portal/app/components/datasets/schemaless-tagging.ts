@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { computed, action } from '@ember/object';
 import { ISecurityClassificationOption } from 'datahub-web/typings/app/dataset-compliance';
 import { getSecurityClassificationDropDownOptions } from 'datahub-web/constants';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { classNames } from '@ember-decorators/component';
 import { Classification } from '@datahub/metadata-types/constants/entity/dataset/compliance-field-types';
 
