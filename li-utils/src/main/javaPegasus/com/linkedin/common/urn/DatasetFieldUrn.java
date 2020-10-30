@@ -19,7 +19,7 @@ public class DatasetFieldUrn extends Urn {
 
   // urn pattern
   private static final Pattern DATASET_FIELD_URN_PATTERN = Pattern.compile(
-      "urn:li:datasetField:\\(urn:li:dataset:\\(urn:li:dataPlatform:(?<dataPlatform>.+),(?<datasetName>.+),(?<fabric>.+)\\),(?<field>.+)\\)");
+      "urn:li:datasetField:\\(urn:li:dataset:\\(urn:li:dataPlatform:(?<dataPlatform>.+),(?<datasetName>.+),(?<fabric>.+)\\),(?<fieldPath>.+)\\)");
 
   /**
    * Dataset urn of the datasetFieldUrn
@@ -29,7 +29,7 @@ public class DatasetFieldUrn extends Urn {
   /**
    * Field of datasetFieldUrn
    */
-  private final String _field;
+  private final String _fieldPath;
 
   static {
     Custom.initializeCustomClass(DatasetUrn.class);
@@ -59,26 +59,26 @@ public class DatasetFieldUrn extends Urn {
    * Creates a new instance of a {@link DatasetFieldUrn }.
    *
    * @param dataset Dataset that this dataset field belongs to.
-   * @param field Dataset field path or column name
+   * @param fieldPath Dataset field path or column name
    */
-  public DatasetFieldUrn(DatasetUrn dataset, String field) {
+  public DatasetFieldUrn(DatasetUrn dataset, String fieldPath) {
     this(dataset.getPlatformEntity().getPlatformNameEntity(), dataset.getDatasetNameEntity(), dataset.getOriginEntity(),
-        field);
+        fieldPath);
   }
 
-  public DatasetFieldUrn(String dataPlatform, String datasetName, FabricType fabricType, String field) {
+  public DatasetFieldUrn(String dataPlatform, String datasetName, FabricType fabricType, String fieldPath) {
     super(ENTITY_TYPE, String.format("(urn:li:dataset:(urn:li:dataPlatform:%s,%s,%s),%s)", dataPlatform, datasetName,
-        fabricType.name(), field));
+        fabricType.name(), fieldPath));
     this._dataset = new DatasetUrn(new DataPlatformUrn(dataPlatform), datasetName, fabricType);
-    this._field = field;
+    this._fieldPath = fieldPath;
   }
 
-  public DatasetUrn getDataset() {
+  public DatasetUrn getDatasetEntity() {
     return _dataset;
   }
 
-  public String getField() {
-    return _field;
+  public String getFieldPathEntity() {
+    return _fieldPath;
   }
 
   /**
@@ -92,7 +92,7 @@ public class DatasetFieldUrn extends Urn {
       final String dataPlatform = matcher.group("dataPlatform");
       final String datasetName = matcher.group("datasetName");
       final String fabric = matcher.group("fabric");
-      final String fieldName = matcher.group("field");
+      final String fieldName = matcher.group("fieldPath");
       return new DatasetFieldUrn(dataPlatform, datasetName, FabricType.valueOf(fabric), fieldName);
     }
     throw new URISyntaxException(rawUrn,

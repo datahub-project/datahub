@@ -1,5 +1,9 @@
 namespace com.linkedin.common
 
+import com.linkedin.common.fieldtransformer.BlackBoxTransformer
+import com.linkedin.common.fieldtransformer.IdentityTransformer
+import com.linkedin.common.fieldtransformer.UDFTransformer
+
 /**
  * Base model representing field mappings
  */
@@ -7,15 +11,10 @@ record BaseFieldMapping {
   /**
    * Audit stamp containing who reported the field mapping and when
    */
-  created: optional AuditStamp
+  created: AuditStamp
 
   /**
-   * Type of the transformation involved in generating destination field from source fields. e.g., BLACKBOX, IDENTITY, CUSOTM
+   * Transfomration function between the fields involved
    */
-  tranformationType: optional FieldTransformationType = "BLACKBOX"
-
-  /**
-   * A UDF mentioning how the source fields got transformed to destination field. This is only applicable when transformationType is CUSOTM
-   */
-  transformationFunction: optional string
+  transformation: typeref FieldTransformation = union [BlackBoxTransformer, IdentityTransformer, UDFTransformer]
 }
