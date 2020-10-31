@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.identity;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.metadata.aspect.CorpUserAspect;
+import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -26,7 +27,7 @@ public class CorpUserDaoFactory {
   @Bean(name = "corpUserDao")
   @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
   @Nonnull
-  protected EbeanLocalDAO createInstance() {
+  protected BaseLocalDAO<CorpUserAspect, CorpuserUrn> createInstance() {
     KafkaMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, CorpuserUrn> producer =
         new KafkaMetadataEventProducer(CorpUserSnapshot.class, CorpUserAspect.class,
             applicationContext.getBean(Producer.class), applicationContext.getBean(TopicConvention.class));
