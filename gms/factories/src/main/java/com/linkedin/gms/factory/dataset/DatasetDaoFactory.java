@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.dataset;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.metadata.aspect.DatasetAspect;
+import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaProducerCallback;
@@ -24,7 +25,7 @@ public class DatasetDaoFactory {
 
   @Bean(name = "datasetDao")
   @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
-  protected EbeanLocalDAO<DatasetAspect, DatasetUrn> createInstance() {
+  protected BaseLocalDAO<DatasetAspect, DatasetUrn> createInstance() {
     KafkaMetadataEventProducer<DatasetSnapshot, DatasetAspect, DatasetUrn> producer =
         new KafkaMetadataEventProducer(DatasetSnapshot.class, DatasetAspect.class,
             applicationContext.getBean(Producer.class), applicationContext.getBean(TopicConvention.class),

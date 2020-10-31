@@ -5,7 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataprocess.DataProcessKey;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -27,7 +26,7 @@ public class BaseDataProcessesAspectResource<ASPECT extends RecordTemplate>
 
     @Inject
     @Named("dataProcessDAO")
-    private EbeanLocalDAO localDAO;
+    private BaseLocalDAO localDAO;
 
     @Nonnull
     @Override
