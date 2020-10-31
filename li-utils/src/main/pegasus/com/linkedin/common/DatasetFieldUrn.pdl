@@ -18,7 +18,7 @@ namespace com.linkedin.common
     "name" : "dataset",
     "doc" : "Dataset that this dataset field belongs to."
   }, {
-    "name" : "field",
+    "name" : "fieldPath",
     "doc" : "Dataset field path",
     "type" : "string",
     "maxLength" : 500
