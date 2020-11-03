@@ -1,6 +1,5 @@
 namespace com.linkedin.dashboard
 
-import com.linkedin.common.Url
 
 /**
  * Key for chart resource
@@ -16,11 +15,11 @@ record ChartKey {
   tool: string
 
   /**
-   * URL for the specific chart such as looker.linkedin.com/looks/1234
+   * Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'
    */
   @validate.strlen = {
     "max" : 200,
     "min" : 1
   }
-  chartUrl: Url
+  chartId: string
 }
