@@ -1,8 +1,0 @@
-namespace com.linkedin.common.fieldtransformer
-
-/**
- * Field transformation expressed as Identity function
- */
-record IdentityTransformer {
-
-}

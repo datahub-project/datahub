@@ -1,8 +1,0 @@
-namespace com.linkedin.common.fieldtransformer
-
-/**
- * Field transformation expressed as unknown black box function.
- */
-record BlackBoxTransformer {
-
-}

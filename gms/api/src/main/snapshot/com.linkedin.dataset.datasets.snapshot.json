@@ -41,33 +41,27 @@
       "doc" : "Audit stamp containing who reported the field mapping and when"
     }, {
       "name" : "transformation",
-      "type" : {
-        "type" : "typeref",
-        "name" : "FieldTransformation",
-        "ref" : [ {
-          "type" : "record",
-          "name" : "BlackBoxTransformer",
-          "namespace" : "com.linkedin.common.fieldtransformer",
-          "doc" : "Field transformation expressed as unknown black box function.",
-          "fields" : [ ]
-        }, {
-          "type" : "record",
-          "name" : "IdentityTransformer",
-          "namespace" : "com.linkedin.common.fieldtransformer",
-          "doc" : "Field transformation expressed as Identity function",
-          "fields" : [ ]
-        }, {
-          "type" : "record",
-          "name" : "UDFTransformer",
-          "namespace" : "com.linkedin.common.fieldtransformer",
-          "doc" : "Field transformation expressed in UDF",
-          "fields" : [ {
-            "name" : "udf",
-            "type" : "string",
-            "doc" : "A UDF mentioning how the source fields got transformed to destination field."
-          } ]
+      "type" : [ {
+        "type" : "enum",
+        "name" : "TransformationType",
+        "namespace" : "com.linkedin.common.fieldtransformer",
+        "doc" : "Type of the transformation involved in generating destination fields from source fields.",
+        "symbols" : [ "BLACKBOX", "IDENTITY" ],
+        "symbolDocs" : {
+          "BLACKBOX" : "Field transformation expressed as unknown black box function.",
+          "IDENTITY" : "Field transformation expressed as Identity function."
+        }
+      }, {
+        "type" : "record",
+        "name" : "UDFTransformer",
+        "namespace" : "com.linkedin.common.fieldtransformer",
+        "doc" : "Field transformation expressed in UDF",
+        "fields" : [ {
+          "name" : "udf",
+          "type" : "string",
+          "doc" : "A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf."
         } ]
-      },
+      } ],
       "doc" : "Transfomration function between the fields involved"
     } ]
   }, {
@@ -139,7 +133,7 @@
         }, {
           "doc" : "Dataset field path",
           "maxLength" : 500,
-          "name" : "field",
+          "name" : "fieldPath",
           "type" : "string"
         } ],
         "maxLength" : 807,
@@ -197,7 +191,7 @@
       "EI" : "Designates early-integration (staging) fabrics",
       "PROD" : "Designates production fabrics"
     }
-  }, "com.linkedin.common.FieldTransformation", {
+  }, {
     "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
@@ -341,7 +335,7 @@
       "type" : "string",
       "optional" : true
     } ]
-  }, "com.linkedin.common.fieldtransformer.BlackBoxTransformer", "com.linkedin.common.fieldtransformer.IdentityTransformer", "com.linkedin.common.fieldtransformer.UDFTransformer", {
+  }, "com.linkedin.common.fieldtransformer.TransformationType", "com.linkedin.common.fieldtransformer.UDFTransformer", {
     "type" : "record",
     "name" : "Dataset",
     "namespace" : "com.linkedin.dataset",

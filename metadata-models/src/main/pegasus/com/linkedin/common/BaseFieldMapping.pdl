@@ -1,7 +1,6 @@
 namespace com.linkedin.common
 
-import com.linkedin.common.fieldtransformer.BlackBoxTransformer
-import com.linkedin.common.fieldtransformer.IdentityTransformer
+import com.linkedin.common.fieldtransformer.TransformationType
 import com.linkedin.common.fieldtransformer.UDFTransformer
 
 /**
@@ -16,5 +15,5 @@ record BaseFieldMapping {
   /**
    * Transfomration function between the fields involved
    */
-  transformation: typeref FieldTransformation = union [BlackBoxTransformer, IdentityTransformer, UDFTransformer]
+  transformation: union [TransformationType, UDFTransformer]
 }
