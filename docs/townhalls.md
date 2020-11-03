@@ -71,9 +71,11 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-1. Lightning talk on Metadata use-cases at LinkedIn.
-2. Strongly Consistent Secondary Index (SCSI) in GMA, an upcoming feature.
-3. DataHub UI overview.
+- Quick intro - 5 mins
+- Lightning talk on Metadata use-cases at LinkedIn by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 10 mins
+- Strongly Consistent Secondary Index (SCSI) in GMA, an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 20 minutes
+- DataHub UI overview by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
+- Closing remarks - 5 mins
 
 # Past Meetings
 
