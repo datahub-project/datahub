@@ -51,6 +51,7 @@ project.ext.externalDependency = [
     'gmaTestModels': "com.linkedin.datahub-gma:test-models:$gmaVersion",
     'gmaTestModelsDataTemplate': "com.linkedin.datahub-gma:test-models-data-template:$gmaVersion",
     'gmaValidators': "com.linkedin.datahub-gma:validators:$gmaVersion",
+    'gson': 'com.google.code.gson:gson:2.8.6',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:1.4.196',
