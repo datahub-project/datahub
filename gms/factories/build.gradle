@@ -5,6 +5,7 @@ dependencies {
   compile project(':metadata-dao-impl:kafka-producer')
 
   compile externalDependency.elasticSearchRest
+  compile externalDependency.gson
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
   compile externalDependency.lombok
@@ -17,4 +18,6 @@ dependencies {
   compile externalDependency.springWeb
 
   compile spec.product.pegasus.restliSpringBridge
+
+  testCompile externalDependency.gmaTestModelsDataTemplate
 }
