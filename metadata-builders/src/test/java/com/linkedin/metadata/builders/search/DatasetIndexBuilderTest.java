@@ -60,6 +60,17 @@ public class DatasetIndexBuilderTest {
   }
 
   @Test
+  public void browsePaths() {
+    assertThat(DatasetIndexBuilder.buildBrowsePath(
+        new DatasetUrn(new DataPlatformUrn("hive"), "foo.bar", FabricType.PROD))).isEqualTo("/prod/hive/foo/bar");
+    assertThat(DatasetIndexBuilder.buildBrowsePath(
+        new DatasetUrn(new DataPlatformUrn("hdfs"), "/foo/bar", FabricType.PROD))).isEqualTo("/prod/hdfs/foo/bar");
+    assertThat(DatasetIndexBuilder.buildBrowsePath(
+        new DatasetUrn(new DataPlatformUrn("hdfs"), "/foo/bar.baz", FabricType.PROD))).isEqualTo(
+        "/prod/hdfs/foo/bar.baz");
+  }
+
+  @Test
   public void datasetPropertiesNoDescription() {
     // given
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
@@ -213,8 +224,7 @@ public class DatasetIndexBuilderTest {
     final Status status = new Status().setRemoved(true);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
-    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn)
-        .setRemoved(true);
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setRemoved(true);
     final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)

@@ -14,7 +14,9 @@ import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -22,14 +24,48 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
+  private static final Map<String, Character> PLATFORM_DELIMITER_MAP =
+      Collections.unmodifiableMap(new HashMap<String, Character>() {
+        {
+          put("adlsGen1", '/');
+          put("adlsGen2", '/');
+          put("ambry", '.');
+          put("couchbase", '.');
+          put("external", '.');
+          put("hdfs", '/');
+          put("hive", '.');
+          put("kafka", '.');
+          put("kusto", '.');
+          put("mongo", '.');
+          put("mysql", '.');
+          put("oracle", '.');
+          put("pinot", '.');
+          put("postgres", '.');
+          put("presto", '.');
+          put("teradata", '.');
+          put("voldemort", '.');
+        }
+      });
+
   public DatasetIndexBuilder() {
     super(Collections.singletonList(DatasetSnapshot.class), DatasetDocument.class);
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull DatasetUrn urn) {
-    return ("/" + urn.getOriginEntity() + "/"  + urn.getPlatformEntity().getPlatformNameEntity() + "/" + urn.getDatasetNameEntity())
-        .replace('.', '/').toLowerCase();
+  static String buildBrowsePath(@Nonnull DatasetUrn urn) {
+    final String dataOrigin = urn.getOriginEntity().name();
+    final String platform = urn.getPlatformEntity().getPlatformNameEntity();
+    final String dataset = urn.getDatasetNameEntity();
+    String browsePath = "/" + dataOrigin + "/" + platform + "/" + dataset;
+    if (PLATFORM_DELIMITER_MAP.containsKey(platform)) {
+      final Character delimiter = PLATFORM_DELIMITER_MAP.get(platform);
+      if (delimiter.equals('/')) {
+        browsePath = "/" + dataOrigin + "/" + platform + dataset;
+      } else {
+        browsePath = ("/" + dataOrigin + "/" + platform + "/" + dataset).replace(delimiter, '/');
+      }
+    }
+    return browsePath.toLowerCase();
   }
 
   /**
