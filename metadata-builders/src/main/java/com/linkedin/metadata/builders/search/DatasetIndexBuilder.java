@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
+
   static RestliRemoteDAO<DataPlatformSnapshot, DataPlatformAspect, DataPlatformUrn> dataPlatformDAO;
 
   public DatasetIndexBuilder(@Nonnull Client restliClient) {
