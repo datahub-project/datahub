@@ -37,7 +37,7 @@ public final class CorpGroupUrn extends Urn {
   public static CorpGroupUrn createFromUrn(Urn urn) throws URISyntaxException {
     if (!"li".equals(urn.getNamespace())) {
       throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
-    } else if (!"corpGroup".equals(urn.getEntityType())) {
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
       throw new URISyntaxException(urn.toString(), "Urn entity type should be 'corpGroup'.");
     } else {
       TupleKey key = urn.getEntityKey();
