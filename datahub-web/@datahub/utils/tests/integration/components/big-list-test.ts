@@ -3,7 +3,7 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render, waitFor, waitUntil } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { TestContext } from 'ember-test-helpers';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 interface IParams {
   nItems: number;

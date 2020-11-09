@@ -12,7 +12,9 @@ module.exports = {
         '--headless',
         '--mute-audio',
         '--remote-debugging-port=0',
-        '--window-size=1440,900'
+        '--window-size=1440,900',
+        '--crash-dumps-dir=/tmp',
+        '--disable-gpu'
       ].filter(Boolean)
     }
   }

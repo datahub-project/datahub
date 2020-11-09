@@ -45,6 +45,21 @@ export const getJSON = <T>(config: IFetchConfig): Promise<T> => {
 };
 
 /**
+ * Conveniently makes a simple get request
+ * @template T
+ * @param {IFetchConfig} config
+ * @return {Promise<T>}
+ */
+export const getRequest = (config: IFetchConfig): Promise<Response> => {
+  const fetchConfig = {
+    ...withBaseFetchHeaders(config.headers),
+    method: 'GET'
+  };
+
+  return fetch(config.url, fetchConfig);
+};
+
+/**
  * Initiates a POST request using the Fetch api
  * @template T
  * @param {IFetchConfig} config

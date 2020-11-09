@@ -30,11 +30,28 @@ const shouldIncludeAddonFiles = ({ env, _name, mirageOptions = {} }) => {
 };
 
 /**
+ * extracted from ember-cli-babel
+ * @param {*} addon
+ */
+const findApp = addon => {
+  let current = addon;
+  let app;
+
+  // Keep iterating upward until we don't have a grandparent.
+  // Has to do this grandparent check because at some point we hit the project.
+  do {
+    app = current.app || app;
+  } while (current.parent.parent && (current = current.parent));
+
+  return app;
+};
+
+/**
  * Guard function checks if this is being invoked within an Ember host app or another addon
  * the `app` property is only present on addons that are a direct dependency of the application itself, not of other addons.
  * @param {EmberApp | Addon} addonOrApp reference to the addon
  */
-const isInApp = addonOrApp => Boolean(addonOrApp.app);
+const isInApp = addonOrApp => Boolean(findApp(addonOrApp));
 
 module.exports = {
   /**
@@ -63,7 +80,7 @@ module.exports = {
   included(app) {
     // Properties are only necessary for use when addon is in an Ember app
     if (isInApp(this)) {
-      this.mirageEnvConfig = this.app.project.config(app.env)['ember-cli-mirage'] || {};
+      this.mirageEnvConfig = findApp(this).project.config(app.env)['ember-cli-mirage'] || {};
       this.srcMirageDirectoryNameComplete = path.resolve(this.root, this.srcMirageDirectoryName);
     }
     this._super.included.call(this, app);
@@ -77,12 +94,8 @@ module.exports = {
   treeForApp(appTree) {
     // Only modify the tree if the addon is being loaded in a host Ember app, otherwise pass-through
     if (isInApp(this)) {
-      const {
-        app: { env, name, options },
-        mirageOptionsKey,
-        srcMirageDirectoryNameComplete,
-        destMirageDirectoryName
-      } = this;
+      const { mirageOptionsKey, srcMirageDirectoryNameComplete, destMirageDirectoryName } = this;
+      const { env, name, options } = findApp(this);
       const mirageOptions = options[mirageOptionsKey] || defaultOptions;
       let trees = [appTree];
 

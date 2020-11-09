@@ -2,8 +2,7 @@ import Component from '@ember/component';
 import { get, set, setProperties, action } from '@ember/object';
 import { typeOf } from '@ember/utils';
 import { suggestionLimit } from 'datahub-web/constants/typeahead';
-import { IPowerSelectAPI } from '@nacho-ui/search/types/nacho-search';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { fetchFacetValue } from 'datahub-web/utils/parsers/helpers';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { classNames } from '@ember-decorators/component';
@@ -11,6 +10,7 @@ import { IOwner } from 'datahub-web/typings/api/datasets/owners';
 import { inject as service } from '@ember/service';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { defaultOwnerProps } from 'datahub-web/constants/datasets/owner';
+import { IPowerSelectAPI } from '@datahub/utils/types/vendor/power-select';
 
 @classNames('user-lookup')
 export default class PowerUserLookup extends Component {

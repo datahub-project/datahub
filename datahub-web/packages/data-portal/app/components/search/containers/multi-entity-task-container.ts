@@ -7,9 +7,9 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
 import { action, setProperties, computed } from '@ember/object';
 import { inject as service } from '@ember/service';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { isSearchable } from '@datahub/shared/utils/search/entities';
-import { zipObject, mapValues } from 'lodash';
+import { zipObject, mapValues } from 'lodash-es';
 import FoxieService from '@datahub/shared/services/foxie';
 import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-type';
 

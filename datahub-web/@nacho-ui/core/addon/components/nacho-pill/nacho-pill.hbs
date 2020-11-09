@@ -1,0 +1,11 @@
+<div class="nacho-pill {{this.pillClasses}} {{@class}}" ...attributes>
+  {{#if hasBlock}}
+    {{yield (hash pill=this)}}
+  {{else}}
+    {{@text}}
+
+    {{#if @tooltip}}
+      <EmberTooltip @event="hover" @text={{@tooltip}} />
+    {{/if}}
+  {{/if}}
+</div>

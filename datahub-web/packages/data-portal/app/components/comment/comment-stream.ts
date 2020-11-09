@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { StreamCommentActionsUnion } from 'datahub-web/constants';
 import { StringUnionKeyToValue } from 'datahub-web/typings/generic';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 /**
  * Actions available for comment stream

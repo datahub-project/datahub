@@ -1,7 +1,7 @@
 import EmberObject, { set, get } from '@ember/object';
 import { computed } from '@ember/object';
 import { setProperties } from '@ember/object';
-import { keyBy, groupBy } from 'lodash';
+import { keyBy, groupBy } from 'lodash-es';
 
 /**
  * INode interface. It represents a node in a graph, you can

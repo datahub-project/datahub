@@ -1,7 +1,7 @@
 import Component from '@glimmer/component';
 import { action } from '@ember/object';
 import HealthProxy from '@datahub/shared/utils/health/health-proxy';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 interface IHealthInsightCardArgs {

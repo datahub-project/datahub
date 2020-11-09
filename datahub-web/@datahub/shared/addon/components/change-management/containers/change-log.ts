@@ -22,7 +22,7 @@ import { containerDataSource } from '@datahub/utils/api/data-source';
 import { IDataModelEntitySearchResult, ISearchDataWithMetadata } from '@datahub/data-models/types/entity/search';
 import { DataConstructChangeManagementEntity } from '@datahub/data-models/entity/data-construct-change-management/data-construct-change-management-entity';
 import { singularize } from 'ember-inflector';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { IConfigurator } from '@datahub/shared/types/configurator/configurator';
 import Notifications from '@datahub/utils/services/notifications';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';

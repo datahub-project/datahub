@@ -9,7 +9,7 @@ import {
 } from '@datahub/data-models/entity/dataset/helpers/validators/compliance/annotations';
 import { setProperties } from '@ember/object';
 import { IComplianceFieldAnnotation } from '@datahub/metadata-types/constants/entity/dataset/compliance-field-annotation';
-import { pick } from 'lodash';
+import { pick } from 'lodash-es';
 import { IComplianceDataType } from '@datahub/metadata-types/types/entity/dataset/compliance-data-types';
 
 /**

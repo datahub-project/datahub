@@ -31,7 +31,7 @@ import {
 } from '@datahub/data-models/api/common/social-actions';
 import { DataModelName } from '@datahub/data-models/constants/entity';
 import { getDefaultIfNotFoundError } from '@datahub/utils/api/error';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { aspect, setAspect } from '@datahub/data-models/entity/utils/aspects';
 
 /**

@@ -1,4 +1,4 @@
-import { keyBy, groupBy } from 'lodash';
+import { keyBy, groupBy } from 'lodash-es';
 import minimatch from 'minimatch';
 
 type NodeId = Com.Linkedin.Metadata.Graph.NodeId;
