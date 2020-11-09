@@ -6,7 +6,7 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 import { baseSocialActionComponentClass } from '@datahub/shared/components/social/social-action';
 import { SocialAction } from '@datahub/data-models/constants/entity/person/social-actions';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
 import { setAspect } from '@datahub/data-models/entity/utils/aspects';
 

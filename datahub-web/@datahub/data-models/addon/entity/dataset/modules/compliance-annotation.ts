@@ -3,7 +3,7 @@ import { annotationIsValid } from '@datahub/data-models/entity/dataset/modules/c
 import { set, setProperties, computed } from '@ember/object';
 import { ComplianceAnnotationsEditableProps } from '@datahub/data-models/entity/dataset/helpers/validators/compliance/annotations';
 import { IComplianceDataType } from '@datahub/metadata-types/types/entity/dataset/compliance-data-types';
-import { pick, omit, isEqual } from 'lodash';
+import { pick, omit, isEqual } from 'lodash-es';
 /**
  * Creates a basic factory to generate default values for a compliance annotation tag. This class is created both to
  * translate the API response for annotations as well as when the user initiates the creation of a new tag from the UI. In

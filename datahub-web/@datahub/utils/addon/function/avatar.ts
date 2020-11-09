@@ -1,5 +1,5 @@
 import { IAvatar, IUserEntityProps } from '@datahub/utils/types/avatars';
-import { pick } from 'lodash';
+import { pick } from 'lodash-es';
 
 // Aliases the function interface returned from the invocation of makeAvatar
 type AvatarCreatorFunc = (obj: Partial<IAvatar>) => IAvatar;

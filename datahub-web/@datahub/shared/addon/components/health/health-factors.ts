@@ -1,8 +1,8 @@
 import Component from '@glimmer/component';
-import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 import { action } from '@ember/object';
 import HealthProxy from '@datahub/shared/utils/health/health-proxy';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 
 interface IHealthHealthFactorsArgs {

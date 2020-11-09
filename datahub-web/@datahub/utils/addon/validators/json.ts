@@ -1,5 +1,5 @@
 import { serializeStringArray } from '@datahub/utils/array/serialize-string';
-import { difference } from 'lodash';
+import { difference } from 'lodash-es';
 
 /**
  * Validates that an array of json object string values match

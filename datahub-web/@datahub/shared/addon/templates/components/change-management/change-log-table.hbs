@@ -1,5 +1,5 @@
 {{#if (and (not @changeLogs) readOnly) }}
-  <NachoTable
+  <NachoTable::NachoTable
     @tableClass={{this.baseTableClass}}
     as |Table|
   >
@@ -21,9 +21,9 @@
         </Row.cell>
       </Body.row>
     </Table.body>
-  </NachoTable>
+  </NachoTable::NachoTable>
 {{else}}
-  <NachoTable
+  <NachoTable::NachoTable
     @tableConfigs={{this.tableConfigs}}
     @tableClass={{this.baseTableClass}}
   as |Table|
@@ -96,6 +96,6 @@
     </button>
   </Table.foot>
   {{/unless}}
-  </NachoTable>
+  </NachoTable::NachoTable>
 {{/if}}
 

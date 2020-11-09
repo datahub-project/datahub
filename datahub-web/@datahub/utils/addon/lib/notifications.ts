@@ -7,7 +7,7 @@ import {
   INotificationHandler
 } from '@datahub/utils/types/notifications/service';
 import { NotificationEvent, NotificationType } from '@datahub/utils/constants/notifications';
-import { omit, noop } from 'lodash';
+import { omit, noop } from 'lodash-es';
 
 /**
  * Creates an instance of INotificationDialogProps when invoked. Includes a promise for dismissing or

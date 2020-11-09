@@ -7,7 +7,7 @@ import { task } from 'ember-concurrency';
 import { ETask } from '@datahub/utils/types/concurrency';
 import getActorFromUrn from '@datahub/data-models/utils/get-actor-from-urn';
 import { ChangeLog } from '@datahub/shared/modules/change-log';
-import { ValidatorFunc } from 'ember-changeset/types';
+import { ValidatorFunc } from 'ember-changeset';
 import { validateLength } from 'ember-changeset-validations/validators';
 import lookupValidator from 'ember-changeset-validations';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
