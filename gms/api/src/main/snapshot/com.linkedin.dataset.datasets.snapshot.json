@@ -32,6 +32,40 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "BaseFieldMapping",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Base model representing field mappings",
+    "fields" : [ {
+      "name" : "created",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the field mapping and when"
+    }, {
+      "name" : "transformation",
+      "type" : [ {
+        "type" : "enum",
+        "name" : "TransformationType",
+        "namespace" : "com.linkedin.common.fieldtransformer",
+        "doc" : "Type of the transformation involved in generating destination fields from source fields.",
+        "symbols" : [ "BLACKBOX", "IDENTITY" ],
+        "symbolDocs" : {
+          "BLACKBOX" : "Field transformation expressed as unknown black box function.",
+          "IDENTITY" : "Field transformation expressed as Identity function."
+        }
+      }, {
+        "type" : "record",
+        "name" : "UDFTransformer",
+        "namespace" : "com.linkedin.common.fieldtransformer",
+        "doc" : "Field transformation expressed in UDF",
+        "fields" : [ {
+          "name" : "udf",
+          "type" : "string",
+          "doc" : "A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf."
+        } ]
+      } ],
+      "doc" : "Transfomration function between the fields involved"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -75,6 +109,38 @@
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
         "owningTeam" : "urn:li:internalTeam:wherehows"
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "DatasetFieldUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized dataset field information identifier.",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DatasetFieldUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized dataset field information identifier",
+        "entityType" : "datasetField",
+        "fields" : [ {
+          "doc" : "Dataset that this dataset field belongs to.",
+          "name" : "dataset",
+          "type" : "com.linkedin.common.urn.DatasetUrn"
+        }, {
+          "doc" : "Dataset field path",
+          "maxLength" : 500,
+          "name" : "fieldPath",
+          "type" : "string"
+        } ],
+        "maxLength" : 807,
+        "name" : "DatasetField",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
   }, {
@@ -269,7 +335,7 @@
       "type" : "string",
       "optional" : true
     } ]
-  }, {
+  }, "com.linkedin.common.fieldtransformer.TransformationType", "com.linkedin.common.fieldtransformer.UDFTransformer", {
     "type" : "record",
     "name" : "Dataset",
     "namespace" : "com.linkedin.dataset",
@@ -787,7 +853,30 @@
       "doc" : "Upstream lineage metadata of the dataset",
       "optional" : true
     } ]
-  }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", "com.linkedin.dataset.DatasetLineageType", {
+  }, "com.linkedin.dataset.DatasetDeprecation", {
+    "type" : "record",
+    "name" : "DatasetFieldMapping",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Representation of mapping between fields in source dataset to the field in destination dataset",
+    "include" : [ "com.linkedin.common.BaseFieldMapping" ],
+    "fields" : [ {
+      "name" : "sourceFields",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "typeref",
+          "name" : "DatasetFieldUpstream",
+          "doc" : "Upstreams of a dataset field.",
+          "ref" : [ "com.linkedin.common.DatasetFieldUrn" ]
+        }
+      },
+      "doc" : "Source fields from which the fine grained lineage is derived"
+    }, {
+      "name" : "destinationField",
+      "type" : "com.linkedin.common.DatasetFieldUrn",
+      "doc" : "Destination field which is derived from source fields"
+    } ]
+  }, "com.linkedin.dataset.DatasetFieldUpstream", "com.linkedin.dataset.DatasetKey", "com.linkedin.dataset.DatasetLineageType", {
     "type" : "record",
     "name" : "DatasetProperties",
     "namespace" : "com.linkedin.dataset",
@@ -818,6 +907,19 @@
       },
       "doc" : "A key-value map to capture any other non-standardized properties for the dataset",
       "default" : { }
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "DatasetUpstreamLineage",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Fine Grained upstream lineage for fields in a dataset",
+    "fields" : [ {
+      "name" : "fieldMappings",
+      "type" : {
+        "type" : "array",
+        "items" : "DatasetFieldMapping"
+      },
+      "doc" : "Upstream to downstream field level lineage mappings"
     } ]
   }, {
     "type" : "record",
@@ -868,7 +970,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
