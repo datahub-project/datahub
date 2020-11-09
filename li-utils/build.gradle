@@ -2,8 +2,11 @@ apply plugin: 'java'
 apply plugin: 'pegasus'
 
 dependencies {
-    dataModel externalDependency.gmaCoreModels
     compile spec.product.pegasus.data
+
+    dataModel externalDependency.gmaCoreModels
+
+    testCompile externalDependency.assertJ
 }
 
 idea {

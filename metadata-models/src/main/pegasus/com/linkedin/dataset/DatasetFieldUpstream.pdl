@@ -1,0 +1,8 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.DatasetFieldUrn
+
+/**
+ * Upstreams of a dataset field.
+ */
+typeref DatasetFieldUpstream = union[DatasetFieldUrn]
