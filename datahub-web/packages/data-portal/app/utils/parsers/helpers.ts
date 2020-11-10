@@ -33,7 +33,7 @@ export const fetchFacetValue = async (
   const searchAttributes = searchRenderProps.attributes;
   const fieldMeta = searchAttributes.find((attr): boolean => attr.fieldName === facetName);
   const { minAutocompleteFetchLength } = fieldMeta || { minAutocompleteFetchLength: undefined };
-  const cacheKey = `${facetName}:${facetValue}`;
+  const cacheKey = `${entity.displayName}:${facetName}:${facetValue}`;
   const forcedFacets = getFacetForcedValueForEntity(searchAttributes);
 
   // if `facetValue` length (query length) is smaller than the minimum threshold,

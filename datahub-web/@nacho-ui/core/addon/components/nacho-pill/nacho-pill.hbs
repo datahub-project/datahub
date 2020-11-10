@@ -1,4 +1,4 @@
-<div class="nacho-pill {{this.pillClasses}} {{@class}}" ...attributes>
+<div class="{{this.nachoPillBaseClass}} {{this.pillClasses}} {{@class}}" ...attributes>
   {{#if hasBlock}}
     {{yield (hash pill=this)}}
   {{else}}
