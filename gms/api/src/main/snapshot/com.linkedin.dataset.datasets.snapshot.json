@@ -1130,6 +1130,57 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "IndexCriterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "A criterion for matching a field with given value",
+    "fields" : [ {
+      "name" : "aspect",
+      "type" : "string",
+      "doc" : "FQCN of the aspect class in the index table that this criterion refers to e.g. com.linkedin.common.Status"
+    }, {
+      "name" : "pathParams",
+      "type" : {
+        "type" : "record",
+        "name" : "IndexPathParams",
+        "doc" : "Model combining index path, value and the condition for the criterion to be satisfied",
+        "fields" : [ {
+          "name" : "path",
+          "type" : "string",
+          "doc" : "Corresponding path column of the index table that this criterion refers to e.g. /removed (corresponding to field \"removed\" of com.linkedin.common.Status aspect)"
+        }, {
+          "name" : "value",
+          "type" : {
+            "type" : "typeref",
+            "name" : "IndexValue",
+            "doc" : "A union of all supported value types in the index table",
+            "ref" : [ "boolean", "double", "float", "int", "long", "string" ]
+          },
+          "doc" : "Value of the corresponding path of the aspect"
+        }, {
+          "name" : "condition",
+          "type" : "Condition",
+          "doc" : "Condition for the criterion to be satisfied e.g. EQUAL, START_WITH",
+          "default" : "EQUAL"
+        } ]
+      },
+      "doc" : "Corresponding path, value and condition that this criterion refers to",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "IndexFilter",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Filters for finding records in the index table",
+    "fields" : [ {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "IndexCriterion"
+      },
+      "doc" : "A list of criteria to filter records from the index table, AND being the logical operator"
+    } ]
+  }, "com.linkedin.metadata.query.IndexPathParams", "com.linkedin.metadata.query.IndexValue", {
+    "type" : "record",
     "name" : "SearchResultMetadata",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The model for the search result",
@@ -1255,6 +1306,26 @@
         } ]
       } ],
       "finders" : [ {
+        "name" : "filter",
+        "doc" : "Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value is\n made up of latest versions of specified aspects. If no aspects are provided, value model will not contain any metadata aspect.\n\n <p>If no filter conditions are provided, then it returns values of given entity type.",
+        "parameters" : [ {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.IndexFilter",
+          "optional" : true,
+          "doc" : "{@link IndexFilter} that defines the filter conditions"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true,
+          "doc" : "list of aspects to be returned in the VALUE model"
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "optional" : true,
+          "doc" : "last urn of the previous fetched page. For the first page, this should be set as NULL"
+        } ],
+        "pagingSupported" : true
+      }, {
         "name" : "search",
         "parameters" : [ {
           "name" : "input",

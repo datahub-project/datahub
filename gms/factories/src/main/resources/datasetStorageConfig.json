@@ -1,0 +1,11 @@
+{
+  "aspectStorageConfigMap": {
+    "com.linkedin.common.Status": {
+      "pathStorageConfigMap": {
+        "/removed": {
+          "strongConsistentSecondaryIndex": true
+        }
+      }
+    }
+  }
+}

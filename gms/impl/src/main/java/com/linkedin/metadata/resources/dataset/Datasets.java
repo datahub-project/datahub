@@ -19,6 +19,7 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
@@ -62,7 +63,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
     // @formatter:on
 
   public Datasets() {
-    super(DatasetSnapshot.class, DatasetAspect.class);
+    super(DatasetSnapshot.class, DatasetAspect.class, DatasetUrn.class);
   }
 
   @Inject
@@ -227,6 +228,29 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
     return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+  }
+
+  /**
+   * Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value is
+   * made up of latest versions of specified aspects. If no aspects are provided, value model will not contain any metadata aspect.
+   *
+   * <p>If no filter conditions are provided, then it returns values of given entity type.
+   *
+   * @param indexFilter {@link IndexFilter} that defines the filter conditions
+   * @param aspectNames list of aspects to be returned in the VALUE model
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pagingContext {@link PagingContext} defining the paging parameters of the request
+   * @return list of values
+   */
+  @Finder(FINDER_FILTER)
+  @Override
+  @Nonnull
+  public Task<List<Dataset>> filter(
+      @QueryParam(PARAM_FILTER) @Optional @Nullable IndexFilter indexFilter,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
+      @PagingContextParam @Nonnull PagingContext pagingContext) {
+    return super.filter(indexFilter, aspectNames, lastUrn, pagingContext);
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
