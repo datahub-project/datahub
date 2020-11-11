@@ -26,6 +26,7 @@
     "@glimmer/component": "^1.0.2",
     "@glimmer/tracking": "^1.0.2",
     "@nacho-ui/core": "^0.0.38",
+    "@types/luxon": "^1.25.0",
     "dompurify": "^2.0.12",
     "dynamic-link": "^0.2.3",
     "ember-auto-import": "^1.5.3",
@@ -46,6 +47,7 @@
     "ember-uuid": "^2.0.0",
     "eyeglass": "^2.4.2",
     "eyeglass-restyle": "^1.1.0",
+    "luxon": "^1.17.2",
     "marked": "^1.1.1"
   },
   "devDependencies": {

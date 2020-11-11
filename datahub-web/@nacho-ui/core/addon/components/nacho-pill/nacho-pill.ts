@@ -15,6 +15,11 @@ export enum PillState {
   NeutralInverse = 'neutral-inverse'
 }
 
+/**
+ * Base css class
+ */
+export const nachoPillBaseClass = 'nacho-pill';
+
 export interface INachoPillArgs {
   /**
    * Additional css classes
@@ -46,6 +51,11 @@ export interface INachoPillArgs {
  * {{nacho-pill text="hello" state="neutral"}}
  */
 export default class NachoPill<Args extends INachoPillArgs = INachoPillArgs> extends Component<Args> {
+  /**
+   * Base css class
+   */
+  nachoPillBaseClass = nachoPillBaseClass;
+
   /**
    * Determines the CSS classes that must be applied to the pill based on the determination of
    * various properties passed into this component

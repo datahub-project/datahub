@@ -22,6 +22,9 @@ import {
 import { PageType, TrackingEventCategory } from '@datahub/shared/constants/tracking/event-tracking';
 import FoxieService from '@datahub/shared/services/foxie';
 import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-type';
+import { v4 as uuid } from 'ember-uuid';
+import { ISessionInfo } from '@datahub/shared/types/tracking/session/session-tracking';
+import { DateTime, Interval } from 'luxon';
 
 /**
  * Defines the base and full api for the analytics / tracking module in DataHub
@@ -29,6 +32,16 @@ import { UserFunctionType } from '@datahub/shared/constants/foxie/user-function-
  * @class UnifiedTracking
  */
 export default class UnifiedTracking extends Service {
+  /**
+   * Time, in minutes, that a session will last without activity before timing out
+   */
+  private static SESSION_TRACKING_TIMEOUT = 15;
+
+  /**
+   * Key to access tracking session information from our local storage
+   */
+  private static SESSION_TRACKING_STORAGE_KEY = 'datahub-tracking-session';
+
   /**
    * References the Ember Metrics addon service, which serves as a proxy to analytics services for
    * metrics collection within the application
@@ -216,6 +229,70 @@ export default class UnifiedTracking extends Service {
 
       getPiwikActivityQueue().push(['enableHeartBeatTimer']);
     });
+  }
+
+  /**
+   * Gets the currently stored session information
+   */
+  private _getSessionInfo(): ISessionInfo | void {
+    const sessionInfo: string | null = localStorage.getItem(UnifiedTracking.SESSION_TRACKING_STORAGE_KEY);
+    if (sessionInfo) {
+      return JSON.parse(sessionInfo);
+    }
+  }
+
+  /**
+   * Creates and sets a new session information in order to establish for tracking purposes that a new session has
+   * started. We're setting our own unique session id here to have more control than relying on the play session
+   * information. Since this is only for tracking purposes, we don't necessarily need to be tied to auth for any reason
+   */
+  createSessionInfo(): void {
+    const sessionId = uuid().toString();
+    const sessionInformation: ISessionInfo = {
+      sessionId,
+      timeOfLastEvent: Date.now()
+    };
+    localStorage.setItem(UnifiedTracking.SESSION_TRACKING_STORAGE_KEY, JSON.stringify(sessionInformation));
+  }
+
+  /**
+   * Updates the tracking session information with updated time of last event and any other useful measures
+   */
+  updateSessionInfo(): void {
+    const currentTime = Date.now();
+    const sessionInfo = this._getSessionInfo();
+
+    if (sessionInfo) {
+      localStorage.setItem(
+        UnifiedTracking.SESSION_TRACKING_STORAGE_KEY,
+        JSON.stringify({ ...sessionInfo, timeOfLastEvent: currentTime })
+      );
+    }
+  }
+
+  /**
+   * Gets the current session information, or creates and returns a new one under conditions such as:
+   * 1. the session information does not exist
+   * 2. the session information has expired from inactivity of greater than SESSION_TRACKING_TIMEOUT
+   */
+  getOrCreateSessionInfo(): ISessionInfo {
+    let sessionInfo = this._getSessionInfo();
+    if (!sessionInfo) {
+      this.createSessionInfo();
+      sessionInfo = this._getSessionInfo();
+    }
+
+    sessionInfo = sessionInfo as ISessionInfo;
+    const currentTime = DateTime.fromMillis(Date.now());
+    const timeOfLastEvent = DateTime.fromMillis(sessionInfo.timeOfLastEvent);
+    const timeBetweenEvents = Interval.fromDateTimes(timeOfLastEvent, currentTime);
+
+    if (timeBetweenEvents.length('minutes') > UnifiedTracking.SESSION_TRACKING_TIMEOUT) {
+      this.createSessionInfo();
+      sessionInfo = this._getSessionInfo();
+    }
+
+    return sessionInfo as ISessionInfo;
   }
 }
 

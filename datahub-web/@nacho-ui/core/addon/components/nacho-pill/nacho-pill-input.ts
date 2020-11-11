@@ -1,8 +1,8 @@
 import { action, set, computed, setProperties } from '@ember/object';
-import BasePillComponent, { PillState } from '@nacho-ui/core/components/nacho-pill/nacho-pill';
+import BasePillComponent, { nachoPillBaseClass, PillState } from '@nacho-ui/core/components/nacho-pill/nacho-pill';
 import { INachoPillArgs } from './nacho-pill';
 
-export const baseInputPillClass = 'nacho-pill-input';
+export const baseInputPillClass = `nacho-pill-input`;
 
 export interface INachoPillInputArgs<T> extends INachoPillArgs {
   /**
@@ -96,6 +96,11 @@ export default class NachoPillInput<T> extends BasePillComponent<INachoPillInput
    * it will connect to any property directly.
    */
   tagValue?: T;
+
+  /**
+   * Exposing extended base component class
+   */
+  nachoPillBaseClass = nachoPillBaseClass;
 
   /**
    * Inclusion in component for easy access in the template
