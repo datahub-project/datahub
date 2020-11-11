@@ -27,6 +27,26 @@
       } ]
     } ],
     "finders" : [ {
+      "name" : "filter",
+      "doc" : "Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value is\n made up of latest versions of specified aspects. If no aspects are provided, value model will not contain any metadata aspect.\n\n <p>If no filter conditions are provided, then it returns values of given entity type.",
+      "parameters" : [ {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.IndexFilter",
+        "optional" : true,
+        "doc" : "{@link IndexFilter} that defines the filter conditions"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true,
+        "doc" : "list of aspects to be returned in the VALUE model"
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true,
+        "doc" : "last urn of the previous fetched page. For the first page, this should be set as NULL"
+      } ],
+      "pagingSupported" : true
+    }, {
       "name" : "search",
       "parameters" : [ {
         "name" : "input",
