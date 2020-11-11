@@ -14,7 +14,7 @@ import { readUpstreamDatasets } from '@datahub/data-models/api/dataset/lineage';
 import { DatasetLineageList } from '@datahub/metadata-types/types/entity/dataset/lineage';
 import { getRenderProps } from '@datahub/data-models/entity/dataset/render-props';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared';
-import { every } from 'lodash';
+import { every } from 'lodash-es';
 import DatasetComplianceSuggestion from '@datahub/data-models/entity/dataset/modules/compliance-suggestion';
 import { SuggestionIntent } from '@datahub/data-models/constants/entity/dataset/compliance-suggestions';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';

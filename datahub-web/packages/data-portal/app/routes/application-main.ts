@@ -5,7 +5,6 @@ import { inject as service } from '@ember/service';
 import { UnWrapPromise } from '@datahub/utils/types/async';
 import BannerService from '@datahub/shared/services/banners';
 import Controller from '@ember/controller';
-import UnifiedTracking from '@datahub/shared/services/unified-tracking';
 import DataModelsService from '@datahub/data-models/services/data-models';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
@@ -37,12 +36,6 @@ interface IApplicationRouteModel {
 }
 
 export default class ApplicationMainRoute extends ApplicationBaseRoute {
-  /**
-   * References the application tracking service which is used for analytics activation, setup, and management
-   */
-  @service('unified-tracking')
-  trackingService: UnifiedTracking;
-
   /**
    * Injected service to access the data models related to our various entities.
    */
@@ -129,7 +122,6 @@ export default class ApplicationMainRoute extends ApplicationBaseRoute {
    */
   afterModel(...args: Array<unknown>): Promise<[void, false | void]> {
     super.afterModel.apply(this, args);
-
     return Promise.all([this._setupMetricsTrackers(), this._trackCurrentUser()]);
   }
 

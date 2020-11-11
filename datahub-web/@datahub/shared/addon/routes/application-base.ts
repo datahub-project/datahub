@@ -4,6 +4,7 @@ import CurrentUser from '@datahub/shared/services/current-user';
 import { inject as service } from '@ember/service';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 import Configurator from '@datahub/shared/services/configurator';
+import UnifiedTracking from '@datahub/shared/services/unified-tracking';
 
 export default class ApplicationBaseRoute extends Route.extend(ApplicationRouteMixin) {
   /**
@@ -15,6 +16,12 @@ export default class ApplicationBaseRoute extends Route.extend(ApplicationRouteM
 
   @service
   configurator!: Configurator;
+
+  /**
+   * References the application tracking service which is used for analytics activation, setup, and management
+   */
+  @service('unified-tracking')
+  trackingService!: UnifiedTracking;
 
   /**
    * Attempt to load the current user and application configuration options
@@ -50,12 +57,20 @@ export default class ApplicationBaseRoute extends Route.extend(ApplicationRouteM
   }
 
   /**
+   * Performs the functions necessary to setup tracking sessions for our application.
+   */
+  private _setupSessionTracking(): void {
+    this.trackingService.createSessionInfo();
+  }
+
+  /**
    * Augments sessionAuthenticated.
    * @override ApplicationRouteMixin.sessionAuthenticated
    */
   async sessionAuthenticated(...args: Array<unknown>): Promise<void> {
     // @ts-ignore waiting for this be solved: https://github.com/simplabs/ember-simple-auth/issues/1619
     super.sessionAuthenticated.apply(this, args);
+    this._setupSessionTracking();
     await this._loadCurrentUser();
   }
 }
