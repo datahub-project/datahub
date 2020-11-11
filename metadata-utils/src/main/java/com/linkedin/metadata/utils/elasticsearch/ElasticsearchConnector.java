@@ -11,12 +11,11 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.List;
 @Slf4j
 public class ElasticsearchConnector {
 
-  private RestClient _restClient;
+  private RestClientBuilder _restClient;
   private RestHighLevelClient _client;
 
   private Integer _esPort;
@@ -69,7 +68,7 @@ public class ElasticsearchConnector {
       @Override
       public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
         log.info("Successfully feeded bulk request. Number of events: " + response.getItems().length + " Took time ms: "
-            + response.getTookInMillis());
+            + response.getIngestTookInMillis());
       }
 
       @Override
@@ -78,13 +77,13 @@ public class ElasticsearchConnector {
       }
     };
 
-    ThreadPool threadPool = new ThreadPool(Settings.builder().put(Settings.EMPTY).build());
-    _bulkProcessor =
-        new BulkProcessor.Builder(_client::bulkAsync, listener, threadPool).setBulkActions(_bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(_bulkFlushPeriod))
-            .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
-                DEFAULT_NUMBER_OF_RETRIES))
-            .build();
+    _bulkProcessor = BulkProcessor.builder(
+        (request, bulkListener) -> _client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener), listener)
+        .setBulkActions(_bulkRequestsLimit)
+        .setFlushInterval(TimeValue.timeValueSeconds(_bulkFlushPeriod))
+        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
+            DEFAULT_NUMBER_OF_RETRIES))
+        .build();
   }
 
   public void feedElasticEvent(@Nonnull ElasticEvent event) {
@@ -99,23 +98,24 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private static IndexRequest createIndexRequest(@Nonnull ElasticEvent event) {
-    return new IndexRequest(event.getIndex(), event.getType(), event.getId()).source(event.buildJson());
+    return new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
   }
 
   @Nonnull
   private static DeleteRequest createDeleteRequest(@Nonnull ElasticEvent event) {
-    return new DeleteRequest(event.getIndex(), event.getType(), event.getId());
+    return new DeleteRequest(event.getIndex()).id(event.getId());
   }
 
   @Nonnull
   private static UpdateRequest createUpsertRequest(@Nonnull ElasticEvent event) {
-    IndexRequest indexRequest = new IndexRequest(event.getIndex(), event.getType(), event.getId()).source(event.buildJson());
-    return new UpdateRequest(event.getIndex(), event.getType(),
-        event.getId()).doc(event.buildJson()).detectNoop(false).upsert(indexRequest).retryOnConflict(3);
+    final IndexRequest indexRequest = new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
+    return new UpdateRequest(event.getIndex(), event.getId()).doc(event.buildJson())
+        .detectNoop(false)
+        .upsert(indexRequest);
   }
 
   @Nonnull
-  private static RestClient loadRestHttpClient(String[] hosts, Integer port, int threadCount) {
+  private static RestClientBuilder loadRestHttpClient(String[] hosts, Integer port, int threadCount) {
 
     HttpHost[] httpHosts = new HttpHost[hosts.length];
     for (int h = 0; h < hosts.length; h++) {
@@ -129,6 +129,6 @@ public class ElasticsearchConnector {
     // TODO: Configure timeouts
     builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(0));
 
-    return builder.build();
+    return builder;
   }
 }

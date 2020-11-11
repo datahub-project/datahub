@@ -34,8 +34,6 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableKafka
 public class MetadataAuditEventsProcessor {
-  // Doc Type should be updated when ElasticSearch Version is upgraded.
-  private static final String DOC_TYPE = "doc";
 
   private ElasticsearchConnector elasticSearchConnector;
   private SnapshotProcessor snapshotProcessor;
@@ -122,7 +120,6 @@ public class MetadataAuditEventsProcessor {
         continue;
       }
       elasticEvent.setIndex(indexBuilderForDoc.getDocumentType().getSimpleName().toLowerCase());
-      elasticEvent.setType(DOC_TYPE);
       try {
         String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
         elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));
