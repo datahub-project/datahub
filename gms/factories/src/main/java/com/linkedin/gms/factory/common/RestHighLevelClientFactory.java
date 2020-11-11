@@ -33,31 +33,30 @@ public class RestHighLevelClientFactory {
   @Nonnull
   protected RestHighLevelClient createInstance() {
     try {
-      RestClient restClient = loadRestHttpClient(
-              elasticSearchHost,
-              elasticSearchPort,
-              elasticSearchThreadCount,
-              elasticSearchConectionRequestTimeout
+      RestClientBuilder restClientBuilder = loadRestHttpClient(
+          elasticSearchHost,
+          elasticSearchPort,
+          elasticSearchThreadCount,
+          elasticSearchConectionRequestTimeout
       );
 
-      return new RestHighLevelClient(restClient);
+      return new RestHighLevelClient(restClientBuilder);
     } catch (Exception e) {
       throw new RuntimeException("Error: RestClient is not properly initialized. " + e.toString());
     }
   }
 
   @Nonnull
-  private static RestClient loadRestHttpClient(@Nonnull String host, int port, int threadCount,
-                                               int connectionRequestTimeout) throws Exception {
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
+      int connectionRequestTimeout) throws Exception {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder ->
-                    httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom()
-                            .setIoThreadCount(threadCount).build()));
+        .setHttpClientConfigCallback(httpAsyncClientBuilder ->
+            httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom()
+                .setIoThreadCount(threadCount).build()));
 
     builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-            setConnectionRequestTimeout(connectionRequestTimeout));
+        setConnectionRequestTimeout(connectionRequestTimeout));
 
-    return builder.build();
+    return builder;
   }
 }
-

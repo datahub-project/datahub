@@ -9,6 +9,7 @@ import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import com.linkedin.metadata.validator.SnapshotValidator;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,8 +49,12 @@ public class ModelValidation {
     getClassesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES).forEach(
         SnapshotValidator::validateSnapshotSchema);
 
-    SnapshotValidator.validateUniqueUrn(
-        getClassesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES).collect(Collectors.toList()));
+    @SuppressWarnings("unchecked")
+    List<Class<? extends RecordTemplate>> classes =
+        (List<Class<? extends RecordTemplate>>) getClassesInPackage("com.linkedin.metadata.snapshot",
+            IGNORED_SNAPSHOT_CLASSES).collect(Collectors.toList());
+
+    SnapshotValidator.validateUniqueUrn(classes);
   }
 
   @Test
@@ -57,7 +62,7 @@ public class ModelValidation {
     getClassesInPackage("com.linkedin.metadata.delta", IGNORED_DELTA_CLASSES).forEach(DeltaValidator::validateDeltaSchema);
   }
 
-  private Stream<? extends Class> getClassesInPackage(@Nonnull String packageName, @Nonnull Set<Class> ignoreClasses)
+  private Stream<? extends Class> getClassesInPackage(@Nonnull String packageName, @Nonnull Set<Class<? extends RecordTemplate>> ignoreClasses)
       throws IOException {
     return ClassPath.from(ClassLoader.getSystemClassLoader())
         .getTopLevelClasses(packageName)
