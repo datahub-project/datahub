@@ -3,6 +3,7 @@ namespace com.linkedin.chart
 import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.Time
+import com.linkedin.common.Url
 
 /**
  * Information about a chart
@@ -23,6 +24,11 @@ record ChartInfo {
    * Captures information about who created/last modified/deleted this chart and when
    */
   lastModified: ChangeAuditStamps
+
+  /**
+   * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
+   */
+  chartUrl: Url
 
   /**
    * Data sources for the chart

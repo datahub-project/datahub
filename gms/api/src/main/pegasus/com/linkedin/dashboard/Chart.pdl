@@ -1,0 +1,32 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.chart.ChartInfo
+import com.linkedin.chart.ChartQuery
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+
+/**
+ * Metadata for a chart
+ */
+record Chart includes ChartKey {
+
+  /**
+   * Basic chart information
+   */
+  info: optional ChartInfo
+
+  /**
+   * Information for the chart query which is used for getting data of the chart
+   */
+  query: optional ChartQuery
+
+  /**
+   * Ownership information for the chart
+   */
+  ownership: optional Ownership
+
+  /**
+   * Status information for the chart such as removed or not
+   */
+  status: optional Status
+}

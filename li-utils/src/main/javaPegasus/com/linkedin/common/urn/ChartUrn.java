@@ -11,7 +11,6 @@ public final class ChartUrn extends Urn {
   public static final String ENTITY_TYPE = "chart";
 
   private final String _dashboardTool;
-
   private final String _chartId;
 
   public ChartUrn(String dashboardTool, String chartId) {

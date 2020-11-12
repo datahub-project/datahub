@@ -21,10 +21,10 @@ namespace com.linkedin.common
   },
   {
     "name" : "dashboardId",
-    "doc" : "Unique id of the dashboard assigned by the specific dashboard tool",
+    "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'",
     "type" : "string",
-    "maxLength" : 20
+    "maxLength" : 200
   }],
-  "maxLength" : 36
+  "maxLength" : 240
 }
 typeref DashboardUrn = string
