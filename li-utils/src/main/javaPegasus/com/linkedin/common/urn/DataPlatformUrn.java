@@ -11,20 +11,38 @@ public final class DataPlatformUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataPlatform";
 
-  private final String platformNameEntity;
+  private final String _platformName;
 
   public DataPlatformUrn(String platformName) {
-    super(ENTITY_TYPE, platformName);
-    this.platformNameEntity = platformName;
+    super(ENTITY_TYPE, TupleKey.create(platformName));
+    this._platformName = platformName;
   }
 
   public String getPlatformNameEntity() {
-    return platformNameEntity;
+    return _platformName;
   }
 
   public static DataPlatformUrn createFromString(String rawUrn) throws URISyntaxException {
-    String platformName = new Urn(rawUrn).getContent();
-    return new DataPlatformUrn(platformName);
+    return createFromUrn(Urn.createFromString(rawUrn));
+  }
+
+  public static DataPlatformUrn createFromUrn(Urn urn) throws URISyntaxException {
+    if (!"li".equals(urn.getNamespace())) {
+      throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'dataPlatform'.");
+    } else {
+      TupleKey key = urn.getEntityKey();
+      if (key.size() != 1) {
+        throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
+      } else {
+        try {
+          return new DataPlatformUrn((String) key.getAs(0, String.class));
+        } catch (Exception e) {
+          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
+        }
+      }
+    }
   }
 
   public static DataPlatformUrn deserialize(String rawUrn) throws URISyntaxException {

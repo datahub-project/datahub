@@ -25,7 +25,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
 
     @Nonnull
     private static String buildBrowsePath(@Nonnull DataProcessUrn urn) {
-        return ("/" + urn.getOriginEntity() + "/"  + urn.getOrchestrator() + "/" + urn.getNameEntity())
+        return ("/" + urn.getOriginEntity() + "/"  + urn.getOrchestratorEntity() + "/" + urn.getNameEntity())
             .replace('.', '/').toLowerCase();
     }
 
@@ -33,7 +33,7 @@ public class DataProcessIndexBuilder extends BaseIndexBuilder<DataProcessDocumen
     private static DataProcessDocument setUrnDerivedFields(@Nonnull DataProcessUrn urn) {
         return new DataProcessDocument()
             .setName(urn.getNameEntity())
-            .setOrchestrator(urn.getOrchestrator())
+            .setOrchestrator(urn.getOrchestratorEntity())
             .setUrn(urn)
             .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
     }

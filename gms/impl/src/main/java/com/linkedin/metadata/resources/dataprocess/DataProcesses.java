@@ -95,7 +95,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     protected ComplexResourceKey<DataProcessKey, EmptyRecord> toKey(@Nonnull DataProcessUrn urn) {
         return new ComplexResourceKey<>(
             new DataProcessKey()
-                .setOrchestrator(urn.getOrchestrator())
+                .setOrchestrator(urn.getOrchestratorEntity())
                 .setName(urn.getNameEntity())
                 .setOrigin(urn.getOriginEntity()),
             new EmptyRecord());
@@ -105,7 +105,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Override
     protected DataProcess toValue(@Nonnull DataProcessSnapshot processSnapshot) {
         final DataProcess value = new DataProcess()
-                .setOrchestrator(processSnapshot.getUrn().getOrchestrator())
+                .setOrchestrator(processSnapshot.getUrn().getOrchestratorEntity())
                 .setName(processSnapshot.getUrn().getNameEntity())
                 .setOrigin(processSnapshot.getUrn().getOriginEntity());
         ModelUtils.getAspectsFromSnapshot(processSnapshot).forEach(aspect -> {

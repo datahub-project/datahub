@@ -1,6 +1,6 @@
 buildscript {
   ext.pegasusVersion = '28.3.7'
-  ext.gmaVersion = '0.1.0'
+  ext.gmaVersion = '0.2.0'
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)

@@ -4,41 +4,52 @@ import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 
 public final class CorpGroupUrn extends Urn {
 
   public static final String ENTITY_TYPE = "corpGroup";
 
-  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":([\\-\\w]+)$");
-
-  private final String groupNameEntity;
+  private final String _groupName;
 
   public CorpGroupUrn(String groupName) {
-    super(ENTITY_TYPE, groupName);
-    this.groupNameEntity = groupName;
+    super(ENTITY_TYPE, TupleKey.createWithOneKeyPart(groupName));
+    this._groupName = groupName;
+  }
+
+  private CorpGroupUrn(TupleKey entityKey, String groupName) {
+    super("li", "corpGroup", entityKey);
+    this._groupName = groupName;
   }
 
   public String getGroupNameEntity() {
-    return groupNameEntity;
+    return _groupName;
   }
 
   public static CorpGroupUrn createFromString(String rawUrn) throws URISyntaxException {
-    String groupName = new Urn(rawUrn).getContent();
-    return new CorpGroupUrn(groupName);
+    return createFromUrn(Urn.createFromString(rawUrn));
+  }
+
+  private static CorpGroupUrn decodeUrn(String groupName) throws Exception {
+    return new CorpGroupUrn(TupleKey.create(new Object[]{groupName}), groupName);
   }
 
   public static CorpGroupUrn createFromUrn(Urn urn) throws URISyntaxException {
-    if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-      throw new URISyntaxException(urn.toString(), "Can't cast URN to CorpGroupUrn, not same ENTITY");
-    }
-
-    Matcher matcher = URN_PATTERN.matcher(urn.toString());
-    if (matcher.find()) {
-      return new CorpGroupUrn(matcher.group(1));
+    if (!"li".equals(urn.getNamespace())) {
+      throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'corpGroup'.");
     } else {
-      throw new URISyntaxException(urn.toString(), "CorpGroupUrn syntax error");
+      TupleKey key = urn.getEntityKey();
+      if (key.size() != 1) {
+        throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
+      } else {
+        try {
+          return decodeUrn((String)key.getAs(0, String.class));
+        } catch (Exception var3) {
+          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+        }
+      }
     }
   }
 

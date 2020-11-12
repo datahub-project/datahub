@@ -1,10 +1,10 @@
 package com.linkedin.common.urn;
 
+import com.linkedin.common.FabricType;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
@@ -12,34 +12,37 @@ public final class CorpuserUrn extends Urn {
 
   public static final String ENTITY_TYPE = "corpuser";
 
-  private static final Pattern URN_PATTERN = Pattern.compile("^" + URN_PREFIX + ENTITY_TYPE + ":([\\-\\w]+)$");
-
-  private final String usernameEntity;
+  private final String _username;
 
   public CorpuserUrn(String username) {
-    super(ENTITY_TYPE, username);
-    this.usernameEntity = username;
+    super(ENTITY_TYPE, TupleKey.create(username));
+    this._username = username;
   }
 
   public String getUsernameEntity() {
-    return usernameEntity;
+    return _username;
   }
 
   public static CorpuserUrn createFromString(String rawUrn) throws URISyntaxException {
-    String username = new Urn(rawUrn).getContent();
-    return new CorpuserUrn(username);
+    return createFromUrn(Urn.createFromString(rawUrn));
   }
 
   public static CorpuserUrn createFromUrn(Urn urn) throws URISyntaxException {
-    if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-      throw new URISyntaxException(urn.toString(), "Can't cast URN to CorpuserUrn, not same ENTITY");
-    }
-
-    Matcher matcher = URN_PATTERN.matcher(urn.toString());
-    if (matcher.find()) {
-      return new CorpuserUrn(matcher.group(1));
+    if (!"li".equals(urn.getNamespace())) {
+      throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'corpuser'.");
     } else {
-      throw new URISyntaxException(urn.toString(), "CorpuserUrn syntax error");
+      TupleKey key = urn.getEntityKey();
+      if (key.size() != 1) {
+        throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
+      } else {
+        try {
+          return new CorpuserUrn((String) key.getAs(0, String.class));
+        } catch (Exception var3) {
+          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+        }
+      }
     }
   }
 

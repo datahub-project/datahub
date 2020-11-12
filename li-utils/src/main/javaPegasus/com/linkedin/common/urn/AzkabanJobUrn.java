@@ -10,31 +10,45 @@ public final class AzkabanJobUrn extends Urn {
 
   public static final String ENTITY_TYPE = "azkabanJob";
 
-  private static final String CONTENT_FORMAT = "(%s,%s)";
-
-  private final AzkabanFlowUrn flowEntity;
-
-  private final String jobIdEntity;
+  private final AzkabanFlowUrn _flow;
+  private final String _jobId;
 
   public AzkabanJobUrn(AzkabanFlowUrn flow, String jobId) {
-    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, flow.toString(), jobId));
-    this.flowEntity = flow;
-    this.jobIdEntity = jobId;
+    super(ENTITY_TYPE, TupleKey.create(flow, jobId));
+    this._flow = flow;
+    this._jobId = jobId;
   }
 
   public AzkabanFlowUrn getFlowEntity() {
-    return flowEntity;
+    return _flow;
   }
 
   public String getJobIdEntity() {
-    return jobIdEntity;
+    return _jobId;
   }
 
   public static AzkabanJobUrn createFromString(String rawUrn) throws URISyntaxException {
-    String content = new Urn(rawUrn).getContent();
-    String flowParts = content.substring(1, content.lastIndexOf(",") + 1);
-    String[] parts = content.substring(1, content.length() - 1).split(",");
-    return new AzkabanJobUrn(AzkabanFlowUrn.createFromString(flowParts), parts[3]);
+    return createFromUrn(Urn.createFromString(rawUrn));
+  }
+
+  public static AzkabanJobUrn createFromUrn(Urn urn) throws URISyntaxException {
+    if (!"li".equals(urn.getNamespace())) {
+      throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'azkabanJob'.");
+    } else {
+      TupleKey key = urn.getEntityKey();
+      if (key.size() != 2) {
+        throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
+      } else {
+        try {
+          return new AzkabanJobUrn((AzkabanFlowUrn) key.getAs(0, AzkabanFlowUrn.class),
+              (String) key.getAs(1, String.class));
+        } catch (Exception e) {
+          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
+        }
+      }
+    }
   }
 
   public static AzkabanJobUrn deserialize(String rawUrn) throws URISyntaxException {
@@ -42,6 +56,7 @@ public final class AzkabanJobUrn extends Urn {
   }
 
   static {
+    Custom.initializeCustomClass(AzkabanFlowUrn.class);
     Custom.registerCoercer(new DirectCoercer<AzkabanJobUrn>() {
       public Object coerceInput(AzkabanJobUrn object) throws ClassCastException {
         return object.toString();
