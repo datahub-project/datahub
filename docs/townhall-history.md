@@ -10,7 +10,7 @@ Agenda
 
 - Quick intro - 5 mins
 - [Lightning talk on Metadata use-cases at LinkedIn](https://github.com/linkedin/datahub/blob/master/docs/demo/Metadata%20Use-Cases%20at%20LinkedIn%20-%20Lightning%20Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
-- Strongly Consistent Secondary Index (SCSI) in GMA, an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
+- [Strongly Consistent Secondary Index (SCSI) in GMA](https://github.com/linkedin/datahub/blob/master/docs/demo/Datahub%20-%20Strongly%20Consistent%20Secondary%20Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
 - DataHub UI overview by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 10 mins
 - Closing remarks - 5 minutes
