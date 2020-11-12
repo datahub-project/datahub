@@ -1,7 +1,9 @@
 namespace com.linkedin.metadata.search
 
+import com.linkedin.chart.ChartQueryType
+import com.linkedin.chart.ChartType
+import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChartUrn
-import com.linkedin.common.DatasetUrn
 
 /**
  * Data model for Chart entity search
@@ -29,14 +31,9 @@ record ChartDocument includes BaseDocument {
   tool: optional string
 
   /**
-   * Input datasets for the chart
-   */
-  inputs: optional array[DatasetUrn]
-
-  /**
    * Chart query type
    */
-  queryType: optional string
+  queryType: optional ChartQueryType
 
   /**
    * LDAP usernames of corp users who are the owners of this chart
@@ -46,10 +43,10 @@ record ChartDocument includes BaseDocument {
   /**
    * Type of the chart
    */
-  type: optional string
+  type: optional ChartType
 
   /**
    * Access level for the chart
    */
-  access: optional string
+  access: optional AccessLevel
 }
