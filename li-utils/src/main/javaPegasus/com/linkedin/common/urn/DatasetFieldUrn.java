@@ -58,12 +58,12 @@ public class DatasetFieldUrn extends Urn {
   /**
    * Creates a new instance of a {@link DatasetFieldUrn}.
    *
-   * @param datasetUrn dataset that this dataset field belongs to
+   * @param dataset dataset that this dataset field belongs to
    * @param fieldPath dataset field path or column name
    */
-  public DatasetFieldUrn(DatasetUrn datasetUrn, String fieldPath) {
-    super(ENTITY_TYPE, TupleKey.create(datasetUrn, fieldPath));
-    this._dataset = datasetUrn;
+  public DatasetFieldUrn(DatasetUrn dataset, String fieldPath) {
+    super(ENTITY_TYPE, TupleKey.create(dataset, fieldPath));
+    this._dataset = dataset;
     this._fieldPath = fieldPath;
   }
 
