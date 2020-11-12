@@ -33,7 +33,7 @@ spec:
             secretName: {{ .Values.global.credentialsAndCertsSecrets.name }}
         {{- end }}
       {{- if .Values.extraVolumes }}
-        {{ toYaml .Values.extraVolumes | indent 8 }}
+        {{ toYaml .Values.extraVolumes | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -77,7 +77,7 @@ spec:
             {{- end }}
             {{- end }}
           {{- if .Values.extraEnvs }}
-            {{ toYaml .Values.extraEnvs | indent 10 }}
+            {{ toYaml .Values.extraEnvs | nindent 12 }}
           {{- end }}
           volumeMounts:
           {{- if .Values.global.credentialsAndCertsSecrets }}
@@ -85,7 +85,7 @@ spec:
               mountPath: {{ .Values.global.credentialsAndCertsSecretPath | default "/mnt/certs" }}
           {{- end }}
           {{- if .Values.extraVolumeMounts }}
-            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+            {{ toYaml .Values.extraVolumeMounts | nindent 10 }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
