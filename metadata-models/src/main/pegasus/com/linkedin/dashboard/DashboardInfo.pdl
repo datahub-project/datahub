@@ -34,7 +34,7 @@ record DashboardInfo {
   /**
    * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
    */
-  dashboardUrl: Url
+  dashboardUrl: optional Url
 
   /**
    * Access level for the dashboard

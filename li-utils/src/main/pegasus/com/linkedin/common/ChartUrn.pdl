@@ -25,6 +25,6 @@ namespace com.linkedin.common
     "type" : "string",
     "maxLength" : 200
   }],
-  "maxLength" : 235
+  "maxLength" : 236
 }
 typeref ChartUrn = string
