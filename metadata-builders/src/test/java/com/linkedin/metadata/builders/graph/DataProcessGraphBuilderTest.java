@@ -20,7 +20,7 @@ public class DataProcessGraphBuilderTest {
     DataProcessSnapshot snapshot = new DataProcessSnapshot().setUrn(urn).setAspects(new DataProcessAspectArray());
     DataProcessEntity expected = new DataProcessEntity().setUrn(urn)
         .setName(urn.getNameEntity())
-        .setOrchestrator(urn.getOrchestrator())
+        .setOrchestrator(urn.getOrchestratorEntity())
         .setOrigin(urn.getOriginEntity());
 
     List<? extends RecordTemplate> dataProcessEntities = new DataProcessGraphBuilder().buildEntities(snapshot);

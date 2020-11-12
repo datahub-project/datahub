@@ -6,44 +6,56 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-import static com.linkedin.common.urn.UrnUtils.*;
-
 
 public final class DatasetUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataset";
 
-  private static final String CONTENT_FORMAT = "(%s,%s,%s)";
-
-  private final DataPlatformUrn platformEntity;
-
-  private final String datasetNameEntity;
-
-  private final FabricType originEntity;
+  private final DataPlatformUrn _platform;
+  private final String _datasetName;
+  private final FabricType _origin;
 
   public DatasetUrn(DataPlatformUrn platform, String name, FabricType origin) {
-    super(ENTITY_TYPE, String.format(CONTENT_FORMAT, platform.toString(), name, origin.name()));
-    this.platformEntity = platform;
-    this.datasetNameEntity = name;
-    this.originEntity = origin;
+    super(ENTITY_TYPE, TupleKey.create(platform, name, origin));
+    this._platform = platform;
+    this._datasetName = name;
+    this._origin = origin;
   }
 
   public DataPlatformUrn getPlatformEntity() {
-    return platformEntity;
+    return _platform;
   }
 
   public String getDatasetNameEntity() {
-    return datasetNameEntity;
+    return _datasetName;
   }
 
   public FabricType getOriginEntity() {
-    return originEntity;
+    return _origin;
   }
 
   public static DatasetUrn createFromString(String rawUrn) throws URISyntaxException {
-    String content = new Urn(rawUrn).getContent();
-    String[] parts = content.substring(1, content.length() - 1).split(",");
-    return new DatasetUrn(DataPlatformUrn.createFromString(parts[0]), parts[1], toFabricType(parts[2]));
+    return createFromUrn(Urn.createFromString(rawUrn));
+  }
+
+  public static DatasetUrn createFromUrn(Urn urn) throws URISyntaxException {
+    if (!"li".equals(urn.getNamespace())) {
+      throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
+    } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'dataset'.");
+    } else {
+      TupleKey key = urn.getEntityKey();
+      if (key.size() != 3) {
+        throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
+      } else {
+        try {
+          return new DatasetUrn((DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
+              (String) key.getAs(1, String.class), (FabricType) key.getAs(2, FabricType.class));
+        } catch (Exception var3) {
+          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+        }
+      }
+    }
   }
 
   public static DatasetUrn deserialize(String rawUrn) throws URISyntaxException {
@@ -51,6 +63,9 @@ public final class DatasetUrn extends Urn {
   }
 
   static {
+    Custom.initializeCustomClass(DataPlatformUrn.class);
+    Custom.initializeCustomClass(DatasetUrn.class);
+    Custom.initializeCustomClass(FabricType.class);
     Custom.registerCoercer(new DirectCoercer<DatasetUrn>() {
       public Object coerceInput(DatasetUrn object) throws ClassCastException {
         return object.toString();
