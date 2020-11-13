@@ -23,7 +23,7 @@ you need to make two small edits (don't check these changes in!).
 - Add the JVM debug flags to the environment file for the service.
 - Assign the port in the docker-compose file.
 
-For example, to debug `dathaub-gms`:
+For example, to debug `datahub-gms`:
 
 ```
 # Add this line to docker/datahub-gms/env/docker.env. You can change the port and/or change suspend=n to y.
