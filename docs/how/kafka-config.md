@@ -28,11 +28,33 @@ By default, ingestion relies upon the `MetadataChangeEvent_v4`, `MetadataAuditEv
 
 We've included environment variables to customize the name each of these topics, if your company or organization has naming rules for your topics.
 
+### datahub-gms
 - `METADATA_CHANGE_EVENT_NAME`: The name of the metadata change event topic.
 - `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
 - `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the failed metadata change event topic.
 
+### datahub-mce-consumer
+- `KAFKA_MCE_TOPIC_NAME`: The name of the metadata change event topic.
+- `KAFKA_FMCE_TOPIC_NAME`: The name of the failed metadata change event topic.
+
+### datahub-mae-consumer
+- `KAFKA_TOPIC_NAME`: The name of the metadata audit event topic.
+
 Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
+
+**How to apply configuration?**
+- For quickstart, add these environment variables to the corresponding application's docker.env
+- For helm charts, add these environment variables as extraEnvs to the corresponding application's chart.
+For example, 
+```
+extraEnvs:
+  - name: METADATA_CHANGE_EVENT_NAME
+    value: "MetadataChangeEvent"
+  - name: METADATA_AUDIT_EVENT_NAME
+    value: "MetadataAuditEvent"
+  - name: FAILED_METADATA_CHANGE_EVENT_NAME
+    value: "FailedMetadataChangeEvent"
+```
 
 ## SSL
 
