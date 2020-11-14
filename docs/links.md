@@ -15,6 +15,7 @@
 * [4 Data Trends to Watch in 2020](https://medium.com/memory-leak/4-data-trends-to-watch-in-2020-491707902c09)
 * [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
 * [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
+* [Almost Everything You Need To Know on Data Discovery Platforms](https://eugeneyan.com/writing/data-discovery-platforms/)
 
 # Talks & Presentations
 * [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
@@ -25,7 +26,7 @@
 * [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
 * [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
 
-# Non-English Articles
+# Non-English
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://blog.csdn.net/DataPipeline/article/details/100155781)
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
 * [DataHub——实时数据治理平台](https://segmentfault.com/a/1190000022563622)
