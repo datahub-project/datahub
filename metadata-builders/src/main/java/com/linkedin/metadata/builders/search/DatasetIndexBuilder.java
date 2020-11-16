@@ -81,11 +81,9 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
       @Nonnull SchemaMetadata schemaMetadata) {
-    final StringArray fieldPaths = new StringArray(schemaMetadata.getFields()
-        .stream()
-        .map(SchemaField::getFieldPath)
-        .collect(Collectors.toList()));
-    return new DatasetDocument().setUrn(urn).setHasSchema(true).setFields(fieldPaths);
+    final StringArray fieldPaths = new StringArray(
+        schemaMetadata.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList()));
+    return new DatasetDocument().setUrn(urn).setHasSchema(true).setFieldPaths(fieldPaths);
   }
 
   @Nonnull

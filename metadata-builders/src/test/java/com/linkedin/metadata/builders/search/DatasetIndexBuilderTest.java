@@ -192,7 +192,7 @@ public class DatasetIndexBuilderTest {
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, schemaMetadata)));
     final DatasetDocument expectedDocument1 =
-        new DatasetDocument().setUrn(datasetUrn).setHasSchema(true).setFields(new StringArray("foo.bar.baz"));
+        new DatasetDocument().setUrn(datasetUrn).setHasSchema(true).setFieldPaths(new StringArray("foo.bar.baz"));
     final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)

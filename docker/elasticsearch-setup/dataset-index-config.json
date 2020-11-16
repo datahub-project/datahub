@@ -190,7 +190,8 @@
             "keyword": {
               "type": "keyword"
             }
-          }
+          },
+
         },
         "hasOwners": {
           "type": "boolean"
@@ -220,7 +221,7 @@
           },
           "normalizer": "my_normalizer"
         },
-        "field": {
+        "fieldPaths": {
           "type": "keyword",
           "fields": {
             "field_pattern_ngram": {
