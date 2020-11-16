@@ -1,4 +1,28 @@
+import { MetadataAspect } from '@datahub/metadata-types/types/metadata/aspect';
+
 type AspectsOfSnapshot<Snapshot> = Snapshot extends { aspects: Array<infer Aspect> } ? Aspect : {};
+
+/**
+ * An enumeration of MetadataAspect['metadata'] property keys
+ * Defined as a record instead of an enum to bind the values to updates at the source-of-truth's (MetadataAspect['metadata'])
+ * type definitions are reflected here
+ * @type Record<string, keyof MetadataAspect['metadata']>
+ */
+export const SnapshotMetadataAspectKey: Record<string, keyof MetadataAspect> = {
+  UmpDatasetProperties: 'com.linkedin.dataset.ump.UMPDatasetProperties',
+  RetentionPolicy: 'com.linkedin.dataset.RetentionPolicy',
+  ComplianceInfo: 'com.linkedin.dataset.ComplianceInfo',
+  Ownership: 'com.linkedin.common.Ownership'
+};
+
+/**
+ * Aliases the values in the constant enum SnapshotMetadataAspectKeyName, this is a union of strings that can be used to index the
+ * metadata object on an instance of MetadataAspect
+ * This creates a type of values found in the record above SnapshotMetadataAspectKey
+ * essentially Object.values(SnapshotMetadataAspectKey) as a type
+ * @type {string}
+ */
+export type SnapshotMetadataAspectKeyName = typeof SnapshotMetadataAspectKey[string];
 
 /**
  * Takes a lookup key on the aspects metadata object, and returns an iteratee function that is truthy when it's argument

@@ -6,4 +6,4 @@ import Route from '@ember/routing/route';
  * @class FeaturesFeatureIndex
  * @extends {Route}
  */
-export default class FeaturesFeatureIndex extends Route {}
+export default class FeaturesFeatureIndex extends Route { }
