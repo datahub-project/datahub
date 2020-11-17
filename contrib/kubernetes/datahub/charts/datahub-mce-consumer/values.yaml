@@ -22,6 +22,9 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
+podAnnotations: {}
+  # co.elastic.logs/enabled: "true"
+
 podSecurityContext: {}
   # fsGroup: 2000
 
