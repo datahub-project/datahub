@@ -31,6 +31,8 @@
         {{/if}}
       </ul>
 
+      <NavbarRightColumn />
+
       <ul class="nav navbar-nav navbar-right">
         <li class="dropdown">
           <a
@@ -40,8 +42,9 @@
             aria-haspopup="true"
             aria-expanded="false"
             href="#"
+            onclick="return false"
           >
-            <i class="caret"></i>
+            <FaIcon @icon="chevron-down" />
             <Avatars::AvatarImage @avatar={{this.avatar}} @class="navbar-avatar-image" />
           </a>
 
@@ -79,11 +82,7 @@
 
             <li class="dropdown-header">
               Help
-              <span
-                class="glyphicon glyphicon-question-sign"
-                aria-hidden="true"
-              >
-              </span>
+               <FaIcon @icon="question-circle"  aria-hidden="true"/>
             </li>
             {{#each @applicationHelpResources as |applicationHelpResource|}}
               <li>
