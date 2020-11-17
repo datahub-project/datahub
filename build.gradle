@@ -1,6 +1,7 @@
 buildscript {
+  ext.junitJupiterVersion = '5.6.1'
+  ext.gmaVersion = '0.2.24'
   ext.pegasusVersion = '28.3.7'
-  ext.gmaVersion = '0.2.18'
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -45,6 +46,7 @@ project.ext.externalDependency = [
     'gmaDaoApiDataTemplate': "com.linkedin.datahub-gma:dao-api-data-template:$gmaVersion",
     'gmaEbeanDao': "com.linkedin.datahub-gma:ebean-dao:$gmaVersion",
     'gmaElasticsearchDao': "com.linkedin.datahub-gma:elasticsearch-dao:$gmaVersion",
+    'gmaElasticsearchIntegTest': "com.linkedin.datahub-gma:elasticsearch-dao-integ-testing-docker:$gmaVersion",
     'gmaNeo4jDao': "com.linkedin.datahub-gma:neo4j-dao:$gmaVersion",
     'gmaRestliResources': "com.linkedin.datahub-gma:restli-resources:$gmaVersion",
     'gmaRestliResourcesDataTemplate': "com.linkedin.datahub-gma:restli-resources-data-template:$gmaVersion",
@@ -64,7 +66,9 @@ project.ext.externalDependency = [
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
-    'junit': 'junit:junit:4.12',
+    'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
+    'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
+    'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
@@ -114,7 +118,9 @@ subprojects {
     }
 
     tasks.withType(Test) {
-      useTestNG()
+      if (!name.startsWith('integ')) {
+        useTestNG()
+      }
     }
 
     checkstyle {
