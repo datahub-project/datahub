@@ -108,6 +108,20 @@
       },
       "doc" : "Captures information about who created/last modified/deleted this chart and when"
     }, {
+      "name" : "chartUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "namespace" : "com.linkedin.common",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
+      "optional" : true
+    }, {
       "name" : "inputs",
       "type" : {
         "type" : "array",
@@ -196,12 +210,12 @@
           "name" : "dashboardTool",
           "type" : "string"
         }, {
-          "doc" : "Unique id of the chart assigned by the specific dashboard tool",
-          "maxLength" : 20,
+          "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'",
+          "maxLength" : 200,
           "name" : "chartId",
           "type" : "string"
         } ],
-        "maxLength" : 36,
+        "maxLength" : 236,
         "name" : "Chart",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -296,7 +310,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false
     } ]
-  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+  }, "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "Chart",
     "namespace" : "com.linkedin.dashboard",
@@ -318,10 +332,10 @@
       }, {
         "name" : "chartId",
         "type" : "string",
-        "doc" : "Unique id of the chart assigned by the specific dashboard tool",
+        "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'",
         "validate" : {
           "strlen" : {
-            "max" : 500,
+            "max" : 200,
             "min" : 1
           }
         }

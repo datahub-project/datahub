@@ -80,12 +80,12 @@
           "name" : "dashboardTool",
           "type" : "string"
         }, {
-          "doc" : "Unique id of the chart assigned by the specific dashboard tool",
-          "maxLength" : 20,
+          "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'",
+          "maxLength" : 200,
           "name" : "chartId",
           "type" : "string"
         } ],
-        "maxLength" : 36,
+        "maxLength" : 236,
         "name" : "Chart",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -113,12 +113,12 @@
           "name" : "dashboardTool",
           "type" : "string"
         }, {
-          "doc" : "Unique id of the dashboard assigned by the specific dashboard tool",
-          "maxLength" : 20,
+          "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'",
+          "maxLength" : 200,
           "name" : "dashboardId",
           "type" : "string"
         } ],
-        "maxLength" : 36,
+        "maxLength" : 240,
         "name" : "Dashboard",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -213,7 +213,16 @@
       "doc" : "whether the entity is removed or not",
       "default" : false
     } ]
-  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+  }, "com.linkedin.common.Time", {
+    "type" : "typeref",
+    "name" : "Url",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+    }
+  }, "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "Dashboard",
     "namespace" : "com.linkedin.dashboard",
@@ -235,10 +244,10 @@
       }, {
         "name" : "dashboardId",
         "type" : "string",
-        "doc" : "Unique id of the dashboard assigned by the specific dashboard tool",
+        "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'",
         "validate" : {
           "strlen" : {
-            "max" : 500,
+            "max" : 200,
             "min" : 1
           }
         }
@@ -270,6 +279,11 @@
           "name" : "lastModified",
           "type" : "com.linkedin.common.ChangeAuditStamps",
           "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
+        }, {
+          "name" : "dashboardUrl",
+          "type" : "com.linkedin.common.Url",
+          "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
+          "optional" : true
         }, {
           "name" : "access",
           "type" : "com.linkedin.common.AccessLevel",

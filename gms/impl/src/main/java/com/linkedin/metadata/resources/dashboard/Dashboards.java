@@ -46,7 +46,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "dashboards", namespace = "com.linkedin.dashboard", keyName = "key")
 public class Dashboards extends BaseSearchableEntityResource<
     // @formatter:off
-    DashboardKey,
+    ComplexResourceKey<DashboardKey, EmptyRecord>,
     Dashboard,
     DashboardUrn,
     DashboardSnapshot,
@@ -86,16 +86,18 @@ public class Dashboards extends BaseSearchableEntityResource<
 
   @Nonnull
   @Override
-  protected DashboardUrn toUrn(@Nonnull DashboardKey key) {
-    return new DashboardUrn(key.getTool(), key.getDashboardId());
+  protected DashboardUrn toUrn(@Nonnull ComplexResourceKey<DashboardKey, EmptyRecord> key) {
+    return new DashboardUrn(key.getKey().getTool(), key.getKey().getDashboardId());
   }
 
   @Nonnull
   @Override
-  protected DashboardKey toKey(@Nonnull DashboardUrn urn) {
-    return new DashboardKey()
-        .setTool(urn.getDashboardToolEntity())
-        .setDashboardId(urn.getDashboardIdEntity());
+  protected ComplexResourceKey<DashboardKey, EmptyRecord> toKey(@Nonnull DashboardUrn urn) {
+    return new ComplexResourceKey<>(
+        new DashboardKey()
+            .setTool(urn.getDashboardToolEntity())
+            .setDashboardId(urn.getDashboardIdEntity()),
+        new EmptyRecord());
   }
 
   @Nonnull

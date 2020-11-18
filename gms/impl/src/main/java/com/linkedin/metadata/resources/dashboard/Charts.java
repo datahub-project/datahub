@@ -47,7 +47,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "charts", namespace = "com.linkedin.chart", keyName = "key")
 public class Charts extends BaseSearchableEntityResource<
     // @formatter:off
-    ChartKey,
+    ComplexResourceKey<ChartKey, EmptyRecord>,
     Chart,
     ChartUrn,
     ChartSnapshot,
@@ -87,16 +87,18 @@ public class Charts extends BaseSearchableEntityResource<
 
   @Nonnull
   @Override
-  protected ChartUrn toUrn(@Nonnull ChartKey key) {
-    return new ChartUrn(key.getTool(), key.getChartId());
+  protected ChartUrn toUrn(@Nonnull ComplexResourceKey<ChartKey, EmptyRecord> key) {
+    return new ChartUrn(key.getKey().getTool(), key.getKey().getChartId());
   }
 
   @Nonnull
   @Override
-  protected ChartKey toKey(@Nonnull ChartUrn urn) {
-    return new ChartKey()
-        .setTool(urn.getDashboardToolEntity())
-        .setChartId(urn.getChartIdEntity());
+  protected ComplexResourceKey<ChartKey, EmptyRecord> toKey(@Nonnull ChartUrn urn) {
+    return new ComplexResourceKey<>(
+        new ChartKey()
+            .setTool(urn.getDashboardToolEntity())
+            .setChartId(urn.getChartIdEntity()),
+        new EmptyRecord());
   }
 
   @Nonnull
