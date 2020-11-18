@@ -1,10 +1,10 @@
-package com.linkedin.dashboard.factory;
+package com.linkedin.gms.factory.dashboard;
 
-import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.metadata.aspect.DashboardAspect;
+import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.metadata.aspect.ChartAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
-import com.linkedin.metadata.snapshot.DashboardSnapshot;
+import com.linkedin.metadata.snapshot.ChartSnapshot;
 import io.ebean.config.ServerConfig;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.producer.Producer;
@@ -16,18 +16,18 @@ import org.springframework.context.annotation.DependsOn;
 
 
 @Configuration
-public class DashboardDaoFactory {
+public class ChartDaoFactory {
   @Autowired
   ApplicationContext applicationContext;
 
-  @Bean(name = "dashboardDAO")
+  @Bean(name = "chartDAO")
   @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
   @Nonnull
   protected EbeanLocalDAO createInstance() {
-    KafkaMetadataEventProducer<DashboardSnapshot, DashboardAspect, DashboardUrn> producer =
-        new KafkaMetadataEventProducer(DashboardSnapshot.class, DashboardAspect.class,
+    KafkaMetadataEventProducer<ChartSnapshot, ChartAspect, ChartUrn> producer =
+        new KafkaMetadataEventProducer(ChartSnapshot.class, ChartAspect.class,
             applicationContext.getBean(Producer.class));
-    return new EbeanLocalDAO<>(DashboardAspect.class, producer, applicationContext.getBean(ServerConfig.class),
-        DashboardUrn.class);
+    return new EbeanLocalDAO<>(ChartAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        ChartUrn.class);
   }
 }
