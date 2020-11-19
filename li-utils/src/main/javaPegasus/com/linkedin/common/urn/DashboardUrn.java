@@ -14,7 +14,7 @@ public final class DashboardUrn extends Urn {
   private final String _dashboardId;
 
   public DashboardUrn(String dashboardTool, String dashboardId) {
-    super(ENTITY_TYPE, TupleKey.create(dashboardId, dashboardId));
+    super(ENTITY_TYPE, TupleKey.create(dashboardTool, dashboardId));
     this._dashboardTool = dashboardTool;
     this._dashboardId = dashboardId;
   }

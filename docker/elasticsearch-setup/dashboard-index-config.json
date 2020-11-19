@@ -77,7 +77,13 @@
     "doc": {
       "properties": {
         "access": {
-          "type": "keyword"
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          }
         },
         "description": {
           "type": "text",
@@ -103,12 +109,22 @@
             "delimited": {
               "type": "text",
               "analyzer": "delimit"
+            },
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
             }
           },
           "normalizer": "custom_normalizer"
         },
         "tool": {
-          "type": "keyword"
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          }
         },
         "urn": {
           "type": "keyword",

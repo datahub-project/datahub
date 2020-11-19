@@ -4,7 +4,9 @@
       "query_string": {
         "query": "$INPUT",
         "fields": [
-          "title"
+          "title^8",
+          "title.delimited^4",
+          "tool^4"
         ],
         "default_operator": "and",
         "analyzer": "standard"
