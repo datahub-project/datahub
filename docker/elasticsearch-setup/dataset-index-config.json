@@ -52,6 +52,13 @@
             "type": "custom",
             "tokenizer": "dataset_pattern"
           },
+          "field_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "field_pattern"
+          },
           "comma_pattern": {
             "filter": [
               "lowercase"
@@ -103,6 +110,14 @@
             "type": "custom",
             "tokenizer": "dataset_pattern"
           },
+          "field_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "field_pattern"
+          },
           "custom_browse_slash": {
             "filter": [
               "lowercase"
@@ -131,6 +146,10 @@
             "type": "pattern"
           },
           "dataset_pattern": {
+            "pattern": "[./]",
+            "type": "pattern"
+          },
+          "field_pattern": {
             "pattern": "[./]",
             "type": "pattern"
           }
@@ -171,7 +190,8 @@
             "keyword": {
               "type": "keyword"
             }
-          }
+          },
+
         },
         "hasOwners": {
           "type": "boolean"
@@ -197,6 +217,28 @@
             "pattern": {
               "type": "text",
               "analyzer": "dataset_pattern"
+            }
+          },
+          "normalizer": "my_normalizer"
+        },
+        "fieldPaths": {
+          "type": "keyword",
+          "fields": {
+            "field_pattern_ngram": {
+              "type": "text",
+              "analyzer": "field_pattern_ngram"
+            },
+            "delimited": {
+              "type": "text",
+              "analyzer": "delimit"
+            },
+            "ngram": {
+              "type": "text",
+              "analyzer": "custom_ngram"
+            },
+            "pattern": {
+              "type": "text",
+              "analyzer": "field_pattern"
             }
           },
           "normalizer": "my_normalizer"

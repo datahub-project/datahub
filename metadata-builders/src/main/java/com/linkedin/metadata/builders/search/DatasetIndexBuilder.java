@@ -11,14 +11,14 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
@@ -79,10 +79,11 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   }
 
   @Nonnull
-  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull SchemaMetadata schemaMetadata) {
-    return new DatasetDocument()
-        .setUrn(urn)
-        .setHasSchema(true);
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull SchemaMetadata schemaMetadata) {
+    final StringArray fieldPaths = new StringArray(
+        schemaMetadata.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList()));
+    return new DatasetDocument().setUrn(urn).setHasSchema(true).setFieldPaths(fieldPaths);
   }
 
   @Nonnull
