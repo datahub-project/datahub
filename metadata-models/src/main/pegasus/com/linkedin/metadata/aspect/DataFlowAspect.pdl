@@ -1,0 +1,9 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.common.Ownership
+import com.linkedin.datajob.DataFlowInfo
+
+/**
+ * A union of all supported metadata aspects for a Data flow
+ */
+typeref DataFlowAspect = union[DataFlowInfo, Ownership]

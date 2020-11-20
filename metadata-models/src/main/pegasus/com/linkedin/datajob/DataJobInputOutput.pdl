@@ -1,0 +1,20 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.common.DatasetUrn
+
+
+/**
+ * Information about the inputs and outputs of a Data processing job
+ */
+record DataJobInputOutput {
+
+  /**
+   * Input datasets consumed by the data job during processing
+   */
+  inputDatasets: array[DatasetUrn]
+
+  /**
+   * Output datasets produced by the data job during processing
+   */
+  outputDatasets: array[DatasetUrn]
+}
