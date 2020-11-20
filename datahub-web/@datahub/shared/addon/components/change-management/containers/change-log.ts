@@ -104,7 +104,8 @@ export default class ChangeLogContainer extends Component {
    * Constructs a map of userNames of each owner
    */
   @map('owners', function(this: ChangeLogContainer, owner: Com.Linkedin.Common.Owner): string {
-    return owner.owner;
+    const PersonEntityClass = this.dataModels.getModel(PersonEntity.displayName);
+    return PersonEntityClass.usernameFromUrn(owner.owner);
   })
   ownerUserNames!: Array<string>;
 
