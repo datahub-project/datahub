@@ -23,6 +23,10 @@ import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.schema.BooleanType;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
 import java.util.List;
@@ -178,11 +182,17 @@ public class DatasetIndexBuilderTest {
   @Test
   public void schemaMetadata() {
     // given
+    final SchemaFieldArray schemaFieldArray = new SchemaFieldArray(new SchemaField().setFieldPath("foo.bar.baz")
+        .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new BooleanType())))
+        .setNullable(false)
+        .setNativeDataType("boolean")
+        .setRecursive(false));
     final DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("foo"), "bar", FabricType.PROD);
-    final SchemaMetadata schemaMetadata = new SchemaMetadata();
+    final SchemaMetadata schemaMetadata = new SchemaMetadata().setFields(schemaFieldArray);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, schemaMetadata)));
-    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setHasSchema(true);
+    final DatasetDocument expectedDocument1 =
+        new DatasetDocument().setUrn(datasetUrn).setHasSchema(true).setFieldPaths(new StringArray("foo.bar.baz"));
     final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)

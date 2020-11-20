@@ -44,6 +44,11 @@ record DatasetDocument includes BaseDocument {
   description: optional string
 
   /**
+   * Field paths of the dataset
+   */
+  fieldPaths: optional array[string]
+
+  /**
    * Flag to indicate if the dataset has non empty corp users as owners or not.
    */
   hasOwners: optional boolean
