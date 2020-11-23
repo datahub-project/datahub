@@ -1,0 +1,136 @@
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "filter": {
+          "autocomplete_filter": {
+            "type": "edge_ngram",
+            "min_gram": "3",
+            "max_gram": "20"
+          },
+          "custom_delimiter": {
+            "split_on_numerics": "false",
+            "split_on_case_change": "false",
+            "type": "word_delimiter",
+            "preserve_original": "true",
+            "catenate_words": "false"
+          }
+        },
+        "normalizer": {
+          "custom_normalizer": {
+            "filter": [
+              "lowercase",
+              "asciifolding"
+            ],
+            "type": "custom"
+          }
+        },
+        "analyzer": {
+          "comma_pattern": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "comma_pattern_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "comma_tokenizer"
+          },
+          "delimit_edgengram": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter",
+              "autocomplete_filter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "delimit": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "lowercase_keyword": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          }
+        },
+        "tokenizer": {
+          "comma_tokenizer": {
+            "pattern": ",",
+            "type": "pattern"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "doc": {
+      "properties": {
+        "access": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          }
+        },
+        "description": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "owners": {
+          "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "comma_pattern_ngram"
+            }
+          },
+          "analyzer": "comma_pattern"
+        },
+        "title": {
+          "type": "keyword",
+          "fields": {
+            "delimited": {
+              "type": "text",
+              "analyzer": "delimit"
+            },
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          },
+          "normalizer": "custom_normalizer"
+        },
+        "tool": {
+          "type": "keyword",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          }
+        },
+        "urn": {
+          "type": "keyword",
+          "normalizer": "custom_normalizer"
+        }
+      }
+    }
+  }
+}

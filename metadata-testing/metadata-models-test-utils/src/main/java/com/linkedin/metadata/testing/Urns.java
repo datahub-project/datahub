@@ -1,8 +1,10 @@
 package com.linkedin.metadata.testing;
 
 import com.linkedin.common.FabricType;
+import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -39,5 +41,15 @@ public final class Urns {
   @Nonnull
   public static DataProcessUrn makeDataProcessUrn(@Nonnull String name) {
     return new DataProcessUrn("Azure Data Factory", name, FabricType.DEV);
+  }
+
+  @Nonnull
+  public static ChartUrn makeChartUrn(@Nonnull String chartId) {
+    return new ChartUrn("looker", chartId);
+  }
+
+  @Nonnull
+  public static DashboardUrn makeDashboardUrn(@Nonnull String dashboardId) {
+    return new DashboardUrn("looker", dashboardId);
   }
 }
