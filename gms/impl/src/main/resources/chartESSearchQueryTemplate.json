@@ -1,0 +1,27 @@
+{
+  "function_score": {
+    "query": {
+      "query_string": {
+        "query": "$INPUT",
+        "fields": [
+          "title^8",
+          "title.delimited^4",
+          "tool^4"
+        ],
+        "default_operator": "and",
+        "analyzer": "standard"
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "removed": false
+          }
+        },
+        "weight": 2
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

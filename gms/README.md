@@ -54,6 +54,16 @@ curl 'http://localhost:8080/corpGroups?action=ingest' -X POST -H 'X-RestLi-Proto
 curl 'http://localhost:8080/datasets?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects":[{"com.linkedin.common.Ownership":{"owners":[{"owner":"urn:li:corpuser:fbar","type":"DATAOWNER"}],"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"}}},{"com.linkedin.dataset.UpstreamLineage":{"upstreams":[{"auditStamp":{"time":0,"actor":"urn:li:corpuser:fbar"},"dataset":"urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)","type":"TRANSFORMED"}]}},{"com.linkedin.common.InstitutionalMemory":{"elements":[{"url":"https://www.linkedin.com","description":"Sample doc","createStamp":{"time":0,"actor":"urn:li:corpuser:fbar"}}]}},{"com.linkedin.schema.SchemaMetadata":{"schemaName":"FooEvent","platform":"urn:li:dataPlatform:foo","version":0,"created":{"time":0,"actor":"urn:li:corpuser:fbar"},"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"},"hash":"","platformSchema":{"com.linkedin.schema.KafkaSchema":{"documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"}},"fields":[{"fieldPath":"foo","description":"Bar","nativeDataType":"string","type":{"type":{"com.linkedin.schema.StringType":{}}}}]}}],"urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"}}'
 ```
 
+### Create chart
+```
+curl 'http://localhost:8080/charts?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot":{"aspects":[{"com.linkedin.chart.ChartInfo":{"title":"Baz Chart 1","description":"Baz Chart 1","inputs":[{"string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"}],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:chart:(looker,baz1)"}}'
+```
+
+### Create dashboards
+```
+curl 'http://localhost:8080/dashboards?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot":{"aspects":[{"com.linkedin.dashboard.DashboardInfo":{"title":"Baz Dashboard","description":"Baz Dashboard","charts":["urn:li:chart:(looker,baz1)","urn:li:chart:(looker,baz2)"],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:dashboard:(looker,baz)"}}'
+```
+
 ### Get user
 ```
 curl 'http://localhost:8080/corpUsers/($params:(),name:fbar)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
@@ -166,6 +176,60 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://loca
     ]
   },
   "platform": "urn:li:dataPlatform:foo"
+}
+```
+
+### Get chart
+```
+curl 'http://localhost:8080/charts/($params:(),tool:looker,chartId:baz1)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "chartId": "baz1",
+  "tool": "looker",
+  "info": {
+    "description": "Baz Chart 1",
+    "lastModified": {
+      "created": {
+        "actor": "urn:li:corpuser:jdoe",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:datahub",
+        "time": 0
+      }
+    },
+    "title": "Baz Chart 1",
+    "inputs": [
+      {
+        "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+      }
+    ]
+  }
+}
+```
+
+### Get dashboard
+```
+curl 'http://localhost:8080/dashboards/($params:(),tool:looker,dashboardId:foo)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "dashboardId": "foo",
+  "tool": "looker",
+  "info": {
+    "description": "Foo Dashboard",
+    "charts": [],
+    "lastModified": {
+      "created": {
+        "actor": "urn:li:corpuser:jdoe",
+        "time": 0
+      },
+      "lastModified": {
+        "actor": "urn:li:corpuser:jdoe",
+        "time": 0
+      }
+    },
+    "title": "Foo Dashboard"
+  }
 }
 ```
 
@@ -313,6 +377,61 @@ curl "http://localhost:8080/datasets?q=search&input=bar" -X GET -H 'X-RestLi-Pro
     "total": 1,
     "count": 10,
     "start": 0,
+    "links": []
+  }
+}
+```
+
+### Search dashboards
+```
+curl "http://localhost:8080/dashboards?q=search&input=looker" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+
+{
+  "metadata": {
+    "urns": [
+      "urn:li:dashboard:(looker,baz)"
+    ],
+    "searchResultMetadatas": [
+      {
+        "name": "tool",
+        "aggregations": {
+          "looker": 1
+        }
+      },
+      {
+        "name": "access",
+        "aggregations": {}
+      }
+    ]
+  },
+  "elements": [
+    {
+      "dashboardId": "baz",
+      "tool": "looker",
+      "info": {
+        "description": "Baz Dashboard",
+        "charts": [
+          "urn:li:chart:(looker,baz1)",
+          "urn:li:chart:(looker,baz2)"
+        ],
+        "lastModified": {
+          "created": {
+            "actor": "urn:li:corpuser:jdoe",
+            "time": 0
+          },
+          "lastModified": {
+            "actor": "urn:li:corpuser:datahub",
+            "time": 0
+          }
+        },
+        "title": "Baz Dashboard"
+      }
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "total": 1,
     "links": []
   }
 }

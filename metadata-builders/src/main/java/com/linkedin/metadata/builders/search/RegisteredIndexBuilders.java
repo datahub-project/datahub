@@ -15,7 +15,9 @@ public class RegisteredIndexBuilders {
   public static final Set<BaseIndexBuilder> REGISTERED_INDEX_BUILDERS =
       Collections.unmodifiableSet(new HashSet<BaseIndexBuilder>() {
         {
+          add(new ChartIndexBuilder());
           add(new CorpUserInfoIndexBuilder());
+          add(new DashboardIndexBuilder());
           add(new DataProcessIndexBuilder());
           add(new DatasetIndexBuilder());
         }

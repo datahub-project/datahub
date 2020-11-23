@@ -28,7 +28,7 @@ record ChartInfo {
   /**
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
-  chartUrl: Url
+  chartUrl: optional Url
 
   /**
    * Data sources for the chart
