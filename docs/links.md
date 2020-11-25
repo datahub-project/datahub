@@ -16,6 +16,7 @@
 * [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
 * [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
 * [Almost Everything You Need To Know on Data Discovery Platforms](https://eugeneyan.com/writing/data-discovery-platforms/)
+* [Creating Notebook-based Dynamic Dashboards](https://towardsdatascience.com/creating-notebook-based-dynamic-dashboards-91f936adc6f3)
 
 # Talks & Presentations
 * [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
