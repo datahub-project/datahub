@@ -71,7 +71,11 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-Coming soon!
+- Quick intro - 5 mins
+- Why did Grofers choose DataHub for their data catalog? by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- DataHub UI development - Part 2 by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 minutes
 
 # Past Meetings
 
