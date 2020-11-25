@@ -39,6 +39,8 @@ python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs
 
 ## Sample API Calls
 
+> As GMS uses [Rest.li 2.0 protocol](https://linkedin.github.io/rest.li/spec/protocol), please make sure to add `-H 'X-RestLi-Protocol-Version:2.0.0'` to all curl calls
+
 ### Create user
 ```
 curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects": [{"com.linkedin.identity.CorpUserInfo":{"active": true, "displayName": "Foo Bar", "fullName": "Foo Bar", "email": "fbar@linkedin.com"}}, {"com.linkedin.identity.CorpUserEditableInfo":{}}], "urn": "urn:li:corpuser:fbar"}}'
