@@ -17,7 +17,6 @@ CONTAINERS="\
 	schema-registry \
 	schema-registry-ui \
 	zookeeper \
-
 "
 
 for CONTAINER in "$CONTAINERS"; do
