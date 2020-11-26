@@ -170,6 +170,9 @@ ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI 
 ### `failed to register layer: devmapper: Unknown device`
 This most means that you're out of disk space (see [#1879](https://github.com/linkedin/datahub/issues/1879)).
 
+### `ERROR: for kafka-rest-proxy  Get https://registry-1.docker.io/v2/confluentinc/cp-kafka-rest/manifests/5.4.0: EOF`
+This is most likely a transient issue with [Docker Registry](https://docs.docker.com/registry/). Retry again later.
+
 ## toomanyrequests: too many failed login attempts for username or IP address
 Try the following
 ```bash
