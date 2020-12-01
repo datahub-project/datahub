@@ -190,8 +190,7 @@
             "keyword": {
               "type": "keyword"
             }
-          },
-
+          }
         },
         "hasOwners": {
           "type": "boolean"
