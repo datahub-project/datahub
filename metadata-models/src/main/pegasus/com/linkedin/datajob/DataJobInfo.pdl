@@ -1,0 +1,25 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.datajob.azkaban.AzkabanJobType
+
+
+/**
+ * Information about a Data processing job
+ */
+record DataJobInfo {
+
+  /**
+   * Job name
+   */
+  name: string
+
+  /**
+   * Job description
+   */
+  description: optional string
+
+  /**
+   * Datajob type
+   */
+  type: union[AzkabanJobType]
+}
