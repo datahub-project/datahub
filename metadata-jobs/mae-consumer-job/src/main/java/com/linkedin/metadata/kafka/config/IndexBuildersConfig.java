@@ -30,7 +30,7 @@ public class IndexBuildersConfig {
   private int gmsPort;
 
   @Bean
-  public Set<BaseIndexBuilder<? extends RecordTemplate>> getIndexBuilders(@Nonnull Client restliClient) {
+  public Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders(@Nonnull Client restliClient) {
     log.debug("restli client {}", restliClient);
     final Set<BaseIndexBuilder<? extends RecordTemplate>> builders = new HashSet<>();
     builders.add(new CorpGroupIndexBuilder());
@@ -42,7 +42,7 @@ public class IndexBuildersConfig {
   }
 
   @Bean
-  public Client remoteReaderDAO() {
+  public Client restliClient() {
     return DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
   }
 }
