@@ -17,7 +17,6 @@ import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,11 +49,11 @@ public class MetadataAuditEventsProcessor {
     this.snapshotProcessor = snapshotProcessor;
     this.graphWriterDAO = graphWriterDAO;
     this.indexBuilders = indexBuilders;
-    log.debug("registered index builders {}", indexBuilders);
+    log.info("registered index builders {}", indexBuilders);
   }
 
   @KafkaListener(id = "mae-consumer-job-client", topics = "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}")
-  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) throws URISyntaxException {
+  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
 
