@@ -19,6 +19,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 
+/**
+ * Configurations for search index builders
+ */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -29,6 +32,10 @@ public class IndexBuildersConfig {
   @Value("${GMS_PORT:8080}")
   private int gmsPort;
 
+  /**
+   * Registered index builders powering GMA search
+   * @param restliClient Rest.li client to interact with GMS
+   */
   @Bean
   public Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders(@Nonnull Client restliClient) {
     log.debug("restli client {}", restliClient);
@@ -41,6 +48,9 @@ public class IndexBuildersConfig {
     return builders;
   }
 
+  /**
+   * Rest.li client to interact with GMS
+   */
   @Bean
   public Client restliClient() {
     return DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
