@@ -1,6 +1,25 @@
 apply plugin: 'java'
 apply plugin: 'pegasus'
 
+sourceSets {
+  integTest {
+    compileClasspath += sourceSets.main.output
+    runtimeClasspath += sourceSets.main.output
+  }
+}
+
+idea{
+  module {
+    testSourceDirs += file('src/integTest/java')
+    scopes.TEST.plus += [ configurations.integTestCompile ]
+  }
+}
+
+configurations {
+  integTestImplementation.extendsFrom implementation
+  integTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 dependencies {
   compile project(':gms:api')
   compile project(path: ':gms:api', configuration: 'dataTemplate')
@@ -21,7 +40,26 @@ dependencies {
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+
+  integTestImplementation externalDependency.junitJupiterApi
+  integTestRuntimeOnly externalDependency.junitJupiterEngine
+
+  integTestCompile externalDependency.gmaElasticsearchIntegTest
+  integTestCompile externalDependency.junitJupiterApi
+  integTestCompile externalDependency.junitJupiterParams
 }
+
+task integrationTest(type: Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integTest.output.classesDirs
+  classpath = sourceSets.integTest.runtimeClasspath
+  shouldRunAfter test
+}
+
+check.dependsOn integrationTest
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

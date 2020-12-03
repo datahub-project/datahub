@@ -118,7 +118,8 @@ services:
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     build:
-      context: elasticsearch-setup
+      context: ../
+      dockerfile: docker/elasticsearch-setup/Dockerfile
     env_file: elasticsearch-setup/env/docker.env
     hostname: elasticsearch-setup
     container_name: elasticsearch-setup
