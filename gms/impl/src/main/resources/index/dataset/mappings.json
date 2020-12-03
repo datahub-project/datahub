@@ -1,0 +1,98 @@
+{
+  "properties": {
+    "browsePaths": {
+      "type": "text",
+      "fields": {
+        "length": {
+          "type": "token_count",
+          "analyzer": "slash_pattern"
+        }
+      },
+      "analyzer": "custom_browse_slash",
+      "fielddata": true
+    },
+    "origin": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      },
+      "normalizer": "my_normalizer"
+    },
+    "deprecated": {
+      "type": "boolean"
+    },
+    "description": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
+    "hasOwners": {
+      "type": "boolean"
+    },
+    "hasSchema": {
+      "type": "boolean"
+    },
+    "name": {
+      "type": "keyword",
+      "fields": {
+        "dataset_pattern_ngram": {
+          "type": "text",
+          "analyzer": "dataset_pattern_ngram"
+        },
+        "delimited": {
+          "type": "text",
+          "analyzer": "delimit"
+        },
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        },
+        "pattern": {
+          "type": "text",
+          "analyzer": "dataset_pattern"
+        }
+      },
+      "normalizer": "my_normalizer"
+    },
+    "num_downstream_datasets": {
+      "type": "long"
+    },
+    "owners": {
+      "type": "text",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "comma_pattern_ngram"
+        }
+      },
+      "analyzer": "comma_pattern"
+    },
+    "platform": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      },
+      "normalizer": "my_normalizer"
+    },
+    "removed": {
+      "type": "boolean"
+    },
+    "urn": {
+      "type": "keyword",
+      "normalizer": "my_normalizer"
+    },
+    "upstreams": {
+      "type": "keyword",
+      "normalizer": "my_normalizer"
+    }
+  }
+}
