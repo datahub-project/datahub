@@ -49,3 +49,10 @@ java -jar  metadata-ingestion-examples/mce-cli/build/libs/mce-cli.jar -m produce
 
 Where `my-file.json` is some file that contains a
 [MetadataChangEvents](./src/main/pegasus/com/linkedin/metadata/examples/cli/MetadataChangeEvents.pdl) JSON object.
+
+### Producing the Example Events with Docker
+
+We have some example events in the `example-bootstrap.json` file, which can be invoked via the above example or in a
+docker environment using `docker/ingestion/ingestion.sh`. We also have a developer image
+(`docker/ingestion/ingestion-dev.sh`) which uses your locally built jar rather than building on the docker image itself,
+which may be faster if you have already built code locally.
