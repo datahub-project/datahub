@@ -20,33 +20,26 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class SnapshotProcessor {
 
-  // Set of document index builders that are interested in parsing the snapshot
-  private final Set<? extends BaseIndexBuilder> _registeredBuilders;
+  /**
+   * Mapping of metadata snapshot type to the list of document index builders that subscribe to it.
+   */
+  private final Map<String, List<BaseIndexBuilder<?>>> _snapshotTypeToIndexBuilders;
 
   /**
    * Constructor.
    *
-   * @param registerdBuilders Set of document index builders who are interested in parsing metadata snapshot
+   * @param builders Set of document index builders who are interested in parsing metadata snapshot
    */
-  public SnapshotProcessor(@Nonnull Set<? extends BaseIndexBuilder> registerdBuilders) {
-    _registeredBuilders = registerdBuilders;
-  }
+  public SnapshotProcessor(@Nonnull Set<? extends BaseIndexBuilder> builders) {
+    _snapshotTypeToIndexBuilders = new HashMap<>();
 
-  /**
-   * Constructs mapping of metadata snapshot type to the list of document index builders that subscribe to it.
-   */
-  @Nonnull
-  private Map<String, List<Class<? extends BaseIndexBuilder>>> getSnapshotBuildersMap() {
-    Map<String, List<Class<? extends BaseIndexBuilder>>> snapshotBuilderMap = new HashMap<>();
-    for (BaseIndexBuilder builder : _registeredBuilders) {
-      @SuppressWarnings("unchecked")
+    for (BaseIndexBuilder<?> builder : builders) {
       List<Class<? extends RecordTemplate>> snapshotsSubscribed = builder._snapshotsInterested;
       snapshotsSubscribed.forEach(snapshot -> {
-        snapshotBuilderMap.putIfAbsent(snapshot.getName(), new ArrayList<>());
-        snapshotBuilderMap.get(snapshot.getName()).add(builder.getClass());
+        _snapshotTypeToIndexBuilders.putIfAbsent(snapshot.getName(), new ArrayList<>());
+        _snapshotTypeToIndexBuilders.get(snapshot.getName()).add(builder);
       });
     }
-    return snapshotBuilderMap;
   }
 
   /**
@@ -69,21 +62,18 @@ public final class SnapshotProcessor {
    */
   @Nonnull
   public List<RecordTemplate> getDocumentsToUpdate(@Nonnull Snapshot snapshot) {
-    Map<String, List<Class<? extends BaseIndexBuilder>>> snapshotBuilderMap = getSnapshotBuildersMap();
-    List<RecordTemplate> docsList = new ArrayList<>();
-    DataMap snapshotData = (DataMap) snapshot.data();
+    final List<RecordTemplate> docsList = new ArrayList<>();
+    final DataMap snapshotData = (DataMap) snapshot.data();
     for (String clazz : snapshotData.keySet()) {
       Class<? extends RecordTemplate> snapshotClass = ModelUtils.getMetadataSnapshotClassFromName(clazz);
-      if (!snapshotBuilderMap.containsKey(clazz)) {
+      if (!_snapshotTypeToIndexBuilders.containsKey(clazz)) {
         continue;
       }
-      List<Class<? extends BaseIndexBuilder>> builders = snapshotBuilderMap.get(clazz);
-      for (Class<? extends BaseIndexBuilder> builderClass : builders) {
+      final List<? extends BaseIndexBuilder<?>> builders = _snapshotTypeToIndexBuilders.get(clazz);
+      for (BaseIndexBuilder<?> builder : builders) {
         try {
-          Object obj = snapshotClass.getConstructor(DataMap.class).newInstance((DataMap) snapshotData.get(clazz));
-          @SuppressWarnings("unchecked")
-          List<? extends RecordTemplate> records =
-              builderClass.getConstructor().newInstance().getDocumentsToUpdate((RecordTemplate) obj);
+          final Object obj = snapshotClass.getConstructor(DataMap.class).newInstance((DataMap) snapshotData.get(clazz));
+          List<? extends RecordTemplate> records = builder.getDocumentsToUpdate((RecordTemplate) obj);
           docsList.addAll(records);
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
           log.error("Failed to get documents due to error ", e);
