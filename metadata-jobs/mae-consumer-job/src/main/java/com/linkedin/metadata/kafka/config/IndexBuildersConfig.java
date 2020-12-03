@@ -34,6 +34,7 @@ public class IndexBuildersConfig {
 
   /**
    * Registered index builders powering GMA search
+   *
    * @param restliClient Rest.li client to interact with GMS
    */
   @Bean
