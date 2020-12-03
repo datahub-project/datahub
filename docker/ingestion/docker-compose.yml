@@ -3,6 +3,7 @@ version: '3.5'
 services:
   ingestion:
     image: datahub-ingestion
+    env_file: env/docker.env
     build:
       context: ../../
       dockerfile: docker/ingestion/Dockerfile
