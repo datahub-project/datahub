@@ -4,6 +4,7 @@ dependencies {
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaDaoApiDataTemplate
   compile project(':metadata-models')
+  compile project(':metadata-dao-impl:restli-dao')
 
   compileOnly externalDependency.lombok
   compileOnly externalDependency.findbugsAnnotations
