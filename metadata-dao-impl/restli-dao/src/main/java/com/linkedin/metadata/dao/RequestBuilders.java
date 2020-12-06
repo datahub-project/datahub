@@ -24,6 +24,7 @@ public class RequestBuilders {
           add(new DashboardActionRequestBuilder());
           add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
+          add(new DataPlatformActionRequestBuilder());
         }
       });
 

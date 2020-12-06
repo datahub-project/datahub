@@ -16,6 +16,18 @@
       "method" : "get_all",
       "pagingSupported" : true
     } ],
+    "actions" : [ {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.DataPlatformSnapshot"
+    } ],
     "entity" : {
       "path" : "/dataPlatforms/{platformName}"
     }
