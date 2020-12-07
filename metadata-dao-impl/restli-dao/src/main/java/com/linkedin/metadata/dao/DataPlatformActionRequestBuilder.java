@@ -1,4 +1,3 @@
-
 package com.linkedin.metadata.dao;
 
 import com.linkedin.common.urn.DataPlatformUrn;
