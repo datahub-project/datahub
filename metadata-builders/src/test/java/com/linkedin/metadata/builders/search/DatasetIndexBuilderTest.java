@@ -49,11 +49,11 @@ import static org.assertj.core.api.Assertions.*;
 
 public class DatasetIndexBuilderTest {
 
-  public static final String DATASET_BAR = "/bar";
-  public static final String PLATFORM_FOO = "foo";
+  private static final String DATASET_BAR = "/bar";
+  private static final String PLATFORM_FOO = "foo";
+
   @Mock
   private RestClient mockRestClient;
-
   @Mock
   private RestliRemoteDAO<DataPlatformSnapshot, DataPlatformAspect, DataPlatformUrn> dataPlatformDAO;
 

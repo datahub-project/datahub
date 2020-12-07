@@ -5,7 +5,7 @@ import com.linkedin.metadata.snapshot.DataPlatformSnapshot;
 
 
 /**
- * An action request builder for corp user info entities.
+ * An action request builder for data platform entities.
  */
 public class DataPlatformActionRequestBuilder extends BaseActionRequestBuilder<DataPlatformSnapshot, DataPlatformUrn> {
 
