@@ -119,6 +119,7 @@
       "supports" : [ "get", "get_all" ],
       "methods" : [ {
         "method" : "get",
+        "doc" : "Get data platform",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",

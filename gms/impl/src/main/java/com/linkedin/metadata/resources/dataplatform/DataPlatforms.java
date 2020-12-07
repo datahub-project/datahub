@@ -74,6 +74,7 @@ public class DataPlatforms extends BaseEntityResource<
 
   /**
    * Get the snapshot of data platform
+   *
    * @param urnString data platform urn
    * @param aspectNames list of aspects to be returned. null, when all aspects are to be returned.
    *
