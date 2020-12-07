@@ -29,44 +29,59 @@
     }
   }, {
     "type" : "record",
-    "name" : "DataPlatformInfo",
-    "namespace" : "com.linkedin.dataplatform",
-    "doc" : "Information about a data platform",
+    "name" : "DataPlatform",
+    "namespace" : "com.linkedin.dataPlatforms",
+    "doc" : "Value Class for DataPlatform resource",
     "fields" : [ {
       "name" : "name",
       "type" : "string",
-      "doc" : "Name of the data platform",
-      "validate" : {
-        "strlen" : {
-          "max" : 15
-        }
-      }
+      "doc" : "Name of the data platform"
     }, {
-      "name" : "type",
+      "name" : "dataPlatformInfo",
       "type" : {
-        "type" : "enum",
-        "name" : "PlatformType",
-        "doc" : "Platform types available at LinkedIn",
-        "symbols" : [ "FILE_SYSTEM", "KEY_VALUE_STORE", "MESSAGE_BROKER", "OBJECT_STORE", "OLAP_DATASTORE", "OTHERS", "QUERY_ENGINE", "RELATIONAL_DB", "SEARCH_ENGINE" ],
-        "symbolDocs" : {
-          "FILE_SYSTEM" : "Value for a file system, e.g. hdfs",
-          "KEY_VALUE_STORE" : "Value for a key value store, e.g. espresso, voldemort",
-          "MESSAGE_BROKER" : "Value for a message broker, e.g. kafka",
-          "OBJECT_STORE" : "Value for an object store, e.g. ambry",
-          "OLAP_DATASTORE" : "Value for an OLAP datastore, e.g. pinot",
-          "OTHERS" : "Value for other platforms, e.g salesforce, dovetail",
-          "QUERY_ENGINE" : "Value for a query engine, e.g. presto",
-          "RELATIONAL_DB" : "Value for a relational database, e.g. oracle, mysql",
-          "SEARCH_ENGINE" : "Value for a search engine, e.g seas"
-        }
+        "type" : "record",
+        "name" : "DataPlatformInfo",
+        "namespace" : "com.linkedin.dataplatform",
+        "doc" : "Information about a data platform",
+        "fields" : [ {
+          "name" : "name",
+          "type" : "string",
+          "doc" : "Name of the data platform",
+          "validate" : {
+            "strlen" : {
+              "max" : 15
+            }
+          }
+        }, {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "PlatformType",
+            "doc" : "Platform types available at LinkedIn",
+            "symbols" : [ "FILE_SYSTEM", "KEY_VALUE_STORE", "MESSAGE_BROKER", "OBJECT_STORE", "OLAP_DATASTORE", "OTHERS", "QUERY_ENGINE", "RELATIONAL_DB", "SEARCH_ENGINE" ],
+            "symbolDocs" : {
+              "FILE_SYSTEM" : "Value for a file system, e.g. hdfs",
+              "KEY_VALUE_STORE" : "Value for a key value store, e.g. espresso, voldemort",
+              "MESSAGE_BROKER" : "Value for a message broker, e.g. kafka",
+              "OBJECT_STORE" : "Value for an object store, e.g. ambry",
+              "OLAP_DATASTORE" : "Value for an OLAP datastore, e.g. pinot",
+              "OTHERS" : "Value for other platforms, e.g salesforce, dovetail",
+              "QUERY_ENGINE" : "Value for a query engine, e.g. presto",
+              "RELATIONAL_DB" : "Value for a relational database, e.g. oracle, mysql",
+              "SEARCH_ENGINE" : "Value for a search engine, e.g seas"
+            }
+          },
+          "doc" : "Platform type this data platform describes"
+        }, {
+          "name" : "datasetNameDelimiter",
+          "type" : "string",
+          "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
+        } ]
       },
-      "doc" : "Platform type this data platform describes"
-    }, {
-      "name" : "datasetNameDelimiter",
-      "type" : "string",
-      "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
+      "doc" : "Metadata associated with a dataplatform information",
+      "optional" : true
     } ]
-  }, "com.linkedin.dataplatform.PlatformType", {
+  }, "com.linkedin.dataplatform.DataPlatformInfo", "com.linkedin.dataplatform.PlatformType", {
     "type" : "typeref",
     "name" : "DataPlatformAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -94,7 +109,7 @@
     "name" : "dataPlatforms",
     "namespace" : "com.linkedin.dataplatform",
     "path" : "/dataPlatforms",
-    "schema" : "com.linkedin.dataplatform.DataPlatformInfo",
+    "schema" : "com.linkedin.dataPlatforms.DataPlatform",
     "doc" : "Resource provides information about various data platforms.\n\ngenerated from: com.linkedin.metadata.resources.dataplatform.DataPlatforms",
     "collection" : {
       "identifier" : {
@@ -103,20 +118,28 @@
       },
       "supports" : [ "get", "get_all" ],
       "methods" : [ {
-        "method" : "get"
+        "method" : "get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "doc" : "list of aspects to be retrieved. Null to retrieve all aspects of the dataPlatforms"
+        } ]
       }, {
         "method" : "get_all",
         "pagingSupported" : true
       } ],
       "actions" : [ {
         "name" : "getSnapshot",
+        "doc" : "Get the snapshot of data platform\nService Returns: Snapshot of data platform with the requested aspects.",
         "parameters" : [ {
           "name" : "urn",
-          "type" : "string"
+          "type" : "string",
+          "doc" : "data platform urn"
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "optional" : true
+          "optional" : true,
+          "doc" : "list of aspects to be returned. null, when all aspects are to be returned."
         } ],
         "returns" : "com.linkedin.metadata.snapshot.DataPlatformSnapshot"
       } ],

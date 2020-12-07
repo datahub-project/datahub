@@ -40,18 +40,17 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
     dataPlatformDAO = new RestliRemoteDAO<>(DataPlatformSnapshot.class, DataPlatformAspect.class, restliClient);
   }
 
-  static LoadingCache<DataPlatformUrn, String> delimiterCache =
+  private static final LoadingCache<DataPlatformUrn, String> DELIMITER_CACHE =
       CacheBuilder.newBuilder().maximumSize(1000) // maximum 1000 records in cached
-          .expireAfterWrite(1, TimeUnit.DAYS) // cache expire after one hour since write
+          .expireAfterWrite(1, TimeUnit.DAYS) // cache expire after one day since write
           .build(new CacheLoader<DataPlatformUrn, String>() {
             @Override
-            public String load(@Nonnull DataPlatformUrn platformUrn) throws Exception {
-              log.info(" --> hitting gms to get delimiter for platform .." + platformUrn);
-              String delimiter = dataPlatformDAO.get(DataPlatformInfo.class, platformUrn)
+            public String load(@Nonnull DataPlatformUrn platformUrn) {
+              log.info("checking gms to get delimiter for platform {}", platformUrn);
+
+              return dataPlatformDAO.get(DataPlatformInfo.class, platformUrn)
                   .map(DataPlatformInfo::getDatasetNameDelimiter)
                   .orElse("");
-              return delimiter;
-
             }
           });
 
@@ -62,8 +61,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
     final String platform = urn.getPlatformEntity().getPlatformNameEntity();
     final String dataset = urn.getDatasetNameEntity();
     String browsePath = "/" + dataOrigin + "/" + platform + "/" + dataset;
-    final String delimiter = delimiterCache.get(urn.getPlatformEntity());
-    log.info(" --> delimiter for platform .. " + delimiter);
+    final String delimiter = DELIMITER_CACHE.get(urn.getPlatformEntity());
+    log.debug("delimiter for platform {}, is {} ", urn.getPlatformEntity().getPlatformNameEntity(), delimiter);
     if (!delimiter.isEmpty()) {
       final Character delimiterChar = delimiter.charAt(0);
       if (delimiterChar.equals('/')) {
