@@ -5,7 +5,7 @@ Currently it's held on the first Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - February 5th, 2021 @ 9 AM US Pacific (GMT-7)
+# Coming up - January 15th, 2021 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
