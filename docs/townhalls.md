@@ -5,7 +5,7 @@ Currently it's held on the first Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - December 4th, 2020 @ 9 AM US Pacific (GMT-7)
+# Coming up - January 15th, 2021 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
@@ -71,11 +71,7 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-- Quick intro - 5 mins
-- Why did Grofers choose DataHub for their data catalog? by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
-- DataHub UI development - Part 2 by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
-- General Q&A from sign up sheet, slack, and participants - 15 mins
-- Closing remarks - 5 minutes
+Coming Soon !
 
 # Past Meetings
 

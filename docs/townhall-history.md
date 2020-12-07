@@ -2,6 +2,17 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 12/04/2020
+[Recording](https://linkedin.zoom.us/rec/share/8E7-lFnCi_kQ8OvXR9kW6fn-AjvV8VlqOO2xYR8b5Y_UeWI_ODcKFlxlHqYgBP7j.S-c8C1YMrz7d3Mjq)
+
+Agenda
+
+- Quick intro - 5 mins
+- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub%20at%20Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- [DataHub UI development - Part 2](demo/Town%20Hall%20Presentation%20-%2012-2020%20-%20UI%20Development%20Part%202.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 minutes
+
 ## 11/06/2020
 
 [Recording](https://linkedin.zoom.us/rec/share/0yvjZ2fOzVmD8aaDo3lC59fXivmYG3EnF0U9tMVgKs827595usvSoIhtFUPjZCsU.b915nLRkw6iQlnoD)
