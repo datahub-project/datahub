@@ -20,7 +20,7 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> 📣 Next DataHub town hall meeting on December 4th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on January 15th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
 > - VC link: https://linkedin.zoom.us/j/4698262890
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
