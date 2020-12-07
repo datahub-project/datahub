@@ -43,7 +43,7 @@ public class IndexBuildersConfig {
     final Set<BaseIndexBuilder<? extends RecordTemplate>> builders = new HashSet<>();
     builders.add(new CorpGroupIndexBuilder());
     builders.add(new ChartIndexBuilder());
-    builders.add(new DatasetIndexBuilder());
+    builders.add(new DatasetIndexBuilder(restliClient));
     builders.add(new DataProcessIndexBuilder());
     builders.add(new DashboardIndexBuilder());
     return builders;
