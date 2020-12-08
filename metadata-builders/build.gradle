@@ -6,7 +6,6 @@ dependencies {
   compile project(':metadata-dao-impl:restli-dao')
   compile project(':metadata-models')
 
-
   compileOnly externalDependency.lombok
   compileOnly externalDependency.findbugsAnnotations
 
