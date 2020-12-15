@@ -51,6 +51,13 @@
           "type": "custom",
           "tokenizer": "dataset_pattern"
         },
+        "field_pattern": {
+          "filter": [
+            "lowercase"
+          ],
+          "type": "custom",
+          "tokenizer": "field_pattern"
+        },
         "comma_pattern": {
           "filter": [
             "lowercase"
@@ -102,6 +109,14 @@
           "type": "custom",
           "tokenizer": "dataset_pattern"
         },
+        "field_pattern_ngram": {
+          "filter": [
+            "lowercase",
+            "autocomplete_filter"
+          ],
+          "type": "custom",
+          "tokenizer": "field_pattern"
+        },
         "custom_browse_slash": {
           "filter": [
             "lowercase"
@@ -130,6 +145,10 @@
           "type": "pattern"
         },
         "dataset_pattern": {
+          "pattern": "[./]",
+          "type": "pattern"
+        },
+        "field_pattern": {
           "pattern": "[./]",
           "type": "pattern"
         }
