@@ -60,6 +60,28 @@
       },
       "normalizer": "my_normalizer"
     },
+    "fieldPaths": {
+      "type": "keyword",
+      "fields": {
+        "field_pattern_ngram": {
+          "type": "text",
+          "analyzer": "field_pattern_ngram"
+        },
+        "delimited": {
+          "type": "text",
+          "analyzer": "delimit"
+        },
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        },
+        "pattern": {
+          "type": "text",
+          "analyzer": "field_pattern"
+        }
+      },
+      "normalizer": "my_normalizer"
+    },
     "num_downstream_datasets": {
       "type": "long"
     },
