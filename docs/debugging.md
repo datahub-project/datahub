@@ -188,15 +188,7 @@ docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mys
 ```
 
 ## I've messed up my docker setup. How do I start from scratch?
-1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
+Run the following script to remove all the containers and volumes created during the quickstart tutorial. Note that you'll also lose all the data as a result.
 ```
-docker rm -f $(docker ps -aq)
-```
-2. Drop all DataHub's docker volumes.
-```
-docker volume rm -f $(docker volume ls -f name=datahub_  -q)
-```
-3. Delete DataHub's network
-```
-docker network rm datahub_network
+./docker/nuke.sh
 ```
