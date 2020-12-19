@@ -3,6 +3,8 @@ apply plugin: 'java'
 dependencies {
   compile project(':gms:client')
   compile project(':metadata-utils')
+  compile project(':li-utils')
+
   compile externalDependency.elasticSearchRest
   compile externalDependency.hibernateCore
   compile externalDependency.guava

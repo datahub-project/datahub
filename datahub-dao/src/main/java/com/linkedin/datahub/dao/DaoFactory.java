@@ -1,10 +1,6 @@
 package com.linkedin.datahub.dao;
 
-import com.linkedin.datahub.dao.table.DataPlatformsDao;
-import com.linkedin.datahub.dao.table.DatasetOwnerDao;
-import com.linkedin.datahub.dao.table.DatasetsDao;
-import com.linkedin.datahub.dao.table.GmsDao;
-import com.linkedin.datahub.dao.table.LineageDao;
+import com.linkedin.datahub.dao.table.*;
 import com.linkedin.datahub.dao.view.BrowseDAO;
 import com.linkedin.datahub.dao.view.CorpUserViewDao;
 import com.linkedin.datahub.dao.view.DatasetViewDao;
@@ -21,6 +17,7 @@ public class DaoFactory {
   private static DocumentSearchDao datasetDocumentSearchDao;
   private static DocumentSearchDao corpUserDocumentSearchDao;
   private static CorpUserViewDao corpUserViewDao;
+  private static CorpUsersDao corpUsersDao;
   private static BrowseDAO datasetBrowseDao;
   private static OwnerViewDao ownerViewDao;
   private static DatasetViewDao datasetViewDao;
@@ -52,6 +49,13 @@ public class DaoFactory {
       corpUserDocumentSearchDao = new DocumentSearchDao<>(getGmsDao().get_corpUsers());
     }
     return corpUserDocumentSearchDao;
+  }
+
+  public static CorpUsersDao getCorpUsersDao() {
+    if (corpUsersDao == null) {
+      corpUsersDao = new CorpUsersDao(getGmsDao().get_corpUsers());
+    }
+    return corpUsersDao;
   }
 
   public static BrowseDAO getDatasetBrowseDAO() {
@@ -92,7 +96,7 @@ public class DaoFactory {
 
   public static DatasetsDao getDatasetsDao() {
     if (datasetsDao == null) {
-      datasetsDao = new DatasetsDao(getGmsDao().get_ownerships());
+      datasetsDao = new DatasetsDao(getGmsDao().get_datasets(), getGmsDao().get_ownerships());
     }
     return datasetsDao;
   }

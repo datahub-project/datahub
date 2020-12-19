@@ -170,6 +170,7 @@ public class Application extends Controller {
    */
   @Nonnull
 
+  // What is this good for??
   private ObjectNode wikiLinks() {
     final ObjectNode wikiLinks = Json.newObject();
     wikiLinks.put("appHelp", _config.getString("links.wiki.appHelp"));

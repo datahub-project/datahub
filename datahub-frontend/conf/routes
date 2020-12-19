@@ -16,7 +16,7 @@ GET           /logout                                                         co
 GET           /api/v1/owner/types                                             controllers.api.v1.Dataset.getDatasetOwnerTypes()
 GET           /api/v1/party/employees                                         controllers.api.v1.User.getAllCompanyUsers()
 GET           /api/v1/party/entities                                          controllers.api.v1.User.getAllUserEntities()
-GET           /api/v1/party/groups                                            controllers.api.v1.User.getAllGroups()
+GET           /api/v1/party/employees                                         controllers.api.v1.User.getAllGroups()
 GET           /api/v1/user/me                                                 controllers.api.v1.User.getLoggedInUser()
 
 GET           /api/v2/autocomplete                                            controllers.api.v2.Search.autoComplete()
@@ -37,6 +37,8 @@ GET           /api/v2/datasets/:urn/snapshot                                  co
 GET           /api/v2/datasets/:urn/upstreams                                 controllers.api.v2.Dataset.getDatasetUpstreams(urn: String)
 GET           /api/v2/list/platforms                                          controllers.api.v2.Dataset.getDataPlatforms
 GET           /api/v2/search                                                  controllers.api.v2.Search.search()
+POST          /api/v2/graphql                                                 controllers.api.v2.GraphQLController.execute()
+
 
 GET           /api/*path                                                      controllers.Application.apiNotFound(path)
 POST          /api/*path                                                      controllers.Application.apiNotFound(path)

@@ -333,3 +333,207 @@ You can then make all subsequent calls using the same cookie file to pass the au
 ```
 curl -b cookie.txt "http://localhost:9001/api/v2/search?type=dataset&input=page"
 ```
+
+
+
+"""
+Interface representing a DataHub Entity.
+"""
+interface Entity {
+uri: String!
+}
+
+type PropertyTuple {
+key: String!
+value String
+}
+
+"""
+Dataset Aspect Definitions
+"""
+type OwnershipSource {
+/**
+* The type of the source
+  */
+  type: enum OwnershipSourceType {
+
+    /**
+     * Auditing system or audit logs
+     */
+    AUDIT
+
+    /**
+     * Database, e.g. GRANTS table
+     */
+    DATABASE
+
+    /**
+     * File system, e.g. file/directory owner
+     */
+    FILE_SYSTEM
+
+    /**
+     * Issue tracking system, e.g. Jira
+     */
+    ISSUE_TRACKING_SYSTEM
+
+    /**
+     * Manually provided by a user
+     */
+    MANUAL
+
+    /**
+     * Other ownership-like service, e.g. Nuage, ACL service etc
+     */
+    SERVICE
+
+    /**
+     * SCM system, e.g. GIT, SVN
+     */
+    SOURCE_CONTROL
+
+    /**
+     * Other sources
+     */
+    OTHER
+}
+
+/**
+* A reference URL for the source
+  */
+  url: String
+  }
+
+type Owner {
+/**
+* Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:product:product_name
+*/
+owner: String!
+
+    /**
+    * The type of the ownership
+    */
+    type: enum OwnershipType {
+        /**
+         * A person or group that is in charge of developing the code
+         */
+        DEVELOPER
+
+        /**
+         * A person or group that is owning the data
+         */
+        DATAOWNER
+
+        /**
+         * A person or a group that overseas the operation, e.g. a DBA or SRE.
+         */
+        DELEGATE
+
+        /**
+         * A person, group, or service that produces/generates the data
+         */
+        PRODUCER
+
+        /**
+         * A person, group, or service that consumes the data
+         */
+        CONSUMER
+
+        /**
+         * A person or a group that has direct business interest
+         */
+        STAKEHOLDER
+    }
+
+    /**
+    * Source information for the ownership
+    */
+    source: optional OwnershipSource
+}
+
+type Ownership {
+owners: [Owner]
+
+    actor: String!
+
+    lastModified: Long!
+}
+
+"""
+Dataset Entity Definition
+"""
+type Dataset implements Entity {
+
+    uri: String! // Uri as per DatasetView. Why not URN?
+
+    platform: String!
+
+    nativeName: String!
+
+    fabric: enum FabricType {
+        /**
+         * Designates development fabrics
+         */
+        DEV
+
+        /**
+         * Designates early-integration (staging) fabrics
+         */
+        EI
+
+        /**
+         * Designates production fabrics
+         */
+        PROD
+
+        /**
+         * Designates corporation fabrics
+         */
+        CORP
+    }
+
+    description: String
+
+    platformNativeType: enum PlatformNativeType {
+        /**
+         * Table
+         */
+        TABLE
+
+        /**
+         * View
+         */
+        VIEW
+
+        /**
+         * Directory in file system
+         */
+        DIRECTORY
+
+        /**
+         * Stream
+         */
+        STREAM
+
+        /**
+         * Bucket in key value store
+         */
+        BUCKET
+    }
+
+    tags: [String]!
+
+    properties: [PropertyTuple]
+
+    deprecated: Boolean
+
+    deprecationNote: String
+
+    decommissionTime: Long
+
+    createdTime: Long!
+
+    modifiedTime: Long!
+
+    ownership: Ownership
+}
