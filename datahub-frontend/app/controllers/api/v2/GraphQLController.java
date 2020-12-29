@@ -7,25 +7,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.Ownership;
 import com.linkedin.datahub.dao.DaoFactory;
 import com.typesafe.config.Config;
-import controllers.Secured;
 import graphql.ExecutionResult;
 import graphql.ExecutionInput;
+import graphql.QueryContext;
 import graphql.resolvers.corpuser.ManagerResolver;
-import graphql.resolvers.query.DatasetResolver;
+import graphql.resolvers.mutation.LogInResolver;
+import graphql.resolvers.mutation.UpdateDatasetResolver;
+import graphql.resolvers.query.*;
 import graphql.resolvers.ownership.OwnerResolver;
 import graphql.GraphQL;
+import graphql.resolvers.type.SearchResultTypeResolver;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +38,8 @@ import org.dataloader.BatchLoader;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 import play.api.Environment;
-import play.api.Play;
 import play.mvc.Controller;
 import play.mvc.Result;
-import play.mvc.Security;
 
 import static graphql.Constants.*;
 import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
@@ -53,9 +50,10 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
 public class GraphQLController extends Controller {
 
     private final GraphQL _engine;
+    private final Config _config;
 
     @Inject
-    public GraphQLController(@Nonnull Environment environment) {
+    public GraphQLController(@Nonnull Environment environment, @Nonnull Config config) {
         /*
          * Fetch path to GraphQL Type System Definition
          */
@@ -84,10 +82,10 @@ public class GraphQLController extends Controller {
          * Instantiate engine
          */
         _engine = GraphQL.newGraphQL(graphQLSchema).build();
+        _config = config;
 
     }
 
-    @Security.Authenticated(Secured.class)
     @Nonnull
     public Result execute() {
 
@@ -101,7 +99,6 @@ public class GraphQLController extends Controller {
          */
         JsonNode queryJson = bodyJson.get("query");
         if (queryJson == null) {
-            // Only support "query" currently.
             return badRequest();
         }
 
@@ -120,13 +117,18 @@ public class GraphQLController extends Controller {
         DataLoaderRegistry register = createDataLoaderRegistry();
 
         /*
+         * Init QueryContext
+         */
+        QueryContext context = new QueryContext(session(), _config);
+
+        /*
          * Construct execution input
          */
         ExecutionInput executionInput = ExecutionInput.newExecutionInput()
                 .query(queryJson.asText())
                 .variables(variables)
                 .dataLoaderRegistry(register)
-                // .context(null) --> Add principle context. Since this is read / write application.
+                .context(context)
                 .build();
 
         /*
@@ -157,6 +159,17 @@ public class GraphQLController extends Controller {
              */
             .type(QUERY_TYPE_NAME, typeWiring -> typeWiring
                     .dataFetcher(DATASETS_FIELD_NAME, new DatasetResolver())
+                    .dataFetcher(SEARCH_FIELD_NAME, new SearchResolver())
+                    .dataFetcher(AUTO_COMPLETE_FIELD_NAME, new AutoCompleteResolver())
+                    .dataFetcher(BROWSE_FIELD_NAME, new BrowseResolver())
+                    .dataFetcher(BROWSE_PATHS_FIELD_NAME, new BrowsePathsResolver())
+            )
+            /*
+             * Mutation Type
+             */
+            .type(MUTATION_TYPE_NAME, typeWiring -> typeWiring
+                    .dataFetcher(UPDATE_DATASET_FIELD_NAME, new UpdateDatasetResolver())
+                    .dataFetcher(LOG_IN_FIELD_NAME, new LogInResolver())
             )
             /*
              * Owner Type
@@ -169,6 +182,12 @@ public class GraphQLController extends Controller {
              */
             .type(CORP_USER_TYPE_NAME, typeWiring -> typeWiring
                     .dataFetcher(MANAGER_FIELD_NAME, new ManagerResolver())
+            )
+            /*
+             * Search Result Union Type
+             */
+            .type(SEARCH_RESULT_TYPE_NAME, typeWiring -> typeWiring
+                    .typeResolver(new SearchResultTypeResolver())
             )
             .build();
     }

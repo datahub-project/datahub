@@ -159,7 +159,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
 
   @Override
   @Nonnull
-  protected DatasetSnapshot toSnapshot(@Nonnull Dataset dataset, @Nonnull DatasetUrn datasetUrn) {
+  public DatasetSnapshot toSnapshot(@Nonnull Dataset dataset, @Nonnull DatasetUrn datasetUrn) {
     final List<DatasetAspect> aspects = new ArrayList<>();
     if (dataset.getProperties() != null) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));

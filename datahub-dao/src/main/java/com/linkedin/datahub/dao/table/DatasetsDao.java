@@ -7,6 +7,7 @@ import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.dataset.client.Ownerships;
 import com.linkedin.identity.CorpUser;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
 
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
@@ -14,6 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.util.DatasetUtil.toDatasetUrn;
+import static com.linkedin.datahub.util.DatasetUtil.toSnapshot;
 
 /**
  * Data access object for Datasets and related aspects.
@@ -63,5 +65,11 @@ public class DatasetsDao {
     @Nonnull
     public Ownership getOwnership(@Nonnull String datasetUrn) throws Exception {
         return _ownership.getLatestOwnership(toDatasetUrn(datasetUrn));
+    }
+
+    @Nonnull
+    public void updateDataset(@Nonnull String datasetUrnStr, @Nonnull Dataset partialDataset) throws Exception {
+        DatasetUrn datasetUrn = toDatasetUrn(datasetUrnStr);
+        _datasets.createSnapshot(datasetUrn, toSnapshot(datasetUrn, partialDataset));
     }
 }

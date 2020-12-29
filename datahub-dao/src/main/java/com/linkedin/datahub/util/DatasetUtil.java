@@ -1,13 +1,22 @@
 package com.linkedin.datahub.util;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.models.view.DatasetView;
 import com.linkedin.datahub.models.view.LineageView;
 import com.linkedin.dataset.Dataset;
+import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.metadata.aspect.DatasetAspect;
+import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import org.checkerframework.checker.units.qual.A;
 
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.linkedin.datahub.util.UrnUtil.splitWhUrn;
 
@@ -97,5 +106,53 @@ public class DatasetUtil {
     view.setActor(auditStamp.getActor().toString());
 
     return view;
+  }
+
+  /**
+   * Convert a partial Dataset Pegasus model into a DatasetSnapshot
+   *
+   * Note this was copied from Datasets Resource for reference. We should extract the common
+   * code into a centralized utility.
+   */
+  public static DatasetSnapshot toSnapshot(@Nonnull DatasetUrn datasetUrn, @Nonnull Dataset dataset) {
+    final List<DatasetAspect> aspects = new ArrayList<>();
+    if (dataset.getProperties() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));
+    }
+    if (dataset.getDeprecation() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
+    }
+    if (dataset.getInstitutionalMemory() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getInstitutionalMemory()));
+    }
+    if (dataset.getOwnership() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getOwnership()));
+    }
+    if (dataset.getSchemaMetadata() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getSchemaMetadata()));
+    }
+    if (dataset.getStatus() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getStatus()));
+    }
+    if (dataset.getUpstreamLineage() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getUpstreamLineage()));
+    }
+    if (dataset.hasRemoved()) {
+      aspects.add(DatasetAspect.create(new Status().setRemoved(dataset.isRemoved())));
+    }
+    return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
+  }
+
+  private static DatasetProperties getDatasetPropertiesAspect(@Nonnull Dataset dataset) {
+    final DatasetProperties datasetProperties = new DatasetProperties();
+    datasetProperties.setDescription(dataset.getDescription());
+    datasetProperties.setTags(dataset.getTags());
+    if (dataset.getUri() != null)  {
+      datasetProperties.setUri(dataset.getUri());
+    }
+    if (dataset.getProperties() != null) {
+      datasetProperties.setCustomProperties(dataset.getProperties());
+    }
+    return datasetProperties;
   }
 }

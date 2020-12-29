@@ -12,6 +12,7 @@ import com.linkedin.dataset.DatasetsDoGetSnapshotRequestBuilder;
 import com.linkedin.dataset.DatasetsFindByFilterRequestBuilder;
 import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
 import com.linkedin.dataset.DatasetsRequestBuilders;
+import com.linkedin.metadata.dao.DatasetActionRequestBuilder;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.IndexFilter;
@@ -22,9 +23,12 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import com.sun.corba.se.spi.activation.IIOP_CLEAR_TEXT;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +40,9 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
+
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();
+    private static final DatasetActionRequestBuilder DATASET_ACTION_REQUEST_BUILDERS = new DatasetActionRequestBuilder();
 
     public Datasets(@Nonnull Client restliClient) {
         super(restliClient);
@@ -226,6 +232,14 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
                 entry -> getUrnFromKey(entry.getKey()),
                 entry -> entry.getValue().getEntity())
             );
+    }
+
+    /**
+     * Ingest a new snapshot into GMS
+     */
+    public void createSnapshot(DatasetUrn urn, @Nonnull DatasetSnapshot snapshot) throws RemoteInvocationException {
+        Request request = DATASET_ACTION_REQUEST_BUILDERS.createRequest(urn, snapshot);
+        _client.sendRequest(request).getResponse();
     }
 
     /**

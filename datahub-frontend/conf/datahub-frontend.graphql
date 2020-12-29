@@ -1,9 +1,36 @@
 schema {
     query: Query
+    mutation: Mutation
 }
 
 type Query {
     dataset(urn: String): Dataset
+    search(input: SearchInput!): SearchResults
+    autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+    browse(input: BrowseInput!): BrowseResults
+    browsePaths(input: BrowsePathsInput!): [String]
+}
+
+type Mutation {
+    logIn(username: String!, password: String!): CorpUser
+    updateDataset(input: DatasetUpdateInput!): Dataset
+}
+
+input DatasetUpdateInput {
+   urn: String!
+   ownership: OwnershipUpdate
+}
+
+input OwnershipUpdate {
+   owners: [OwnerUpdate!]
+}
+
+input OwnerUpdate {
+   # The owner URN, eg urn:li:corpuser:1
+   owner: String!
+
+   # The owner role type
+   type: OwnershipType!
 }
 
 enum OwnershipSourceType {
@@ -63,7 +90,7 @@ enum OwnershipType {
 
 type Owner {
     """
-     Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:product:product_name
+     Owner object
     """
     owner: CorpUser!
 
@@ -193,6 +220,8 @@ type CorpUserInfo {
 
 type CorpUserEditableInfo {
 
+    urn: String!
+
     aboutMe: String
 
     teams: [String]
@@ -209,4 +238,99 @@ type CorpUser {
     info: CorpUserInfo
 
     editableInfo: CorpUserEditableInfo
+}
+
+enum EntityType {
+    DATASET
+    USER
+}
+
+# Search Input
+input SearchInput {
+	type: EntityType!
+	query: String!
+	start: Int
+	count: Int
+	filters: [FacetFilterInput]
+}
+
+input FacetFilterInput {
+	field: String! # Facet Field Name
+	value: String! # Facet Value
+}
+
+# Search Output
+type SearchResults {
+    start: Int!
+    count: Int!
+    total: Int!
+    elements: [SearchResult]!
+    facets: [FacetMetadata]
+}
+
+union SearchResult = Dataset | CorpUser
+
+type FacetMetadata {
+    field: String!
+    aggregations: [AggregationMetadata]!
+}
+
+type AggregationMetadata {
+    value: String!
+    count: Long!
+}
+
+# Autocomplete Input
+input AutoCompleteInput {
+	type: EntityType!
+	query: String!
+	field: String! # Field name
+	limit: Int
+	filters: [FacetFilterInput]
+}
+
+# Autocomplete Output
+type AutoCompleteResults {
+	query: String!
+	suggestions: [String]!
+}
+
+# Browse Inputs
+input BrowseInput {
+	type: EntityType!
+	path: String
+	start: Int
+	count: Int
+	filters: [FacetFilterInput]
+}
+
+# Browse Output
+type BrowseResults {
+	entities: [BrowseResultEntity]!
+	start: Int!
+	count: Int!
+	total: Int!
+	metadata: BrowseResultMetadata!
+}
+
+type BrowseResultEntity {
+	name: String!
+	urn: String!
+}
+
+type BrowseResultMetadata {
+	path: String!
+	groups: [BrowseResultGroup]!
+	totalNumEntities: Long!
+}
+
+type BrowseResultGroup {
+  	name: String!
+  	count: Long!
+}
+
+# Browse Paths Input
+input BrowsePathsInput {
+	type: EntityType!
+	urn: String!
 }

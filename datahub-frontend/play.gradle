@@ -13,7 +13,7 @@ configurations {
 }
 
 dependencies {
-  assets project(path: ':datahub-web', configuration: 'assets')
+  // assets project(path: ':datahub-web', configuration: 'assets')
 
   play project(":datahub-dao")
 

@@ -2,7 +2,6 @@ package controllers.api.v2;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.dao.DaoFactory;
 import com.linkedin.datahub.dao.view.DocumentSearchDao;
 import controllers.Secured;
@@ -21,29 +20,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static utils.SearchUtil.*;
 
 public class Search extends Controller {
-  private static final String REQUEST_TYPE = "type";
-  private static final String REQUEST_INPUT = "input";
-  private static final String REQUEST_FIELD = "field";
-  private static final String REQUEST_START = "start";
-  private static final String REQUEST_COUNT = "count";
-  private static final String REQUEST_LIMIT = "limit";
-
-  private static final String CORP_USER_TYPE = "corpuser";
-  private static final String DATASET_TYPE = "dataset";
-
-  private static final Set<String> CORP_USER_FACET_FIELDS = Collections.emptySet();
-  private static final Set<String> DATASET_FACET_FIELDS =
-      ImmutableSet.of("origin", "platform");
-  private static final ImmutableMap<String, Set<String>> FACET_FIELDS = ImmutableMap.of(
-      CORP_USER_TYPE, CORP_USER_FACET_FIELDS,
-      DATASET_TYPE, DATASET_FACET_FIELDS
-  );
-
-  private static final int _DEFAULT_START_VALUE = 0;
-  private static final int _DEFAULT_PAGE_SIZE = 10;
-  private static final int _DEFAULT_LIMIT_VALUE = 20;
 
   private static Map<String, String> buildRequestMap(String type) {
     Map<String, String> requestMap = new HashMap<>();
