@@ -42,7 +42,7 @@ Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy o
 
 ## Source Code and Repositories
 * [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services. We currently follow a hybrid open source model for development in this repository. See [this blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) for details on how we do it. 
-* [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (codenamed GMA). We follow an open-source-first model for development in this repository. 
+* [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA). We follow an open-source-first model for development in this repository. 
 
 ## Documentation
 * [DataHub Developer's Guide](docs/developers.md)
