@@ -14,6 +14,10 @@ If you find a bug:
 
 1. If the issue still reproduces or has not yet been reported, try to isolate the problem before opening an issue.
 
+## Submitting a Request For Comment (RFC)
+
+If you have a substantial feature or a design discussion that you'd like to have with the community follow the RFC process outlined [here](https://github.com/linkedin/datahub/blob/master/docs/rfc.md)
+
 ## Submitting a Pull Request (PR)
 
 Before you submit your Pull Request (PR), consider the following guidelines:
