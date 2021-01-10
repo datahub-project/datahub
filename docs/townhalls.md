@@ -71,7 +71,12 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-Coming Soon !
+* Announcements - 2 mins
+* Community Updates - 10 mins
+* Use-Case: DataHub at ViaSat by Anna Kepler - 15 mins
+* Tech Deep Dive: GraphQL RFCs readout and discussion by John Joyce - 15 mins
+* General Q&A from sign up sheet, slack, and participants - 15 mins
+* Closing remarks - 3 mins
 
 # Past Meetings
 
