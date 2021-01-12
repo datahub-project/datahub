@@ -1,6 +1,11 @@
 package com.linkedin.datahub.dao;
 
-import com.linkedin.datahub.dao.table.*;
+import com.linkedin.datahub.dao.table.CorpUsersDao;
+import com.linkedin.datahub.dao.table.DatasetsDao;
+import com.linkedin.datahub.dao.table.DatasetOwnerDao;
+import com.linkedin.datahub.dao.table.DataPlatformsDao;
+import com.linkedin.datahub.dao.table.LineageDao;
+import com.linkedin.datahub.dao.table.GmsDao;
 import com.linkedin.datahub.dao.view.BrowseDAO;
 import com.linkedin.datahub.dao.view.CorpUserViewDao;
 import com.linkedin.datahub.dao.view.DatasetViewDao;

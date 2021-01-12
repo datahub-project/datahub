@@ -18,6 +18,8 @@ import static com.linkedin.datahub.util.RestliUtil.*;
 
 public class BrowseUtil {
 
+    private BrowseUtil() {}
+
     @Nonnull
     public static JsonNode getJsonFromBrowseResult(@Nonnull BrowseResult browseResult) throws IOException {
         final ObjectNode node = OM.createObjectNode();

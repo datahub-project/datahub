@@ -1,20 +1,18 @@
 package com.linkedin.datahub.dao.table;
 
-import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.datahub.util.CorpUserUtil;
-import com.linkedin.dataset.Dataset;
-import com.linkedin.dataset.client.Datasets;
-import com.linkedin.dataset.client.Ownerships;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.client.CorpUsers;
-import org.apache.avro.generic.GenericData;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 

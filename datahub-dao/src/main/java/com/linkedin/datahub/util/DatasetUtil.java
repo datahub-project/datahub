@@ -3,7 +3,6 @@ package com.linkedin.datahub.util;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.models.view.DatasetView;
 import com.linkedin.datahub.models.view.LineageView;
 import com.linkedin.dataset.Dataset;
@@ -11,7 +10,6 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
-import org.checkerframework.checker.units.qual.A;
 
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;

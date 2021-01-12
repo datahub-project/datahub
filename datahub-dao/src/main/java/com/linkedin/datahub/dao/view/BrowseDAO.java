@@ -16,7 +16,6 @@ import javax.annotation.Nonnull;
 import static com.linkedin.datahub.util.BrowseUtil.getJsonFromBrowseResult;
 import static com.linkedin.datahub.util.BrowseUtil.toGraphQLBrowseResponse;
 import static com.linkedin.datahub.util.RestliUtil.*;
-import static java.util.stream.Collectors.toList;
 
 
 public class BrowseDAO<CLIENT> {

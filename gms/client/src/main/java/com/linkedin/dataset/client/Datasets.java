@@ -27,7 +27,6 @@ import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
-import com.sun.corba.se.spi.activation.IIOP_CLEAR_TEXT;
 
 import java.util.Collections;
 import java.util.List;
