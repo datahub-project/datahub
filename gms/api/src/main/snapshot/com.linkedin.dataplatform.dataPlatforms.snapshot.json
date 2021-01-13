@@ -119,23 +119,24 @@
       "supports" : [ "get", "get_all" ],
       "methods" : [ {
         "method" : "get",
-        "doc" : "Get data platform",
+        "doc" : "Get data platform.",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "doc" : "list of aspects to be retrieved. Null to retrieve all aspects of the dataPlatforms"
+          "doc" : "list of aspects to be retrieved. Null to retrieve all aspects of the dataPlatforms."
         } ]
       }, {
         "method" : "get_all",
+        "doc" : "Get all data platforms.",
         "pagingSupported" : true
       } ],
       "actions" : [ {
         "name" : "getSnapshot",
-        "doc" : "Get the snapshot of data platform\nService Returns: Snapshot of data platform with the requested aspects.",
+        "doc" : "Get the snapshot of data platform.\nService Returns: Snapshot of data platform with the requested aspects.",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string",
-          "doc" : "data platform urn"
+          "doc" : "data platform urn."
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",

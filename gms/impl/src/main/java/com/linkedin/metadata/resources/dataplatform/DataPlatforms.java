@@ -49,12 +49,11 @@ public class DataPlatforms extends BaseEntityResource<
   private BaseLocalDAO<DataPlatformAspect, DataPlatformUrn> _localDAO;
 
   /**
-   * Get data platform
+   * Get data platform.
    *
-   * @param platformName name of the platform
-   * @param aspectNames list of aspects to be retrieved. Null to retrieve all aspects of the dataPlatforms
-   *
-   * @return {@link DataPlatform} data platform value
+   * @param platformName name of the platform.
+   * @param aspectNames list of aspects to be retrieved. Null to retrieve all aspects of the dataPlatforms.
+   * @return {@link DataPlatform} data platform value.
    */
   @Nonnull
   @Override
@@ -64,6 +63,12 @@ public class DataPlatforms extends BaseEntityResource<
     return super.get(platformName, aspectNames);
   }
 
+  /**
+   * Get all data platforms.
+   *
+   * @param pagingContext paging context used for paginating through the results.
+   * @return list of all data platforms.
+   */
   @RestMethod.GetAll
   public Task<List<DataPlatformInfo>> getAllDataPlatforms(
       @Nonnull @PagingContextParam(defaultCount = 100) PagingContext pagingContext) {
@@ -72,11 +77,10 @@ public class DataPlatforms extends BaseEntityResource<
   }
 
   /**
-   * Get the snapshot of data platform
+   * Get the snapshot of data platform.
    *
-   * @param urnString data platform urn
+   * @param urnString data platform urn.
    * @param aspectNames list of aspects to be returned. null, when all aspects are to be returned.
-   *
    * @return snapshot of data platform with the requested aspects.
    */
   @Action(name = ACTION_GET_SNAPSHOT)
