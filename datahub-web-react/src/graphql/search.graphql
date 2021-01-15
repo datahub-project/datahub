@@ -1,0 +1,75 @@
+query getAutoCompleteResults($input: AutoCompleteInput!) {
+    autoComplete(input: $input) {
+        query
+        suggestions
+    }
+}
+
+query getSearchResults($input: SearchInput!) {
+    search(input: $input) {
+        start
+        count
+        total
+        elements {
+            __typename
+            ... on Dataset {
+                urn
+                platform
+                name
+                origin
+                description
+                uri
+                platformNativeType
+                tags
+                properties {
+                    key
+                    value
+                }
+                createdTime
+                modifiedTime
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified
+                }
+            }
+            ... on CorpUser {
+                urn
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    firstName
+                    lastName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+        }
+        facets {
+            field
+            aggregations {
+                value
+                count
+            }
+        }
+    }
+}

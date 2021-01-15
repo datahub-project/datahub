@@ -1,0 +1,24 @@
+overwrite: true
+schema: './datahub-frontend.graphql' # TEMPORARY: This should live in `../datahub-frontend/`
+config:
+    scalars:
+        Long: number
+documents:
+    - 'src/**/*.graphql'
+generates:
+    src/types.generated.ts:
+        plugins:
+            - 'typescript'
+    src/:
+        preset: near-operation-file
+        presetConfig:
+            extension: '.generated.ts'
+            baseTypesPath: types.generated.ts
+        plugins:
+            - 'typescript-operations'
+            - 'typescript-react-apollo'
+            - add:
+                  content: '/* eslint-disable */'
+hooks:
+    afterAllFileWrite:
+        - prettier --write
