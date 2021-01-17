@@ -1,0 +1,75 @@
+apply plugin: 'distribution'
+apply plugin: 'com.github.node-gradle.node'
+
+node {
+
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+  download = true
+
+  // Version of node to use.
+  version = '14.15.3'
+
+  // Version of Yarn to use.
+  yarnVersion = '1.22.0'
+
+  // Base URL for fetching node distributions (change if you have a mirror).
+  distBaseUrl = 'https://nodejs.org/dist'
+
+  // Set the work directory for unpacking node
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+
+  // Set the work directory for NPM
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+
+  // Set the work directory where node_modules should be located
+  nodeModulesDir = file("${project.projectDir}")
+
+}
+
+/*
+  Wrappers around Yarn Tasks.
+ */
+task yarnInstall(type: YarnTask) {
+  args = ['install']
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['run', 'generate']
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'start',  '--proxy', 'http://localhost:9001']
+}
+
+task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'test', '--watchAll', 'false']
+}
+
+task yarnBuild(type: YarnTask, dependsOn: yarnTest) {
+  args = ['run', 'build']
+}
+
+clean {
+  delete 'node_modules'
+  delete 'dist'
+  delete 'tmp'
+  delete 'build'
+  delete 'just'
+}
+
+configurations {
+  assets
+}
+
+distZip {
+  dependsOn yarnBuild
+  baseName 'datahub-web-react'
+  from 'dist'
+}
+
+if (!gradle.startParameter.taskNames.any { it in ["idea"] }) {
+  artifacts {
+    assets distZip
+  }
+}
