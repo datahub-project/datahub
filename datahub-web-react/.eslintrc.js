@@ -27,9 +27,14 @@ module.exports = {
         'require-await': 'warn',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         'react/jsx-props-no-spreading': 'off',
-        '@typescript-eslint/no-unused-vars': ['error', {
-            varsIgnorePattern: '^_',
-            argsIgnorePattern: '^_' }],
+        'no-plusplus': 'off',
+        '@typescript-eslint/no-unused-vars': [
+            'error',
+            {
+                varsIgnorePattern: '^_',
+                argsIgnorePattern: '^_',
+            },
+        ],
     },
     settings: {
         react: {

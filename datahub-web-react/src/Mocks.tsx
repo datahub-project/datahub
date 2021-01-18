@@ -2,6 +2,7 @@ import { GetDatasetDocument } from './graphql/dataset.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import { GetAutoCompleteResultsDocument, GetSearchResultsDocument } from './graphql/search.generated';
 import { LoginDocument } from './graphql/auth.generated';
+import { GetUserDocument } from './graphql/user.generated';
 
 const user1 = {
     username: 'sdas',
@@ -165,6 +166,21 @@ export const mocks = [
     },
     {
         request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:1',
+            },
+        },
+        result: {
+            data: {
+                dataset: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetBrowsePathsDocument,
             variables: {
                 input: {
@@ -185,9 +201,10 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'DATASET',
-                    path: ['prod', 'hdfs'],
+                    path: [],
                     start: 0,
-                    count: 10,
+                    count: 20,
+                    filters: null,
                 },
             },
         },
@@ -197,7 +214,7 @@ export const mocks = [
                     entities: [
                         {
                             urn: 'urn:li:dataset:1',
-                            name: 'Test Dataset',
+                            name: 'The Great Test Dataset',
                         },
                     ],
                     start: 0,
@@ -228,6 +245,26 @@ export const mocks = [
                 autoComplete: {
                     query: 't',
                     suggestions: ['The Great Test Dataset', 'Some other test'],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetAutoCompleteResultsDocument,
+            variables: {
+                input: {
+                    type: 'USER',
+                    query: 'j',
+                    field: 'ldap',
+                },
+            },
+        },
+        result: {
+            data: {
+                autoComplete: {
+                    query: 'j',
+                    suggestions: ['jjoyce'],
                 },
             },
         },

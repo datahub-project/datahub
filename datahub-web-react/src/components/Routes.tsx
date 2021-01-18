@@ -31,6 +31,7 @@ export const Routes = (): JSX.Element => {
     return (
         <div>
             <Switch>
+                <Route exact path="/" render={() => <BrowsePage />} />
                 <Route path={PageRoutes.LOG_IN} component={LogIn} />
                 <ProtectedRoute
                     isLoggedIn={isLoggedIn}
@@ -38,7 +39,7 @@ export const Routes = (): JSX.Element => {
                     render={() => <DatasetPage />}
                 />
                 <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.SEARCH} render={() => <SearchPage />} />
-                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.BROWSE} render={() => BrowsePage} />
+                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.BROWSE} render={() => <BrowsePage />} />
                 <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.USERS} render={() => <UserPage />} />
                 <Route component={NoPageFound} />
             </Switch>
