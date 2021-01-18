@@ -59,7 +59,7 @@ export const BrowseResults = ({
                                         <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0073b1' }}>
                                             {result.name}
                                         </div>
-                                        <div>{result.count && `${result.count}}`}</div>
+                                        <div>{result.count && `${result.count}`}</div>
                                     </Button>
                                 </li>
                             ))}

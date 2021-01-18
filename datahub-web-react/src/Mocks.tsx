@@ -211,10 +211,78 @@ export const mocks = [
         result: {
             data: {
                 browse: {
+                    entities: [],
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    metadata: {
+                        path: [],
+                        groups: [
+                            {
+                                name: 'prod',
+                                count: 1,
+                            },
+                        ],
+                        totalNumEntities: 1,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    path: ['prod'],
+                    start: 0,
+                    count: 20,
+                    filters: null,
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
+                    entities: [],
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    metadata: {
+                        path: ['prod'],
+                        groups: [
+                            {
+                                name: 'hdfs',
+                                count: 1,
+                            },
+                        ],
+                        totalNumEntities: 1,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    path: ['prod', 'hdfs'],
+                    start: 0,
+                    count: 20,
+                    filters: null,
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
                     entities: [
                         {
-                            urn: 'urn:li:dataset:1',
                             name: 'The Great Test Dataset',
+                            urn: 'urn:li:dataset:1',
                         },
                     ],
                     start: 0,
