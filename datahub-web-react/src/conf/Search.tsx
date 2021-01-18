@@ -7,6 +7,7 @@ export const SEARCHABLE_ENTITY_TYPES = [EntityType.Dataset, EntityType.User];
 
 /*
     Default AutoComplete field by entity. Required if autocomplete is desired on a SEARCHABLE_ENTITY_TYPE.
+    Note that we need to consider this further, because in some cases fields may differ: eg. ldap vs name search for Users. 
 */
 export const getAutoCompleteFieldName = (type: EntityType) => {
     switch (type) {

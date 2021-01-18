@@ -71,7 +71,7 @@ export const DatasetPage: React.VFC = () => {
                 path: TabType.Ownership.toLowerCase(),
                 content: (
                     <OwnershipView
-                        owners={(ownership && ownership.owners) || []}
+                        initialOwners={(ownership && ownership.owners) || []}
                         lastModifiedAt={ownership && ownership.lastModified}
                     />
                 ),
