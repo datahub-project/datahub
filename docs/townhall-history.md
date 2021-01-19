@@ -2,6 +2,22 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 1/15/2021
+[Full Recording](https://youtu.be/r862MZTLAJ0)
+
+[Slide-deck](https://docs.google.com/presentation/d/e/2PACX-1vQ2B0iHb2uwege1wlkXHOgQer0myOMEE5EGnzRjyqw0xxS5SaAc8VMZ_1XVOHuTZCJYzZZW4i9YnzSN/pub?start=false&loop=false&delayms=3000)
+
+Agenda
+
+- Announcements - 2 mins
+- Community Updates ([video](https://youtu.be/r862MZTLAJ0?t=99)) - 10 mins
+- Use-Case: DataHub at Viasat ([slides](demo/ViasatMetadataJourney.pdf),[video](https://youtu.be/2SrDAJnzkjE)) by [Anna Kepler](https://www.linkedin.com/in/akepler) - 15 mins
+- Tech Deep Dive: GraphQL + React RFCs readout and discussion ([slides](https://docs.google.com/presentation/d/e/2PACX-1vRtnINnpi6PvFw7-5iW8PSQoT9Kdf1O_0YW7QAr1_mSdJMNftYFTVCjKL-e3fpe8t6IGkha8UpdmoOI/pub?start=false&loop=false&delayms=3000) ,[video](https://www.youtube.com/watch?v=PrBaFrb7pqA)) by [John Joyce](https://www.linkedin.com/in/john-joyce-759883aa) and [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) - 15 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 3 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 minutes
+
 ## 12/04/2020
 [Recording](https://linkedin.zoom.us/rec/share/8E7-lFnCi_kQ8OvXR9kW6fn-AjvV8VlqOO2xYR8b5Y_UeWI_ODcKFlxlHqYgBP7j.S-c8C1YMrz7d3Mjq)
 
