@@ -5,7 +5,7 @@ Currently it's held on the third Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - January 15th, 2021 @ 9 AM US Pacific (GMT-7)
+# Coming up - February 19th, 2021 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
@@ -71,12 +71,7 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-* Announcements - 2 mins
-* Community Updates - 10 mins
-* Use-Case: DataHub at ViaSat by Anna Kepler - 15 mins
-* Tech Deep Dive: GraphQL RFCs readout and discussion by John Joyce - 15 mins
-* General Q&A from sign up sheet, slack, and participants - 15 mins
-* Closing remarks - 3 mins
+* Stay Tuned!
 
 # Past Meetings
 
