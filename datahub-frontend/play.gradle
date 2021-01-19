@@ -13,9 +13,14 @@ configurations {
 }
 
 dependencies {
-  assets project(path: ':datahub-web', configuration: 'assets')
+  // assets project(path: ':datahub-web', configuration: 'assets')
 
   play project(":datahub-dao")
+  play project(":datahub-graphql-api")
+
+  play externalDependency.graphqlJava
+  play externalDependency.antlr4Runtime
+  play externalDependency.antlr4
 
   play externalDependency.jerseyCore
   play externalDependency.jerseyGuava
