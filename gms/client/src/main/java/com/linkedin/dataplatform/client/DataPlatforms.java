@@ -1,13 +1,16 @@
 package com.linkedin.dataplatform.client;
 
-import com.linkedin.metadata.restli.BaseClient;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.dataPlatforms.DataPlatform;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.dataplatform.DataPlatformsRequestBuilders;
+import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
-import com.linkedin.restli.client.Request;
+import com.linkedin.restli.client.GetRequest;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
@@ -27,8 +30,11 @@ public class DataPlatforms extends BaseClient {
    */
   @Nonnull
   public DataPlatformInfo getPlatformByName(@Nonnull String platformName) throws RemoteInvocationException {
-    Request<DataPlatformInfo> req = PLATFORMS_REQUEST_BUILDERS.get().id(platformName).build();
-    return _client.sendRequest(req).getResponse().getEntity();
+    final GetRequest<DataPlatform> req = PLATFORMS_REQUEST_BUILDERS.get()
+        .id(platformName)
+        .aspectsParam(new StringArray(DataPlatformInfo.class.getCanonicalName()))
+        .build();
+    return _client.sendRequest(req).getResponse().getEntity().getDataPlatformInfo();
   }
 
   /**
@@ -38,7 +44,13 @@ public class DataPlatforms extends BaseClient {
    */
   @Nonnull
   public List<DataPlatformInfo> getAllPlatforms() throws RemoteInvocationException {
-    GetAllRequest<DataPlatformInfo> req = PLATFORMS_REQUEST_BUILDERS.getAll().build();
-    return _client.sendRequest(req).getResponse().getEntity().getElements();
+    final GetAllRequest<DataPlatform> req = PLATFORMS_REQUEST_BUILDERS.getAll().build();
+    return _client.sendRequest(req)
+        .getResponse()
+        .getEntity()
+        .getElements()
+        .stream()
+        .map(e -> e.getDataPlatformInfo())
+        .collect(Collectors.toList());
   }
 }
