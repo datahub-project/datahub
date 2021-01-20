@@ -66,6 +66,26 @@ curl 'http://localhost:8080/charts?action=ingest' -X POST -H 'X-RestLi-Protocol-
 curl 'http://localhost:8080/dashboards?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot":{"aspects":[{"com.linkedin.dashboard.DashboardInfo":{"title":"Baz Dashboard","description":"Baz Dashboard","charts":["urn:li:chart:(looker,baz1)","urn:li:chart:(looker,baz2)"],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:dashboard:(looker,baz)"}}'
 ```
 
+### Get all dataplatforms 
+
+```
+curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://localhost:8080/dataPlatforms' | jq
+```
+
+### Get dataplatform
+
+```
+curl 'http://localhost:8080/dataPlatforms/hdfs?aspects=List(com.linkedin.dataplatform.DataPlatformInfo)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+{
+  "name": "hdfs",
+  "dataPlatformInfo": {
+    "name": "hdfs",
+    "type": "FILE_SYSTEM",
+    "datasetNameDelimiter": "/"
+  }
+}
+```
+
 ### Get user
 ```
 curl 'http://localhost:8080/corpUsers/($params:(),name:fbar)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq

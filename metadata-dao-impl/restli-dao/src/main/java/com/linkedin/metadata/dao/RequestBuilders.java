@@ -22,6 +22,7 @@ public class RequestBuilders {
           add(new CorpGroupActionRequestBuilder());
           add(new CorpUserActionRequestBuilder());
           add(new DashboardActionRequestBuilder());
+          add(new DataPlatformActionRequestBuilder());
           add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
         }
