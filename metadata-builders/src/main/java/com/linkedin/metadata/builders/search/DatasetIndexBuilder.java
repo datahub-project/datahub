@@ -1,35 +1,77 @@
 package com.linkedin.metadata.builders.search;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.metadata.aspect.DataPlatformAspect;
+import com.linkedin.metadata.dao.RestliRemoteDAO;
 import com.linkedin.metadata.search.DatasetDocument;
+import com.linkedin.metadata.snapshot.DataPlatformSnapshot;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.restli.client.Client;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
-  public DatasetIndexBuilder() {
+  private static RestliRemoteDAO<DataPlatformSnapshot, DataPlatformAspect, DataPlatformUrn> dataPlatformDAO;
+
+  public DatasetIndexBuilder(@Nonnull Client restliClient) {
     super(Collections.singletonList(DatasetSnapshot.class), DatasetDocument.class);
+    dataPlatformDAO = new RestliRemoteDAO<>(DataPlatformSnapshot.class, DataPlatformAspect.class, restliClient);
   }
 
+  private static final LoadingCache<DataPlatformUrn, String> DELIMITER_CACHE =
+      CacheBuilder.newBuilder().maximumSize(1000) // maximum 1000 records in cached
+          .expireAfterWrite(1, TimeUnit.DAYS) // cache expire after one day since write
+          .build(new CacheLoader<DataPlatformUrn, String>() {
+            @Override
+            public String load(@Nonnull DataPlatformUrn platformUrn) {
+              log.info("checking gms to get delimiter for platform {}", platformUrn);
+
+              return dataPlatformDAO.get(DataPlatformInfo.class, platformUrn)
+                  .map(DataPlatformInfo::getDatasetNameDelimiter)
+                  .orElse("");
+            }
+          });
+
+  @SneakyThrows
   @Nonnull
-  private static String buildBrowsePath(@Nonnull DatasetUrn urn) {
-    return ("/" + urn.getOriginEntity() + "/"  + urn.getPlatformEntity().getPlatformNameEntity() + "/" + urn.getDatasetNameEntity())
-        .replace('.', '/').toLowerCase();
+  static String buildBrowsePath(@Nonnull DatasetUrn urn) {
+    final String dataOrigin = urn.getOriginEntity().name();
+    final String platform = urn.getPlatformEntity().getPlatformNameEntity();
+    final String dataset = urn.getDatasetNameEntity();
+    String browsePath = "/" + dataOrigin + "/" + platform + "/" + dataset;
+    final String delimiter = DELIMITER_CACHE.get(urn.getPlatformEntity());
+    log.debug("delimiter for platform {}, is {} ", urn.getPlatformEntity().getPlatformNameEntity(), delimiter);
+    if (!delimiter.isEmpty()) {
+      final Character delimiterChar = delimiter.charAt(0);
+      if (delimiterChar.equals('/')) {
+        browsePath = "/" + dataOrigin + "/" + platform + dataset;
+      } else {
+        browsePath = ("/" + dataOrigin + "/" + platform + "/" + dataset).replace(delimiterChar, '/');
+      }
+    }
+    return browsePath.toLowerCase();
   }
 
   /**
