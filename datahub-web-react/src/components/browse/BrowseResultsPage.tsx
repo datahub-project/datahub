@@ -25,7 +25,6 @@ export const BrowseResultsPage = () => {
     const params = QueryString.parse(location.search);
     const entityType = fromPathName(type);
     const path = rootPath.split('/').slice(3);
-    console.log(path);
     const page = Number(params.page) || 1;
 
     const { data, loading, error } = useGetBrowseResultsQuery({
