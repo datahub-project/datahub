@@ -30,11 +30,18 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   private static RestliRemoteDAO<DataPlatformSnapshot, DataPlatformAspect, DataPlatformUrn> dataPlatformDAO;
 
+  /**
+   * Constructor for invoking dataset search index builder.
+   *
+   * @param restliClient restli client used to interact with other services to build dataset search documents.
+   */
   public DatasetIndexBuilder(@Nonnull Client restliClient) {
     super(Collections.singletonList(DatasetSnapshot.class), DatasetDocument.class);
     dataPlatformDAO = new RestliRemoteDAO<>(DataPlatformSnapshot.class, DataPlatformAspect.class, restliClient);
@@ -50,7 +57,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
 
               return dataPlatformDAO.get(DataPlatformInfo.class, platformUrn)
                   .map(DataPlatformInfo::getDatasetNameDelimiter)
-                  .orElse("");
+                  .orElse(StringUtils.EMPTY);
             }
           });
 
