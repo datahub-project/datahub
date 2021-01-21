@@ -6,6 +6,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.search.DataProcessDocument;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
@@ -31,7 +32,7 @@ public class DataProcessSearchSanityTest extends BaseSearchSanityTests<DataProce
       .setOrchestrator("azkaban");
 
   protected DataProcessSearchSanityTest() {
-    super(URN, DOCUMENT);
+    super(URN, DOCUMENT, new DataProcessSearchConfig());
   }
 
   @Nonnull
