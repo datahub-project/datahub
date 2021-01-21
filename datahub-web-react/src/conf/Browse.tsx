@@ -3,7 +3,7 @@ import { EntityType } from '../components/shared/EntityTypeUtil';
 /*
     Browsable Entity Types
 */
-export const BROWSABLE_ENTITY_TYPES = [EntityType.Dataset];
+export const BROWSABLE_ENTITY_TYPES = [EntityType.Dataset, EntityType.Dataset, EntityType.Dataset, EntityType.Dataset];
 
 /*
     Number of results shown per browse results page

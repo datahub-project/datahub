@@ -28,6 +28,7 @@ module.exports = {
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
         'react/jsx-props-no-spreading': 'off',
         'no-plusplus': 'off',
+        'react/require-default-props': 'off',
         '@typescript-eslint/no-unused-vars': [
             'error',
             {

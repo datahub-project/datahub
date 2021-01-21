@@ -1,6 +1,9 @@
-import { Button, Col, Pagination, Row } from 'antd';
+import { Col, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
-import * as React from 'react';
+import React from 'react';
+import { BrowseResultEntity, BrowseResultGroup } from '../../types.generated';
+import BrowseResultCard from './BrowseResultCard';
+import { browseEntityResultToUrl } from './util/entityToUrl';
 
 export interface BrowseResult {
     name: string; // Browse Path content
@@ -10,10 +13,12 @@ export interface BrowseResult {
 
 interface Props {
     title: string;
+    rootPath: string;
     pageStart: number;
     pageSize: number;
     totalResults: number;
-    results: Array<BrowseResult>;
+    groups: Array<BrowseResultGroup>;
+    entities: Array<BrowseResultEntity>;
     onChangePage: (page: number) => void;
 }
 
@@ -21,56 +26,38 @@ interface Props {
  * Display browse groups + entities.
  */
 export const BrowseResults = ({
-    title: _title,
-    pageStart: _pageStart,
-    pageSize: _pageSize,
-    totalResults: _totalResults,
-    results: _results,
-    onChangePage: _onChangePage,
+    title,
+    rootPath,
+    pageStart,
+    pageSize,
+    totalResults,
+    entities,
+    groups,
+    onChangePage,
 }: Props) => {
     return (
         <div>
-            <Content>
-                <Row style={{ backgroundColor: 'white', padding: '25px 100px' }}>
+            <Content style={{ backgroundColor: 'white', padding: '25px 100px' }}>
+                <h1 className="ant-typography">{title}</h1>
+                <Row gutter={[4, 8]}>
+                    {groups.map((group) => (
+                        <Col span={24}>
+                            <BrowseResultCard name={group.name} count={group.count} url={`${rootPath}/${group.name}`} />
+                        </Col>
+                    ))}
+                    {entities.map((entity) => (
+                        <Col span={24}>
+                            <BrowseResultCard name={entity.name} url={browseEntityResultToUrl(entity)} />
+                        </Col>
+                    ))}
                     <Col span={24}>
-                        <h1 style={{ fontSize: '25px' }}>{_title}</h1>
-                        <ul style={{ padding: '0px' }}>
-                            {_results.map((result) => (
-                                <li
-                                    style={{
-                                        margin: '10px 0px',
-                                        display: 'flex',
-                                        width: '100%',
-                                        height: '50px',
-                                    }}
-                                >
-                                    <Button
-                                        style={{
-                                            border: '1px solid #d2d2d2',
-                                            borderRadius: '5px',
-                                            width: '100%',
-                                            height: '100%',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                        }}
-                                        onClick={() => result.onNavigate()}
-                                    >
-                                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0073b1' }}>
-                                            {result.name}
-                                        </div>
-                                        <div>{result.count && `${result.count}`}</div>
-                                    </Button>
-                                </li>
-                            ))}
-                        </ul>
                         <Pagination
-                            style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
-                            current={_pageStart}
-                            pageSize={_pageSize}
-                            total={_totalResults / _pageSize}
+                            style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
+                            current={pageStart}
+                            pageSize={pageSize}
+                            total={totalResults / pageSize}
                             showLessItems
-                            onChange={_onChangePage}
+                            onChange={onChangePage}
                         />
                     </Col>
                 </Row>

@@ -12,6 +12,7 @@ export enum PageRoutes {
     LOG_IN = '/login',
     SEARCH = '/search',
     BROWSE = '/browse',
+    BROWSE_TYPE = '/browse/:type',
     DATASETS = '/datasets',
     USERS = '/users',
 }
