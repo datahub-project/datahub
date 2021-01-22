@@ -22,8 +22,6 @@ import play.api.Environment;
 import play.mvc.Controller;
 import play.mvc.Result;
 
-import static com.linkedin.datahub.graphql.Constants.*;
-
 public class GraphQLController extends Controller {
 
     private static final String FRONTEND_SCHEMA_NAME = "datahub-frontend.graphql";
@@ -47,7 +45,7 @@ public class GraphQLController extends Controller {
             schemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
             is.close();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to find GraphQL Schema with name " + GMS_SCHEMA_FILE, e);
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + FRONTEND_SCHEMA_NAME, e);
         }
 
         /*
