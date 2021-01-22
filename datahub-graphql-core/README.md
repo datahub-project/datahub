@@ -1,6 +1,6 @@
 Notice: `datahub-graphql-core` is currently in beta, and as such is currently subject to backwards incompatible changes. 
 
-# DataHub GraphQL API
+# DataHub GraphQL Core
 DataHub GraphQL API is a shared lib module containing a GraphQL API on top of the GMS service layer. It exposes a graph-based representation
 permitting reads and writes against the entities and aspects on the Metadata Graph, including Datasets, CorpUsers, & more. 
 

@@ -9,7 +9,7 @@ import javax.annotation.Nonnull;
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
  *
- * To be replaced rby auto-generated mappers implementations
+ * To be replaced by auto-generated mappers implementations
  */
 public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, Dataset> {
 
