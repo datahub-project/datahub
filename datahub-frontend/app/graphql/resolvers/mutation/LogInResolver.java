@@ -2,6 +2,8 @@
 package graphql.resolvers.mutation;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.datahub.graphql.exception.AuthenticationException;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.loaders.CorpUserLoader;
 import com.linkedin.datahub.graphql.mappers.CorpUserMapper;
@@ -14,10 +16,11 @@ import play.Logger;
 import security.AuthUtil;
 import security.AuthenticationManager;
 
-import javax.naming.AuthenticationException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.CompletableFuture;
+
+import static security.AuthConstants.*;
 
 /**
  * Resolver responsible for authenticating a user
@@ -29,39 +32,38 @@ public class LogInResolver implements DataFetcher<CompletableFuture<CorpUser>> {
         /*
             Extract arguments
          */
-        final String username = environment.getArgument("username");
-        final String password = environment.getArgument("password");
+        final String username = environment.getArgument(USER_NAME);
+        final String password = environment.getArgument(PASSWORD);
 
         if (StringUtils.isBlank(username)) {
-            throw new RuntimeException("username must not be empty");
+            throw new ValidationException("username must not be empty");
         }
 
         PlayQueryContext context = environment.getContext();
         context.getSession().clear();
 
         // Create a uuid string for this session if one doesn't already exist
-        String uuid = context.getSession().get("uuid");
+        String uuid = context.getSession().get(UUID);
         if (uuid == null) {
             uuid = java.util.UUID.randomUUID().toString();
-            context.getSession().put("uuid", uuid);
+            context.getSession().put(UUID, uuid);
         }
 
         try {
             AuthenticationManager.authenticateUser(username, password);
-        } catch (AuthenticationException e) {
-            Logger.warn("Failed to authenticate user " + username, e);
-            throw new RuntimeException("Invalid username or password provided.");
+        } catch (javax.naming.AuthenticationException e) {
+            throw new AuthenticationException("Failed to authenticate user", e);
         }
 
-        context.getSession().put("user", username);
+        context.getSession().put(USER, username);
 
-        String secretKey = context.getAppConfig().getString("play.http.secret.key");
+        String secretKey = context.getAppConfig().getString(SECRET_KEY_PROPERTY);
         try {
             // store hashed username within PLAY_SESSION cookie
             String hashedUserName = AuthUtil.generateHash(username, secretKey.getBytes());
-            context.getSession().put("auth_token", hashedUserName);
+            context.getSession().put(AUTH_TOKEN, hashedUserName);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            Logger.error("Failed to hash username", e);
+            throw new RuntimeException("Failed to hash username", e);
         }
 
         /*

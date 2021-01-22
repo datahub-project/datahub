@@ -4,6 +4,9 @@ import com.typesafe.config.Config;
 import play.mvc.Http;
 import com.linkedin.datahub.graphql.QueryContext;
 
+import static security.AuthConstants.AUTH_TOKEN;
+import static security.AuthConstants.USER;
+
 
 /**
  * Provides session context to components of the GraphQL Engine at runtime.
@@ -27,7 +30,7 @@ public class PlayQueryContext implements QueryContext {
      */
     @Override
     public boolean isAuthenticated() {
-        return getSession().containsKey("auth_token"); // TODO: Compute this once by validating the signed auth token.
+        return getSession().containsKey(AUTH_TOKEN); // TODO: Compute this once by validating the signed auth token.
     }
 
     /**
@@ -35,7 +38,7 @@ public class PlayQueryContext implements QueryContext {
      */
     @Override
     public String getActor() {
-        return _session.get("user");
+        return _session.get(USER);
     }
 
     /**
@@ -56,18 +59,14 @@ public class PlayQueryContext implements QueryContext {
      * Retrieves the user name associated with the current user.
      */
     public String getUserName() {
-        return _session.get("user");
+        return _session.get(USER);
     }
 
     /**
      * Retrieves the hashed auth token associated with the current user.
      */
     public String getAuthToken() {
-        return _session.get("auth_token");
+        return _session.get(AUTH_TOKEN);
     }
 
-    /*
-        TODO:
-        public Role getRole()
-     */
 }

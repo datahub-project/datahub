@@ -1,6 +1,5 @@
 package controllers.api.v2;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,10 +24,14 @@ import play.mvc.Result;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 
-/**
- * Responsible for executing GraphQL queries.
- */
 public class GraphQLController extends Controller {
+
+    private static final String FRONTEND_SCHEMA_NAME = "datahub-frontend.graphql";
+    private static final String MUTATION_TYPE = "Mutation";
+    private static final String LOG_IN_MUTATION = "logIn";
+
+    private static final String QUERY = "query";
+    private static final String VARIABLES = "variables";
 
     private final GraphQLEngine _engine;
     private final Config _config;
@@ -40,7 +43,7 @@ public class GraphQLController extends Controller {
          */
         String schemaString;
         try {
-            InputStream is = environment.resourceAsStream("datahub-frontend.graphql").get();
+            final InputStream is = environment.resourceAsStream(FRONTEND_SCHEMA_NAME).get();
             schemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
             is.close();
         } catch (IOException e) {
@@ -53,15 +56,15 @@ public class GraphQLController extends Controller {
         _engine = GmsGraphQLEngine.builder()
             .addSchema(schemaString)
             .configureRuntimeWiring(builder ->
-                    builder.type("Mutation",
-                            typeWiring -> typeWiring.dataFetcher("logIn", new LogInResolver())))
+                    builder.type(MUTATION_TYPE,
+                            typeWiring -> typeWiring.dataFetcher(LOG_IN_MUTATION, new LogInResolver())))
             .build();
         _config = config;
 
     }
 
     @Nonnull
-    public Result execute() {
+    public Result execute() throws Exception {
 
         JsonNode bodyJson = request().body().asJson();
         if (bodyJson == null) {
@@ -71,7 +74,7 @@ public class GraphQLController extends Controller {
         /*
          * Extract "query" field
          */
-        JsonNode queryJson = bodyJson.get("query");
+        JsonNode queryJson = bodyJson.get(QUERY);
         if (queryJson == null) {
             return badRequest();
         }
@@ -79,7 +82,7 @@ public class GraphQLController extends Controller {
         /*
          * Extract "variables" map
          */
-        JsonNode variablesJson = bodyJson.get("variables");
+        JsonNode variablesJson = bodyJson.get(VARIABLES);
         Map<String, Object> variables = null;
         if (variablesJson != null) {
             variables = new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>(){ });
@@ -98,10 +101,6 @@ public class GraphQLController extends Controller {
         /*
          * Format & Return Response
          */
-        try {
-            return ok(new ObjectMapper().writeValueAsString(executionResult.toSpecification()));
-        } catch (JsonProcessingException e) {
-            return internalServerError();
-        }
+        return ok(new ObjectMapper().writeValueAsString(executionResult.toSpecification()));
     }
 }
