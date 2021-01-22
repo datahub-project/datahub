@@ -30,6 +30,8 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
+    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
+    'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
@@ -53,6 +55,7 @@ project.ext.externalDependency = [
     'gmaTestModels': "com.linkedin.datahub-gma:test-models:$gmaVersion",
     'gmaTestModelsDataTemplate': "com.linkedin.datahub-gma:test-models-data-template:$gmaVersion",
     'gmaValidators': "com.linkedin.datahub-gma:validators:$gmaVersion",
+    'graphqlJava': 'com.graphql-java:graphql-java:16.1',
     'gson': 'com.google.code.gson:gson:2.8.6',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
