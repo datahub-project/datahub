@@ -28,7 +28,7 @@ public class GmsClientFactory {
 
     private GmsClientFactory() { }
 
-    public static synchronized CorpUsers getCorpUsersClient() {
+    public static CorpUsers getCorpUsersClient() {
         if (_corpUsers == null) {
             synchronized (GmsClientFactory.class) {
                 if (_corpUsers == null) {
@@ -39,7 +39,7 @@ public class GmsClientFactory {
         return _corpUsers;
     }
 
-    public static synchronized Datasets getDatasetsClient() {
+    public static Datasets getDatasetsClient() {
         if (_datasets == null) {
             synchronized (GmsClientFactory.class) {
                 if (_datasets == null) {
