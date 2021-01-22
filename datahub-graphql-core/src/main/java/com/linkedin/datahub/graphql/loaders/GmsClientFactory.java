@@ -28,16 +28,24 @@ public class GmsClientFactory {
 
     private GmsClientFactory() { }
 
-    public static CorpUsers getCorpUsersClient() {
+    public static synchronized CorpUsers getCorpUsersClient() {
         if (_corpUsers == null) {
-            _corpUsers = new CorpUsers(REST_CLIENT);
+            synchronized (GmsClientFactory.class) {
+                if (_corpUsers == null) {
+                    _corpUsers = new CorpUsers(REST_CLIENT);
+                }
+            }
         }
         return _corpUsers;
     }
 
-    public static Datasets getDatasetsClient() {
+    public static synchronized Datasets getDatasetsClient() {
         if (_datasets == null) {
-            _datasets = new Datasets(REST_CLIENT);
+            synchronized (GmsClientFactory.class) {
+                if (_datasets == null) {
+                    _datasets = new Datasets(REST_CLIENT);
+                }
+            }
         }
         return _datasets;
     }

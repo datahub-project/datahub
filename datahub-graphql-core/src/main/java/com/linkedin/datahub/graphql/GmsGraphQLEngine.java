@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static graphql.Scalars.GraphQLLong;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
@@ -56,7 +57,8 @@ public class GmsGraphQLEngine {
             )
             .type(CORP_USER_TYPE_NAME, typeWiring -> typeWiring
                     .dataFetcher(MANAGER_FIELD_NAME, new AuthenticatedResolver<>(new ManagerResolver()))
-            );
+            )
+            .scalar(GraphQLLong);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -68,7 +70,11 @@ public class GmsGraphQLEngine {
 
     public static GraphQLEngine get() {
         if (_engine == null) {
-            _engine = builder().build();
+            synchronized (GmsGraphQLEngine.class) {
+                if (_engine == null) {
+                    _engine = builder().build();
+                }
+            }
         }
         return _engine;
     }
