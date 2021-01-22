@@ -6,7 +6,7 @@ export const checkAuthStatus = (): boolean => {
     // TODO: perhaps there's a more robust way to detect this?
     // e.g. what happens if the PLAY_SESSION cookie is stuck but the session is
     // invalid or expired?
-    return !!Cookies.get('PLAY_SESSION');
+    return !!Cookies.get('IS_LOGGED_IN');
 };
 
 export const isLoggedInVar = makeVar(checkAuthStatus());
