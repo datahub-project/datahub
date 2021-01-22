@@ -5,12 +5,6 @@ import { BrowseResultEntity, BrowseResultGroup } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { browseEntityResultToUrl } from './util/entityToUrl';
 
-export interface BrowseResult {
-    name: string; // Browse Path content
-    count?: number; // Number of children results
-    onNavigate: () => void; // Invoked when the browse result is clicked.
-}
-
 interface Props {
     title: string;
     rootPath: string;
