@@ -26,3 +26,5 @@ include 'metadata-models-generator'
 include 'metadata-testing:metadata-models-test-utils'
 include 'metadata-testing:metadata-test-utils'
 include 'metadata-utils'
+include 'metadata-graphql-api'
+
