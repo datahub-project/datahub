@@ -4,6 +4,7 @@ import { ListEntity } from '@datahub/data-models/entity/list/list-entity';
 import { BaseEntity } from '@datahub/data-models/entity/base-entity';
 import { IBaseEntity } from '@datahub/metadata-types/types/entity/index';
 import { DataConstructChangeManagementEntity } from '@datahub/data-models/entity/data-construct-change-management/data-construct-change-management-entity';
+import { GroupEntity } from '@datahub/data-models/entity/group/group-entity';
 
 /**
  * Defines the interface for the DataModelEntity enum below.
@@ -13,6 +14,7 @@ export interface IDataModelEntity {
   [DatasetEntity.displayName]: typeof DatasetEntity;
   [PersonEntity.displayName]: typeof PersonEntity;
   [ListEntity.displayName]: typeof ListEntity;
+  [GroupEntity.displayName]: typeof GroupEntity;
   [DataConstructChangeManagementEntity.displayName]: typeof DataConstructChangeManagementEntity;
 }
 
@@ -23,6 +25,7 @@ export interface IDataModelEntity {
 export const DataModelEntity: IDataModelEntity = {
   [DatasetEntity.displayName]: DatasetEntity,
   [PersonEntity.displayName]: PersonEntity,
+  [GroupEntity.displayName]: GroupEntity,
   [ListEntity.displayName]: ListEntity,
   [DataConstructChangeManagementEntity.displayName]: DataConstructChangeManagementEntity
 };

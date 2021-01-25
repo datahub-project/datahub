@@ -1,6 +1,6 @@
 import { ITabProperties } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { DatasetTab } from '@datahub/data-models/constants/entity/dataset/tabs';
-import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 
 /**

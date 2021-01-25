@@ -13,7 +13,7 @@ c267c287a235        landoop/schema-registry-ui:latest                     "/run.
 4b38899cc29a        confluentinc/cp-schema-registry:5.2.1                 "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:8081->8081/tcp                                     schema-registry
 37c29781a263        confluentinc/cp-kafka:5.2.1                           "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
 15440d99a510        docker.elastic.co/kibana/kibana:5.6.8                 "/bin/bash /usr/loca…"   10 hours ago        Up 10 hours         0.0.0.0:5601->5601/tcp                                     kibana
-943e60f9b4d0        neo4j:3.5.7                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
+943e60f9b4d0        neo4j:4.0.6                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
 6d79b6f02735        confluentinc/cp-zookeeper:5.2.1                       "/etc/confluent/dock…"   10 hours ago        Up 10 hours         2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
 491d9f2b2e9e        docker.elastic.co/elasticsearch/elasticsearch:5.6.8   "/bin/bash bin/es-do…"   10 hours ago        Up 10 hours         0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
 ce14b9758eb3        mysql:5.7
@@ -170,6 +170,9 @@ ERROR: for datahub-mae-consumer  Cannot start service datahub-mae-consumer: OCI 
 ### `failed to register layer: devmapper: Unknown device`
 This most means that you're out of disk space (see [#1879](https://github.com/linkedin/datahub/issues/1879)).
 
+### `ERROR: for kafka-rest-proxy  Get https://registry-1.docker.io/v2/confluentinc/cp-kafka-rest/manifests/5.4.0: EOF`
+This is most likely a transient issue with [Docker Registry](https://docs.docker.com/registry/). Retry again later.
+
 ## toomanyrequests: too many failed login attempts for username or IP address
 Try the following
 ```bash
@@ -185,12 +188,7 @@ docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mys
 ```
 
 ## I've messed up my docker setup. How do I start from scratch?
-1. Delete *all* docker containers, including ones that are created outside of the quickstart guide.
+Run the following script to remove all the containers and volumes created during the quickstart tutorial. Note that you'll also lose all the data as a result.
 ```
-docker rm -f $(docker ps -aq)
+./docker/nuke.sh
 ```
-2. Drop all DataHub's docker volumes.
-```
-docker volume rm -f $(docker volume ls -f name=datahub_*  -q)
-```
-

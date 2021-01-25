@@ -1,0 +1,368 @@
+# Extending the GQL type system to include Long type used for dates
+scalar Long
+
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+enum EntityType {
+    """
+    The Dataset Entity
+    """
+    DATASET
+    """
+    The CorpUser Entity
+    """
+    USER
+}
+
+type Query {
+    """
+    Fetch a Dataset by primary key
+    """
+    dataset(urn: String!): Dataset
+}
+
+type Mutation { }
+
+type AuditStamp {
+    """
+    When the audited action took place
+    """
+    time: Long!
+
+    """
+    Who performed the audited action
+    """
+    actor: String
+}
+
+type Dataset {
+    """
+    The unique Dataset URN
+    """
+    urn: String!
+
+    """
+    Standardized platform urn where the dataset is defined
+    """
+    platform: String!
+
+    """
+    Dataset native name
+    """
+    name: String!
+
+    """
+    Fabric type where dataset belongs to or where it was generated
+    """
+    origin: FabricType
+
+    """
+    Human readable description for dataset
+    """
+    description: String
+
+    """
+    The native format for the data platform
+    """
+    platformNativeType: PlatformNativeType
+
+    """
+    Native Dataset Uri. Uri should not include any environment specific properties
+    """
+    uri: String
+
+    """
+    Tags used for searching dataset
+    """
+    tags: [String!]!
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    properties: [StringMapEntry!]
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    An AuditStamp corresponding to the creation of this Dataset
+    """
+    created: AuditStamp!
+
+    """
+    An AuditStamp corresponding to the modification of this Dataset
+    """
+    lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion of this Dataset
+    """
+    deleted: AuditStamp
+}
+
+enum FabricType {
+    """
+    Designates development fabrics
+    """
+    DEV
+
+    """
+    Designates early-integration (staging) fabrics
+    """
+    EI
+
+    """
+    Designates production fabrics
+    """
+    PROD
+
+    """
+    Designates corporation fabrics
+    """
+    CORP
+}
+
+enum PlatformNativeType {
+    """
+    Table
+    """
+    TABLE
+
+    """
+    View
+    """
+    VIEW
+
+    """
+    Directory in file system
+    """
+    DIRECTORY
+
+    """
+    Stream
+    """
+    STREAM
+
+    """
+    Bucket in key value store
+    """
+    BUCKET
+}
+
+type StringMapEntry {
+    key: String!
+    value: String
+}
+
+type Ownership {
+    """
+    List of owners of the entity
+    """
+    owners: [Owner!]
+
+    """
+      Audit stamp containing who last modified the record and when
+    """
+    lastModified: AuditStamp!
+}
+
+enum OwnershipSourceType {
+    """
+    Auditing system or audit logs
+    """
+    AUDIT
+    """
+    Database, e.g. GRANTS table
+    """
+    DATABASE
+    """
+    File system, e.g. file/directory owner
+    """
+    FILE_SYSTEM
+    """
+    Issue tracking system, e.g. Jira
+    """
+    ISSUE_TRACKING_SYSTEM
+    """
+    Manually provided by a user
+    """
+    MANUAL
+    """
+    Other ownership-like service, e.g. Nuage, ACL service etc
+    """
+    SERVICE
+    """
+    SCM system, e.g. GIT, SVN
+    """
+    SOURCE_CONTROL
+    """
+    Other sources
+    """
+    OTHER
+}
+
+type OwnershipSource {
+    """
+    The type of the source
+    """
+    type: OwnershipSourceType!
+
+    """
+    A reference URL for the source
+    """
+    url: String
+}
+
+enum OwnershipType {
+    """
+    A person or group that is in charge of developing the code
+    """
+    DEVELOPER
+
+    """
+    A person or group that is owning the data
+    """
+    DATAOWNER
+
+    """
+    A person or a group that overseas the operation, e.g. a DBA or SRE.
+    """
+    DELEGATE
+
+    """
+    A person, group, or service that produces/generates the data
+    """
+    PRODUCER
+
+    """
+    A person, group, or service that consumes the data
+    """
+    CONSUMER
+
+    """
+    A person or a group that has direct business interest
+    """
+    STAKEHOLDER
+}
+
+type Owner {
+    """
+    Owner object - This should be extended to support CorpGroups as well
+    """
+    owner: CorpUser!
+
+    """
+    The type of the ownership
+    """
+    type: OwnershipType
+
+    """
+    Source information for the ownership
+    """
+    source: OwnershipSource
+}
+
+type CorpUser {
+    """
+    The unique user URN
+    """
+    urn: String!
+    """
+    Username of the corp user
+    """
+    username: String!
+
+    """
+    Readable info about the corp user
+    """
+    info: CorpUserInfo
+
+    """
+    Writable info about the corp user
+    """
+    editableInfo: CorpUserEditableInfo
+}
+
+type CorpUserInfo {
+    """
+    Whether the user is active
+    """
+    active: Boolean!
+
+    """
+    Display name of the user
+    """
+    displayName: String
+
+    """
+    Email address of the user
+    """
+    email: String!
+
+    """
+    Title of the user
+    """
+    title: String
+
+    """
+    Direct manager of the user
+    """
+    manager: CorpUser
+
+    """
+    department id the user belong to
+    """
+    departmentId: Long
+
+    """
+    department name this user belong to
+    """
+    departmentName: String
+
+    """
+    first name of the user
+    """
+    firstName: String
+
+    """
+    last name of the user
+    """
+    lastName: String
+
+    """
+    Common name of this user, format is firstName plus lastName
+    """
+    fullName: String
+
+    """
+    two uppercase letters country code
+    """
+    countryCode: String
+}
+
+type CorpUserEditableInfo {
+    """
+    About me section of the user
+    """
+    aboutMe: String
+
+    """
+    Teams that the user belongs to
+    """
+    teams: [String!]
+
+    """
+    Skills that the user possesses
+    """
+    skills: [String!]
+
+    """
+    A URL which points to a picture which user wants to set as a profile photo
+    """
+    pictureLink: String
+}

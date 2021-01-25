@@ -1,0 +1,25 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
+
+/**
+ * Metadata for a dashboard
+ */
+record Dashboard includes DashboardKey {
+
+  /**
+   * Basic dashboard information
+   */
+  info: optional DashboardInfo
+
+  /**
+   * Ownership information for the dashboard
+   */
+  ownership: optional Ownership
+
+  /**
+   * Status information for the dashboard such as removed or not
+   */
+  status: optional Status
+}

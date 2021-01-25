@@ -26,11 +26,7 @@
             href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership"
           >
             <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="Link to more information"
-              >
-              </span>
+              <FaIcon @icon="question-circle" title="Link to more information"/>
             </sup>
           </a>
         </th>
@@ -55,7 +51,7 @@
               class="nacho-button nacho-button--tertiary dataset-owner-table__trigger"
               onclick={{action this.onClickAddOwner}}
             >
-              {{fa-icon "plus"}} Add an owner
+              <FaIcon @icon="plus"  /> Add an owner
             </button>
           {{/if}}
         </div>
@@ -80,7 +76,7 @@
       {{#if saveOwners.isIdle}}
         Save
       {{else}}
-        <PendulumEllipsisAnimation />
+        <NachoAnimation::PendulumEllipsis />
       {{/if}}
 
     </button>
@@ -88,7 +84,7 @@
     {{#if requiredMinNotConfirmed}}
       <div class="dataset-authors-save-error">
         <p>
-          {{fa-icon "times-circle" prefix="far" class="dataset-authors-save-error__icon"}}
+          <FaIcon @icon="times-circle" @prefix="far" class="dataset-authors-save-error__icon" />
           {{#if (eq changedState 1)}}
             {{#if (eq ownersRequiredCount 2)}}
               Maintain at least 2 DataOwners.

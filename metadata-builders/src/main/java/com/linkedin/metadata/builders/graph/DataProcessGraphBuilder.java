@@ -32,7 +32,7 @@ public class DataProcessGraphBuilder extends BaseGraphBuilder<DataProcessSnapsho
     final DataProcessUrn urn = snapshot.getUrn();
     final DataProcessEntity entity = new DataProcessEntity().setUrn(urn)
         .setName(urn.getNameEntity())
-        .setOrchestrator(urn.getOrchestrator())
+        .setOrchestrator(urn.getOrchestratorEntity())
         .setOrigin(urn.getOriginEntity());
 
     return Collections.singletonList(entity);

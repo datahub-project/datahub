@@ -2,16 +2,16 @@ datahub
 =======
 A Helm chart for LinkedIn DataHub
 
-Current chart version is `0.1.0`
+Current chart version is `0.1.1`
 
 ## Chart Requirements
 
 | Repository | Name | Version |
 |------------|------|---------|
-| file://./charts/datahub-frontend | datahub-frontend | 0.1.0 |
-| file://./charts/datahub-gms | datahub-gms | 0.1.0 |
-| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.1.0 |
-| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.1.0 |
+| file://./charts/datahub-frontend | datahub-frontend | 0.2.1 |
+| file://./charts/datahub-gms | datahub-gms | 0.2.1 |
+| file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.2.1 |
+| file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.2.1 |
 
 #### Chart Values
 

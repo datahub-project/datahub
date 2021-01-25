@@ -1,26 +1,65 @@
 apply plugin: 'java'
 apply plugin: 'pegasus'
 
+sourceSets {
+  integTest {
+    compileClasspath += sourceSets.main.output
+    runtimeClasspath += sourceSets.main.output
+  }
+}
+
+idea{
+  module {
+    testSourceDirs += file('src/integTest/java')
+    scopes.TEST.plus += [ configurations.integTestCompile ]
+  }
+}
+
+configurations {
+  integTestImplementation.extendsFrom implementation
+  integTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 dependencies {
   compile project(':gms:api')
   compile project(path: ':gms:api', configuration: 'dataTemplate')
   compile project(':li-utils')
   compile project(':metadata-models')
-  compile project(':metadata-dao')
-  compile project(path: ':metadata-dao', configuration: 'dataTemplate')
-  compile project(':metadata-dao-impl:ebean-dao')
-  compile project(':metadata-dao-impl:elasticsearch-dao')
-  compile project(':metadata-dao-impl:neo4j-dao')
   compile project(':metadata-testing:metadata-test-utils')
   compile spec.product.pegasus.restliServer
-  compile project(':metadata-restli-resource')
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaDaoApiDataTemplate
+  compile externalDependency.gmaEbeanDao
+  compile externalDependency.gmaElasticsearchDao
+  compile externalDependency.gmaNeo4jDao
+  compile externalDependency.gmaRestliResources
+  compile externalDependency.gmaRestliResourcesDataTemplate
 
   compileOnly externalDependency.lombok
 
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+
+  integTestImplementation externalDependency.junitJupiterApi
+  integTestRuntimeOnly externalDependency.junitJupiterEngine
+
+  integTestCompile externalDependency.gmaElasticsearchIntegTest
+  integTestCompile externalDependency.junitJupiterApi
+  integTestCompile externalDependency.junitJupiterParams
 }
+
+task integrationTest(type: Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+  useJUnitPlatform()
+
+  testClassesDirs = sourceSets.integTest.output.classesDirs
+  classpath = sourceSets.integTest.runtimeClasspath
+  shouldRunAfter test
+}
+
+check.dependsOn integrationTest
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

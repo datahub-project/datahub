@@ -1,8 +1,8 @@
 import Component from '@glimmer/component';
 import { action } from '@ember/object';
 import HealthProxy from '@datahub/shared/utils/health/health-proxy';
-import { noop } from 'lodash';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { noop } from 'lodash-es';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 interface IHealthInsightCardArgs {
   // Reference to the Health metadata for the related entity if available

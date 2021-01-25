@@ -3,7 +3,7 @@ import { setProperties, set } from '@ember/object';
 import { run, schedule, scheduleOnce } from '@ember/runloop';
 import { CommentTypeUnion, IDatasetComment } from 'datahub-web/typings/api/datasets/comments';
 import { baseCommentEditorOptions, newCommentEditorOptions } from 'datahub-web/constants';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { action } from '@ember/object';
 import { classNames, tagName, className } from '@ember-decorators/component';
 import { alias } from '@ember/object/computed';

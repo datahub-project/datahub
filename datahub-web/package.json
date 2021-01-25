@@ -6,15 +6,19 @@
     "lint:hbs": "ember-template-lint ./**/*.hbs",
     "lint:js": "eslint . --ext .js --ext .ts --quiet",
     "lint:jsfix": "eslint . --ext .js --ext .ts --quiet --fix",
-    "test": "wsrun --serial --fast-exit --report -y 4 --changedSince=origin/master --exclude '@datahub/eslint-plugin' test",
-    "commit-test": "lint-staged"
+    "experimental-test": "yarn parallelBuild && yarn serialTests",
+    "test": "wsrun --serial --fast-exit --report --concurrency 4 --changedSince=origin/master --package @nacho-ui/* @datahub/* @linkedin/* datahub-web -c test",
+    "commit-test": "lint-staged",
+    "parallelBuild": "wsrun --parallel --concurrency 4 --fast-exit --changedSince=origin/master --package @nacho-ui/* @datahub/* @linkedin/* -c ember build",
+    "serialTests": "wsrun --serial --package @nacho-ui/* @datahub/* @linkedin/* -c ember test --path ./dist",
+    "clean": "rimraf **/dist; rimraf **/build;rimraf **/node_modules;"
   },
   "devDependencies": {
-    "@datahub/eslint-plugin": "^0.0.0",
+    "@dh-tools/eslint-plugin": "^0.0.0",
     "@typescript-eslint/eslint-plugin": "^2.19.0",
     "@typescript-eslint/parser": "^2.19.0",
     "babel-eslint": "^10.0.1",
-    "ember-cli": "~3.16.0",
+    "ember-cli": "~3.22.0",
     "ember-cli-template-lint": "^2.0.0",
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.10.0",
@@ -25,6 +29,7 @@
     "husky": "^2.4.1",
     "lint-staged": "^9.5.0",
     "prettier": "^1.18.2",
+    "rimraf": "^3.0.2",
     "typescript": "^3.9.3",
     "wsrun": "^4.0.2"
   },
@@ -33,6 +38,7 @@
       "@datahub/*",
       "@linkedin/*",
       "@nacho-ui/*",
+      "@dh-tools/*",
       "packages/*"
     ],
     "nohoist": [

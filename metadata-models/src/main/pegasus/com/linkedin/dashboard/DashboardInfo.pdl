@@ -4,6 +4,7 @@ import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.ChartUrn
 import com.linkedin.common.Time
+import com.linkedin.common.Url
 
 /**
  * Information about a dashboard
@@ -29,6 +30,11 @@ record DashboardInfo {
    * Captures information about who created/last modified/deleted this dashboard and when
    */
   lastModified: ChangeAuditStamps
+
+  /**
+   * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
+   */
+  dashboardUrl: optional Url
 
   /**
    * Access level for the dashboard

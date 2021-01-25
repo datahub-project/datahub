@@ -45,7 +45,7 @@ public class DatasetUtil {
    */
   public static DatasetView toDatasetView(Dataset dataset) {
     DatasetView view = new DatasetView();
-    view.setPlatform(dataset.getPlatform().getContent());
+    view.setPlatform(dataset.getPlatform().getPlatformNameEntity());
     view.setNativeName(dataset.getName());
     view.setFabric(dataset.getOrigin().name());
     view.setDescription(dataset.getDescription());
@@ -56,8 +56,8 @@ public class DatasetUtil {
     if (dataset.hasPlatformNativeType()) {
       view.setNativeType(dataset.getPlatformNativeType().name());
     }
-    if (dataset.hasRemoved()) {
-      view.setRemoved(dataset.isRemoved());
+    if (dataset.getStatus() != null) {
+      view.setRemoved(dataset.getStatus().isRemoved());
     }
     if (dataset.hasDeprecation()) {
       view.setDeprecated(dataset.getDeprecation().isDeprecated());

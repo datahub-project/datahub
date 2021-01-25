@@ -2,6 +2,47 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 1/15/2021
+[Full Recording](https://youtu.be/r862MZTLAJ0)
+
+[Slide-deck](https://docs.google.com/presentation/d/e/2PACX-1vQ2B0iHb2uwege1wlkXHOgQer0myOMEE5EGnzRjyqw0xxS5SaAc8VMZ_1XVOHuTZCJYzZZW4i9YnzSN/pub?start=false&loop=false&delayms=3000)
+
+Agenda
+
+- Announcements - 2 mins
+- Community Updates ([video](https://youtu.be/r862MZTLAJ0?t=99)) - 10 mins
+- Use-Case: DataHub at Viasat ([slides](demo/ViasatMetadataJourney.pdf),[video](https://youtu.be/2SrDAJnzkjE)) by [Anna Kepler](https://www.linkedin.com/in/akepler) - 15 mins
+- Tech Deep Dive: GraphQL + React RFCs readout and discussion ([slides](https://docs.google.com/presentation/d/e/2PACX-1vRtnINnpi6PvFw7-5iW8PSQoT9Kdf1O_0YW7QAr1_mSdJMNftYFTVCjKL-e3fpe8t6IGkha8UpdmoOI/pub?start=false&loop=false&delayms=3000) ,[video](https://www.youtube.com/watch?v=PrBaFrb7pqA)) by [John Joyce](https://www.linkedin.com/in/john-joyce-759883aa) and [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) - 15 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 3 mins
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 minutes
+
+## 12/04/2020
+[Recording](https://linkedin.zoom.us/rec/share/8E7-lFnCi_kQ8OvXR9kW6fn-AjvV8VlqOO2xYR8b5Y_UeWI_ODcKFlxlHqYgBP7j.S-c8C1YMrz7d3Mjq)
+
+Agenda
+
+- Quick intro - 5 mins
+- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub%20at%20Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- [DataHub UI development - Part 2](demo/Town%20Hall%20Presentation%20-%2012-2020%20-%20UI%20Development%20Part%202.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- General Q&A from sign up sheet, slack, and participants - 15 mins
+- Closing remarks - 5 minutes
+
+## 11/06/2020
+
+[Recording](https://linkedin.zoom.us/rec/share/0yvjZ2fOzVmD8aaDo3lC59fXivmYG3EnF0U9tMVgKs827595usvSoIhtFUPjZCsU.b915nLRkw6iQlnoD)
+
+Agenda
+
+- Quick intro - 5 mins
+- [Lightning talk on Metadata use-cases at LinkedIn](https://github.com/linkedin/datahub/blob/master/docs/demo/Metadata%20Use-Cases%20at%20LinkedIn%20-%20Lightning%20Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
+- [Strongly Consistent Secondary Index (SCSI) in GMA](https://github.com/linkedin/datahub/blob/master/docs/demo/Datahub%20-%20Strongly%20Consistent%20Secondary%20Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
+- [DataHub UI overview](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
+- General Q&A from sign up sheet, slack, and participants - 10 mins
+- Closing remarks - 5 minutes
+
+
 ## 09/25/2020
 
 [Recording](https://linkedin.zoom.us/rec/share/uEQ2pRY0BHbVqk_sOTVRm05VXJ0xM_zKJ26yzfCBqNZItiBht__k_juCCahJ37QK.IKAU9qA_0qdURX4_)

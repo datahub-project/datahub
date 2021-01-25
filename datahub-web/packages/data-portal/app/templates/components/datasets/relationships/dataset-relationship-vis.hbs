@@ -1,13 +1,13 @@
 <div class="dataset-relashipship-vis__container"></div>
 <div class="dataset-relationship-vis__tool-bar">
   <button class="nacho-button nacho-button--tertiary" {{action "zoomIn"}} type="button">
-    {{fa-icon "search-plus" aria-label="Zoom in"}}
+    <FaIcon @icon="search-plus" aria-label="Zoom in" />
   </button>
   <button class="nacho-button nacho-button--tertiary" {{action "zoomOut"}} type="button">
-    {{fa-icon "search-minus" aria-label="Zoom out"}}
+    <FaIcon @icon="search-minus" aria-label="Zoom out" />
   </button>
   <button class="nacho-button nacho-button--tertiary" {{action "fitGraph"}} type="button">
-    {{fa-icon "compress-arrows-alt" aria-label="Fit graph"}}
+    <FaIcon @icon="compress-arrows-alt" aria-label="Fit graph" />
   </button>
 </div>
 <div class="dataset-relationship-vis__legend">

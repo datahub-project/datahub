@@ -48,7 +48,7 @@
         class="nacho-button nacho-button--small remove-dataset-author"
         {{action "onRemoveOwner"}}
       >
-        {{fa-icon "trash" aria-label="Remove Owner"}}
+        <FaIcon @icon="trash" aria-label="Remove Owner" />
       </button>
 
     {{else}}
@@ -68,10 +68,10 @@
           class="nacho-button nacho-button--small confirm-suggested-dataset-author"
           {{action "confirmOwner"}}
         >
-          {{fa-icon
-            "plus"
+          <FaIcon
+            @icon="plus"
             title="Add an Owner"
-          }}
+          />
         </button>
 
       {{/if}}

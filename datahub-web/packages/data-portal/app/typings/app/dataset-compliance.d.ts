@@ -10,7 +10,7 @@ import {
   ComplianceFieldIdValue
 } from '@datahub/metadata-types/constants/entity/dataset/compliance-field-types';
 import { SuggestionIntent } from '@datahub/data-models/constants/entity/dataset/compliance-suggestions';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 /**
  * Describes the DatasetCompliance actions index signature to allow

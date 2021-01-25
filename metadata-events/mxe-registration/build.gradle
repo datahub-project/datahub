@@ -9,7 +9,7 @@ dependencies {
   compile project(':metadata-models')
   compile spec.product.pegasus.dataAvro1_6
 
-  testCompile project(':metadata-dao')
+  testCompile externalDependency.gmaDaoApi
   testCompile project(':metadata-testing:metadata-test-utils')
 
   avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')

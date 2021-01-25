@@ -1,0 +1,18 @@
+{
+  "badConfigMap": {
+    "com.linkedin.testing.AspectFoo": {
+      "pathStorageConfigMap": {
+        "/value": {
+          "strongConsistentSecondaryIndex": true
+        }
+      }
+    },
+    "com.linkedin.testing.AspectBar": {
+      "pathStorageConfigMap": {
+        "/value": {
+          "strongConsistentSecondaryIndex": true
+        }
+      }
+    }
+  }
+}

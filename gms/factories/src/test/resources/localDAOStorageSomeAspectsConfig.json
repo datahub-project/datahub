@@ -1,0 +1,11 @@
+{
+  "aspectStorageConfigMap": {
+    "com.linkedin.testing.AspectFoo": {
+      "pathStorageConfigMap": {
+        "/value": {
+          "strongConsistentSecondaryIndex": true
+        }
+      }
+    }
+  }
+}

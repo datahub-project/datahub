@@ -1,5 +1,5 @@
 import IvyTabsTablistComponent from 'ivy-tabs/components/ivy-tabs-tablist';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { scheduleOnce } from '@ember/runloop';
 import { Keyboard } from 'datahub-web/constants/keyboard';
 

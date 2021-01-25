@@ -1,0 +1,6 @@
+{
+  "aspectStorageConfigMap": {
+    "com.linkedin.testing.AspectFoo": null,
+    "com.linkedin.testing.AspectBar": null
+  }
+}

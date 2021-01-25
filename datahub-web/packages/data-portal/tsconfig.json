@@ -47,17 +47,11 @@
       "@datahub/metadata-types/*": [
         "../../@datahub/metadata-types/addon/*"
       ],
-      "@datahub/datasets-core": [
-        "../../@datahub/datasets-core/addon"
+      "@datahub/entities": [
+        "../../@datahub/entities/addon"
       ],
-      "@datahub/datasets-core/*": [
-        "../../@datahub/datasets-core/addon/*"
-      ],
-      "@datahub/user": [
-        "../../@datahub/user/addon"
-      ],
-      "@datahub/user/*": [
-        "../../@datahub/user/addon/*"
+      "@datahub/entities/*": [
+        "../../@datahub/entities/addon/*"
       ],
       "@datahub/utils": [
         "../../@datahub/utils/addon"
@@ -71,17 +65,11 @@
       "@datahub/shared/*": [
         "../../@datahub/shared/addon/*"
       ],
-      "@datahub/entities": [
-        "../../@datahub/entities/addon"
-      ],
-      "@datahub/entities/*": [
-        "../../@datahub/entities/addon/*"
-      ],
       "@nacho-ui/core": [
-        "../../@nacho-ui/nacho-core/addon"
+        "../../@nacho-ui/core/addon"
       ],
       "@nacho-ui/core/*": [
-        "../../@nacho-ui/nacho-core/addon/*"
+        "../../@nacho-ui/core/addon/*"
       ]
     }
   },
@@ -90,8 +78,6 @@
     "tests/**/*",
     "mirage/**/*",
     "../../@datahub/shared/types/entity-page/**/*",
-    "../../@datahub/datasets-core/types/**/*",
-    "../../@datahub/datasets-core/addon/**/*",
     "../../@datahub/metadata-types/addon/**/*",
     "../../@datahub/metadata-types/types/**/*",
     "../../@datahub/utils/addon/**/*",
@@ -99,14 +85,12 @@
     "../../@datahub/shared/addon/**/*",
     "../../@datahub/shared/types/**/*",
     "../../@datahub/shared/tests/**/*",
-    "../../@datahub/user/addon/**/*",
-    "../../@datahub/user/types/**/*",
     "../../@datahub/entities/addon/**/*",
     "../../@datahub/entities/types/**/*",
     "../../@datahub/data-models/addon/**/*",
     "../../@datahub/data-models/types/**/*",
     "../../@datahub/data-models/tests/**/*",
-    "../../@nacho-ui/nacho-core/addon/**/*",
-    "../../@nacho-ui/nacho-core/types/**/*"
+    "../../@nacho-ui/core/addon/**/*",
+    "../../@nacho-ui/core/types/**/*"
   ]
 }

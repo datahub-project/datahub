@@ -43,7 +43,7 @@ public class OwnerViewDao {
     datasetOwnership.setDatasetUrn(datasetUrn);
     datasetOwnership.setFromUpstream(false);
     datasetOwnership.setOwners(fillDatasetOwner(ownership, owners));
-    datasetOwnership.setActor(ownership.getLastModified().getActor().getContent());
+    datasetOwnership.setActor(ownership.getLastModified().getActor().getId());
     datasetOwnership.setLastModified(ownership.getLastModified().getTime());
     return datasetOwnership;
   }

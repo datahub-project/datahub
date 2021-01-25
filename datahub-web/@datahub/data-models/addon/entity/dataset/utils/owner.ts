@@ -1,4 +1,5 @@
 import { IOwnerResponse } from '@datahub/data-models/types/entity/dataset/ownership';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Helper method to map legacy ownership type to new ownership type
@@ -27,7 +28,7 @@ const transformOwnerCategoryIntoType = (
 export const transformOwnersResponseIntoOwners = (ownersResponse: IOwnerResponse): Array<Com.Linkedin.Common.Owner> => {
   const { owners = [] } = ownersResponse;
   return owners.map(owner => ({
-    owner: owner.userName,
+    owner: PersonEntity.urnFromUsername(owner.userName),
     type: transformOwnerCategoryIntoType(owner.type)
   }));
 };

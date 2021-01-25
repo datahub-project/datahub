@@ -44,7 +44,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "dataProcesses", namespace = "com.linkedin.dataprocess", keyName = "dataprocess")
 public class DataProcesses extends BaseSearchableEntityResource<
     // @formatter:off
-    DataProcessKey,
+    ComplexResourceKey<DataProcessKey, EmptyRecord>,
     DataProcess,
     DataProcessUrn,
     DataProcessSnapshot,
@@ -86,24 +86,26 @@ public class DataProcesses extends BaseSearchableEntityResource<
 
     @Nonnull
     @Override
-    protected DataProcessUrn toUrn(@Nonnull DataProcessKey key) {
-        return new DataProcessUrn(key.getOrchestrator(), key.getName(), key.getOrigin());
+    protected DataProcessUrn toUrn(@Nonnull ComplexResourceKey<DataProcessKey, EmptyRecord> key) {
+        return new DataProcessUrn(key.getKey().getOrchestrator(), key.getKey().getName(), key.getKey().getOrigin());
     }
 
     @Nonnull
     @Override
-    protected DataProcessKey toKey(@Nonnull DataProcessUrn urn) {
-        return new DataProcessKey()
-                .setOrchestrator(urn.getOrchestrator())
+    protected ComplexResourceKey<DataProcessKey, EmptyRecord> toKey(@Nonnull DataProcessUrn urn) {
+        return new ComplexResourceKey<>(
+            new DataProcessKey()
+                .setOrchestrator(urn.getOrchestratorEntity())
                 .setName(urn.getNameEntity())
-                .setOrigin(urn.getOriginEntity());
+                .setOrigin(urn.getOriginEntity()),
+            new EmptyRecord());
     }
 
     @Nonnull
     @Override
     protected DataProcess toValue(@Nonnull DataProcessSnapshot processSnapshot) {
         final DataProcess value = new DataProcess()
-                .setOrchestrator(processSnapshot.getUrn().getOrchestrator())
+                .setOrchestrator(processSnapshot.getUrn().getOrchestratorEntity())
                 .setName(processSnapshot.getUrn().getNameEntity())
                 .setOrigin(processSnapshot.getUrn().getOriginEntity());
         ModelUtils.getAspectsFromSnapshot(processSnapshot).forEach(aspect -> {

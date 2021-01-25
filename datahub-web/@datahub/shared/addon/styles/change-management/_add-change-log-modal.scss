@@ -1,0 +1,143 @@
+.add-change-log {
+  $add-change-log-modal-item-width: 720px;
+  $add-change-log-modal-content-height: 518px;
+  padding: item-spacing(2 5);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__close {
+    font-size: item-spacing(1) * 10;
+    line-height: item-spacing(5);
+    background-color: transparent;
+    cursor: pointer;
+    box-sizing: border-box;
+    color: get-color(black, 0.7);
+    border: 0;
+  }
+
+  &__modal {
+    width: $modal-width-x-large;
+
+    .nacho-pill-input__action {
+      margin-left: item-spacing(3);
+    }
+  }
+
+  &__modal &__preview-markdown-button {
+    padding-left: 0px;
+    color: get-color(blue7);
+    border: none;
+  }
+
+  &__content {
+    height: $add-change-log-modal-content-height;
+    display: flex;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: item-spacing(2);
+  }
+
+  &__content-preview &__subject {
+    margin-bottom: item-spacing(3);
+  }
+
+  &__content-user-input {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__title {
+    margin: 0;
+  }
+
+  &__preview-markdown-icon {
+    margin-right: item-spacing(2);
+    width: item-spacing(4);
+  }
+
+  &__label {
+    margin-bottom: item-spacing(1);
+  }
+
+  &__list {
+    font-weight: fw(normal, 4);
+  }
+
+  &__label {
+    font-weight: fw(normal, 4);
+    margin-bottom: item-spacing(1);
+  }
+
+  &__title {
+    font-weight: fw(normal, 6);
+  }
+
+  &__label--bold {
+    font-weight: fw(normal, 7);
+    font-size: fs(standard);
+    margin-bottom: item-spacing(2);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    width: $add-change-log-modal-item-width;
+    margin-bottom: item-spacing(2);
+    margin-top: item-spacing(4);
+  }
+
+  &__list {
+    padding-left: 18px;
+  }
+
+  &__text-input {
+    padding: item-spacing(1 2 1 2);
+    border: 1px solid get-color(black, 0.75);
+    border-radius: item-spacing(1);
+
+    &-validation {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    &-validation-count {
+      color: get-color(gray4);
+    }
+
+    &-error {
+      color: get-color(red5);
+      list-style-type: none;
+      padding: 0;
+    }
+
+    &-content {
+      height: item-spacing(7) * 7;
+    }
+    &-subject {
+      height: item-spacing(4) * 2;
+    }
+  }
+
+  &__actions {
+    justify-content: flex-end;
+  }
+
+  &__tag-input {
+    @include change-management-tag-input;
+  }
+
+  &__pill {
+    @include change-management-pill;
+  }
+
+  &__action {
+    margin-left: item-spacing(4);
+    // Pull only back button to far left
+    &-back {
+      margin-right: auto;
+    }
+  }
+}

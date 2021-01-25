@@ -3,7 +3,7 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { run } from '@ember/runloop';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 module('Integration | Component | login form', function(hooks) {
   setupRenderingTest(hooks);

@@ -2,45 +2,76 @@ DataHub Web Client
 ==============================================================================
 
 ## About
-This mono-repository is for the portal web-client and related packages for DataHub, LinkedIn's premier
-data search and discovery tool, connecting users to the data that matters to them.
+This repository is for the portal web-client and related packages for DataHub, LinkedIn's premier data search and
+discovery tool. It is written as an Ember application in a mono-repository. For more information about our code
+architecture choices and logic, please visit the `documentation` folder [here](documentation/MAIN.md).
 
-## Entities
-
-TBD
-
-## Security
-
-### HTML Sanitizer
-(Dom Purify)[https://www.npmjs.com/package/dompurify] is used in conjunction with ember-auto-import to transform the npm package into an ember consumable format.
-DOMPurify is a DOM-only XSS sanitizer for HTML, MathML and SVG.You can feed DOMPurify with string full of dirty HTML and it will return a string (unless configured otherwise) with clean HTML.
-
-## Creating a new package
-
-`ember g addon <package-name>`
 
 ## Package Organization
 
-The packages, in order of highest on the dependency tree to lowest:
+Our mono-repository consists of an Ember application and multiple Ember addons and libraries. For more information
+about our mono-repo, you can refer to the documentation available [here](documentation/introduction/02-MONOREPO),
+found in the `documentation` folder.
 
-`data-portal`:
-- Contains the host application. This package aggregates the contents of all other packages into the complete
-  web client, though it is not intended to have much individual functionality of its own
+`packages/data-portal` - This is the host Ember application into which all of our addons will be imported.
 
-`@datahub/entities`:
-- Contains the entity specific logic and components
+`@datahub/entities` - This Ember addon consists of logic specific to specific entities supported by DataHub.
 
-`@datahub/shared`:
-- Contains features and functionality that applies to the application as a whole, or are shared between more
-  than one entity
+`@datahub/shared` - This Ember addon consists of features and functionality that is either shared by multiple entities
+or may not necessarily be related to any specific entity but rather for the general functionality of the application.
 
-`@datahub/data-models`:
-- Contains the entity definitions and core data management functions that help us define the base properties
-  of an entity
+`@datahub/data-models` - This Ember addon consists of our classes for our entities and behavior definitions known as
+"render props" (for more information, visit the `documentation` folder [here](documentation/MAIN.md)). It also
+contains the API calls that each entity can make to fetch data and information.
 
-`@datahub/metadata-types`:
-- Contains logic to translate the backend models to types that we can consume on the client
+`@datahub/metadata-types` - This Ember addon houses the translated PDSC/PDL models that are defined at the GMA level.
+These models are converted to typescript in order to be consumed by our application in a way that JavaScript can
+understand.
 
-`@datahub/utils`:
-- Core utility functions. This package should not depend on any other DataHub package and instead provides
-  base level functions for all other packages.
+`@datahub/utils` - This Ember addon contains general utility and helper functions that assist with the operation
+with the rest of the application and have no specific dependency on any other part of the application or any models
+
+`@dh-tools/pdsc` - This library translates the PDSC/PDL models from our GMA backend to TypeScript.
+
+`@dh-tools/eslint-plugin` - This plugin works with our eslint-tool to promote good and clean code practices
+
+`@dh-tools/dependencies` - This tool was created for dependency management to improve build times in the application.
+
+`@nacho-ui/core` - This Ember addon is a remnant of our shared component library efforts internally that is now a
+general purpose library within DataHub to provide some generic components to be used by the application.
+
+`blueprints/datahub-addon` - This provides Ember with a template for creating new addons whenever needed
+
+
+## Creating a New Addon
+
+Use the following command and follow the prompts to generate a new addon. However, before doing so, please make sure
+the content of the addon does not better fit in one of the other packages. Additionally, it may be helpful to read our
+documentation notes [here](documentation/MAIN.md) to understand the logic of how the addons came about and why the
+application is laid out the way it is.
+
+```
+ember g datahub-addon
+```
+
+
+## Starting the Application
+
+### Quick Start
+
+First, follow the instructions on the DataHub Quickstart Guide, which will run an instance of the backend for DataHub
+and also serve the static docker image from `http://localhost:9001`. This is the best way to see the current latest
+frontend/UI in action as well. However, if you want to make changes and see them live without having to rebuild a
+docker image, you can, from this `datahub-web` folder run the following:
+
+```
+cd packages/data-portal
+ember s --proxy=http://localhost:9001
+```
+
+If necessary, it may ask you to run `yarn install` first.
+
+This will rely on ember's proxy functionality, which will redirect all API calls to the proxy target (which in this
+case is running our API from localhost), and allow us to run a hot-reloading UI while still connecting to a live API.
+Simply open up a browser and go to `localhost:4200` and see the results.
+

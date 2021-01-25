@@ -1,8 +1,8 @@
 import Component from '@ember/component';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 import { tagName, classNames, className } from '@ember-decorators/component';
 import { equal } from '@ember/object/computed';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 @tagName('li')
 @classNames('nacho-drop-down__options__option')

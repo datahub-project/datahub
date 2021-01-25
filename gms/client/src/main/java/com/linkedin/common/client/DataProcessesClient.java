@@ -16,7 +16,7 @@ public class DataProcessesClient  extends BaseClient {
         return new DataProcessKey()
                 .setName(urn.getNameEntity())
                 .setOrigin(urn.getOriginEntity())
-                .setOrchestrator(urn.getOrchestrator());
+                .setOrchestrator(urn.getOrchestratorEntity());
     }
 
     @Nonnull

@@ -13,11 +13,14 @@
 * [A Data Engineer’s Perspective On Data Democratization](https://towardsdatascience.com/a-data-engineers-perspective-on-data-democratization-a8aed10f4253)
 * [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
 * [4 Data Trends to Watch in 2020](https://medium.com/memory-leak/4-data-trends-to-watch-in-2020-491707902c09)
-* [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub
-](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
+* [Application Performance Monitor and Distributed Tracing with Apache SkyWalking in Datahub](https://medium.com/@liangjunjiang/application-performance-monitor-and-distributed-tracing-with-apache-skywalking-in-datahub-16bc65e6c670)
+* [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
+* [Almost Everything You Need To Know on Data Discovery Platforms](https://eugeneyan.com/writing/data-discovery-platforms/)
+* [Creating Notebook-based Dynamic Dashboards](https://towardsdatascience.com/creating-notebook-based-dynamic-dashboards-91f936adc6f3)
 
 # Talks & Presentations
 * [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
+* [Taming the Data Beast Using DataHub](https://www.youtube.com/watch?v=bo4OhiPro7Y) @ [Data Engineering Melbourne Meetup November 2020](https://www.meetup.com/Data-Engineering-Melbourne/events/kgnvlrybcpbjc/)
 * [Metadata Management And Integration At LinkedIn With DataHub](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ [Data Engineering Podcast](https://www.dataengineeringpodcast.com)
 * [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
 * [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
@@ -25,7 +28,7 @@
 * [Saxo Bank's Data Workbench](https://www.slideshare.net/SheetalPratik/linkedinsaxobankdataworkbench)
 * [Data Discoverability at SpotHero](https://www.slideshare.net/MaggieHays/data-discoverability-at-spothero)
 
-# Non-English Articles
+# Non-English
 * [LinkedIn元数据之旅的最新进展—Data Hub](https://blog.csdn.net/DataPipeline/article/details/100155781)
 * [数据治理篇: 元数据之datahub-概述](https://www.jianshu.com/p/04630b0c63f7)
 * [DataHub——实时数据治理平台](https://segmentfault.com/a/1190000022563622)
@@ -36,3 +39,4 @@
 * [LinkedIn gibt die Datenplattform DataHub als Open Source frei](https://www.heise.de/developer/meldung/LinkedIn-gibt-die-Datenplattform-DataHub-als-Open-Source-frei-4663773.html)
 * [Linkedin bringt Open-Source-Datahub](https://www.itmagazine.ch/artikel/71532/Linkedin_bringt_Open-Source-Datahub.html)
 * [DataHub: универсальный инструмент поиска и обнаружения метаданных](https://habr.com/ru/post/520930/)
+* [DataHub с открытым исходным кодом: платформа поиска и обнаружения метаданных от LinkedIn](https://habr.com/ru/post/521536/)

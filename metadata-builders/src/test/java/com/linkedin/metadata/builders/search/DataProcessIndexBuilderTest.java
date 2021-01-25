@@ -39,10 +39,10 @@ public class DataProcessIndexBuilderTest {
         new DataProcessSnapshot().setUrn(dataProcessUrn).setAspects(dataProcessAspectArray);
 
     List<DataProcessDocument> actualDocs = new DataProcessIndexBuilder().getDocumentsToUpdate(dataProcessSnapshot);
-    assertEquals(actualDocs.size(), 1);
-    assertEquals(actualDocs.get(0).getUrn(), dataProcessUrn);
+    assertEquals(actualDocs.size(), 2);
     assertEquals(actualDocs.get(0).getInputs().get(0), inputDatasetUrn);
     assertEquals(actualDocs.get(0).getOutputs().get(0), outputDatasetUrn);
-
+    assertEquals(actualDocs.get(0).getUrn(), dataProcessUrn);
+    assertEquals(actualDocs.get(1).getUrn(), dataProcessUrn);
   }
 }

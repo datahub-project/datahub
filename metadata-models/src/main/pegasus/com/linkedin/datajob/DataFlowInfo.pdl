@@ -1,0 +1,23 @@
+namespace com.linkedin.datajob
+
+
+/**
+ * Information about a Data processing flow
+ */
+record DataFlowInfo {
+
+  /**
+   * Flow name
+   */
+  name: string
+
+  /**
+   * Flow description
+   */
+  description: optional string
+
+  /**
+   * Optional project/namespace associated with the flow
+   */
+  project: optional string
+}

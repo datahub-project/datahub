@@ -23,7 +23,7 @@
       {{action (mut isExpanded) (if isExpanded false true)}}
     >
       <span class="dataset-authors-suggested__info__trigger__action">View Suggestions</span>
-      {{fa-icon (if isExpanded "chevron-up" "chevron-down")}}
+      <FaIcon @icon={{if isExpanded "chevron-up" "chevron-down"}} />
     </button>
   </section>
 {{/if}}

@@ -1,0 +1,28 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized data processing job identifier.
+ */
+@java.class = "com.linkedin.common.urn.DataJobUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dataJob",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataJob",
+  "doc" : "Standardized data processing job identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DataFlowUrn",
+    "name" : "flow",
+    "doc" : "Standardized data processing flow urn representing the flow for the job"
+  }, {
+    "name" : "jobID",
+    "doc" : "Unique identifier of the data job",
+    "type" : "string",
+    "maxLength" : 200
+  } ],
+  "maxLength" : 594
+}
+typeref DataJobUrn = string

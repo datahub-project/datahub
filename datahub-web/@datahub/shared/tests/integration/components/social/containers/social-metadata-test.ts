@@ -4,8 +4,8 @@ import { render, find, findAll, waitFor } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { set } from '@ember/object';
 import { baseSocialMetadataComponentClass } from '@datahub/shared/components/social/containers/social-metadata';
+import { setAspect } from '@datahub/data-models/entity/utils/aspects';
 
 module('Integration | Component | social/containers/social-metadata', function(hooks): void {
   setupRenderingTest(hooks);
@@ -18,13 +18,15 @@ module('Integration | Component | social/containers/social-metadata', function(h
     datasetEntity = new DatasetEntity('pikachu');
     datasetEntity.readLikes = function(): Promise<void> {
       // TODO: [META-11037] Use mirage instead of hardcode for like actions
-      set(datasetEntity, 'likedByActions', [{ likedBy: 'aketchum' }, { likedBy: 'misty' }, { likedBy: 'brock' }]);
+      setAspect(datasetEntity, 'likes', {
+        actions: [{ likedBy: 'aketchum' }, { likedBy: 'misty' }, { likedBy: 'brock' }]
+      });
       return new Promise((res): void => res());
     };
 
     datasetEntity.readFollows = function(): Promise<void> {
       // TODO: [META-11037] Use mirage instead of hardcode for like actions
-      set(datasetEntity, 'followedByActions', [{ corpUser: 'aketchum' }]);
+      setAspect(datasetEntity, 'follow', { followers: [{ follower: { corpUser: 'aketchum' } }] });
       return new Promise((res): void => res());
     };
   });

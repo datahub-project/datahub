@@ -24,6 +24,9 @@
           @feature={{readonly container.entity}}
           @didUpdateStatus={{action container.onUpdateFeatureStatus}}
         >
+          {{#if (and container.entity container.entity.isPublished)}}
+            <Features::Lists::ToggleOnList @entity={{container.entity}} class="nacho-button--large" />
+          {{/if}}
         </Features::FeatureHeader>
       </div>
     </section>

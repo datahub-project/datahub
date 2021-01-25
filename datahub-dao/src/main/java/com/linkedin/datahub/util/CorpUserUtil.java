@@ -5,9 +5,8 @@ import com.linkedin.datahub.models.table.CompanyUser;
 import com.linkedin.datahub.models.table.User;
 import com.linkedin.datahub.models.table.UserEntity;
 import com.linkedin.identity.CorpUser;
-
-import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
+import javax.annotation.Nonnull;
 
 
 public class CorpUserUtil {
@@ -33,10 +32,14 @@ public class CorpUserUtil {
     @Nonnull
     public static User toCorpUserView(CorpUser corpUser) {
         User user = new User();
-        user.setEmail(corpUser.getInfo().getEmail());
-        user.setName(corpUser.getInfo().getFullName());
         user.setUserName(corpUser.getUsername());
-        user.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+        if (corpUser.getInfo() != null) {
+            user.setEmail(corpUser.getInfo().getEmail());
+            user.setName(corpUser.getInfo().getFullName());
+        }
+        if (corpUser.getEditableInfo() != null) {
+            user.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
+        }
         return user;
     }
 

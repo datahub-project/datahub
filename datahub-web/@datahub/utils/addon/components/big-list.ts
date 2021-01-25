@@ -4,7 +4,7 @@ import { run } from '@ember/runloop';
 // @ts-ignore: Ignore import of compiled template
 import template from '../templates/components/big-list';
 import { layout, tagName } from '@ember-decorators/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 type OnFinishedReturnType<T> = void | Promise<Array<T>>;
 type OnFinishedType = <T>(currentIndex: number) => OnFinishedReturnType<T>;

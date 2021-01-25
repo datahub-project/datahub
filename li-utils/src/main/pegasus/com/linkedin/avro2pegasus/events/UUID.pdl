@@ -1,3 +1,0 @@
-namespace com.linkedin.avro2pegasus.events
-
-fixed UUID 16

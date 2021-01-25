@@ -2,7 +2,7 @@
 {{#if (and (not this.entries) (not includeTitleWhenEmpty))}}
   <EmptyState @heading={{this.emptyStateHeader}} />
 {{else}}
-  <NachoTable
+  <NachoTable::NachoTable
     @tableConfigs={{this.tableConfigs}}
     @data={{this.entries}}
     @tableClass={{this.baseClass}} as |Table|
@@ -34,5 +34,5 @@
       {{/each-in}}
 
     </Table.body>
-  </NachoTable>
+  </NachoTable::NachoTable>
 {{/if}}

@@ -1,0 +1,14 @@
+@mixin change-management-tag-input {
+  border-radius: 2px;
+  border: 1px solid get-color(gray3);
+  padding: item-spacing(1);
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: item-spacing(4);
+  line-height: 38px;
+}
+
+@mixin change-management-pill {
+  margin: item-spacing(1 1 1 0);
+  min-height: 30px;
+}

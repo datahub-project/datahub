@@ -11,7 +11,7 @@ import { makeAvatar } from 'datahub-web/constants/avatars/avatars';
 import { confirmedOwners, avatarWithDropDownOption, avatarWithProfileLink } from 'datahub-web/constants/datasets/owner';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { buildMailToUrl } from '@datahub/utils/helpers/email';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 import { decodeUrn } from '@datahub/utils/validators/urn';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';

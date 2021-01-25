@@ -25,7 +25,8 @@ export class DataConstructChangeManagementEntity extends BaseEntity<
       search: {
         placeholder: '',
         attributes: [],
-        isEnabled: false
+        isEnabled: false,
+        defaultAspects: []
       }
     };
   }

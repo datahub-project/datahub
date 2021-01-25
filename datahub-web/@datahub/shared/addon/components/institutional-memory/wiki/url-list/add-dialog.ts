@@ -5,7 +5,7 @@ import { layout, classNames } from '@ember-decorators/component';
 import { action } from '@ember/object';
 import { baseTableClass } from '@datahub/shared/components/institutional-memory/wiki/url-list';
 import { setProperties } from '@ember/object';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 /**
  * Creates a modal class base string for convenience
