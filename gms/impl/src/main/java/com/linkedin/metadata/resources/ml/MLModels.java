@@ -17,7 +17,6 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.MLModelUrn;
 
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.MLModelAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -148,7 +147,7 @@ public class MLModels extends BaseSearchableEntityResource<
                 value.setMetrics(metrics);
             } else if (aspect instanceof MLModelFactorPrompts) {
                 MLModelFactorPrompts mlModelFactorPrompts = MLModelFactorPrompts.class.cast(aspect);
-                value.setMlModelFactors(combineFactors(mlModelFactorPrompts));
+                value.setMlModelFactorPrompts(mlModelFactorPrompts);
             } else if (aspect instanceof MLModelProperties) {
                 MLModelProperties modelProperties = MLModelProperties.class.cast(aspect);
                 value.setMlModelProperties(modelProperties);
@@ -170,43 +169,6 @@ public class MLModels extends BaseSearchableEntityResource<
             }
         });
         return value;
-    }
-
-    private static MLModelFactors combineFactors(MLModelFactorPrompts mlModelFactorPrompts) {
-        MLModelFactors mlModelFactors = new MLModelFactors();
-        StringArray environment = new StringArray();
-        StringArray groups = new StringArray();
-        StringArray instrumentation = new StringArray();
-        if (mlModelFactorPrompts.hasEvaluationFactors()) {
-            for (MLModelFactors modelFactors : mlModelFactorPrompts.getEvaluationFactors()) {
-                if (modelFactors.hasEnvironment()) {
-                    environment.addAll(modelFactors.getEnvironment());
-                }
-                if (modelFactors.hasGroups()) {
-                    groups.addAll(modelFactors.getGroups());
-                }
-                if (modelFactors.hasInstrumentation()) {
-                    instrumentation.addAll(modelFactors.getInstrumentation());
-                }
-            }
-        }
-        if (mlModelFactorPrompts.hasRelevantFactors()) {
-            for (MLModelFactors modelFactors : mlModelFactorPrompts.getRelevantFactors()) {
-                if (modelFactors.hasEnvironment()) {
-                    environment.addAll(modelFactors.getEnvironment());
-                }
-                if (modelFactors.hasGroups()) {
-                    groups.addAll(modelFactors.getGroups());
-                }
-                if (modelFactors.hasInstrumentation()) {
-                    instrumentation.addAll(modelFactors.getInstrumentation());
-                }
-            }
-        }
-        mlModelFactors.setEnvironment(environment);
-        mlModelFactors.setGroups(groups);
-        mlModelFactors.setInstrumentation(instrumentation);
-        return mlModelFactors;
     }
 
     /**

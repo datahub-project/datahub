@@ -9,8 +9,4 @@ namespace com.linkedin.metadata.relationship
 }]
 record EvaluatedOn includes BaseRelationship {
 
-  /**
-   * How was the data preprocessed for evaluation (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?
-   */
-  preProcessing: optional string
 }

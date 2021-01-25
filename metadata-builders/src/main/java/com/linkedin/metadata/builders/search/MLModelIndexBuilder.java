@@ -31,12 +31,6 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
         super(Collections.singletonList(MLModelSnapshot.class), MLModelDocument.class);
     }
 
-    @Nonnull
-    private static String buildBrowsePath(@Nonnull MLModelUrn urn) {
-        return ("/" + urn.getOriginEntity() + "/"  + urn.getPlatformEntity().getPlatformNameEntity() + "/" + urn.getMlModelNameEntity())
-            .replace('.', '/').toLowerCase();
-    }
-
     /**
      * Given model urn, this returns a {@link MLModelDocument} model that has urn, dataset name, platform and origin fields set
      *
@@ -79,32 +73,32 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(MLModelUrn urn, Deprecation deprecation) {
         return new MLModelDocument()
+            .setUrn(urn)
             .setActive(!deprecation.isDeprecated());
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(MLModelUrn urn, EvaluationData evaluationData) {
-        final MLModelDocument doc = new MLModelDocument();
+        final MLModelDocument doc = new MLModelDocument().setUrn(urn);
 
-        if (evaluationData.hasEvaluationData()) {
-            final DatasetUrnArray datasetUrns = evaluationData.getEvaluationData()
-                .stream()
-                .map(BaseData::getDataset)
-                .collect(Collectors.toCollection(DatasetUrnArray::new));
+        final DatasetUrnArray datasetUrns = evaluationData.getEvaluationData()
+            .stream()
+            .map(BaseData::getDataset)
+            .collect(Collectors.toCollection(DatasetUrnArray::new));
             doc.setEvaluationDatasets(datasetUrns);
-        }
+
         return doc;
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull MLModelProperties mlModelProperties) {
-        final MLModelDocument doc = new MLModelDocument();
+        final MLModelDocument doc = new MLModelDocument().setUrn(urn);
 
-        if (mlModelProperties.hasDate()) {
+        if (mlModelProperties.getDate() != null) {
             doc.setCreatedTimestamp(mlModelProperties.getDate());
         }
 
-        if (mlModelProperties.hasDescription()) {
+        if (mlModelProperties.getDescription() != null) {
             doc.setDescription(mlModelProperties.getDescription());
         }
 
@@ -115,6 +109,7 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull Ownership ownership) {
         final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
         return new MLModelDocument()
+            .setUrn(urn)
             .setHasOwners(!owners.isEmpty())
             .setOwners(owners);
     }
@@ -122,20 +117,19 @@ public class MLModelIndexBuilder extends BaseIndexBuilder<MLModelDocument> {
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull Status status) {
         return new MLModelDocument()
+            .setUrn(urn)
             .setRemoved(status.isRemoved());
     }
 
     @Nonnull
     private MLModelDocument getDocumentToUpdateFromAspect(@Nonnull MLModelUrn urn, @Nonnull TrainingData trainingData) {
-        final MLModelDocument doc = new MLModelDocument();
+        final MLModelDocument doc = new MLModelDocument().setUrn(urn);
 
-        if (trainingData.hasTrainingData()) {
-            final DatasetUrnArray datasetUrns = trainingData.getTrainingData()
-                .stream()
-                .map(BaseData::getDataset)
-                .collect(Collectors.toCollection(DatasetUrnArray::new));
+        final DatasetUrnArray datasetUrns = trainingData.getTrainingData()
+            .stream()
+            .map(BaseData::getDataset)
+            .collect(Collectors.toCollection(DatasetUrnArray::new));
             doc.setTrainingDatasets(datasetUrns);
-        }
 
         return doc;
     }

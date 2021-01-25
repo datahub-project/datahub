@@ -19,7 +19,7 @@ import javax.inject.Named;
 
 public class BaseMLModelsAspectResource<ASPECT extends RecordTemplate>
     extends BaseVersionedAspectResource<MLModelUrn, MLModelAspect, ASPECT> {
-    private static final String DATA_PROCESS_KEY = MLModels.class.getAnnotation(RestLiCollection.class).keyName();
+    private static final String ML_MODEL_KEY = MLModels.class.getAnnotation(RestLiCollection.class).keyName();
 
     public BaseMLModelsAspectResource(Class<ASPECT> aspectClass) {
         super(MLModelAspect.class, aspectClass);
@@ -38,7 +38,7 @@ public class BaseMLModelsAspectResource<ASPECT extends RecordTemplate>
     @Nonnull
     @Override
     protected MLModelUrn getUrn(@PathKeysParam @Nonnull PathKeys keys) {
-        MLModelKey key = keys.<ComplexResourceKey<MLModelKey, EmptyRecord>>get(DATA_PROCESS_KEY).getKey();
+        MLModelKey key = keys.<ComplexResourceKey<MLModelKey, EmptyRecord>>get(ML_MODEL_KEY).getKey();
         return new MLModelUrn(key.getPlatform(), key.getName(), key.getOrigin());
     }
 }

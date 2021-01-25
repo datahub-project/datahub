@@ -27,15 +27,7 @@ public class TrainedOnBuilderFromTrainingData extends BaseRelationshipBuilder<Tr
     public <URN extends Urn> List<GraphBuilder.RelationshipUpdates> buildRelationships(@Nonnull URN urn, @Nonnull TrainingData trainingData) {
         final List<TrainedOn> trainingDataList = trainingData.getTrainingData()
             .stream()
-            .filter(BaseData::hasDataset)
-            .filter(baseData -> DatasetUrn.ENTITY_TYPE.equals(baseData.getDataset().getEntityType()))
-            .map(baseData -> {
-                TrainedOn trainedOn = new TrainedOn().setSource(urn).setDestination(baseData.getDataset());
-                if (baseData.hasPreProcessing()) {
-                    trainedOn.setPreProcessing(baseData.getPreProcessing().toString());
-                }
-                return trainedOn;
-            })
+            .map(baseData -> new TrainedOn().setSource(urn).setDestination(baseData.getDataset()))
             .collect(Collectors.toList());
 
         return Collections.singletonList(new GraphBuilder.RelationshipUpdates(trainingDataList, REMOVE_ALL_EDGES_FROM_SOURCE));

@@ -30,7 +30,7 @@ public class MLModelFactorPromptsResource extends BaseMLModelsAspectResource<MLM
     @RestMethod.Create
     @Nonnull
     @Override
-    public Task<CreateResponse> create(@Nonnull MLModelFactorPrompts mlModelFctorPrompts) {
-        return super.create(mlModelFctorPrompts);
+    public Task<CreateResponse> create(@Nonnull MLModelFactorPrompts mlModelFactorPrompts) {
+        return super.create(mlModelFactorPrompts);
     }
 }

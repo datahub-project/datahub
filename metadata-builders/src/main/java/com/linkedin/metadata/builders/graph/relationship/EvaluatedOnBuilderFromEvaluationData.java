@@ -26,15 +26,7 @@ public class EvaluatedOnBuilderFromEvaluationData extends BaseRelationshipBuilde
     public <URN extends Urn> List<GraphBuilder.RelationshipUpdates> buildRelationships(@Nonnull URN urn, @Nonnull EvaluationData evaluationData) {
         final List<EvaluatedOn> evaluationDataList = evaluationData.getEvaluationData()
             .stream()
-            .filter(BaseData::hasDataset)
-            .filter(baseData -> DatasetUrn.ENTITY_TYPE.equals(baseData.getDataset().getEntityType()))
-            .map(baseData -> {
-                EvaluatedOn evaluatedOn = new EvaluatedOn().setSource(urn).setDestination(baseData.getDataset());
-                if (baseData.hasPreProcessing()) {
-                    evaluatedOn.setPreProcessing(baseData.getPreProcessing().toString());
-                }
-                return evaluatedOn;
-            })
+            .map(baseData -> new EvaluatedOn().setSource(urn).setDestination(baseData.getDataset()))
             .collect(Collectors.toList());
 
         return Collections.singletonList(new GraphBuilder.RelationshipUpdates(evaluationDataList, REMOVE_ALL_EDGES_FROM_SOURCE));

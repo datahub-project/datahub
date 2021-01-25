@@ -11,6 +11,7 @@ import com.linkedin.common.Deprecation
 import com.linkedin.ml.metadata.MLModelProperties
 import com.linkedin.ml.metadata.IntendedUse
 import com.linkedin.ml.metadata.MLModelFactors
+import com.linkedin.ml.metadata.MLModelFactorPrompts
 import com.linkedin.ml.metadata.Metrics
 import com.linkedin.ml.metadata.EvaluationData
 import com.linkedin.ml.metadata.TrainingData
@@ -43,7 +44,10 @@ record MLModel includes MLModelKey, ChangeAuditStamps {
   /**
    * MLModel Factors
    */
+   @deprecated = "Use MLModelFactorPrompts instead"
   mlModelFactors: optional MLModelFactors
+
+  mlModelFactorPrompts: optional MLModelFactorPrompts
 
   /**
    * Metrics

@@ -990,6 +990,11 @@
       "name" : "mlModelFactors",
       "type" : "com.linkedin.ml.metadata.MLModelFactors",
       "doc" : "MLModel Factors",
+      "optional" : true,
+      "deprecated" : "Use MLModelFactorPrompts instead"
+    }, {
+      "name" : "mlModelFactorPrompts",
+      "type" : "com.linkedin.ml.metadata.MLModelFactorPrompts",
       "optional" : true
     }, {
       "name" : "metrics",

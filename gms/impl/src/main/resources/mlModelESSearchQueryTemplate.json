@@ -21,7 +21,6 @@
             "query_string": {
               "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
-              "boost": 0.125,
               "fields": [
                 "name.ngram^0.125",
                 "name.ml_model_pattern_ngram^8",

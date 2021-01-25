@@ -78,7 +78,7 @@ public class MLModels extends BaseSearchableClient<MLModel> {
      * @param requestFilters search filters
      * @param start start offset for search results
      * @param count max number of search results requested
-     * @return Snapshot key
+     * @return CollectionResponse of {@link MLModel}
      * @throws RemoteInvocationException
      */
     @Nonnull
@@ -93,7 +93,7 @@ public class MLModels extends BaseSearchableClient<MLModel> {
     }
 
     /**
-     * Gets browse snapshot of a given path
+     * Autocomplete search for ML Models in search bar
      *
      * @param query search query
      * @param field field of the ML Model
