@@ -12,7 +12,7 @@ interface Props {
 }
 
 /**
- * A page that includes a search header & entity browse path view
+ * A entity-details page that includes a search header & entity browse path view
  */
 export const BrowsableEntityPage = ({ urn: _urn, type: _type, children: _children }: Props) => {
     const { data } = useGetBrowsePathsQuery({ variables: { input: { urn: _urn, type: _type } } });

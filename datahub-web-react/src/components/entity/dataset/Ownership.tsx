@@ -1,15 +1,16 @@
 import { AutoComplete, Avatar, Button, Col, Row, Select, Table } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Owner, OwnershipType } from '../../../types.generated';
+import { EntityType, Owner, OwnershipType } from '../../../types.generated';
 import defaultAvatar from '../../../images/default_avatar.png';
 import { PageRoutes } from '../../../conf/Global';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 
 const OWNER_SEARCH_PLACEHOLDER = 'Enter an LDAP...';
 const NUMBER_OWNERS_REQUIRED = 2;
 
 interface Props {
-    owners: Array<Owner>;
+    initialOwners: Array<Owner>;
     lastModifiedAt: number;
 }
 
@@ -18,8 +19,11 @@ interface Props {
  *
  * TODO: Add mutations to change ownership on explicit save.
  */
-export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt }: Props): JSX.Element => {
-    console.log(lastModifiedAt);
+export const Ownership: React.FC<Props> = ({
+    initialOwners: _initialOwners,
+    lastModifiedAt: _lastModifiedAt,
+}: Props): JSX.Element => {
+    console.log(_lastModifiedAt);
 
     const getOwnerTableData = (ownerArr: Array<Owner>) => {
         const rows = ownerArr.map((owner) => ({
@@ -33,45 +37,55 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt }: Props): J
         return rows;
     };
 
-    const [ownerTableData, setOwnerTableData] = useState(getOwnerTableData(owners));
+    const [owners, setOwners] = useState(_initialOwners);
     const [showAddOwner, setShowAddOwner] = useState(false);
-    const [ownerSuggestions, setOwnerSuggestions] = useState(new Array<string>());
+    const [getOwnerAutoCompleteResults, { data: searchOwnerSuggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const onShowAddAnOwner = () => {
         setShowAddOwner(true);
     };
 
     const onDeleteOwner = (urn: string) => {
-        const newOwnerTableData = ownerTableData.filter((ownerRow) => !(ownerRow.urn === urn));
-        setOwnerTableData(newOwnerTableData);
+        const newOwners = owners.filter((owner: Owner) => !(owner.owner.urn === urn));
+        setOwners(newOwners);
     };
 
-    const onOwnerQueryChange = (_: string) => {
-        // TODO: Fetch real suggestions!
-        setOwnerSuggestions(['jjoyce']);
+    const onOwnerQueryChange = (query: string) => {
+        getOwnerAutoCompleteResults({
+            variables: {
+                input: {
+                    type: EntityType.User,
+                    query,
+                    field: 'ldap',
+                },
+            },
+        });
     };
 
     const onSelectOwner = (ldap: string) => {
-        // TODO: Remove sample suggestions.
-        const newOwnerTableData = [
-            ...ownerTableData,
+        // TODO: Remove this sample code.
+        const newOwners = [
+            ...owners,
             {
-                urn: 'urn:li:corpuser:ldap',
-                ldap,
-                fullName: 'John Joyce',
-                type: 'USER',
-                role: OwnershipType.Delegate,
-                pictureLink: null,
-            },
+                owner: {
+                    urn: `urn:li:corpuser:${ldap}`,
+                    username: ldap,
+                    info: {
+                        fullName: 'John Joyce',
+                    },
+                    editableInfo: {
+                        pictureLink: null,
+                    },
+                },
+                type: OwnershipType.Delegate,
+            } as Owner,
         ];
-        setOwnerTableData(newOwnerTableData);
+        setOwners(newOwners);
     };
 
-    const onOwnershipTypeChange = (urn: string, type: string) => {
-        const newOwnerTableData = ownerTableData.map((ownerRow) =>
-            ownerRow.urn === urn ? { ...ownerRow, type } : ownerRow,
-        );
-        setOwnerTableData(newOwnerTableData);
+    const onOwnershipTypeChange = (urn: string, type: OwnershipType) => {
+        const newOwners = owners.map((owner: Owner) => (owner.owner.urn === urn ? { ...owner, type } : owner));
+        setOwners(newOwners);
     };
 
     const ownerTableColumns = [
@@ -137,7 +151,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt }: Props): J
             </Row>
             <Row>
                 <Col span={24}>
-                    <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} />
+                    <Table pagination={false} columns={ownerTableColumns} dataSource={getOwnerTableData(owners)} />
                 </Col>
             </Row>
             <Row>
@@ -149,7 +163,14 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt }: Props): J
                     )}
                     {showAddOwner && (
                         <AutoComplete
-                            options={ownerSuggestions.map((result: string) => ({ value: result }))}
+                            options={
+                                (searchOwnerSuggestionsData &&
+                                    searchOwnerSuggestionsData.autoComplete &&
+                                    searchOwnerSuggestionsData.autoComplete.suggestions.map((result: string) => ({
+                                        value: result,
+                                    }))) ||
+                                []
+                            }
                             style={{
                                 width: 150,
                             }}

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Switch, Route, RouteProps, Redirect } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
-import { BrowsePage } from './browse/BrowsePage';
+import { BrowseTypesPage } from './browse/BrowseTypesPage';
+import { BrowseResultsPage } from './browse/BrowseResultsPage';
 import { DatasetPage } from './entity/dataset/DatasetPage';
 import { UserPage } from './entity/user/UserPage';
 import { SearchPage } from './search/SearchPage';
@@ -27,10 +28,10 @@ const ProtectedRoute = ({
  */
 export const Routes = (): JSX.Element => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
-
     return (
         <div>
             <Switch>
+                <ProtectedRoute isLoggedIn={isLoggedIn} exact path="/" render={() => <BrowseTypesPage />} />
                 <Route path={PageRoutes.LOG_IN} component={LogIn} />
                 <ProtectedRoute
                     isLoggedIn={isLoggedIn}
@@ -38,7 +39,17 @@ export const Routes = (): JSX.Element => {
                     render={() => <DatasetPage />}
                 />
                 <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.SEARCH} render={() => <SearchPage />} />
-                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.BROWSE} render={() => BrowsePage} />
+                <ProtectedRoute
+                    isLoggedIn={isLoggedIn}
+                    exact
+                    path={PageRoutes.BROWSE_TYPES}
+                    render={() => <BrowseTypesPage />}
+                />
+                <ProtectedRoute
+                    isLoggedIn={isLoggedIn}
+                    path={PageRoutes.BROWSE_RESULTS}
+                    render={() => <BrowseResultsPage />}
+                />
                 <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.USERS} render={() => <UserPage />} />
                 <Route component={NoPageFound} />
             </Switch>

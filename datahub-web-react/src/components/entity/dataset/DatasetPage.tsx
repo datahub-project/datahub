@@ -22,6 +22,8 @@ interface RouteParams {
     urn: string;
 }
 
+const EMPTY_OWNER_ARR: never[] = [];
+
 /**
  * Responsible for display the Dataset Page
  */
@@ -71,7 +73,7 @@ export const DatasetPage: React.VFC = () => {
                 path: TabType.Ownership.toLowerCase(),
                 content: (
                     <OwnershipView
-                        owners={(ownership && ownership.owners) || []}
+                        initialOwners={(ownership && ownership.owners) || EMPTY_OWNER_ARR}
                         lastModifiedAt={ownership && ownership.lastModified}
                     />
                 ),

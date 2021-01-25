@@ -7,7 +7,7 @@ import { SearchablePage } from './SearchablePage';
 import { fromCollectionName, fromPathName, toCollectionName, toPathName } from '../shared/EntityTypeUtil';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { SearchResults } from './SearchResults';
-import { PlatformNativeType } from '../../types.generated';
+import { EntityType, PlatformNativeType } from '../../types.generated';
 import { SearchFilters } from './SearchFilters';
 import { SearchCfg } from '../../conf';
 import { PageRoutes } from '../../conf/Global';
@@ -24,21 +24,19 @@ export const SearchPage = () => {
     const location = useLocation();
 
     const params = QueryString.parse(location.search);
-    const typeParam = params.type ? fromPathName(params.type as string) : SEARCHABLE_ENTITY_TYPES[0];
-    const queryParam = params.query ? (params.query as string) : '';
-    const pageParam = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
-    const filtersParam = location.state
-        ? ((location.state as any).filters as Array<{ field: string; value: string }>)
-        : [];
+    const type = params.type ? fromPathName(params.type as string) : SEARCHABLE_ENTITY_TYPES[0];
+    const query = params.query ? (params.query as string) : '';
+    const page = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const filters = location.state ? ((location.state as any).filters as Array<{ field: string; value: string }>) : [];
 
     const { loading, error, data } = useGetSearchResultsQuery({
         variables: {
             input: {
-                type: typeParam,
-                query: queryParam,
-                start: (pageParam - 1) * RESULTS_PER_PAGE,
+                type,
+                query,
+                start: (page - 1) * RESULTS_PER_PAGE,
                 count: RESULTS_PER_PAGE,
-                filters: filtersParam,
+                filters,
             },
         },
     });
@@ -47,30 +45,30 @@ export const SearchPage = () => {
         const entityType = fromCollectionName(newType);
         history.push({
             pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(entityType)}&query=${queryParam}&page=1`,
+            search: `?type=${toPathName(entityType)}&query=${query}&page=1`,
         });
     };
 
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
-            ? [...filtersParam, { field, value }]
-            : filtersParam.filter((filter) => filter.field !== field || filter.value !== value);
+            ? [...filters, { field, value }]
+            : filters.filter((filter) => filter.field !== field || filter.value !== value);
 
         history.push({
             pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(typeParam)}&query=${queryParam}&page=1`,
+            search: `?type=${toPathName(type)}&query=${query}&page=1`,
             state: {
                 filters: newFilters,
             },
         });
     };
 
-    const onResultsPageChange = (page: number) => {
+    const onResultsPageChange = (newPage: number) => {
         return history.push({
             pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(typeParam)}&query=${queryParam}&page=${page}`,
+            search: `?type=${toPathName(type)}&query=${query}&page=${newPage}`,
             state: {
-                filters: [...filtersParam],
+                filters: [...filters],
             },
         });
     };
@@ -78,9 +76,6 @@ export const SearchPage = () => {
     const navigateToDataset = (urn: string) => {
         return history.push({
             pathname: `${PageRoutes.DATASETS}/${urn}`,
-            state: {
-                filters: [...filtersParam],
-            },
         });
     };
 
@@ -126,32 +121,29 @@ export const SearchPage = () => {
         };
     };
 
-    /* eslint-disable no-underscore-dangle */
-    const toSearchResults = (elements: { __typename: string }[]) => {
-        return elements.map((element) => {
-            switch (element.__typename) {
-                case 'Dataset':
-                    return toDatasetSearchResult(element as any);
-                default:
-                    throw new Error('Non-dataset search type currently not supported!');
-            }
-        });
+    const toSearchResults = (elements: any) => {
+        switch (type) {
+            case EntityType.Dataset:
+                return elements.map((element: any) => toDatasetSearchResult(element));
+            default:
+                throw new Error(`Search for entity of type ${type} currently not supported!`);
+        }
     };
 
     const searchResults = (data && data?.search && toSearchResults(data.search.elements)) || [];
 
     return (
-        <SearchablePage initialQuery={queryParam} initialType={typeParam}>
+        <SearchablePage initialQuery={query} initialType={type}>
             <Layout.Content style={{ backgroundColor: 'white' }}>
                 <Affix offsetTop={64}>
                     <Tabs
                         tabBarStyle={{ backgroundColor: 'white', padding: '0px 165px', marginBottom: '0px' }}
-                        defaultActiveKey={toCollectionName(typeParam)}
+                        defaultActiveKey={toCollectionName(type)}
                         size="large"
                         onChange={(newPath) => onSearchTypeChange(newPath)}
                     >
-                        {SEARCHABLE_ENTITY_TYPES.map((type) => (
-                            <Tabs.TabPane tab={toCollectionName(type)} key={toCollectionName(type)} />
+                        {SEARCHABLE_ENTITY_TYPES.map((t) => (
+                            <Tabs.TabPane tab={toCollectionName(t)} key={toCollectionName(t)} />
                         ))}
                     </Tabs>
                 </Affix>
@@ -159,7 +151,7 @@ export const SearchPage = () => {
                     <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 15px' }} span={6}>
                         <SearchFilters
                             facets={(data && data?.search && data.search.facets) || []}
-                            selectedFilters={filtersParam}
+                            selectedFilters={filters}
                             onFilterSelect={onFilterSelect}
                         />
                     </Col>
@@ -168,7 +160,7 @@ export const SearchPage = () => {
                         {error && !data && <p>Search error!</p>}
                         {data && data?.search && (
                             <SearchResults
-                                typeName={toCollectionName(typeParam)}
+                                typeName={toCollectionName(type)}
                                 results={searchResults}
                                 pageStart={data.search?.start}
                                 pageSize={data.search?.count}
