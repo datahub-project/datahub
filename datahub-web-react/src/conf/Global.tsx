@@ -11,7 +11,8 @@ export const LOGO_IMAGE = DataHubLogo;
 export enum PageRoutes {
     LOG_IN = '/login',
     SEARCH = '/search',
-    BROWSE = '/browse',
+    BROWSE_TYPES = '/browse',
+    BROWSE_RESULTS = '/browse/:type',
     DATASETS = '/datasets',
     USERS = '/users',
 }

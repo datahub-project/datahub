@@ -32,6 +32,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
             })
                 .then(() => {
                     Cookies.set('PLAY_SESSION', 'DUMMY_VALUE');
+                    Cookies.set('IS_LOGGED_IN', 'true');
                     isLoggedInVar(true);
                 })
                 .catch((e: ApolloError) => {

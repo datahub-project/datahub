@@ -6,7 +6,8 @@ schema {
 }
 
 type Query {
-    dataset(urn: String): Dataset
+    dataset(urn: String!): Dataset
+    user(urn: String!): CorpUser
     search(input: SearchInput!): SearchResults
     autoComplete(input: AutoCompleteInput!): AutoCompleteResults
     browse(input: BrowseInput!): BrowseResults
@@ -303,7 +304,7 @@ input BrowseInput {
 
 # Browse Output
 type BrowseResults {
-    entities: [BrowseResultEntity]!
+    entities: [BrowseResultEntity!]!
     start: Int!
     count: Int!
     total: Int!

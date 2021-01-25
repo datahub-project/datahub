@@ -22,7 +22,7 @@ export const SearchResults = ({
     pageSize: _pageSize,
     totalResults: _totalResults,
     results: _results,
-    onChangePage,
+    onChangePage: _onChangePage,
 }: Props) => {
     return (
         <Card
@@ -52,7 +52,7 @@ export const SearchResults = ({
                 pageSize={_pageSize}
                 total={_totalResults / _pageSize}
                 showLessItems
-                onChange={onChangePage}
+                onChange={_onChangePage}
             />
         </Card>
     );
