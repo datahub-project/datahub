@@ -38,7 +38,6 @@ import com.linkedin.ml.metadata.EthicalConsiderations;
 import com.linkedin.ml.metadata.EvaluationData;
 import com.linkedin.ml.metadata.IntendedUse;
 import com.linkedin.ml.metadata.MLModelFactorPrompts;
-import com.linkedin.ml.metadata.MLModelFactors;
 import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.ml.metadata.Metrics;
 import com.linkedin.ml.metadata.QuantitativeAnalyses;
@@ -63,7 +62,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "mlModels", namespace = "com.linkedin.ml", keyName = "model")
 public class MLModels extends BaseSearchableEntityResource<
     // @formatter:off
-    MLModelKey,
+    ComplexResourceKey<MLModelKey, EmptyRecord>,
     MLModel,
     MLModelUrn,
     MLModelSnapshot,
@@ -102,14 +101,19 @@ public class MLModels extends BaseSearchableEntityResource<
 
     @Nonnull
     @Override
-    protected MLModelUrn toUrn(@Nonnull MLModelKey key) {
-        return new MLModelUrn(key.getPlatform(), key.getName(), key.getOrigin());
+    protected MLModelUrn toUrn(@Nonnull ComplexResourceKey<MLModelKey, EmptyRecord> key) {
+        return new MLModelUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin());
     }
 
     @Nonnull
     @Override
-    protected MLModelKey toKey(@Nonnull MLModelUrn urn) {
-        return new MLModelKey().setName(urn.getMlModelNameEntity()).setOrigin(urn.getOriginEntity()).setPlatform(urn.getPlatformEntity());
+    protected ComplexResourceKey<MLModelKey, EmptyRecord> toKey(@Nonnull MLModelUrn urn) {
+        return new ComplexResourceKey<>(
+            new MLModelKey()
+                .setName(urn.getMlModelNameEntity())
+                .setOrigin(urn.getOriginEntity())
+                .setPlatform(urn.getPlatformEntity()),
+            new EmptyRecord());
     }
 
     @Nonnull

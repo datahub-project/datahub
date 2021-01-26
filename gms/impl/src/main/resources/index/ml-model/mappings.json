@@ -32,7 +32,7 @@
       "fields": {
         "model_pattern_ngram": {
           "type": "text",
-          "analyzer": "model_pattern_ngram"
+          "analyzer": "ml_model_pattern_ngram"
         },
         "delimited": {
           "type": "text",
@@ -44,7 +44,7 @@
         },
         "pattern": {
           "type": "text",
-          "analyzer": "model_pattern"
+          "analyzer": "ml_model_pattern"
         }
       },
       "normalizer": "my_normalizer"
@@ -83,7 +83,7 @@
       "fields": {
         "model_pattern_ngram": {
           "type": "text",
-          "analyzer": "model_pattern_ngram"
+          "analyzer": "ml_model_pattern_ngram"
         },
         "delimited": {
           "type": "text",
@@ -95,7 +95,7 @@
         },
         "pattern": {
           "type": "text",
-          "analyzer": "model_pattern"
+          "analyzer": "ml_model_pattern"
         }
       }
     }
