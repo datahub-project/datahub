@@ -1,8 +1,8 @@
 import { ISuggestionGroup } from 'datahub-web/utils/parsers/autocomplete/types';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import { IFieldValuesResponseV2, FieldValuesRequestV2 } from 'datahub-web/typings/app/search/fields-v2';
 import { facetValuesApiEntities } from 'datahub-web/utils/parsers/autocomplete/utils';
 import { getFacetForcedValueForEntity } from '@datahub/data-models/entity/utils/facets';
+import { FieldValuesRequestV2, IFieldValuesResponseV2 } from '@datahub/shared/types/search/fields-v2';
 
 export const createSuggestionsFromError = (error: string): Array<ISuggestionGroup> => {
   return [
@@ -33,7 +33,7 @@ export const fetchFacetValue = async (
   const searchAttributes = searchRenderProps.attributes;
   const fieldMeta = searchAttributes.find((attr): boolean => attr.fieldName === facetName);
   const { minAutocompleteFetchLength } = fieldMeta || { minAutocompleteFetchLength: undefined };
-  const cacheKey = `${facetName}:${facetValue}`;
+  const cacheKey = `${entity.displayName}:${facetName}:${facetValue}`;
   const forcedFacets = getFacetForcedValueForEntity(searchAttributes);
 
   // if `facetValue` length (query length) is smaller than the minimum threshold,

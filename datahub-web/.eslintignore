@@ -24,7 +24,7 @@
 
 # TODO [META-12204] Fix issues in datahub/pdsc that make us have to ignore the directory
 # vendor generator for metadata-models TypeScript type definitions
-**/@datahub/pdsc/
+**/@dh-tools/pdsc/
 
 # generated metadata-models TypeScript type definitions
 **/types/codegen/**/*.d.ts

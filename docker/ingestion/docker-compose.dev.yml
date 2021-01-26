@@ -1,0 +1,18 @@
+---
+version: '3.5'
+services:
+  ingestion:
+    image: datahub-ingestion:debug
+    env_file: env/docker.env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ../../metadata-ingestion-examples/mce-cli/build/libs/:/datahub/ingestion/bin
+      - ../../metadata-ingestion-examples/mce-cli/example-bootstrap.json:/datahub/ingestion/example-bootstrap.json
+
+networks:
+  default:
+    name: datahub_network

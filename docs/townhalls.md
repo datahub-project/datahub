@@ -1,11 +1,11 @@
 # DataHub Town Hall
 
 We hold regular virtual town hall meetings to meet with DataHub community. 
-Currently it's held on the first Friday of every month.
+Currently it's held on the third Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - November 6th, 2020 @ 9 AM US Pacific (GMT-7)
+# Coming up - February 19th, 2021 @ 9 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
@@ -20,7 +20,7 @@ You can join with this link, or see the full invite below. https://linkedin.zoom
 Nagarjuna Kanamarlapudi is inviting you to a scheduled Zoom meeting.
 
 Topic: DataHub Town Hall
-Time: Nov 6, 2020 09:00 AM Pacific Time (US and Canada)
+Time: Dec 4, 2020 09:00 AM Pacific Time (US and Canada)
 
 Join Zoom Meeting
 https://linkedin.zoom.us/j/4698262890
@@ -34,7 +34,7 @@ Dial by your location
         +1 669 900 6833 US (San Jose)
         +1 253 215 8782 US (Tacoma)
         +1 346 248 7799 US (Houston)
-        +1 301 715 8592 US (Germantown)
+        +1 301 715 8592 US (Washington D.C)
         +1 312 626 6799 US (Chicago)
         +1 646 558 8656 US (New York)
         877 853 5247 US Toll-free
@@ -71,7 +71,7 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-Coming soon!
+* Stay Tuned!
 
 # Past Meetings
 

@@ -45,7 +45,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "corpUsers", namespace = "com.linkedin.identity", keyName = "corpUser")
 public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:off
-    CorpUserKey,
+    ComplexResourceKey<CorpUserKey, EmptyRecord>,
     CorpUser,
     CorpuserUrn,
     CorpUserSnapshot,
@@ -85,14 +85,14 @@ public final class CorpUsers extends BaseSearchableEntityResource<
 
   @Override
   @Nonnull
-  protected CorpuserUrn toUrn(@Nonnull CorpUserKey key) {
-    return new CorpuserUrn(key.getName());
+  protected CorpuserUrn toUrn(@Nonnull ComplexResourceKey<CorpUserKey, EmptyRecord> key) {
+    return new CorpuserUrn(key.getKey().getName());
   }
 
   @Override
   @Nonnull
-  protected CorpUserKey toKey(@Nonnull CorpuserUrn urn) {
-    return new CorpUserKey().setName(urn.getUsernameEntity());
+  protected ComplexResourceKey<CorpUserKey, EmptyRecord> toKey(@Nonnull CorpuserUrn urn) {
+    return new ComplexResourceKey<>(new CorpUserKey().setName(urn.getUsernameEntity()), new EmptyRecord());
   }
 
   @Override

@@ -4,7 +4,7 @@ import template from '../../../templates/components/institutional-memory/contain
 import { layout } from '@ember-decorators/component';
 import { action, computed } from '@ember/object';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { isEqual } from 'lodash';
+import { isEqual } from 'lodash-es';
 import { InstitutionalMemory, InstitutionalMemories } from '@datahub/data-models/models/aspects/institutional-memory';
 import { run, schedule } from '@ember/runloop';
 import { task } from 'ember-concurrency';
@@ -32,7 +32,7 @@ export default class InstitutionalMemoryContainersTab extends Component {
   }
 
   /**
-   * Flag that indicates if the current entity belongs to a whitelist that dictates if Change management is enabled or not.
+   * Flag that indicates if the current entity belongs to a allow list that dictates if Change management is enabled or not.
    */
   @computed('entity.displayName')
   get isChangeManagementEnabled(): boolean {

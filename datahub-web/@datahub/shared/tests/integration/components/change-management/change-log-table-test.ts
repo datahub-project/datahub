@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, findAll } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { baseTableClass } from '@datahub/shared/components/change-management/change-log-table';
 import { ChangeLog } from '@datahub/shared/modules/change-log';
 import { stubService } from '@datahub/utils/test-helpers/stub-service';

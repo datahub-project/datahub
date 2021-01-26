@@ -1,0 +1,202 @@
+<ModalDialog
+  @overlayClass="notification-overlay"
+  @containerClassNames="{{this.baseModalClass}}__modal notification-confirm-modal"
+  @onClose={{fn this.onResetModal}}
+>
+  <header class="notification-confirm-modal__header {{this.baseModalClass}}__header">
+    <h3 class="{{this.baseModalClass}}__title">
+      Add change log
+    </h3>
+    <button
+      type="button"
+      class="{{this.baseModalClass}}__close"
+      {{on "click" (fn this.onResetModal)}}
+    >
+      &times;
+    </button>
+  </header>
+  {{!-- Only show the preview markdown option when content is being edited by the user , not for existing content and overall preview of recipients --}}
+  {{#if (and (not this.isSendingEmailOnly) (not this.isDisplayingPreviewModal))}}
+    <section class="notification-confirm-modal__header">
+        <button
+          type="button"
+          class="nacho-button--tertiary {{this.baseModalClass}}__preview-markdown-button"
+          {{on "click" (fn this.toggleIsInMarkdownPreviewMode)}}
+        >
+          <FaIcon
+            @icon={{if this.isInMarkdownPreviewMode "pencil-alt" "eye"}}
+            @class="{{this.baseModalClass}}__preview-markdown-icon"
+            />
+          {{if this.isInMarkdownPreviewMode "Back to edit" "Preview content"}}
+        </button>
+    </section>
+  {{/if}}
+  <section class="notification-confirm-modal__content {{this.baseModalClass}}__content">
+    {{#if this.isDisplayingPreviewModal}}
+    <div class="{{this.baseModalClass}}__content-preview-modal">
+        <div class="{{this.baseModalClass}}__item">
+          <p class="{{this.baseModalClass}}__label--bold">
+            {{this.titleText}}
+          </p>
+          <ul class="{{this.baseModalClass}}__list">
+            <li>Dataset Followers ({{this.emailRecipientsCount.followers}})</li>
+            <li>All Owners of the dataset ({{this.emailRecipientsCount.owners}})</li>
+            <li>Individual email recipients ({{this.emailRecipientsCount.individualRecipients}})</li>
+            <li>Group email distribution list ({{this.emailRecipientsCount.distributionLists}})</li>
+          </ul>
+        </div>
+        <div class="{{this.baseModalClass}}__item">
+          <p class="{{this.baseModalClass}}__label--bold">
+            Add additional email recipients (optional)
+          </p>
+          <p class="{{this.baseModalClass}}__label">
+            Add group email distribution lists
+          </p>
+          <ChangeManagement::RecipientSearchSelect
+            @addRecipient={{this.addRecipient}}
+            @removeRecipient={{this.removeRecipient}}
+            @distributionLists={{this.distributionLists}}
+          />
+          <p class="{{this.baseModalClass}}__label">
+            Add individual email recipients
+          </p>
+          <ChangeManagement::RecipientSearchSelect
+            @addRecipient={{this.addRecipient}}
+            @removeRecipient={{this.removeRecipient}}
+            @individualRecipients={{this.individualRecipients}}
+          />
+        </div>
+      </div>
+    {{else if this.isSendingEmailOnly}}
+      <ChangeManagement::ReadOnlyEmailContent
+        @subject={{@currentChangeLog.subject}}
+        @content={{@currentChangeLog.content}}
+      />
+    {{else if this.isInMarkdownPreviewMode}}
+      <section class="{{this.baseModalClass}}__content-preview">
+
+        <div class="{{this.baseModalClass}}__item {{this.baseModalClass}}__subject">
+          <p class="{{this.baseModalClass}}__label">
+            {{this.editableChangeset.subject}}
+          </p>
+        </div>
+        <div class="{{this.baseModalClass}}__item">
+          <p class="{{this.baseModalClass}}__label">
+            {{this.contentMarkdownTranslated}}
+          </p>
+        </div>
+      </section>
+    {{else}}
+        <section class="{{this.baseModalClass}}__content-user-input">
+          <div class="{{this.baseModalClass}}__item">
+            <p class="{{this.baseModalClass}}__label">Subject</p>
+            <Textarea
+              class="{{this.baseModalClass}}__text-input {{this.baseModalClass}}__text-input-subject"
+              @maxlength={{this.maxCharSubject}}
+              @value={{this.editableChangeset.subject}}
+              @placeholder="Headline of the change"
+
+            />
+
+            <p class="{{this.baseModalClass}}__text-input-validation">
+              {{! render validation messages for subject}}
+              <ul class="{{this.baseModalClass}}__text-input-error">
+                {{#with this.editableChangeset.error as |error|}}
+                  {{#let (get error "subject.validation") as |validations|}}
+                    {{#each validations as |validation|}}
+                      <li>
+                        {{validation}}
+                      </li>
+                    {{/each}}
+                  {{/let}}
+                {{/with}}
+              </ul>
+              <span class="{{this.baseModalClass}}__text-input-validation-count">
+                {{this.editableChangeset.subject.length}}/{{this.maxCharSubject}}
+              </span>
+            </p>
+          </div>
+          <div class="{{this.baseModalClass}}__item">
+            <p class="{{this.baseModalClass}}__label">Content</p>
+            <Textarea
+              class="{{this.baseModalClass}}__text-input {{this.baseModalClass}}__text-input-content"
+              @maxlength={{this.maxCharContent}}
+              @value={{this.editableChangeset.content}}
+              @placeholder="Details you wish to include in the log"
+              {{on "keyup" (fn this.handleKeyup)}}
+            />
+            <p class="{{this.baseModalClass}}__text-input-validation">
+              {{! render validation messages for content/body}}
+              <ul class="{{this.baseModalClass}}__text-input-error">
+                {{#with this.editableChangeset.error as |error|}}
+                  {{#let (get error "content.validation") as |validations|}}
+                    {{#each validations as |validation|}}
+                      <li>
+                        {{validation}}
+                      </li>
+                    {{/each}}
+                  {{/let}}
+                {{/with}}
+              </ul>
+              <span class="{{this.baseModalClass}}__text-input-validation-count">
+                {{this.editableChangeset.content.length}}/{{this.maxCharContent}}
+              </span>
+            </p>
+          </div>
+        </section>
+        <ChangeManagement::MarkdownCheatSheet/>
+    {{/if}}
+  </section>
+  <section class="notification-confirm-modal__footer {{this.baseModalClass}}__actions">
+    <div class="{{this.baseModalClass}}__action-back">
+      {{#if this.isDisplayingPreviewModal}}
+      <button
+        type="button"
+        class="nacho-button--large nacho-button--tertiary {{this.baseModalClass}}__action"
+        {{on "click" (fn this.onBackToAddModal)}}
+      >
+        Back
+      </button>
+      {{/if}}
+    </div>
+    <div>
+      <button
+        type="button"
+        class="nacho-button--large nacho-button--tertiary"
+        {{on "click" (fn this.onResetModal)}}
+      >
+      Cancel
+      </button>
+    </div>
+    {{#if (eq this.isSendingEmailOnly false)}}
+      <div>
+        <button
+          type="button"
+          class="nacho-button--large nacho-button--secondary {{this.baseModalClass}}__action"
+          {{on "click" (fn this.handleSaveOnlyClick)}}
+          disabled={{this.isSaveDisabled}}
+        >
+          {{#if this.saveChangeLogTask.isRunning}}
+            <NachoAnimation::PendulumEllipsis />
+          {{else}}
+            Save Log
+          {{/if}}
+        </button>
+      </div>
+    {{/if}}
+    <div>
+      <button
+        type="button"
+        class="nacho-button--large nacho-button--primary {{this.baseModalClass}}__action"
+        {{on "click" (fn this.handleSaveAndSendEmailClick)}}
+        disabled={{this.isSaveDisabled}}
+      >
+        {{#if (or this.saveChangeLogTask.isRunning this.sendEmailOnlyTask.isRunning)}}
+          <NachoAnimation::PendulumEllipsis />
+        {{else}}
+          Continue to send email
+        {{/if}}
+      </button>
+    </div>
+  </section>
+</ModalDialog>

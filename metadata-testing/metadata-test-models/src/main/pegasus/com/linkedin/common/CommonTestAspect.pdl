@@ -1,7 +1,0 @@
-namespace com.linkedin.common
-
-/**
- * For unit tests
- */
-record CommonTestAspect {
-}

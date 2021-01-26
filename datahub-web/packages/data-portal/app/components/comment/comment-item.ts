@@ -4,7 +4,7 @@ import { run, schedule } from '@ember/runloop';
 import { baseCommentEditorOptions } from 'datahub-web/constants';
 import { IDatasetComment } from 'datahub-web/typings/api/datasets/comments';
 import Notifications from '@datahub/utils/services/notifications';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { tagName, classNames } from '@ember-decorators/component';
 import { inject as service } from '@ember/service';

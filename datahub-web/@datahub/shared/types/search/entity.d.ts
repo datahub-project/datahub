@@ -26,6 +26,8 @@ export interface ISearchEntityApiParams {
   count?: number;
   // Facet params expected
   facets: Record<string, Array<string>>;
+  // Aspects that we need to fetch for the entity type
+  aspects?: Array<string>;
 }
 
 /**

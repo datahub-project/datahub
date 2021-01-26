@@ -1,6 +1,5 @@
 import { Server } from 'ember-cli-mirage';
 import { getApiRoot, ApiVersion } from '@datahub/utils/api/shared';
-import { ILikesAspect, IFollowsAspect } from '@datahub/metadata-types/types/aspects/social-actions';
 import { getTopConsumers } from '@datahub/shared/mirage-addon/test-helpers/top-consumers';
 import { getEntityConfigs } from '@datahub/shared/mirage-addon/test-helpers/entity-configs';
 import { healthEndpoint } from '@datahub/shared/api/health';
@@ -36,7 +35,7 @@ export const setup = (server: Server): void => {
   // Routes for entity social features
   server.get(
     `datasets/:urn/likes`,
-    (): ILikesAspect => {
+    (): Com.Linkedin.Common.Likes => {
       return { actions: [{ likedBy: 'aketchum' }, { likedBy: 'misty' }, { likedBy: 'brock' }] };
     }
   );
@@ -44,7 +43,7 @@ export const setup = (server: Server): void => {
   // TODO : Add follows in mirage : https://jira01.corp.linkedin.com:8443/browse/META-11926
   server.get(
     `datasets/:urn/follows`,
-    (): IFollowsAspect => ({
+    (): Com.Linkedin.Common.Follow => ({
       followers: [
         { follower: { corpUser: 'aketchum' } },
         { follower: { corpUser: 'misty' } },

@@ -1,7 +1,7 @@
 import Service from '@ember/service';
 import { Keyboard } from 'datahub-web/constants/keyboard';
 import { get } from '@ember/object';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 export default class HotKeys extends Service {
   /**

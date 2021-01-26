@@ -1,10 +1,10 @@
 import Component from '@ember/component';
 import { IAvatar } from 'datahub-web/typings/app/avatars';
 import { action, computed } from '@ember/object';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 import { classNames } from '@ember-decorators/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 /**
  * Specifies the default maximum number of images to render before the more button

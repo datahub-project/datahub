@@ -15,7 +15,7 @@ import org.rythmengine.resource.TemplateResourceBase;
  */
 public class StreamTemplateResource extends TemplateResourceBase {
   private final String path;
-  private URLConnection connection = null;
+  private transient URLConnection connection = null;
 
   public StreamTemplateResource(String path, StreamResourceLoader loader) {
     super(loader);
@@ -32,7 +32,7 @@ public class StreamTemplateResource extends TemplateResourceBase {
       try {
         final File rythm = new File(path);
         if (rythm.exists()) {
-          connection = rythm.toURL().openConnection();
+          connection = rythm.toURI().toURL().openConnection();
         }
       } catch (IOException ex) {
         throw new RuntimeException("Get template resource failed", ex);

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.dataset;
 
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -8,6 +10,7 @@ import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
@@ -16,6 +19,7 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.IndexFilter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
@@ -35,6 +39,7 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import com.linkedin.schema.SchemaMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +54,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "datasets", namespace = "com.linkedin.dataset", keyName = "dataset")
 public final class Datasets extends BaseBrowsableEntityResource<
     // @formatter:off
-        DatasetKey,
+        ComplexResourceKey<DatasetKey, EmptyRecord>,
         Dataset,
         DatasetUrn,
         DatasetSnapshot,
@@ -58,7 +63,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
     // @formatter:on
 
   public Datasets() {
-    super(DatasetSnapshot.class, DatasetAspect.class);
+    super(DatasetSnapshot.class, DatasetAspect.class, DatasetUrn.class);
   }
 
   @Inject
@@ -99,17 +104,19 @@ public final class Datasets extends BaseBrowsableEntityResource<
 
   @Override
   @Nonnull
-  protected DatasetUrn toUrn(@Nonnull DatasetKey key) {
-    return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
+  protected DatasetUrn toUrn(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key) {
+    return new DatasetUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin());
   }
 
   @Override
   @Nonnull
-  protected DatasetKey toKey(@Nonnull DatasetUrn urn) {
-    return new DatasetKey()
-        .setPlatform(urn.getPlatformEntity())
-        .setName(urn.getDatasetNameEntity())
-        .setOrigin(urn.getOriginEntity());
+  protected ComplexResourceKey<DatasetKey, EmptyRecord> toKey(@Nonnull DatasetUrn urn) {
+    return new ComplexResourceKey<>(
+        new DatasetKey()
+            .setPlatform(urn.getPlatformEntity())
+            .setName(urn.getDatasetNameEntity())
+            .setOrigin(urn.getOriginEntity()),
+        new EmptyRecord());
   }
 
   @Override
@@ -123,19 +130,28 @@ public final class Datasets extends BaseBrowsableEntityResource<
 
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
       if (aspect instanceof DatasetProperties) {
-        DatasetProperties datasetProperties = DatasetProperties.class.cast(aspect);
+        final DatasetProperties datasetProperties = (DatasetProperties) aspect;
         value.setProperties(datasetProperties.getCustomProperties());
         value.setTags(datasetProperties.getTags());
-        if (datasetProperties.hasUri()) {
+        if (datasetProperties.getUri() != null) {
           value.setUri(datasetProperties.getUri());
         }
-        if (datasetProperties.hasDescription()) {
+        if (datasetProperties.getDescription() != null) {
           value.setDescription(datasetProperties.getDescription());
         }
       } else if (aspect instanceof DatasetDeprecation) {
-        value.setDeprecation(DatasetDeprecation.class.cast(aspect));
+        value.setDeprecation((DatasetDeprecation) aspect);
+      } else if (aspect instanceof InstitutionalMemory) {
+        value.setInstitutionalMemory((InstitutionalMemory) aspect);
+      } else if (aspect instanceof Ownership) {
+        value.setOwnership((Ownership) aspect);
+      } else if (aspect instanceof SchemaMetadata) {
+        value.setSchemaMetadata((SchemaMetadata) aspect);
       } else if (aspect instanceof Status) {
-        value.setRemoved(Status.class.cast(aspect).isRemoved());
+        value.setStatus((Status) aspect);
+        value.setRemoved(((Status) aspect).isRemoved());
+      } else if (aspect instanceof UpstreamLineage) {
+        value.setUpstreamLineage((UpstreamLineage) aspect);
       }
     });
     return value;
@@ -145,14 +161,30 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   protected DatasetSnapshot toSnapshot(@Nonnull Dataset dataset, @Nonnull DatasetUrn datasetUrn) {
     final List<DatasetAspect> aspects = new ArrayList<>();
-    if (dataset.hasProperties()) {
+    if (dataset.getProperties() != null) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));
     }
-    if (dataset.hasDeprecation()) {
+    if (dataset.getDeprecation() != null) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
     }
-
-    aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, new Status().setRemoved(dataset.isRemoved())));
+    if (dataset.getInstitutionalMemory() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getInstitutionalMemory()));
+    }
+    if (dataset.getOwnership() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getOwnership()));
+    }
+    if (dataset.getSchemaMetadata() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getSchemaMetadata()));
+    }
+    if (dataset.getStatus() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getStatus()));
+    }
+    if (dataset.getUpstreamLineage() != null) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getUpstreamLineage()));
+    }
+    if (dataset.hasRemoved()) {
+      aspects.add(DatasetAspect.create(new Status().setRemoved(dataset.isRemoved())));
+    }
     return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
   }
 
@@ -161,10 +193,10 @@ public final class Datasets extends BaseBrowsableEntityResource<
     final DatasetProperties datasetProperties = new DatasetProperties();
     datasetProperties.setDescription(dataset.getDescription());
     datasetProperties.setTags(dataset.getTags());
-    if (dataset.hasUri()) {
+    if (dataset.getUri() != null)  {
       datasetProperties.setUri(dataset.getUri());
     }
-    if (dataset.hasPlatform()) {
+    if (dataset.getProperties() != null) {
       datasetProperties.setCustomProperties(dataset.getProperties());
     }
     return datasetProperties;
@@ -198,6 +230,29 @@ public final class Datasets extends BaseBrowsableEntityResource<
     return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
   }
 
+  /**
+   * Retrieves the values for multiple entities obtained after filtering urns from local secondary index. Here the value is
+   * made up of latest versions of specified aspects. If no aspects are provided, value model will not contain any metadata aspect.
+   *
+   * <p>If no filter conditions are provided, then it returns values of given entity type.
+   *
+   * @param indexFilter {@link IndexFilter} that defines the filter conditions
+   * @param aspectNames list of aspects to be returned in the VALUE model
+   * @param lastUrn last urn of the previous fetched page. For the first page, this should be set as NULL
+   * @param pagingContext {@link PagingContext} defining the paging parameters of the request
+   * @return list of values
+   */
+  @Finder(FINDER_FILTER)
+  @Override
+  @Nonnull
+  public Task<List<Dataset>> filter(
+      @QueryParam(PARAM_FILTER) @Optional @Nullable IndexFilter indexFilter,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
+      @PagingContextParam @Nonnull PagingContext pagingContext) {
+    return super.filter(indexFilter, aspectNames, lastUrn, pagingContext);
+  }
+
   @Action(name = ACTION_AUTOCOMPLETE)
   @Override
   @Nonnull
@@ -215,6 +270,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_LIMIT) int limit) {
     return super.browse(path, filter, start, limit);
   }
+
   @Action(name = ACTION_GET_BROWSE_PATHS)
   @Override
   @Nonnull
@@ -222,12 +278,14 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     return super.getBrowsePaths(urn);
   }
+
   @Action(name = ACTION_INGEST)
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull DatasetSnapshot snapshot) {
     return super.ingest(snapshot);
   }
+
   @Action(name = ACTION_GET_SNAPSHOT)
   @Override
   @Nonnull
@@ -235,6 +293,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.getSnapshot(urnString, aspectNames);
   }
+
   @Action(name = ACTION_BACKFILL)
   @Override
   @Nonnull

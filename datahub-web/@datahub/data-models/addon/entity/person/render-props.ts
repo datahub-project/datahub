@@ -27,8 +27,11 @@ export interface IPersonEntitySpecificConfigs {
  *
  * Making sure entityPage is not marked optional in the types as we know it is defined
  */
-export const getRenderProps = (): IEntityRenderProps & { entityPage: IEntityRenderPropsEntityPage } => {
+export const getRenderProps = (): IEntityRenderProps & {
+  entityPage: IEntityRenderPropsEntityPage;
+} => {
   const tabIds = [PersonTab.UserOwnership];
+  const aspects: Array<keyof Com.Linkedin.Metadata.Aspect.CorpUserAspect> = ['com.linkedin.identity.CorpUserInfo'];
 
   return {
     apiEntityName: 'corpuser',
@@ -96,7 +99,8 @@ export const getRenderProps = (): IEntityRenderProps & { entityPage: IEntityRend
       showFacets: false,
       placeholder: 'Search for People...',
       autocompleteNameField: 'fullName',
-      isEnabled: true
+      isEnabled: true,
+      defaultAspects: aspects
     }
   };
 };

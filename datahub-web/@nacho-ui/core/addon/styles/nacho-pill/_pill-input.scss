@@ -1,0 +1,41 @@
+.nacho-pill-input {
+  &__input {
+    &,
+    .ember-power-select-search-input {
+      width: 220px;
+      border: none;
+      &:focus {
+        outline: none;
+      }
+    }
+  }
+
+  &__action {
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+  }
+
+  &__dropdown {
+    &#{&} {
+      z-index: z('modal') + z('dropdown');
+      margin-top: item-spacing(2);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+      border-radius: 2px;
+      border: 1px solid get-color(gray1);
+
+      .ember-power-select-option[aria-current='true'] {
+        color: $text-color;
+        background-color: get-color(slate0);
+      }
+    }
+
+    ul.ember-power-select-options[role='listbox'] {
+      height: 100%;
+      overflow-y: hidden;
+      max-height: none;
+    }
+  }
+}

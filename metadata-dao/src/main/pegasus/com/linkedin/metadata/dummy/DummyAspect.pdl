@@ -1,8 +1,0 @@
-namespace com.linkedin.metadata.dummy
-
-import com.linkedin.common.Urn
-
-/**
- * Not to be used
- */
-typeref DummyAspect = union[Urn]

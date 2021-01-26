@@ -19,12 +19,12 @@ namespace com.linkedin.common
     "type" : "string",
     "maxLength" : 20
   },
-    {
-      "name" : "chartId",
-      "doc" : "Unique id of the chart assigned by the specific dashboard tool",
-      "type" : "string",
-      "maxLength" : 20
-    }],
-  "maxLength" : 36
+  {
+    "name" : "chartId",
+    "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'",
+    "type" : "string",
+    "maxLength" : 200
+  }],
+  "maxLength" : 236
 }
 typeref ChartUrn = string

@@ -1,5 +1,5 @@
 import { IAvatar } from 'datahub-web/typings/app/avatars';
-import { pick } from 'lodash';
+import { pick } from 'lodash-es';
 import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 
 type AvatarCreatorFunc = (obj: Partial<IAvatar>) => IAvatar;

@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
-import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { INachoDropdownOption } from '@nacho-ui/core/types/nacho-dropdown';
 
 import { action } from '@ember/object';
 import { TaskInstance, task, timeout } from 'ember-concurrency';

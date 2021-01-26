@@ -1,6 +1,6 @@
 import DatasetComplianceAnnotation from '@datahub/data-models/entity/dataset/modules/compliance-annotation';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
-import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/scehma';
+import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/schema';
 
 /**
  * Given a list of compliance annotations and a schema to match against, removes annotations for

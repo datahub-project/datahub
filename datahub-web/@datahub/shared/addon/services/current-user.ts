@@ -55,7 +55,7 @@ export default class CurrentUser extends Service {
       const userV1: IUser = await currentUserDeprecated();
       const PersonEntityClass = dataModels.getModel(PersonEntity.displayName);
       const urn = PersonEntityClass.urnFromUsername(userV1.userName);
-      const entity = await dataModels.createInstance(PersonEntityClass.displayName, urn);
+      const entity = dataModels.createPartialInstance(PersonEntityClass.displayName, { ...userV1, urn });
 
       set(this, 'entity', entity);
     }

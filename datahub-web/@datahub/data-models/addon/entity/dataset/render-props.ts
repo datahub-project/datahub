@@ -3,6 +3,18 @@ import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/
 import { fields } from '@datahub/data-models/entity/dataset/fields';
 
 /**
+ * Aspects for search datasets
+ */
+const defaultAspects: Array<keyof Com.Linkedin.Metadata.Aspect.DatasetAspect> = [
+  'com.linkedin.common.Health',
+  'com.linkedin.common.Likes',
+  'com.linkedin.common.EntityTopUsage',
+  'com.linkedin.common.Status'
+  // TODO META-12972: Due to performace reasons, this aspect is disabled until the ticket is resolved
+  // 'com.linkedin.common.Follow'
+];
+
+/**
  * Class properties common across instances
  * Dictates how visual ui components should be rendered
  * @readonly
@@ -27,10 +39,12 @@ export const getRenderProps = (): IEntityRenderProps => {
         },
         { name: 'social/containers/social-metadata' }
       ],
-      isEnabled: true
+      isEnabled: true,
+      defaultAspects
     },
     userEntityOwnership: {
-      attributes: fields
+      attributes: fields,
+      defaultAspects
     },
     browse: {
       showHierarchySearch: false

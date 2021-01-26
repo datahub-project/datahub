@@ -1,5 +1,5 @@
 import { datasetUrlByUrn } from '@datahub/data-models/api/dataset/dataset';
-import { IDatasetSchema } from '@datahub/metadata-types/types/entity/dataset/scehma';
+import { IDatasetSchema } from '@datahub/metadata-types/types/entity/dataset/schema';
 import { getJSON } from '@datahub/utils/api/fetcher';
 
 /**

@@ -16,7 +16,7 @@ import {
 } from 'datahub-web/constants/datasets/owner';
 import { OwnerSource, OwnerType } from 'datahub-web/utils/api/datasets/owners';
 import Notifications from '@datahub/utils/services/notifications';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { makeAvatar } from 'datahub-web/constants/avatars/avatars';
 import { OwnerWithAvatarRecord } from 'datahub-web/typings/app/datasets/owners';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';

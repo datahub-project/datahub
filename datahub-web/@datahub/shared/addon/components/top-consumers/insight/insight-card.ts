@@ -1,5 +1,5 @@
 import Component from '@glimmer/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { IDynamicLinkParams } from 'dynamic-link/components/dynamic-link';
 import { TopConsumer } from '@datahub/metadata-types/constants/metadata/top-consumers';
 

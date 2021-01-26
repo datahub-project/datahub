@@ -1,37 +1,18 @@
 'use strict';
 
 /**
- * Importing required files from bootstrap
- * @param {*} app emberApp
- */
-const importBootstrap = function(app) {
-  const destDir = '/assets/fonts/bootstrap';
-  const boostrapFolder = 'node_modules/bootstrap/';
-
-  ['eot', 'svg', 'ttf', 'woff', 'woff2'].forEach(extension =>
-    app.import(`${boostrapFolder}fonts/glyphicons-halflings-regular.${extension}`, { destDir })
-  );
-
-  ['dropdown', 'collapse', 'tab'].forEach(fileName => app.import(`${boostrapFolder}js/${fileName}.js`));
-};
-
-/**
  * Configuration options for Ember CLI App used to manage broccoli build tree for DataHub web.
  * Returns a method to import build dependencies and an options
  * object with configuration  attributes
  *
  * @param {string} env current build application environment
- * @returns { importBootstrap: Function; options: object }
+ * @returns { options: object }
  */
 module.exports = function(env) {
   const isTesting = env === 'test';
   const isProduction = env === 'production';
 
   return {
-    /**
-     * Provides the options to import bootstrap dependencies at build time
-     */
-    importBootstrap,
     options: {
       // Configuration options for ember-auto-import library
       autoImport: {
@@ -45,7 +26,8 @@ module.exports = function(env) {
             // this is needed by minimatch dependency
             path: true
           }
-        }
+        },
+        exclude: ['@glimmer/tracking']
       },
 
       // Configurations options for ember-ace editor library

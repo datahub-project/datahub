@@ -6,6 +6,10 @@ import {
 import { IFacetCounts, IFacetsCounts } from '@datahub/data-models/types/entity/facets';
 import { IAggregationMetadata } from '@datahub/shared/types/search/entity';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
+import { DataModelEntityInstance, DataModelName } from '@datahub/data-models/constants/entity';
+import { ISearchEntityApiParams, IEntitySearchResult } from '@datahub/shared/types/search/entity';
+import { readSearchV2 } from '@datahub/shared/utils/search/search';
+import DataModelsService from '@datahub/data-models/services/data-models';
 
 /**
  * Computes the search result item's index within the full list of results
@@ -118,3 +122,62 @@ export const searchResultMetasToFacetCounts = (
   );
   return mergeFacetCountsWithSelections(facetCounts, previousSelections);
 };
+
+/**
+ * Param type for making the `getResultsForEntity` call.
+ */
+export interface ISearchParams {
+  keyword: string;
+  page: number;
+  facetsApiParams: Record<string, Array<string>>;
+  pageSize: number;
+  aspects?: Array<string>;
+}
+
+/**
+ * Will perform a search for any type of entity (except datasets at the moment)
+ */
+export async function getResultsForEntity(
+  params: ISearchParams,
+  entity: DataModelName,
+  dataModels: DataModelsService
+): Promise<IDataModelEntitySearchResult<DataModelEntityInstance> | undefined> {
+  const { keyword, page = 1, facetsApiParams, pageSize, aspects } = params;
+  const searchApiParams: ISearchEntityApiParams = {
+    facets: facetsApiParams,
+    input: keyword,
+    type: dataModels.getModel(entity).renderProps.apiEntityName,
+    start: (page - 1) * pageSize,
+    count: pageSize,
+    aspects
+  };
+
+  const searchResultProxy: IEntitySearchResult<DataModelEntityInstance['entity']> = await readSearchV2<
+    DataModelEntityInstance['entity']
+  >(searchApiParams);
+  const { elements } = searchResultProxy;
+
+  if (elements) {
+    const { start, count, total } = searchResultProxy;
+    const itemsPerPage = count;
+    const totalPages = Math.ceil(total / itemsPerPage);
+    const page = Math.ceil((start + 1) / itemsPerPage);
+    const data = elements.map(
+      (entityData): DataModelEntityInstance => dataModels.createPartialInstance(entity, entityData, aspects)
+    );
+
+    const entitySearchResult = {
+      data,
+      count: total,
+      start,
+      itemsPerPage,
+      page,
+      totalPages,
+      facets: searchResultMetasToFacetCounts(searchResultProxy.searchResultMetadatas, facetsApiParams)
+    };
+
+    return entitySearchResult;
+  }
+
+  return;
+}

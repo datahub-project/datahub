@@ -22,7 +22,7 @@ import { containerDataSource } from '@datahub/utils/api/data-source';
 import { IDataModelEntitySearchResult, ISearchDataWithMetadata } from '@datahub/data-models/types/entity/search';
 import { DataConstructChangeManagementEntity } from '@datahub/data-models/entity/data-construct-change-management/data-construct-change-management-entity';
 import { singularize } from 'ember-inflector';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import { IConfigurator } from '@datahub/shared/types/configurator/configurator';
 import Notifications from '@datahub/utils/services/notifications';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
@@ -104,7 +104,8 @@ export default class ChangeLogContainer extends Component {
    * Constructs a map of userNames of each owner
    */
   @map('owners', function(this: ChangeLogContainer, owner: Com.Linkedin.Common.Owner): string {
-    return owner.owner;
+    const PersonEntityClass = this.dataModels.getModel(PersonEntity.displayName);
+    return PersonEntityClass.usernameFromUrn(owner.owner);
   })
   ownerUserNames!: Array<string>;
 
@@ -361,9 +362,10 @@ export default class ChangeLogContainer extends Component {
 
       // 1. Gather unique recipient urns
       const uniqueRecipientUrns = new Set(
-        [...transformFollowersIntoRecipients(entity.followedByActions), ...ownersAsRecipients].map(
-          user => (user as { userUrn?: string }).userUrn || ''
-        )
+        [
+          ...transformFollowersIntoRecipients(entity.follow?.followers.map(followers => followers.follower) || []),
+          ...ownersAsRecipients
+        ].map(user => (user as { userUrn?: string }).userUrn || '')
       );
 
       // 2. Construct recipients from the recipient Urns

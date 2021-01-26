@@ -22,6 +22,9 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
+podAnnotations: {}
+  # co.elastic.logs/enabled: "true"
+
 podSecurityContext: {}
   # fsGroup: 2000
 
@@ -65,6 +68,8 @@ extraVolumeMounts: []
   # - name: extras
   #   mountPath: /usr/share/extras
   #   readOnly: true
+
+extraInitContainers: []
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

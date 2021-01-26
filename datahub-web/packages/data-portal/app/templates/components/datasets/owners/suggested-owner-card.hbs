@@ -14,7 +14,7 @@
     </div>
     <div class="suggested-owner-card__owner-info__add">
       {{#if isConfirmedSuggestedOwner}}
-        {{fa-icon "check-circle" prefix="far" title="Added Owner" size="2"}}
+        <FaIcon @icon="check-circle" @prefix="far" title="Added Owner" @size="2" />
         <span class="suggested-owner-card__owner-info__add--disabled">Added</span>
       {{else}}
         <button

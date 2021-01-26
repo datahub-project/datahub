@@ -1,9 +1,9 @@
 import Component from '@ember/component';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 // @ts-ignore: Ignore import of compiled template
 import template from '../../templates/components/change-management/change-log-table';
 import { layout } from '@ember-decorators/component';
-import { INachoTableConfigs } from '@nacho-ui/table/types/nacho-table';
+import { INachoTableConfigs } from '@nacho-ui/core/types/nacho-table';
 import { ChangeLog } from '@datahub/shared/modules/change-log';
 import { IConfigurator } from '@datahub/shared/types/configurator/configurator';
 import { computed } from '@ember/object';

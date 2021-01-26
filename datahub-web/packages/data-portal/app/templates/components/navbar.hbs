@@ -7,20 +7,8 @@
 >
   <div class="container">
     <div class="navbar-header">
-      <button
-        type="button"
-        class="navbar-toggle collapsed"
-        aria-expanded="false"
-        aria-controls="navbar"
-      >
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
-
       <LinkTo @route="index" @query={{hash keyword=null platform=null prefix=null}} class="navbar-brand">
-        {{svg-jar "inbug" width="34px" height="34px"}}
+        {{svg-jar "app-logo" width="34px" height="34px"}}
         <span class="navbar-brand-text">{{this.appName}}</span>
       </LinkTo>
     </div>
@@ -43,6 +31,8 @@
         {{/if}}
       </ul>
 
+      <NavbarRightColumn />
+
       <ul class="nav navbar-nav navbar-right">
         <li class="dropdown">
           <a
@@ -52,8 +42,9 @@
             aria-haspopup="true"
             aria-expanded="false"
             href="#"
+            onclick="return false"
           >
-            <i class="caret"></i>
+            <FaIcon @icon="chevron-down" />
             <Avatars::AvatarImage @avatar={{this.avatar}} @class="navbar-avatar-image" />
           </a>
 
@@ -91,11 +82,7 @@
 
             <li class="dropdown-header">
               Help
-              <span
-                class="glyphicon glyphicon-question-sign"
-                aria-hidden="true"
-              >
-              </span>
+               <FaIcon @icon="question-circle"  aria-hidden="true"/>
             </li>
             {{#each @applicationHelpResources as |applicationHelpResource|}}
               <li>

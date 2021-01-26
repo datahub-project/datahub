@@ -20,34 +20,29 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> 👕🌲 DataHub participates in Hacktoberfest. Refer https://hacktoberfest.digitalocean.com for more details.
-> - Support open source and pick a limited edition T-shirt or plant a tree.
-> - To earn your Hacktoberfest tee or tree reward, you must [register](https://hacktoberfest.digitalocean.com/login) and make 4 valid pull requests (PRs) between October 1-31 (in any time zone)
-> - Pull requests that we consider to be [low-quality contributions](https://hacktoberfest.digitalocean.com/details#quality), which we discourage
->   - Pull requests that are automated (e.g. scripted opening pull requests to remove whitespace/fix typos/optimize images).
->   - Pull requests that are disruptive (e.g. taking someone else's branch/commits and making a pull request).
->   - Pull requests that are regarded by a project maintainer as a hindrance vs. helping.
->   - Something that's clearly an attempt to simply +1 your pull request count for October.
-
-> 📣 Next DataHub town hall meeting on November 6th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on January 15th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - [Signup sheet & questions](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
-> - VC link (we're using zoom!): https://linkedin.zoom.us/j/4698262890
+> - VC link: https://linkedin.zoom.us/j/4698262890
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update: 
+> - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog. 
 > - Check out the latest [DataHub Podcast](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ Data Engineering Podcast.
-> - We've released v0.5.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.5.0)
+> - We've released v0.6.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.6.0)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 
 ## Introduction
-DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, read our 
+DataHub is LinkedIn's generalized metadata search & discovery tool. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our 
 [LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and [DataHub Onboarding Guide](docs/how/entity-onboarding.md) to understand how to extend DataHub for your own use cases.
 
-This repository contains the complete source code for both DataHub's frontend & backend. You can also read about [how we sync the changes](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) between our internal fork and GitHub. 
 
 ## Quickstart
 Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy of DataHub up & running locally using [Docker](https://docker.com). As the guide assumes some basic knowledge of Docker, we'd recommend you to go through the "Hello World" example of [A Docker Tutorial for Beginners](https://docker-curriculum.com) if Docker is completely foreign to you. 
+
+## Source Code and Repositories
+* [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services. We currently follow a hybrid open source model for development in this repository. See [this blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) for details on how we do it. 
+* [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA). We follow an open-source-first model for development in this repository. 
 
 ## Documentation
 * [DataHub Developer's Guide](docs/developers.md)
@@ -79,6 +74,7 @@ Join our [slack workspace](https://join.slack.com/t/datahubspace/shared_invite/z
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 * [Expedia Group](http://expedia.com)
 * [Experius](https://www.experius.nl)
+* [Grofers](https://grofers.com)
 * [LinkedIn](http://linkedin.com)
 * [Saxo Bank](https://www.home.saxo)
 * [Shanghai HuaRui Bank](https://www.shrbank.com)
@@ -87,6 +83,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 Here is a list of companies that are currently building POC or seriously evaluating DataHub.
 * [Amadeus](https://www.amadeus.com)
+* [Bizzy Group](https://www.bizzy.co.id)
 * [Booking.com](https://www.booking.com)
 * [Experian](https://www.experian.com)
 * [FlixBus](https://www.flixbus.com)
@@ -109,8 +106,10 @@ Here is a list of companies that are currently building POC or seriously evaluat
 
 ## Select Articles & Talks
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
+* [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
 * [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
 * [DataHub: Powering LinkedIn's Metadata](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub%20-%20Powering%20LinkedIn%E2%80%99s%20Metadata.pdf) @ [Budapest Data Forum 2020](https://budapestdata.hu/2020/en/)
+* [Taming the Data Beast Using DataHub](https://www.youtube.com/watch?v=bo4OhiPro7Y) @ [Data Engineering Melbourne Meetup November 2020](https://www.meetup.com/Data-Engineering-Melbourne/events/kgnvlrybcpbjc/)
 * [Metadata Management And Integration At LinkedIn With DataHub](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ [Data Engineering Podcast](https://www.dataengineeringpodcast.com)
 * [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
 * [Journey of metadata at LinkedIn](https://www.youtube.com/watch?v=OB-O0Y6OYDE) @ [Crunch Data Conference 2019](https://crunchconf.com/2019)
@@ -122,5 +121,6 @@ Here is a list of companies that are currently building POC or seriously evaluat
 * [LinkIn Datahub Metadata Ingestion Scripts Unofficical Guide](https://medium.com/@liangjunjiang/linkin-datahub-etl-unofficical-guide-7c3949483f8b)
 * [A Dive Into Metadata Hubs](https://www.holistics.io/blog/a-dive-into-metadata-hubs/)
 * [25 Hot New Data Tools and What They DON’T Do](https://blog.amplifypartners.com/25-hot-new-data-tools-and-what-they-dont-do/)
+* [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
 
 See the full list [here](docs/links.md).

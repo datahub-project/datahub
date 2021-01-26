@@ -1,7 +1,7 @@
 package com.linkedin.dataset.client;
 
-import com.linkedin.common.client.DatasetsClient;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetKey;
@@ -9,10 +9,14 @@ import com.linkedin.dataset.DatasetsDoAutocompleteRequestBuilder;
 import com.linkedin.dataset.DatasetsDoBrowseRequestBuilder;
 import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.dataset.DatasetsDoGetSnapshotRequestBuilder;
+import com.linkedin.dataset.DatasetsFindByFilterRequestBuilder;
 import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
 import com.linkedin.dataset.DatasetsRequestBuilders;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.IndexFilter;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
@@ -21,6 +25,8 @@ import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,7 +35,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class Datasets extends DatasetsClient {
+public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();
 
     public Datasets(@Nonnull Client restliClient) {
@@ -67,10 +73,21 @@ public class Datasets extends DatasetsClient {
     public CollectionResponse<Dataset> search(@Nonnull String input, @Nonnull Map<String, String> requestFilters,
                                                int start, int count) throws RemoteInvocationException {
 
-        DatasetsFindBySearchRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS
-                .findBySearch()
-                .inputParam(input)
-                .filterParam(newFilter(requestFilters)).paginate(start, count);
+        return search(input, null, requestFilters, null, start, count);
+    }
+
+    @Override
+    @Nonnull
+    public CollectionResponse<Dataset> search(@Nonnull String input, @Nullable StringArray aspectNames,
+        @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+        throws RemoteInvocationException {
+
+        final DatasetsFindBySearchRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS.findBySearch()
+            .inputParam(input)
+            .aspectsParam(aspectNames)
+            .filterParam(newFilter(requestFilters))
+            .sortParam(sortCriterion)
+            .paginate(start, count);
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
@@ -106,6 +123,7 @@ public class Datasets extends DatasetsClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @Override
     public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
                                int start, int limit) throws RemoteInvocationException {
         DatasetsDoBrowseRequestBuilder requestBuilder = DATASETS_REQUEST_BUILDERS
@@ -117,6 +135,60 @@ public class Datasets extends DatasetsClient {
             requestBuilder.filterParam(newFilter(requestFilters));
         }
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Gets list of dataset urns from strongly consistent local secondary index
+     *
+     * @param lastUrn last dataset urn of the previous fetched page. For the first page, this will be NULL
+     * @param size size of the page that needs to be fetched
+     * @return list of dataset urns represented as {@link StringArray}
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public List<String> listUrnsFromIndex(@Nullable DatasetUrn lastUrn, int size) throws RemoteInvocationException {
+        return listUrnsFromIndex(null, lastUrn, size);
+    }
+
+    /**
+     * Gets list of dataset urns from strongly consistent local secondary index given an {@link IndexFilter} specifying filter conditions
+     *
+     * @param indexFilter index filter that defines the filter conditions
+     * @param lastUrn last dataset urn of the previous fetched page. For the first page, this will be NULL
+     * @param size size of the page that needs to be fetched
+     * @return list of dataset urns represented as {@link StringArray}
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public List<String> listUrnsFromIndex(@Nullable IndexFilter indexFilter, @Nullable DatasetUrn lastUrn, int size)
+        throws RemoteInvocationException {
+        final List<Dataset> response = filter(indexFilter, Collections.emptyList(), lastUrn, size);
+        return response.stream()
+            .map(dataset -> new DatasetUrn(dataset.getPlatform(), dataset.getName(), dataset.getOrigin()))
+            .map(Urn::toString)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Gets a list of {@link Dataset} whose raw metadata contains the list of dataset urns from strongly consistent
+     * local secondary index that satisfy the filter conditions provided in {@link IndexFilter}
+     *
+     * @param indexFilter {@link IndexFilter} that specifies the filter conditions for urns to be fetched from secondary index
+     * @param aspectNames list of aspects whose value should be retrieved
+     * @param lastUrn last dataset urn of the previous fetched page. For the first page, this will be NULL
+     * @param size size of the page that needs to be fetched
+     * @return collection of {@link Dataset} whose raw metadata contains the list of filtered dataset urns
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public List<Dataset> filter(@Nullable IndexFilter indexFilter, @Nullable List<String> aspectNames,
+        @Nullable DatasetUrn lastUrn, int size) throws RemoteInvocationException {
+        final DatasetsFindByFilterRequestBuilder requestBuilder =
+            DATASETS_REQUEST_BUILDERS.findByFilter().filterParam(indexFilter).aspectsParam(aspectNames).paginate(0, size);
+        if (lastUrn != null) {
+            requestBuilder.urnParam(lastUrn.toString());
+        }
+        return _client.sendRequest(requestBuilder.build()).getResponseEntity().getElements();
     }
 
     /**
@@ -178,5 +250,18 @@ public class Datasets extends DatasetsClient {
     @Nonnull
     private DatasetUrn getUrnFromKey(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key) {
         return toDatasetUrn(key.getKey());
+    }
+
+    @Nonnull
+    private DatasetKey toDatasetKey(@Nonnull DatasetUrn urn) {
+        return new DatasetKey()
+            .setName(urn.getDatasetNameEntity())
+            .setOrigin(urn.getOriginEntity())
+            .setPlatform(urn.getPlatformEntity());
+    }
+
+    @Nonnull
+    private DatasetUrn toDatasetUrn(@Nonnull DatasetKey key) {
+        return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
     }
 }

@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { classNames } from '@ember-decorators/component';
 import { computed, action } from '@ember/object';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 
 interface IOption<T> {
   value: T;

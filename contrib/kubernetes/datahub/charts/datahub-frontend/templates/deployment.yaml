@@ -11,6 +11,10 @@ spec:
       {{- include "datahub-frontend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
       labels:
         {{- include "datahub-frontend.selectorLabels" . | nindent 8 }}
     spec:
@@ -23,7 +27,11 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
       {{- if .Values.extraVolumes }}
-        {{ toYaml .Values.extraVolumes | indent 8 }}
+        {{ toYaml .Values.extraVolumes | nindent 8 }}
+      {{- end }}
+      initContainers:
+      {{- if .Values.extraInitContainers }}
+      {{- .Values.extraInitContainers | toYaml | nindent 6 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -58,11 +66,11 @@ spec:
             - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
               value: "{{ .Values.datahub.play.mem.buffer.size }}"
           {{- if .Values.extraEnvs }}
-            {{ toYaml .Values.extraEnvs | indent 10 }}
+            {{ toYaml .Values.extraEnvs | nindent 12 }}
           {{- end }}
           volumeMounts:
           {{- if .Values.extraVolumeMounts }}
-            {{ toYaml .Values.extraVolumeMounts | indent 10 }}
+            {{ toYaml .Values.extraVolumeMounts | nindent 10 }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

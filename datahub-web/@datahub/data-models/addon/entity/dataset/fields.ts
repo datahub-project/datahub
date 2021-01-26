@@ -58,6 +58,15 @@ export const fields: Array<ISearchEntityRenderProps> = [
     example: 'platform:kafka'
   },
   {
+    showInAutoCompletion: true,
+    fieldName: 'fieldPaths',
+    showInResultsPreview: false,
+    displayName: 'fieldPaths',
+    showInFacets: true,
+    desc: 'Fields of the dataset',
+    example: 'fieldPaths:field1'
+  },
+  {
     showInAutoCompletion: false,
     fieldName: 'healthScore',
     showInResultsPreview: true,

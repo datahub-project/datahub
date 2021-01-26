@@ -1,0 +1,23 @@
+query getBrowsePaths($input: BrowsePathsInput!) {
+     browsePaths(input: $input)
+}
+
+query getBrowseResults($input: BrowseInput!) {
+    browse(input: $input) {
+        entities {
+            name
+            urn
+        }
+        start
+        count
+        total
+        metadata {
+            path
+            groups {
+                name
+                count
+            }
+            totalNumEntities
+        }   
+    }
+}

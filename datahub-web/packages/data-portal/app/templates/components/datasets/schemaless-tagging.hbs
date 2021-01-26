@@ -12,10 +12,10 @@
           class="nacho-button nacho-button--tertiary"
           {{action toggleEditing true ComplianceEdit.DatasetLevelPolicy}}
         >
-          {{fa-icon
-            "pencil-alt"
+          <FaIcon
+            @icon="pencil-alt"
             aria-label="Edit Schemaless Classification"
-          }}
+          />
           Edit
         </button>
       </div>

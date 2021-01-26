@@ -1,7 +1,8 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':metadata-dao')
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaDaoApiDataTemplate
   compile project(':metadata-models')
 
   compileOnly externalDependency.lombok
@@ -9,6 +10,7 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testCompile externalDependency.assertJ
   testCompile externalDependency.mockito
   testCompile project(':metadata-testing:metadata-models-test-utils')
   testCompile project(':metadata-testing:metadata-test-utils')

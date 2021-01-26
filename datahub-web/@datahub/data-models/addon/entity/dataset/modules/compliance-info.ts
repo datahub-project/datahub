@@ -19,7 +19,7 @@ import { computed } from '@ember/object';
 import { applyAnnotationsByEditableProperties } from '@datahub/data-models/entity/dataset/modules/constants/annotation-helpers';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
 import { filterAnnotationsToDatasetSchema } from '@datahub/data-models/entity/dataset/helpers/validators/compliance/schema';
-import { omit } from 'lodash';
+import { omit } from 'lodash-es';
 import { IComplianceAnnotationUpdates } from '@datahub/data-models/types/entity/dataset';
 
 interface IReadWorkingComplianceOptions {

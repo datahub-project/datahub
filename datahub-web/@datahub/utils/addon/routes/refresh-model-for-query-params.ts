@@ -1,4 +1,4 @@
-import { reduce } from 'lodash';
+import { reduce } from 'lodash-es';
 
 /**
  * Shorthand to reduce visual complexity of code below
