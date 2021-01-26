@@ -14,15 +14,21 @@ import graphql.GraphQL;
 public class GmsGraphQLController {
 
     private GraphQL graphQL;
+    private GraphQLEngine graphQLEngine;
 
     @Bean
     public GraphQL graphQL() {
         return graphQL;
     }
 
+    @Bean
+    public GraphQLEngine graphQLEngine() {
+        return graphQLEngine;
+    }
+
     @PostConstruct
     public void init() {
-        GraphQLEngine graphQLEngineBuilder = GmsGraphQLEngine.builder().build();
-        this.graphQL = graphQLEngineBuilder.getGraphQL();
+        graphQLEngine = GmsGraphQLEngine.builder().build();
+        this.graphQL = graphQLEngine.get_engine();
     }
 }

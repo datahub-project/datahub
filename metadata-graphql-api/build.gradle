@@ -11,6 +11,8 @@ dependencies {
     compile externalDependency.graphqlJava
     compile externalDependency.antlr4Runtime
     compile externalDependency.antlr4
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
 
     compile 'com.graphql-java:graphql-java-spring-boot-starter-webmvc:2.0'
 }

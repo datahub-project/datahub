@@ -8,6 +8,8 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import lombok.Data;
+
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 
@@ -31,6 +33,7 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
  *
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set of variables.
  */
+@Data
 public class GraphQLEngine {
 
     private final GraphQL _engine;
@@ -87,10 +90,6 @@ public class GraphQLEngine {
 
     public static Builder builder() {
         return new Builder();
-    }
-
-    public GraphQL getGraphQL() {
-        return this._engine;
     }
 
     /**
@@ -156,7 +155,7 @@ public class GraphQLEngine {
         }
     }
 
-    private DataLoaderRegistry createDataLoaderRegistry(final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
+    public DataLoaderRegistry createDataLoaderRegistry(final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
         final DataLoaderRegistry registry = new DataLoaderRegistry();
         for (String key : dataLoaderSuppliers.keySet()) {
             registry.register(key, dataLoaderSuppliers.get(key).get());
