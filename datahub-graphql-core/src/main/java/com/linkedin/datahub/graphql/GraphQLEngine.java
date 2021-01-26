@@ -89,6 +89,10 @@ public class GraphQLEngine {
         return new Builder();
     }
 
+    public GraphQL getGraphQL() {
+        return this._engine;
+    }
+
     /**
      * Used to construct a {@link GraphQLEngine}.
      */
