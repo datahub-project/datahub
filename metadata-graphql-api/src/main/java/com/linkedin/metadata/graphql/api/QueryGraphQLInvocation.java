@@ -10,6 +10,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.metadata.graphql.context.SpringQueryContext;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;

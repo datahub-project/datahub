@@ -11,7 +11,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import graphql.GraphQL;
 
 @Component
-public class GmsGraphQLController {
+public class GmsGraphQLProvider {
 
     private GraphQL graphQL;
     private GraphQLEngine graphQLEngine;

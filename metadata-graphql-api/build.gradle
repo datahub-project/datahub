@@ -13,6 +13,10 @@ dependencies {
     compile externalDependency.antlr4
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
+    compile externalDependency.graphqlJavaSpringWebMvc
+    compile externalDependency.graphiqlSpring
+}
 
-    compile 'com.graphql-java:graphql-java-spring-boot-starter-webmvc:2.0'
+bootJar {
+    mainClassName = 'com.linkedin.metadata.graphql.api.MetadataGraphQLApiApplication'
 }
