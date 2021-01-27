@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graphql.api;
+package com.linkedin.datahub.graphql.api;
 
 import javax.annotation.PostConstruct;
 

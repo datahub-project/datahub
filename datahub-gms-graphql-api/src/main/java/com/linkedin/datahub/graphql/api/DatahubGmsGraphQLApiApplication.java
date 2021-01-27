@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graphql.api;
+package com.linkedin.datahub.graphql.api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(exclude = {ElasticsearchAutoConfiguration.class, RestClientAutoConfiguration.class})
-public class MetadataGraphQLApiApplication {
+public class DatahubGmsGraphQLApiApplication {
     public static void main(String[] args) {
-        SpringApplication.run(MetadataGraphQLApiApplication.class, args);
+        SpringApplication.run(DatahubGmsGraphQLApiApplication.class, args);
     }
 }

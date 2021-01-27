@@ -17,6 +17,10 @@ dependencies {
     compile externalDependency.graphiqlSpring
 }
 
+configurations {
+    compile.exclude group: 'org.neo4j', module: 'neo4j'
+}
+
 bootJar {
-    mainClassName = 'com.linkedin.metadata.graphql.api.MetadataGraphQLApiApplication'
+    mainClassName = 'com.linkedin.datahub.graphql.api.DatahubGmsGraphQLApiApplication'
 }

@@ -15,13 +15,13 @@ RUN apk add libc6-compat
 
 FROM openjdk:8 as prod-build
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :metadata-graphql-api:build
-RUN cd datahub-src && cp metadata-graphql-api/build/libs/metadata-graphql-api.jar ../metadata-graphql-api.jar
+RUN cd datahub-src && ./gradlew :datahub-gms-graphql-api:build
+RUN cd datahub-src && cp datahub-gms-graphql-api/build/libs/datahub-gms-graphql-api.jar ../datahub-gms-graphql-api.jar
 
 FROM base as prod-install
-COPY --from=prod-build /metadata-graphql-api.jar /datahub/metadata-graphql-api/bin/
-COPY --from=prod-build /datahub-src/docker/metadata-graphql-api/start.sh /datahub/metadata-graphql-api/scripts/
-RUN chmod +x /datahub/metadata-graphql-api/scripts/start.sh
+COPY --from=prod-build /datahub-gms-graphql-api.jar /datahub/datahub-gms-graphql-api/bin/
+COPY --from=prod-build /datahub-src/docker/datahub-gms-graphql-api/start.sh /datahub/datahub-gms-graphql-api/scripts/
+RUN chmod +x /datahub/datahub-gms-graphql-api/scripts/start.sh
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -34,4 +34,4 @@ USER datahub
 
 EXPOSE 8091
 
-CMD /datahub/metadata-graphql-api/scripts/start.sh
+CMD /datahub/datahub-gms-graphql-api/scripts/start.sh

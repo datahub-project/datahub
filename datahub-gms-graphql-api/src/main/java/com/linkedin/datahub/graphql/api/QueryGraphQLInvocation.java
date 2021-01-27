@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graphql.api;
+package com.linkedin.datahub.graphql.api;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -10,7 +10,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.metadata.graphql.context.SpringQueryContext;
+import com.linkedin.datahub.graphql.context.SpringQueryContext;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -28,7 +28,7 @@ public class QueryGraphQLInvocation implements GraphQLInvocation {
     @Autowired
     GraphQLEngine graphQLEngine;
 
-    public static final String APPNAME = "GmsGraphQLApp";
+    public static final String APPNAME = "DatahubGmsGraphQLApp";
 
     @Override
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {

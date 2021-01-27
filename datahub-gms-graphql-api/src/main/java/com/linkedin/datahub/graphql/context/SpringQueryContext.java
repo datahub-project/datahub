@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graphql.context;
+package com.linkedin.datahub.graphql.context;
 
 import org.springframework.stereotype.Component;
 
