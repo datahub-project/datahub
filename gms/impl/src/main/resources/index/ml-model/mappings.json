@@ -72,10 +72,22 @@
     },
     "evaluationDatasets": {
       "type": "keyword",
+      "fields": {
+        "urn_components": {
+          "type": "text",
+          "analyzer": "urn_component"
+        }
+      },
       "normalizer": "my_normalizer"
     },
     "trainingDatasets": {
       "type": "keyword",
+      "fields": {
+        "urn_components": {
+          "type": "text",
+          "analyzer": "urn_component"
+        }
+      },
       "normalizer": "my_normalizer"
     },
     "type": {

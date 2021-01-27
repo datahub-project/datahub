@@ -45,7 +45,7 @@ public final class MLModelUrn extends Urn {
     if (!"li".equals(urn.getNamespace())) {
       throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
     } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'mlFeature'.");
+      throw new URISyntaxException(urn.toString(), "Urn entity type should be 'mlModel'.");
     } else {
       TupleKey key = urn.getEntityKey();
       if (key.size() != 3) {

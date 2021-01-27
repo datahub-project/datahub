@@ -13,13 +13,10 @@
             "type": "word_delimiter",
             "preserve_original": "true",
             "catenate_words": "false"
-          }
-        },
-        "char_filter": {
-          "ml_model_pattern": {
-            "pattern": "[.]",
-            "type": "pattern_replace",
-            "replacement": "/"
+          },
+          "urn_stop_filter": {
+            "type": "stop",
+            "stopwords": ["urn","li","dataset","dataplatform"]
           }
         },
         "normalizer": {
@@ -93,6 +90,13 @@
             ],
             "type": "custom",
             "tokenizer": "path_hierarchy"
+          },
+          "urn_component": {
+            "filter": [
+              "urn_stop_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "urn_char_group"
           }
         },
         "tokenizer": {
@@ -113,6 +117,10 @@
           "ml_model_pattern": {
             "pattern": "[./]",
             "type": "pattern"
+          },
+          "urn_char_group": {
+            "type": "pattern",
+            "pattern": "[:\\s(),]"
           }
         }
       }
