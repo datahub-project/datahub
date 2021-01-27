@@ -8,8 +8,8 @@
               "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
               "fields": [
-                "evaluationDatasets^0.065",
-                "trainingDatasets^0.075",
+                "evaluationDatasets.urn_components^0.065",
+                "trainingDatasets.urn_components^0.075",
                 "description^0.035",
                 "platform^0.055",
                 "type^0.01"
