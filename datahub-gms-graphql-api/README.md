@@ -4,7 +4,7 @@ Datahub GMS GraphQL API wraps the Generalized Metadata Store (GMS) Rest.li calls
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `Metadata GraphQL API`.
+installed on your machine to be able to build `Datahub GMS GraphQL API`.
 
 ## Build
 To build `Datahub GMS GraphQL API`
