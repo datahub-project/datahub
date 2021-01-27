@@ -3,9 +3,10 @@ import 'antd/dist/antd.css';
 import { Layout } from 'antd';
 import { useHistory } from 'react-router';
 import { SearchHeader } from './SearchHeader';
-import { EntityType, fromCollectionName, toCollectionName, toPathName } from '../shared/EntityTypeUtil';
+import { EntityType, fromCollectionName, toCollectionName } from '../shared/EntityTypeUtil';
 import { SearchCfg } from '../../conf';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 
 const { SEARCHABLE_ENTITY_TYPES, SEARCH_BAR_PLACEHOLDER_TEXT, SHOW_ALL_ENTITIES_SEARCH_TYPE } = SearchCfg;
 
@@ -49,13 +50,10 @@ export const SearchablePage = ({
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const search = (type: string, query: string) => {
-        const typeParam =
-            ALL_ENTITIES_SEARCH_TYPE_NAME === type ? EMPTY_STRING : `type=${toPathName(fromCollectionName(type))}`;
-        const queryParam = `query=${query}`;
-
-        history.push({
-            pathname: '/search',
-            search: `?${typeParam}&${queryParam}`,
+        navigateToSearchUrl({
+            type: ALL_ENTITIES_SEARCH_TYPE_NAME === type ? SEARCHABLE_ENTITY_TYPES[0] : fromCollectionName(type),
+            query,
+            history,
         });
     };
 
