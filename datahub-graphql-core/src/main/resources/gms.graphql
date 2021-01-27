@@ -6,6 +6,24 @@ schema {
 #    mutation: Mutation
 }
 
+"""
+Top-level GMS Entity
+"""
+interface Entity {
+    """
+    GMS Entity urn
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+}
+
+"""
+Top-level GMS Entity Type
+"""
 enum EntityType {
     """
     The Dataset Entity
@@ -14,7 +32,11 @@ enum EntityType {
     """
     The CorpUser Entity
     """
-    USER
+    CORP_USER
+    """
+    The DataPlatform Entity
+    """
+    DATA_PLATFORM
 }
 
 type Query {
@@ -22,6 +44,31 @@ type Query {
     Fetch a Dataset by primary key
     """
     dataset(urn: String!): Dataset
+
+    """
+    Fetch a CorpUser by primary key
+    """
+    corpUser(urn: String!): CorpUser
+
+    """
+    Search DataHub entities
+    """
+    search(input: SearchInput!): SearchResults
+
+    """
+    Autocomplete a search query against DataHub entities
+    """
+    autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+
+    """
+    Browse DataHub entities by path
+    """
+    browse(input: BrowseInput!): BrowseResults
+
+    """
+    Retrieve the browse path(s) corresponding to an entity
+    """
+    browsePaths(input: BrowsePathsInput!): [BrowsePath!]
 }
 
 #type Mutation { }
@@ -38,16 +85,21 @@ type AuditStamp {
     actor: String
 }
 
-type Dataset {
+type Dataset implements Entity {
     """
     The unique Dataset URN
     """
     urn: String!
 
     """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
     Standardized platform urn where the dataset is defined
     """
-    platform: String!
+    platform: DataPlatform!
 
     """
     Dataset native name
@@ -90,6 +142,36 @@ type Dataset {
     ownership: Ownership
 
     """
+    The dataset deprecation status
+    """
+    deprecation: DatasetDeprecation
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Schema metadata of the dataset
+    """
+    schema: Schema
+
+    """
+    Status metadata of the dataset
+    """
+    status: Status
+
+    """
+    Upstream Lineage metadata of the dataset
+    """
+    upstreamLineage: UpstreamLineage
+
+    """
+    Downstream Lineage metadata of the dataset
+    """
+    downstreamLineage: DownstreamLineage
+
+    """
     An AuditStamp corresponding to the creation of this Dataset
     """
     created: AuditStamp!
@@ -103,6 +185,87 @@ type Dataset {
     An optional AuditStamp corresponding to the deletion of this Dataset
     """
     deleted: AuditStamp
+}
+
+type DataPlatform implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    name: String!
+
+    """
+    Metadata associated with a dataplatform
+    """
+    info: DataPlatformInfo
+}
+
+type DataPlatformInfo {
+    """
+    The Platform Type
+    """
+    type: PlatformType!
+
+    """
+    The delimiter in the dataset names on the data platform
+    """
+    datasetNameDelimiter: String!
+}
+
+enum PlatformType {
+    """
+    Value for a file system
+    """
+    FILE_SYSTEM
+
+    """
+    Value for a key value store
+    """
+    KEY_VALUE_STORE
+
+    """
+    Value for a message broker
+    """
+    MESSAGE_BROKER
+
+    """
+    Value for an object store
+    """
+    OBJECT_STORE
+
+    """
+    Value for an OLAP datastore
+    """
+    OLAP_DATASTORE
+
+    """
+    Value for a query engine
+    """
+    QUERY_ENGINE
+
+    """
+    Value for a relational database
+    """
+    RELATIONAL_DB
+
+    """
+    Value for a search engine
+    """
+    SEARCH_ENGINE
+
+    """
+    Value for other platforms
+    """
+    OTHER
 }
 
 enum FabricType {
@@ -125,6 +288,213 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+type DatasetDeprecation {
+    """
+    Whether the dataset has been deprecated by owner
+    """
+    deprecated: Boolean!
+
+    """
+    The time user plan to decommission this dataset
+    """
+    decommissionTime: Long
+
+    """
+    Additional information about the dataset deprecation plan
+    """
+    note: String!
+
+    """
+    The user who will be credited for modifying this deprecation content
+    """
+    actor: String
+}
+
+type InstitutionalMemory {
+    """
+    List of records that represent the institutional memory (internal documentation) of an entity
+    """
+    elements: [InstitutionalMemoryMetadata!]!
+}
+
+type InstitutionalMemoryMetadata {
+    """
+    Link to a document or wiki page or another internal resource
+    """
+    url: String!
+
+    """
+    Description of the resource
+    """
+    description: String!
+
+    """
+    An AuditStamp corresponding to the creation of this resource
+    """
+    created: AuditStamp!
+}
+
+type Schema {
+    """
+    Dataset this schema metadata is associated with
+    """
+    datasetUrn: String
+
+    """
+    Schema name
+    """
+    name: String!
+
+    """
+    Platform this schema metadata is associated with
+    """
+    platformUrn: String!
+
+    """
+    The version of the GMS Schema metadata
+    """
+    version: Long!
+
+    """
+    The cluster this schema metadata is derived from
+    """
+    cluster: String
+
+    """
+    The SHA1 hash of the schema content
+    """
+    hash: String!
+
+    """
+    The native schema in the datasets platform, schemaless if it was not provided
+    """
+    platformSchema: PlatformSchema
+    """
+    Client provided a list of fields from value schema
+    """
+    fields: [SchemaField!]!
+    """
+    Client provided list of fields that define primary keys to access record
+    """
+    primaryKeys: [String!]
+}
+
+union PlatformSchema = TableSchema | KeyValueSchema
+
+type TableSchema {
+    """
+    Raw table schema
+    """
+    schema: String!
+}
+
+type KeyValueSchema {
+    """
+    Raw key schema
+    """
+    keySchema: String!
+    """
+    Raw value schema
+    """
+    valueSchema: String!
+}
+
+type SchemaField {
+    """
+    Flattened name of the field computed from jsonPath field
+    """
+    fieldPath: String!
+    """
+    Flattened name of a field in JSON Path notation
+    """
+    jsonPath: String
+    """
+    Indicates if this field is optional or nullable
+    """
+    nullable: Boolean!
+    """
+    Description of the field
+    """
+    description: String
+    """
+    Platform independent field type of the field
+    """
+    type: SchemaFieldDataType!
+    """
+    The native type of the field in the datasets platform as declared by platform schema
+    """
+    nativeDataType: String
+    """
+    Whether the field references its own type recursively
+    """
+    recursive: Boolean!
+}
+
+enum SchemaFieldDataType {
+    BOOLEAN
+    FIXED
+    STRING
+    BYTES
+    NUMBER
+    ENUM
+    NULL
+    MAP
+    ARRAY
+    UNION
+    STRUCT
+}
+
+type UpstreamLineage {
+    """
+    List of upstream datasets
+    """
+    upstreams: [RelatedDataset!]!
+}
+
+type DownstreamLineage {
+    """
+    List of downstream datasets
+    """
+    downstreams: [RelatedDataset!]!
+}
+
+type RelatedDataset {
+    """
+    The upstream dataset the lineage points to
+    """
+    dataset: Dataset!
+    """
+    The type of the lineage
+    """
+    type: DatasetLineageType!
+    """
+    When the lineage was created
+    """
+    created: AuditStamp!
+}
+
+enum DatasetLineageType {
+    """
+    Direct copy without modification
+    """
+    COPY
+    """
+    Transformed dataset
+    """
+    TRANSFORMED
+    """
+    Represents a view defined on the sources
+    """
+    VIEW
+}
+
+type Status {
+    """
+    Whether the entity is removed or not
+    """
+    removed: Boolean!
 }
 
 enum PlatformNativeType {
@@ -267,11 +637,17 @@ type Owner {
     source: OwnershipSource
 }
 
-type CorpUser {
+type CorpUser implements Entity {
     """
     The unique user URN
     """
     urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
     """
     Username of the corp user
     """
@@ -365,4 +741,233 @@ type CorpUserEditableInfo {
     A URL which points to a picture which user wants to set as a profile photo
     """
     pictureLink: String
+}
+
+input SearchInput {
+    """
+    Entity type to be searched
+    """
+	type: EntityType!
+
+	"""
+	The query string
+	"""
+	query: String!
+
+	"""
+	The starting point of paginated results
+	"""
+	start: Int
+
+	"""
+	The number of elements included in the results
+	"""
+	count: Int
+
+	"""
+	Faceted filters applied to search results
+	"""
+	filters: [FacetFilterInput!]
+}
+
+input FacetFilterInput {
+    """
+    Name of field to filter by
+    """
+	field: String!
+
+	"""
+	Value of the field to filter by
+	"""
+	value: String!
+}
+
+type SearchResults {
+    """
+    The starting point of paginated results
+    """
+    start: Int!
+
+    """
+    The number of elements included in the results
+    """
+    count: Int!
+
+    """
+    The total number of search results matching the query and filters
+    """
+    total: Int!
+
+    """
+    The search results
+    """
+    entities: [Entity!]!
+
+    """
+    Field aggregations used for faceted search
+    """
+    facets: [FacetMetadata!]
+}
+
+type FacetMetadata {
+    """
+    Name of a field present in the search entity
+    """
+    field: String!
+
+    """
+    Aggregated search result counts by value of the field
+    """
+    aggregations: [AggregationMetadata!]!
+}
+
+type AggregationMetadata {
+    """
+    A particular value of a facet field
+    """
+    value: String!
+
+    """
+    The number of search results containing the value
+    """
+    count: Long!
+}
+
+input AutoCompleteInput {
+    """
+    Entity type to be autocompleted against
+    """
+	type: EntityType!
+
+	"""
+	The query string
+	"""
+	query: String!
+
+	"""
+	An optional field to autocomplete against
+	"""
+	field: String
+
+	"""
+	The maximum number of autocomplete results
+	"""
+	limit: Int
+
+	"""
+	Faceted filters applied to autocomplete results
+	"""
+	filters: [FacetFilterInput!]
+}
+
+type AutoCompleteResults {
+	"""
+	The query string
+	"""
+	query: String!
+
+	"""
+	The autocompletion results
+	"""
+	suggestions: [String!]!
+}
+
+input BrowseInput {
+    """
+    The browse entity type
+    """
+	type: EntityType!
+
+	"""
+	The browse path.. Should this be an array?
+	"""
+	path: [String!]
+
+    """
+    The starting point of paginated results
+    """
+	start: Int
+
+    """
+    The number of elements included in the results
+    """
+	count: Int
+
+    """
+    Faceted filters applied to browse results
+    """
+	filters: [FacetFilterInput!]
+}
+
+type BrowseResults {
+    """
+    The browse results
+    """
+	entities: [Entity!]!
+
+    """
+    The starting point of paginated results
+    """
+	start: Int!
+
+    """
+    The number of elements included in the results
+    """
+	count: Int!
+
+    """
+    The total number of browse results under the path with filters applied
+    """
+	total: Int!
+
+    """
+    Metadata containing resulting browse groups
+    """
+	metadata: BrowseResultMetadata!
+}
+
+type BrowseResultMetadata {
+    """
+    The provided path
+    """
+	path: [String!]!
+	"""
+	The groups present at the provided browse path
+	"""
+	groups: [BrowseResultGroup!]!
+    """
+    The total number of entities under the provided browse path
+    """
+	totalNumEntities: Long!
+}
+
+type BrowseResultGroup {
+    """
+    The path name of a group of browse results
+    """
+  	name: String!
+
+  	"""
+  	The number of entities within the group
+  	"""
+  	count: Long!
+}
+
+input BrowsePathsInput {
+    """
+    The browse entity type
+    """
+	type: EntityType!
+
+	"""
+	The entity urn
+	"""
+	urn: String!
+}
+
+type BrowsePath {
+    """
+    The components of the browse path
+    """
+	path: [String!]!
 }
