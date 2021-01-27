@@ -42,7 +42,7 @@ export const Routes = (): JSX.Element => {
                 <ProtectedRoute
                     isLoggedIn={isLoggedIn}
                     exact
-                    path={PageRoutes.BROWSE_TYPES}
+                    path={PageRoutes.BROWSE}
                     render={() => <BrowseTypesPage />}
                 />
                 <ProtectedRoute
