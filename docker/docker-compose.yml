@@ -141,14 +141,14 @@ services:
       - mysql
       - neo4j
 
-  datahub-gms-graphql-api:
+  datahub-gms-graphql-service:
     build:
         context: ../
-        dockerfile: docker/datahub-gms-graphql-api/Dockerfile
-    image: linkedin/datahub-gms-graphql-api:${DATAHUB_VERSION:-latest}
-    env_file: datahub-gms-graphql-api/env/docker.env
-    hostname: datahub-gms-graphql-api
-    container_name: datahub-gms-graphql-api
+        dockerfile: docker/datahub-gms-graphql-service/Dockerfile
+    image: linkedin/datahub-gms-graphql-service:${DATAHUB_VERSION:-latest}
+    env_file: datahub-gms-graphql-service/env/docker.env
+    hostname: datahub-gms-graphql-service
+    container_name: datahub-gms-graphql-service
     ports:
       - "8091:8091"
     depends_on:

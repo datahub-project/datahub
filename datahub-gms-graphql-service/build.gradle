@@ -8,13 +8,13 @@ dependencies {
     compile (externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
+    compile 'com.graphql-java:graphql-java-spring-boot-starter-webmvc:2.0'
+    compile 'com.graphql-java:graphiql-spring-boot-starter:5.0.2'
     compile externalDependency.graphqlJava
     compile externalDependency.antlr4Runtime
     compile externalDependency.antlr4
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
-    compile externalDependency.graphqlJavaSpringWebMvc
-    compile externalDependency.graphiqlSpring
 }
 
 configurations {
@@ -22,5 +22,5 @@ configurations {
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.datahub.graphql.api.DatahubGmsGraphQLApiApplication'
+    mainClassName = 'com.linkedin.datahub.graphql.service.GmsGraphQLApplication'
 }

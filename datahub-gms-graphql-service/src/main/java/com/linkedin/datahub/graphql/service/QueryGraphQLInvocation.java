@@ -1,8 +1,7 @@
-package com.linkedin.datahub.graphql.api;
+package com.linkedin.datahub.graphql.service;
 
 import java.util.concurrent.CompletableFuture;
 
-import org.dataloader.DataLoaderRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -28,18 +27,17 @@ public class QueryGraphQLInvocation implements GraphQLInvocation {
     @Autowired
     GraphQLEngine graphQLEngine;
 
-    public static final String APPNAME = "DatahubGmsGraphQLApp";
+    public static final String APPNAME = "GmsGraphQLApp";
 
     @Override
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {
         QueryContext queryContext = new SpringQueryContext(true, APPNAME);
-        DataLoaderRegistry register = graphQLEngine.createDataLoaderRegistry(graphQLEngine.get_dataLoaderSuppliers());
 
         ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query(invocationData.getQuery())
             .operationName(invocationData.getOperationName())
             .variables(invocationData.getVariables())
-            .dataLoaderRegistry(register)
+            .dataLoaderRegistry(graphQLEngine.get_registry())
             .context(queryContext)
             .build();
         return graphQL.executeAsync(executionInput);

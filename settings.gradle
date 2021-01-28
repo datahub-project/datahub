@@ -1,6 +1,7 @@
 include 'datahub-dao'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
+include 'datahub-gms-graphql-service'
 include 'datahub-web'
 include 'gms:api'
 include 'gms:client'
@@ -26,5 +27,3 @@ include 'metadata-models-generator'
 include 'metadata-testing:metadata-models-test-utils'
 include 'metadata-testing:metadata-test-utils'
 include 'metadata-utils'
-include 'datahub-gms-graphql-api'
-

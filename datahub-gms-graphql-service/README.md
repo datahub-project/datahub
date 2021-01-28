@@ -1,31 +1,31 @@
-# Datahub GMS GraphQL API
+# Datahub GMS GraphQL Service
 
-Datahub GMS GraphQL API wraps the Generalized Metadata Store (GMS) Rest.li calls around a GraphQL API.
+Datahub GMS GraphQL Service wraps the Generalized Metadata Store (GMS) Rest.li calls around a GraphQL API.
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `Datahub GMS GraphQL API`.
+installed on your machine to be able to build `Datahub GMS GraphQL Service`.
 
 ## Build
-To build `Datahub GMS GraphQL API`
+To build `Datahub GMS GraphQL Service`
 
 `
-./gradlew :datahub-gms-graphql-api:build
+./gradlew :datahub-gms-graphql-service:build
 `
 
 ## Dependencies
 
-Before starting `Datahub GMS GraphQL API`, you need to make sure that [DataHub GMS](../gms/README.md) is up and running.
+Before starting `Datahub GMS GraphQL Service`, you need to make sure that [DataHub GMS](../gms/README.md) is up and running.
 
 ## Start via Docker image
-Quickest way to try out `Datahub GMS Graphql API` is running the [Docker image](../docker/datahub-gms-graphql-api).
+Quickest way to try out `Datahub GMS Graphql Service` is running the [Docker image](../docker/datahub-gms-graphql-service).
 
 ## Start via command line
 
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :datahub-gms-graphql-api:bootRun
+./gradlew :datahub-gms-graphql-service:bootRun
 ```
 
 ## API Calls
@@ -36,7 +36,7 @@ Inorder to Start using the graphql API we would recommend you download [GraphiQL
 
 ## Sample API Calls
 
-### Get Dataset
+### Query Dataset
 
 Request: 
 ```

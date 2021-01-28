@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.api;
+package com.linkedin.datahub.graphql.service;
 
 import javax.annotation.PostConstruct;
 
@@ -28,7 +28,7 @@ public class GmsGraphQLProvider {
 
     @PostConstruct
     public void init() {
-        graphQLEngine = GmsGraphQLEngine.builder().build();
+        this.graphQLEngine = GmsGraphQLEngine.builder().build();
         this.graphQL = graphQLEngine.get_engine();
     }
 }
