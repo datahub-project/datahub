@@ -2,13 +2,13 @@ import React from 'react';
 import { Card } from 'antd';
 import { Link } from 'react-router-dom';
 
-type Props = {
+export interface BrowseResultProps {
     url: string;
     name: string;
     count?: number | undefined;
-};
+}
 
-export default function BrowseResultCard({ url, count, name }: Props) {
+export default function BrowseResultCard({ url, count, name }: BrowseResultProps) {
     return (
         <Link to={url}>
             <Card hoverable>

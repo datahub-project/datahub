@@ -5,6 +5,10 @@ import { MockedProvider } from '@apollo/client/testing';
 import './App.css';
 import { Routes } from './components/Routes';
 import { mocks } from './Mocks';
+import EntityRegistry from './components/entity/EntityRegistry';
+import { DatasetEntity } from './components/entity/dataset/DatasetEntity';
+import { UserEntity } from './components/entity/user/User';
+import { EntityRegistryContext } from './entityRegistryContext';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = true;
@@ -25,18 +29,24 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
+    // Register our entities!
+    const entityRegistry = new EntityRegistry();
+    entityRegistry.register(new DatasetEntity());
+    entityRegistry.register(new UserEntity());
     return (
         <Router>
-            {/* Temporary: For local testing during development. */}
-            {MOCK_MODE ? (
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <Routes />
-                </MockedProvider>
-            ) : (
-                <ApolloProvider client={client}>
-                    <Routes />
-                </ApolloProvider>
-            )}
+            <EntityRegistryContext.Provider value={entityRegistry}>
+                {/* Temporary: For local testing during development. */}
+                {MOCK_MODE ? (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        <Routes />
+                    </MockedProvider>
+                ) : (
+                    <ApolloProvider client={client}>
+                        <Routes />
+                    </ApolloProvider>
+                )}
+            </EntityRegistryContext.Provider>
         </Router>
     );
 };

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Col, Row, Tag, Divider, Layout } from 'antd';
 import { RoutedTabs } from './RoutedTabs';
 
-interface Props {
+export interface EntityProfileProps {
     title: string;
     tags?: Array<string>;
     body: React.ReactNode;
@@ -19,9 +19,9 @@ const defaultProps = {
 };
 
 /**
- * A generic container view for presenting Entity details.
+ * A default container view for presenting Entity details.
  */
-export const GenericEntityDetails = ({ title: _title, tags: _tags, body: _body, tabs: _tabs }: Props) => {
+export const EntityProfile = ({ title: _title, tags: _tags, body: _body, tabs: _tabs }: EntityProfileProps) => {
     const defaultTabPath = _tabs && _tabs?.length > 0 ? _tabs[0].path : '';
 
     /* eslint-disable spaced-comment */
@@ -48,4 +48,4 @@ export const GenericEntityDetails = ({ title: _title, tags: _tags, body: _body, 
     );
 };
 
-GenericEntityDetails.defaultProps = defaultProps;
+EntityProfile.defaultProps = defaultProps;

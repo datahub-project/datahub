@@ -175,7 +175,7 @@ type Dataset {
 
     name: String!
 
-    origin: FabricType
+    origin: FabricType!
 
     description: String
 
@@ -282,7 +282,7 @@ type AggregationMetadata {
 input AutoCompleteInput {
     type: EntityType!
     query: String!
-    field: String! # Field name
+    field: String # Field name
     limit: Int
     filters: [FacetFilterInput!]
 }

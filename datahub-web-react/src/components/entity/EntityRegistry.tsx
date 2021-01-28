@@ -1,0 +1,91 @@
+import { EntityType } from '../../types.generated';
+import { Entity, PreviewType } from './Entity';
+
+function validatedGet<K, V>(key: K, map: Map<K, V>): V {
+    if (map.has(key)) {
+        return map.get(key) as V;
+    }
+    throw new Error(`Unrecognized key ${key} provided in map ${JSON.stringify(map)}`);
+}
+
+/**
+ * Serves as a singleton registry for all DataHub entities to appear on the frontend.
+ */
+export default class EntityRegistry {
+    entities: Array<Entity<any>> = new Array<Entity<any>>();
+
+    entityTypeToEntity: Map<EntityType, Entity<any>> = new Map<EntityType, Entity<any>>();
+
+    collectionNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
+    pathNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
+    register(entity: Entity<any>) {
+        this.entities.push(entity);
+        this.entityTypeToEntity.set(entity.type, entity);
+        this.collectionNameToEntityType.set(entity.getCollectionName(), entity.type);
+        this.pathNameToEntityType.set(entity.getPathName(), entity.type);
+    }
+
+    getEntities(): Array<Entity<any>> {
+        return this.entities;
+    }
+
+    getSearchEntityTypes(): Array<EntityType> {
+        return this.entities.filter((entity) => entity.isSearchEnabled()).map((entity) => entity.type);
+    }
+
+    getDefaultSearchEntityType(): EntityType {
+        return this.entities[0].type;
+    }
+
+    getBrowseEntityTypes(): Array<EntityType> {
+        return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
+    }
+
+    getCollectionName(type: EntityType): string {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getCollectionName();
+    }
+
+    getTypeFromCollectionName(name: string): EntityType {
+        return validatedGet(name, this.collectionNameToEntityType);
+    }
+
+    getPathName(type: EntityType): string {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getPathName();
+    }
+
+    getTypeFromPathName(pathName: string): EntityType {
+        return validatedGet(pathName, this.pathNameToEntityType);
+    }
+
+    getTypeOrDefaultFromPathName(pathName: string, def: EntityType): EntityType {
+        try {
+            return validatedGet(pathName, this.pathNameToEntityType);
+        } catch (e) {
+            return def;
+        }
+    }
+
+    renderProfile(type: EntityType, urn: string): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderProfile(urn);
+    }
+
+    renderPreview<T>(entityType: EntityType, type: PreviewType, data: T): JSX.Element {
+        const entity = validatedGet(entityType, this.entityTypeToEntity);
+        return entity.renderPreview(type, data);
+    }
+
+    renderSearchResult<T>(type: EntityType, data: T): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderPreview(PreviewType.SEARCH, data);
+    }
+
+    renderBrowse(type: EntityType, { urn, name }: { urn: string; name: string }): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderPreview(PreviewType.BROWSE, { urn, name });
+    }
+}

@@ -1,16 +1,14 @@
-import * as React from 'react';
+import React from 'react';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
 import * as QueryString from 'query-string';
 import { Affix } from 'antd';
-import { fromPathName, toCollectionName } from '../shared/EntityTypeUtil';
 import { BrowseCfg } from '../../conf';
 import { BrowseResults } from './BrowseResults';
 import { SearchablePage } from '../search/SearchablePage';
 import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
 import { BrowsePath } from './BrowsePath';
 import { PageRoutes } from '../../conf/Global';
-
-const { RESULTS_PER_PAGE } = BrowseCfg;
+import { useEntityRegistry } from '../useEntityRegistry';
 
 type BrowseResultsPageParams = {
     type: string;
@@ -21,9 +19,11 @@ export const BrowseResultsPage = () => {
     const history = useHistory();
     const { type } = useParams<BrowseResultsPageParams>();
 
+    const entityRegistry = useEntityRegistry();
+
     const rootPath = location.pathname;
     const params = QueryString.parse(location.search);
-    const entityType = fromPathName(type);
+    const entityType = entityRegistry.getTypeFromPathName(type);
     const path = rootPath.split('/').slice(3);
     const page = Number(params.page) || 1;
 
@@ -32,8 +32,8 @@ export const BrowseResultsPage = () => {
             input: {
                 type: entityType,
                 path,
-                start: (page - 1) * RESULTS_PER_PAGE,
-                count: RESULTS_PER_PAGE,
+                start: (page - 1) * BrowseCfg.RESULTS_PER_PAGE,
+                count: BrowseCfg.RESULTS_PER_PAGE,
                 filters: null,
             },
         },
@@ -59,10 +59,11 @@ export const BrowseResultsPage = () => {
             {loading && <p>Loading browse results...</p>}
             {data && data.browse && (
                 <BrowseResults
+                    type={entityType}
                     rootPath={rootPath}
-                    title={path.length > 0 ? path[path.length - 1] : toCollectionName(entityType)}
-                    pageSize={RESULTS_PER_PAGE}
-                    pageStart={page * RESULTS_PER_PAGE}
+                    title={path.length > 0 ? path[path.length - 1] : entityRegistry.getCollectionName(entityType)}
+                    pageSize={BrowseCfg.RESULTS_PER_PAGE}
+                    pageStart={page * BrowseCfg.RESULTS_PER_PAGE}
                     groups={data.browse.metadata.groups}
                     entities={data.browse.entities}
                     totalResults={data.browse.total}
