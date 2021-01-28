@@ -4,6 +4,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.DatasetSearchConfig;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
@@ -34,7 +35,7 @@ public class DatsetsSearchSanityTest extends BaseSearchSanityTests<DatasetDocume
       .setRemoved(false);
 
   protected DatsetsSearchSanityTest() {
-    super(URN, DOCUMENT);
+    super(URN, DOCUMENT, new DatasetSearchConfig());
   }
 
   @Nonnull
