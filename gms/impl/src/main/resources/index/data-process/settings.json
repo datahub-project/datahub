@@ -44,6 +44,13 @@
           "type": "custom",
           "tokenizer": "slash_tokenizer"
         },
+        "lowercase_keyword": {
+          "filter": [
+            "lowercase"
+          ],
+          "type": "custom",
+          "tokenizer": "keyword"
+        },
         "data_process_pattern": {
           "filter": [
             "lowercase"
