@@ -52,6 +52,32 @@ query getDataset($urn: String!) {
                 }
             }
         }
+        schema {
+            datasetUrn
+            name
+            platformUrn
+            version
+            hash
+            platformSchema {
+                ... on TableSchema {
+                    schema
+                }
+                ... on KeyValueSchema {
+                    keySchema
+                    valueSchema
+                }
+            }
+            fields {
+                fieldPath
+                jsonPath
+                nullable
+                description
+                type
+                nativeDataType
+                recursive
+            }
+            primaryKeys
+        }
     }
 }
 
@@ -93,6 +119,32 @@ mutation updateDataset($input: DatasetUpdateInput!) {
                     time
                 }
             }
+        }
+        schema {
+            datasetUrn
+            name
+            platformUrn
+            version
+            hash
+            platformSchema {
+                ... on TableSchema {
+                    schema
+                }
+                ... on KeyValueSchema {
+                    keySchema
+                    valueSchema
+                }
+            }
+            fields {
+                fieldPath
+                jsonPath
+                nullable
+                description
+                type
+                nativeDataType
+                recursive
+            }
+            primaryKeys
         }
     }
 }
