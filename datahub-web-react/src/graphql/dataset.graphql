@@ -78,6 +78,12 @@ query getDataset($urn: String!) {
             }
             primaryKeys
         }
+        deprecation {
+            actor
+            deprecated
+            note
+            decommissionTime
+        }
     }
 }
 
@@ -145,6 +151,12 @@ mutation updateDataset($input: DatasetUpdateInput!) {
                 recursive
             }
             primaryKeys
+        }
+        deprecation {
+            actor
+            deprecated
+            note
+            decommissionTime
         }
     }
 }
