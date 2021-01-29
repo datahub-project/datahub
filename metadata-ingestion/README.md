@@ -90,24 +90,5 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
 
-## Ingest metadata from MySQL to DataHub
-The mysql_etl provides you ETL channel to communicate with your MySQL.
-```
-➜  Config your MySQL environmental variable in the file.
-    HOST           # Your server host.
-    DATABASE       # Target database.
-    USER           # Your user account.
-    PASSWORD       # Your password.
-    
-➜  Config your kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
-
-➜  python mysql_etl.py
-```
-This will bootstrap DataHub with your metadata in the MySQL as a dataset entity.
-
 ## Ingest metadata from SQL-based data systems to DataHub
 See [sql-etl](sql-etl/) for more details.
