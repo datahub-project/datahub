@@ -29,6 +29,6 @@ public class GmsGraphQLProvider {
     @PostConstruct
     public void init() {
         this.graphQLEngine = GmsGraphQLEngine.builder().build();
-        this.graphQL = graphQLEngine.get_engine();
+        this.graphQL = graphQLEngine.getEngine();
     }
 }

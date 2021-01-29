@@ -42,6 +42,7 @@ public class GraphQLEngine {
                           @Nonnull final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
+        
         /*
          * Parse schema
          */
@@ -64,7 +65,6 @@ public class GraphQLEngine {
     public ExecutionResult execute(@Nonnull final String query,
                                    @Nullable final Map<String, Object> variables,
                                    @Nonnull final QueryContext context) {
-
         /*
          * Init DataLoaderRegistry - should be created for each request.
          */
@@ -161,7 +161,7 @@ public class GraphQLEngine {
         return registry;
     }
 
-    public GraphQL get_engine() {
+    public GraphQL getEngine() {
         return _engine;
     }
 }
