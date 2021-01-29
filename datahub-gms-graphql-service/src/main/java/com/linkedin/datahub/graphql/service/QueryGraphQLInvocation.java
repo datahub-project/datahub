@@ -22,9 +22,6 @@ import graphql.spring.web.servlet.GraphQLInvocationData;
 public class QueryGraphQLInvocation implements GraphQLInvocation {
 
     @Autowired
-    GraphQL graphQL;
-
-    @Autowired
     GraphQLEngine graphQLEngine;
 
     public static final String APPNAME = "GmsGraphQLApp";
@@ -33,13 +30,8 @@ public class QueryGraphQLInvocation implements GraphQLInvocation {
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {
         QueryContext queryContext = new SpringQueryContext(true, APPNAME);
 
-        ExecutionInput executionInput = ExecutionInput.newExecutionInput()
-            .query(invocationData.getQuery())
-            .operationName(invocationData.getOperationName())
-            .variables(invocationData.getVariables())
-            .dataLoaderRegistry(graphQLEngine.get_registry())
-            .context(queryContext)
-            .build();
-        return graphQL.executeAsync(executionInput);
+        return CompletableFuture.supplyAsync(() -> graphQLEngine.execute(invocationData.getQuery(),
+            invocationData.getVariables(),
+            queryContext));
     }
 }
