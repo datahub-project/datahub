@@ -4,6 +4,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.ChartIndexBuilder;
 import com.linkedin.metadata.builders.search.CorpGroupIndexBuilder;
+import com.linkedin.metadata.builders.search.CorpUserInfoIndexBuilder;
 import com.linkedin.metadata.builders.search.DashboardIndexBuilder;
 import com.linkedin.metadata.builders.search.DataProcessIndexBuilder;
 import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
@@ -42,6 +43,7 @@ public class IndexBuildersConfig {
     log.debug("restli client {}", restliClient);
     final Set<BaseIndexBuilder<? extends RecordTemplate>> builders = new HashSet<>();
     builders.add(new CorpGroupIndexBuilder());
+    builders.add(new CorpUserInfoIndexBuilder());
     builders.add(new ChartIndexBuilder());
     builders.add(new DatasetIndexBuilder());
     builders.add(new DataProcessIndexBuilder());
