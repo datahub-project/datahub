@@ -11,9 +11,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.context.SpringQueryContext;
 
-import graphql.ExecutionInput;
 import graphql.ExecutionResult;
-import graphql.GraphQL;
 import graphql.spring.web.servlet.GraphQLInvocation;
 import graphql.spring.web.servlet.GraphQLInvocationData;
 

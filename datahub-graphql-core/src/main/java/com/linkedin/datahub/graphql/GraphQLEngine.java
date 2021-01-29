@@ -8,8 +8,6 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
-import lombok.Getter;
-import lombok.NonNull;
 
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
@@ -34,20 +32,16 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
  *
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set of variables.
  */
-@Getter
 public class GraphQLEngine {
 
     private final GraphQL _engine;
     private final Map<String, Supplier<DataLoader<?, ?>>> _dataLoaderSuppliers;
-    private final DataLoaderRegistry _registry;
 
     private GraphQLEngine(@Nonnull final List<String> schemas,
                           @Nonnull final RuntimeWiring runtimeWiring,
-                          @Nonnull final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers,
-                            @NonNull final DataLoaderRegistry registry) {
+                          @Nonnull final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
-        _registry = registry;
         /*
          * Parse schema
          */
@@ -70,13 +64,19 @@ public class GraphQLEngine {
     public ExecutionResult execute(@Nonnull final String query,
                                    @Nullable final Map<String, Object> variables,
                                    @Nonnull final QueryContext context) {
+
+        /*
+         * Init DataLoaderRegistry - should be created for each request.
+         */
+        DataLoaderRegistry register = createDataLoaderRegistry(_dataLoaderSuppliers);
+
         /*
          * Construct execution input
          */
         ExecutionInput executionInput = ExecutionInput.newExecutionInput()
             .query(query)
             .variables(variables)
-            .dataLoaderRegistry(_registry)
+            .dataLoaderRegistry(register)
             .context(context)
             .build();
 
@@ -98,7 +98,6 @@ public class GraphQLEngine {
         private final List<String> _schemas = new ArrayList<>();
         private final Map<String, Supplier<DataLoader<?, ?>>> _loaderSuppliers = new HashMap<>();
         private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
-        private final DataLoaderRegistry _registry = new DataLoaderRegistry();
 
         /**
          * Used to add a schema file containing the GQL types resolved by the engine.
@@ -119,7 +118,6 @@ public class GraphQLEngine {
          */
         public Builder addDataLoader(final String name, final Supplier<DataLoader<?, ?>> dataLoaderSupplier) {
             _loaderSuppliers.put(name, dataLoaderSupplier);
-            registerDataLoaders(_loaderSuppliers);
             return this;
         }
 
@@ -132,17 +130,7 @@ public class GraphQLEngine {
          */
         public Builder addDataLoaders(Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
             _loaderSuppliers.putAll(dataLoaderSuppliers);
-            registerDataLoaders(_loaderSuppliers);
             return this;
-        }
-
-        /**
-         * Used to register multiple {@link DataLoader} with the {@link DataLoaderRegistry}
-         */
-        private void registerDataLoaders(final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
-            for (String key : dataLoaderSuppliers.keySet()) {
-                _registry.register(key, dataLoaderSuppliers.get(key).get());
-            }
         }
 
         /**
@@ -161,7 +149,19 @@ public class GraphQLEngine {
          * Builds a {@link GraphQLEngine}.
          */
         public GraphQLEngine build() {
-            return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers, _registry);
+            return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers);
         }
+    }
+
+    private DataLoaderRegistry createDataLoaderRegistry(final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
+        final DataLoaderRegistry registry = new DataLoaderRegistry();
+        for (String key : dataLoaderSuppliers.keySet()) {
+            registry.register(key, dataLoaderSuppliers.get(key).get());
+        }
+        return registry;
+    }
+
+    public GraphQL get_engine() {
+        return _engine;
     }
 }
