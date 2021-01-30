@@ -5,9 +5,7 @@ plugins {
 
 dependencies {
     compile project(':datahub-graphql-core')
-    compile (externalDependency.springBootStarterWeb) {
-        exclude module: "spring-boot-starter-tomcat"
-    }
+    compile externalDependency.springBootStarterWeb
     compile 'com.graphql-java:graphql-java-spring-boot-starter-webmvc:2.0'
     compile 'com.graphql-java:graphiql-spring-boot-starter:5.0.2'
     compile externalDependency.graphqlJava

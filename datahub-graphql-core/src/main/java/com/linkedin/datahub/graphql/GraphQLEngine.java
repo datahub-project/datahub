@@ -34,7 +34,7 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
  */
 public class GraphQLEngine {
 
-    private final GraphQL _engine;
+    private final GraphQL graphQL;
     private final Map<String, Supplier<DataLoader<?, ?>>> _dataLoaderSuppliers;
 
     private GraphQLEngine(@Nonnull final List<String> schemas,
@@ -42,7 +42,7 @@ public class GraphQLEngine {
                           @Nonnull final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
-        
+
         /*
          * Parse schema
          */
@@ -57,9 +57,9 @@ public class GraphQLEngine {
         GraphQLSchema graphQLSchema = schemaGenerator.makeExecutableSchema(typeDefinitionRegistry, runtimeWiring);
 
         /*
-         * Instantiate engine
+         * Instantiate graphQL
          */
-        _engine = GraphQL.newGraphQL(graphQLSchema).build();
+        graphQL = GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     public ExecutionResult execute(@Nonnull final String query,
@@ -83,7 +83,7 @@ public class GraphQLEngine {
         /*
          * Execute GraphQL Query
          */
-        return _engine.execute(executionInput);
+        return graphQL.execute(executionInput);
     }
 
     public static Builder builder() {
@@ -161,7 +161,7 @@ public class GraphQLEngine {
         return registry;
     }
 
-    public GraphQL getEngine() {
-        return _engine;
+    public GraphQL getGraphQL() {
+        return graphQL;
     }
 }
