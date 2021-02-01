@@ -1,0 +1,8 @@
+[source]
+  type="kafka"
+  extractor="gometa.ingestion.extractor.kafka.KafkaMetadataExtractor"
+[source.kafka.connection]
+    bootstrap="localhost:9092"
+
+[sink]
+  type = "console"
