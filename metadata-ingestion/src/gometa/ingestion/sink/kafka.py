@@ -25,10 +25,11 @@ class KafkaConnectionConfig(BaseModel):
 DEFAULT_KAFKA_TOPIC="MetadataChangeEvent_v4"
 
 class KafkaSinkConfig(BaseModel):
-
+    """TODO: Write a post_init method to populate producer_config from the modeled config"""
     connection: Optional[KafkaConnectionConfig] = KafkaConnectionConfig()
     topic: Optional[str] = DEFAULT_KAFKA_TOPIC
     producer_config: Optional[dict] = {}
+
 @dataclass
 class KafkaCallback:
     record_envelope: RecordEnvelope
@@ -45,6 +46,7 @@ class KafkaCallback:
 
     
 class KafkaSink(Sink):
+    """TODO: Add support for Avro / Protobuf serialization etc."""
     
     def __init__(self):
         self.config = None
