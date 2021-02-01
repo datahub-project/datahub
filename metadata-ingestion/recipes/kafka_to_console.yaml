@@ -1,0 +1,9 @@
+---
+source:
+  type: "kafka"
+  extractor: "gometa.ingestion.extractor.kafka.KafkaMetadataExtractor"
+  kafka:
+    connection.bootstrap: "broker:9092"
+
+sink:
+  type: "console"
