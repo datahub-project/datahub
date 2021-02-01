@@ -3,7 +3,7 @@ scalar Long
 
 schema {
     query: Query
-    mutation: Mutation
+#    mutation: Mutation
 }
 
 enum EntityType {
@@ -24,7 +24,7 @@ type Query {
     dataset(urn: String!): Dataset
 }
 
-type Mutation { }
+#type Mutation { }
 
 type AuditStamp {
     """
