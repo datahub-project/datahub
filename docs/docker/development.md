@@ -71,6 +71,6 @@ docker-compose -p datahub -f docker-compose.yml -f docker-compose.overrides.yml 
 Will only start `datahub-gms` and its dependencies.
 
 ```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.overrides.yml -f docker-compose.dev.yml up --no-deps datahub-gms
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up --no-deps datahub-gms
 ```
 Will only start `datahub-gms`, without dependencies.
