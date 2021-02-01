@@ -52,7 +52,7 @@ setuptools.setup(
     ],
     python_requires=">=3.6",
     package_dir={"": "src"},
-    packages=["gometa", "gometa.configuration"],
+    packages=["gometa", "gometa.configuration"],#TODO: Are these the right components?
     include_package_data=True,
     package_data={"gometa": ["py.typed"]},
     entry_points={
@@ -61,15 +61,15 @@ setuptools.setup(
         ],
     },
     install_requires=[
-        'dataclasses; python_version<="3.6"',
+        'dataclasses; python_version<="3.6"', #TODO: is this the right directive?
         "click>=7.1.1",
         "pyyaml>=5.4.1",
         "toml>=0.10.0",
         "pydantic>=1.5.1",
-        "watchdog>=0.10.3",
+        "watchdog>=0.10.3", #TODO: Check if we want this
         "confluent_kafka>=1.5.0",
         "requests>=2.25.1",
-        "fastavro>=1.3.0",
+        "fastavro>=1.3.0", #TODO: Do we need both avro-s?
         "avro-python3==1.8.2",
     ],
 )
