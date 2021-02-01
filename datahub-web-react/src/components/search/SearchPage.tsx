@@ -1,18 +1,24 @@
-import * as React from 'react';
+import React from 'react';
 import * as QueryString from 'query-string';
-import { useHistory, useLocation } from 'react-router';
+import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Col, Row, Tabs, Layout } from 'antd';
 
 import { SearchablePage } from './SearchablePage';
-import { fromCollectionName, fromPathName, toCollectionName, toPathName } from '../shared/EntityTypeUtil';
+import { fromCollectionName, fromPathnameOrEmptyString, toCollectionName } from '../shared/EntityTypeUtil';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { SearchResults } from './SearchResults';
-import { EntityType, PlatformNativeType } from '../../types.generated';
+import { EntityType, FacetFilterInput, PlatformNativeType } from '../../types.generated';
 import { SearchFilters } from './SearchFilters';
 import { SearchCfg } from '../../conf';
 import { PageRoutes } from '../../conf/Global';
+import useFilters from './utils/useFilters';
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 
 const { SEARCHABLE_ENTITY_TYPES, RESULTS_PER_PAGE } = SearchCfg;
+
+type SearchPageParams = {
+    type?: string;
+};
 
 /**
  * A dedicated search page.
@@ -23,11 +29,11 @@ export const SearchPage = () => {
     const history = useHistory();
     const location = useLocation();
 
-    const params = QueryString.parse(location.search);
-    const type = params.type ? fromPathName(params.type as string) : SEARCHABLE_ENTITY_TYPES[0];
-    const query = params.query ? (params.query as string) : '';
-    const page = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
-    const filters = location.state ? ((location.state as any).filters as Array<{ field: string; value: string }>) : [];
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const type = fromPathnameOrEmptyString(useParams<SearchPageParams>().type || '') || SEARCHABLE_ENTITY_TYPES[0];
+    const query: string = params.query ? (params.query as string) : '';
+    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const filters: Array<FacetFilterInput> = useFilters(params);
 
     const { loading, error, data } = useGetSearchResultsQuery({
         variables: {
@@ -43,10 +49,7 @@ export const SearchPage = () => {
 
     const onSearchTypeChange = (newType: string) => {
         const entityType = fromCollectionName(newType);
-        history.push({
-            pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(entityType)}&query=${query}&page=1`,
-        });
+        navigateToSearchUrl({ type: entityType, query, page: 1, history });
     };
 
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
@@ -54,23 +57,11 @@ export const SearchPage = () => {
             ? [...filters, { field, value }]
             : filters.filter((filter) => filter.field !== field || filter.value !== value);
 
-        history.push({
-            pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(type)}&query=${query}&page=1`,
-            state: {
-                filters: newFilters,
-            },
-        });
+        navigateToSearchUrl({ type, query, page: 1, filters: newFilters, history });
     };
 
     const onResultsPageChange = (newPage: number) => {
-        return history.push({
-            pathname: PageRoutes.SEARCH,
-            search: `?type=${toPathName(type)}&query=${query}&page=${newPage}`,
-            state: {
-                filters: [...filters],
-            },
-        });
+        navigateToSearchUrl({ type, query, page: newPage, filters, history });
     };
 
     const navigateToDataset = (urn: string) => {
@@ -130,7 +121,7 @@ export const SearchPage = () => {
         }
     };
 
-    const searchResults = (data && data?.search && toSearchResults(data.search.elements)) || [];
+    const searchResults = toSearchResults(data?.search?.elements || []);
 
     return (
         <SearchablePage initialQuery={query} initialType={type}>
@@ -138,9 +129,9 @@ export const SearchPage = () => {
                 <Affix offsetTop={64}>
                     <Tabs
                         tabBarStyle={{ backgroundColor: 'white', padding: '0px 165px', marginBottom: '0px' }}
-                        defaultActiveKey={toCollectionName(type)}
+                        activeKey={toCollectionName(type)}
                         size="large"
-                        onChange={(newPath) => onSearchTypeChange(newPath)}
+                        onChange={onSearchTypeChange}
                     >
                         {SEARCHABLE_ENTITY_TYPES.map((t) => (
                             <Tabs.TabPane tab={toCollectionName(t)} key={toCollectionName(t)} />
@@ -148,21 +139,21 @@ export const SearchPage = () => {
                     </Tabs>
                 </Affix>
                 <Row style={{ width: '80%', margin: 'auto auto', backgroundColor: 'white' }}>
-                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 15px' }} span={6}>
+                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={6}>
                         <SearchFilters
-                            facets={(data && data?.search && data.search.facets) || []}
+                            facets={data?.search?.facets || []}
                             selectedFilters={filters}
                             onFilterSelect={onFilterSelect}
                         />
                     </Col>
-                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 15px' }} span={18}>
+                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={18}>
                         {loading && <p>Loading results...</p>}
                         {error && !data && <p>Search error!</p>}
-                        {data && data?.search && (
+                        {data?.search && (
                             <SearchResults
                                 typeName={toCollectionName(type)}
                                 results={searchResults}
-                                pageStart={data.search?.start}
+                                pageStart={data?.search?.start}
                                 pageSize={data.search?.count}
                                 totalResults={data.search?.total}
                                 onChangePage={onResultsPageChange}

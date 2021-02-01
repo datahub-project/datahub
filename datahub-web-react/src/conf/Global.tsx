@@ -10,6 +10,7 @@ export const LOGO_IMAGE = DataHubLogo;
 */
 export enum PageRoutes {
     LOG_IN = '/login',
+    SEARCH_RESULTS = '/search/:type',
     SEARCH = '/search',
     BROWSE = '/browse',
     BROWSE_RESULTS = '/browse/:type',

@@ -13,6 +13,11 @@ export const fromPathName = (pathName: string): EntityType => {
     }
 };
 
+export const fromPathnameOrEmptyString = (pathName: string): EntityType | null => {
+    if (pathName === '') return null;
+    return fromPathName(pathName);
+};
+
 export const toPathName = (type: EntityType): string => {
     switch (type) {
         case EntityType.Dataset:
