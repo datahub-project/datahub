@@ -7,9 +7,11 @@ import confluent_kafka
 import re
 from gometa.ingestion.api.closeable import Closeable
 
+
 class KafkaSourceConfig(ConfigModel):
     connection: Optional[KafkaConnectionConfig] = KafkaConnectionConfig()
-    topic: Optional[str] = ".*"
+    topic: Optional[str] = ".*" # default is wildcard subscription
+
 
 @dataclass
 class KafkaWorkUnit(WorkUnit):
@@ -32,6 +34,7 @@ class KafkaSource(Source):
         topics = self.consumer.list_topics().topics
         for t in topics:
             if re.fullmatch(self.topic_pattern, t): 
+                #TODO: topics config should support allow and deny patterns
                 if not t.startswith("_"):
                     yield KafkaWorkUnit(config=KafkaSourceConfig(connection=self.source_config.connection, topic=t))
 

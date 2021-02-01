@@ -23,7 +23,7 @@ class NoopWriteCallback(WriteCallback):
 
 
 class Sink(metaclass=ABCMeta):
-
+    """All Sinks must inherit this base class"""
     @abstractmethod
     def configure(self, config_dict:dict):
         pass
