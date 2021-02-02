@@ -8,25 +8,15 @@
               "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
               "fields": [
+                "name.ngram^0.125",
+                "name.ml_model_pattern_ngram^8",
+                "name.delimited^1",
+                "name.pattern^8",
                 "evaluationDatasets.urn_components^0.065",
                 "trainingDatasets.urn_components^0.075",
                 "description^0.035",
                 "platform^0.055",
                 "type^0.01"
-              ],
-              "default_operator": "OR"
-            }
-          },
-          {
-            "query_string": {
-              "query": "$INPUT",
-              "analyzer": "whitespace_lowercase",
-              "fields": [
-                "name.ngram^0.125",
-                "name.ml_model_pattern_ngram^8",
-                "name.delimited^1",
-                "name.pattern^8",
-
               ],
               "default_operator": "AND"
             }
