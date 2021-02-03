@@ -48,6 +48,21 @@ class KafkaSchema(UnionParticipant):
         return get_mce_from_dict(self.get_type_name(), dict_for_mce, serialization)
 
 
+@dataclass
+class SQLSchema(UnionParticipant):
+    tableSchema: str
+    type_name = "com.linkedin.schema.SQLSchema"
+
+    def get_type_name(self):
+        return self.type_name
+
+    def for_mce(self, serialization: SerializationEnum):
+        logger.warn("sql schema called")
+        dict_for_mce = self.__dict__
+        return get_mce_from_dict(self.get_type_name(), dict_for_mce, serialization)
+
+
+
 class Aspect(UnionParticipant):
 
     def for_mce(self, serialization: SerializationEnum):
@@ -166,6 +181,4 @@ class MetadataChangeEvent:
     def __repr__(self):
         mce = self.as_mce(SerializationEnum.avrojson)
         return str(mce)
-        
-
 

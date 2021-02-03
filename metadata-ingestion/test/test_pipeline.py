@@ -13,7 +13,7 @@ class PipelineTest(unittest.TestCase):
         pipeline = Pipeline()
         pipeline.configure({'source': {
                                                     'type': 'kafka',
-                                                    'extractor': 'gometa.ingestion.source.kafka.KafkaMetadataExtractor',
+                                                    'extractor': 'gometa.ingestion.extractor.kafka.KafkaMetadataExtractor',
                                                     'kafka': {
                                                         'bootstrap': "localhost:9092"
                                                     }

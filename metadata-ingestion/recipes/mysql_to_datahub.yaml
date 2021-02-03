@@ -1,0 +1,9 @@
+---
+source:
+  type: "mysql"
+  mysql:
+    username: datahub
+    password: datahub
+
+sink:
+  type: "file"
