@@ -1,6 +1,7 @@
 # Dev
 ## Set up dev environment
-- On MacOS: brew install librdkafka
+- On MacOS: `brew install librdkafka`
+- On Debian/Ubuntu: `sudo apt install librdkafka-dev`
 - python3 -m venv venv
 - source venv/bin/activate
 - pip install -e .

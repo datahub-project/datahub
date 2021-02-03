@@ -4,15 +4,17 @@ from pydantic import BaseModel, Field, ValidationError, validator
 from gometa.ingestion.api.sink import Sink, WriteCallback
 from gometa.ingestion.api.common import RecordEnvelope
 from confluent_kafka import Producer
+from confluent_kafka import avro
+from confluent_kafka.avro import AvroProducer
 
 class KafkaConnectionConfig(BaseModel):
     """Configuration class for holding connectivity information for Kafka"""
     
     # bootstrap servers
-    bootstrap: Optional[str] = "localhost:9092"
+    bootstrap: str = "localhost:9092"
 
     # schema registry location
-    schema_registry_url: Optional[str] = "http://localhost:8081"
+    schema_registry_url: str = "http://localhost:8081"
 
     @validator('bootstrap')
     def bootstrap_host_colon_port_comma(cls, val):
@@ -26,9 +28,9 @@ DEFAULT_KAFKA_TOPIC="MetadataChangeEvent_v4"
 
 class KafkaSinkConfig(BaseModel):
     """TODO: Write a post_init method to populate producer_config from the modeled config"""
-    connection: Optional[KafkaConnectionConfig] = KafkaConnectionConfig()
-    topic: Optional[str] = DEFAULT_KAFKA_TOPIC
-    producer_config: Optional[dict] = {}
+    connection: KafkaConnectionConfig = KafkaConnectionConfig()
+    topic: str = DEFAULT_KAFKA_TOPIC
+    producer_config: dict = {}
 
 @dataclass
 class KafkaCallback:
@@ -49,18 +51,28 @@ class KafkaSink(Sink):
     """TODO: Add support for Avro / Protobuf serialization etc."""
     
     def __init__(self):
-        self.config = None
+        self.config: Optional[KafkaSinkConfig] = None
 
     def configure(self, config_dict={}):
         self.config = KafkaSinkConfig.parse_obj(config_dict)
-        self.producer = Producer(**self.config.producer_config)
+
+        mce_schema = avro.load('../datahub/metadata-models/src/mainGeneratedAvroSchema/avro/com/linkedin/mxe/MetadataChangeEvent.avsc')
+        
+        producer_config = {
+            "bootstrap.servers": self.config.connection.bootstrap,
+            "schema.registry.url": self.config.connection.schema_registry_url,
+            **self.config.producer_config,
+        }
+
+        self.producer = AvroProducer(producer_config, default_value_schema=mce_schema)
         return self
 
  
     def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
         # call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
-        self.producer.produce(self.config.topic, record_envelope.record, 
+        breakpoint()
+        self.producer.produce(topic=self.config.topic, value=record_envelope.record, 
             callback= KafkaCallback(record_envelope, write_callback).kafka_callback)
         
     def close(self):
