@@ -1,11 +1,6 @@
 from abc import abstractmethod, ABCMeta
 from .closeable import Closeable
-from .common import RecordEnvelope
-
-class WorkUnit(metaclass=ABCMeta):
-    @abstractmethod
-    def get_metadata(self) -> dict:
-        pass
+from .common import *
 
 
 class Extractor(Closeable, metaclass=ABCMeta):
@@ -20,7 +15,7 @@ class Extractor(Closeable, metaclass=ABCMeta):
 class Source(Closeable, metaclass = ABCMeta):
 
     @abstractmethod
-    def configure(self, config_dict: dict):
+    def configure(self, config_dict: dict, ctx: PipelineContext):
         pass
     
     @abstractmethod

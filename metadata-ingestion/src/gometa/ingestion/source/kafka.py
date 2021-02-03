@@ -36,7 +36,7 @@ class KafkaSource(Source):
             if re.fullmatch(self.topic_pattern, t): 
                 #TODO: topics config should support allow and deny patterns
                 if not t.startswith("_"):
-                    yield KafkaWorkUnit(config=KafkaSourceConfig(connection=self.source_config.connection, topic=t))
+                    yield KafkaWorkUnit(id=f'kafka-{t}', config=KafkaSourceConfig(connection=self.source_config.connection, topic=t))
 
         
     def close(self):
