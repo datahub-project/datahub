@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
@@ -29,10 +29,12 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
-    // Register our entities!
-    const entityRegistry = new EntityRegistry();
-    entityRegistry.register(new DatasetEntity());
-    entityRegistry.register(new UserEntity());
+    const entityRegistry = useMemo(() => {
+        const register = new EntityRegistry();
+        register.register(new DatasetEntity());
+        register.register(new UserEntity());
+        return register;
+    }, []);
     return (
         <Router>
             <EntityRegistryContext.Provider value={entityRegistry}>
