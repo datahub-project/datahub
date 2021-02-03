@@ -5,14 +5,11 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.datahub.graphql.exception.AuthenticationException;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.loaders.CorpUserLoader;
-import com.linkedin.datahub.graphql.mappers.CorpUserMapper;
+import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import graphql.PlayQueryContext;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import org.apache.commons.lang3.StringUtils;
-import org.dataloader.DataLoader;
-import play.Logger;
 import security.AuthUtil;
 import security.AuthenticationManager;
 
@@ -26,6 +23,12 @@ import static security.AuthConstants.*;
  * Resolver responsible for authenticating a user
  */
 public class LogInResolver implements DataFetcher<CompletableFuture<CorpUser>> {
+
+    private final CorpUserType _corpUserType;
+
+    public LogInResolver(final CorpUserType corpUserType) {
+        _corpUserType = corpUserType;
+    }
 
     @Override
     public CompletableFuture<CorpUser> get(DataFetchingEnvironment environment) throws Exception {
@@ -67,10 +70,9 @@ public class LogInResolver implements DataFetcher<CompletableFuture<CorpUser>> {
         }
 
         /*
-            Fetch the latest version of the logged in user. (via CorpUser entity)
+            Fetch the latest version of the logged in user.
          */
-        final DataLoader<String, com.linkedin.identity.CorpUser> userLoader = environment.getDataLoader(CorpUserLoader.NAME);
-        return userLoader.load(new CorpuserUrn(username).toString())
-                .thenApply(CorpUserMapper::map);
+        final String urn = new CorpuserUrn(username).toString();
+        return environment.getDataLoaderRegistry().getDataLoader(_corpUserType.name()).load(urn).thenApply(corpUserObj -> (CorpUser) corpUserObj);
     }
 }
