@@ -107,8 +107,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int start,
                                 int count) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _datasetsClient.browse(
-                BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path),
+                pathStr,
                 facetFilters,
                 start,
                 count);
