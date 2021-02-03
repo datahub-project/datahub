@@ -1,11 +1,12 @@
+import React from 'react';
 import { Col, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
-import React from 'react';
-import { BrowseResultEntity, BrowseResultGroup } from '../../types.generated';
+import { BrowseResultEntity, BrowseResultGroup, EntityType } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
-import { browseEntityResultToUrl } from './util/entityToUrl';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 interface Props {
+    type: EntityType;
     title: string;
     rootPath: string;
     pageStart: number;
@@ -20,6 +21,7 @@ interface Props {
  * Display browse groups + entities.
  */
 export const BrowseResults = ({
+    type,
     title,
     rootPath,
     pageStart,
@@ -29,6 +31,7 @@ export const BrowseResults = ({
     groups,
     onChangePage,
 }: Props) => {
+    const entityRegistry = useEntityRegistry();
     return (
         <div>
             <Content style={{ backgroundColor: 'white', padding: '25px 100px' }}>
@@ -40,9 +43,7 @@ export const BrowseResults = ({
                         </Col>
                     ))}
                     {entities.map((entity) => (
-                        <Col span={24}>
-                            <BrowseResultCard name={entity.name} url={browseEntityResultToUrl(entity)} />
-                        </Col>
+                        <Col span={24}>{entityRegistry.renderBrowse(type, entity)}</Col>
                     ))}
                     <Col span={24}>
                         <Pagination

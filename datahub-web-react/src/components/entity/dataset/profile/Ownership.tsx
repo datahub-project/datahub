@@ -1,10 +1,10 @@
 import { AutoComplete, Avatar, Button, Col, Row, Select, Table } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, Owner, OwnershipType } from '../../../types.generated';
-import defaultAvatar from '../../../images/default_avatar.png';
-import { PageRoutes } from '../../../conf/Global';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
+import { EntityType, Owner, OwnershipType } from '../../../../types.generated';
+import defaultAvatar from '../../../../images/default_avatar.png';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 const OWNER_SEARCH_PLACEHOLDER = 'Enter an LDAP...';
 const NUMBER_OWNERS_REQUIRED = 2;
@@ -24,6 +24,8 @@ export const Ownership: React.FC<Props> = ({
     lastModifiedAt: _lastModifiedAt,
 }: Props): JSX.Element => {
     console.log(_lastModifiedAt);
+
+    const entityRegistry = useEntityRegistry();
 
     const getOwnerTableData = (ownerArr: Array<Owner>) => {
         const rows = ownerArr.map((owner) => ({
@@ -93,7 +95,7 @@ export const Ownership: React.FC<Props> = ({
             title: 'LDAP',
             dataIndex: 'ldap',
             render: (text: string, record: any) => (
-                <Link to={`${PageRoutes.USERS}/${record.urn}`}>
+                <Link to={`${entityRegistry.getPathName(EntityType.User)}/${record.urn}`}>
                     <Avatar
                         style={{
                             marginRight: '15px',

@@ -3,8 +3,8 @@ import { RouteComponentProps } from 'react-router-dom';
 
 import filtersToQueryStringParams from './filtersToQueryStringParams';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
-import { toPathName } from '../../shared/EntityTypeUtil';
 import { PageRoutes } from '../../../conf/Global';
+import EntityRegistry from '../../entity/EntityRegistry';
 
 export const navigateToSearchUrl = ({
     type: newType,
@@ -12,12 +12,14 @@ export const navigateToSearchUrl = ({
     page: newPage = 1,
     filters: newFilters,
     history,
+    entityRegistry,
 }: {
     type: EntityType;
     query?: string;
     page?: number;
     filters?: Array<FacetFilterInput>;
     history: RouteComponentProps['history'];
+    entityRegistry: EntityRegistry;
 }) => {
     const search = QueryString.stringify(
         {
@@ -29,7 +31,7 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}/${toPathName(newType)}`,
+        pathname: `${PageRoutes.SEARCH}/${entityRegistry.getPathName(newType)}`,
         search,
     });
 };

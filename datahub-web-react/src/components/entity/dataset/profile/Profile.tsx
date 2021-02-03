@@ -1,15 +1,13 @@
-import * as React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React from 'react';
 import { Avatar, Col, Row, Tooltip } from 'antd';
-
-import { BrowsableEntityPage } from '../../browse/BrowsableEntityPage';
-import { useGetDatasetQuery } from '../../../graphql/dataset.generated';
-import { EntityType } from '../../shared/EntityTypeUtil';
-import defaultAvatar from '../../../images/default_avatar.png';
+import { Link } from 'react-router-dom';
+import { useGetDatasetQuery } from '../../../../graphql/dataset.generated';
+import defaultAvatar from '../../../../images/default_avatar.png';
 import { Ownership as OwnershipView } from './Ownership';
 import { Schema as SchemaView } from './Schema';
-import { GenericEntityDetails } from '../../shared/GenericEntityDetails';
-import { PageRoutes } from '../../../conf/Global';
+import { EntityProfile } from '../../../shared/EntityProfile';
+import { EntityType } from '../../../../types.generated';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -17,18 +15,13 @@ export enum TabType {
 }
 
 const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Schema];
-
-interface RouteParams {
-    urn: string;
-}
-
 const EMPTY_OWNER_ARR: never[] = [];
 
 /**
  * Responsible for display the Dataset Page
  */
-export const DatasetPage: React.VFC = () => {
-    const { urn } = useParams<RouteParams>();
+export const Profile = ({ urn }: { urn: string }): JSX.Element => {
+    const entityRegistry = useEntityRegistry();
 
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
@@ -46,7 +39,7 @@ export const DatasetPage: React.VFC = () => {
                             ownership.owners &&
                             ownership.owners.map((owner: any) => (
                                 <Tooltip title={owner.owner.info?.fullName}>
-                                    <Link to={`${PageRoutes.USERS}/${owner.owner.urn}`}>
+                                    <Link to={`${entityRegistry.getPathName(EntityType.User)}/${owner.owner.urn}`}>
                                         <Avatar
                                             style={{
                                                 color: '#f56a00',
@@ -87,11 +80,11 @@ export const DatasetPage: React.VFC = () => {
     };
 
     return (
-        <BrowsableEntityPage urn={urn} type={EntityType.Dataset}>
+        <>
             {loading && <p>Loading...</p>}
             {data && !data.dataset && !error && <p>Unable to find dataset with urn {urn}</p>}
             {data && data.dataset && !error && (
-                <GenericEntityDetails
+                <EntityProfile
                     title={data.dataset.name}
                     tags={data.dataset.tags}
                     body={getBody(data.dataset?.description || '', data.dataset?.ownership)}
@@ -99,6 +92,6 @@ export const DatasetPage: React.VFC = () => {
                 />
             )}
             {error && <p>Failed to load dataset with urn {urn}</p>}
-        </BrowsableEntityPage>
+        </>
     );
 };

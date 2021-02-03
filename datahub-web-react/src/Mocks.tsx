@@ -304,7 +304,6 @@ export const mocks = [
                 input: {
                     type: 'DATASET',
                     query: 't',
-                    field: 'name',
                 },
             },
         },
@@ -324,7 +323,6 @@ export const mocks = [
                 input: {
                     type: 'USER',
                     query: 'j',
-                    field: 'ldap',
                 },
             },
         },

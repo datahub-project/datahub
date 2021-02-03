@@ -7,7 +7,7 @@ import Cookies from 'js-cookie';
 import { Redirect } from 'react-router';
 import styles from './login.module.css';
 import { useLoginMutation } from '../../graphql/auth.generated';
-import { Message } from '../generic/Message';
+import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
 import { GlobalCfg } from '../../conf';
 
