@@ -1,0 +1,10 @@
+---
+source:
+  type: mssql
+  mssql:
+    username: sa
+    password: test!Password
+    database: DemoData
+
+sink:
+  type: console

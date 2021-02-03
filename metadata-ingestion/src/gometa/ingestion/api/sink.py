@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
 
-from gometa.ingestion.api.common import RecordEnvelope
+from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
 
 
 class WriteCallback:
@@ -25,7 +25,7 @@ class NoopWriteCallback(WriteCallback):
 class Sink(metaclass=ABCMeta):
     """All Sinks must inherit this base class"""
     @abstractmethod
-    def configure(self, config_dict:dict):
+    def configure(self, config_dict:dict, ctx: PipelineContext, workunit: WorkUnit):
         pass
     
     @abstractmethod
