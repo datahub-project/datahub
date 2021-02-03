@@ -1,8 +1,9 @@
+import React from 'react';
 import { Avatar } from 'antd';
-import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { PageRoutes } from '../../conf/Global';
 import defaultAvatar from '../../images/default_avatar.png';
+import { EntityType } from '../../types.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 interface Props {
     urn: string;
@@ -14,8 +15,9 @@ const defaultProps = {
 };
 
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) => {
+    const entityRegistry = useEntityRegistry();
     return (
-        <Link to={`${PageRoutes.USERS}/${_urn}`}>
+        <Link to={`${entityRegistry.getPathName(EntityType.User)}/${_urn}`}>
             <Avatar
                 style={{
                     marginRight: '15px',
