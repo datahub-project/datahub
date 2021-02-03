@@ -1,0 +1,53 @@
+package com.linkedin.datahub.graphql.types.dataplatform;
+
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.datahub.graphql.types.EntityType;
+import com.linkedin.datahub.graphql.types.mappers.DataPlatformInfoMapper;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.dataplatform.client.DataPlatforms;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+public class DataPlatformType implements EntityType<DataPlatform> {
+
+    private final DataPlatforms _dataPlatformsClient;
+    private Map<String, DataPlatform> _urnToPlatform;
+
+    public DataPlatformType(final DataPlatforms dataPlatformsClient) {
+        _dataPlatformsClient = dataPlatformsClient;
+    }
+
+    @Override
+    public Class<DataPlatform> objectClass() {
+        return DataPlatform.class;
+    }
+
+    @Override
+    public List<DataPlatform> batchLoad(List<String> urns) {
+        try {
+            if (_urnToPlatform == null) {
+                _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
+                        .filter(Objects::nonNull)
+                        .map(info -> new DataPlatform(
+                                new DataPlatformUrn(info.getName()).toString(),
+                                com.linkedin.datahub.graphql.generated.EntityType.DATA_PLATFORM,
+                                info.getName(),
+                                DataPlatformInfoMapper.map(info)))
+                        .collect(Collectors.toMap(DataPlatform::getUrn, platform -> platform));
+            }
+            return urns.stream()
+                    .map(key -> _urnToPlatform.get(key))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to batch load DataPlatforms", e);
+        }
+    }
+
+    @Override
+    public com.linkedin.datahub.graphql.generated.EntityType type() {
+        return com.linkedin.datahub.graphql.generated.EntityType.DATA_PLATFORM;
+    }
+}

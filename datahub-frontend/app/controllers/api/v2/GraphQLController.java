@@ -55,7 +55,9 @@ public class GraphQLController extends Controller {
             .addSchema(schemaString)
             .configureRuntimeWiring(builder ->
                     builder.type(MUTATION_TYPE,
-                            typeWiring -> typeWiring.dataFetcher(LOG_IN_MUTATION, new LogInResolver())))
+                            typeWiring -> typeWiring.dataFetcher(
+                                    LOG_IN_MUTATION,
+                                    new LogInResolver(GmsGraphQLEngine.CORP_USER_TYPE))))
             .build();
         _config = config;
 
