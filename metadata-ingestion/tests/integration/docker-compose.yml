@@ -7,6 +7,6 @@ services:
             ACCEPT_EULA: "Y"
             SA_PASSWORD: "test!Password"
         ports:
-            - 1433:1433
+            - 51433:1433
         volumes:
             - ./sql_server/setup:/setup
