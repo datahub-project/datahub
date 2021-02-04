@@ -5,6 +5,7 @@ source:
     username: sa
     password: test!Password
     database: DemoData
+    host_port: localhost:51433
 
 sink:
   type: file
