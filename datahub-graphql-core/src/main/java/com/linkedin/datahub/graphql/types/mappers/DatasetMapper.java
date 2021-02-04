@@ -42,6 +42,7 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
             if (dataset.getSchemaMetadata().hasDeleted()) {
                 result.setDeleted(AuditStampMapper.map(dataset.getSchemaMetadata().getDeleted()));
             }
+            result.setSchema(SchemaMetadataMapper.map(dataset.getSchemaMetadata()));
         }
         if (dataset.hasPlatformNativeType()) {
             result.setPlatformNativeType(Enum.valueOf(PlatformNativeType.class, dataset.getPlatformNativeType().name()));
