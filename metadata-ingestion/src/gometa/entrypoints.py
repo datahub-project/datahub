@@ -19,7 +19,7 @@ def gometa_ingest(config: str):
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
-    if config_file.suffix == ".yaml":
+    if config_file.suffix in [".yaml", ".yml"]:
       config_mech = YamlConfigurationMechanism()
     elif config_file.suffix == ".toml":
       config_mech = TomlConfigurationMechanism()
