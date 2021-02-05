@@ -46,7 +46,11 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'test', '--watchAll', 'false']
 }
 
-task yarnBuild(type: YarnTask, dependsOn: yarnTest) {
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'lint']
+}
+
+task yarnBuild(type: YarnTask, dependsOn: [yarnTest, yarnLint]) {
   args = ['run', 'build']
 }
 
