@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { CorpUser, EntityType } from '../../../types.generated';
 import { Entity, PreviewType } from '../Entity';
-import { UserPage } from './UserPage';
+import UserProfile from './UserProfile';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -19,7 +19,7 @@ export class UserEntity implements Entity<CorpUser> {
 
     getCollectionName: () => string = () => 'Users';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <UserPage />;
+    renderProfile: (urn: string) => JSX.Element = (_) => <UserProfile />;
 
     renderPreview = (_: PreviewType, _1: CorpUser) => <p>Hello</p>;
 }
