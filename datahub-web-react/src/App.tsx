@@ -29,7 +29,7 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
-    // TODO: Explore options to dynamically configure this. 
+    // TODO: Explore options to dynamically configure this.
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
