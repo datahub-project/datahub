@@ -38,6 +38,7 @@ export const Routes = (): JSX.Element => {
 
                 {entityRegistry.getEntities().map((entity) => (
                     <ProtectedRoute
+                        key={entity.getPathName()}
                         isLoggedIn={isLoggedIn}
                         path={`/${entity.getPathName()}/:urn`}
                         render={() => <EntityPage entityType={entity.type} />}
