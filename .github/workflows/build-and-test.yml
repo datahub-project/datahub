@@ -9,7 +9,6 @@ on:
   pull_request:
     branches:
       - master
-      - react_graphql_feature_branch
     paths-ignore:
       - 'docs/**'
       - '**.md'
