@@ -1,11 +1,17 @@
 from sqlalchemy import create_engine
 from sqlalchemy import types
 from sqlalchemy.engine import reflection
-from gometa.metadata.model import * 
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL
+from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+
 from gometa.ingestion.api.source import WorkUnit
 from pydantic import BaseModel
 import logging
 import time
+from typing import Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +55,9 @@ def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
         version=0,
         hash="",
         #TODO: this is bug-compatible with existing scripts. Will fix later
-        platformSchema=SQLSchema(tableSchema = ""), 
-        created = { "time": sys_time, "actor": actor },
-        lastModified = { "time":sys_time, "actor": actor },
+        platformSchema=MySqlDDL(tableSchema = ""),
+        created = AuditStamp(time=sys_time, actor=actor),
+        lastModified = AuditStamp(time=sys_time, actor=actor),
         fields = canonical_schema
         )
     return schema_metadata
@@ -82,7 +88,7 @@ def get_column_type(column_type):
 
     return ("com.linkedin.pegasus2avro.schema.NullType", {})
 
-def get_sql_workunits(sql_config:SQLAlchemyConfig, platform: str):
+def get_sql_workunits(sql_config:SQLAlchemyConfig, platform: str, env: str = "PROD"):
     url = sql_config.get_sql_alchemy_url()
     engine = create_engine(url, **sql_config.options)
     inspector = reflection.Inspector.from_engine(engine)
@@ -96,10 +102,13 @@ def get_sql_workunits(sql_config:SQLAlchemyConfig, platform: str):
             else:
                 dataset_name = f'{schema}.{table}'
 
-            dataset_snapshot = DatasetMetadataSnapshot(platform = platform, dataset_name = dataset_name)
+            dataset_snapshot = DatasetSnapshot()
+            dataset_snapshot.urn=(
+                f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+            )
             schema_metadata = get_schema_metadata(dataset_name, platform, columns)
-            dataset_snapshot.with_aspect(schema_metadata)
-            mce.with_snapshot(dataset_snapshot)
+            dataset_snapshot.aspects.append(schema_metadata)
+            mce.proposedSnapshot = dataset_snapshot
             yield SqlWorkUnit(id=dataset_name, mce = mce)
         
 

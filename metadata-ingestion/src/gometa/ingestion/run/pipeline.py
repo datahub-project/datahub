@@ -56,7 +56,11 @@ class Pipeline:
             raise ValueError("Failed to configure source")
         self.source: Source = source_class.create(self.config.source.dict().get(source_type, {}), self.ctx)
         sink_type = self.config.sink.type
-        self.sink_class = sink_class_mapping[sink_type]
+        try:
+            self.sink_class = sink_class_mapping[sink_type]
+        except KeyError:
+            logger.exception(f'Did not find a registered sink class for {sink_type}')
+            raise ValueError("Failed to configure sink")
         self.sink_config = self.config.dict().get("sink", {"type": "datahub"}).get(sink_type, {})
 
         # Ensure that sink and extractor can be constructed, even though we use them later
@@ -72,12 +76,12 @@ class Pipeline:
             extractor.configure({}, self.ctx)
 
 
-            sink.handle_workunit_start(wu)
+            sink.handle_work_unit_start(wu)
             logger.warn(f"Configuring sink with workunit {wu.id}")
             for record_envelope in extractor.get_records(wu):
                 sink.write_record_async(record_envelope, callback) 
             extractor.close()
-            sink.handle_workunit_end(wu)
+            sink.handle_work_unit_end(wu)
         sink.close()
 
         # # TODO: remove this

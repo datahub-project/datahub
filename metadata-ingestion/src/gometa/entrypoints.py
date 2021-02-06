@@ -15,7 +15,7 @@ logging.getLogger(None).setLevel(logging.DEBUG)
 
 # Configure logger.
 BASE_LOGGING_FORMAT = "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
-logging.basicConfig(level=logging.DEBUG, format=BASE_LOGGING_FORMAT, force=True)
+logging.basicConfig(level=logging.DEBUG, format=BASE_LOGGING_FORMAT)
 
 #CONNECTION_STRING_FORMAT_REGEX = re.compile(f"^{HOST_REGEX}(:{PATH_REGEX})?$")
 DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
