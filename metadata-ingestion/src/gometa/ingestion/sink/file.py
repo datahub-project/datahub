@@ -3,6 +3,9 @@ from gometa.ingestion.api.common import RecordEnvelope, PipelineContext, WorkUni
 from pydantic import BaseModel
 import os
 import pathlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FileSinkConfig(BaseModel):
     output_dir:str = "output"
@@ -10,22 +13,33 @@ class FileSinkConfig(BaseModel):
 
 class FileSink(Sink):
 
-    def __init__(self):
-        self.config = None
-
-    def configure(self, config_dict, ctx: PipelineContext, workunit: WorkUnit):
-        self.config = FileSinkConfig.parse_obj(config_dict)
-        self.id = workunit.id
-        p = pathlib.Path(f'{self.config.output_dir}/{ctx.run_id}/{self.id}')
+    def __init__(self, config: FileSinkConfig, ctx):
+        super().__init__(ctx)
+        self.config = config
+        p = pathlib.Path(f'{self.config.output_dir}/{ctx.run_id}/')
         p.mkdir(parents=True)
         fpath = p / self.config.file_name
+        logger.info(f'Will write to {fpath}')
         self.file = fpath.open('w')
-        return self
+
+
+    @classmethod
+    def create(cls, config_dict, ctx: PipelineContext):
+        config = FileSinkConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+    def handle_work_unit_start(self, wu):
+        self.id = wu.id
+
+    def handle_work_unit_end(self, wu):
+        pass
 
 
     def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
         record_string = str(record_envelope.record)
         metadata = record_envelope.metadata
+        metadata["workunit-id"] = self.id
         out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
         self.file.write(out_line)
         if write_callback:
