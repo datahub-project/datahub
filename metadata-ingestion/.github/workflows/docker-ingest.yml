@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
       - name: Push to Docker Hub
-      - uses: docker/build-push-action@v1
-      - with:
+        uses: docker/build-push-action@v1
+        with:
             dockerfile: ./docker/Dockerfile
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
