@@ -65,18 +65,20 @@ class Pipeline:
     def run(self):
         callback = LoggingCallback()
         extractor = self.extractor_class()
+        SinkClass: Type[Sink] = self.sink_class
+        sink = SinkClass.create(self.sink_config, self.ctx)
         for wu in self.source.get_workunits():
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-            SinkClass: Type[Sink] = self.sink_class
-            sink = SinkClass.create(self.sink_config, self.ctx)
 
+            sink.handle_workunit_start(wu)
             logger.warn(f"Configuring sink with workunit {wu.id}")
             for record_envelope in extractor.get_records(wu):
                 sink.write_record_async(record_envelope, callback) 
             extractor.close()
-            sink.close()
+            sink.handle_workunit_end(wu)
+        sink.close()
 
         # # TODO: remove this
         # source = Source(...)

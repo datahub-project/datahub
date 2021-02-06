@@ -3,7 +3,7 @@ import json
 from typing import Optional, TypeVar, Type
 from pydantic import BaseModel, Field, ValidationError, validator
 from gometa.ingestion.api.sink import Sink, WriteCallback
-from gometa.ingestion.api.common import RecordEnvelope
+from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
 
 from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
@@ -87,10 +87,16 @@ class DatahubKafkaSink(Sink):
         self.producer = SerializingProducer(producer_conf)
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict, ctx: PipelineContext):
         config = KafkaSinkConfig.parse_obj(config_dict)
         return cls(config, ctx)
  
+    def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        pass
+
+    def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        self.producer.flush()
+
     def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
         # call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
@@ -100,4 +106,5 @@ class DatahubKafkaSink(Sink):
         
     def close(self):
         self.producer.flush()
+        self.producer.close()
         
