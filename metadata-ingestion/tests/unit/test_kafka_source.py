@@ -1,3 +1,4 @@
+from gometa.ingestion.api.common import PipelineContext
 from gometa.ingestion.source.kafka import KafkaSource
 
 import unittest
@@ -8,10 +9,9 @@ class KafkaSourceTest(unittest.TestCase):
 
     @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_configuration(self, mock_kafka):
-        kafka_source = KafkaSource()
-        kafka_source.configure({'connection': {'bootstrap': 'foobar'}})
+        ctx = PipelineContext(run_id='test')
+        kafka_source = KafkaSource.create({'connection': {'bootstrap': 'foobar'}}, ctx)
         assert mock_kafka.call_count == 1
-        kafka_source.configure({'topic': 'foobar'})
 
     @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_workunits_wildcard_topic(self, mock_kafka):
@@ -20,7 +20,8 @@ class KafkaSourceTest(unittest.TestCase):
         mock_cluster_metadata.topics = ["foobar", "bazbaz"]
         mock_kafka_instance.list_topics.return_value=mock_cluster_metadata
 
-        kafka_source = KafkaSource().configure({'connection': {'bootstrap': 'localhost:9092'}})
+        ctx = PipelineContext(run_id='test')
+        kafka_source = KafkaSource.create({'connection': {'bootstrap': 'localhost:9092'}}, ctx)
         workunits = []
         for w in kafka_source.get_workunits():
             workunits.append(w)
@@ -37,7 +38,8 @@ class KafkaSourceTest(unittest.TestCase):
         mock_cluster_metadata.topics = ["test", "foobar", "bazbaz"]
         mock_kafka_instance.list_topics.return_value=mock_cluster_metadata
 
-        kafka_source = KafkaSource().configure({'topic': 'test', 'connection': {'bootstrap': 'localhost:9092'}})
+        ctx = PipelineContext(run_id='test1')
+        kafka_source = KafkaSource.create({'topic': 'test', 'connection': {'bootstrap': 'localhost:9092'}}, ctx)
         assert kafka_source.source_config.topic == "test"
         workunits = [w for w in kafka_source.get_workunits()]
 
@@ -46,14 +48,16 @@ class KafkaSourceTest(unittest.TestCase):
         assert len(workunits) == 1
 
         mock_cluster_metadata.topics = ["test", "test2", "bazbaz"]
-        kafka_source.configure({'topic': 'test.*', 'connection': {'bootstrap': 'localhost:9092'}})
+        ctx = PipelineContext(run_id='test2')
+        kafka_source = KafkaSource.create({'topic': 'test.*', 'connection': {'bootstrap': 'localhost:9092'}}, ctx)
         workunits = [w for w in kafka_source.get_workunits()]
         assert len(workunits) == 2
 
     @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_close(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
-        kafka_source = KafkaSource().configure({'topic': 'test', 'connection': {'bootstrap': 'localhost:9092'}})
+        ctx = PipelineContext(run_id='test')
+        kafka_source = KafkaSource.create({'topic': 'test', 'connection': {'bootstrap': 'localhost:9092'}}, ctx)
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1
     

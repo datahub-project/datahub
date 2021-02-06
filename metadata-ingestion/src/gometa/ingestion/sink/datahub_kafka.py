@@ -1,11 +1,16 @@
 from dataclasses import dataclass
+import json
 from typing import Optional, TypeVar, Type
 from pydantic import BaseModel, Field, ValidationError, validator
 from gometa.ingestion.api.sink import Sink, WriteCallback
 from gometa.ingestion.api.common import RecordEnvelope
-from confluent_kafka import Producer
-from confluent_kafka import avro
-from confluent_kafka.avro import AvroProducer
+
+from confluent_kafka import SerializingProducer
+from confluent_kafka.serialization import StringSerializer
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from gometa.metadata import json_converter
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 class KafkaConnectionConfig(BaseModel):
     """Configuration class for holding connectivity information for Kafka"""
@@ -45,18 +50,15 @@ class KafkaCallback:
             if self.write_callback:
                 self.write_callback.on_success(self.record_envelope, {"msg": msg}) 
     
+@dataclass
+class DatahubKafkaSink(Sink):
+    config: KafkaSinkConfig
 
-    
-class KafkaSink(Sink):
-    """TODO: Add support for Avro / Protobuf serialization etc."""
-    
-    def __init__(self):
-        self.config: Optional[KafkaSinkConfig] = None
+    def __init__(self, config: KafkaSinkConfig, ctx):
+        super().__init__(ctx)
+        self.config = config
 
-    def configure(self, config_dict={}):
-        self.config = KafkaSinkConfig.parse_obj(config_dict)
-
-        mce_schema = avro.load('../datahub/metadata-models/src/mainGeneratedAvroSchema/avro/com/linkedin/mxe/MetadataChangeEvent.avsc')
+        mce_schema = MetadataChangeEvent.RECORD_SCHEMA
         
         producer_config = {
             "bootstrap.servers": self.config.connection.bootstrap,
@@ -64,18 +66,38 @@ class KafkaSink(Sink):
             **self.config.producer_config,
         }
 
-        self.producer = AvroProducer(producer_config, default_value_schema=mce_schema)
-        return self
+        schema_registry_conf = {'url': self.config.connection.schema_registry_url}
+        schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
+        with open('./src/gometa/metadata/schema.avsc') as f:
+            raw_schema = f.read()
+            raw_schema = json.dumps(json.loads(raw_schema))
+            raw_schema = raw_schema.replace('{"type": "string", "avro.java.string": "String"}', '"string"')
+        def convert_mce_to_dict(mce, ctx):
+            tuple_encoding = json_converter.with_tuple_union().to_json_object(mce)
+            return tuple_encoding
+        avro_serializer = AvroSerializer(raw_schema, schema_registry_client, to_dict=convert_mce_to_dict)
+
+        producer_conf = {
+            "bootstrap.servers": self.config.connection.bootstrap,
+            'key.serializer': StringSerializer('utf_8'),
+            'value.serializer': avro_serializer,
+        }
+
+        self.producer = SerializingProducer(producer_conf)
+
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = KafkaSinkConfig.parse_obj(config_dict)
+        return cls(config, ctx)
  
-    def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
+    def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
         # call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
-        breakpoint()
-        self.producer.produce(topic=self.config.topic, value=record_envelope.record, 
-            callback= KafkaCallback(record_envelope, write_callback).kafka_callback)
+        mce = record_envelope.record
+        self.producer.produce(topic=self.config.topic, value=mce,
+            on_delivery=KafkaCallback(record_envelope, write_callback).kafka_callback)
         
     def close(self):
         self.producer.flush()
-        self.producer.close()
         
