@@ -9,8 +9,16 @@ class SQLServerConfig(SQLAlchemyConfig):
     scheme = "mssql+pytds"
 
 class SQLServerSource(Source):
-    def configure(self, config_dict):
-        self.config = SQLServerConfig.parse_obj(config_dict)
+
+    def __init__(self, config, ctx):
+        super().__init__(ctx)
+        self.config = config
+
+
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = SQLServerConfig.parse_obj(config_dict)
+        return cls(config, ctx)
 
     def get_workunits(self):
         return get_sql_workunits(self.config, "mssql")
