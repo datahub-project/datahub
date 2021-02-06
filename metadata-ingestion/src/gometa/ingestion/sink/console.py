@@ -10,7 +10,13 @@ class ConsoleSink(Sink):
     def create(cls, config_dict, ctx):
         return cls(ctx)
 
- 
+
+    def handle_work_unit_start(self, wu):
+        pass
+
+    def handle_work_unit_end(self, wu):
+        pass
+
     def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
         print(f'{self.ctx.run_id}:{record_envelope}')
         if write_callback:
