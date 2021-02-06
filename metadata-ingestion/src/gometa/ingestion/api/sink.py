@@ -36,9 +36,11 @@ class Sink(Closeable, metaclass = ABCMeta):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> 'Sink':
         pass
 
+    @abstractmethod
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
 
+    @abstractmethod
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass
 
