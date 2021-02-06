@@ -74,5 +74,6 @@ setuptools.setup(
         "sqlalchemy>=1.3.23", #Required for SQL sources
         "pymysql>=1.0.2", # Driver for MySQL
         "sqlalchemy-pytds>=0.3", # Driver for MS-SQL
+        "avro_gen @ https://api.github.com/repos/hsheth2/avro_gen/tarball/master",
     ],
 )

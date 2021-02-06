@@ -1,0 +1,10 @@
+---
+source:
+  type: "file"
+  file:
+    filename: "./recipes/single_mce.json"
+
+sink:
+  type: "datahub-kafka"
+  datahub-kafka:
+    connection.bootstrap: "localhost:9092"

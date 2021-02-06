@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
+from dataclasses import dataclass
 
+from gometa.ingestion.api.closeable import Closeable
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
 
 
@@ -22,14 +24,27 @@ class NoopWriteCallback(WriteCallback):
         pass
 
 
-class Sink(metaclass=ABCMeta):
-    """All Sinks must inherit this base class"""
+# See https://github.com/python/mypy/issues/5374 for why we suppress this mypy error.
+@dataclass  # type: ignore[misc]
+class Sink(Closeable, metaclass = ABCMeta):
+    """All Sinks must inherit this base class."""
+
+    ctx: PipelineContext
+
+    @classmethod
     @abstractmethod
-    def configure(self, config_dict:dict, ctx: PipelineContext, workunit: WorkUnit):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> 'Sink':
         pass
-    
+
+    def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        pass
+
+    def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        pass
+
     @abstractmethod
     def write_record_async(self, record_envelope: RecordEnvelope, callback: WriteCallback):
+        # must call callback when done.
         pass
 
     @abstractmethod

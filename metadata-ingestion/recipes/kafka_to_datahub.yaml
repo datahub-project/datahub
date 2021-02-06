@@ -6,6 +6,6 @@ source:
     connection.bootstrap: "localhost:9092"
 
 sink:
-  type: "datahub"
-  datahub:
-    transport: "kafka"
+  type: "datahub-kafka"
+  datahub-kafka:
+    connection.bootstrap: "localhost:9092"

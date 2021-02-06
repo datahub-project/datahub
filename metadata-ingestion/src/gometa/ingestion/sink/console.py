@@ -6,19 +6,13 @@ logger = logging.getLogger(__name__)
 
 class ConsoleSink(Sink):
 
-    def __init__(self):
-        self.config = None
-
-
-    def configure(self, config_dict, ctx, workunit):
-        self.config = config_dict
-        self.id = workunit.id
-        self.run_id = ctx.run_id
-        return self
+    @classmethod
+    def create(cls, config_dict, ctx):
+        return cls(ctx)
 
  
     def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
-        logger.info(f'{self.run_id}:{self.id}:{record_envelope}')
+        print(f'{self.ctx.run_id}:{record_envelope}')
         if write_callback:
             write_callback.on_success(record_envelope, {})
         

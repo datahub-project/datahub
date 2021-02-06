@@ -1,0 +1,8 @@
+---
+source:
+  type: "file"
+  file:
+    filename: "./recipes/single_mce.json"
+
+sink:
+  type: "console"
