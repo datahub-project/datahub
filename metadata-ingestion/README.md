@@ -18,9 +18,9 @@
 
 # Using Docker
 ## Build the image
-- docker build . --tag dhub-ingest
+- source docker/docker_build.sh
 
-## Run the ingestion script (recipes/kafka-to-console.yaml)
-docker run --rm --network host dhub-ingest:latest
-
+## Run the ingestion script (recipes/file_to_file.yml)
+## While mounting a local directory for input recipes and an output directory for output data
+- source docker/docker_run.sh recipes/file_to_file.yml
 
