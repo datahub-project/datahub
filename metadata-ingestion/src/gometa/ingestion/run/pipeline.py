@@ -56,6 +56,7 @@ class Pipeline:
             logger.exception(f'Did not find a registered source class for {source_type}')
             raise ValueError("Failed to configure source")
         self.source: Source = source_class.create(self.config.source.dict().get(source_type, {}), self.ctx)
+        logger.info(f"Source type:{source_type},{source_class} configured")
         sink_type = self.config.sink.type
         try:
             self.sink_class = sink_class_mapping[sink_type]
@@ -72,6 +73,7 @@ class Pipeline:
         extractor = self.extractor_class()
         SinkClass: Type[Sink] = self.sink_class
         sink = SinkClass.create(self.sink_config, self.ctx)
+        logger.info(f"Sink type:{self.config.sink.type},{self.sink_class} configured")
         for wu in self.source.get_workunits():
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
@@ -82,19 +84,3 @@ class Pipeline:
             extractor.close()
             sink.handle_work_unit_end(wu)
         sink.close()
-
-        # # TODO: remove this
-        # source = Source(...)
-        # work_stream = source.get_workunits()
-
-        # extractor = Extractor(...)
-        # extracted_stream: Iterable[Tuple[WorkUnit, Iterable[RecordEnvelope]]] = extractor.get_records(work) for work in work_stream
-
-        # sink = Sink(...)
-        # for workunit, record_stream in extracted_stream:
-        #     associated_sink = sink.with_work_unit(workunit)
-        #         for record_envelope in record_stream:
-        #             associated_sink.write_record_async(record_envelope)
-        #     associated_sink.close()
-        # sink.close()
-        pass

@@ -25,10 +25,10 @@ class MetadataFileSource(Source):
         if not isinstance(mce_obj_list, list):
             mce_obj_list = [mce_obj_list]
         
-        for obj in mce_obj_list:
+        for i, obj in enumerate(mce_obj_list):
             mce = json_converter.from_json_object(obj, MetadataChangeEvent.RECORD_SCHEMA)
             # TODO: autogenerate workunit IDs
-            wu = MetadataWorkUnit('fake mce', mce)
+            wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", mce)
             yield wu
         
     def close(self):
