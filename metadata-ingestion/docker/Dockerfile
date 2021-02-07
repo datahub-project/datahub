@@ -34,7 +34,7 @@ COPY . /datahub-ingest
 WORKDIR /datahub-ingest
 RUN pip install -e .
 
-RUN apt-get install -y telnet vim
+#RUN apt-get install -y telnet vim
 
 
 #FROM ${APP_ENV}-install as final
@@ -47,4 +47,4 @@ USER datahub
 #EXPOSE PORT_NUM
 ENTRYPOINT ["gometa-ingest"]
 #TODO: Make the config file configurable through docker env variable
-CMD ["-c","/datahub-ingest/recipes/kafka_to_console.yaml"]
+#CMD ["-c","/datahub-ingest/recipes/kafka_to_console.yaml"]
