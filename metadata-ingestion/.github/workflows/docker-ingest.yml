@@ -31,5 +31,5 @@ jobs:
             dockerfile: ./docker/Dockerfile
             username: ${{ secrets.DOCKER_USERNAME }}
             password: ${{ secrets.DOCKER_PASSWORD }}
-            repository: acryldata/designpartners
+            repository: acryldata/datahub-ingest
             tag_with_ref: true
