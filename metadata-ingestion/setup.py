@@ -36,7 +36,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Intended Audience :: Developers",
@@ -50,7 +49,7 @@ setuptools.setup(
         "Environment :: MacOS X",
         "Topic :: Software Development",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     package_dir={"": "src"},
     packages=["gometa", "gometa.configuration"],#TODO: Are these the right components?
     include_package_data=True,
