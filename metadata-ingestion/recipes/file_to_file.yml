@@ -6,3 +6,5 @@ source:
 
 sink:
   type: "file"
+  file:
+    output_dir: "/output"
