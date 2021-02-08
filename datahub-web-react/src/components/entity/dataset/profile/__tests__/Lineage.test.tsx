@@ -1,5 +1,5 @@
 import React from 'react';
-import { getByText, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import Lineage from '../Lineage';
 import { sampleUpstreamEntities, sampleDownstreamEntities } from '../stories/lineageEntities';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
