@@ -3,6 +3,7 @@ import { Story, Meta } from '@storybook/react';
 
 import { MockedProvider } from '@apollo/client/testing';
 import { LogIn, LogInProps } from './LogIn';
+import TestPageContainer from '../../utils/test-utils/TestPageContainer';
 
 export default {
     title: 'DataHub/LogIn',
@@ -16,7 +17,9 @@ LogInScreen.args = {};
 LogInScreen.decorators = [
     (InnerStory) => (
         <MockedProvider mocks={[]}>
-            <InnerStory />
+            <TestPageContainer>
+                <InnerStory />
+            </TestPageContainer>
         </MockedProvider>
     ),
 ];
