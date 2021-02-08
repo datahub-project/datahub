@@ -32,7 +32,7 @@ public class DatasetFieldUrnTest {
   }
 
   @Test
-  public void testCreateUrn() throws URISyntaxException {
+  public void testCreateUrn() {
     final DatasetFieldUrn datasetFieldUrn = new DatasetFieldUrn(PLATFORM, DATASET_NAME, FABRIC_TYPE, FIELD_NAME);
 
     final DatasetUrn datasetUrn = datasetFieldUrn.getDatasetEntity();
@@ -44,7 +44,7 @@ public class DatasetFieldUrnTest {
   }
 
   @Test
-  public void testUrnConstructors() throws URISyntaxException {
+  public void testUrnConstructors() {
     final DatasetFieldUrn datasetFieldUrn1 = new DatasetFieldUrn(PLATFORM, DATASET_NAME, FABRIC_TYPE, FIELD_NAME);
     final DatasetUrn datasetUrn = datasetFieldUrn1.getDatasetEntity();
     final DatasetFieldUrn datasetFieldUrn2 = new DatasetFieldUrn(datasetUrn, FIELD_NAME);
