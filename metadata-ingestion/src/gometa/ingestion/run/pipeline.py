@@ -30,7 +30,8 @@ class LoggingCallback(WriteCallback):
         logger.debug('sink called success callback')
 
     def on_failure(self, record_envelope, exception, failure_meta):
-        logger.exception(f'failed to write {record_envelope.record} with {failure_meta}')
+        # breakpoint()
+        logger.exception(f'failed to write {record_envelope.record} with {exception} and info {failure_meta}')
 
 
 class Pipeline:
@@ -75,9 +76,7 @@ class Pipeline:
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-
             sink.handle_work_unit_start(wu)
-            logger.warn(f"Configuring sink with workunit {wu.id}")
             for record_envelope in extractor.get_records(wu):
                 sink.write_record_async(record_envelope, callback) 
             extractor.close()

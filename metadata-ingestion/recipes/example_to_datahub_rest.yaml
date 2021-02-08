@@ -1,0 +1,10 @@
+---
+source:
+  type: "file"
+  file:
+    filename: "./recipes/bootstrap_mce.json"
+
+sink:
+  type: "datahub-rest"
+  datahub-rest:
+    server: 'http://localhost:8080'
