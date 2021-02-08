@@ -77,7 +77,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def time(self) -> int:
         """Getter: The time at which the event was emitted into kafka."""
-        return self._inner_dict.get('time')
+        return self._inner_dict.get('time')  # type: ignore
     
     
     @time.setter
@@ -89,7 +89,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def server(self) -> str:
         """Getter: The fully qualified name of the host from which the event is being emitted."""
-        return self._inner_dict.get('server')
+        return self._inner_dict.get('server')  # type: ignore
     
     
     @server.setter
@@ -101,7 +101,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def instance(self) -> Union[None, str]:
         """Getter: The instance on the server from which the event is being emitted. e.g. i001"""
-        return self._inner_dict.get('instance')
+        return self._inner_dict.get('instance')  # type: ignore
     
     
     @instance.setter
@@ -113,7 +113,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def appName(self) -> str:
         """Getter: The name of the application from which the event is being emitted. see go/appname"""
-        return self._inner_dict.get('appName')
+        return self._inner_dict.get('appName')  # type: ignore
     
     
     @appName.setter
@@ -125,7 +125,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def messageId(self) -> bytes:
         """Getter: A unique identifier for the message"""
-        return self._inner_dict.get('messageId')
+        return self._inner_dict.get('messageId')  # type: ignore
     
     
     @messageId.setter
@@ -137,7 +137,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def auditVersion(self) -> Union[None, int]:
         """Getter: The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing"""
-        return self._inner_dict.get('auditVersion')
+        return self._inner_dict.get('auditVersion')  # type: ignore
     
     
     @auditVersion.setter
@@ -149,7 +149,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def fabricUrn(self) -> Union[None, str]:
         """Getter: The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric."""
-        return self._inner_dict.get('fabricUrn')
+        return self._inner_dict.get('fabricUrn')  # type: ignore
     
     
     @fabricUrn.setter
@@ -161,7 +161,7 @@ class KafkaAuditHeaderClass(DictWrapper):
     @property
     def clusterConnectionString(self) -> Union[None, str]:
         """Getter: This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from."""
-        return self._inner_dict.get('clusterConnectionString')
+        return self._inner_dict.get('clusterConnectionString')  # type: ignore
     
     
     @clusterConnectionString.setter
@@ -215,7 +215,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def title(self) -> str:
         """Getter: Title of the chart"""
-        return self._inner_dict.get('title')
+        return self._inner_dict.get('title')  # type: ignore
     
     
     @title.setter
@@ -227,7 +227,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def description(self) -> str:
         """Getter: Detailed description about the chart"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -239,7 +239,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def lastModified(self) -> ChangeAuditStampsClass:
         """Getter: Captures information about who created/last modified/deleted this chart and when"""
-        return self._inner_dict.get('lastModified')
+        return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
@@ -251,7 +251,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def chartUrl(self) -> Union[None, str]:
         """Getter: URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart"""
-        return self._inner_dict.get('chartUrl')
+        return self._inner_dict.get('chartUrl')  # type: ignore
     
     
     @chartUrl.setter
@@ -263,7 +263,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def inputs(self) -> Union[None, List[str]]:
         """Getter: Data sources for the chart"""
-        return self._inner_dict.get('inputs')
+        return self._inner_dict.get('inputs')  # type: ignore
     
     
     @inputs.setter
@@ -275,7 +275,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def type(self) -> Union[None, ChartTypeClass]:
         """Getter: Type of the chart"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -287,7 +287,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def access(self) -> Union[None, AccessLevelClass]:
         """Getter: Access level for the chart"""
-        return self._inner_dict.get('access')
+        return self._inner_dict.get('access')  # type: ignore
     
     
     @access.setter
@@ -299,7 +299,7 @@ class ChartInfoClass(DictWrapper):
     @property
     def lastRefreshed(self) -> Union[None, int]:
         """Getter: The time when this chart last refreshed"""
-        return self._inner_dict.get('lastRefreshed')
+        return self._inner_dict.get('lastRefreshed')  # type: ignore
     
     
     @lastRefreshed.setter
@@ -341,7 +341,7 @@ class ChartQueryClass(DictWrapper):
     @property
     def rawQuery(self) -> str:
         """Getter: Raw query to build a chart from input datasets"""
-        return self._inner_dict.get('rawQuery')
+        return self._inner_dict.get('rawQuery')  # type: ignore
     
     
     @rawQuery.setter
@@ -353,7 +353,7 @@ class ChartQueryClass(DictWrapper):
     @property
     def type(self) -> ChartQueryTypeClass:
         """Getter: Chart query type"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -421,7 +421,7 @@ class AuditStampClass(DictWrapper):
     @property
     def time(self) -> int:
         """Getter: When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."""
-        return self._inner_dict.get('time')
+        return self._inner_dict.get('time')  # type: ignore
     
     
     @time.setter
@@ -433,7 +433,7 @@ class AuditStampClass(DictWrapper):
     @property
     def actor(self) -> str:
         """Getter: The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."""
-        return self._inner_dict.get('actor')
+        return self._inner_dict.get('actor')  # type: ignore
     
     
     @actor.setter
@@ -445,7 +445,7 @@ class AuditStampClass(DictWrapper):
     @property
     def impersonator(self) -> Union[None, str]:
         """Getter: The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor."""
-        return self._inner_dict.get('impersonator')
+        return self._inner_dict.get('impersonator')  # type: ignore
     
     
     @impersonator.setter
@@ -489,7 +489,7 @@ class ChangeAuditStampsClass(DictWrapper):
     @property
     def created(self) -> AuditStampClass:
         """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
-        return self._inner_dict.get('created')
+        return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
@@ -501,7 +501,7 @@ class ChangeAuditStampsClass(DictWrapper):
     @property
     def lastModified(self) -> AuditStampClass:
         """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
-        return self._inner_dict.get('lastModified')
+        return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
@@ -513,7 +513,7 @@ class ChangeAuditStampsClass(DictWrapper):
     @property
     def deleted(self) -> Union[None, AuditStampClass]:
         """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
-        return self._inner_dict.get('deleted')
+        return self._inner_dict.get('deleted')  # type: ignore
     
     
     @deleted.setter
@@ -555,7 +555,7 @@ class CostClass(DictWrapper):
     @property
     def costType(self) -> CostTypeClass:
         # No docs available.
-        return self._inner_dict.get('costType')
+        return self._inner_dict.get('costType')  # type: ignore
     
     
     @costType.setter
@@ -567,7 +567,7 @@ class CostClass(DictWrapper):
     @property
     def cost(self) -> CostCostClass:
         # No docs available.
-        return self._inner_dict.get('cost')
+        return self._inner_dict.get('cost')  # type: ignore
     
     
     @cost.setter
@@ -611,7 +611,7 @@ class CostCostClass(DictWrapper):
     @property
     def costId(self) -> Union[None, float]:
         # No docs available.
-        return self._inner_dict.get('costId')
+        return self._inner_dict.get('costId')  # type: ignore
     
     
     @costId.setter
@@ -623,7 +623,7 @@ class CostCostClass(DictWrapper):
     @property
     def costCode(self) -> Union[None, str]:
         # No docs available.
-        return self._inner_dict.get('costCode')
+        return self._inner_dict.get('costCode')  # type: ignore
     
     
     @costCode.setter
@@ -635,7 +635,7 @@ class CostCostClass(DictWrapper):
     @property
     def fieldDiscriminator(self) -> CostCostDiscriminatorClass:
         """Getter: Contains the name of the field that has its value set."""
-        return self._inner_dict.get('fieldDiscriminator')
+        return self._inner_dict.get('fieldDiscriminator')  # type: ignore
     
     
     @fieldDiscriminator.setter
@@ -694,7 +694,7 @@ class DeprecationClass(DictWrapper):
     @property
     def deprecated(self) -> bool:
         """Getter: Whether the entity is deprecated."""
-        return self._inner_dict.get('deprecated')
+        return self._inner_dict.get('deprecated')  # type: ignore
     
     
     @deprecated.setter
@@ -706,7 +706,7 @@ class DeprecationClass(DictWrapper):
     @property
     def decommissionTime(self) -> Union[None, int]:
         """Getter: The time user plan to decommission this entity."""
-        return self._inner_dict.get('decommissionTime')
+        return self._inner_dict.get('decommissionTime')  # type: ignore
     
     
     @decommissionTime.setter
@@ -718,7 +718,7 @@ class DeprecationClass(DictWrapper):
     @property
     def note(self) -> str:
         """Getter: Additional information about the entity deprecation plan, such as the wiki, doc, RB."""
-        return self._inner_dict.get('note')
+        return self._inner_dict.get('note')  # type: ignore
     
     
     @note.setter
@@ -730,7 +730,7 @@ class DeprecationClass(DictWrapper):
     @property
     def actor(self) -> str:
         """Getter: The corpuser URN which will be credited for modifying this deprecation content."""
-        return self._inner_dict.get('actor')
+        return self._inner_dict.get('actor')  # type: ignore
     
     
     @actor.setter
@@ -770,7 +770,7 @@ class InstitutionalMemoryClass(DictWrapper):
     @property
     def elements(self) -> List[InstitutionalMemoryMetadataClass]:
         """Getter: List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."""
-        return self._inner_dict.get('elements')
+        return self._inner_dict.get('elements')  # type: ignore
     
     
     @elements.setter
@@ -814,7 +814,7 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
     @property
     def url(self) -> str:
         """Getter: Link to an engineering design document or a wiki page."""
-        return self._inner_dict.get('url')
+        return self._inner_dict.get('url')  # type: ignore
     
     
     @url.setter
@@ -826,7 +826,7 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
     @property
     def description(self) -> str:
         """Getter: Description of the link."""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -838,7 +838,7 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
     @property
     def createStamp(self) -> AuditStampClass:
         """Getter: Audit stamp associated with creation of this record"""
-        return self._inner_dict.get('createStamp')
+        return self._inner_dict.get('createStamp')  # type: ignore
     
     
     @createStamp.setter
@@ -901,7 +901,7 @@ class OwnerClass(DictWrapper):
     @property
     def owner(self) -> str:
         """Getter: Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name"""
-        return self._inner_dict.get('owner')
+        return self._inner_dict.get('owner')  # type: ignore
     
     
     @owner.setter
@@ -913,7 +913,7 @@ class OwnerClass(DictWrapper):
     @property
     def type(self) -> OwnershipTypeClass:
         """Getter: The type of the ownership"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -925,7 +925,7 @@ class OwnerClass(DictWrapper):
     @property
     def source(self) -> Union[None, OwnershipSourceClass]:
         """Getter: Source information for the ownership"""
-        return self._inner_dict.get('source')
+        return self._inner_dict.get('source')  # type: ignore
     
     
     @source.setter
@@ -967,7 +967,7 @@ class OwnershipClass(DictWrapper):
     @property
     def owners(self) -> List[OwnerClass]:
         """Getter: List of owners of the entity."""
-        return self._inner_dict.get('owners')
+        return self._inner_dict.get('owners')  # type: ignore
     
     
     @owners.setter
@@ -979,7 +979,7 @@ class OwnershipClass(DictWrapper):
     @property
     def lastModified(self) -> AuditStampClass:
         """Getter: Audit stamp containing who last modified the record and when."""
-        return self._inner_dict.get('lastModified')
+        return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
@@ -1021,7 +1021,7 @@ class OwnershipSourceClass(DictWrapper):
     @property
     def type(self) -> OwnershipSourceTypeClass:
         """Getter: The type of the source"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -1033,7 +1033,7 @@ class OwnershipSourceClass(DictWrapper):
     @property
     def url(self) -> Union[None, str]:
         """Getter: A reference URL for the source"""
-        return self._inner_dict.get('url')
+        return self._inner_dict.get('url')  # type: ignore
     
     
     @url.setter
@@ -1097,7 +1097,7 @@ class StatusClass(DictWrapper):
     @property
     def removed(self) -> bool:
         """Getter: whether the entity is removed or not"""
-        return self._inner_dict.get('removed')
+        return self._inner_dict.get('removed')  # type: ignore
     
     
     @removed.setter
@@ -1137,7 +1137,7 @@ class VersionTagClass(DictWrapper):
     @property
     def versionTag(self) -> Union[None, str]:
         # No docs available.
-        return self._inner_dict.get('versionTag')
+        return self._inner_dict.get('versionTag')  # type: ignore
     
     
     @versionTag.setter
@@ -1184,7 +1184,7 @@ class UDFTransformerClass(DictWrapper):
     @property
     def udf(self) -> str:
         """Getter: A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf."""
-        return self._inner_dict.get('udf')
+        return self._inner_dict.get('udf')  # type: ignore
     
     
     @udf.setter
@@ -1236,7 +1236,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def title(self) -> str:
         """Getter: Title of the dashboard"""
-        return self._inner_dict.get('title')
+        return self._inner_dict.get('title')  # type: ignore
     
     
     @title.setter
@@ -1248,7 +1248,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def description(self) -> str:
         """Getter: Detailed description about the dashboard"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -1260,7 +1260,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def charts(self) -> List[str]:
         """Getter: Charts in a dashboard"""
-        return self._inner_dict.get('charts')
+        return self._inner_dict.get('charts')  # type: ignore
     
     
     @charts.setter
@@ -1272,7 +1272,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def lastModified(self) -> ChangeAuditStampsClass:
         """Getter: Captures information about who created/last modified/deleted this dashboard and when"""
-        return self._inner_dict.get('lastModified')
+        return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
@@ -1284,7 +1284,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def dashboardUrl(self) -> Union[None, str]:
         """Getter: URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard"""
-        return self._inner_dict.get('dashboardUrl')
+        return self._inner_dict.get('dashboardUrl')  # type: ignore
     
     
     @dashboardUrl.setter
@@ -1296,7 +1296,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def access(self) -> Union[None, AccessLevelClass]:
         """Getter: Access level for the dashboard"""
-        return self._inner_dict.get('access')
+        return self._inner_dict.get('access')  # type: ignore
     
     
     @access.setter
@@ -1308,7 +1308,7 @@ class DashboardInfoClass(DictWrapper):
     @property
     def lastRefreshed(self) -> Union[None, int]:
         """Getter: The time when this dashboard last refreshed"""
-        return self._inner_dict.get('lastRefreshed')
+        return self._inner_dict.get('lastRefreshed')  # type: ignore
     
     
     @lastRefreshed.setter
@@ -1350,7 +1350,7 @@ class DataProcessInfoClass(DictWrapper):
     @property
     def inputs(self) -> Union[None, List[str]]:
         """Getter: the inputs of the data process"""
-        return self._inner_dict.get('inputs')
+        return self._inner_dict.get('inputs')  # type: ignore
     
     
     @inputs.setter
@@ -1362,7 +1362,7 @@ class DataProcessInfoClass(DictWrapper):
     @property
     def outputs(self) -> Union[None, List[str]]:
         """Getter: the outputs of the data process"""
-        return self._inner_dict.get('outputs')
+        return self._inner_dict.get('outputs')  # type: ignore
     
     
     @outputs.setter
@@ -1408,7 +1408,7 @@ class DatasetDeprecationClass(DictWrapper):
     @property
     def deprecated(self) -> bool:
         """Getter: Whether the dataset is deprecated by owner."""
-        return self._inner_dict.get('deprecated')
+        return self._inner_dict.get('deprecated')  # type: ignore
     
     
     @deprecated.setter
@@ -1420,7 +1420,7 @@ class DatasetDeprecationClass(DictWrapper):
     @property
     def decommissionTime(self) -> Union[None, int]:
         """Getter: The time user plan to decommission this dataset."""
-        return self._inner_dict.get('decommissionTime')
+        return self._inner_dict.get('decommissionTime')  # type: ignore
     
     
     @decommissionTime.setter
@@ -1432,7 +1432,7 @@ class DatasetDeprecationClass(DictWrapper):
     @property
     def note(self) -> str:
         """Getter: Additional information about the dataset deprecation plan, such as the wiki, doc, RB."""
-        return self._inner_dict.get('note')
+        return self._inner_dict.get('note')  # type: ignore
     
     
     @note.setter
@@ -1444,7 +1444,7 @@ class DatasetDeprecationClass(DictWrapper):
     @property
     def actor(self) -> Union[None, str]:
         """Getter: The corpuser URN which will be credited for modifying this deprecation content."""
-        return self._inner_dict.get('actor')
+        return self._inner_dict.get('actor')  # type: ignore
     
     
     @actor.setter
@@ -1490,7 +1490,7 @@ class DatasetFieldMappingClass(DictWrapper):
     @property
     def created(self) -> AuditStampClass:
         """Getter: Audit stamp containing who reported the field mapping and when"""
-        return self._inner_dict.get('created')
+        return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
@@ -1502,7 +1502,7 @@ class DatasetFieldMappingClass(DictWrapper):
     @property
     def transformation(self) -> Union[TransformationTypeClass, UDFTransformerClass]:
         """Getter: Transfomration function between the fields involved"""
-        return self._inner_dict.get('transformation')
+        return self._inner_dict.get('transformation')  # type: ignore
     
     
     @transformation.setter
@@ -1514,7 +1514,7 @@ class DatasetFieldMappingClass(DictWrapper):
     @property
     def sourceFields(self) -> List[str]:
         """Getter: Source fields from which the fine grained lineage is derived"""
-        return self._inner_dict.get('sourceFields')
+        return self._inner_dict.get('sourceFields')  # type: ignore
     
     
     @sourceFields.setter
@@ -1526,7 +1526,7 @@ class DatasetFieldMappingClass(DictWrapper):
     @property
     def destinationField(self) -> str:
         """Getter: Destination field which is derived from source fields"""
-        return self._inner_dict.get('destinationField')
+        return self._inner_dict.get('destinationField')  # type: ignore
     
     
     @destinationField.setter
@@ -1580,7 +1580,7 @@ class DatasetPropertiesClass(DictWrapper):
     @property
     def description(self) -> Union[None, str]:
         """Getter: Documentation of the dataset"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -1592,7 +1592,7 @@ class DatasetPropertiesClass(DictWrapper):
     @property
     def uri(self) -> Union[None, str]:
         """Getter: The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic)."""
-        return self._inner_dict.get('uri')
+        return self._inner_dict.get('uri')  # type: ignore
     
     
     @uri.setter
@@ -1604,7 +1604,7 @@ class DatasetPropertiesClass(DictWrapper):
     @property
     def tags(self) -> List[str]:
         """Getter: tags for the dataset"""
-        return self._inner_dict.get('tags')
+        return self._inner_dict.get('tags')  # type: ignore
     
     
     @tags.setter
@@ -1616,7 +1616,7 @@ class DatasetPropertiesClass(DictWrapper):
     @property
     def customProperties(self) -> Dict[str, str]:
         """Getter: A key-value map to capture any other non-standardized properties for the dataset"""
-        return self._inner_dict.get('customProperties')
+        return self._inner_dict.get('customProperties')  # type: ignore
     
     
     @customProperties.setter
@@ -1656,7 +1656,7 @@ class DatasetUpstreamLineageClass(DictWrapper):
     @property
     def fieldMappings(self) -> List[DatasetFieldMappingClass]:
         """Getter: Upstream to downstream field level lineage mappings"""
-        return self._inner_dict.get('fieldMappings')
+        return self._inner_dict.get('fieldMappings')  # type: ignore
     
     
     @fieldMappings.setter
@@ -1700,7 +1700,7 @@ class UpstreamClass(DictWrapper):
     @property
     def auditStamp(self) -> AuditStampClass:
         """Getter: Audit stamp containing who reported the lineage and when"""
-        return self._inner_dict.get('auditStamp')
+        return self._inner_dict.get('auditStamp')  # type: ignore
     
     
     @auditStamp.setter
@@ -1712,7 +1712,7 @@ class UpstreamClass(DictWrapper):
     @property
     def dataset(self) -> str:
         """Getter: The upstream dataset the lineage points to"""
-        return self._inner_dict.get('dataset')
+        return self._inner_dict.get('dataset')  # type: ignore
     
     
     @dataset.setter
@@ -1724,7 +1724,7 @@ class UpstreamClass(DictWrapper):
     @property
     def type(self) -> DatasetLineageTypeClass:
         """Getter: The type of the lineage"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -1764,7 +1764,7 @@ class UpstreamLineageClass(DictWrapper):
     @property
     def upstreams(self) -> List[UpstreamClass]:
         """Getter: List of upstream dataset lineage information"""
-        return self._inner_dict.get('upstreams')
+        return self._inner_dict.get('upstreams')  # type: ignore
     
     
     @upstreams.setter
@@ -1810,7 +1810,7 @@ class CorpGroupInfoClass(DictWrapper):
     @property
     def email(self) -> str:
         """Getter: email of this group"""
-        return self._inner_dict.get('email')
+        return self._inner_dict.get('email')  # type: ignore
     
     
     @email.setter
@@ -1822,7 +1822,7 @@ class CorpGroupInfoClass(DictWrapper):
     @property
     def admins(self) -> List[str]:
         """Getter: owners of this group"""
-        return self._inner_dict.get('admins')
+        return self._inner_dict.get('admins')  # type: ignore
     
     
     @admins.setter
@@ -1834,7 +1834,7 @@ class CorpGroupInfoClass(DictWrapper):
     @property
     def members(self) -> List[str]:
         """Getter: List of ldap urn in this group."""
-        return self._inner_dict.get('members')
+        return self._inner_dict.get('members')  # type: ignore
     
     
     @members.setter
@@ -1846,7 +1846,7 @@ class CorpGroupInfoClass(DictWrapper):
     @property
     def groups(self) -> List[str]:
         """Getter: List of groups in this group."""
-        return self._inner_dict.get('groups')
+        return self._inner_dict.get('groups')  # type: ignore
     
     
     @groups.setter
@@ -1892,7 +1892,7 @@ class CorpUserEditableInfoClass(DictWrapper):
     @property
     def aboutMe(self) -> Union[None, str]:
         """Getter: About me section of the user"""
-        return self._inner_dict.get('aboutMe')
+        return self._inner_dict.get('aboutMe')  # type: ignore
     
     
     @aboutMe.setter
@@ -1904,7 +1904,7 @@ class CorpUserEditableInfoClass(DictWrapper):
     @property
     def teams(self) -> List[str]:
         """Getter: Teams that the user belongs to e.g. Metadata"""
-        return self._inner_dict.get('teams')
+        return self._inner_dict.get('teams')  # type: ignore
     
     
     @teams.setter
@@ -1916,7 +1916,7 @@ class CorpUserEditableInfoClass(DictWrapper):
     @property
     def skills(self) -> List[str]:
         """Getter: Skills that the user possesses e.g. Machine Learning"""
-        return self._inner_dict.get('skills')
+        return self._inner_dict.get('skills')  # type: ignore
     
     
     @skills.setter
@@ -1928,7 +1928,7 @@ class CorpUserEditableInfoClass(DictWrapper):
     @property
     def pictureLink(self) -> str:
         """Getter: A URL which points to a picture which user wants to set as a profile photo"""
-        return self._inner_dict.get('pictureLink')
+        return self._inner_dict.get('pictureLink')  # type: ignore
     
     
     @pictureLink.setter
@@ -1988,7 +1988,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def active(self) -> bool:
         """Getter: Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"""
-        return self._inner_dict.get('active')
+        return self._inner_dict.get('active')  # type: ignore
     
     
     @active.setter
@@ -2000,7 +2000,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def displayName(self) -> Union[None, str]:
         """Getter: displayName of this user ,  e.g.  Hang Zhang(DataHQ)"""
-        return self._inner_dict.get('displayName')
+        return self._inner_dict.get('displayName')  # type: ignore
     
     
     @displayName.setter
@@ -2012,7 +2012,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def email(self) -> str:
         """Getter: email address of this user"""
-        return self._inner_dict.get('email')
+        return self._inner_dict.get('email')  # type: ignore
     
     
     @email.setter
@@ -2024,7 +2024,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def title(self) -> Union[None, str]:
         """Getter: title of this user"""
-        return self._inner_dict.get('title')
+        return self._inner_dict.get('title')  # type: ignore
     
     
     @title.setter
@@ -2036,7 +2036,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def managerUrn(self) -> Union[None, str]:
         """Getter: direct manager of this user"""
-        return self._inner_dict.get('managerUrn')
+        return self._inner_dict.get('managerUrn')  # type: ignore
     
     
     @managerUrn.setter
@@ -2048,7 +2048,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def departmentId(self) -> Union[None, int]:
         """Getter: department id this user belong to"""
-        return self._inner_dict.get('departmentId')
+        return self._inner_dict.get('departmentId')  # type: ignore
     
     
     @departmentId.setter
@@ -2060,7 +2060,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def departmentName(self) -> Union[None, str]:
         """Getter: department name this user belong to"""
-        return self._inner_dict.get('departmentName')
+        return self._inner_dict.get('departmentName')  # type: ignore
     
     
     @departmentName.setter
@@ -2072,7 +2072,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def firstName(self) -> Union[None, str]:
         """Getter: first name of this user"""
-        return self._inner_dict.get('firstName')
+        return self._inner_dict.get('firstName')  # type: ignore
     
     
     @firstName.setter
@@ -2084,7 +2084,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def lastName(self) -> Union[None, str]:
         """Getter: last name of this user"""
-        return self._inner_dict.get('lastName')
+        return self._inner_dict.get('lastName')  # type: ignore
     
     
     @lastName.setter
@@ -2096,7 +2096,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def fullName(self) -> Union[None, str]:
         """Getter: Common name of this user, format is firstName + lastName (split by a whitespace)"""
-        return self._inner_dict.get('fullName')
+        return self._inner_dict.get('fullName')  # type: ignore
     
     
     @fullName.setter
@@ -2108,7 +2108,7 @@ class CorpUserInfoClass(DictWrapper):
     @property
     def countryCode(self) -> Union[None, str]:
         """Getter: two uppercase letters country code. e.g.  US"""
-        return self._inner_dict.get('countryCode')
+        return self._inner_dict.get('countryCode')  # type: ignore
     
     
     @countryCode.setter
@@ -2150,7 +2150,7 @@ class ChartSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2162,7 +2162,7 @@ class ChartSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[ChartInfoClass, ChartQueryClass, OwnershipClass, StatusClass]]:
         """Getter: The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2204,7 +2204,7 @@ class CorpGroupSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2216,7 +2216,7 @@ class CorpGroupSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[CorpGroupInfoClass]:
         """Getter: The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2258,7 +2258,7 @@ class CorpUserSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2270,7 +2270,7 @@ class CorpUserSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[CorpUserInfoClass, CorpUserEditableInfoClass]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2312,7 +2312,7 @@ class DashboardSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2324,7 +2324,7 @@ class DashboardSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[DashboardInfoClass, OwnershipClass, StatusClass]]:
         """Getter: The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2366,7 +2366,7 @@ class DataProcessSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2378,7 +2378,7 @@ class DataProcessSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[OwnershipClass, DataProcessInfoClass]]:
         """Getter: The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2420,7 +2420,7 @@ class DatasetSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2432,7 +2432,7 @@ class DatasetSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[DatasetPropertiesClass, DatasetDeprecationClass, DatasetUpstreamLineageClass, UpstreamLineageClass, InstitutionalMemoryClass, OwnershipClass, StatusClass, SchemaMetadataClass]]:
         """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2474,7 +2474,7 @@ class MLFeatureSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2486,7 +2486,7 @@ class MLFeatureSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[OwnershipClass, MLFeaturePropertiesClass, InstitutionalMemoryClass, StatusClass, DeprecationClass]]:
         """Getter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2528,7 +2528,7 @@ class MLModelSnapshotClass(DictWrapper):
     @property
     def urn(self) -> str:
         """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')
+        return self._inner_dict.get('urn')  # type: ignore
     
     
     @urn.setter
@@ -2540,7 +2540,7 @@ class MLModelSnapshotClass(DictWrapper):
     @property
     def aspects(self) -> List[Union[OwnershipClass, MLModelPropertiesClass, IntendedUseClass, MLModelFactorPromptsClass, MetricsClass, EvaluationDataClass, TrainingDataClass, QuantitativeAnalysesClass, EthicalConsiderationsClass, CaveatsAndRecommendationsClass, InstitutionalMemoryClass, SourceCodeClass, StatusClass, CostClass, DeprecationClass]]:
         """Getter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')
+        return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
@@ -2584,7 +2584,7 @@ class BaseDataClass(DictWrapper):
     @property
     def dataset(self) -> str:
         """Getter: What dataset were used in the MLModel?"""
-        return self._inner_dict.get('dataset')
+        return self._inner_dict.get('dataset')  # type: ignore
     
     
     @dataset.setter
@@ -2596,7 +2596,7 @@ class BaseDataClass(DictWrapper):
     @property
     def motivation(self) -> Union[None, str]:
         """Getter: Why was this dataset chosen?"""
-        return self._inner_dict.get('motivation')
+        return self._inner_dict.get('motivation')  # type: ignore
     
     
     @motivation.setter
@@ -2608,7 +2608,7 @@ class BaseDataClass(DictWrapper):
     @property
     def preProcessing(self) -> Union[None, List[str]]:
         """Getter: How was the data preprocessed (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?"""
-        return self._inner_dict.get('preProcessing')
+        return self._inner_dict.get('preProcessing')  # type: ignore
     
     
     @preProcessing.setter
@@ -2652,7 +2652,7 @@ class CaveatDetailsClass(DictWrapper):
     @property
     def needsFurtherTesting(self) -> Union[None, bool]:
         """Getter: Did the results suggest any further testing?"""
-        return self._inner_dict.get('needsFurtherTesting')
+        return self._inner_dict.get('needsFurtherTesting')  # type: ignore
     
     
     @needsFurtherTesting.setter
@@ -2665,7 +2665,7 @@ class CaveatDetailsClass(DictWrapper):
     def caveatDescription(self) -> Union[None, str]:
         """Getter: Caveat Description
     For ex: Given gender classes are binary (male/not male), which we include as male/female. Further work needed to evaluate across a spectrum of genders."""
-        return self._inner_dict.get('caveatDescription')
+        return self._inner_dict.get('caveatDescription')  # type: ignore
     
     
     @caveatDescription.setter
@@ -2678,7 +2678,7 @@ class CaveatDetailsClass(DictWrapper):
     @property
     def groupsNotRepresented(self) -> Union[None, List[str]]:
         """Getter: Relevant groups that were not represented in the evaluation dataset?"""
-        return self._inner_dict.get('groupsNotRepresented')
+        return self._inner_dict.get('groupsNotRepresented')  # type: ignore
     
     
     @groupsNotRepresented.setter
@@ -2722,7 +2722,7 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     @property
     def caveats(self) -> Union[None, CaveatDetailsClass]:
         """Getter: This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?"""
-        return self._inner_dict.get('caveats')
+        return self._inner_dict.get('caveats')  # type: ignore
     
     
     @caveats.setter
@@ -2734,7 +2734,7 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     @property
     def recommendations(self) -> Union[None, str]:
         """Getter: Recommendations on where this MLModel should be used."""
-        return self._inner_dict.get('recommendations')
+        return self._inner_dict.get('recommendations')  # type: ignore
     
     
     @recommendations.setter
@@ -2746,7 +2746,7 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     @property
     def idealDatasetCharacteristics(self) -> Union[None, List[str]]:
         """Getter: Ideal characteristics of an evaluation dataset for this MLModel"""
-        return self._inner_dict.get('idealDatasetCharacteristics')
+        return self._inner_dict.get('idealDatasetCharacteristics')  # type: ignore
     
     
     @idealDatasetCharacteristics.setter
@@ -2794,7 +2794,7 @@ class EthicalConsiderationsClass(DictWrapper):
     @property
     def data(self) -> Union[None, List[str]]:
         """Getter: Does the MLModel use any sensitive data (e.g., protected classes)?"""
-        return self._inner_dict.get('data')
+        return self._inner_dict.get('data')  # type: ignore
     
     
     @data.setter
@@ -2806,7 +2806,7 @@ class EthicalConsiderationsClass(DictWrapper):
     @property
     def humanLife(self) -> Union[None, List[str]]:
         """Getter:  Is the MLModel intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?"""
-        return self._inner_dict.get('humanLife')
+        return self._inner_dict.get('humanLife')  # type: ignore
     
     
     @humanLife.setter
@@ -2818,7 +2818,7 @@ class EthicalConsiderationsClass(DictWrapper):
     @property
     def mitigations(self) -> Union[None, List[str]]:
         """Getter: What risk mitigation strategies were used during MLModel development?"""
-        return self._inner_dict.get('mitigations')
+        return self._inner_dict.get('mitigations')  # type: ignore
     
     
     @mitigations.setter
@@ -2830,7 +2830,7 @@ class EthicalConsiderationsClass(DictWrapper):
     @property
     def risksAndHarms(self) -> Union[None, List[str]]:
         """Getter: What risks may be present in MLModel usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown."""
-        return self._inner_dict.get('risksAndHarms')
+        return self._inner_dict.get('risksAndHarms')  # type: ignore
     
     
     @risksAndHarms.setter
@@ -2842,7 +2842,7 @@ class EthicalConsiderationsClass(DictWrapper):
     @property
     def useCases(self) -> Union[None, List[str]]:
         """Getter: Are there any known MLModel use cases that are especially fraught? This may connect directly to the intended use section"""
-        return self._inner_dict.get('useCases')
+        return self._inner_dict.get('useCases')  # type: ignore
     
     
     @useCases.setter
@@ -2882,7 +2882,7 @@ class EvaluationDataClass(DictWrapper):
     @property
     def evaluationData(self) -> List[BaseDataClass]:
         """Getter: Details on the dataset(s) used for the quantitative analyses in the MLModel"""
-        return self._inner_dict.get('evaluationData')
+        return self._inner_dict.get('evaluationData')  # type: ignore
     
     
     @evaluationData.setter
@@ -2926,7 +2926,7 @@ class IntendedUseClass(DictWrapper):
     @property
     def primaryUses(self) -> Union[None, List[str]]:
         """Getter: Primary Use cases for the MLModel."""
-        return self._inner_dict.get('primaryUses')
+        return self._inner_dict.get('primaryUses')  # type: ignore
     
     
     @primaryUses.setter
@@ -2938,7 +2938,7 @@ class IntendedUseClass(DictWrapper):
     @property
     def primaryUsers(self) -> Union[None, List[IntendedUserTypeClass]]:
         """Getter: Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?"""
-        return self._inner_dict.get('primaryUsers')
+        return self._inner_dict.get('primaryUsers')  # type: ignore
     
     
     @primaryUsers.setter
@@ -2950,7 +2950,7 @@ class IntendedUseClass(DictWrapper):
     @property
     def outOfScopeUses(self) -> Union[None, List[str]]:
         """Getter: Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to."""
-        return self._inner_dict.get('outOfScopeUses')
+        return self._inner_dict.get('outOfScopeUses')  # type: ignore
     
     
     @outOfScopeUses.setter
@@ -3002,7 +3002,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     @property
     def description(self) -> Union[None, str]:
         """Getter: Documentation of the MLFeature"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -3014,7 +3014,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     @property
     def dataType(self) -> Union[None, MLFeatureDataTypeClass]:
         """Getter: Data Type of the MLFeature"""
-        return self._inner_dict.get('dataType')
+        return self._inner_dict.get('dataType')  # type: ignore
     
     
     @dataType.setter
@@ -3026,7 +3026,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     @property
     def version(self) -> Union[None, VersionTagClass]:
         """Getter: Version of the MLFeature"""
-        return self._inner_dict.get('version')
+        return self._inner_dict.get('version')  # type: ignore
     
     
     @version.setter
@@ -3068,7 +3068,7 @@ class MLModelFactorPromptsClass(DictWrapper):
     @property
     def relevantFactors(self) -> Union[None, List[MLModelFactorsClass]]:
         """Getter: What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?"""
-        return self._inner_dict.get('relevantFactors')
+        return self._inner_dict.get('relevantFactors')  # type: ignore
     
     
     @relevantFactors.setter
@@ -3080,7 +3080,7 @@ class MLModelFactorPromptsClass(DictWrapper):
     @property
     def evaluationFactors(self) -> Union[None, List[MLModelFactorsClass]]:
         """Getter: Which factors are being reported, and why were these chosen?"""
-        return self._inner_dict.get('evaluationFactors')
+        return self._inner_dict.get('evaluationFactors')  # type: ignore
     
     
     @evaluationFactors.setter
@@ -3125,7 +3125,7 @@ class MLModelFactorsClass(DictWrapper):
     def groups(self) -> Union[None, List[str]]:
         """Getter: Groups refers to distinct categories with similar characteristics that are present in the evaluation data instances.
     For human-centric machine learning MLModels, groups are people who share one or multiple characteristics."""
-        return self._inner_dict.get('groups')
+        return self._inner_dict.get('groups')  # type: ignore
     
     
     @groups.setter
@@ -3140,7 +3140,7 @@ class MLModelFactorsClass(DictWrapper):
         """Getter: The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.
     For example, a face detection model may perform differently depending on the camera’s hardware and software,
     including lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode."""
-        return self._inner_dict.get('instrumentation')
+        return self._inner_dict.get('instrumentation')  # type: ignore
     
     
     @instrumentation.setter
@@ -3154,7 +3154,7 @@ class MLModelFactorsClass(DictWrapper):
     @property
     def environment(self) -> Union[None, List[str]]:
         """Getter: A further factor affecting MLModel performance is the environment in which it is deployed."""
-        return self._inner_dict.get('environment')
+        return self._inner_dict.get('environment')  # type: ignore
     
     
     @environment.setter
@@ -3206,7 +3206,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def description(self) -> Union[None, str]:
         """Getter: Documentation of the MLModel"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -3218,7 +3218,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def date(self) -> Union[None, int]:
         """Getter: Date when the MLModel was developed"""
-        return self._inner_dict.get('date')
+        return self._inner_dict.get('date')  # type: ignore
     
     
     @date.setter
@@ -3230,7 +3230,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def version(self) -> Union[None, VersionTagClass]:
         """Getter: Version of the MLModel"""
-        return self._inner_dict.get('version')
+        return self._inner_dict.get('version')  # type: ignore
     
     
     @version.setter
@@ -3242,7 +3242,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def type(self) -> Union[None, str]:
         """Getter: Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -3254,7 +3254,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def hyperParameters(self) -> Union[None, Dict[str, Union[str, int, float, float, bool]]]:
         """Getter: Hyper Parameters of the MLModel"""
-        return self._inner_dict.get('hyperParameters')
+        return self._inner_dict.get('hyperParameters')  # type: ignore
     
     
     @hyperParameters.setter
@@ -3266,7 +3266,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def mlFeatures(self) -> Union[None, List[str]]:
         """Getter: List of features used for MLModel training"""
-        return self._inner_dict.get('mlFeatures')
+        return self._inner_dict.get('mlFeatures')  # type: ignore
     
     
     @mlFeatures.setter
@@ -3278,7 +3278,7 @@ class MLModelPropertiesClass(DictWrapper):
     @property
     def tags(self) -> List[str]:
         """Getter: Tags for the MLModel"""
-        return self._inner_dict.get('tags')
+        return self._inner_dict.get('tags')  # type: ignore
     
     
     @tags.setter
@@ -3320,7 +3320,7 @@ class MetricsClass(DictWrapper):
     @property
     def performanceMeasures(self) -> Union[None, List[str]]:
         """Getter: Measures of MLModel performance"""
-        return self._inner_dict.get('performanceMeasures')
+        return self._inner_dict.get('performanceMeasures')  # type: ignore
     
     
     @performanceMeasures.setter
@@ -3332,7 +3332,7 @@ class MetricsClass(DictWrapper):
     @property
     def decisionThreshold(self) -> Union[None, List[str]]:
         """Getter: Decision Thresholds used (if any)?"""
-        return self._inner_dict.get('decisionThreshold')
+        return self._inner_dict.get('decisionThreshold')  # type: ignore
     
     
     @decisionThreshold.setter
@@ -3374,7 +3374,7 @@ class QuantitativeAnalysesClass(DictWrapper):
     @property
     def unitaryResults(self) -> Union[None, str]:
         """Getter: Link to a dashboard with results showing how the MLModel performed with respect to each factor"""
-        return self._inner_dict.get('unitaryResults')
+        return self._inner_dict.get('unitaryResults')  # type: ignore
     
     
     @unitaryResults.setter
@@ -3386,7 +3386,7 @@ class QuantitativeAnalysesClass(DictWrapper):
     @property
     def intersectionalResults(self) -> Union[None, str]:
         """Getter: Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?"""
-        return self._inner_dict.get('intersectionalResults')
+        return self._inner_dict.get('intersectionalResults')  # type: ignore
     
     
     @intersectionalResults.setter
@@ -3426,7 +3426,7 @@ class SourceCodeClass(DictWrapper):
     @property
     def sourceCode(self) -> List[SourceCodeUrlClass]:
         """Getter: Source Code along with types"""
-        return self._inner_dict.get('sourceCode')
+        return self._inner_dict.get('sourceCode')  # type: ignore
     
     
     @sourceCode.setter
@@ -3468,7 +3468,7 @@ class SourceCodeUrlClass(DictWrapper):
     @property
     def type(self) -> SourceCodeUrlTypeClass:
         """Getter: Source Code Url Types"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -3480,7 +3480,7 @@ class SourceCodeUrlClass(DictWrapper):
     @property
     def sourceCodeUrl(self) -> str:
         """Getter: Source Code Url"""
-        return self._inner_dict.get('sourceCodeUrl')
+        return self._inner_dict.get('sourceCodeUrl')  # type: ignore
     
     
     @sourceCodeUrl.setter
@@ -3528,7 +3528,7 @@ class TrainingDataClass(DictWrapper):
     @property
     def trainingData(self) -> List[BaseDataClass]:
         """Getter: Details on the dataset(s) used for training the MLModel"""
-        return self._inner_dict.get('trainingData')
+        return self._inner_dict.get('trainingData')  # type: ignore
     
     
     @trainingData.setter
@@ -3572,7 +3572,7 @@ class MetadataChangeEventClass(DictWrapper):
     @property
     def auditHeader(self) -> Union[None, KafkaAuditHeaderClass]:
         """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
-        return self._inner_dict.get('auditHeader')
+        return self._inner_dict.get('auditHeader')  # type: ignore
     
     
     @auditHeader.setter
@@ -3584,7 +3584,7 @@ class MetadataChangeEventClass(DictWrapper):
     @property
     def proposedSnapshot(self) -> Union[ChartSnapshotClass, CorpGroupSnapshotClass, CorpUserSnapshotClass, DashboardSnapshotClass, DatasetSnapshotClass, DataProcessSnapshotClass, MLModelSnapshotClass, MLFeatureSnapshotClass]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
-        return self._inner_dict.get('proposedSnapshot')
+        return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     
     @proposedSnapshot.setter
@@ -3596,7 +3596,7 @@ class MetadataChangeEventClass(DictWrapper):
     @property
     def proposedDelta(self) -> None:
         """Getter: Delta of the proposed metadata partial update."""
-        return self._inner_dict.get('proposedDelta')
+        return self._inner_dict.get('proposedDelta')  # type: ignore
     
     
     @proposedDelta.setter
@@ -3636,7 +3636,7 @@ class ArrayTypeClass(DictWrapper):
     @property
     def nestedType(self) -> Union[None, List[str]]:
         """Getter: List of types this array holds."""
-        return self._inner_dict.get('nestedType')
+        return self._inner_dict.get('nestedType')  # type: ignore
     
     
     @nestedType.setter
@@ -3676,7 +3676,7 @@ class BinaryJsonSchemaClass(DictWrapper):
     @property
     def schema(self) -> str:
         """Getter: The native schema text for binary JSON file format."""
-        return self._inner_dict.get('schema')
+        return self._inner_dict.get('schema')  # type: ignore
     
     
     @schema.setter
@@ -3774,7 +3774,7 @@ class DatasetFieldForeignKeyClass(DictWrapper):
     @property
     def parentDataset(self) -> str:
         """Getter: dataset that stores the resource."""
-        return self._inner_dict.get('parentDataset')
+        return self._inner_dict.get('parentDataset')  # type: ignore
     
     
     @parentDataset.setter
@@ -3786,7 +3786,7 @@ class DatasetFieldForeignKeyClass(DictWrapper):
     @property
     def currentFieldPaths(self) -> List[str]:
         """Getter: List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."""
-        return self._inner_dict.get('currentFieldPaths')
+        return self._inner_dict.get('currentFieldPaths')  # type: ignore
     
     
     @currentFieldPaths.setter
@@ -3798,7 +3798,7 @@ class DatasetFieldForeignKeyClass(DictWrapper):
     @property
     def parentField(self) -> str:
         """Getter: SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."""
-        return self._inner_dict.get('parentField')
+        return self._inner_dict.get('parentField')  # type: ignore
     
     
     @parentField.setter
@@ -3867,7 +3867,7 @@ class EspressoSchemaClass(DictWrapper):
     @property
     def documentSchema(self) -> str:
         """Getter: The native espresso document schema."""
-        return self._inner_dict.get('documentSchema')
+        return self._inner_dict.get('documentSchema')  # type: ignore
     
     
     @documentSchema.setter
@@ -3879,7 +3879,7 @@ class EspressoSchemaClass(DictWrapper):
     @property
     def tableSchema(self) -> str:
         """Getter: The espresso table schema definition."""
-        return self._inner_dict.get('tableSchema')
+        return self._inner_dict.get('tableSchema')  # type: ignore
     
     
     @tableSchema.setter
@@ -3946,7 +3946,7 @@ class ForeignKeySpecClass(DictWrapper):
     @property
     def foreignKey(self) -> Union[DatasetFieldForeignKeyClass, UrnForeignKeyClass]:
         """Getter: Foreign key definition in metadata schema."""
-        return self._inner_dict.get('foreignKey')
+        return self._inner_dict.get('foreignKey')  # type: ignore
     
     
     @foreignKey.setter
@@ -3986,7 +3986,7 @@ class KafkaSchemaClass(DictWrapper):
     @property
     def documentSchema(self) -> str:
         """Getter: The native kafka document schema. This is a human readable avro document schema."""
-        return self._inner_dict.get('documentSchema')
+        return self._inner_dict.get('documentSchema')  # type: ignore
     
     
     @documentSchema.setter
@@ -4028,7 +4028,7 @@ class KeyValueSchemaClass(DictWrapper):
     @property
     def keySchema(self) -> str:
         """Getter: The raw schema for the key in the key-value store."""
-        return self._inner_dict.get('keySchema')
+        return self._inner_dict.get('keySchema')  # type: ignore
     
     
     @keySchema.setter
@@ -4040,7 +4040,7 @@ class KeyValueSchemaClass(DictWrapper):
     @property
     def valueSchema(self) -> str:
         """Getter: The raw schema for the value in the key-value store."""
-        return self._inner_dict.get('valueSchema')
+        return self._inner_dict.get('valueSchema')  # type: ignore
     
     
     @valueSchema.setter
@@ -4082,7 +4082,7 @@ class MapTypeClass(DictWrapper):
     @property
     def keyType(self) -> Union[None, str]:
         """Getter: Key type in a map"""
-        return self._inner_dict.get('keyType')
+        return self._inner_dict.get('keyType')  # type: ignore
     
     
     @keyType.setter
@@ -4094,7 +4094,7 @@ class MapTypeClass(DictWrapper):
     @property
     def valueType(self) -> Union[None, str]:
         """Getter: Type of the value in a map"""
-        return self._inner_dict.get('valueType')
+        return self._inner_dict.get('valueType')  # type: ignore
     
     
     @valueType.setter
@@ -4134,7 +4134,7 @@ class MySqlDDLClass(DictWrapper):
     @property
     def tableSchema(self) -> str:
         """Getter: The native schema in the dataset's platform. This is a human readable (json blob) table schema."""
-        return self._inner_dict.get('tableSchema')
+        return self._inner_dict.get('tableSchema')  # type: ignore
     
     
     @tableSchema.setter
@@ -4228,7 +4228,7 @@ class OracleDDLClass(DictWrapper):
     @property
     def tableSchema(self) -> str:
         """Getter: The native schema in the dataset's platform. This is a human readable (json blob) table schema."""
-        return self._inner_dict.get('tableSchema')
+        return self._inner_dict.get('tableSchema')  # type: ignore
     
     
     @tableSchema.setter
@@ -4268,7 +4268,7 @@ class OrcSchemaClass(DictWrapper):
     @property
     def schema(self) -> str:
         """Getter: The native schema for ORC file format."""
-        return self._inner_dict.get('schema')
+        return self._inner_dict.get('schema')  # type: ignore
     
     
     @schema.setter
@@ -4308,7 +4308,7 @@ class OtherSchemaClass(DictWrapper):
     @property
     def rawSchema(self) -> str:
         """Getter: The native schema in the dataset's platform."""
-        return self._inner_dict.get('rawSchema')
+        return self._inner_dict.get('rawSchema')  # type: ignore
     
     
     @rawSchema.setter
@@ -4348,7 +4348,7 @@ class PrestoDDLClass(DictWrapper):
     @property
     def rawSchema(self) -> str:
         """Getter: The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."""
-        return self._inner_dict.get('rawSchema')
+        return self._inner_dict.get('rawSchema')  # type: ignore
     
     
     @rawSchema.setter
@@ -4427,7 +4427,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def fieldPath(self) -> str:
         """Getter: Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."""
-        return self._inner_dict.get('fieldPath')
+        return self._inner_dict.get('fieldPath')  # type: ignore
     
     
     @fieldPath.setter
@@ -4439,7 +4439,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def jsonPath(self) -> Union[None, str]:
         """Getter: Flattened name of a field in JSON Path notation."""
-        return self._inner_dict.get('jsonPath')
+        return self._inner_dict.get('jsonPath')  # type: ignore
     
     
     @jsonPath.setter
@@ -4451,7 +4451,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def nullable(self) -> bool:
         """Getter: Indicates if this field is optional or nullable"""
-        return self._inner_dict.get('nullable')
+        return self._inner_dict.get('nullable')  # type: ignore
     
     
     @nullable.setter
@@ -4463,7 +4463,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def description(self) -> Union[None, str]:
         """Getter: Description"""
-        return self._inner_dict.get('description')
+        return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
@@ -4475,7 +4475,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def type(self) -> SchemaFieldDataTypeClass:
         """Getter: Platform independent field type of the field."""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -4487,7 +4487,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def nativeDataType(self) -> str:
         """Getter: The native type of the field in the dataset's platform as declared by platform schema."""
-        return self._inner_dict.get('nativeDataType')
+        return self._inner_dict.get('nativeDataType')  # type: ignore
     
     
     @nativeDataType.setter
@@ -4499,7 +4499,7 @@ class SchemaFieldClass(DictWrapper):
     @property
     def recursive(self) -> bool:
         """Getter: There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive."""
-        return self._inner_dict.get('recursive')
+        return self._inner_dict.get('recursive')  # type: ignore
     
     
     @recursive.setter
@@ -4539,7 +4539,7 @@ class SchemaFieldDataTypeClass(DictWrapper):
     @property
     def type(self) -> Union[BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass]:
         """Getter: Data platform specific types"""
-        return self._inner_dict.get('type')
+        return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
@@ -4603,7 +4603,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def schemaName(self) -> str:
         """Getter: Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking"""
-        return self._inner_dict.get('schemaName')
+        return self._inner_dict.get('schemaName')  # type: ignore
     
     
     @schemaName.setter
@@ -4615,7 +4615,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def platform(self) -> str:
         """Getter: Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})"""
-        return self._inner_dict.get('platform')
+        return self._inner_dict.get('platform')  # type: ignore
     
     
     @platform.setter
@@ -4627,7 +4627,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def version(self) -> int:
         """Getter: Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."""
-        return self._inner_dict.get('version')
+        return self._inner_dict.get('version')  # type: ignore
     
     
     @version.setter
@@ -4639,7 +4639,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def created(self) -> AuditStampClass:
         """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
-        return self._inner_dict.get('created')
+        return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
@@ -4651,7 +4651,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def lastModified(self) -> AuditStampClass:
         """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
-        return self._inner_dict.get('lastModified')
+        return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
@@ -4663,7 +4663,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def deleted(self) -> Union[None, AuditStampClass]:
         """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
-        return self._inner_dict.get('deleted')
+        return self._inner_dict.get('deleted')  # type: ignore
     
     
     @deleted.setter
@@ -4675,7 +4675,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def dataset(self) -> Union[None, str]:
         """Getter: Dataset this schema metadata is associated with."""
-        return self._inner_dict.get('dataset')
+        return self._inner_dict.get('dataset')  # type: ignore
     
     
     @dataset.setter
@@ -4687,7 +4687,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def cluster(self) -> Union[None, str]:
         """Getter: The cluster this schema metadata resides from"""
-        return self._inner_dict.get('cluster')
+        return self._inner_dict.get('cluster')  # type: ignore
     
     
     @cluster.setter
@@ -4699,7 +4699,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def hash(self) -> str:
         """Getter: the SHA1 hash of the schema content"""
-        return self._inner_dict.get('hash')
+        return self._inner_dict.get('hash')  # type: ignore
     
     
     @hash.setter
@@ -4711,7 +4711,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def platformSchema(self) -> Union[EspressoSchemaClass, OracleDDLClass, MySqlDDLClass, PrestoDDLClass, KafkaSchemaClass, BinaryJsonSchemaClass, OrcSchemaClass, SchemalessClass, KeyValueSchemaClass, OtherSchemaClass]:
         """Getter: The native schema in the dataset's platform."""
-        return self._inner_dict.get('platformSchema')
+        return self._inner_dict.get('platformSchema')  # type: ignore
     
     
     @platformSchema.setter
@@ -4723,7 +4723,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def fields(self) -> List[SchemaFieldClass]:
         """Getter: Client provided a list of fields from document schema."""
-        return self._inner_dict.get('fields')
+        return self._inner_dict.get('fields')  # type: ignore
     
     
     @fields.setter
@@ -4735,7 +4735,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def primaryKeys(self) -> Union[None, List[str]]:
         """Getter: Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath."""
-        return self._inner_dict.get('primaryKeys')
+        return self._inner_dict.get('primaryKeys')  # type: ignore
     
     
     @primaryKeys.setter
@@ -4747,7 +4747,7 @@ class SchemaMetadataClass(DictWrapper):
     @property
     def foreignKeysSpecs(self) -> Union[None, Dict[str, ForeignKeySpecClass]]:
         """Getter: Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."""
-        return self._inner_dict.get('foreignKeysSpecs')
+        return self._inner_dict.get('foreignKeysSpecs')  # type: ignore
     
     
     @foreignKeysSpecs.setter
@@ -4841,7 +4841,7 @@ class UnionTypeClass(DictWrapper):
     @property
     def nestedTypes(self) -> Union[None, List[str]]:
         """Getter: List of types in union type."""
-        return self._inner_dict.get('nestedTypes')
+        return self._inner_dict.get('nestedTypes')  # type: ignore
     
     
     @nestedTypes.setter
@@ -4881,7 +4881,7 @@ class UrnForeignKeyClass(DictWrapper):
     @property
     def currentFieldPath(self) -> str:
         """Getter: Field in hosting(current) SchemaMetadata."""
-        return self._inner_dict.get('currentFieldPath')
+        return self._inner_dict.get('currentFieldPath')  # type: ignore
     
     
     @currentFieldPath.setter
