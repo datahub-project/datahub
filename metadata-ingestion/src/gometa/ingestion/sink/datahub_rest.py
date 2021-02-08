@@ -78,7 +78,7 @@ class DatahubRestSink(Sink):
         snapshot_type = type(mce.proposedSnapshot)
         snapshot_resource = resource_locator.get(snapshot_type, None)
         if not snapshot_resource:
-            raise ValueError(f"Failed to locate a snapshot resource for {snapshot_type=}")
+            raise ValueError(f"Failed to locate a snapshot resource for type {snapshot_type}")
 
         return f'{self.config.server}/{snapshot_resource}?action=ingest'
 
