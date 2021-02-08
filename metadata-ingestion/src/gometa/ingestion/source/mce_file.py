@@ -22,7 +22,7 @@ class MetadataFileSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         with open(self.config.filename, 'r') as f:
             mce_obj_list = json.load(f)
-        if type(mce_obj_list) != 'list':
+        if not isinstance(mce_obj_list, list):
             mce_obj_list = [mce_obj_list]
         
         for obj in mce_obj_list:
