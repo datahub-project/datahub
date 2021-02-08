@@ -5,21 +5,34 @@ from pydantic import BaseModel, Field, ValidationError, validator
 from enum import Enum
 from pathlib import Path
 import requests
+from requests.exceptions import HTTPError
 from gometa.ingestion.api.sink import Sink, WriteCallback
-from gometa.ingestion.api.common import RecordEnvelope
+from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
 import json
 from gometa.metadata import json_converter
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata import CorpUserSnapshotClass, DatasetSnapshotClass
+from gometa.metadata import (
+    ChartSnapshotClass, 
+    CorpGroupSnapshotClass, 
+    CorpUserSnapshotClass, 
+    DashboardSnapshotClass, 
+    DatasetSnapshotClass, 
+    DataProcessSnapshotClass, 
+    MLModelSnapshotClass, 
+    MLFeatureSnapshotClass,
+)
 from collections import OrderedDict
 
 import logging
 logger = logging.getLogger(__name__)
 
 resource_locator: Dict[Type[object], str] = {
-    # TODO: add the rest
+    ChartSnapshotClass: 'charts',
+    DashboardSnapshotClass: 'dashboards',
     CorpUserSnapshotClass: 'corpUsers',
+    CorpGroupSnapshotClass: 'corpGroups',
     DatasetSnapshotClass: 'datasets',
+    DataProcessSnapshotClass: 'dataProcesses',
 }
 
 def _rest_li_ify(obj):
@@ -30,7 +43,7 @@ def _rest_li_ify(obj):
             if key.find('com.linkedin.pegasus2avro.') >= 0:
                 new_key = key.replace('com.linkedin.pegasus2avro.', 'com.linkedin.')
                 return {new_key: _rest_li_ify(value)}
-            elif key == 'string':
+            elif key == 'string' or key == 'array':
                 return value
 
         new_obj = {}
@@ -65,19 +78,23 @@ class DatahubRestSink(Sink):
         snapshot_type = type(mce.proposedSnapshot)
         snapshot_resource = resource_locator.get(snapshot_type, None)
         if not snapshot_resource:
-            raise ValueError("Failed to locate a snapshot resource for {snapshot_type}")
+            raise ValueError(f"Failed to locate a snapshot resource for {snapshot_type=}")
 
         return f'{self.config.server}/{snapshot_resource}?action=ingest'
+
+    def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        pass
+
+    def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        pass
 
     def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
         headers = {'X-RestLi-Protocol-Version' : '2.0.0'}
 
         mce = record_envelope.record
         url = self.get_ingest_endpoint(mce)
-        logger.debug(f'{url!r}')
 
         raw_mce_obj = json_converter.to_json_object(mce.proposedSnapshot)
-        logger.debug(f'{raw_mce_obj!r}')
 
         mce_obj = _rest_li_ify(raw_mce_obj)
         snapshot = {'snapshot': mce_obj}
@@ -87,6 +104,10 @@ class DatahubRestSink(Sink):
             #     json.dump(serialized_snapshot, outfile)
             response.raise_for_status()
             write_callback.on_success(record_envelope, {})
+        except HTTPError as e:
+            info = response.json()
+            breakpoint()
+            write_callback.on_failure(record_envelope, e, info)
         except Exception as e:
             write_callback.on_failure(record_envelope, e, {})
 
