@@ -17,6 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 resource_locator: Dict[Type[object], str] = {
+    # TODO: add the rest
     CorpUserSnapshotClass: 'corpUsers',
     DatasetSnapshotClass: 'datasets',
 }
