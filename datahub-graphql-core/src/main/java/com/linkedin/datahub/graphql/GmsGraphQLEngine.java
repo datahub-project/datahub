@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
-import com.linkedin.datahub.graphql.resolvers.write.WritableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -154,7 +154,7 @@ public class GmsGraphQLEngine {
 
     private static void configureMutationResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Mutation", typeWiring -> typeWiring
-                .dataFetcher("updateDataset", new AuthenticatedResolver<>(new WritableTypeResolver<>(DATASET_TYPE)))
+                .dataFetcher("updateDataset", new AuthenticatedResolver<>(new MutableTypeResolver<>(DATASET_TYPE)))
         );
     }
 

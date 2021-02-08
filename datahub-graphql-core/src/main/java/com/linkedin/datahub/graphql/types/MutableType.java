@@ -6,13 +6,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import javax.annotation.Nonnull;
 
 /**
- * GQL graph type that can be updated.
+ * Graph type that can be updated.
  *
  * @param <I>: The input type corresponding to the write.
- * @param <T>: The output type resulting from the update.
-
  */
-public interface WritableType<I> {
+public interface MutableType<I> {
 
     /**
      * Returns generated GraphQL class associated with the input type
