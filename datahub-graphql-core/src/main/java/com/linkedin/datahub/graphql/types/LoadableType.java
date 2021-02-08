@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.QueryContext;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 /**
  * GQL graph type that can be loaded from a downstream service by primary key.
  *
- * @param <T>: The GraphQL object type corresponding to the entity.
+ * @param <T>: The GraphQL object type corresponding to the type.
  */
 public interface LoadableType<T> {
 
@@ -28,9 +29,10 @@ public interface LoadableType<T> {
      * Retrieves an entity by urn string. Null is provided in place of an entity object if an entity cannot be found.
      *
      * @param urn to retrieve
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    default T load(@Nonnull final String urn) throws Exception {
-        return batchLoad(ImmutableList.of(urn)).get(0);
+    default T load(@Nonnull final String urn, @Nonnull final QueryContext context) throws Exception {
+        return batchLoad(ImmutableList.of(urn), context).get(0);
     };
 
     /**
@@ -38,6 +40,8 @@ public interface LoadableType<T> {
      * be of same length of the list of urns, where nulls are provided in place of an entity object if an entity cannot be found.
      *
      * @param urns to retrieve
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    List<T> batchLoad(@Nonnull final List<String> urns) throws Exception;
+    List<T> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception;
+
 }

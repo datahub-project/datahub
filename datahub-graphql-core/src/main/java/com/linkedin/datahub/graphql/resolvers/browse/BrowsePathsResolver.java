@@ -32,7 +32,7 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return _typeToEntity.get(input.getType()).browsePaths(input.getUrn());
+                return _typeToEntity.get(input.getType()).browsePaths(input.getUrn(), environment.getContext());
             } catch (Exception e) {
                 throw new RuntimeException("Failed to retrieve browse paths: "
                         + String.format("entity type %s, urn %s",

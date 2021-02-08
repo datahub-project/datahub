@@ -42,7 +42,8 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
                         input.getPath(),
                         input.getFilters(),
                         start,
-                        count
+                        count,
+                        environment.getContext()
                 );
             } catch (Exception e) {
                 throw new RuntimeException("Failed to execute browse: "

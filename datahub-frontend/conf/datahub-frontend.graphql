@@ -1,9 +1,5 @@
 # This will host GQL schema extensions specific to the frontend.
 
-extend schema {
-    mutation: Mutation
-}
-
-type Mutation {
+extend type Mutation {
     logIn(username: String!, password: String!): CorpUser
 }

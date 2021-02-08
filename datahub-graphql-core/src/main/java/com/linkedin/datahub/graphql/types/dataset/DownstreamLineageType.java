@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DownstreamLineage;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.mappers.DownstreamLineageMapper;
@@ -24,7 +25,7 @@ public class DownstreamLineageType implements LoadableType<DownstreamLineage> {
     }
 
     @Override
-    public List<DownstreamLineage> batchLoad(final List<String> keys) {
+    public List<DownstreamLineage> batchLoad(final List<String> keys, final QueryContext context) {
 
         final List<DatasetUrn> datasetUrns = keys.stream()
                 .map(DatasetUtils::getDatasetUrn)

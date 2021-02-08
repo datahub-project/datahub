@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -23,13 +24,13 @@ public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
      * @param filters list of filters that should be applied to search results, null if non were provided
      * @param start the initial offset of returned results
      * @param count the number of results to retrieve
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    default SearchResults search(@Nonnull String query,
-                                 @Nullable List<FacetFilterInput> filters,
-                                 int start,
-                                 int count) throws Exception {
-        throw new UnsupportedOperationException();
-    }
+    SearchResults search(@Nonnull String query,
+                         @Nullable List<FacetFilterInput> filters,
+                         int start,
+                         int count,
+                         @Nonnull final QueryContext context) throws Exception;
 
     /**
      * Retrieves {@link AutoCompleteResults} corresponding to a given query string, field, list of filters, & limit.
@@ -38,12 +39,12 @@ public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
      * @param field the name of the field to autocomplete against, null if one was not provided
      * @param filters list of filters that should be applied to search results, null if non were provided
      * @param limit the maximum number of autocomplete suggestions to be returned
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    default AutoCompleteResults autoComplete(@Nonnull String query,
-                                             @Nullable String field,
-                                             @Nullable List<FacetFilterInput> filters,
-                                             int limit) throws Exception {
-        throw new UnsupportedOperationException();
-    }
+    AutoCompleteResults autoComplete(@Nonnull String query,
+                                     @Nullable String field,
+                                     @Nullable List<FacetFilterInput> filters,
+                                     int limit,
+                                     @Nonnull final QueryContext context) throws Exception;
 
 }
