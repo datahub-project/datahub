@@ -6,7 +6,7 @@ from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetS
 from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
-from gometa.ingestion.api.source import WorkUnit
+from gometa.ingestion.api.source import WorkUnit, Source
 from gometa.configuration.common import AllowDenyPattern
 from pydantic import BaseModel
 import logging
@@ -40,16 +40,42 @@ class SqlWorkUnit(WorkUnit):
         return {'mce': self.mce}
     
 
+def get_column_type(column_type):
+        """
+        Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
+        """
+        if isinstance(column_type, (types.Integer, types.Numeric)):
+            return ("com.linkedin.pegasus2avro.schema.NumberType", {})
+
+        if isinstance(column_type, (types.Boolean)):
+            return ("com.linkedin.pegasus2avro.schema.BooleanType", {})
+
+        if isinstance(column_type, (types.Enum)):
+            return ("com.linkedin.pegasus2avro.schema.EnumType", {})
+
+        if isinstance(column_type, (types._Binary, types.PickleType)):
+            return ("com.linkedin.pegasus2avro.schema.BytesType", {})
+
+        if isinstance(column_type, (types.ARRAY)):
+            return ("com.linkedin.pegasus2avro.schema.ArrayType", {})
+
+        if isinstance(column_type, (types.String)):
+            return ("com.linkedin.pegasus2avro.schema.StringType", {})
+
+        return ("com.linkedin.pegasus2avro.schema.NullType", {})
+
+
 def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
+
 
     canonical_schema = [ {
             "fieldPath": column["name"],
             "nativeDataType": repr(column["type"]),
-            "type": { "type":get_column_type(column["type"]) },
+            "type": { "type": get_column_type(column["type"]) },
             "description": column.get("comment", None)
         } for column in columns ]
 
- 
+
     actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -67,54 +93,44 @@ def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
 
 
 
-def get_column_type(column_type):
-    """
-    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
-    """
-    if isinstance(column_type, (types.Integer, types.Numeric)):
-        return ("com.linkedin.pegasus2avro.schema.NumberType", {})
+       
+class SQLAlchemySource(Source):
+    """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
-    if isinstance(column_type, (types.Boolean)):
-        return ("com.linkedin.pegasus2avro.schema.BooleanType", {})
+    def __init__(self, config, ctx, platform: str):
+        super().__init__(ctx)
+        self.config = config
+        self.platform = platform
 
-    if isinstance(column_type, (types.Enum)):
-        return ("com.linkedin.pegasus2avro.schema.EnumType", {})
 
-    if isinstance(column_type, (types._Binary, types.PickleType)):
-        return ("com.linkedin.pegasus2avro.schema.BytesType", {})
+    def get_workunits(self):
+        env:str = "PROD"
+        sql_config = self.config
+        platform = self.platform
+        url = sql_config.get_sql_alchemy_url()
+        engine = create_engine(url, **sql_config.options)
+        inspector = reflection.Inspector.from_engine(engine)
+        database = sql_config.database
+        for schema in inspector.get_schema_names():
+            for table in inspector.get_table_names(schema):
+                if sql_config.table_pattern.allowed(f'{schema}.{table}'):
+                    columns = inspector.get_columns(table, schema)
+                    mce = MetadataChangeEvent()
+                    if database != "":
+                        dataset_name = f'{database}.{schema}.{table}'
+                    else:
+                        dataset_name = f'{schema}.{table}'
 
-    if isinstance(column_type, (types.ARRAY)):
-        return ("com.linkedin.pegasus2avro.schema.ArrayType", {})
-
-    if isinstance(column_type, (types.String)):
-        return ("com.linkedin.pegasus2avro.schema.StringType", {})
-
-    return ("com.linkedin.pegasus2avro.schema.NullType", {})
-
-def get_sql_workunits(sql_config:SQLAlchemyConfig, platform: str, env: str = "PROD"):
-    url = sql_config.get_sql_alchemy_url()
-    engine = create_engine(url, **sql_config.options)
-    inspector = reflection.Inspector.from_engine(engine)
-    database = sql_config.database
-    for schema in inspector.get_schema_names():
-        for table in inspector.get_table_names(schema):
-            if sql_config.table_pattern.allowed(f'{schema}.{table}'):
-                columns = inspector.get_columns(table, schema)
-                mce = MetadataChangeEvent()
-                if database != "":
-                    dataset_name = f'{database}.{schema}.{table}'
+                    dataset_snapshot = DatasetSnapshot()
+                    dataset_snapshot.urn=(
+                            f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                        )
+                    schema_metadata = get_schema_metadata(dataset_name, platform, columns)
+                    dataset_snapshot.aspects.append(schema_metadata)
+                    mce.proposedSnapshot = dataset_snapshot
+                    yield SqlWorkUnit(id=dataset_name, mce = mce)
                 else:
-                    dataset_name = f'{schema}.{table}'
-
-                dataset_snapshot = DatasetSnapshot()
-                dataset_snapshot.urn=(
-                        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-                    )
-                schema_metadata = get_schema_metadata(dataset_name, platform, columns)
-                dataset_snapshot.aspects.append(schema_metadata)
-                mce.proposedSnapshot = dataset_snapshot
-                yield SqlWorkUnit(id=dataset_name, mce = mce)
-            else:
-                logger.debug(f"Found table: {schema}.{table}, but skipping due to allow-deny patterns")
-        
-
+                    logger.debug(f"Found table: {schema}.{table}, but skipping due to allow-deny patterns")
+     
+    def close(self):
+        pass
