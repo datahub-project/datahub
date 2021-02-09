@@ -1,5 +1,5 @@
 from gometa.ingestion.sink.datahub_kafka import DatahubKafkaSink, KafkaCallback
-from gometa.ingestion.api.sink import WriteCallback
+from gometa.ingestion.api.sink import WriteCallback, SinkReport
 
 import unittest
 from unittest.mock import patch, MagicMock
@@ -19,8 +19,8 @@ class KafkaSinkTest(unittest.TestCase):
     def validate_kafka_callback(self, mock_k_callback, record_envelope, write_callback):
         assert mock_k_callback.call_count == 1  # KafkaCallback constructed
         constructor_args, constructor_kwargs = mock_k_callback.call_args
-        assert constructor_args[0] == record_envelope
-        assert constructor_args[1] == write_callback
+        assert constructor_args[1] == record_envelope
+        assert constructor_args[2] == write_callback
 
 
     @patch("gometa.ingestion.sink.datahub_kafka.PipelineContext")
@@ -54,7 +54,7 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("gometa.ingestion.sink.datahub_kafka.RecordEnvelope")
     @patch("gometa.ingestion.sink.datahub_kafka.WriteCallback")
     def test_kafka_callback_class(self, mock_w_callback, mock_re):
-        callback = KafkaCallback(record_envelope = mock_re, write_callback = mock_w_callback)
+        callback = KafkaCallback(SinkReport(), record_envelope = mock_re, write_callback = mock_w_callback)
         mock_error = MagicMock()
         mock_message = MagicMock()
         callback.kafka_callback(mock_error, mock_message)

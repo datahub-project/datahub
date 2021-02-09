@@ -7,7 +7,7 @@ T = TypeVar('T')
 @dataclass
 class RecordEnvelope(Generic[T]):
     record: T 
-    metadata: Optional[dict]
+    metadata: dict
 
 
 @dataclass

@@ -33,6 +33,7 @@ resource_locator: Dict[Type[object], str] = {
     CorpGroupSnapshotClass: 'corpGroups',
     DatasetSnapshotClass: 'datasets',
     DataProcessSnapshotClass: 'dataProcesses',
+    MLModelSnapshotClass: 'mlModels',
 }
 
 def _rest_li_ify(obj):
