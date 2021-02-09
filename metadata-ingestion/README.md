@@ -49,7 +49,7 @@ A number of recipes are included in the recipes directory.
 ## Build the image
 - source docker/docker_build.sh
 
-## Run the ingestion script (recipes/file_to_file.yml)
-## While mounting a local directory for input recipes and an output directory for output data
+## Run an ingestion script (recipes/file_to_file.yml)
+We have a simple script provided that supports mounting a local directory for input recipes and an output directory for output data
 - source docker/docker_run.sh recipes/file_to_file.yml
 
