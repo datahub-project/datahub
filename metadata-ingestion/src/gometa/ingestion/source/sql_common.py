@@ -6,15 +6,27 @@ from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetS
 from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
-from gometa.ingestion.api.source import WorkUnit, Source
+from gometa.ingestion.api.source import WorkUnit, Source, SourceReport
 from gometa.configuration.common import AllowDenyPattern
 from pydantic import BaseModel
 import logging
 import time
 from typing import Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SQLSourceReport(SourceReport):
+    tables_scanned = 0
+    filtered: List[str] = field(default_factory=list)
+
+    def report_table_scanned(self, table_name: str) -> None:
+        self.tables_scanned += 1
+    
+    def report_dropped(self, table_name: str) -> None:
+        self.filtered.append(table_name)
 
 
 class SQLAlchemyConfig(BaseModel):
@@ -86,7 +98,7 @@ def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
         platformSchema=MySqlDDL(tableSchema = ""),
         created = AuditStamp(time=sys_time, actor=actor),
         lastModified = AuditStamp(time=sys_time, actor=actor),
-        fields = canonical_schema
+        fields = canonical_schema,
         )
     return schema_metadata
 
@@ -101,6 +113,7 @@ class SQLAlchemySource(Source):
         super().__init__(ctx)
         self.config = config
         self.platform = platform
+        self.report = SQLSourceReport()
 
 
     def get_workunits(self):
@@ -113,24 +126,32 @@ class SQLAlchemySource(Source):
         database = sql_config.database
         for schema in inspector.get_schema_names():
             for table in inspector.get_table_names(schema):
-                if sql_config.table_pattern.allowed(f'{schema}.{table}'):
+                if database != "":
+                    dataset_name = f'{database}.{schema}.{table}'
+                else:
+                    dataset_name = f'{schema}.{table}'
+                self.report.report_table_scanned(dataset_name)
+
+                if sql_config.table_pattern.allowed(dataset_name):
                     columns = inspector.get_columns(table, schema)
                     mce = MetadataChangeEvent()
-                    if database != "":
-                        dataset_name = f'{database}.{schema}.{table}'
-                    else:
-                        dataset_name = f'{schema}.{table}'
 
                     dataset_snapshot = DatasetSnapshot()
                     dataset_snapshot.urn=(
-                            f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-                        )
+                        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                    )
                     schema_metadata = get_schema_metadata(dataset_name, platform, columns)
                     dataset_snapshot.aspects.append(schema_metadata)
                     mce.proposedSnapshot = dataset_snapshot
-                    yield SqlWorkUnit(id=dataset_name, mce = mce)
+                    
+                    wu = SqlWorkUnit(id=dataset_name, mce = mce)
+                    self.report.report_workunit(wu)
+                    yield wu 
                 else:
-                    logger.debug(f"Found table: {schema}.{table}, but skipping due to allow-deny patterns")
+                    self.report.report_dropped(dataset_name)
+    
+    def get_report(self):
+        return self.report
      
     def close(self):
         pass

@@ -1,4 +1,4 @@
-from gometa.ingestion.api.sink import Sink, WriteCallback
+from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, PipelineContext, WorkUnit
 from pydantic import BaseModel
 import os
@@ -16,6 +16,7 @@ class FileSink(Sink):
     def __init__(self, config: FileSinkConfig, ctx):
         super().__init__(ctx)
         self.config = config
+        self.report = SinkReport()
         p = pathlib.Path(f'{self.config.output_dir}/{ctx.run_id}/')
         p.mkdir(parents=True)
         fpath = p / self.config.file_name
@@ -42,8 +43,11 @@ class FileSink(Sink):
         metadata["workunit-id"] = self.id
         out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
         self.file.write(out_line)
-        if write_callback:
-            write_callback.on_success(record_envelope, {})
+        self.report.report_record_written(record_envelope)
+        write_callback.on_success(record_envelope, {})
+    
+    def get_report(self):
+        return self.report
         
     def close(self):
         if self.file:

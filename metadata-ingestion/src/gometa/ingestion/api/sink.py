@@ -12,7 +12,7 @@ class SinkReport(Report):
     records_written = 0
     failures: List[Any] = field(default_factory=list)
 
-    def report_record_written(self, record: RecordEnvelope):
+    def report_record_written(self, record_envelope: RecordEnvelope):
         self.records_written += 1
 
     def report_failure(self, info: Any) -> None:
