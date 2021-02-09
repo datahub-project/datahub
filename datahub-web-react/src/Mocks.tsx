@@ -1,12 +1,14 @@
-import { GetDatasetDocument } from './graphql/dataset.generated';
+import { GetDatasetDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import { GetAutoCompleteResultsDocument, GetSearchResultsDocument } from './graphql/search.generated';
 import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
+import { EntityType } from './types.generated';
 
 const user1 = {
     username: 'sdas',
     urn: 'urn:li:corpuser:2',
+    type: EntityType.CorpUser,
     info: {
         active: true,
         displayName: 'sdas',
@@ -23,6 +25,7 @@ const user1 = {
 const user2 = {
     username: 'john',
     urn: 'urn:li:corpuser:3',
+    type: EntityType.CorpUser,
     info: {
         active: true,
         displayName: 'john',
@@ -38,16 +41,34 @@ const user2 = {
 
 const dataset1 = {
     urn: 'urn:li:dataset:1',
-    platform: 'HDFS',
+    type: EntityType.Dataset,
+    platform: {
+        urn: 'urn:li:dataPlatform:hdfs',
+        name: 'HDFS',
+        type: EntityType.DataPlatform,
+    },
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
     origin: 'PROD',
     tags: ['Private', 'PII'],
     description: 'This is the greatest dataset in the world, youre gonna love it!',
     uri: 'www.google.com',
-    properties: [],
-    createdTime: 0,
-    modifiedTime: 0,
+    properties: [
+        {
+            key: 'TestProperty',
+            value: 'My property value.',
+        },
+        {
+            key: 'AnotherTestProperty',
+            value: 'My other property value.',
+        },
+    ],
+    created: {
+        time: 0,
+    },
+    lastModified: {
+        time: 0,
+    },
     ownership: {
         owners: [
             {
@@ -63,13 +84,32 @@ const dataset1 = {
                 type: 'DELEGATE',
             },
         ],
-        lastModified: 0,
+        lastModified: {
+            time: 0,
+        },
+    },
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
     },
 };
 
 const dataset2 = {
     urn: 'urn:li:dataset:2',
-    platform: 'MySQL',
+    type: EntityType.Dataset,
+    platform: {
+        urn: 'urn:li:dataPlatform:mysql',
+        name: 'MySQL',
+        type: EntityType.DataPlatform,
+    },
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
     origin: 'PROD',
@@ -77,8 +117,12 @@ const dataset2 = {
     description: 'This is some other dataset, so who cares!',
     uri: 'www.google.com',
     properties: [],
-    createdTime: 0,
-    modifiedTime: 0,
+    created: {
+        time: 0,
+    },
+    lastModified: {
+        time: 0,
+    },
     ownership: {
         owners: [
             {
@@ -94,13 +138,20 @@ const dataset2 = {
                 type: 'DELEGATE',
             },
         ],
-        lastModified: 0,
+        lastModified: {
+            time: 0,
+        },
     },
 };
 
 const dataset3 = {
     urn: 'urn:li:dataset:3',
-    platform: 'Kafka',
+    type: EntityType.Dataset,
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        type: EntityType.DataPlatform,
+    },
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
@@ -108,8 +159,12 @@ const dataset3 = {
     description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
     properties: [],
-    createdTime: 0,
-    modifiedTime: 0,
+    created: {
+        time: 0,
+    },
+    lastModified: {
+        time: 0,
+    },
     ownership: {
         owners: [
             {
@@ -125,7 +180,9 @@ const dataset3 = {
                 type: 'DELEGATE',
             },
         ],
-        lastModified: 0,
+        lastModified: {
+            time: 0,
+        },
     },
 };
 
@@ -235,6 +292,40 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'DATASET',
+                    path: ['prod', 'hdfs'],
+                    start: 0,
+                    count: 20,
+                    filters: null,
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
+                    entities: [
+                        {
+                            __typename: 'Dataset',
+                            ...dataset1,
+                        },
+                    ],
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    metadata: {
+                        path: ['prod', 'hdfs'],
+                        groups: [],
+                        totalNumEntities: 0,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
                     path: ['prod'],
                     start: 0,
                     count: 20,
@@ -258,40 +349,6 @@ export const mocks = [
                             },
                         ],
                         totalNumEntities: 1,
-                    },
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetBrowseResultsDocument,
-            variables: {
-                input: {
-                    type: 'DATASET',
-                    path: ['prod', 'hdfs'],
-                    start: 0,
-                    count: 20,
-                    filters: null,
-                },
-            },
-        },
-        result: {
-            data: {
-                browse: {
-                    entities: [
-                        {
-                            name: 'The Great Test Dataset',
-                            urn: 'urn:li:dataset:1',
-                        },
-                    ],
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    metadata: {
-                        path: ['prod', 'hdfs'],
-                        groups: [],
-                        totalNumEntities: 0,
                     },
                 },
             },
@@ -354,7 +411,7 @@ export const mocks = [
                     start: 0,
                     count: 3,
                     total: 3,
-                    elements: [
+                    entities: [
                         {
                             __typename: 'Dataset',
                             ...dataset1,
@@ -410,7 +467,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-                    elements: [
+                    entities: [
                         {
                             __typename: 'Dataset',
                             ...dataset3,
@@ -452,11 +509,49 @@ export const mocks = [
                     start: 0,
                     count: 2,
                     total: 2,
-                    elements: [
+                    entities: [
                         {
                             ...user1,
                         },
                     ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: UpdateDatasetDocument,
+            variables: {
+                input: {
+                    urn: 'urn:li:dataset:1',
+                    ownership: {
+                        owners: [
+                            {
+                                owner: 'urn:li:corpuser:1',
+                                type: 'DATAOWNER',
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+        result: {
+            data: {
+                dataset: {
+                    urn: 'urn:li:corpuser:1',
+                    ownership: {
+                        owners: [
+                            {
+                                owner: {
+                                    ...user1,
+                                },
+                                type: 'DATAOWNER',
+                            },
+                        ],
+                        lastModified: {
+                            time: 0,
+                        },
+                    },
                 },
             },
         },

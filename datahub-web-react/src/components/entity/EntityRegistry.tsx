@@ -61,7 +61,7 @@ export default class EntityRegistry {
         return validatedGet(pathName, this.pathNameToEntityType);
     }
 
-    getTypeOrDefaultFromPathName(pathName: string, def: EntityType): EntityType {
+    getTypeOrDefaultFromPathName(pathName: string, def?: EntityType): EntityType | undefined {
         try {
             return validatedGet(pathName, this.pathNameToEntityType);
         } catch (e) {
@@ -84,8 +84,8 @@ export default class EntityRegistry {
         return entity.renderPreview(PreviewType.SEARCH, data);
     }
 
-    renderBrowse(type: EntityType, { urn, name }: { urn: string; name: string }): JSX.Element {
+    renderBrowse<T>(type: EntityType, data: T): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.renderPreview(PreviewType.BROWSE, { urn, name });
+        return entity.renderPreview(PreviewType.BROWSE, data);
     }
 }

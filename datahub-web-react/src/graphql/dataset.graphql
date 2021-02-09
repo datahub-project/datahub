@@ -1,8 +1,8 @@
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
         urn
-        platform
         name
+        type
         origin
         description
         uri
@@ -12,17 +12,63 @@ query getDataset($urn: String!) {
             key
             value
         }
-        createdTime
-        modifiedTime
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
         ownership {
             owners {
                 owner {
                     urn
+                    type
                     username
                     info {
                         active
                         displayName
                         title
+                        firstName
+                        lastName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+                type
+            }
+            lastModified {
+                time
+            }
+        }
+        institutionalMemory {
+            elements {
+                url
+                author
+                description
+                created {
+                    actor
+                    time
+                }
+            }
+        }
+    }
+}
+
+mutation updateDataset($input: DatasetUpdateInput!) {
+    updateDataset(input: $input) {
+        urn
+        ownership {
+            owners {
+                owner {
+                    urn
+                    type
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
                         firstName
                         lastName
                         fullName
@@ -33,7 +79,20 @@ query getDataset($urn: String!) {
                 }
                 type
             }
-            lastModified
+            lastModified {
+                time
+            }
+        }
+        institutionalMemory {
+            elements {
+                url
+                author
+                description
+                created {
+                    actor
+                    time
+                }
+            }
         }
     }
 }

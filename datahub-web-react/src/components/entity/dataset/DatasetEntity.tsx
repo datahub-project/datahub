@@ -22,7 +22,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderProfile = (urn: string) => <Profile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: any) => {
+    renderPreview = (_: PreviewType, data: Dataset) => {
         return (
             <Preview
                 urn={data.urn}

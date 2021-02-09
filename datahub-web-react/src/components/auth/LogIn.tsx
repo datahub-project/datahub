@@ -30,9 +30,10 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     password: values.password,
                 },
             })
-                .then(() => {
-                    Cookies.set('PLAY_SESSION', 'DUMMY_VALUE');
+                .then((res) => {
+                    Cookies.set('PLAY_SESSION', 'DUMMY_VALUE'); // TODO: Validate that this works in non mock mode.
                     Cookies.set('IS_LOGGED_IN', 'true');
+                    localStorage.setItem('userUrn', res.data?.logIn?.urn || '');
                     isLoggedInVar(true);
                 })
                 .catch((e: ApolloError) => {
