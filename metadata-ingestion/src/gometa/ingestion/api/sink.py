@@ -1,11 +1,25 @@
 from abc import abstractmethod, ABCMeta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List, Any
 
 from gometa.ingestion.api.closeable import Closeable
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
+from gometa.ingestion.api.report import Report
+
+@dataclass
+class SinkReport(Report):
+    # workunits_processed = 0
+    records_written = 0
+    failures: List[Any] = field(default_factory=list)
+
+    def report_record_written(self, record: RecordEnvelope):
+        self.records_written += 1
+
+    def report_failure(self, info: Any) -> None:
+        self.failures.append(info)
 
 
-class WriteCallback:
+class WriteCallback(metaclass=ABCMeta):
 
     @abstractmethod
     def on_success(self, record_envelope: RecordEnvelope, success_metadata: dict):
@@ -50,5 +64,9 @@ class Sink(Closeable, metaclass = ABCMeta):
         pass
 
     @abstractmethod
-    def close(self):
+    def get_report(self) -> SinkReport:
+        pass
+
+    @abstractmethod
+    def close(self) -> None:
         pass
