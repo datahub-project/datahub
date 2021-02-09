@@ -17,7 +17,7 @@ const defaultProps = {
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
-        <Link to={`${entityRegistry.getPathName(EntityType.User)}/${_urn}`}>
+        <Link to={`/${entityRegistry.getPathName(EntityType.User)}/${_urn}`}>
             <Avatar
                 style={{
                     marginRight: '15px',
