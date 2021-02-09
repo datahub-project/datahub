@@ -150,7 +150,7 @@ class LDAPSource(Source):
                 sys.stdout.write('LDAP search failed: %s' % e)
                 continue
 
-                        pctrls = get_pctrls(serverctrls)
+        pctrls = get_pctrls(serverctrls)
         if not pctrls:
                 print >> sys.stderr, 'Warning: Server ignores RFC 2696 control.'
                 break
