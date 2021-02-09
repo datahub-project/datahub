@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -23,21 +24,20 @@ public interface BrowsableEntityType<T extends Entity> extends EntityType<T> {
      * @param filters list of filters that should be applied to search results, null if non were provided
      * @param start the initial offset of returned results
      * @param count the number of results to retrieve
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    default BrowseResults browse(@Nonnull List<String> path,
-                                 @Nullable List<FacetFilterInput> filters,
-                                 int start,
-                                 int count) throws Exception {
-        throw new UnsupportedOperationException();
-    }
+    BrowseResults browse(@Nonnull List<String> path,
+                         @Nullable List<FacetFilterInput> filters,
+                         int start,
+                         int count,
+                         @Nonnull final QueryContext context) throws Exception;
 
     /**
      * Retrieves a list of {@link BrowsePath} corresponding to a given path, list of filters, start, & count.
      *
      * @param urn the entity urn to fetch browse paths for
+     * @param context the {@link QueryContext} corresponding to the request.
      */
-    default List<BrowsePath> browsePaths(@Nonnull String urn) throws Exception {
-        throw new UnsupportedOperationException();
-    }
+    List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception;
 
 }

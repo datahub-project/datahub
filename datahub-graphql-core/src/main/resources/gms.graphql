@@ -3,7 +3,7 @@ scalar Long
 
 schema {
     query: Query
-#    mutation: Mutation
+    mutation: Mutation
 }
 
 """
@@ -71,7 +71,9 @@ type Query {
     browsePaths(input: BrowsePathsInput!): [BrowsePath!]
 }
 
-#type Mutation { }
+type Mutation {
+    updateDataset(input: DatasetUpdateInput!): Dataset
+}
 
 type AuditStamp {
     """
@@ -109,7 +111,7 @@ type Dataset implements Entity {
     """
     Fabric type where dataset belongs to or where it was generated
     """
-    origin: FabricType
+    origin: FabricType!
 
     """
     Human readable description for dataset
@@ -329,6 +331,11 @@ type InstitutionalMemoryMetadata {
     Description of the resource
     """
     description: String!
+
+    """
+    The author of this metadata
+    """
+    author: String!
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -629,7 +636,7 @@ type Owner {
     """
     The type of the ownership
     """
-    type: OwnershipType
+    type: OwnershipType!
 
     """
     Source information for the ownership
@@ -970,4 +977,91 @@ type BrowsePath {
     The components of the browse path
     """
 	path: [String!]!
+}
+
+input DatasetUpdateInput {
+    """
+    The dataset urn
+    """
+   urn: String!
+
+    """
+    Update to ownership
+    """
+   ownership: OwnershipUpdate
+
+   """
+   Update to deprecation status
+   """
+   deprecation: DatasetDeprecationUpdate
+
+    """
+    Update to institutional memory, ie documentation
+    """
+    institutionalMemory: InstitutionalMemoryUpdate
+}
+
+input OwnershipUpdate {
+    """
+    The list of owners
+    """
+   owners: [OwnerUpdate!]!
+}
+
+input OwnerUpdate {
+    """
+    The owner URN, eg urn:li:corpuser:1
+    """
+   owner: String!
+
+    """
+    The owner role type
+    """
+   type: OwnershipType!
+}
+
+input DatasetDeprecationUpdate {
+    """
+    Whether the dataset is deprecated
+    """
+    deprecated: Boolean!
+
+    """
+    The time user plan to decommission this dataset
+    """
+    decommissionTime: Long
+
+    """
+    Additional information about the dataset deprecation plan
+    """
+    note: String!
+}
+
+input InstitutionalMemoryUpdate {
+    """
+    The individual references in the institutional memory
+    """
+    elements: [InstitutionalMemoryMetadataUpdate!]!
+}
+
+input InstitutionalMemoryMetadataUpdate {
+    """
+    Link to a document or wiki page or another internal resource
+    """
+    url: String!
+
+    """
+    Description of the resource
+    """
+    description: String!
+
+    """
+    The corp user urn of the author of the metadata
+    """
+    author: String!
+
+    """
+    The time at which this metadata was created
+    """
+    createdAt: Long
 }

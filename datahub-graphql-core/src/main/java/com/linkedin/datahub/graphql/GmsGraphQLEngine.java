@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -23,7 +24,9 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
+import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderOptions;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -91,17 +95,18 @@ public class GmsGraphQLEngine {
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
      */
-    public static Map<String, Supplier<DataLoader<?, ?>>> loaderSuppliers(final List<LoadableType<?>> loadableTypes) {
+    public static Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(final List<LoadableType<?>> loadableTypes) {
         return loadableTypes
             .stream()
             .collect(Collectors.toMap(
                     LoadableType::name,
-                    (graphType) -> () -> createDataLoader(graphType)
+                    (graphType) -> (context) -> createDataLoader(graphType, context)
             ));
     }
 
     public static void configureRuntimeWiring(final RuntimeWiring.Builder builder) {
         configureQueryResolvers(builder);
+        configureMutationResolvers(builder);
         configureDatasetResolvers(builder);
         configureCorpUserResolvers(builder);
         configureTypeResolvers(builder);
@@ -144,6 +149,12 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                                 CORP_USER_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
+        );
+    }
+
+    private static void configureMutationResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Mutation", typeWiring -> typeWiring
+                .dataFetcher("updateDataset", new AuthenticatedResolver<>(new MutableTypeResolver<>(DATASET_TYPE)))
         );
     }
 
@@ -217,14 +228,16 @@ public class GmsGraphQLEngine {
     }
 
 
-    private static <T> DataLoader<String, T> createDataLoader(final LoadableType<T> graphType) {
-        return DataLoader.newDataLoader(keys -> CompletableFuture.supplyAsync(() -> {
+    private static <T> DataLoader<String, T> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
+        BatchLoaderContextProvider contextProvider = () -> queryContext;
+        DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
+        return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                return graphType.batchLoad(keys);
+                return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.objectClass().getName()), e);
             }
-        }));
+        }), loaderOptions);
     }
 
     private GmsGraphQLEngine() { }

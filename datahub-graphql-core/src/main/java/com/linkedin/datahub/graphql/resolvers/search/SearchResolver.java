@@ -54,7 +54,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         sanitizedQuery,
                         input.getFilters(),
                         start,
-                        count
+                        count,
+                        environment.getContext()
                 );
             } catch (Exception e) {
                 throw new RuntimeException("Failed to execute search: "
