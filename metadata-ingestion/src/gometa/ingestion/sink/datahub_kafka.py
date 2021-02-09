@@ -1,8 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from typing import Optional, TypeVar, Type
 from pydantic import BaseModel, Field, ValidationError, validator
-from gometa.ingestion.api.sink import Sink, WriteCallback
+from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
 
 from confluent_kafka import SerializingProducer
@@ -40,24 +40,27 @@ class KafkaSinkConfig(BaseModel):
 
 @dataclass
 class KafkaCallback:
+    reporter: SinkReport
     record_envelope: RecordEnvelope
     write_callback: WriteCallback
 
     def kafka_callback(self, err, msg):
         if err is not None:
-            if self.write_callback:
-                self.write_callback.on_failure(self.record_envelope, None, {"error": err})
+            self.reporter.report_failure(err)
+            self.write_callback.on_failure(self.record_envelope, None, {"error": err})
         else:
-            if self.write_callback:
-                self.write_callback.on_success(self.record_envelope, {"msg": msg}) 
+            self.reporter.report_record_written(self.record_envelope)
+            self.write_callback.on_success(self.record_envelope, {"msg": msg}) 
     
 @dataclass
 class DatahubKafkaSink(Sink):
     config: KafkaSinkConfig
+    report: SinkReport
 
     def __init__(self, config: KafkaSinkConfig, ctx):
         super().__init__(ctx)
         self.config = config
+        self.report = SinkReport()
 
         mce_schema = MetadataChangeEvent.RECORD_SCHEMA
         
@@ -99,7 +102,10 @@ class DatahubKafkaSink(Sink):
         self.producer.poll(0)
         mce = record_envelope.record
         self.producer.produce(topic=self.config.topic, value=mce,
-            on_delivery=KafkaCallback(record_envelope, write_callback).kafka_callback)
+            on_delivery=KafkaCallback(self.report, record_envelope, write_callback).kafka_callback)
+    
+    def get_report(self):
+        return self.report
         
     def close(self):
         self.producer.flush()
