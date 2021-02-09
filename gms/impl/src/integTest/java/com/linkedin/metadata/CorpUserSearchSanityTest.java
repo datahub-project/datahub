@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.CorpUserSearchConfig;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
@@ -32,7 +33,7 @@ public class CorpUserSearchSanityTest extends BaseSearchSanityTests<CorpUserInfo
       .setTitle("ring bearer");
 
   protected CorpUserSearchSanityTest() {
-    super(URN, DOCUMENT);
+    super(URN, DOCUMENT, new CorpUserSearchConfig());
   }
 
   @Nonnull
