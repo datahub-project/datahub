@@ -5,6 +5,13 @@ source:
     username: sa
     password: test!Password
     database: DemoData
+#   table_pattern:
+#        allow:
+#            - "schema1.table1"
+#            - "schema1.table2"
+#        deny:
+#            - "^.*\.sys_.*" # deny all tables that start with sys_
+
 
 sink:
   type: console
