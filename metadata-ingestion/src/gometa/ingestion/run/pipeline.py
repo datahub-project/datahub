@@ -1,6 +1,7 @@
 from typing import Dict
 from pydantic import BaseModel
 from dataclasses import dataclass, field
+import pprint
 from gometa.configuration.common import DynamicTypedConfig, DynamicFactory
 from gometa.ingestion.api.source import Source, Extractor
 from gometa.ingestion.source import source_class_mapping
@@ -72,7 +73,7 @@ class Pipeline:
         callback = LoggingCallback()
         extractor = self.extractor_class()
         SinkClass: Type[Sink] = self.sink_class
-        sink = SinkClass.create(self.sink_config, self.ctx)
+        sink: Sink = SinkClass.create(self.sink_config, self.ctx)
         logger.info(f"Sink type:{self.config.sink.type},{self.sink_class} configured")
         for wu in self.source.get_workunits():
             # TODO: change extractor interface
@@ -84,3 +85,9 @@ class Pipeline:
             extractor.close()
             sink.handle_work_unit_end(wu)
         sink.close()
+
+        result = {
+            'source': self.source.get_report().as_obj(),
+            'sink': sink.get_report().as_obj(),
+        }
+        pprint.pprint(result, sort_dicts=False)
