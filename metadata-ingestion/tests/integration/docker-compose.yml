@@ -10,3 +10,15 @@ services:
             - 51433:1433
         volumes:
             - ./sql_server/setup:/setup
+    testmysql:
+        image: mysql
+        container_name: "testmysql"
+        command: --default-authentication-plugin=mysql_native_password
+        environment:
+            MYSQL_ROOT_PASSWORD: example
+        ports:
+            - 53306:3306
+        volumes:
+            - ./mysql/setup:/setup
+            - ./mysql/setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+ 
