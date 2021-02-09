@@ -95,7 +95,7 @@ export const Ownership: React.FC<Props> = ({
             title: 'LDAP',
             dataIndex: 'ldap',
             render: (text: string, record: any) => (
-                <Link to={`${entityRegistry.getPathName(EntityType.User)}/${record.urn}`}>
+                <Link to={`/${entityRegistry.getPathName(EntityType.User)}/${record.urn}`}>
                     <Avatar
                         style={{
                             marginRight: '15px',
