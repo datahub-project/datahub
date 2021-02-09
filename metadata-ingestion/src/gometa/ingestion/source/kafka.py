@@ -1,5 +1,5 @@
 from gometa.configuration import ConfigModel, KafkaConnectionConfig
-from gometa.ingestion.api.source import Source, Extractor
+from gometa.ingestion.api.source import Source, Extractor, SourceReport
 from gometa.ingestion.api.source import WorkUnit
 from typing import Optional, Iterable
 from dataclasses import dataclass
@@ -25,6 +25,7 @@ class KafkaSource(Source):
     source_config: KafkaSourceConfig
     topic_pattern: re.Pattern
     consumer: confluent_kafka.Consumer
+    report: SourceReport = SourceReport()
 
     def __init__(self, config, ctx):
         super().__init__(ctx)
@@ -43,8 +44,12 @@ class KafkaSource(Source):
             if re.fullmatch(self.topic_pattern, t): 
                 # TODO: topics config should support allow and deny patterns
                 if not t.startswith("_"):
-                    yield KafkaWorkUnit(id=f'kafka-{t}', config=KafkaSourceConfig(connection=self.source_config.connection, topic=t))
-
+                    wu = KafkaWorkUnit(id=f'kafka-{t}', config=KafkaSourceConfig(connection=self.source_config.connection, topic=t))
+                    self.report.report_workunit(wu)
+                    yield wu
+    
+    def get_report(self):
+        return self.report
         
     def close(self):
         if self.consumer:

@@ -1,8 +1,19 @@
-from typing import Iterable
-from dataclasses import dataclass
+from typing import Iterable, List
+from dataclasses import dataclass, field
 from abc import abstractmethod, ABCMeta
 from .closeable import Closeable
 from .common import WorkUnit, PipelineContext, RecordEnvelope
+from .report import Report
+
+
+@dataclass
+class SourceReport(Report):
+    workunits_produced = 0
+    workunit_ids: List[str] = field(default_factory=list)
+
+    def report_workunit(self, wu: WorkUnit):
+        self.workunits_produced += 1
+        self.workunit_ids.append(wu.id)
 
 
 class Extractor(Closeable, metaclass=ABCMeta):
@@ -26,4 +37,8 @@ class Source(Closeable, metaclass = ABCMeta):
 
     @abstractmethod
     def get_workunits(self) -> Iterable[WorkUnit]:
+        pass
+
+    @abstractmethod
+    def get_report(self) -> SourceReport:
         pass

@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, TypeVar, Type, Dict
 from pydantic import BaseModel, Field, ValidationError, validator
 from enum import Enum
 from pathlib import Path
 import requests
 from requests.exceptions import HTTPError
-from gometa.ingestion.api.sink import Sink, WriteCallback
+from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
 import json
 from gometa.metadata import json_converter
@@ -65,6 +65,7 @@ class DatahubRestSinkConfig(BaseModel):
 @dataclass
 class DatahubRestSink(Sink):
     config: DatahubRestSinkConfig
+    report: SinkReport = field(default_factory=SinkReport)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -103,13 +104,19 @@ class DatahubRestSink(Sink):
             # with open('data.json', 'w') as outfile:
             #     json.dump(serialized_snapshot, outfile)
             response.raise_for_status()
+            self.report.report_record_written(record_envelope)
             write_callback.on_success(record_envelope, {})
         except HTTPError as e:
             info = response.json()
             breakpoint()
+            self.report.report_failure({'e': e, 'info': info})
             write_callback.on_failure(record_envelope, e, info)
         except Exception as e:
+            self.report.report_failure({'e': e})
             write_callback.on_failure(record_envelope, e, {})
+
+    def get_report(self) -> SinkReport:
+        return self.report
 
     def close(self):
         pass
