@@ -636,7 +636,7 @@ type Owner {
     """
     The type of the ownership
     """
-    type: OwnershipType
+    type: OwnershipType!
 
     """
     Source information for the ownership
@@ -1059,4 +1059,9 @@ input InstitutionalMemoryMetadataUpdate {
     The corp user urn of the author of the metadata
     """
     author: String!
+
+    """
+    The time at which this metadata was created
+    """
+    createdAt: Long
 }

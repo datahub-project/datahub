@@ -78,7 +78,7 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
         metadata.setUrl(new Url(update.getUrl()));
         metadata.setCreateStamp(new AuditStamp()
                 .setActor(getCorpUserUrn(update.getAuthor()))
-                .setTime(System.currentTimeMillis())
+                .setTime(update.getCreatedAt() == null ? System.currentTimeMillis() : update.getCreatedAt())
         );
         return metadata;
     }
