@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -45,7 +46,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     }
 
     @Override
-    public List<CorpUser> batchLoad(List<String> urns) {
+    public List<CorpUser> batchLoad(final List<String> urns, final QueryContext context) {
         try {
             final List<CorpuserUrn> corpUserUrns = urns
                     .stream()
@@ -71,7 +72,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     public SearchResults search(@Nonnull String query,
                                 @Nullable List<FacetFilterInput> filters,
                                 int start,
-                                int count) throws Exception {
+                                int count,
+                                @Nonnull final QueryContext context) throws Exception {
         final CollectionResponse<com.linkedin.identity.CorpUser> searchResult = _corpUsersClient.search(query, Collections.emptyMap(), start, count);
         return SearchResultsMapper.map(searchResult, CorpUserMapper::map);
     }
@@ -80,7 +82,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     public AutoCompleteResults autoComplete(@Nonnull String query,
                                             @Nullable String field,
                                             @Nullable List<FacetFilterInput> filters,
-                                            int limit) throws Exception {
+                                            int limit,
+                                            @Nonnull final QueryContext context) throws Exception {
         field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
         final AutoCompleteResult result = _corpUsersClient.autocomplete(query, field, Collections.emptyMap(), limit);
         return AutoCompleteResultsMapper.map(result);

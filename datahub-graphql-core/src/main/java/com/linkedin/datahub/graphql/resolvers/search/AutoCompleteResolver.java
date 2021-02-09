@@ -51,7 +51,8 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                         sanitizedQuery,
                         input.getField(),
                         input.getFilters(),
-                        limit
+                        limit,
+                        environment.getContext()
                 );
             } catch (Exception e) {
                 throw new RuntimeException("Failed to execute autocomplete: "

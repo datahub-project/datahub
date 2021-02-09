@@ -8,7 +8,6 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
-
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 
@@ -19,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
@@ -34,12 +34,12 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
  */
 public class GraphQLEngine {
 
-    private final GraphQL graphQL;
-    private final Map<String, Supplier<DataLoader<?, ?>>> _dataLoaderSuppliers;
+    private final GraphQL _graphQL;
+    private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
 
     private GraphQLEngine(@Nonnull final List<String> schemas,
                           @Nonnull final RuntimeWiring runtimeWiring,
-                          @Nonnull final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
+                          @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
 
@@ -57,9 +57,9 @@ public class GraphQLEngine {
         GraphQLSchema graphQLSchema = schemaGenerator.makeExecutableSchema(typeDefinitionRegistry, runtimeWiring);
 
         /*
-         * Instantiate graphQL
+         * Instantiate engine
          */
-        graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+        _graphQL = GraphQL.newGraphQL(graphQLSchema).build();
     }
 
     public ExecutionResult execute(@Nonnull final String query,
@@ -68,7 +68,7 @@ public class GraphQLEngine {
         /*
          * Init DataLoaderRegistry - should be created for each request.
          */
-        DataLoaderRegistry register = createDataLoaderRegistry(_dataLoaderSuppliers);
+        DataLoaderRegistry register = createDataLoaderRegistry(_dataLoaderSuppliers, context);
 
         /*
          * Construct execution input
@@ -83,7 +83,11 @@ public class GraphQLEngine {
         /*
          * Execute GraphQL Query
          */
-        return graphQL.execute(executionInput);
+        return _graphQL.execute(executionInput);
+    }
+
+    public GraphQL getGraphQL() {
+        return _graphQL;
     }
 
     public static Builder builder() {
@@ -96,7 +100,7 @@ public class GraphQLEngine {
     public static class Builder {
 
         private final List<String> _schemas = new ArrayList<>();
-        private final Map<String, Supplier<DataLoader<?, ?>>> _loaderSuppliers = new HashMap<>();
+        private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _loaderSuppliers = new HashMap<>();
         private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
 
         /**
@@ -116,7 +120,7 @@ public class GraphQLEngine {
          *
          * If multiple loaders are registered with the name, the latter will override the former.
          */
-        public Builder addDataLoader(final String name, final Supplier<DataLoader<?, ?>> dataLoaderSupplier) {
+        public Builder addDataLoader(final String name, final Function<QueryContext, DataLoader<?, ?>> dataLoaderSupplier) {
             _loaderSuppliers.put(name, dataLoaderSupplier);
             return this;
         }
@@ -128,7 +132,7 @@ public class GraphQLEngine {
          *
          * If multiple loaders are registered with the name, the latter will override the former.
          */
-        public Builder addDataLoaders(Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
+        public Builder addDataLoaders(Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers) {
             _loaderSuppliers.putAll(dataLoaderSuppliers);
             return this;
         }
@@ -153,15 +157,13 @@ public class GraphQLEngine {
         }
     }
 
-    private DataLoaderRegistry createDataLoaderRegistry(final Map<String, Supplier<DataLoader<?, ?>>> dataLoaderSuppliers) {
+    private DataLoaderRegistry createDataLoaderRegistry(final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
+                                                        final QueryContext context) {
         final DataLoaderRegistry registry = new DataLoaderRegistry();
         for (String key : dataLoaderSuppliers.keySet()) {
-            registry.register(key, dataLoaderSuppliers.get(key).get());
+            registry.register(key, dataLoaderSuppliers.get(key).apply(context));
         }
         return registry;
     }
 
-    public GraphQL getGraphQL() {
-        return graphQL;
-    }
 }

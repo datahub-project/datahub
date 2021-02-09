@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.DataPlatformInfoMapper;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -26,7 +27,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     }
 
     @Override
-    public List<DataPlatform> batchLoad(List<String> urns) {
+    public List<DataPlatform> batchLoad(final List<String> urns, final QueryContext context) {
         try {
             if (_urnToPlatform == null) {
                 _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
