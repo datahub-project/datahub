@@ -18,7 +18,6 @@
         "@types/react-router-dom": "^5.1.6",
         "antd": "^4.9.4",
         "graphql": "^15.4.0",
-        "history": "^5.0.0",
         "js-cookie": "^2.2.1",
         "query-string": "^6.13.8",
         "react": "^17.0.0",
@@ -37,8 +36,7 @@
         "eject": "react-scripts eject",
         "storybook": "start-storybook -p 6006 -s public",
         "build-storybook": "build-storybook -s public",
-        "generate": "graphql-codegen --config codegen.yml",
-        "lint": "eslint . --ext .ts,.tsx --quiet"
+        "generate": "graphql-codegen --config codegen.yml"
     },
     "eslintConfig": {
         "extends": [
@@ -82,5 +80,6 @@
         "eslint-plugin-prettier": "^3.3.0",
         "eslint-plugin-react": "^7.21.5",
         "prettier": "^2.2.1"
-    }
+    },
+    "proxy": "http://localhost:9001"
 }

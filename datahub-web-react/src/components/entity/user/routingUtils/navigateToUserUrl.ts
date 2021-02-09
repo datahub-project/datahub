@@ -16,7 +16,7 @@ export const navigateToUserUrl = ({
     entityRegistry: EntityRegistry;
 }) => {
     history.push({
-        pathname: `/${entityRegistry.getPathName(EntityType.User)}/${urn}${subview ? `/${subview}` : ''}${
+        pathname: `/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}${subview ? `/${subview}` : ''}${
             item && subview ? `/${item}` : ''
         }`,
     });

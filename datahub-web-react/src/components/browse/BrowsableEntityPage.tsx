@@ -21,7 +21,7 @@ export const BrowsableEntityPage = ({ urn: _urn, type: _type, children: _childre
         <SearchablePage>
             {data && data.browsePaths && data.browsePaths.length > 0 && (
                 <Affix offsetTop={64}>
-                    <BrowsePath type={_type} path={data.browsePaths[0]} />
+                    <BrowsePath type={_type} path={data.browsePaths[0].path} />
                 </Affix>
             )}
             {_children}

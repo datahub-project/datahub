@@ -9,6 +9,6 @@ interface Props {
 /**
  * Needs implemented!
  */
-export const BrowseList: React.FC<Props> = (_: Props) => {
+export const BrowseList: React.FC<Props> = ({ type, path }) => {
     return <div>Needs Implemented</div>;
 };

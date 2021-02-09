@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { getByText, render } from '@testing-library/react';
 import UserDetails from '../UserDetails';
 import { EntityType, PlatformNativeType } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
@@ -26,7 +26,7 @@ describe('UserDetails', () => {
     it('renders a menu with the ownership submenu and datasets option', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} />;
+                <UserDetails urn={'some:urn'} ownerships={ownerships} />;
             </TestPageContainer>,
         );
         expect(getByText('Ownership')).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe('UserDetails', () => {
     it('will not the show the ownership details by default', () => {
         const { queryByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} />;
+                <UserDetails urn={'some:urn'} ownerships={ownerships} />;
             </TestPageContainer>,
         );
         expect(queryByText('Datasets they own')).not.toBeInTheDocument();
@@ -45,7 +45,7 @@ describe('UserDetails', () => {
     it('will the show the ownership details when selected', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} subview={Subview.Ownership} item="dataset" />;
+                <UserDetails urn={'some:urn'} ownerships={ownerships} subview={Subview.Ownership} item="dataset" />;
             </TestPageContainer>,
         );
         expect(getByText('Datasets they own')).toBeInTheDocument();

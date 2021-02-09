@@ -10,7 +10,7 @@ const { Header } = Layout;
 
 type Props = {
     types: Array<string>;
-    initialType: string;
+    selectedType: string;
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<string>;
@@ -28,15 +28,15 @@ const defaultProps = {
  * A header containing a Logo, Search Bar view, & an account management dropdown.
  */
 export const SearchHeader = ({
-    types: _types,
-    initialType: _initialType,
-    initialQuery: _initialQuery,
-    placeholderText: _placeholderText,
-    suggestions: _suggestions,
-    onSearch: _onSearch,
-    onQueryChange: _onQueryChange,
-    authenticatedUserUrn: _authenticatedUserUrn,
-    authenticatedUserPictureLink: _authenticatedUserPictureLink,
+    types,
+    selectedType,
+    initialQuery,
+    placeholderText,
+    suggestions,
+    onSearch,
+    onQueryChange,
+    authenticatedUserUrn,
+    authenticatedUserPictureLink,
 }: Props) => {
     return (
         <Header
@@ -66,15 +66,15 @@ export const SearchHeader = ({
                     <div style={{ color: 'white', fontWeight: 'bold', padding: '15px' }}>DataHub</div>
                 </Link>
                 <SearchBar
-                    types={_types}
-                    initialQuery={_initialQuery}
-                    initialType={_initialType}
-                    placeholderText={_placeholderText}
-                    suggestions={_suggestions}
-                    onSearch={_onSearch}
-                    onQueryChange={_onQueryChange}
+                    types={types}
+                    initialQuery={initialQuery}
+                    selectedType={selectedType}
+                    placeholderText={placeholderText}
+                    suggestions={suggestions}
+                    onSearch={onSearch}
+                    onQueryChange={onQueryChange}
                 />
-                <ManageAccount urn={_authenticatedUserUrn} pictureLink={_authenticatedUserPictureLink} />
+                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink} />
             </div>
         </Header>
     );

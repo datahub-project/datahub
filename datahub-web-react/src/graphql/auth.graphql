@@ -1,5 +1,6 @@
 mutation login($username: String!, $password: String!) {
     logIn(username: $username, password: $password) {
+        urn
         username
         info {
             displayName

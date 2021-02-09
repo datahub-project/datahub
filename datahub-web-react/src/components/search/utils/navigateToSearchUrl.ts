@@ -14,7 +14,7 @@ export const navigateToSearchUrl = ({
     history,
     entityRegistry,
 }: {
-    type: EntityType;
+    type?: EntityType;
     query?: string;
     page?: number;
     filters?: Array<FacetFilterInput>;
@@ -31,7 +31,7 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}/${entityRegistry.getPathName(newType)}`,
+        pathname: `${PageRoutes.SEARCH}/${newType ? entityRegistry.getPathName(newType) : ''}`,
         search,
     });
 };

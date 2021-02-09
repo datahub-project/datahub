@@ -1,5 +1,7 @@
 overwrite: true
-schema: './datahub-frontend.graphql' # TEMPORARY: This should live in `../datahub-frontend/`
+schema:
+    - '../datahub-graphql-core/src/main/resources/gms.graphql'
+    - '../datahub-frontend/conf/datahub-frontend.graphql'
 config:
     scalars:
         Long: number

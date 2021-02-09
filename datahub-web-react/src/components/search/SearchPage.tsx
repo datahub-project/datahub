@@ -29,10 +29,11 @@ export const SearchPage = () => {
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
     const params = QueryString.parse(location.search);
-    const type = entityRegistry.getTypeOrDefaultFromPathName(
+    const selectedType = entityRegistry.getTypeOrDefaultFromPathName(
         useParams<SearchPageParams>().type || '',
-        entityRegistry.getDefaultSearchEntityType(),
+        undefined,
     );
+    const activeType = selectedType || entityRegistry.getDefaultSearchEntityType();
     const query: string = params.query ? (params.query as string) : '';
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
@@ -40,7 +41,7 @@ export const SearchPage = () => {
     const { loading, error, data } = useGetSearchResultsQuery({
         variables: {
             input: {
-                type,
+                type: activeType,
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
@@ -59,26 +60,26 @@ export const SearchPage = () => {
             ? [...filters, { field, value }]
             : filters.filter((filter) => filter.field !== field || filter.value !== value);
 
-        navigateToSearchUrl({ type, query, page: 1, filters: newFilters, history, entityRegistry });
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, entityRegistry });
     };
 
     const onResultsPageChange = (newPage: number) => {
-        navigateToSearchUrl({ type, query, page: newPage, filters, history, entityRegistry });
+        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
     const toSearchResults = (elements: any) => {
-        return elements.map((element: any) => entityRegistry.renderSearchResult(type, element));
+        return elements.map((element: any) => entityRegistry.renderSearchResult(activeType, element));
     };
 
-    const searchResults = toSearchResults(data?.search?.elements || []);
+    const searchResults = toSearchResults(data?.search?.entities || []);
 
     return (
-        <SearchablePage initialQuery={query} initialType={type}>
+        <SearchablePage initialQuery={query} selectedType={selectedType}>
             <Layout.Content style={{ backgroundColor: 'white' }}>
                 <Affix offsetTop={64}>
                     <Tabs
                         tabBarStyle={{ backgroundColor: 'white', padding: '0px 165px', marginBottom: '0px' }}
-                        activeKey={entityRegistry.getCollectionName(type)}
+                        activeKey={entityRegistry.getCollectionName(activeType)}
                         size="large"
                         onChange={onSearchTypeChange}
                     >
@@ -103,7 +104,7 @@ export const SearchPage = () => {
                         {error && !data && <p>Search error!</p>}
                         {data?.search && (
                             <SearchResults
-                                typeName={entityRegistry.getCollectionName(type)}
+                                typeName={entityRegistry.getCollectionName(activeType)}
                                 results={searchResults}
                                 pageStart={data?.search?.start}
                                 pageSize={data.search?.count}
