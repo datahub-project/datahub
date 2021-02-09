@@ -1,7 +1,9 @@
+import { createBrowserHistory } from 'history';
+
 import { getTestEntityRegistry } from '../../../../../utils/test-utils/TestPageContainer';
 import { Subview } from '../../Subview';
 import { navigateToUserUrl } from '../navigateToUserUrl';
-const { createBrowserHistory } = require('history');
+
 const history = createBrowserHistory();
 
 const entityRegistry = getTestEntityRegistry();
