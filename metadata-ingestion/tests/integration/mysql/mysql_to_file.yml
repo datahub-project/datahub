@@ -1,0 +1,12 @@
+---
+source:
+  type: mysql
+  mysql:
+    username: root
+    password: example
+    database: metagalaxy
+    host_port: localhost:53306
+
+sink:
+  type: file
+run_id: test
