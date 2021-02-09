@@ -11,17 +11,20 @@ import { UserEntity } from './components/entity/user/User';
 import { EntityRegistryContext } from './entityRegistryContext';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 
 /*
     Construct Apollo Client 
 */
 const client = new ApolloClient({
-    uri: 'http://localhost:9001/api/v2/graphql',
+    uri: 'http://localhost:3000/api/v2/graphql',
     cache: new InMemoryCache({
         typePolicies: {
             Dataset: {
-                keyFields: ['urn'], // TODO: Set this as the default across the app.
+                keyFields: ['urn'],
+            },
+            CorpUser: {
+                keyFields: ['urn'],
             },
         },
     }),
@@ -29,7 +32,6 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
-    // TODO: Explore options to dynamically configure this.
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());

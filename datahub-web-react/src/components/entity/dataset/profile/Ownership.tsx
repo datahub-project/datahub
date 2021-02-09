@@ -1,7 +1,7 @@
-import { AutoComplete, Avatar, Button, Col, Row, Select, Table } from 'antd';
-import React, { useState } from 'react';
+import { AutoComplete, Avatar, Button, Col, Row, Select, Table, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, Owner, OwnershipType } from '../../../../types.generated';
+import { EntityType, Owner, OwnershipType, OwnershipUpdate } from '../../../../types.generated';
 import defaultAvatar from '../../../../images/default_avatar.png';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -10,8 +10,9 @@ const OWNER_SEARCH_PLACEHOLDER = 'Enter an LDAP...';
 const NUMBER_OWNERS_REQUIRED = 2;
 
 interface Props {
-    initialOwners: Array<Owner>;
+    owners: Array<Owner>;
     lastModifiedAt: number;
+    updateOwnership: (update: OwnershipUpdate) => void;
 }
 
 /**
@@ -19,28 +20,24 @@ interface Props {
  *
  * TODO: Add mutations to change ownership on explicit save.
  */
-export const Ownership: React.FC<Props> = ({
-    initialOwners: _initialOwners,
-    lastModifiedAt: _lastModifiedAt,
-}: Props): JSX.Element => {
-    console.log(_lastModifiedAt);
-
+export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwnership }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    const getOwnerTableData = (ownerArr: Array<Owner>) => {
-        const rows = ownerArr.map((owner) => ({
-            urn: owner.owner.urn,
-            ldap: owner.owner.username,
-            fullName: owner.owner.info?.fullName,
-            type: 'USER',
-            role: owner.type,
-            pictureLink: owner.owner.editableInfo?.pictureLink,
-        }));
-        return rows;
-    };
+    const ownerTableData = useMemo(
+        () =>
+            owners.map((owner) => ({
+                urn: owner.owner.urn,
+                ldap: owner.owner.username,
+                fullName: owner.owner.info?.fullName,
+                type: 'USER',
+                role: owner.type,
+                pictureLink: owner.owner.editableInfo?.pictureLink,
+            })),
+        [owners],
+    );
 
-    const [owners, setOwners] = useState(_initialOwners);
     const [showAddOwner, setShowAddOwner] = useState(false);
+    const [ownerQuery, setOwnerQuery] = useState('');
     const [getOwnerAutoCompleteResults, { data: searchOwnerSuggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const onShowAddAnOwner = () => {
@@ -48,46 +45,47 @@ export const Ownership: React.FC<Props> = ({
     };
 
     const onDeleteOwner = (urn: string) => {
-        const newOwners = owners.filter((owner: Owner) => !(owner.owner.urn === urn));
-        setOwners(newOwners);
+        const updatedOwners = owners
+            .filter((owner) => !(owner.owner.urn === urn))
+            .map((owner) => ({
+                owner: owner.owner.urn,
+                type: owner.type,
+            }));
+        updateOwnership({ owners: updatedOwners });
     };
 
-    const onOwnerQueryChange = (query: string) => {
+    const onChangeOwnerQuery = (query: string) => {
         getOwnerAutoCompleteResults({
             variables: {
                 input: {
-                    type: EntityType.User,
+                    type: EntityType.CorpUser,
                     query,
                     field: 'ldap',
                 },
             },
         });
+        setOwnerQuery(query);
     };
 
     const onSelectOwner = (ldap: string) => {
-        // TODO: Remove this sample code.
-        const newOwners = [
-            ...owners,
+        const urn = `urn:li:corpuser:${ldap}`;
+        const updatedOwners = [
+            ...owners.map((owner) => ({ owner: owner.owner.urn, type: owner.type })),
             {
-                owner: {
-                    urn: `urn:li:corpuser:${ldap}`,
-                    username: ldap,
-                    info: {
-                        fullName: 'John Joyce',
-                    },
-                    editableInfo: {
-                        pictureLink: null,
-                    },
-                },
-                type: OwnershipType.Delegate,
-            } as Owner,
+                owner: urn,
+                type: OwnershipType.Stakeholder,
+            },
         ];
-        setOwners(newOwners);
+        updateOwnership({ owners: updatedOwners });
+        setOwnerQuery('');
     };
 
-    const onOwnershipTypeChange = (urn: string, type: OwnershipType) => {
-        const newOwners = owners.map((owner: Owner) => (owner.owner.urn === urn ? { ...owner, type } : owner));
-        setOwners(newOwners);
+    const onChangeOwnershipType = (urn: string, type: OwnershipType) => {
+        const updatedOwners = owners.map((owner) => ({
+            owner: owner.owner.urn,
+            type: owner.owner.urn === urn ? type : owner.type,
+        }));
+        updateOwnership({ owners: updatedOwners });
     };
 
     const ownerTableColumns = [
@@ -95,7 +93,7 @@ export const Ownership: React.FC<Props> = ({
             title: 'LDAP',
             dataIndex: 'ldap',
             render: (text: string, record: any) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.User)}/${record.urn}`}>
+                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
                     <Avatar
                         style={{
                             marginRight: '15px',
@@ -120,7 +118,7 @@ export const Ownership: React.FC<Props> = ({
             title: 'Role',
             dataIndex: 'role',
             render: (role: OwnershipType, record: any) => (
-                <Select defaultValue={role} onChange={() => onOwnershipTypeChange(record.urn, role)}>
+                <Select defaultValue={role} onChange={() => onChangeOwnershipType(record.urn, role)}>
                     {Object.values(OwnershipType).map((value) => (
                         <Select.Option value={value}>{value}</Select.Option>
                     ))}
@@ -142,9 +140,9 @@ export const Ownership: React.FC<Props> = ({
         <div>
             <Row style={{ padding: '20px 0px 20px 0px' }}>
                 <Col span={24}>
-                    <p style={{ float: 'right' }}>
-                        Last updated <b>2 days ago</b>
-                    </p>
+                    <Typography.Text style={{ float: 'right' }}>
+                        Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
+                    </Typography.Text>
                     <h1>Ownership</h1>
                     <div>
                         Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
@@ -153,7 +151,7 @@ export const Ownership: React.FC<Props> = ({
             </Row>
             <Row>
                 <Col span={24}>
-                    <Table pagination={false} columns={ownerTableColumns} dataSource={getOwnerTableData(owners)} />
+                    <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} />
                 </Col>
             </Row>
             <Row>
@@ -168,16 +166,17 @@ export const Ownership: React.FC<Props> = ({
                             options={
                                 (searchOwnerSuggestionsData &&
                                     searchOwnerSuggestionsData.autoComplete &&
-                                    searchOwnerSuggestionsData.autoComplete.suggestions.map((result: string) => ({
-                                        value: result,
+                                    searchOwnerSuggestionsData.autoComplete.suggestions.map((suggestion: string) => ({
+                                        value: suggestion,
                                     }))) ||
                                 []
                             }
                             style={{
                                 width: 150,
                             }}
+                            value={ownerQuery}
                             onSelect={onSelectOwner}
-                            onSearch={onOwnerQueryChange}
+                            onSearch={onChangeOwnerQuery}
                             placeholder={OWNER_SEARCH_PLACEHOLDER}
                         />
                     )}

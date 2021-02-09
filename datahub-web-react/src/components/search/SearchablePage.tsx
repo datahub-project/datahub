@@ -12,38 +12,41 @@ import { EntityType } from '../../types.generated';
 const ALL_ENTITIES_SEARCH_TYPE_NAME = 'All Entities';
 
 interface Props extends React.PropsWithChildren<any> {
-    initialType?: EntityType;
+    selectedType?: EntityType;
     initialQuery?: string;
 }
 
 const defaultProps = {
-    initialType: undefined,
+    selectedType: undefined,
     initialQuery: '',
 };
 
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ initialType, initialQuery, children }: Props) => {
+export const SearchablePage = ({ selectedType, initialQuery, children }: Props) => {
     const history = useHistory();
 
     const entityRegistry = useEntityRegistry();
     const searchTypes = entityRegistry.getSearchEntityTypes();
-    const searchTypeNames = searchTypes.map((entityType) => entityRegistry.getCollectionName(entityType));
+    const searchTypeNames = [
+        ALL_ENTITIES_SEARCH_TYPE_NAME,
+        ...searchTypes.map((entityType) => entityRegistry.getCollectionName(entityType)),
+    ];
 
-    const initialSearchTypeName =
-        initialType && searchTypes.includes(initialType)
-            ? entityRegistry.getCollectionName(initialType)
+    const selectedSearchTypeName =
+        selectedType && searchTypes.includes(selectedType)
+            ? entityRegistry.getCollectionName(selectedType)
             : ALL_ENTITIES_SEARCH_TYPE_NAME;
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
-    const search = (type: string, query: string) => {
+    const search = (typeName: string, query: string) => {
         navigateToSearchUrl({
             type:
-                ALL_ENTITIES_SEARCH_TYPE_NAME === type
-                    ? searchTypes[0]
-                    : entityRegistry.getTypeFromCollectionName(type),
+                ALL_ENTITIES_SEARCH_TYPE_NAME === typeName
+                    ? undefined
+                    : entityRegistry.getTypeFromCollectionName(typeName),
             query,
             history,
             entityRegistry,
@@ -67,7 +70,7 @@ export const SearchablePage = ({ initialType, initialQuery, children }: Props) =
         <Layout>
             <SearchHeader
                 types={searchTypeNames}
-                initialType={initialSearchTypeName}
+                selectedType={selectedSearchTypeName}
                 initialQuery={initialQuery as string}
                 placeholderText={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
                 suggestions={

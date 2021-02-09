@@ -1,5 +1,5 @@
 query getUser($urn: String!) {
-    user(urn: $urn) {
+    corpUser(urn: $urn) {
         urn
         username
         info {

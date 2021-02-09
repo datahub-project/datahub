@@ -44,8 +44,6 @@ export const Routes = (): JSX.Element => {
                         render={() => <EntityPage entityType={entity.type} />}
                     />
                 ))}
-
-                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.SEARCH} render={() => <SearchPage />} />
                 <ProtectedRoute
                     isLoggedIn={isLoggedIn}
                     path={PageRoutes.SEARCH_RESULTS}

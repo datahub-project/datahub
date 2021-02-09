@@ -1,51 +1,87 @@
-import { FabricType, PlatformNativeType } from '../../../../../types.generated';
+import { EntityType, FabricType, PlatformNativeType } from '../../../../../types.generated';
 
 export const sampleUpstreamEntities = [
     {
         name: 'Upstream HiveDataset',
+        type: EntityType.Dataset,
         urn: 'abc',
+        platform: {
+            urn: 'urn:li:dataPlatform:hive',
+            name: 'Hive',
+            type: EntityType.DataPlatform,
+        },
         origin: FabricType.Prod,
         description: 'this is a dataset',
         platformNativeType: PlatformNativeType.Table,
-        platform: 'table',
         tags: [],
-        createdTime: 0,
-        modifiedTime: 0,
+        created: {
+            time: 0,
+        },
+        lastModified: {
+            time: 0,
+        },
     },
     {
         name: 'Upstream KafkaDataset',
+        type: EntityType.Dataset,
         urn: 'abc',
+        platform: {
+            urn: 'urn:li:dataPlatform:hive',
+            name: 'Hive',
+            type: EntityType.DataPlatform,
+        },
         origin: FabricType.Prod,
         description: 'this is a dataset',
         platformNativeType: PlatformNativeType.Table,
-        platform: 'table',
         tags: [],
-        createdTime: 0,
-        modifiedTime: 0,
+        created: {
+            time: 0,
+        },
+        lastModified: {
+            time: 0,
+        },
     },
 ];
 
 export const sampleDownstreamEntities = [
     {
         name: 'Downstream HiveDataset',
+        type: EntityType.Dataset,
         urn: 'abc',
+        platform: {
+            urn: 'urn:li:dataPlatform:hive',
+            name: 'Hive',
+            type: EntityType.DataPlatform,
+        },
         origin: FabricType.Prod,
         description: 'this is a dataset',
         platformNativeType: PlatformNativeType.Table,
-        platform: 'table',
         tags: [],
-        createdTime: 0,
-        modifiedTime: 0,
+        created: {
+            time: 0,
+        },
+        lastModified: {
+            time: 0,
+        },
     },
     {
         name: 'Downstream KafkaDataset',
+        type: EntityType.Dataset,
         urn: 'abc',
+        platform: {
+            urn: 'urn:li:dataPlatform:hive',
+            name: 'Hive',
+            type: EntityType.DataPlatform,
+        },
         origin: FabricType.Prod,
         description: 'this is a dataset',
         platformNativeType: PlatformNativeType.Table,
-        platform: 'table',
         tags: [],
-        createdTime: 0,
-        modifiedTime: 0,
+        created: {
+            time: 0,
+        },
+        lastModified: {
+            time: 0,
+        },
     },
 ];

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Col, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
-import { BrowseResultEntity, BrowseResultGroup, EntityType } from '../../types.generated';
+import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 
@@ -13,7 +13,7 @@ interface Props {
     pageSize: number;
     totalResults: number;
     groups: Array<BrowseResultGroup>;
-    entities: Array<BrowseResultEntity>;
+    entities: Array<Entity>;
     onChangePage: (page: number) => void;
 }
 
