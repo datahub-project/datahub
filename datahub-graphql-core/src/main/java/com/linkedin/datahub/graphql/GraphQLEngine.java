@@ -86,6 +86,10 @@ public class GraphQLEngine {
         return _graphQL.execute(executionInput);
     }
 
+    public GraphQL getGraphQL() {
+        return _graphQL;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
