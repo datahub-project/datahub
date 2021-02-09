@@ -10,6 +10,7 @@ from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from gometa.metadata import json_converter
+from gometa.metadata.schema_classes import SCHEMA_JSON_STR
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 class KafkaConnectionConfig(BaseModel):
@@ -69,14 +70,10 @@ class DatahubKafkaSink(Sink):
         schema_registry_conf = {'url': self.config.connection.schema_registry_url}
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-        with open('./src/gometa/metadata/schema.avsc') as f:
-            raw_schema = f.read()
-            raw_schema = json.dumps(json.loads(raw_schema))
-            raw_schema = raw_schema.replace('{"type": "string", "avro.java.string": "String"}', '"string"')
         def convert_mce_to_dict(mce, ctx):
             tuple_encoding = json_converter.with_tuple_union().to_json_object(mce)
             return tuple_encoding
-        avro_serializer = AvroSerializer(raw_schema, schema_registry_client, to_dict=convert_mce_to_dict)
+        avro_serializer = AvroSerializer(SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict)
 
         producer_conf = {
             "bootstrap.servers": self.config.connection.bootstrap,
@@ -106,5 +103,5 @@ class DatahubKafkaSink(Sink):
         
     def close(self):
         self.producer.flush()
-        self.producer.close()
+        # self.producer.close()
         

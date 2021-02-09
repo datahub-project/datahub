@@ -50,7 +50,6 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create({}, mock_context)
         kafka_sink.close()
         mock_producer_instance.flush.assert_called_once()
-        mock_producer_instance.close.assert_called_once()
         
     @patch("gometa.ingestion.sink.datahub_kafka.RecordEnvelope")
     @patch("gometa.ingestion.sink.datahub_kafka.WriteCallback")
