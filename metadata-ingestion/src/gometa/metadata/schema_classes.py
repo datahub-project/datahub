@@ -16,13 +16,16 @@ def __read_file(file_name):
         return f.read()
         
 
-def __get_names_and_schema(file_name):
+def __get_names_and_schema(json_str):
     names = avro_schema.Names()
-    schema = make_avsc_object(json.loads(__read_file(file_name)), names)
+    schema = make_avsc_object(json.loads(json_str), names)
     return names, schema
 
 
-__NAMES, SCHEMA = __get_names_and_schema(os.path.join(os.path.dirname(__file__), "schema.avsc"))
+SCHEMA_JSON_STR = __read_file(os.path.join(os.path.dirname(__file__), "schema.avsc"))
+
+
+__NAMES, SCHEMA = __get_names_and_schema(SCHEMA_JSON_STR)
 __SCHEMAS: Dict[str, RecordSchema] = {}
 
 
