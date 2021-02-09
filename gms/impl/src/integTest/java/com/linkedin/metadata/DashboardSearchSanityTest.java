@@ -3,6 +3,7 @@ package com.linkedin.metadata;
 import com.linkedin.common.AccessLevel;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.DashboardSearchConfig;
 import com.linkedin.metadata.search.DashboardDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
@@ -27,7 +28,7 @@ public class DashboardSearchSanityTest extends BaseSearchSanityTests<DashboardDo
       .setUrn(URN);
 
   protected DashboardSearchSanityTest() {
-    super(URN, DOCUMENT);
+    super(URN, DOCUMENT, new DashboardSearchConfig());
   }
 
   @Nonnull

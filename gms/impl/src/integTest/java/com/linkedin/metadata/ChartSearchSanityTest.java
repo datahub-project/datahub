@@ -5,6 +5,7 @@ import com.linkedin.chart.ChartType;
 import com.linkedin.common.AccessLevel;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.search.ChartDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
@@ -31,7 +32,7 @@ public class ChartSearchSanityTest extends BaseSearchSanityTests<ChartDocument> 
       .setUrn(URN);
 
   protected ChartSearchSanityTest() {
-    super(URN, DOCUMENT);
+    super(URN, DOCUMENT, new ChartSearchConfig());
   }
 
   @Nonnull

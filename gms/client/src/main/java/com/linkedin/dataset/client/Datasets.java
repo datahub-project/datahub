@@ -1,10 +1,12 @@
 package com.linkedin.dataset.client;
 
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetKey;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.DatasetsDoAutocompleteRequestBuilder;
 import com.linkedin.dataset.DatasetsDoBrowseRequestBuilder;
 import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
@@ -12,6 +14,9 @@ import com.linkedin.dataset.DatasetsDoGetSnapshotRequestBuilder;
 import com.linkedin.dataset.DatasetsFindByFilterRequestBuilder;
 import com.linkedin.dataset.DatasetsFindBySearchRequestBuilder;
 import com.linkedin.dataset.DatasetsRequestBuilders;
+import com.linkedin.metadata.aspect.DatasetAspect;
+import com.linkedin.metadata.dao.DatasetActionRequestBuilder;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.IndexFilter;
@@ -22,9 +27,12 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +45,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     private static final DatasetsRequestBuilders DATASETS_REQUEST_BUILDERS = new DatasetsRequestBuilders();
+    private static final DatasetActionRequestBuilder DATASET_ACTION_REQUEST_BUILDERS = new DatasetActionRequestBuilder();
 
     public Datasets(@Nonnull Client restliClient) {
         super(restliClient);
@@ -263,5 +272,56 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     @Nonnull
     private DatasetUrn toDatasetUrn(@Nonnull DatasetKey key) {
         return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
+    }
+
+    /**
+     * Update an existing Dataset
+     */
+    public void update(@Nonnull final DatasetUrn urn, @Nonnull final Dataset dataset) throws RemoteInvocationException {
+        Request request = DATASET_ACTION_REQUEST_BUILDERS.createRequest(urn, toSnapshot(urn, dataset));
+        _client.sendRequest(request).getResponse();
+    }
+
+    // Copied from an unused method in Datasets resource.
+    static DatasetSnapshot toSnapshot(@Nonnull final DatasetUrn datasetUrn, @Nonnull final Dataset dataset) {
+        final List<DatasetAspect> aspects = new ArrayList<>();
+        if (dataset.getProperties() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));
+        }
+        if (dataset.getDeprecation() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
+        }
+        if (dataset.getInstitutionalMemory() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getInstitutionalMemory()));
+        }
+        if (dataset.getOwnership() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getOwnership()));
+        }
+        if (dataset.getSchemaMetadata() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getSchemaMetadata()));
+        }
+        if (dataset.getStatus() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getStatus()));
+        }
+        if (dataset.getUpstreamLineage() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getUpstreamLineage()));
+        }
+        if (dataset.hasRemoved()) {
+            aspects.add(DatasetAspect.create(new Status().setRemoved(dataset.isRemoved())));
+        }
+        return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
+    }
+
+    private static DatasetProperties getDatasetPropertiesAspect(@Nonnull Dataset dataset) {
+        final DatasetProperties datasetProperties = new DatasetProperties();
+        datasetProperties.setDescription(dataset.getDescription());
+        datasetProperties.setTags(dataset.getTags());
+        if (dataset.getUri() != null)  {
+            datasetProperties.setUri(dataset.getUri());
+        }
+        if (dataset.getProperties() != null) {
+            datasetProperties.setCustomProperties(dataset.getProperties());
+        }
+        return datasetProperties;
     }
 }
