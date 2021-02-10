@@ -44,47 +44,41 @@ public class RestHighLevelClientFactory {
   @Bean(name = "elasticSearchRestHighLevelClient")
   @Nonnull
   protected RestHighLevelClient createInstance() {
-    try {
-      RestClient restClient;
-      if (useSSL) {
-        restClient = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext);
-      } else {
-        restClient = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
-      }
+    RestClientBuilder restClientBuilder;
 
-      return new RestHighLevelClient(restClient);
-    } catch (Exception e) {
-      throw new RuntimeException("Error: RestClient is not properly initialized. " + e.toString());
+    if (useSSL) {
+      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext);
+    } else {
+      restClientBuilder = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
     }
+
+    return new RestHighLevelClient(restClientBuilder);
   }
 
   @Nonnull
-  private static RestClient loadRestHttpClient(@Nonnull String host, int port, int threadCount,
-                                               int connectionRequestTimeout) {
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
+      int connectionRequestTimeout) {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder ->
-                    httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom()
-                            .setIoThreadCount(threadCount).build()));
+        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultIOReactorConfig(
+            IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
 
     builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-            setConnectionRequestTimeout(connectionRequestTimeout));
+        setConnectionRequestTimeout(connectionRequestTimeout));
 
-    return builder.build();
+    return builder;
   }
 
   @Nonnull
-  private static RestClient loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
-                                                int connectionRequestTimeout, @Nonnull SSLContext sslContext) {
-
+  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
+      int connectionRequestTimeout, @Nonnull SSLContext sslContext) {
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"))
-            .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setSSLContext(sslContext)
-                    .setSSLHostnameVerifier(new NoopHostnameVerifier())
-                    .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setSSLContext(sslContext)
+            .setSSLHostnameVerifier(new NoopHostnameVerifier())
+            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
 
     builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-            setConnectionRequestTimeout(connectionRequestTimeout));
+        setConnectionRequestTimeout(connectionRequestTimeout));
 
-    return builder.build();
+    return builder;
   }
 }
-

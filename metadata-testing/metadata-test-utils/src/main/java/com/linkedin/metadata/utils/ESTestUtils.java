@@ -15,6 +15,7 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.ContextParser;
+import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
@@ -27,8 +28,8 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.LongTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.StringTerms;
-import org.elasticsearch.search.aggregations.metrics.tophits.ParsedTopHits;
-import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.ParsedTopHits;
+import org.elasticsearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 
 
 @Slf4j
@@ -49,12 +50,6 @@ public final class ESTestUtils {
   }
 
   @Nonnull
-  public static String getUnmodifiedQuery(@Nonnull String query) throws IOException {
-    JsonNode jsonNode = _objectMapper.readTree(query);
-    return jsonNode.toString();
-  }
-
-  @Nonnull
   public static SearchResponse getSearchResponseFromJSON(@Nonnull String response) throws Exception {
     SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
     return getSearchResponsefromNamedContents(searchModule.getNamedXContents(), response);
@@ -64,13 +59,9 @@ public final class ESTestUtils {
   private static SearchResponse getSearchResponsefromNamedContents(@Nonnull List<NamedXContentRegistry.Entry> contents,
       @Nonnull String response) throws Exception {
     NamedXContentRegistry registry = new NamedXContentRegistry(contents);
-    XContentParser parser = JsonXContent.jsonXContent.createParser(registry, response);
+    XContentParser parser =
+        JsonXContent.jsonXContent.createParser(registry, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, response);
     return SearchResponse.fromXContent(parser);
-  }
-
-  @Nonnull
-  public static SearchResponse getSearchResponseFromJSONWithAgg(@Nonnull String response) throws Exception {
-    return getSearchResponsefromNamedContents(getDefaultNamedXContents(), response);
   }
 
   @Nonnull
