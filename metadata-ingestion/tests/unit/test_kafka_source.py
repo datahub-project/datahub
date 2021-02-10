@@ -1,6 +1,8 @@
 from gometa.ingestion.api.common import PipelineContext
 from gometa.ingestion.source.kafka import KafkaSource
 
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -26,7 +28,8 @@ class KafkaSourceTest(unittest.TestCase):
         for w in kafka_source.get_workunits():
             workunits.append(w)
 
-        assert workunits[0].get_metadata()['topic'] == 'foobar'
+        first_mce = workunits[0].get_metadata()['mce']
+        assert isinstance(first_mce, MetadataChangeEvent)
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()
         assert len(workunits) == 2

@@ -61,5 +61,4 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
 
         fields.append(field)
     
-    breakpoint()
     return fields
