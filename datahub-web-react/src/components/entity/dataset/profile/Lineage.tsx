@@ -1,33 +1,36 @@
 import { List, Space, Typography } from 'antd';
 import React from 'react';
-import { Dataset, EntityType } from '../../../../types.generated';
+import { DownstreamLineage, EntityType, UpstreamLineage } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
 export type Props = {
-    upstreamEntities: Dataset[];
-    downstreamEntities: Dataset[];
+    upstreamLineage?: UpstreamLineage | null;
+    downstreamLineage?: DownstreamLineage | null;
 };
 
-export default function Lineage({ upstreamEntities, downstreamEntities }: Props) {
+export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
     const entityRegistry = useEntityRegistry();
+    const upstreamEntities = upstreamLineage?.upstreams.map((upstream) => upstream.dataset);
+    const downstreamEntities = downstreamLineage?.downstreams.map((downstream) => downstream.dataset);
+
     return (
         <Space direction="vertical" style={{ width: '100%' }} size="large">
             <List
                 bordered
                 dataSource={upstreamEntities}
                 header={<Typography.Title level={3}>Upstream</Typography.Title>}
-                renderItem={(item) => {
-                    return entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item);
-                }}
+                renderItem={(item) => (
+                    <List.Item>{entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}</List.Item>
+                )}
             />
             <List
                 bordered
                 dataSource={downstreamEntities}
                 header={<Typography.Title level={3}>Downstream</Typography.Title>}
-                renderItem={(item) => {
-                    return entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item);
-                }}
+                renderItem={(item) => (
+                    <List.Item>{entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}</List.Item>
+                )}
             />
         </Space>
     );

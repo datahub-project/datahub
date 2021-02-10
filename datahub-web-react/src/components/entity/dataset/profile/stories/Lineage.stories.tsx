@@ -3,7 +3,7 @@ import { Story, Meta } from '@storybook/react';
 
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import Lineage, { Props } from '../Lineage';
-import { sampleUpstreamEntities, sampleDownstreamEntities } from './lineageEntities';
+import { sampleDownstreamLineage, sampleUpstreamLineage } from './lineageEntities';
 
 export default {
     title: 'Dataset Profile / Lineage',
@@ -13,7 +13,7 @@ export default {
 const Template: Story<Props> = (args) => <Lineage {...args} />;
 
 export const UpstreamAndDownstream = Template.bind({});
-UpstreamAndDownstream.args = { upstreamEntities: sampleUpstreamEntities, downstreamEntities: sampleDownstreamEntities };
+UpstreamAndDownstream.args = { upstreamLineage: sampleUpstreamLineage, downstreamLineage: sampleDownstreamLineage };
 UpstreamAndDownstream.decorators = [
     (InnerStory) => (
         <TestPageContainer>

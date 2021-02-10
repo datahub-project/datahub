@@ -6,16 +6,14 @@ interface Props {
     pageStart: number;
     pageSize: number;
     totalResults: number;
-    results: Array<JSX.Element>;
+    results: React.ReactNode;
     onChangePage: (page: number) => void;
 }
 
 export const SearchResults = ({ typeName, pageStart, pageSize, totalResults, results, onChangePage }: Props) => {
     return (
         <Card
-            style={{ border: '1px solid #d2d2d2' }}
             title={<h1 style={{ marginBottom: '0px' }}>{typeName}</h1>}
-            bodyStyle={{ padding: '24px 0px' }}
             extra={
                 <div style={{ color: 'grey' }}>
                     Showing {pageStart * pageSize} - {pageStart * pageSize + pageSize} of {totalResults} results
