@@ -28,4 +28,4 @@ typing-extensions==3.7.4.2
 wcwidth==0.1.9
 zipp==3.1.0
 pytest-docker
-
+sqlalchemy-stubs
