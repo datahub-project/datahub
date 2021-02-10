@@ -11,7 +11,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import LineageView from './Lineage';
 import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
-import { sampleDownstreamEntities, sampleUpstreamEntities } from './stories/lineageEntities';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -59,8 +58,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             </Avatar.Group>
         </>
     );
-
-    const getTabs = ({ ownership, properties, institutionalMemory }: Dataset) => {
+    const getTabs = ({ ownership, upstreamLineage, downstreamLineage, properties, institutionalMemory }: Dataset) => {
         return [
             {
                 name: TabType.Ownership,
@@ -83,12 +81,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Lineage,
                 path: TabType.Lineage.toLowerCase(),
-                content: (
-                    <LineageView
-                        upstreamEntities={sampleUpstreamEntities}
-                        downstreamEntities={sampleDownstreamEntities}
-                    />
-                ),
+                content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
                 name: TabType.Properties,

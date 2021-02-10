@@ -1,5 +1,5 @@
 import React from 'react';
-import { Col, Pagination, Row } from 'antd';
+import { Col, Divider, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
@@ -43,7 +43,10 @@ export const BrowseResults = ({
                         </Col>
                     ))}
                     {entities.map((entity) => (
-                        <Col span={24}>{entityRegistry.renderBrowse(type, entity)}</Col>
+                        <Col span={24}>
+                            {entityRegistry.renderBrowse(type, entity)}
+                            <Divider />
+                        </Col>
                     ))}
                     <Col span={24}>
                         <Pagination

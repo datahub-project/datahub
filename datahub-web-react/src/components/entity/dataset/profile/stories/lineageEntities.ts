@@ -1,4 +1,11 @@
-import { EntityType, FabricType, PlatformNativeType } from '../../../../../types.generated';
+import {
+    DatasetLineageType,
+    DownstreamLineage,
+    EntityType,
+    FabricType,
+    PlatformNativeType,
+    UpstreamLineage,
+} from '../../../../../types.generated';
 
 export const sampleUpstreamEntities = [
     {
@@ -85,3 +92,19 @@ export const sampleDownstreamEntities = [
         },
     },
 ];
+
+export const sampleUpstreamLineage = {
+    upstreams: sampleUpstreamEntities.map((entity) => ({
+        dataset: entity,
+        type: DatasetLineageType.Transformed,
+        created: { time: 0 },
+    })),
+} as UpstreamLineage;
+
+export const sampleDownstreamLineage = {
+    downstreams: sampleDownstreamEntities.map((entity) => ({
+        dataset: entity,
+        type: DatasetLineageType.Transformed,
+        created: { time: 0 },
+    })),
+} as DownstreamLineage;
