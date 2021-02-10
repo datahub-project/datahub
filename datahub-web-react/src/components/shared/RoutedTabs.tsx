@@ -47,7 +47,12 @@ export const RoutedTabs = ({ defaultPath, tabs, ...props }: Props) => {
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
                 </Route>
                 {tabs.map((tab) => (
-                    <Route exact path={`${path}/${tab.path.replace('/', '')}`} render={() => tab.content} />
+                    <Route
+                        exact
+                        path={`${path}/${tab.path.replace('/', '')}`}
+                        render={() => tab.content}
+                        key={tab.path}
+                    />
                 ))}
             </Switch>
         </div>
