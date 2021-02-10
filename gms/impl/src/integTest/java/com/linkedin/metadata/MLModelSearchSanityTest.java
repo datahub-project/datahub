@@ -8,6 +8,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.MLModelSearchConfig;
 import com.linkedin.metadata.search.MLModelDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
@@ -40,7 +41,7 @@ public class MLModelSearchSanityTest extends BaseSearchSanityTests<MLModelDocume
         .setRemoved(false);
 
     protected MLModelSearchSanityTest() {
-        super(URN, DOCUMENT);
+        super(URN, DOCUMENT, new MLModelSearchConfig());
     }
 
     @Nonnull
