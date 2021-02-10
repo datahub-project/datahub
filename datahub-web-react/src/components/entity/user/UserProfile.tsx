@@ -1,11 +1,11 @@
-import { Divider } from 'antd';
+import { Divider, Alert } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { EntityType, PlatformNativeType } from '../../../types.generated';
 import UserHeader from './UserHeader';
 import UserDetails from './UserDetails';
 import useUserParams from './routingUtils/useUserParams';
+import { useGetUserQuery } from '../../../graphql/user.generated';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -17,38 +17,28 @@ const PageContainer = styled.div`
  */
 export default function UserProfile() {
     const { urn, subview, item } = useUserParams();
+    const { loading, error, data } = useGetUserQuery({ variables: { urn } });
+
+    if (loading) {
+        return <Alert type="info" message="Loading" />;
+    }
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
 
     return (
         <PageContainer>
             <UserHeader
-                name="Jane Doe"
-                title="Software Engineer"
-                skills={['Pandas', 'Multivariate Calculus', 'Juggling']}
-                teams={['Product', 'Data Science']}
-                email="jane@datahub.ui"
+                profileSrc={data?.corpUser?.editableInfo?.pictureLink}
+                name={data?.corpUser?.info?.displayName}
+                title={data?.corpUser?.info?.title}
+                email={data?.corpUser?.info?.email}
+                skills={data?.corpUser?.editableInfo?.skills}
+                teams={data?.corpUser?.editableInfo?.teams}
             />
             <Divider />
-            <UserDetails
-                urn={urn}
-                subview={subview}
-                item={item}
-                ownerships={{
-                    [EntityType.Dataset]: [
-                        {
-                            name: 'HiveDataset',
-                            origin: 'PROD',
-                            description: 'this is a dataset',
-                            platformNativeType: PlatformNativeType.Table,
-                        },
-                        {
-                            name: 'KafkaDataset',
-                            origin: 'PROD',
-                            description: 'this is also a dataset',
-                            platformNativeType: PlatformNativeType.Table,
-                        },
-                    ],
-                }}
-            />
+            <UserDetails urn={urn} subview={subview} item={item} ownerships={{}} />
         </PageContainer>
     );
 }
