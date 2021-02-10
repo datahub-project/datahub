@@ -4,12 +4,12 @@ import React from 'react';
 import { Space, Badge, Typography, Avatar } from 'antd';
 
 type Props = {
-    profileSrc?: string;
-    name: string;
-    title: string;
-    skills: string[];
-    teams: string[];
-    email: string;
+    profileSrc?: string | null;
+    name?: string | null;
+    title?: string | null;
+    skills?: string[] | null;
+    teams?: string[] | null;
+    email?: string | null;
 };
 
 const Row = styled.div`
@@ -48,7 +48,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                         <Skills>
                             <Typography.Title level={5}>Ask me about</Typography.Title>
                             <Space>
-                                {skills.map((skill) => (
+                                {skills?.map((skill) => (
                                     <Badge style={{ backgroundColor: '#108ee9' }} count={skill} key={skill} />
                                 ))}
                             </Space>
@@ -56,7 +56,7 @@ export default function UserHeader({ profileSrc, name, title, skills, teams, ema
                         <div>
                             <Typography.Title level={5}>Teams</Typography.Title>
                             <Space>
-                                {teams.map((team) => (
+                                {teams?.map((team) => (
                                     <Badge style={{ backgroundColor: '#87d068' }} count={team} key={team} />
                                 ))}
                             </Space>

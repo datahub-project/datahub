@@ -9,9 +9,12 @@ query getUser($urn: String!) {
             firstName
             lastName
             fullName
+            email
         }
         editableInfo {
             pictureLink
+            teams
+            skills
         }
     }
 }
