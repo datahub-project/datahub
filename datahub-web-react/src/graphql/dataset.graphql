@@ -1,162 +1,122 @@
-query getDataset($urn: String!) {
-    dataset(urn: $urn) {
-        urn
-        name
-        type
-        origin
-        description
-        uri
-        platformNativeType
-        tags
-        properties {
-            key
-            value
-        }
-        created {
-            time
+fragment nonRecursiveDatasetFields on Dataset {
+    urn
+    name
+    type
+    origin
+    description
+    uri
+    platformNativeType
+    tags
+    properties {
+        key
+        value
+    }
+    created {
+        time
+    }
+    lastModified {
+        time
+    }
+    ownership {
+        owners {
+            owner {
+                urn
+                type
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+            type
         }
         lastModified {
             time
         }
-        ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        firstName
-                        lastName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
+    }
+    institutionalMemory {
+        elements {
+            url
+            author
+            description
+            created {
+                actor
                 time
             }
         }
-        institutionalMemory {
-            elements {
-                url
-                author
-                description
-                created {
-                    actor
-                    time
-                }
+    }
+    schema {
+        datasetUrn
+        name
+        platformUrn
+        version
+        hash
+        platformSchema {
+            ... on TableSchema {
+                schema
+            }
+            ... on KeyValueSchema {
+                keySchema
+                valueSchema
             }
         }
-        schema {
-            datasetUrn
-            name
-            platformUrn
-            version
-            hash
-            platformSchema {
-                ... on TableSchema {
-                    schema
-                }
-                ... on KeyValueSchema {
-                    keySchema
-                    valueSchema
-                }
-            }
-            fields {
-                fieldPath
-                jsonPath
-                nullable
-                description
-                type
-                nativeDataType
-                recursive
-            }
-            primaryKeys
+        fields {
+        fieldPath
+        jsonPath
+        nullable
+        description
+        type
+        nativeDataType
+        recursive
         }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
-        }
+        primaryKeys
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
     }
 }
 
 mutation updateDataset($input: DatasetUpdateInput!) {
     updateDataset(input: $input) {
-        urn
-        ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
+        ...nonRecursiveDatasetFields
+    }
+}
+
+query getDataset($urn: String!) {
+    dataset(urn: $urn) {
+        ...nonRecursiveDatasetFields
+        upstreamLineage {
+            upstreams {
+                dataset {
+                    ...nonRecursiveDatasetFields
                 }
                 type
-            }
-            lastModified {
-                time
-            }
-        }
-        institutionalMemory {
-            elements {
-                url
-                author
-                description
                 created {
-                    actor
                     time
                 }
             }
         }
-        schema {
-            datasetUrn
-            name
-            platformUrn
-            version
-            hash
-            platformSchema {
-                ... on TableSchema {
-                    schema
+        downstreamLineage {
+            downstreams {
+                dataset {
+                    ...nonRecursiveDatasetFields
                 }
-                ... on KeyValueSchema {
-                    keySchema
-                    valueSchema
-                }
-            }
-            fields {
-                fieldPath
-                jsonPath
-                nullable
-                description
                 type
-                nativeDataType
-                recursive
+                created {
+                    time
+                }
             }
-            primaryKeys
-        }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
         }
     }
 }

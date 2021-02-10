@@ -7,7 +7,6 @@ import { Dataset } from '../../../../types.generated';
 import LineageView from './Lineage';
 import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
-import { sampleDownstreamEntities, sampleUpstreamEntities } from './stories/lineageEntities';
 import DatasetHeader from './DatasetHeader';
 
 export enum TabType {
@@ -30,7 +29,14 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
 
     const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
 
-    const getTabs = ({ ownership, properties, institutionalMemory, schema }: Dataset) => {
+    const getTabs = ({
+        ownership,
+        upstreamLineage,
+        downstreamLineage,
+        properties,
+        institutionalMemory,
+        schema,
+    }: Dataset) => {
         return [
             {
                 name: TabType.Ownership,
@@ -53,12 +59,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Lineage,
                 path: TabType.Lineage.toLowerCase(),
-                content: (
-                    <LineageView
-                        upstreamEntities={sampleUpstreamEntities}
-                        downstreamEntities={sampleDownstreamEntities}
-                    />
-                ),
+                content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
                 name: TabType.Properties,

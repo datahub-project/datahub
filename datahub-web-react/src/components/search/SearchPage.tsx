@@ -1,7 +1,8 @@
 import React from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
-import { Affix, Col, Row, Tabs, Layout } from 'antd';
+import { Affix, Col, Row, Tabs, Layout, List } from 'antd';
+
 import { SearchablePage } from './SearchablePage';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { SearchResults } from './SearchResults';
@@ -67,9 +68,13 @@ export const SearchPage = () => {
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
-    const toSearchResults = (elements: any) => {
-        return elements.map((element: any) => entityRegistry.renderSearchResult(activeType, element));
-    };
+    const toSearchResults = (elements: any) => (
+        <List
+            dataSource={elements}
+            renderItem={(item) => <List.Item>{entityRegistry.renderSearchResult(activeType, item)}</List.Item>}
+            bordered
+        />
+    );
 
     const searchResults = toSearchResults(data?.search?.entities || []);
 
