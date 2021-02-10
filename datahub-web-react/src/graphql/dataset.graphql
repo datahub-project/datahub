@@ -60,12 +60,13 @@ fragment nonRecursiveDatasetFields on Dataset {
         version
         hash
         platformSchema {
-        ... on TableSchema {
-            schema
-        }
-        ... on KeyValueSchema {
-            keySchema
-            valueSchema
+            ... on TableSchema {
+                schema
+            }
+            ... on KeyValueSchema {
+                keySchema
+                valueSchema
+            }
         }
         fields {
         fieldPath
