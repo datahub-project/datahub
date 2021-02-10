@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import defaultAvatar from '../../../../images/default_avatar.png';
 import { Ownership as OwnershipView } from './Ownership';
-import { Schema as SchemaView } from './Schema';
+import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -60,7 +60,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
         </>
     );
 
-    const getTabs = ({ ownership, properties, institutionalMemory }: Dataset) => {
+    const getTabs = ({ ownership, properties, institutionalMemory, schema }: Dataset) => {
         return [
             {
                 name: TabType.Ownership,
@@ -78,7 +78,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
-                content: <SchemaView />,
+                content: <SchemaView schema={schema} />,
             },
             {
                 name: TabType.Lineage,
