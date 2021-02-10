@@ -5,15 +5,13 @@ from gometa.ingestion.run.pipeline import Pipeline
 
 
 class PipelineTest(unittest.TestCase):
-    @patch("gometa.ingestion.extractor.kafka.KafkaMetadataExtractor")
     @patch("gometa.ingestion.source.kafka.KafkaSource.get_workunits")
     @patch("gometa.ingestion.sink.console.ConsoleSink.close")
-    def test_configure(self, mock_sink, mock_source, mock_extractor):
+    def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline(
             {
                 "source": {
                     "type": "kafka",
-                    "extractor": "gometa.ingestion.extractor.kafka.KafkaMetadataExtractor",
                     "kafka": {"bootstrap": "localhost:9092"},
                 },
                 "sink": {"type": "console"},
