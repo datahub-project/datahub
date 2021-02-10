@@ -16,7 +16,7 @@ import gometa.ingestion.extractor.schema_util as schema_util
 
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, KafkaSchema
+from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, KafkaSchema, SchemaField
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
 logger = logging.getLogger(__name__)
@@ -99,11 +99,18 @@ class KafkaSource(Source):
         except Exception as e:
             logger.debug(f"failed to get schema for {topic} with {e}")
 
+        fields: Optional[List[SchemaField]] = None
+        if schema and schema.schema_type == 'AVRO':
+            fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
+        elif schema:
+            logger.debug(f"unable to parse kafka schema type {schema.schema_type}")
+
+        is_incomplete = True
         if schema:
-            # TODO: add schema parsing capabilities
-            # canonical_schema = []
-            # if schema.schema_type == "AVRO":
-            #     canonical_schema = schema_util.avro_schema_to_mce_fields(schema.schema_str)
+            if not fields:
+                fields = []
+            else:
+                is_incomplete = False
 
             schema_metadata = SchemaMetadata(
                 schemaName=topic,
@@ -111,16 +118,16 @@ class KafkaSource(Source):
                 hash=str(schema._hash),
                 platform=f"urn:li:dataPlatform:{platform}",
                 platformSchema = KafkaSchema(
-                    # TODO: keySchema
                     documentSchema=schema.schema_str
                 ),
-                fields=[],
+                fields=(fields if fields is not None else []),
                 created=AuditStamp(time=sys_time, actor=actor),
                 lastModified=AuditStamp(time=sys_time, actor=actor),
             )
 
             dataset_snapshot.aspects.append(schema_metadata)
-        else:
+
+        if is_incomplete:
             self.report.report_schema_incomplete(topic)
 
         metadata_record.proposedSnapshot = dataset_snapshot
