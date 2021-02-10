@@ -22,7 +22,7 @@ export default ({ children }: Props) => {
 
     return (
         <MemoryRouter>
-            <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>;
+            <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
         </MemoryRouter>
     );
 };
