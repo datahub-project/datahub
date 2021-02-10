@@ -73,6 +73,7 @@ class DynamicFactory:
 
                 msg = "\n".join(messages)
                 raise ConfigurationError(f"Invalid value in configuration : \n{msg}") from e
+        raise ConfigurationError(f"Cannot load {dyn_config.type}")
 
 
 def generic_load_file(cls: Type[T], path: Path, loader_func) -> T:
