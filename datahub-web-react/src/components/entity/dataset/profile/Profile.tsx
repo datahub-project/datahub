@@ -1,17 +1,14 @@
 import React from 'react';
-import { Avatar, Tooltip, Typography } from 'antd';
-import { Link } from 'react-router-dom';
 import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
-import defaultAvatar from '../../../../images/default_avatar.png';
 import { Ownership as OwnershipView } from './Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { Dataset } from '../../../../types.generated';
 import LineageView from './Lineage';
 import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
 import { sampleDownstreamEntities, sampleUpstreamEntities } from './stories/lineageEntities';
+import DatasetHeader from './DatasetHeader';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -28,37 +25,10 @@ const EMPTY_ARR: never[] = [];
  * Responsible for display the Dataset Page
  */
 export const Profile = ({ urn }: { urn: string }): JSX.Element => {
-    const entityRegistry = useEntityRegistry();
-
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
-
     const [updateDataset] = useUpdateDatasetMutation();
 
-    const getBody = (description: string, ownership: any) => (
-        <>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Avatar.Group maxCount={6} size="large">
-                {ownership &&
-                    ownership.owners &&
-                    ownership.owners.map((owner: any) => (
-                        <Tooltip title={owner.owner.info?.fullName}>
-                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                                <Avatar
-                                    style={{
-                                        color: '#f56a00',
-                                        backgroundColor: '#fde3cf',
-                                    }}
-                                    src={
-                                        (owner.owner.editableInfo && owner.owner.editableInfo.pictureLink) ||
-                                        defaultAvatar
-                                    }
-                                />
-                            </Link>
-                        </Tooltip>
-                    ))}
-            </Avatar.Group>
-        </>
-    );
+    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
 
     const getTabs = ({ ownership, properties, institutionalMemory, schema }: Dataset) => {
         return [
@@ -118,8 +88,8 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
                 <EntityProfile
                     title={data.dataset.name}
                     tags={data.dataset.tags}
-                    body={getBody(data.dataset?.description || '', data.dataset?.ownership)}
                     tabs={getTabs(data.dataset as Dataset)}
+                    header={getHeader(data.dataset as Dataset)}
                 />
             )}
             {error && <p>Failed to load dataset with urn {urn}</p>}
