@@ -36,9 +36,10 @@ def gometa_ingest(config: str):
     elif config_file.suffix == ".toml":
       config_mech = TomlConfigurationMechanism()
     else:
-      raise ConfigurationError("Cannot process file type {}".format(config_file.suffix))
+      raise ConfigurationError("Only .toml and .yml are supported. Cannot process file type {}".format(config_file.suffix))
 
     pipeline_config = config_mech.load_config(PipelineConfig, config_file)
+    logger.debug(f'Using config: {pipeline_config}')
     pipeline = Pipeline(pipeline_config)
     pipeline.run()
 
