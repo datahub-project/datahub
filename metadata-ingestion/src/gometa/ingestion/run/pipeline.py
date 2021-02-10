@@ -38,8 +38,8 @@ class LoggingCallback(WriteCallback):
 class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
-    source: Optional[Source] = None
-    # TODO: make this listing exhaustive
+    source: Source
+    sink: Sink
 
     def get_class_from_name(self, class_string):
         module_name, class_name = class_string.rsplit(".",1)
@@ -53,41 +53,39 @@ class Pipeline:
         source_type = self.config.source.type
         try:
             source_class = source_class_mapping[source_type]
-        except KeyError:
-            logger.exception(f'Did not find a registered source class for {source_type}')
-            raise ValueError("Failed to configure source")
+        except KeyError as e:
+            raise ValueError(f'Did not find a registered source class for {source_type}') from e
         self.source: Source = source_class.create(self.config.source.dict().get(source_type, {}), self.ctx)
-        logger.info(f"Source type:{source_type},{source_class} configured")
+        logger.debug(f"Source type:{source_type},{source_class} configured")
+
         sink_type = self.config.sink.type
         try:
-            self.sink_class = sink_class_mapping[sink_type]
-        except KeyError:
-            logger.exception(f'Did not find a registered sink class for {sink_type}')
-            raise ValueError("Failed to configure sink")
-        self.sink_config = self.config.dict().get("sink", {"type": "datahub"}).get(sink_type, {})
+            sink_class = sink_class_mapping[sink_type]
+        except KeyError as e:
+            raise ValueError(f'Did not find a registered sink class for {sink_type}') from e
+        sink_config = self.config.sink.dict().get(sink_type, {})
+        self.sink: Sink = sink_class.create(sink_config, self.ctx)
+        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
-        # Ensure that sink and extractor can be constructed, even though we use them later
+        # Ensure extractor can be constructed, even though we use them later
         self.extractor_class = self.get_class_from_name(self.config.source.extractor)
 
     def run(self):
         callback = LoggingCallback()
         extractor = self.extractor_class()
-        SinkClass: Type[Sink] = self.sink_class
-        sink: Sink = SinkClass.create(self.sink_config, self.ctx)
-        logger.info(f"Sink type:{self.config.sink.type},{self.sink_class} configured")
         for wu in self.source.get_workunits():
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)
 
-            sink.handle_work_unit_start(wu)
+            self.sink.handle_work_unit_start(wu)
             for record_envelope in extractor.get_records(wu):
-                sink.write_record_async(record_envelope, callback) 
+                self.sink.write_record_async(record_envelope, callback)
             extractor.close()
-            sink.handle_work_unit_end(wu)
-        sink.close()
+            self.sink.handle_work_unit_end(wu)
+        self.sink.close()
 
-        result = {
-            'source': self.source.get_report().as_obj(),
-            'sink': sink.get_report().as_obj(),
-        }
-        pprint.pprint(result, sort_dicts=False)
+        print()
+        print('Source:')
+        print(self.source.get_report().as_string())
+        print('Sink:')
+        print(self.sink.get_report().as_string())
