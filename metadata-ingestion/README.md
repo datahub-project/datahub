@@ -40,7 +40,7 @@ sink:
 Running a recipe is quite easy.
 
 ```bash
-gometa-ingest -c ./recipes/kafka_to_datahub_rest.yaml
+gometa-ingest -c ./examples/recipes/kafka_to_datahub_rest.yaml
 ```
 
 A number of recipes are included in the recipes directory.
@@ -49,7 +49,7 @@ A number of recipes are included in the recipes directory.
 ## Build the image
 - source docker/docker_build.sh
 
-## Run an ingestion script (recipes/file_to_file.yml)
+## Run an ingestion script (examples/recipes/file_to_file.yml)
 We have a simple script provided that supports mounting a local directory for input recipes and an output directory for output data
-- source docker/docker_run.sh recipes/file_to_file.yml
+- source docker/docker_run.sh examples/recipes/file_to_file.yml
 
