@@ -65,22 +65,18 @@ for functional configurability should reside.
   and within entity profile pages. 
 - `search`: Shared components used to render the full-text search experience. 
 - `shared`: Misc. shared components
-- `entity`: Contains Entity definitions, where you can centrally configure functionality specific to a particular entity type.
-  Configuration is provided by implementing the 'Entity' interface. (See `DatasetEntity.tsx` for example) 
+- `entity`: Contains Entity definitions, where entity-specific functionality resides.
+  Configuration is provided by implementing the 'Entity' interface. (See DatasetEntity.tsx for example) 
   There are 2 visual components each entity should supply:
-    - `profile`: display relevant details about an individual entity. This serves as the entity's 'profile'.
-    - `preview`: provide a 'preview', or a smaller details card, containing the most important information about an entity instance. 
-    When fetching a preview, a preview type and data are provided. The entity implementation simply needs to take this information 
-    and render a preview view. Previews are used to render different experiences throughout the app. For example, search results fetch an 
-    entity preview with preview type SEARCH. The Browse experience does the same. Finally, showing small previews of *related* entities 
-    on an entity profile should leverage this functionality. 
-      
-    There's another very important piece of code living within this module: the `EntityRegistry`. This is a layer 
-    of abstraction separating other components from the intimate details of rendering a particular entity. It allows
-    federated access to the render methods discussed above on a per-entity basis, and is used in common places (like SearchPage)
-    to render a view associated with a particular entity type (user, dataset, etc.). When adding a new entity, it is imperative
-    that the Entity interface implementation be registered with the Registry when the app first deploys. Currently this registration 
-    process happens in `App.tsx`. More on this below. 
+    - `profiles`: display relevant details about an individual entity. This serves as the entity's 'profile'.
+    - `previews`: provide a 'preview', or a smaller details card, containing the most important information about an entity instance.
+        
+        When rendering a preview, the entity's data and the type of preview (SEARCH, BROWSE, PREVIEW) are provided. This 
+        allows you to optionally customize the way an entities preview is rendered in different views.
+  
+    - `entity registry`: There's another very important piece of code living within this module: the **EntityRegistry**. This is a layer 
+        of abstraction over the intimate details of rendering a particular entity. It is used
+        to render a view associated with a particular entity type (user, dataset, etc.).
   
     
 ![entity-registry](./entity-registry.png)
