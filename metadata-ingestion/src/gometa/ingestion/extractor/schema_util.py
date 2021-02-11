@@ -33,7 +33,7 @@ def _get_column_type(field_type) -> SchemaFieldDataType:
         tp = tp.type
     tp = str(tp)
     TypeClass: Any = _field_type_mapping.get(tp)
-    # TODO: we could populate the nestedTypes field for unions and similar fields
+    # Note: we could populate the nestedTypes field for unions and similar fields
     # for the other types as well. However, since we already populate the nativeDataType
     # field below, it is mostly ok to leave this as not fully initialized.
     dt = SchemaFieldDataType(type=TypeClass())
