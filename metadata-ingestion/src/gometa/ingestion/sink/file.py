@@ -4,30 +4,35 @@ from pydantic import BaseModel
 import os
 import pathlib
 import logging
+import json
+from gometa.metadata import json_converter
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
 
 class FileSinkConfig(BaseModel):
-    output_dir:str = "output"
-    file_name:str = "file.out"
+    filename: str
 
 class FileSink(Sink):
+    config: FileSinkConfig
+    report: SinkReport
 
-    def __init__(self, config: FileSinkConfig, ctx):
+    def __init__(self, ctx: PipelineContext, config: FileSinkConfig):
         super().__init__(ctx)
         self.config = config
         self.report = SinkReport()
-        p = pathlib.Path(f'{self.config.output_dir}/{ctx.run_id}/')
-        p.mkdir(parents=True)
-        fpath = p / self.config.file_name
+
+        fpath = pathlib.Path(self.config.filename)
         logger.info(f'Will write to {fpath}')
         self.file = fpath.open('w')
+        self.file.write('[\n')
+        self.wrote_something = False
 
 
     @classmethod
     def create(cls, config_dict, ctx: PipelineContext):
         config = FileSinkConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+        return cls(ctx, config)
 
 
     def handle_work_unit_start(self, wu):
@@ -37,12 +42,20 @@ class FileSink(Sink):
         pass
 
 
-    def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
-        record_string = str(record_envelope.record)
-        metadata = record_envelope.metadata
-        metadata["workunit-id"] = self.id
-        out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
-        self.file.write(out_line)
+    def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
+        mce = record_envelope.record
+        obj = json_converter.to_json_object(mce, MetadataChangeEvent.RECORD_SCHEMA)
+
+        if self.wrote_something:
+            self.file.write(',\n')
+
+        json.dump(obj, self.file, indent=4)
+        self.wrote_something = True
+
+        # record_string = str(record_envelope.record)
+        # metadata = record_envelope.metadata
+        # metadata["workunit-id"] = self.id
+        # out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
         self.report.report_record_written(record_envelope)
         write_callback.on_success(record_envelope, {})
     
@@ -50,5 +63,5 @@ class FileSink(Sink):
         return self.report
         
     def close(self):
-        if self.file:
-            self.file.close()
+        self.file.write('\n]')
+        self.file.close()
