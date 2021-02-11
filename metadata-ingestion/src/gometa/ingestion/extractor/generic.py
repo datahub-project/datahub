@@ -11,6 +11,8 @@ class WorkUnitMCEExtractor(Extractor):
         pass
 
     def get_records(self, workunit) -> Iterable[RecordEnvelope[MetadataChangeEvent]]:
+        if len(workunit.mce.proposedSnapshot.aspects) == 0:
+            raise AttributeError('every mce must have at least one aspect')
         yield RecordEnvelope(workunit.mce, {})
 
     def close(self):
