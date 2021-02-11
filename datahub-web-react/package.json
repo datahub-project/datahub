@@ -3,6 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "dependencies": {
+        "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
         "@apollo/client": "^3.3.6",
         "@storybook/react": "^6.1.11",
@@ -18,10 +19,13 @@
         "@types/react-router-dom": "^5.1.6",
         "antd": "^4.9.4",
         "graphql": "^15.4.0",
+        "history": "^5.0.0",
         "js-cookie": "^2.2.1",
         "query-string": "^6.13.8",
+        "rc-table": "^7.13.1",
         "react": "^17.0.0",
         "react-dom": "^17.0.0",
+        "react-icons": "^4.2.0",
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.1",
@@ -36,7 +40,8 @@
         "eject": "react-scripts eject",
         "storybook": "start-storybook -p 6006 -s public",
         "build-storybook": "build-storybook -s public",
-        "generate": "graphql-codegen --config codegen.yml"
+        "generate": "graphql-codegen --config codegen.yml",
+        "lint": "eslint . --ext .ts,.tsx --quiet"
     },
     "eslintConfig": {
         "extends": [
@@ -81,5 +86,8 @@
         "eslint-plugin-react": "^7.21.5",
         "prettier": "^2.2.1"
     },
-    "proxy": "http://localhost:9002"
+    "proxy": "http://localhost:9002",
+    "resolutions": {
+      "@ant-design/colors": "5.0.0"
+    }
 }
