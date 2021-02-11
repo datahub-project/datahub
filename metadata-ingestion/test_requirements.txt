@@ -14,7 +14,6 @@ mypy-extensions==0.4.3
 packaging==20.3
 pathspec==0.8.0
 pluggy==0.13.1
-py==1.8.1
 pycodestyle==2.6.0
 pyflakes==2.2.0
 pyparsing==2.4.7
