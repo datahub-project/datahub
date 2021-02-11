@@ -2,7 +2,7 @@
 source:
   type: "file"
   file:
-    filename: "./recipes/single_mce.json"
+    filename: "./examples/mce_files/single_mce.json"
 
 sink:
   type: "file"
