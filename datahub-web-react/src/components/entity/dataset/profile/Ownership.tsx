@@ -152,9 +152,6 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                                     }))) ||
                                 []
                             }
-                            style={{
-                                width: 400,
-                            }}
                             value={ownerQuery}
                             onSelect={onSelectSuggestion}
                             onSearch={onChangeOwnerQuery}
@@ -183,13 +180,13 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         {
             title: 'Role',
             dataIndex: 'role',
-            width: '200px',
             render: (role: OwnershipType, record: any) => {
                 return isEditing(record) ? (
                     <Form.Item
                         name="role"
                         style={{
                             margin: 0,
+                            width: '50%',
                         }}
                         rules={[
                             {
@@ -214,19 +211,23 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
             title: '',
             key: 'action',
             render: (_: string, record: any) => {
-                return isEditing(record) ? (
-                    <Space>
-                        <Button type="link" onClick={() => onSave(record)}>
-                            Save
-                        </Button>
-                        <Button type="link" style={{ color: 'grey' }} onClick={onCancel}>
-                            Cancel
-                        </Button>
+                return (
+                    <Space direction="horizontal">
+                        {isEditing(record) ? (
+                            <>
+                                <Button type="link" onClick={() => onSave(record)}>
+                                    Save
+                                </Button>
+                                <Button type="link" style={{ color: 'grey' }} onClick={onCancel}>
+                                    Cancel
+                                </Button>
+                            </>
+                        ) : (
+                            <Button type="link" style={{ color: 'red' }} onClick={() => onDelete(record.urn)}>
+                                Remove
+                            </Button>
+                        )}
                     </Space>
-                ) : (
-                    <Button type="link" style={{ color: 'red' }} onClick={() => onDelete(record.urn)}>
-                        Remove
-                    </Button>
                 );
             },
         },
