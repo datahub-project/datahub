@@ -1,0 +1,20 @@
+# Introduces datahub-frontend-react container to serve the React UI on localhost:9002/
+---
+version: '3.8'
+services:
+  datahub-frontend-react:
+    build:
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
+      args:
+        ENABLE_REACT: "true"
+        PORT: 9002
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-latest} # Reuse datahub-frontend image.
+    env_file: datahub-frontend/env/docker.env
+    hostname: datahub-frontend-react
+    container_name: datahub-frontend-react
+    ports:
+      - "9002:9002"
+    depends_on:
+      - datahub-gms
+      -
