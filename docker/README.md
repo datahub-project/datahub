@@ -57,7 +57,7 @@ This is because we're relying on builtkit for multistage builds. It does not hur
 something unique.
 
 ## React
-You may wish to serve the incubating React UI instead of the Ember UI. To do so, follow the instructions below.
+To serve the incubating React UI, follow the instructions below.
 
 > **Before continuing**: If you've already run a deploy script, don't forget to clear containers using `docker container prune`
 
