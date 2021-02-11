@@ -4,6 +4,7 @@ from typing import Optional, TypeVar, Type
 from pydantic import BaseModel, Field, ValidationError, validator
 from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
+from gometa.configuration.kafka import KafkaProducerConnectionConfig
 
 from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
@@ -13,29 +14,11 @@ from gometa.metadata import json_converter
 from gometa.metadata.schema_classes import SCHEMA_JSON_STR
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
-class KafkaConnectionConfig(BaseModel):
-    """Configuration class for holding connectivity information for Kafka"""
-    
-    # bootstrap servers
-    bootstrap: str = "localhost:9092"
-
-    # schema registry location
-    schema_registry_url: str = "http://localhost:8081"
-
-    @validator('bootstrap')
-    def bootstrap_host_colon_port_comma(cls, val):
-        for entry in val.split(","):
-            assert ":" in entry, f'entry must be of the form host:port, found {entry}'
-            (host,port) = entry.split(":")
-            assert host.isalnum(), f'host must be alphanumeric, found {host}'
-            assert port.isdigit(), f'port must be all digits, found {port}'
-
 DEFAULT_KAFKA_TOPIC="MetadataChangeEvent_v4"
 
 class KafkaSinkConfig(BaseModel):
-    connection: KafkaConnectionConfig = KafkaConnectionConfig()
+    connection: KafkaProducerConnectionConfig = KafkaProducerConnectionConfig()
     topic: str = DEFAULT_KAFKA_TOPIC
-    producer_config: dict = {}
 
 @dataclass
 class KafkaCallback:
@@ -66,10 +49,13 @@ class DatahubKafkaSink(Sink):
         producer_config = {
             "bootstrap.servers": self.config.connection.bootstrap,
             "schema.registry.url": self.config.connection.schema_registry_url,
-            **self.config.producer_config,
+            **self.config.connection.producer_config,
         }
 
-        schema_registry_conf = {'url': self.config.connection.schema_registry_url}
+        schema_registry_conf = {
+            'url': self.config.connection.schema_registry_url,
+            **self.config.connection.schema_registry_config,
+        }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
         def convert_mce_to_dict(mce, ctx):

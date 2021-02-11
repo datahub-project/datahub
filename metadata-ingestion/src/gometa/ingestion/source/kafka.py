@@ -1,5 +1,6 @@
 import logging
-from gometa.configuration import ConfigModel, KafkaConnectionConfig
+from gometa.configuration import ConfigModel
+from gometa.configuration.kafka import KafkaConsumerConnectionConfig
 from gometa.ingestion.api.source import Source, Extractor, SourceReport
 from gometa.ingestion.api.source import WorkUnit
 from typing import Optional, Iterable, List, Dict
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
-    connection: KafkaConnectionConfig = KafkaConnectionConfig()
+    connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic: str = ".*" # default is wildcard subscription
 
 
@@ -61,7 +62,11 @@ class KafkaSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.topic_pattern = re.compile(self.source_config.topic)
-        self.consumer = confluent_kafka.Consumer({'group.id':'test', 'bootstrap.servers':self.source_config.connection.bootstrap})
+        self.consumer = confluent_kafka.Consumer({
+            'group.id':'test',
+            'bootstrap.servers':self.source_config.connection.bootstrap,
+            **self.source_config.connection.consumer_config,
+        })
         self.schema_registry_client = SchemaRegistryClient(
             {"url": self.source_config.connection.schema_registry_url}
         )

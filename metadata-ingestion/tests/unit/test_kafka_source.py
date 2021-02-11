@@ -12,7 +12,7 @@ class KafkaSourceTest(unittest.TestCase):
     @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id='test')
-        kafka_source = KafkaSource.create({'connection': {'bootstrap': 'foobar'}}, ctx)
+        kafka_source = KafkaSource.create({'connection': {'bootstrap': 'foobar:9092'}}, ctx)
         assert mock_kafka.call_count == 1
 
     @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
