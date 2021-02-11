@@ -40,7 +40,7 @@ sink:
 Running a recipe is quite easy.
 
 ```bash
-gometa-ingest -c ./examples/recipes/kafka_to_datahub_rest.yaml
+gometa-ingest -c ./examples/recipes/kafka_to_datahub_rest.yml
 ```
 
 A number of recipes are included in the recipes directory.
