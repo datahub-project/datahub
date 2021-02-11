@@ -46,5 +46,3 @@ USER datahub
 
 #EXPOSE PORT_NUM
 ENTRYPOINT ["gometa-ingest"]
-#TODO: Make the config file configurable through docker env variable
-#CMD ["-c","/datahub-ingest/recipes/kafka_to_console.yaml"]
