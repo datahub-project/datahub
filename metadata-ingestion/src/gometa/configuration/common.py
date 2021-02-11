@@ -51,31 +51,6 @@ class AllowDenyPattern(BaseModel):
         return False
 
 
-
-class DynamicFactory:
-    def __init__(self):
-        self.factory = {}
-
-    def register(self, type, cfg_cls: Type[T]):
-        self.factory[type] = cfg_cls
-
-    def load_config(self, dyn_config: DynamicTypedConfig) -> ConfigModel:
-        if self.factory[dyn_config.type]:
-            config_class = self.factory[dyn_config.type]
-            try:
-                return config_class.parse_obj(dyn_config.dict()[dyn_config.type])
-            except ValidationError as e:
-                messages = []
-                for err in e.errors():
-                    location = ".".join((str(x) for x in err["loc"]))
-                    reason = err["msg"]
-                    messages.append(f"  - {location}: {reason}")
-
-                msg = "\n".join(messages)
-                raise ConfigurationError(f"Invalid value in configuration : \n{msg}") from e
-        raise ConfigurationError(f"Cannot load {dyn_config.type}")
-
-
 def generic_load_file(cls: Type[T], path: Path, loader_func) -> T:
     if not path.exists():
         return cls()
