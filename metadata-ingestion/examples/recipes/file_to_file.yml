@@ -2,9 +2,9 @@
 source:
   type: "file"
   file:
-    filename: "./examples/mce_files/single_mce.json"
+    filename: "./examples/mce_files/bootstrap_mce.json"
 
 sink:
   type: "file"
   file:
-    output_dir: "/output"
+    filename: './output/bootstrap_mce.json'
