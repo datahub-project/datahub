@@ -81,6 +81,9 @@ for functional configurability should reside.
     to render a view associated with a particular entity type (user, dataset, etc.). When adding a new entity, it is imperative
     that the Entity interface implementation be registered with the Registry when the app first deploys. Currently this registration 
     process happens in `App.tsx`. More on this below. 
+  
+    
+![entity-registry](./entity-registry.png)
 
 **graphql** - The React App talks to the `dathub-frontend` server using GraphQL. This module is where the *queries* issued
 against the server are defined. Once defined, running `yarn run generate` will code-gen TypeScript objects to make invoking 
