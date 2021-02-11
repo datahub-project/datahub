@@ -17,7 +17,7 @@ const MOCK_MODE = false;
     Construct Apollo Client 
 */
 const client = new ApolloClient({
-    uri: 'http://localhost:3000/api/v2/graphql',
+    uri: '/api/v2/graphql',
     cache: new InMemoryCache({
         typePolicies: {
             Dataset: {
