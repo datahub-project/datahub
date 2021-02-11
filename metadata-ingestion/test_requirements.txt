@@ -18,7 +18,7 @@ py==1.8.1
 pycodestyle==2.6.0
 pyflakes==2.2.0
 pyparsing==2.4.7
-pytest==5.4.2
+pytest==6.2.2
 pytest-cov==2.8.1
 regex==2020.5.7
 six==1.14.0
@@ -29,3 +29,4 @@ wcwidth==0.1.9
 zipp==3.1.0
 pytest-docker
 sqlalchemy-stubs
+deepdiff

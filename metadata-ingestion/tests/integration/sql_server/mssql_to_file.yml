@@ -10,3 +10,5 @@ source:
 
 sink:
   type: file
+  file:
+    filename: './mssql_mces.json'

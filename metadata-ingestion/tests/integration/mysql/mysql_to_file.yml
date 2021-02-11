@@ -10,3 +10,5 @@ source:
 
 sink:
   type: file
+  file:
+    filename: './mysql_mces.json'

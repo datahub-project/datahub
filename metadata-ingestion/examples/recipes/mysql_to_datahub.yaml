@@ -6,4 +6,6 @@ source:
     password: datahub
 
 sink:
-  type: "file"
+  type: "datahub-rest"
+  datahub-rest:
+    server: 'http://localhost:8080'

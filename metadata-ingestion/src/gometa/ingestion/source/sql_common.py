@@ -11,8 +11,13 @@ from gometa.configuration.common import AllowDenyPattern
 from pydantic import BaseModel
 import logging
 import time
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from dataclasses import dataclass, field
+
+from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaMetadata, KafkaSchema, SchemaField, SchemaFieldDataType,
+    BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +26,12 @@ logger = logging.getLogger(__name__)
 class SQLSourceReport(SourceReport):
     tables_scanned = 0
     filtered: List[str] = field(default_factory=list)
+    warnings: Dict[str, List[str]] = field(default_factory=dict)
+
+    def report_warning(self, table_name: str, reason: str) -> None:
+        if table_name not in self.warnings:
+            self.warnings[table_name] = []
+        self.warnings[table_name].append(reason)
 
     def report_table_scanned(self, table_name: str) -> None:
         self.tables_scanned += 1
@@ -51,41 +62,45 @@ class SqlWorkUnit(WorkUnit):
     def get_metadata(self):
         return {'mce': self.mce}
     
+_field_type_mapping = {
+    types.Integer: NumberTypeClass,
+    types.Numeric: NumberTypeClass,
+    types.Boolean: BooleanTypeClass,
+    types.Enum: EnumTypeClass,
+    types._Binary: BytesTypeClass,
+    types.PickleType: BytesTypeClass,
+    types.ARRAY: ArrayTypeClass,
+    types.String: StringTypeClass,
+}
 
-def get_column_type(column_type):
-        """
-        Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
-        """
-        if isinstance(column_type, (types.Integer, types.Numeric)):
-            return ("com.linkedin.pegasus2avro.schema.NumberType", {})
+def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type) -> SchemaFieldDataType:
+    """
+    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
+    """
 
-        if isinstance(column_type, (types.Boolean)):
-            return ("com.linkedin.pegasus2avro.schema.BooleanType", {})
+    TypeClass: Any = None
+    for sql_type in _field_type_mapping.keys():
+        if isinstance(column_type, sql_type):
+            TypeClass = _field_type_mapping[sql_type]
+            break
+    
+    if TypeClass is None:
+        sql_report.report_warning(dataset_name, f'unable to map type {column_type} to metadata schema')
+        TypeClass = NullTypeClass
 
-        if isinstance(column_type, (types.Enum)):
-            return ("com.linkedin.pegasus2avro.schema.EnumType", {})
-
-        if isinstance(column_type, (types._Binary, types.PickleType)):
-            return ("com.linkedin.pegasus2avro.schema.BytesType", {})
-
-        if isinstance(column_type, (types.ARRAY)):
-            return ("com.linkedin.pegasus2avro.schema.ArrayType", {})
-
-        if isinstance(column_type, (types.String)):
-            return ("com.linkedin.pegasus2avro.schema.StringType", {})
-
-        return ("com.linkedin.pegasus2avro.schema.NullType", {})
+    return SchemaFieldDataType(type=TypeClass())
 
 
-def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
-
-
-    canonical_schema = [ {
-            "fieldPath": column["name"],
-            "nativeDataType": repr(column["type"]),
-            "type": { "type": get_column_type(column["type"]) },
-            "description": column.get("comment", None)
-        } for column in columns ]
+def get_schema_metadata(sql_report: SQLSourceReport, dataset_name: str, platform: str, columns) -> SchemaMetadata:
+    canonical_schema: List[SchemaField] = []
+    for column in columns:
+        field = SchemaField(
+            fieldPath=column['name'],
+            nativeDataType=repr(column['type']),
+            type=get_column_type(sql_report, dataset_name, column['type']),
+            description=column.get("comment", None),
+        )
+        canonical_schema.append(field)
 
 
     actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
@@ -94,12 +109,14 @@ def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
         platform=f'urn:li:dataPlatform:{platform}',
         version=0,
         hash="",
-        #TODO: this is bug-compatible with existing scripts. Will fix later
-        platformSchema=MySqlDDL(tableSchema = ""),
+        platformSchema=MySqlDDL(
+            #TODO: this is bug-compatible with existing scripts. Will fix later
+            tableSchema = ""
+        ),
         created = AuditStamp(time=sys_time, actor=actor),
         lastModified = AuditStamp(time=sys_time, actor=actor),
         fields = canonical_schema,
-        )
+    )
     return schema_metadata
 
 
@@ -140,7 +157,7 @@ class SQLAlchemySource(Source):
                     dataset_snapshot.urn=(
                         f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
                     )
-                    schema_metadata = get_schema_metadata(dataset_name, platform, columns)
+                    schema_metadata = get_schema_metadata(self.report, dataset_name, platform, columns)
                     dataset_snapshot.aspects.append(schema_metadata)
                     mce.proposedSnapshot = dataset_snapshot
                     
