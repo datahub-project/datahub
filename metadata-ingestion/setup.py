@@ -52,7 +52,7 @@ setuptools.setup(
     ],
     python_requires=">=3.7",
     package_dir={"": "src"},
-    packages=["gometa", "gometa.configuration"],#TODO: Are these the right components?
+    packages=setuptools.find_packages(where='./src'),
     include_package_data=True,
     package_data={"gometa": ["py.typed"]},
     entry_points={
