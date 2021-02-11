@@ -16,17 +16,6 @@ describe('HomePage', () => {
         );
     });
 
-    it('renders greeting message', async () => {
-        const { getByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <HomePage />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        await waitFor(() => expect(getByText('Welcome back, .')).toBeInTheDocument());
-    });
-
     it('renders browsable entities', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>

@@ -76,6 +76,7 @@ module.exports = {
       "docs/demo/graph-onboarding",
       "docs/how/search-onboarding",
       "docs/how/search-over-new-field",
+      "docs/how/configure-oidc-react",
     ],
     Components: [
       "datahub-web-react/README",

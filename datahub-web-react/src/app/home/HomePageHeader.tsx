@@ -60,7 +60,11 @@ export const HomePageHeader = () => {
         <Background direction="vertical">
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
-                    Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
+                    {data && (
+                        <>
+                            Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
+                        </>
+                    )}
                 </WelcomeText>
                 <ManageAccount
                     urn={data?.corpUser?.urn || ''}
