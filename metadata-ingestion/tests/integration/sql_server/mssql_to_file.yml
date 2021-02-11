@@ -1,4 +1,5 @@
----
+run_id: mssql-test
+
 source:
   type: mssql
   mssql:
@@ -9,4 +10,3 @@ source:
 
 sink:
   type: file
-run_id: test
