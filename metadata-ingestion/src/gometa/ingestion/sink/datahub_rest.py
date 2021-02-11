@@ -109,7 +109,6 @@ class DatahubRestSink(Sink):
             write_callback.on_success(record_envelope, {})
         except HTTPError as e:
             info = response.json()
-            breakpoint()
             self.report.report_failure({'e': e, 'info': info})
             write_callback.on_failure(record_envelope, e, info)
         except Exception as e:

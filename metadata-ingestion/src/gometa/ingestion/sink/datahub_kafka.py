@@ -33,7 +33,6 @@ class KafkaConnectionConfig(BaseModel):
 DEFAULT_KAFKA_TOPIC="MetadataChangeEvent_v4"
 
 class KafkaSinkConfig(BaseModel):
-    """TODO: Write a post_init method to populate producer_config from the modeled config"""
     connection: KafkaConnectionConfig = KafkaConnectionConfig()
     topic: str = DEFAULT_KAFKA_TOPIC
     producer_config: dict = {}
