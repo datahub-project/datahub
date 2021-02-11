@@ -30,6 +30,9 @@ def gometa_ingest(config: str):
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
+    if not config_file.is_file():
+      raise ConfigurationError(f"Cannot open config file {config}")
+
     config_mech: ConfigurationMechanism
     if config_file.suffix in [".yaml", ".yml"]:
       config_mech = YamlConfigurationMechanism()

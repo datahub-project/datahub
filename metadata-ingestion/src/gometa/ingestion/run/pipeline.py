@@ -2,7 +2,7 @@ from typing import Dict
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 import pprint
-from gometa.configuration.common import DynamicTypedConfig, DynamicFactory
+from gometa.configuration.common import DynamicTypedConfig, ConfigModel
 from gometa.ingestion.api.source import Source, Extractor
 from gometa.ingestion.source import source_class_mapping
 from gometa.ingestion.api.common import PipelineContext
@@ -20,7 +20,7 @@ class SourceConfig(DynamicTypedConfig):
     extractor: Optional[str] = "gometa.ingestion.extractor.generic.WorkUnitMCEExtractor"
 
 
-class PipelineConfig(BaseModel):
+class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     run_id: str = str(int(time.time()) * 1000)
