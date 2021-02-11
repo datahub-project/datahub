@@ -2,7 +2,7 @@ import logging
 from gometa.configuration import ConfigModel, KafkaConnectionConfig
 from gometa.ingestion.api.source import Source, Extractor, SourceReport
 from gometa.ingestion.api.source import WorkUnit
-from typing import Optional, Iterable, List
+from typing import Optional, Iterable, List, Dict
 from dataclasses import dataclass, field
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
@@ -17,7 +17,7 @@ import gometa.ingestion.extractor.schema_util as schema_util
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, KafkaSchema, SchemaField
-from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +30,22 @@ class KafkaSourceConfig(ConfigModel):
 @dataclass
 class KafkaSourceReport(SourceReport):
     topics_scanned = 0
-    incomplete_schemas: List[str] = field(default_factory=list)
+    warnings: Dict[str, List[str]] = field(default_factory=dict)
+    failures: Dict[str, List[str]] = field(default_factory=dict)
     filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
+    
+    def report_warning(self, topic: str, reason: str) -> None:
+        if topic not in self.warnings:
+            self.warnings[topic] = []
+        self.warnings[topic].append(reason)
 
-    def report_schema_incomplete(self, topic: str) -> None:
-        self.incomplete_schemas.append(topic)
+    def report_failure(self, topic: str, reason: str) -> None:
+        if topic not in self.failures:
+            self.failures[topic] = []
+        self.failures[topic].append(reason)
     
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
@@ -84,34 +92,33 @@ class KafkaSource(Source):
         dataset_name = topic
         env = "PROD"  # TODO: configure!
         actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
-        metadata_record = MetadataChangeEvent()
-        dataset_snapshot = DatasetSnapshot()
-        dataset_snapshot.urn = (
-            f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-        )
 
-        schema = None
+        metadata_record = MetadataChangeEvent()
+        dataset_snapshot = DatasetSnapshot(
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+        )
+        dataset_snapshot.aspects.append(Status(removed=False))
+        metadata_record.proposedSnapshot = dataset_snapshot
+
+        # Fetch schema from the registry.
+        has_schema = True
         try:
             registered_schema = self.schema_registry_client.get_latest_version(
                 topic + "-value"
             )
             schema = registered_schema.schema
         except Exception as e:
-            logger.debug(f"failed to get schema for {topic} with {e}")
+            self.report.report_warning(topic, f"failed to get schema: {e}")
+            has_schema = False
 
-        fields: Optional[List[SchemaField]] = None
-        if schema and schema.schema_type == 'AVRO':
+        # Parse the schema
+        fields: List[SchemaField] = []
+        if has_schema and schema.schema_type == 'AVRO':
             fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
-        elif schema:
-            logger.debug(f"unable to parse kafka schema type {schema.schema_type}")
+        elif has_schema:
+            self.report.report_warning(topic, f"unable to parse kafka schema type {schema.schema_type}")
 
-        is_incomplete = True
-        if schema:
-            if not fields:
-                fields = []
-            else:
-                is_incomplete = False
-
+        if has_schema:
             schema_metadata = SchemaMetadata(
                 schemaName=topic,
                 version=0,
@@ -120,17 +127,12 @@ class KafkaSource(Source):
                 platformSchema = KafkaSchema(
                     documentSchema=schema.schema_str
                 ),
-                fields=(fields if fields is not None else []),
+                fields=fields,
                 created=AuditStamp(time=sys_time, actor=actor),
                 lastModified=AuditStamp(time=sys_time, actor=actor),
             )
-
             dataset_snapshot.aspects.append(schema_metadata)
 
-        if is_incomplete:
-            self.report.report_schema_incomplete(topic)
-
-        metadata_record.proposedSnapshot = dataset_snapshot
         return metadata_record
 
     def get_report(self):
