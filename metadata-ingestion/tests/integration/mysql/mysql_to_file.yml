@@ -1,4 +1,5 @@
----
+run_id: mysql-test
+
 source:
   type: mysql
   mysql:
@@ -9,4 +10,3 @@ source:
 
 sink:
   type: file
-run_id: test
