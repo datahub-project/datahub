@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 
-import { DatasetEntity } from '../../components/entity/dataset/DatasetEntity';
-import { UserEntity } from '../../components/entity/user/User';
-import EntityRegistry from '../../components/entity/EntityRegistry';
+import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
+import { UserEntity } from '../../app/entity/user/User';
+import EntityRegistry from '../../app/entity/EntityRegistry';
 import { EntityRegistryContext } from '../../entityRegistryContext';
 
 type Props = {
