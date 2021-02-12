@@ -39,7 +39,11 @@ class FileSink(Sink):
     def handle_work_unit_end(self, wu):
         pass
 
-    def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
+    def write_record_async(
+        self,
+        record_envelope: RecordEnvelope[MetadataChangeEvent],
+        write_callback: WriteCallback,
+    ):
         mce = record_envelope.record
         obj = mce.to_obj()
 

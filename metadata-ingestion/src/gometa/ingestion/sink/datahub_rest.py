@@ -23,13 +23,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 resource_locator: Dict[Type[object], str] = {
-    ChartSnapshotClass: 'charts',
-    DashboardSnapshotClass: 'dashboards',
-    CorpUserSnapshotClass: 'corpUsers',
-    CorpGroupSnapshotClass: 'corpGroups',
-    DatasetSnapshotClass: 'datasets',
-    DataProcessSnapshotClass: 'dataProcesses',
-    MLModelSnapshotClass: 'mlModels',
+    ChartSnapshotClass: "charts",
+    DashboardSnapshotClass: "dashboards",
+    CorpUserSnapshotClass: "corpUsers",
+    CorpGroupSnapshotClass: "corpGroups",
+    DatasetSnapshotClass: "datasets",
+    DataProcessSnapshotClass: "dataProcesses",
+    MLModelSnapshotClass: "mlModels",
 }
 
 
@@ -38,10 +38,10 @@ def _rest_li_ify(obj):
         if len(obj.keys()) == 1:
             key = list(obj.keys())[0]
             value = obj[key]
-            if key.find('com.linkedin.pegasus2avro.') >= 0:
-                new_key = key.replace('com.linkedin.pegasus2avro.', 'com.linkedin.')
+            if key.find("com.linkedin.pegasus2avro.") >= 0:
+                new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
                 return {new_key: _rest_li_ify(value)}
-            elif key == 'string' or key == 'array':
+            elif key == "string" or key == "array":
                 return value
 
         new_obj = {}
@@ -69,18 +69,17 @@ class DatahubRestSink(Sink):
     @classmethod
     def create(cls, config_dict, ctx):
         config = DatahubRestSinkConfig.parse_obj(config_dict)
-        # TODO verify that config points to a valid server
-        # response = requests.get(f"http://{config.server}/")
-        # assert response.status_code == 200
         return cls(ctx, config)
 
     def get_ingest_endpoint(self, mce: MetadataChangeEvent):
         snapshot_type = type(mce.proposedSnapshot)
         snapshot_resource = resource_locator.get(snapshot_type, None)
         if not snapshot_resource:
-            raise ValueError(f"Failed to locate a snapshot resource for type {snapshot_type}")
+            raise ValueError(
+                f"Failed to locate a snapshot resource for type {snapshot_type}"
+            )
 
-        return f'{self.config.server}/{snapshot_resource}?action=ingest'
+        return f"{self.config.server}/{snapshot_resource}?action=ingest"
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
@@ -88,8 +87,12 @@ class DatahubRestSink(Sink):
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass
 
-    def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
-        headers = {'X-RestLi-Protocol-Version': '2.0.0'}
+    def write_record_async(
+        self,
+        record_envelope: RecordEnvelope[MetadataChangeEvent],
+        write_callback: WriteCallback,
+    ):
+        headers = {"X-RestLi-Protocol-Version": "2.0.0"}
 
         mce = record_envelope.record
         url = self.get_ingest_endpoint(mce)
@@ -97,7 +100,7 @@ class DatahubRestSink(Sink):
         raw_mce_obj = mce.proposedSnapshot.to_obj()
 
         mce_obj = _rest_li_ify(raw_mce_obj)
-        snapshot = {'snapshot': mce_obj}
+        snapshot = {"snapshot": mce_obj}
         try:
             response = requests.post(url, headers=headers, json=snapshot)
             # with open('data.json', 'w') as outfile:
@@ -107,10 +110,10 @@ class DatahubRestSink(Sink):
             write_callback.on_success(record_envelope, {})
         except HTTPError as e:
             info = response.json()
-            self.report.report_failure({'e': e, 'info': info})
+            self.report.report_failure({"e": e, "info": info})
             write_callback.on_failure(record_envelope, e, info)
         except Exception as e:
-            self.report.report_failure({'e': e})
+            self.report.report_failure({"e": e})
             write_callback.on_failure(record_envelope, e, {})
 
     def get_report(self) -> SinkReport:

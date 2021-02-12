@@ -12,5 +12,7 @@ def test_ingest(mysql, pytestconfig, tmp_path):
     assert ret == 0
 
     output = mce_helpers.load_json_file(str(tmp_path / "mysql_mces.json"))
-    golden = mce_helpers.load_json_file(str(test_resources_dir / "mysql_mce_golden.json"))
+    golden = mce_helpers.load_json_file(
+        str(test_resources_dir / "mysql_mce_golden.json")
+    )
     mce_helpers.assert_mces_equal(output, golden)
