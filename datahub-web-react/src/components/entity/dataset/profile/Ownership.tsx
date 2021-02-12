@@ -1,12 +1,12 @@
-import { AutoComplete, Avatar, Button, Col, Row, Select, Table, Typography } from 'antd';
-import React, { useMemo, useState } from 'react';
+import { AutoComplete, Avatar, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, Owner, OwnershipType, OwnershipUpdate } from '../../../../types.generated';
+import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../../types.generated';
 import defaultAvatar from '../../../../images/default_avatar.png';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
-const OWNER_SEARCH_PLACEHOLDER = 'Enter an LDAP...';
+const OWNER_SEARCH_PLACEHOLDER = 'Search an LDAP';
 const NUMBER_OWNERS_REQUIRED = 2;
 
 interface Props {
@@ -23,28 +23,56 @@ interface Props {
 export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwnership }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    const ownerTableData = useMemo(
-        () =>
-            owners.map((owner) => ({
-                urn: owner.owner.urn,
-                ldap: owner.owner.username,
-                fullName: owner.owner.info?.fullName,
-                type: 'USER',
-                role: owner.type,
-                pictureLink: owner.owner.editableInfo?.pictureLink,
-            })),
-        [owners],
-    );
-
-    const [showAddOwner, setShowAddOwner] = useState(false);
+    const [form] = Form.useForm();
+    const [editingIndex, setEditingIndex] = useState(-1);
+    const [stagedOwners, setStagedOwners] = useState(owners);
     const [ownerQuery, setOwnerQuery] = useState('');
     const [getOwnerAutoCompleteResults, { data: searchOwnerSuggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
-    const onShowAddAnOwner = () => {
-        setShowAddOwner(true);
+    useEffect(() => {
+        setStagedOwners(owners);
+    }, [owners]);
+
+    const ownerTableData = useMemo(
+        () =>
+            stagedOwners.map((owner, index) => ({
+                key: index,
+                urn: owner.owner.urn,
+                ldap: owner.owner.username,
+                fullName: owner.owner.info?.fullName,
+                role: owner.type,
+                pictureLink: owner.owner.editableInfo?.pictureLink,
+            })),
+        [stagedOwners],
+    );
+
+    const isEditing = (record: any) => record.key === editingIndex;
+
+    const onAdd = () => {
+        setEditingIndex(stagedOwners.length);
+
+        form.setFieldsValue({
+            ldap: '',
+            role: OwnershipType.Stakeholder,
+        });
+
+        const newOwner = {
+            owner: {
+                type: EntityType.CorpUser,
+                urn: '',
+                username: '',
+            },
+            type: OwnershipType.Stakeholder,
+            source: {
+                type: OwnershipSourceType.Manual,
+            },
+        };
+
+        const newStagedOwners = [...stagedOwners, newOwner];
+        setStagedOwners(newStagedOwners);
     };
 
-    const onDeleteOwner = (urn: string) => {
+    const onDelete = (urn: string) => {
         const updatedOwners = owners
             .filter((owner) => !(owner.owner.urn === urn))
             .map((owner) => ({
@@ -67,101 +95,54 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         setOwnerQuery(query);
     };
 
-    const onSelectOwner = (ldap: string) => {
-        const urn = `urn:li:corpuser:${ldap}`;
-        const updatedOwners = [
-            ...owners.map((owner) => ({ owner: owner.owner.urn, type: owner.type })),
-            {
-                owner: urn,
-                type: OwnershipType.Stakeholder,
-            },
-        ];
+    const onSave = async (record: any) => {
+        const row = await form.validateFields();
+
+        const updatedOwners = stagedOwners.map((owner, index) => {
+            if (record.key === index) {
+                return {
+                    owner: `urn:li:corpuser:${row.ldap}`,
+                    type: row.role,
+                };
+            }
+            return {
+                owner: owner.owner.urn,
+                type: owner.type,
+            };
+        });
         updateOwnership({ owners: updatedOwners });
-        setOwnerQuery('');
+        setEditingIndex(-1);
     };
 
-    const onChangeOwnershipType = (urn: string, type: OwnershipType) => {
-        const updatedOwners = owners.map((owner) => ({
-            owner: owner.owner.urn,
-            type: owner.owner.urn === urn ? type : owner.type,
-        }));
-        updateOwnership({ owners: updatedOwners });
+    const onCancel = () => {
+        const newStagedOwners = stagedOwners.filter((_, index) => index !== editingIndex);
+        setStagedOwners(newStagedOwners);
+        setEditingIndex(-1);
+    };
+
+    const onSelectSuggestion = (ldap: string) => {
+        setOwnerQuery(ldap);
     };
 
     const ownerTableColumns = [
         {
             title: 'LDAP',
             dataIndex: 'ldap',
-            render: (text: string, record: any) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
-                    <Avatar
+            render: (text: string, record: any) => {
+                return isEditing(record) ? (
+                    <Form.Item
+                        name="ldap"
                         style={{
-                            marginRight: '15px',
-                            color: '#f56a00',
-                            backgroundColor: '#fde3cf',
+                            margin: 0,
                         }}
-                        src={record.pictureLink || defaultAvatar}
-                    />
-                    {text}
-                </Link>
-            ),
-        },
-        {
-            title: 'Full Name',
-            dataIndex: 'fullName',
-        },
-        {
-            title: 'Type',
-            dataIndex: 'type',
-        },
-        {
-            title: 'Role',
-            dataIndex: 'role',
-            render: (role: OwnershipType, record: any) => (
-                <Select defaultValue={role} onChange={() => onChangeOwnershipType(record.urn, role)}>
-                    {Object.values(OwnershipType).map((value) => (
-                        <Select.Option value={value}>{value}</Select.Option>
-                    ))}
-                </Select>
-            ),
-        },
-        {
-            title: '',
-            key: 'action',
-            render: (_: string, record: any) => (
-                <Button type="link" style={{ color: 'red' }} onClick={() => onDeleteOwner(record.urn)}>
-                    Remove
-                </Button>
-            ),
-        },
-    ];
-
-    return (
-        <div>
-            <Row style={{ padding: '20px 0px 20px 0px' }}>
-                <Col span={24}>
-                    <Typography.Text style={{ float: 'right' }}>
-                        Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
-                    </Typography.Text>
-                    <h1>Ownership</h1>
-                    <div>
-                        Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
-                    </div>
-                </Col>
-            </Row>
-            <Row>
-                <Col span={24}>
-                    <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} />
-                </Col>
-            </Row>
-            <Row>
-                <Col style={{ paddingTop: '15px' }} span={24}>
-                    {!showAddOwner && (
-                        <Button type="link" onClick={onShowAddAnOwner}>
-                            <b> + </b> Add an owner
-                        </Button>
-                    )}
-                    {showAddOwner && (
+                        rules={[
+                            {
+                                required: true,
+                                type: 'string',
+                                message: `Please provide a valid LDAP!`,
+                            },
+                        ]}
+                    >
                         <AutoComplete
                             options={
                                 (searchOwnerSuggestionsData &&
@@ -171,17 +152,104 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                                     }))) ||
                                 []
                             }
-                            style={{
-                                width: 150,
-                            }}
                             value={ownerQuery}
-                            onSelect={onSelectOwner}
+                            onSelect={onSelectSuggestion}
                             onSearch={onChangeOwnerQuery}
                             placeholder={OWNER_SEARCH_PLACEHOLDER}
                         />
-                    )}
-                </Col>
-            </Row>
-        </div>
+                    </Form.Item>
+                ) : (
+                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
+                        <Avatar
+                            style={{
+                                marginRight: '15px',
+                                color: '#f56a00',
+                                backgroundColor: '#fde3cf',
+                            }}
+                            src={record.pictureLink || defaultAvatar}
+                        />
+                        {text}
+                    </Link>
+                );
+            },
+        },
+        {
+            title: 'Full Name',
+            dataIndex: 'fullName',
+        },
+        {
+            title: 'Role',
+            dataIndex: 'role',
+            render: (role: OwnershipType, record: any) => {
+                return isEditing(record) ? (
+                    <Form.Item
+                        name="role"
+                        style={{
+                            margin: 0,
+                            width: '50%',
+                        }}
+                        rules={[
+                            {
+                                required: true,
+                                type: 'string',
+                                message: `Please select a role!`,
+                            },
+                        ]}
+                    >
+                        <Select placeholder="Select a role">
+                            {Object.values(OwnershipType).map((value) => (
+                                <Select.Option value={value}>{value}</Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                ) : (
+                    <Tag>{role}</Tag>
+                );
+            },
+        },
+        {
+            title: '',
+            key: 'action',
+            render: (_: string, record: any) => {
+                return (
+                    <Space direction="horizontal">
+                        {isEditing(record) ? (
+                            <>
+                                <Button type="link" onClick={() => onSave(record)}>
+                                    Save
+                                </Button>
+                                <Button type="link" style={{ color: 'grey' }} onClick={onCancel}>
+                                    Cancel
+                                </Button>
+                            </>
+                        ) : (
+                            <Button type="link" style={{ color: 'red' }} onClick={() => onDelete(record.urn)}>
+                                Remove
+                            </Button>
+                        )}
+                    </Space>
+                );
+            },
+        },
+    ];
+
+    return (
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Typography.Text style={{ float: 'right' }}>
+                Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
+            </Typography.Text>
+            <Typography.Title level={3}>Ownership</Typography.Title>
+            <Typography.Paragraph>
+                Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
+            </Typography.Paragraph>
+            <Form form={form} component={false}>
+                <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} />
+            </Form>
+            {editingIndex < 0 && (
+                <Button type="link" onClick={onAdd}>
+                    <b> + </b> Add an owner
+                </Button>
+            )}
+        </Space>
     );
 };
