@@ -1,6 +1,6 @@
 source:
   type: "kafka"
-  kafka:
+  config:
     connection.bootstrap: "broker:9092"
     producer_config:
       security.protocol: ssl

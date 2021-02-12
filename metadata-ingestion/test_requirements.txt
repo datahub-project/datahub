@@ -8,13 +8,3 @@ pytest-cov>=2.8.1
 pytest-docker
 sqlalchemy-stubs
 deepdiff
-
-# importlib-metadata==1.6.0
-# packaging==20.3
-# pathspec==0.8.0
-# pluggy==0.13.1
-# regex==2020.5.7
-# six==1.14.0
-# typed-ast==1.4.1
-# wcwidth==0.1.9
-# zipp==3.1.0

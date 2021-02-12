@@ -57,7 +57,7 @@ class Pipeline:
                 f"Did not find a registered source class for {source_type}"
             ) from e
         self.source: Source = source_class.create(
-            self.config.source.dict().get(source_type, {}), self.ctx
+            self.config.source.dict().get("config", {}), self.ctx
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
 
@@ -68,7 +68,7 @@ class Pipeline:
             raise ValueError(
                 f"Did not find a registered sink class for {sink_type}"
             ) from e
-        sink_config = self.config.sink.dict().get(sink_type, {})
+        sink_config = self.config.sink.dict().get("config", {})
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 

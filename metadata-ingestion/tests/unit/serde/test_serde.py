@@ -14,8 +14,8 @@ def test_serde_large(pytestconfig, tmp_path):
 
     pipeline = Pipeline.create(
         {
-            'source': {'type': 'file', 'file': {'filename': str(golden_file)}},
-            'sink': {'type': 'file', 'file': {'filename': str(output_file)}},
+            "source": {"type": "file", "config": {"filename": str(golden_file)}},
+            "sink": {"type": "file", "config": {"filename": str(output_file)}},
         }
     )
     pipeline.run()

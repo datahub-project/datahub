@@ -2,7 +2,7 @@ run_id: mssql-test
 
 source:
   type: mssql
-  mssql:
+  config:
     username: sa
     password: test!Password
     database: DemoData
@@ -10,5 +10,5 @@ source:
 
 sink:
   type: file
-  file:
+  config:
     filename: './mssql_mces.json'

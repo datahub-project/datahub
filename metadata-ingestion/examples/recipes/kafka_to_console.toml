@@ -1,6 +1,6 @@
 [source]
   type="kafka"
-[source.kafka.connection]
+[source.config.connection]
     bootstrap="localhost:9092"
 
 [sink]

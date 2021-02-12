@@ -10,7 +10,7 @@ class PipelineTest(unittest.TestCase):
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
             {
-                "source": {"type": "kafka", "kafka": {"bootstrap": "localhost:9092"}},
+                "source": {"type": "kafka", "config": {"bootstrap": "localhost:9092"}},
                 "sink": {"type": "console"},
             }
         )
