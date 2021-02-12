@@ -9,7 +9,6 @@ from requests.exceptions import HTTPError
 from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
 import json
-from gometa.metadata import json_converter
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata import (
     ChartSnapshotClass, 
@@ -96,7 +95,7 @@ class DatahubRestSink(Sink):
         mce = record_envelope.record
         url = self.get_ingest_endpoint(mce)
 
-        raw_mce_obj = json_converter.to_json_object(mce.proposedSnapshot)
+        raw_mce_obj = mce.proposedSnapshot.to_obj()
 
         mce_obj = _rest_li_ify(raw_mce_obj)
         snapshot = {'snapshot': mce_obj}

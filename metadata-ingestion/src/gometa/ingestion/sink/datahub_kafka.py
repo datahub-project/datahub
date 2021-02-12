@@ -10,7 +10,6 @@ from confluent_kafka import SerializingProducer
 from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
-from gometa.metadata import json_converter
 from gometa.metadata.schema_classes import SCHEMA_JSON_STR
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
@@ -44,32 +43,25 @@ class DatahubKafkaSink(Sink):
         self.config = config
         self.report = SinkReport()
 
-        mce_schema = MetadataChangeEvent.RECORD_SCHEMA
-        
-        producer_config = {
-            "bootstrap.servers": self.config.connection.bootstrap,
-            "schema.registry.url": self.config.connection.schema_registry_url,
-            **self.config.connection.producer_config,
-        }
-
         schema_registry_conf = {
             'url': self.config.connection.schema_registry_url,
             **self.config.connection.schema_registry_config,
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-        def convert_mce_to_dict(mce, ctx):
-            tuple_encoding = json_converter.with_tuple_union().to_json_object(mce)
+        def convert_mce_to_dict(mce: MetadataChangeEvent, ctx):
+            tuple_encoding = mce.to_obj(tuples=True)
             return tuple_encoding
         avro_serializer = AvroSerializer(SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict)
 
-        producer_conf = {
+        producer_config = {
             "bootstrap.servers": self.config.connection.bootstrap,
             'key.serializer': StringSerializer('utf_8'),
             'value.serializer': avro_serializer,
+            **self.config.connection.producer_config,
         }
 
-        self.producer = SerializingProducer(producer_conf)
+        self.producer = SerializingProducer(producer_config)
 
     @classmethod
     def create(cls, config_dict, ctx: PipelineContext):
