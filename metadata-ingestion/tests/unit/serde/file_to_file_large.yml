@@ -1,0 +1,9 @@
+source:
+  type: file
+  file:
+    filename: './test_serde_large.json'
+
+sink:
+  type: file
+  file:
+    filename: './output_large.json'
