@@ -1,7 +1,6 @@
 from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
-from gometa.ingestion.api.common import RecordEnvelope, PipelineContext, WorkUnit
+from gometa.ingestion.api.common import RecordEnvelope, PipelineContext
 from pydantic import BaseModel
-import os
 import pathlib
 import logging
 import json

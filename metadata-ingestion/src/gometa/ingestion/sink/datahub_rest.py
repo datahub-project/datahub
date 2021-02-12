@@ -1,14 +1,10 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, TypeVar, Type, Dict
-from pydantic import BaseModel, Field, ValidationError, validator
-from enum import Enum
-from pathlib import Path
+from typing import Type, Dict
+from pydantic import BaseModel
 import requests
 from requests.exceptions import HTTPError
 from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
-import json
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata import (
     ChartSnapshotClass,
@@ -18,7 +14,7 @@ from gometa.metadata import (
     DatasetSnapshotClass,
     DataProcessSnapshotClass,
     MLModelSnapshotClass,
-    MLFeatureSnapshotClass,
+    # MLFeatureSnapshotClass,
 )
 from collections import OrderedDict
 

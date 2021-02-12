@@ -1,9 +1,5 @@
 import os
-import pytest
 import subprocess
-
-
-import time
 
 
 def test_ingest(sql_server, pytestconfig):
