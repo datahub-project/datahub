@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 import os.path
 import decimal
@@ -182,11 +181,11 @@ class ChartInfoClass(DictWrapper):
     def __init__(self,
         title: Optional[str]=None,
         description: Optional[str]=None,
-        lastModified: Optional[ChangeAuditStampsClass]=None,
+        lastModified: Optional["ChangeAuditStampsClass"]=None,
         chartUrl: Optional[Union[None, str]]=None,
         inputs: Optional[Union[None, List[str]]]=None,
-        type: Optional[Union[None, ChartTypeClass]]=None,
-        access: Optional[Union[None, AccessLevelClass]]=None,
+        type: Optional[Union[None, "ChartTypeClass"]]=None,
+        access: Optional[Union[None, "AccessLevelClass"]]=None,
         lastRefreshed: Optional[Union[None, int]]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -240,13 +239,13 @@ class ChartInfoClass(DictWrapper):
     
     
     @property
-    def lastModified(self) -> ChangeAuditStampsClass:
+    def lastModified(self) -> "ChangeAuditStampsClass":
         """Getter: Captures information about who created/last modified/deleted this chart and when"""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
-    def lastModified(self, value: ChangeAuditStampsClass):
+    def lastModified(self, value: "ChangeAuditStampsClass"):
         """Setter: Captures information about who created/last modified/deleted this chart and when"""
         self._inner_dict['lastModified'] = value
     
@@ -276,25 +275,25 @@ class ChartInfoClass(DictWrapper):
     
     
     @property
-    def type(self) -> Union[None, ChartTypeClass]:
+    def type(self) -> Union[None, "ChartTypeClass"]:
         """Getter: Type of the chart"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: Union[None, ChartTypeClass]):
+    def type(self, value: Union[None, "ChartTypeClass"]):
         """Setter: Type of the chart"""
         self._inner_dict['type'] = value
     
     
     @property
-    def access(self) -> Union[None, AccessLevelClass]:
+    def access(self) -> Union[None, "AccessLevelClass"]:
         """Getter: Access level for the chart"""
         return self._inner_dict.get('access')  # type: ignore
     
     
     @access.setter
-    def access(self, value: Union[None, AccessLevelClass]):
+    def access(self, value: Union[None, "AccessLevelClass"]):
         """Setter: Access level for the chart"""
         self._inner_dict['access'] = value
     
@@ -319,7 +318,7 @@ class ChartQueryClass(DictWrapper):
     @overload
     def __init__(self,
         rawQuery: Optional[str]=None,
-        type: Optional[ChartQueryTypeClass]=None,
+        type: Optional["ChartQueryTypeClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -354,13 +353,13 @@ class ChartQueryClass(DictWrapper):
     
     
     @property
-    def type(self) -> ChartQueryTypeClass:
+    def type(self) -> "ChartQueryTypeClass":
         """Getter: Chart query type"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: ChartQueryTypeClass):
+    def type(self, value: "ChartQueryTypeClass"):
         """Setter: Chart query type"""
         self._inner_dict['type'] = value
     
@@ -464,9 +463,9 @@ class ChangeAuditStampsClass(DictWrapper):
     
     @overload
     def __init__(self,
-        created: Optional[AuditStampClass]=None,
-        lastModified: Optional[AuditStampClass]=None,
-        deleted: Optional[Union[None, AuditStampClass]]=None,
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
+        deleted: Optional[Union[None, "AuditStampClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -490,37 +489,37 @@ class ChangeAuditStampsClass(DictWrapper):
     
     
     @property
-    def created(self) -> AuditStampClass:
+    def created(self) -> "AuditStampClass":
         """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
-    def created(self, value: AuditStampClass):
+    def created(self, value: "AuditStampClass"):
         """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
         self._inner_dict['created'] = value
     
     
     @property
-    def lastModified(self) -> AuditStampClass:
+    def lastModified(self) -> "AuditStampClass":
         """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
-    def lastModified(self, value: AuditStampClass):
+    def lastModified(self, value: "AuditStampClass"):
         """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
         self._inner_dict['lastModified'] = value
     
     
     @property
-    def deleted(self) -> Union[None, AuditStampClass]:
+    def deleted(self) -> Union[None, "AuditStampClass"]:
         """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
         return self._inner_dict.get('deleted')  # type: ignore
     
     
     @deleted.setter
-    def deleted(self, value: Union[None, AuditStampClass]):
+    def deleted(self, value: Union[None, "AuditStampClass"]):
         """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
         self._inner_dict['deleted'] = value
     
@@ -532,8 +531,8 @@ class CostClass(DictWrapper):
     
     @overload
     def __init__(self,
-        costType: Optional[CostTypeClass]=None,
-        cost: Optional[CostCostClass]=None,
+        costType: Optional["CostTypeClass"]=None,
+        cost: Optional["CostCostClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -556,25 +555,25 @@ class CostClass(DictWrapper):
     
     
     @property
-    def costType(self) -> CostTypeClass:
+    def costType(self) -> "CostTypeClass":
         # No docs available.
         return self._inner_dict.get('costType')  # type: ignore
     
     
     @costType.setter
-    def costType(self, value: CostTypeClass):
+    def costType(self, value: "CostTypeClass"):
         # No docs available.
         self._inner_dict['costType'] = value
     
     
     @property
-    def cost(self) -> CostCostClass:
+    def cost(self) -> "CostCostClass":
         # No docs available.
         return self._inner_dict.get('cost')  # type: ignore
     
     
     @cost.setter
-    def cost(self, value: CostCostClass):
+    def cost(self, value: "CostCostClass"):
         # No docs available.
         self._inner_dict['cost'] = value
     
@@ -588,7 +587,7 @@ class CostCostClass(DictWrapper):
     def __init__(self,
         costId: Optional[Union[None, float]]=None,
         costCode: Optional[Union[None, str]]=None,
-        fieldDiscriminator: Optional[CostCostDiscriminatorClass]=None,
+        fieldDiscriminator: Optional["CostCostDiscriminatorClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -636,13 +635,13 @@ class CostCostClass(DictWrapper):
     
     
     @property
-    def fieldDiscriminator(self) -> CostCostDiscriminatorClass:
+    def fieldDiscriminator(self) -> "CostCostDiscriminatorClass":
         """Getter: Contains the name of the field that has its value set."""
         return self._inner_dict.get('fieldDiscriminator')  # type: ignore
     
     
     @fieldDiscriminator.setter
-    def fieldDiscriminator(self, value: CostCostDiscriminatorClass):
+    def fieldDiscriminator(self, value: "CostCostDiscriminatorClass"):
         """Setter: Contains the name of the field that has its value set."""
         self._inner_dict['fieldDiscriminator'] = value
     
@@ -749,7 +748,7 @@ class InstitutionalMemoryClass(DictWrapper):
     
     @overload
     def __init__(self,
-        elements: Optional[List[InstitutionalMemoryMetadataClass]]=None,
+        elements: Optional[List["InstitutionalMemoryMetadataClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -771,13 +770,13 @@ class InstitutionalMemoryClass(DictWrapper):
     
     
     @property
-    def elements(self) -> List[InstitutionalMemoryMetadataClass]:
+    def elements(self) -> List["InstitutionalMemoryMetadataClass"]:
         """Getter: List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."""
         return self._inner_dict.get('elements')  # type: ignore
     
     
     @elements.setter
-    def elements(self, value: List[InstitutionalMemoryMetadataClass]):
+    def elements(self, value: List["InstitutionalMemoryMetadataClass"]):
         """Setter: List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."""
         self._inner_dict['elements'] = value
     
@@ -791,7 +790,7 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
     def __init__(self,
         url: Optional[str]=None,
         description: Optional[str]=None,
-        createStamp: Optional[AuditStampClass]=None,
+        createStamp: Optional["AuditStampClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -839,13 +838,13 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
     
     
     @property
-    def createStamp(self) -> AuditStampClass:
+    def createStamp(self) -> "AuditStampClass":
         """Getter: Audit stamp associated with creation of this record"""
         return self._inner_dict.get('createStamp')  # type: ignore
     
     
     @createStamp.setter
-    def createStamp(self, value: AuditStampClass):
+    def createStamp(self, value: "AuditStampClass"):
         """Setter: Audit stamp associated with creation of this record"""
         self._inner_dict['createStamp'] = value
     
@@ -877,8 +876,8 @@ class OwnerClass(DictWrapper):
     @overload
     def __init__(self,
         owner: Optional[str]=None,
-        type: Optional[OwnershipTypeClass]=None,
-        source: Optional[Union[None, OwnershipSourceClass]]=None,
+        type: Optional["OwnershipTypeClass"]=None,
+        source: Optional[Union[None, "OwnershipSourceClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -914,25 +913,25 @@ class OwnerClass(DictWrapper):
     
     
     @property
-    def type(self) -> OwnershipTypeClass:
+    def type(self) -> "OwnershipTypeClass":
         """Getter: The type of the ownership"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: OwnershipTypeClass):
+    def type(self, value: "OwnershipTypeClass"):
         """Setter: The type of the ownership"""
         self._inner_dict['type'] = value
     
     
     @property
-    def source(self) -> Union[None, OwnershipSourceClass]:
+    def source(self) -> Union[None, "OwnershipSourceClass"]:
         """Getter: Source information for the ownership"""
         return self._inner_dict.get('source')  # type: ignore
     
     
     @source.setter
-    def source(self, value: Union[None, OwnershipSourceClass]):
+    def source(self, value: Union[None, "OwnershipSourceClass"]):
         """Setter: Source information for the ownership"""
         self._inner_dict['source'] = value
     
@@ -944,8 +943,8 @@ class OwnershipClass(DictWrapper):
     
     @overload
     def __init__(self,
-        owners: Optional[List[OwnerClass]]=None,
-        lastModified: Optional[AuditStampClass]=None,
+        owners: Optional[List["OwnerClass"]]=None,
+        lastModified: Optional["AuditStampClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -968,25 +967,25 @@ class OwnershipClass(DictWrapper):
     
     
     @property
-    def owners(self) -> List[OwnerClass]:
+    def owners(self) -> List["OwnerClass"]:
         """Getter: List of owners of the entity."""
         return self._inner_dict.get('owners')  # type: ignore
     
     
     @owners.setter
-    def owners(self, value: List[OwnerClass]):
+    def owners(self, value: List["OwnerClass"]):
         """Setter: List of owners of the entity."""
         self._inner_dict['owners'] = value
     
     
     @property
-    def lastModified(self) -> AuditStampClass:
+    def lastModified(self) -> "AuditStampClass":
         """Getter: Audit stamp containing who last modified the record and when."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
-    def lastModified(self, value: AuditStampClass):
+    def lastModified(self, value: "AuditStampClass"):
         """Setter: Audit stamp containing who last modified the record and when."""
         self._inner_dict['lastModified'] = value
     
@@ -998,7 +997,7 @@ class OwnershipSourceClass(DictWrapper):
     
     @overload
     def __init__(self,
-        type: Optional[OwnershipSourceTypeClass]=None,
+        type: Optional["OwnershipSourceTypeClass"]=None,
         url: Optional[Union[None, str]]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -1022,13 +1021,13 @@ class OwnershipSourceClass(DictWrapper):
     
     
     @property
-    def type(self) -> OwnershipSourceTypeClass:
+    def type(self) -> "OwnershipSourceTypeClass":
         """Getter: The type of the source"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: OwnershipSourceTypeClass):
+    def type(self, value: "OwnershipSourceTypeClass"):
         """Setter: The type of the source"""
         self._inner_dict['type'] = value
     
@@ -1206,9 +1205,9 @@ class DashboardInfoClass(DictWrapper):
         title: Optional[str]=None,
         description: Optional[str]=None,
         charts: Optional[List[str]]=None,
-        lastModified: Optional[ChangeAuditStampsClass]=None,
+        lastModified: Optional["ChangeAuditStampsClass"]=None,
         dashboardUrl: Optional[Union[None, str]]=None,
-        access: Optional[Union[None, AccessLevelClass]]=None,
+        access: Optional[Union[None, "AccessLevelClass"]]=None,
         lastRefreshed: Optional[Union[None, int]]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -1273,13 +1272,13 @@ class DashboardInfoClass(DictWrapper):
     
     
     @property
-    def lastModified(self) -> ChangeAuditStampsClass:
+    def lastModified(self) -> "ChangeAuditStampsClass":
         """Getter: Captures information about who created/last modified/deleted this dashboard and when"""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
-    def lastModified(self, value: ChangeAuditStampsClass):
+    def lastModified(self, value: "ChangeAuditStampsClass"):
         """Setter: Captures information about who created/last modified/deleted this dashboard and when"""
         self._inner_dict['lastModified'] = value
     
@@ -1297,13 +1296,13 @@ class DashboardInfoClass(DictWrapper):
     
     
     @property
-    def access(self) -> Union[None, AccessLevelClass]:
+    def access(self) -> Union[None, "AccessLevelClass"]:
         """Getter: Access level for the dashboard"""
         return self._inner_dict.get('access')  # type: ignore
     
     
     @access.setter
-    def access(self, value: Union[None, AccessLevelClass]):
+    def access(self, value: Union[None, "AccessLevelClass"]):
         """Setter: Access level for the dashboard"""
         self._inner_dict['access'] = value
     
@@ -1463,8 +1462,8 @@ class DatasetFieldMappingClass(DictWrapper):
     
     @overload
     def __init__(self,
-        created: Optional[AuditStampClass]=None,
-        transformation: Optional[Union[TransformationTypeClass, UDFTransformerClass]]=None,
+        created: Optional["AuditStampClass"]=None,
+        transformation: Optional[Union["TransformationTypeClass", "UDFTransformerClass"]]=None,
         sourceFields: Optional[List[str]]=None,
         destinationField: Optional[str]=None,
     ):
@@ -1491,25 +1490,25 @@ class DatasetFieldMappingClass(DictWrapper):
     
     
     @property
-    def created(self) -> AuditStampClass:
+    def created(self) -> "AuditStampClass":
         """Getter: Audit stamp containing who reported the field mapping and when"""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
-    def created(self, value: AuditStampClass):
+    def created(self, value: "AuditStampClass"):
         """Setter: Audit stamp containing who reported the field mapping and when"""
         self._inner_dict['created'] = value
     
     
     @property
-    def transformation(self) -> Union[TransformationTypeClass, UDFTransformerClass]:
+    def transformation(self) -> Union["TransformationTypeClass", "UDFTransformerClass"]:
         """Getter: Transfomration function between the fields involved"""
         return self._inner_dict.get('transformation')  # type: ignore
     
     
     @transformation.setter
-    def transformation(self, value: Union[TransformationTypeClass, UDFTransformerClass]):
+    def transformation(self, value: Union["TransformationTypeClass", "UDFTransformerClass"]):
         """Setter: Transfomration function between the fields involved"""
         self._inner_dict['transformation'] = value
     
@@ -1635,7 +1634,7 @@ class DatasetUpstreamLineageClass(DictWrapper):
     
     @overload
     def __init__(self,
-        fieldMappings: Optional[List[DatasetFieldMappingClass]]=None,
+        fieldMappings: Optional[List["DatasetFieldMappingClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -1657,13 +1656,13 @@ class DatasetUpstreamLineageClass(DictWrapper):
     
     
     @property
-    def fieldMappings(self) -> List[DatasetFieldMappingClass]:
+    def fieldMappings(self) -> List["DatasetFieldMappingClass"]:
         """Getter: Upstream to downstream field level lineage mappings"""
         return self._inner_dict.get('fieldMappings')  # type: ignore
     
     
     @fieldMappings.setter
-    def fieldMappings(self, value: List[DatasetFieldMappingClass]):
+    def fieldMappings(self, value: List["DatasetFieldMappingClass"]):
         """Setter: Upstream to downstream field level lineage mappings"""
         self._inner_dict['fieldMappings'] = value
     
@@ -1675,9 +1674,9 @@ class UpstreamClass(DictWrapper):
     
     @overload
     def __init__(self,
-        auditStamp: Optional[AuditStampClass]=None,
+        auditStamp: Optional["AuditStampClass"]=None,
         dataset: Optional[str]=None,
-        type: Optional[DatasetLineageTypeClass]=None,
+        type: Optional["DatasetLineageTypeClass"]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -1701,13 +1700,13 @@ class UpstreamClass(DictWrapper):
     
     
     @property
-    def auditStamp(self) -> AuditStampClass:
+    def auditStamp(self) -> "AuditStampClass":
         """Getter: Audit stamp containing who reported the lineage and when"""
         return self._inner_dict.get('auditStamp')  # type: ignore
     
     
     @auditStamp.setter
-    def auditStamp(self, value: AuditStampClass):
+    def auditStamp(self, value: "AuditStampClass"):
         """Setter: Audit stamp containing who reported the lineage and when"""
         self._inner_dict['auditStamp'] = value
     
@@ -1725,13 +1724,13 @@ class UpstreamClass(DictWrapper):
     
     
     @property
-    def type(self) -> DatasetLineageTypeClass:
+    def type(self) -> "DatasetLineageTypeClass":
         """Getter: The type of the lineage"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: DatasetLineageTypeClass):
+    def type(self, value: "DatasetLineageTypeClass"):
         """Setter: The type of the lineage"""
         self._inner_dict['type'] = value
     
@@ -1743,7 +1742,7 @@ class UpstreamLineageClass(DictWrapper):
     
     @overload
     def __init__(self,
-        upstreams: Optional[List[UpstreamClass]]=None,
+        upstreams: Optional[List["UpstreamClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -1765,13 +1764,13 @@ class UpstreamLineageClass(DictWrapper):
     
     
     @property
-    def upstreams(self) -> List[UpstreamClass]:
+    def upstreams(self) -> List["UpstreamClass"]:
         """Getter: List of upstream dataset lineage information"""
         return self._inner_dict.get('upstreams')  # type: ignore
     
     
     @upstreams.setter
-    def upstreams(self, value: List[UpstreamClass]):
+    def upstreams(self, value: List["UpstreamClass"]):
         """Setter: List of upstream dataset lineage information"""
         self._inner_dict['upstreams'] = value
     
@@ -2128,7 +2127,7 @@ class ChartSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[ChartInfoClass, ChartQueryClass, OwnershipClass, StatusClass]]]=None,
+        aspects: Optional[List[Union["ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2163,13 +2162,13 @@ class ChartSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[ChartInfoClass, ChartQueryClass, OwnershipClass, StatusClass]]:
+    def aspects(self) -> List[Union["ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[ChartInfoClass, ChartQueryClass, OwnershipClass, StatusClass]]):
+    def aspects(self, value: List[Union["ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass"]]):
         """Setter: The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2182,7 +2181,7 @@ class CorpGroupSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[CorpGroupInfoClass]]=None,
+        aspects: Optional[List["CorpGroupInfoClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2217,13 +2216,13 @@ class CorpGroupSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[CorpGroupInfoClass]:
+    def aspects(self) -> List["CorpGroupInfoClass"]:
         """Getter: The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[CorpGroupInfoClass]):
+    def aspects(self, value: List["CorpGroupInfoClass"]):
         """Setter: The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2236,7 +2235,7 @@ class CorpUserSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[CorpUserInfoClass, CorpUserEditableInfoClass]]]=None,
+        aspects: Optional[List[Union["CorpUserInfoClass", "CorpUserEditableInfoClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2271,13 +2270,13 @@ class CorpUserSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[CorpUserInfoClass, CorpUserEditableInfoClass]]:
+    def aspects(self) -> List[Union["CorpUserInfoClass", "CorpUserEditableInfoClass"]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[CorpUserInfoClass, CorpUserEditableInfoClass]]):
+    def aspects(self, value: List[Union["CorpUserInfoClass", "CorpUserEditableInfoClass"]]):
         """Setter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2290,7 +2289,7 @@ class DashboardSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[DashboardInfoClass, OwnershipClass, StatusClass]]]=None,
+        aspects: Optional[List[Union["DashboardInfoClass", "OwnershipClass", "StatusClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2325,13 +2324,13 @@ class DashboardSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[DashboardInfoClass, OwnershipClass, StatusClass]]:
+    def aspects(self) -> List[Union["DashboardInfoClass", "OwnershipClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[DashboardInfoClass, OwnershipClass, StatusClass]]):
+    def aspects(self, value: List[Union["DashboardInfoClass", "OwnershipClass", "StatusClass"]]):
         """Setter: The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2344,7 +2343,7 @@ class DataProcessSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[OwnershipClass, DataProcessInfoClass]]]=None,
+        aspects: Optional[List[Union["OwnershipClass", "DataProcessInfoClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2379,13 +2378,13 @@ class DataProcessSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[OwnershipClass, DataProcessInfoClass]]:
+    def aspects(self) -> List[Union["OwnershipClass", "DataProcessInfoClass"]]:
         """Getter: The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[OwnershipClass, DataProcessInfoClass]]):
+    def aspects(self, value: List[Union["OwnershipClass", "DataProcessInfoClass"]]):
         """Setter: The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2398,7 +2397,7 @@ class DatasetSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[DatasetPropertiesClass, DatasetDeprecationClass, DatasetUpstreamLineageClass, UpstreamLineageClass, InstitutionalMemoryClass, OwnershipClass, StatusClass, SchemaMetadataClass]]]=None,
+        aspects: Optional[List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2433,13 +2432,13 @@ class DatasetSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[DatasetPropertiesClass, DatasetDeprecationClass, DatasetUpstreamLineageClass, UpstreamLineageClass, InstitutionalMemoryClass, OwnershipClass, StatusClass, SchemaMetadataClass]]:
+    def aspects(self) -> List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass"]]:
         """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[DatasetPropertiesClass, DatasetDeprecationClass, DatasetUpstreamLineageClass, UpstreamLineageClass, InstitutionalMemoryClass, OwnershipClass, StatusClass, SchemaMetadataClass]]):
+    def aspects(self, value: List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass"]]):
         """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2452,7 +2451,7 @@ class MLFeatureSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[OwnershipClass, MLFeaturePropertiesClass, InstitutionalMemoryClass, StatusClass, DeprecationClass]]]=None,
+        aspects: Optional[List[Union["OwnershipClass", "MLFeaturePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2487,13 +2486,13 @@ class MLFeatureSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[OwnershipClass, MLFeaturePropertiesClass, InstitutionalMemoryClass, StatusClass, DeprecationClass]]:
+    def aspects(self) -> List[Union["OwnershipClass", "MLFeaturePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[OwnershipClass, MLFeaturePropertiesClass, InstitutionalMemoryClass, StatusClass, DeprecationClass]]):
+    def aspects(self, value: List[Union["OwnershipClass", "MLFeaturePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]):
         """Setter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2506,7 +2505,7 @@ class MLModelSnapshotClass(DictWrapper):
     @overload
     def __init__(self,
         urn: Optional[str]=None,
-        aspects: Optional[List[Union[OwnershipClass, MLModelPropertiesClass, IntendedUseClass, MLModelFactorPromptsClass, MetricsClass, EvaluationDataClass, TrainingDataClass, QuantitativeAnalysesClass, EthicalConsiderationsClass, CaveatsAndRecommendationsClass, InstitutionalMemoryClass, SourceCodeClass, StatusClass, CostClass, DeprecationClass]]]=None,
+        aspects: Optional[List[Union["OwnershipClass", "MLModelPropertiesClass", "IntendedUseClass", "MLModelFactorPromptsClass", "MetricsClass", "EvaluationDataClass", "TrainingDataClass", "QuantitativeAnalysesClass", "EthicalConsiderationsClass", "CaveatsAndRecommendationsClass", "InstitutionalMemoryClass", "SourceCodeClass", "StatusClass", "CostClass", "DeprecationClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2541,13 +2540,13 @@ class MLModelSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union[OwnershipClass, MLModelPropertiesClass, IntendedUseClass, MLModelFactorPromptsClass, MetricsClass, EvaluationDataClass, TrainingDataClass, QuantitativeAnalysesClass, EthicalConsiderationsClass, CaveatsAndRecommendationsClass, InstitutionalMemoryClass, SourceCodeClass, StatusClass, CostClass, DeprecationClass]]:
+    def aspects(self) -> List[Union["OwnershipClass", "MLModelPropertiesClass", "IntendedUseClass", "MLModelFactorPromptsClass", "MetricsClass", "EvaluationDataClass", "TrainingDataClass", "QuantitativeAnalysesClass", "EthicalConsiderationsClass", "CaveatsAndRecommendationsClass", "InstitutionalMemoryClass", "SourceCodeClass", "StatusClass", "CostClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union[OwnershipClass, MLModelPropertiesClass, IntendedUseClass, MLModelFactorPromptsClass, MetricsClass, EvaluationDataClass, TrainingDataClass, QuantitativeAnalysesClass, EthicalConsiderationsClass, CaveatsAndRecommendationsClass, InstitutionalMemoryClass, SourceCodeClass, StatusClass, CostClass, DeprecationClass]]):
+    def aspects(self, value: List[Union["OwnershipClass", "MLModelPropertiesClass", "IntendedUseClass", "MLModelFactorPromptsClass", "MetricsClass", "EvaluationDataClass", "TrainingDataClass", "QuantitativeAnalysesClass", "EthicalConsiderationsClass", "CaveatsAndRecommendationsClass", "InstitutionalMemoryClass", "SourceCodeClass", "StatusClass", "CostClass", "DeprecationClass"]]):
         """Setter: The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -2697,7 +2696,7 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     
     @overload
     def __init__(self,
-        caveats: Optional[Union[None, CaveatDetailsClass]]=None,
+        caveats: Optional[Union[None, "CaveatDetailsClass"]]=None,
         recommendations: Optional[Union[None, str]]=None,
         idealDatasetCharacteristics: Optional[Union[None, List[str]]]=None,
     ):
@@ -2723,13 +2722,13 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     
     
     @property
-    def caveats(self) -> Union[None, CaveatDetailsClass]:
+    def caveats(self) -> Union[None, "CaveatDetailsClass"]:
         """Getter: This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?"""
         return self._inner_dict.get('caveats')  # type: ignore
     
     
     @caveats.setter
-    def caveats(self, value: Union[None, CaveatDetailsClass]):
+    def caveats(self, value: Union[None, "CaveatDetailsClass"]):
         """Setter: This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?"""
         self._inner_dict['caveats'] = value
     
@@ -2861,7 +2860,7 @@ class EvaluationDataClass(DictWrapper):
     
     @overload
     def __init__(self,
-        evaluationData: Optional[List[BaseDataClass]]=None,
+        evaluationData: Optional[List["BaseDataClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -2883,13 +2882,13 @@ class EvaluationDataClass(DictWrapper):
     
     
     @property
-    def evaluationData(self) -> List[BaseDataClass]:
+    def evaluationData(self) -> List["BaseDataClass"]:
         """Getter: Details on the dataset(s) used for the quantitative analyses in the MLModel"""
         return self._inner_dict.get('evaluationData')  # type: ignore
     
     
     @evaluationData.setter
-    def evaluationData(self, value: List[BaseDataClass]):
+    def evaluationData(self, value: List["BaseDataClass"]):
         """Setter: Details on the dataset(s) used for the quantitative analyses in the MLModel"""
         self._inner_dict['evaluationData'] = value
     
@@ -2902,7 +2901,7 @@ class IntendedUseClass(DictWrapper):
     @overload
     def __init__(self,
         primaryUses: Optional[Union[None, List[str]]]=None,
-        primaryUsers: Optional[Union[None, List[IntendedUserTypeClass]]]=None,
+        primaryUsers: Optional[Union[None, List["IntendedUserTypeClass"]]]=None,
         outOfScopeUses: Optional[Union[None, List[str]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -2939,13 +2938,13 @@ class IntendedUseClass(DictWrapper):
     
     
     @property
-    def primaryUsers(self) -> Union[None, List[IntendedUserTypeClass]]:
+    def primaryUsers(self) -> Union[None, List["IntendedUserTypeClass"]]:
         """Getter: Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?"""
         return self._inner_dict.get('primaryUsers')  # type: ignore
     
     
     @primaryUsers.setter
-    def primaryUsers(self, value: Union[None, List[IntendedUserTypeClass]]):
+    def primaryUsers(self, value: Union[None, List["IntendedUserTypeClass"]]):
         """Setter: Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?"""
         self._inner_dict['primaryUsers'] = value
     
@@ -2978,8 +2977,8 @@ class MLFeaturePropertiesClass(DictWrapper):
     @overload
     def __init__(self,
         description: Optional[Union[None, str]]=None,
-        dataType: Optional[Union[None, MLFeatureDataTypeClass]]=None,
-        version: Optional[Union[None, VersionTagClass]]=None,
+        dataType: Optional[Union[None, "MLFeatureDataTypeClass"]]=None,
+        version: Optional[Union[None, "VersionTagClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -3015,25 +3014,25 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     
     @property
-    def dataType(self) -> Union[None, MLFeatureDataTypeClass]:
+    def dataType(self) -> Union[None, "MLFeatureDataTypeClass"]:
         """Getter: Data Type of the MLFeature"""
         return self._inner_dict.get('dataType')  # type: ignore
     
     
     @dataType.setter
-    def dataType(self, value: Union[None, MLFeatureDataTypeClass]):
+    def dataType(self, value: Union[None, "MLFeatureDataTypeClass"]):
         """Setter: Data Type of the MLFeature"""
         self._inner_dict['dataType'] = value
     
     
     @property
-    def version(self) -> Union[None, VersionTagClass]:
+    def version(self) -> Union[None, "VersionTagClass"]:
         """Getter: Version of the MLFeature"""
         return self._inner_dict.get('version')  # type: ignore
     
     
     @version.setter
-    def version(self, value: Union[None, VersionTagClass]):
+    def version(self, value: Union[None, "VersionTagClass"]):
         """Setter: Version of the MLFeature"""
         self._inner_dict['version'] = value
     
@@ -3045,8 +3044,8 @@ class MLModelFactorPromptsClass(DictWrapper):
     
     @overload
     def __init__(self,
-        relevantFactors: Optional[Union[None, List[MLModelFactorsClass]]]=None,
-        evaluationFactors: Optional[Union[None, List[MLModelFactorsClass]]]=None,
+        relevantFactors: Optional[Union[None, List["MLModelFactorsClass"]]]=None,
+        evaluationFactors: Optional[Union[None, List["MLModelFactorsClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -3069,25 +3068,25 @@ class MLModelFactorPromptsClass(DictWrapper):
     
     
     @property
-    def relevantFactors(self) -> Union[None, List[MLModelFactorsClass]]:
+    def relevantFactors(self) -> Union[None, List["MLModelFactorsClass"]]:
         """Getter: What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?"""
         return self._inner_dict.get('relevantFactors')  # type: ignore
     
     
     @relevantFactors.setter
-    def relevantFactors(self, value: Union[None, List[MLModelFactorsClass]]):
+    def relevantFactors(self, value: Union[None, List["MLModelFactorsClass"]]):
         """Setter: What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?"""
         self._inner_dict['relevantFactors'] = value
     
     
     @property
-    def evaluationFactors(self) -> Union[None, List[MLModelFactorsClass]]:
+    def evaluationFactors(self) -> Union[None, List["MLModelFactorsClass"]]:
         """Getter: Which factors are being reported, and why were these chosen?"""
         return self._inner_dict.get('evaluationFactors')  # type: ignore
     
     
     @evaluationFactors.setter
-    def evaluationFactors(self, value: Union[None, List[MLModelFactorsClass]]):
+    def evaluationFactors(self, value: Union[None, List["MLModelFactorsClass"]]):
         """Setter: Which factors are being reported, and why were these chosen?"""
         self._inner_dict['evaluationFactors'] = value
     
@@ -3175,7 +3174,7 @@ class MLModelPropertiesClass(DictWrapper):
     def __init__(self,
         description: Optional[Union[None, str]]=None,
         date: Optional[Union[None, int]]=None,
-        version: Optional[Union[None, VersionTagClass]]=None,
+        version: Optional[Union[None, "VersionTagClass"]]=None,
         type: Optional[Union[None, str]]=None,
         hyperParameters: Optional[Union[None, Dict[str, Union[str, int, float, float, bool]]]]=None,
         mlFeatures: Optional[Union[None, List[str]]]=None,
@@ -3231,13 +3230,13 @@ class MLModelPropertiesClass(DictWrapper):
     
     
     @property
-    def version(self) -> Union[None, VersionTagClass]:
+    def version(self) -> Union[None, "VersionTagClass"]:
         """Getter: Version of the MLModel"""
         return self._inner_dict.get('version')  # type: ignore
     
     
     @version.setter
-    def version(self, value: Union[None, VersionTagClass]):
+    def version(self, value: Union[None, "VersionTagClass"]):
         """Setter: Version of the MLModel"""
         self._inner_dict['version'] = value
     
@@ -3405,7 +3404,7 @@ class SourceCodeClass(DictWrapper):
     
     @overload
     def __init__(self,
-        sourceCode: Optional[List[SourceCodeUrlClass]]=None,
+        sourceCode: Optional[List["SourceCodeUrlClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -3427,13 +3426,13 @@ class SourceCodeClass(DictWrapper):
     
     
     @property
-    def sourceCode(self) -> List[SourceCodeUrlClass]:
+    def sourceCode(self) -> List["SourceCodeUrlClass"]:
         """Getter: Source Code along with types"""
         return self._inner_dict.get('sourceCode')  # type: ignore
     
     
     @sourceCode.setter
-    def sourceCode(self, value: List[SourceCodeUrlClass]):
+    def sourceCode(self, value: List["SourceCodeUrlClass"]):
         """Setter: Source Code along with types"""
         self._inner_dict['sourceCode'] = value
     
@@ -3445,7 +3444,7 @@ class SourceCodeUrlClass(DictWrapper):
     
     @overload
     def __init__(self,
-        type: Optional[SourceCodeUrlTypeClass]=None,
+        type: Optional["SourceCodeUrlTypeClass"]=None,
         sourceCodeUrl: Optional[str]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -3469,13 +3468,13 @@ class SourceCodeUrlClass(DictWrapper):
     
     
     @property
-    def type(self) -> SourceCodeUrlTypeClass:
+    def type(self) -> "SourceCodeUrlTypeClass":
         """Getter: Source Code Url Types"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: SourceCodeUrlTypeClass):
+    def type(self, value: "SourceCodeUrlTypeClass"):
         """Setter: Source Code Url Types"""
         self._inner_dict['type'] = value
     
@@ -3507,7 +3506,7 @@ class TrainingDataClass(DictWrapper):
     
     @overload
     def __init__(self,
-        trainingData: Optional[List[BaseDataClass]]=None,
+        trainingData: Optional[List["BaseDataClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -3529,13 +3528,13 @@ class TrainingDataClass(DictWrapper):
     
     
     @property
-    def trainingData(self) -> List[BaseDataClass]:
+    def trainingData(self) -> List["BaseDataClass"]:
         """Getter: Details on the dataset(s) used for training the MLModel"""
         return self._inner_dict.get('trainingData')  # type: ignore
     
     
     @trainingData.setter
-    def trainingData(self, value: List[BaseDataClass]):
+    def trainingData(self, value: List["BaseDataClass"]):
         """Setter: Details on the dataset(s) used for training the MLModel"""
         self._inner_dict['trainingData'] = value
     
@@ -3547,8 +3546,8 @@ class MetadataChangeEventClass(DictWrapper):
     
     @overload
     def __init__(self,
-        auditHeader: Optional[Union[None, KafkaAuditHeaderClass]]=None,
-        proposedSnapshot: Optional[Union[ChartSnapshotClass, CorpGroupSnapshotClass, CorpUserSnapshotClass, DashboardSnapshotClass, DatasetSnapshotClass, DataProcessSnapshotClass, MLModelSnapshotClass, MLFeatureSnapshotClass]]=None,
+        auditHeader: Optional[Union[None, "KafkaAuditHeaderClass"]]=None,
+        proposedSnapshot: Optional[Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass"]]=None,
         proposedDelta: Optional[None]=None,
     ):
         # Note that the defaults here are not necessarily None.
@@ -3573,25 +3572,25 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def auditHeader(self) -> Union[None, KafkaAuditHeaderClass]:
+    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
         """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
         return self._inner_dict.get('auditHeader')  # type: ignore
     
     
     @auditHeader.setter
-    def auditHeader(self, value: Union[None, KafkaAuditHeaderClass]):
+    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]):
         """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
         self._inner_dict['auditHeader'] = value
     
     
     @property
-    def proposedSnapshot(self) -> Union[ChartSnapshotClass, CorpGroupSnapshotClass, CorpUserSnapshotClass, DashboardSnapshotClass, DatasetSnapshotClass, DataProcessSnapshotClass, MLModelSnapshotClass, MLFeatureSnapshotClass]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union[ChartSnapshotClass, CorpGroupSnapshotClass, CorpUserSnapshotClass, DashboardSnapshotClass, DatasetSnapshotClass, DataProcessSnapshotClass, MLModelSnapshotClass, MLFeatureSnapshotClass]):
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass"]):
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -3925,7 +3924,7 @@ class ForeignKeySpecClass(DictWrapper):
     
     @overload
     def __init__(self,
-        foreignKey: Optional[Union[DatasetFieldForeignKeyClass, UrnForeignKeyClass]]=None,
+        foreignKey: Optional[Union["DatasetFieldForeignKeyClass", "UrnForeignKeyClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -3947,13 +3946,13 @@ class ForeignKeySpecClass(DictWrapper):
     
     
     @property
-    def foreignKey(self) -> Union[DatasetFieldForeignKeyClass, UrnForeignKeyClass]:
+    def foreignKey(self) -> Union["DatasetFieldForeignKeyClass", "UrnForeignKeyClass"]:
         """Getter: Foreign key definition in metadata schema."""
         return self._inner_dict.get('foreignKey')  # type: ignore
     
     
     @foreignKey.setter
-    def foreignKey(self, value: Union[DatasetFieldForeignKeyClass, UrnForeignKeyClass]):
+    def foreignKey(self, value: Union["DatasetFieldForeignKeyClass", "UrnForeignKeyClass"]):
         """Setter: Foreign key definition in metadata schema."""
         self._inner_dict['foreignKey'] = value
     
@@ -4398,7 +4397,7 @@ class SchemaFieldClass(DictWrapper):
         jsonPath: Optional[Union[None, str]]=None,
         nullable: Optional[bool]=None,
         description: Optional[Union[None, str]]=None,
-        type: Optional[SchemaFieldDataTypeClass]=None,
+        type: Optional["SchemaFieldDataTypeClass"]=None,
         nativeDataType: Optional[str]=None,
         recursive: Optional[bool]=None,
     ):
@@ -4476,13 +4475,13 @@ class SchemaFieldClass(DictWrapper):
     
     
     @property
-    def type(self) -> SchemaFieldDataTypeClass:
+    def type(self) -> "SchemaFieldDataTypeClass":
         """Getter: Platform independent field type of the field."""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: SchemaFieldDataTypeClass):
+    def type(self, value: "SchemaFieldDataTypeClass"):
         """Setter: Platform independent field type of the field."""
         self._inner_dict['type'] = value
     
@@ -4518,7 +4517,7 @@ class SchemaFieldDataTypeClass(DictWrapper):
     
     @overload
     def __init__(self,
-        type: Optional[Union[BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass]]=None,
+        type: Optional[Union["BooleanTypeClass", "FixedTypeClass", "StringTypeClass", "BytesTypeClass", "NumberTypeClass", "EnumTypeClass", "NullTypeClass", "MapTypeClass", "ArrayTypeClass", "UnionTypeClass", "RecordTypeClass"]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -4540,13 +4539,13 @@ class SchemaFieldDataTypeClass(DictWrapper):
     
     
     @property
-    def type(self) -> Union[BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass]:
+    def type(self) -> Union["BooleanTypeClass", "FixedTypeClass", "StringTypeClass", "BytesTypeClass", "NumberTypeClass", "EnumTypeClass", "NullTypeClass", "MapTypeClass", "ArrayTypeClass", "UnionTypeClass", "RecordTypeClass"]:
         """Getter: Data platform specific types"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: Union[BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass]):
+    def type(self, value: Union["BooleanTypeClass", "FixedTypeClass", "StringTypeClass", "BytesTypeClass", "NumberTypeClass", "EnumTypeClass", "NullTypeClass", "MapTypeClass", "ArrayTypeClass", "UnionTypeClass", "RecordTypeClass"]):
         """Setter: Data platform specific types"""
         self._inner_dict['type'] = value
     
@@ -4561,16 +4560,16 @@ class SchemaMetadataClass(DictWrapper):
         schemaName: Optional[str]=None,
         platform: Optional[str]=None,
         version: Optional[int]=None,
-        created: Optional[AuditStampClass]=None,
-        lastModified: Optional[AuditStampClass]=None,
-        deleted: Optional[Union[None, AuditStampClass]]=None,
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
+        deleted: Optional[Union[None, "AuditStampClass"]]=None,
         dataset: Optional[Union[None, str]]=None,
         cluster: Optional[Union[None, str]]=None,
         hash: Optional[str]=None,
-        platformSchema: Optional[Union[EspressoSchemaClass, OracleDDLClass, MySqlDDLClass, PrestoDDLClass, KafkaSchemaClass, BinaryJsonSchemaClass, OrcSchemaClass, SchemalessClass, KeyValueSchemaClass, OtherSchemaClass]]=None,
-        fields: Optional[List[SchemaFieldClass]]=None,
+        platformSchema: Optional[Union["EspressoSchemaClass", "OracleDDLClass", "MySqlDDLClass", "PrestoDDLClass", "KafkaSchemaClass", "BinaryJsonSchemaClass", "OrcSchemaClass", "SchemalessClass", "KeyValueSchemaClass", "OtherSchemaClass"]]=None,
+        fields: Optional[List["SchemaFieldClass"]]=None,
         primaryKeys: Optional[Union[None, List[str]]]=None,
-        foreignKeysSpecs: Optional[Union[None, Dict[str, ForeignKeySpecClass]]]=None,
+        foreignKeysSpecs: Optional[Union[None, Dict[str, "ForeignKeySpecClass"]]]=None,
     ):
         # Note that the defaults here are not necessarily None.
         ...
@@ -4640,37 +4639,37 @@ class SchemaMetadataClass(DictWrapper):
     
     
     @property
-    def created(self) -> AuditStampClass:
+    def created(self) -> "AuditStampClass":
         """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
-    def created(self, value: AuditStampClass):
+    def created(self, value: "AuditStampClass"):
         """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
         self._inner_dict['created'] = value
     
     
     @property
-    def lastModified(self) -> AuditStampClass:
+    def lastModified(self) -> "AuditStampClass":
         """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
-    def lastModified(self, value: AuditStampClass):
+    def lastModified(self, value: "AuditStampClass"):
         """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
         self._inner_dict['lastModified'] = value
     
     
     @property
-    def deleted(self) -> Union[None, AuditStampClass]:
+    def deleted(self) -> Union[None, "AuditStampClass"]:
         """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
         return self._inner_dict.get('deleted')  # type: ignore
     
     
     @deleted.setter
-    def deleted(self, value: Union[None, AuditStampClass]):
+    def deleted(self, value: Union[None, "AuditStampClass"]):
         """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
         self._inner_dict['deleted'] = value
     
@@ -4712,25 +4711,25 @@ class SchemaMetadataClass(DictWrapper):
     
     
     @property
-    def platformSchema(self) -> Union[EspressoSchemaClass, OracleDDLClass, MySqlDDLClass, PrestoDDLClass, KafkaSchemaClass, BinaryJsonSchemaClass, OrcSchemaClass, SchemalessClass, KeyValueSchemaClass, OtherSchemaClass]:
+    def platformSchema(self) -> Union["EspressoSchemaClass", "OracleDDLClass", "MySqlDDLClass", "PrestoDDLClass", "KafkaSchemaClass", "BinaryJsonSchemaClass", "OrcSchemaClass", "SchemalessClass", "KeyValueSchemaClass", "OtherSchemaClass"]:
         """Getter: The native schema in the dataset's platform."""
         return self._inner_dict.get('platformSchema')  # type: ignore
     
     
     @platformSchema.setter
-    def platformSchema(self, value: Union[EspressoSchemaClass, OracleDDLClass, MySqlDDLClass, PrestoDDLClass, KafkaSchemaClass, BinaryJsonSchemaClass, OrcSchemaClass, SchemalessClass, KeyValueSchemaClass, OtherSchemaClass]):
+    def platformSchema(self, value: Union["EspressoSchemaClass", "OracleDDLClass", "MySqlDDLClass", "PrestoDDLClass", "KafkaSchemaClass", "BinaryJsonSchemaClass", "OrcSchemaClass", "SchemalessClass", "KeyValueSchemaClass", "OtherSchemaClass"]):
         """Setter: The native schema in the dataset's platform."""
         self._inner_dict['platformSchema'] = value
     
     
     @property
-    def fields(self) -> List[SchemaFieldClass]:
+    def fields(self) -> List["SchemaFieldClass"]:
         """Getter: Client provided a list of fields from document schema."""
         return self._inner_dict.get('fields')  # type: ignore
     
     
     @fields.setter
-    def fields(self, value: List[SchemaFieldClass]):
+    def fields(self, value: List["SchemaFieldClass"]):
         """Setter: Client provided a list of fields from document schema."""
         self._inner_dict['fields'] = value
     
@@ -4748,13 +4747,13 @@ class SchemaMetadataClass(DictWrapper):
     
     
     @property
-    def foreignKeysSpecs(self) -> Union[None, Dict[str, ForeignKeySpecClass]]:
+    def foreignKeysSpecs(self) -> Union[None, Dict[str, "ForeignKeySpecClass"]]:
         """Getter: Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."""
         return self._inner_dict.get('foreignKeysSpecs')  # type: ignore
     
     
     @foreignKeysSpecs.setter
-    def foreignKeysSpecs(self, value: Union[None, Dict[str, ForeignKeySpecClass]]):
+    def foreignKeysSpecs(self, value: Union[None, Dict[str, "ForeignKeySpecClass"]]):
         """Setter: Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref."""
         self._inner_dict['foreignKeysSpecs'] = value
     
