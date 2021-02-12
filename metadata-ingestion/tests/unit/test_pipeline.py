@@ -10,14 +10,10 @@ class PipelineTest(unittest.TestCase):
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline(
             {
-                "source": {
-                    "type": "kafka",
-                    "kafka": {"bootstrap": "localhost:9092"},
-                },
+                "source": {"type": "kafka", "kafka": {"bootstrap": "localhost:9092"},},
                 "sink": {"type": "console"},
             }
         )
         pipeline.run()
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
-
