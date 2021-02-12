@@ -6,7 +6,7 @@ coverage==5.1
 confluent-kafka[avro]
 flake8==3.8.3
 importlib-metadata==1.6.0
-isort==5.2.2
+isort>=5.7.0
 mccabe==0.6.1
 more-itertools==8.2.0
 mypy>=0.782

@@ -1,26 +1,26 @@
 import logging
-from gometa.configuration import ConfigModel
-from gometa.configuration.kafka import KafkaConsumerConnectionConfig
-from gometa.ingestion.api.source import Source, SourceReport
-from typing import Iterable, List, Dict
+import time
 from dataclasses import dataclass, field
+from typing import Dict, Iterable, List
+
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
-from gometa.ingestion.source.metadata_common import MetadataWorkUnit
 
-import time
-from gometa.ingestion.api.common import PipelineContext
 import gometa.ingestion.extractor.schema_util as schema_util
-
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from gometa.configuration import ConfigModel
+from gometa.configuration.common import AllowDenyPattern
+from gometa.configuration.kafka import KafkaConsumerConnectionConfig
+from gometa.ingestion.api.common import PipelineContext
+from gometa.ingestion.api.source import Source, SourceReport
+from gometa.ingestion.source.metadata_common import MetadataWorkUnit
+from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata,
     KafkaSchema,
     SchemaField,
+    SchemaMetadata,
 )
-from gometa.configuration.common import AllowDenyPattern
-from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 
 logger = logging.getLogger(__name__)
 

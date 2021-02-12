@@ -1,9 +1,11 @@
-from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
-from gometa.ingestion.api.common import RecordEnvelope, PipelineContext
-from pydantic import BaseModel
-import pathlib
-import logging
 import json
+import logging
+import pathlib
+
+from pydantic import BaseModel
+
+from gometa.ingestion.api.common import PipelineContext, RecordEnvelope
+from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)

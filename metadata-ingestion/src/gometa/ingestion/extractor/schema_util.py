@@ -1,20 +1,21 @@
 import logging
-from typing import List, Any
+from typing import Any, List
+
 import avro.schema
 
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    EnumTypeClass,
+    FixedTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
     SchemaField,
     SchemaFieldDataType,
-    BooleanTypeClass,
-    FixedTypeClass,
     StringTypeClass,
-    BytesTypeClass,
-    NumberTypeClass,
-    EnumTypeClass,
-    NullTypeClass,
-    ArrayTypeClass,
     UnionTypeClass,
-    RecordTypeClass,
 )
 
 """A helper file for Avro schema -> MCE schema transformations"""

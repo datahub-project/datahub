@@ -1,12 +1,13 @@
-from gometa.configuration.common import DynamicTypedConfig, ConfigModel
-from gometa.ingestion.api.source import Source, Extractor
-from gometa.ingestion.source import source_class_mapping
+import importlib
+import logging
+import time
+
+from gometa.configuration.common import ConfigModel, DynamicTypedConfig
 from gometa.ingestion.api.common import PipelineContext
 from gometa.ingestion.api.sink import Sink, WriteCallback
+from gometa.ingestion.api.source import Extractor, Source
 from gometa.ingestion.sink import sink_class_mapping
-import importlib
-import time
-import logging
+from gometa.ingestion.source import source_class_mapping
 
 logger = logging.getLogger(__name__)
 

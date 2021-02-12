@@ -1,32 +1,29 @@
-from sqlalchemy import create_engine
-from sqlalchemy import types
-from sqlalchemy.engine import reflection
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata,
-    MySqlDDL,
-    SchemaField,
-    SchemaFieldDataType,
-)
-from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-
-from gometa.ingestion.api.source import WorkUnit, Source, SourceReport
-from gometa.configuration.common import AllowDenyPattern
-from pydantic import BaseModel
 import logging
 import time
-from typing import Optional, List, Any, Dict
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel
+from sqlalchemy import create_engine, types
+from sqlalchemy.engine import reflection
+
+from gometa.configuration.common import AllowDenyPattern
+from gometa.ingestion.api.source import Source, SourceReport, WorkUnit
+from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    StringTypeClass,
-    BytesTypeClass,
-    NumberTypeClass,
-    EnumTypeClass,
-    NullTypeClass,
     ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    EnumTypeClass,
+    MySqlDDL,
+    NullTypeClass,
+    NumberTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringTypeClass,
 )
 
 logger = logging.getLogger(__name__)

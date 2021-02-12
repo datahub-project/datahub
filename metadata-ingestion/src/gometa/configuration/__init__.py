@@ -1,1 +1,1 @@
-from .common import ConfigModel, DynamicTypedConfig, ConfigurationMechanism
+from .common import ConfigModel, ConfigurationMechanism, DynamicTypedConfig
