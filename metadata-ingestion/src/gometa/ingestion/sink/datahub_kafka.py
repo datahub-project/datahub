@@ -13,11 +13,13 @@ from confluent_kafka.schema_registry.avro import AvroSerializer
 from gometa.metadata.schema_classes import SCHEMA_JSON_STR
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
-DEFAULT_KAFKA_TOPIC="MetadataChangeEvent_v4"
+DEFAULT_KAFKA_TOPIC = "MetadataChangeEvent_v4"
+
 
 class KafkaSinkConfig(BaseModel):
     connection: KafkaProducerConnectionConfig = KafkaProducerConnectionConfig()
     topic: str = DEFAULT_KAFKA_TOPIC
+
 
 @dataclass
 class KafkaCallback:
@@ -31,8 +33,9 @@ class KafkaCallback:
             self.write_callback.on_failure(self.record_envelope, None, {"error": err})
         else:
             self.reporter.report_record_written(self.record_envelope)
-            self.write_callback.on_success(self.record_envelope, {"msg": msg}) 
-    
+            self.write_callback.on_success(self.record_envelope, {"msg": msg})
+
+
 @dataclass
 class DatahubKafkaSink(Sink):
     config: KafkaSinkConfig
@@ -52,6 +55,7 @@ class DatahubKafkaSink(Sink):
         def convert_mce_to_dict(mce: MetadataChangeEvent, ctx):
             tuple_encoding = mce.to_obj(tuples=True)
             return tuple_encoding
+
         avro_serializer = AvroSerializer(SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict)
 
         producer_config = {
@@ -67,7 +71,7 @@ class DatahubKafkaSink(Sink):
     def create(cls, config_dict, ctx: PipelineContext):
         config = KafkaSinkConfig.parse_obj(config_dict)
         return cls(config, ctx)
- 
+
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
 
@@ -78,13 +82,15 @@ class DatahubKafkaSink(Sink):
         # call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
         mce = record_envelope.record
-        self.producer.produce(topic=self.config.topic, value=mce,
-            on_delivery=KafkaCallback(self.report, record_envelope, write_callback).kafka_callback)
-    
+        self.producer.produce(
+            topic=self.config.topic,
+            value=mce,
+            on_delivery=KafkaCallback(self.report, record_envelope, write_callback).kafka_callback,
+        )
+
     def get_report(self):
         return self.report
-        
+
     def close(self):
         self.producer.flush()
         # self.producer.close()
-        

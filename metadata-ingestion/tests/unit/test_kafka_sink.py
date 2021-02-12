@@ -11,9 +11,7 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("gometa.ingestion.sink.datahub_kafka.SerializingProducer")
     def test_kafka_sink_config(self, mock_producer, mock_context):
         mock_producer_instance = mock_producer.return_value
-        kafka_sink = DatahubKafkaSink.create(
-            {'connection': {'bootstrap': 'foobar:9092'}}, mock_context
-        )
+        kafka_sink = DatahubKafkaSink.create({'connection': {'bootstrap': 'foobar:9092'}}, mock_context)
         assert mock_producer.call_count == 1  # constructor should be called
 
     def validate_kafka_callback(self, mock_k_callback, record_envelope, write_callback):
@@ -29,9 +27,7 @@ class KafkaSinkTest(unittest.TestCase):
         mock_producer_instance = mock_producer.return_value
         mock_k_callback_instance = mock_k_callback.return_value
         callback = MagicMock(spec=WriteCallback)
-        kafka_sink = DatahubKafkaSink.create(
-            {'connection': {'bootstrap': 'foobar:9092'}}, mock_context
-        )
+        kafka_sink = DatahubKafkaSink.create({'connection': {'bootstrap': 'foobar:9092'}}, mock_context)
         re = RecordEnvelope(record="test", metadata={})
         kafka_sink.write_record_async(re, callback)
         assert mock_producer_instance.poll.call_count == 1  # poll() called once
@@ -57,9 +53,7 @@ class KafkaSinkTest(unittest.TestCase):
     @patch("gometa.ingestion.sink.datahub_kafka.RecordEnvelope")
     @patch("gometa.ingestion.sink.datahub_kafka.WriteCallback")
     def test_kafka_callback_class(self, mock_w_callback, mock_re):
-        callback = KafkaCallback(
-            SinkReport(), record_envelope=mock_re, write_callback=mock_w_callback
-        )
+        callback = KafkaCallback(SinkReport(), record_envelope=mock_re, write_callback=mock_w_callback)
         mock_error = MagicMock()
         mock_message = MagicMock()
         callback.kafka_callback(mock_error, mock_message)
