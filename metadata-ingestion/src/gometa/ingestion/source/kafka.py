@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class KafkaSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic: str = ".*" # default is wildcard subscription
+    topic: str = ".*"  # default is wildcard subscription
 
 
 @dataclass
@@ -37,7 +37,7 @@ class KafkaSourceReport(SourceReport):
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
-    
+
     def report_warning(self, topic: str, reason: str) -> None:
         if topic not in self.warnings:
             self.warnings[topic] = []
@@ -47,14 +47,15 @@ class KafkaSourceReport(SourceReport):
         if topic not in self.failures:
             self.failures[topic] = []
         self.failures[topic].append(reason)
-    
+
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
+
 
 @dataclass
 class KafkaSource(Source):
     source_config: KafkaSourceConfig
-    topic_pattern: Any # actually re.Pattern
+    topic_pattern: Any  # actually re.Pattern
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
 
@@ -62,14 +63,14 @@ class KafkaSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.topic_pattern = re.compile(self.source_config.topic)
-        self.consumer = confluent_kafka.Consumer({
-            'group.id':'test',
-            'bootstrap.servers':self.source_config.connection.bootstrap,
-            **self.source_config.connection.consumer_config,
-        })
-        self.schema_registry_client = SchemaRegistryClient(
-            {"url": self.source_config.connection.schema_registry_url}
+        self.consumer = confluent_kafka.Consumer(
+            {
+                'group.id': 'test',
+                'bootstrap.servers': self.source_config.connection.bootstrap,
+                **self.source_config.connection.consumer_config,
+            }
         )
+        self.schema_registry_client = SchemaRegistryClient({"url": self.source_config.connection.schema_registry_url})
         self.report = KafkaSourceReport()
 
     @classmethod
@@ -83,14 +84,14 @@ class KafkaSource(Source):
             self.report.report_topic_scanned(t)
 
             # TODO: topics config should support allow and deny patterns
-            if re.fullmatch(self.topic_pattern, t) and not t.startswith("_"): 
+            if re.fullmatch(self.topic_pattern, t) and not t.startswith("_"):
                 mce = self._extract_record(t)
                 wu = MetadataWorkUnit(id=f'kafka-{t}', mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
             else:
                 self.report.report_dropped(t)
-    
+
     def _extract_record(self, topic: str) -> MetadataChangeEvent:
         logger.debug(f"topic = {topic}")
         platform = "kafka"
@@ -99,18 +100,14 @@ class KafkaSource(Source):
         actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
 
         metadata_record = MetadataChangeEvent()
-        dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
-        )
+        dataset_snapshot = DatasetSnapshot(urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",)
         dataset_snapshot.aspects.append(Status(removed=False))
         metadata_record.proposedSnapshot = dataset_snapshot
 
         # Fetch schema from the registry.
         has_schema = True
         try:
-            registered_schema = self.schema_registry_client.get_latest_version(
-                topic + "-value"
-            )
+            registered_schema = self.schema_registry_client.get_latest_version(topic + "-value")
             schema = registered_schema.schema
         except Exception as e:
             self.report.report_warning(topic, f"failed to get schema: {e}")
@@ -129,9 +126,7 @@ class KafkaSource(Source):
                 version=0,
                 hash=str(schema._hash),
                 platform=f"urn:li:dataPlatform:{platform}",
-                platformSchema = KafkaSchema(
-                    documentSchema=schema.schema_str
-                ),
+                platformSchema=KafkaSchema(documentSchema=schema.schema_str),
                 fields=fields,
                 created=AuditStamp(time=sys_time, actor=actor),
                 lastModified=AuditStamp(time=sys_time, actor=actor),
@@ -142,8 +137,7 @@ class KafkaSource(Source):
 
     def get_report(self):
         return self.report
-        
+
     def close(self):
         if self.consumer:
             self.consumer.close()
-

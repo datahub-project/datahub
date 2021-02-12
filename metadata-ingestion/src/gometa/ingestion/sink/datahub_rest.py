@@ -11,18 +11,19 @@ from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
 import json
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata import (
-    ChartSnapshotClass, 
-    CorpGroupSnapshotClass, 
-    CorpUserSnapshotClass, 
-    DashboardSnapshotClass, 
-    DatasetSnapshotClass, 
-    DataProcessSnapshotClass, 
-    MLModelSnapshotClass, 
+    ChartSnapshotClass,
+    CorpGroupSnapshotClass,
+    CorpUserSnapshotClass,
+    DashboardSnapshotClass,
+    DatasetSnapshotClass,
+    DataProcessSnapshotClass,
+    MLModelSnapshotClass,
     MLFeatureSnapshotClass,
 )
 from collections import OrderedDict
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 resource_locator: Dict[Type[object], str] = {
@@ -34,6 +35,7 @@ resource_locator: Dict[Type[object], str] = {
     DataProcessSnapshotClass: 'dataProcesses',
     MLModelSnapshotClass: 'mlModels',
 }
+
 
 def _rest_li_ify(obj):
     if isinstance(obj, (dict, OrderedDict)):
@@ -56,6 +58,7 @@ def _rest_li_ify(obj):
         return new_obj
     return obj
 
+
 class DatahubRestSinkConfig(BaseModel):
     """Configuration class for holding connectivity to datahub gms"""
 
@@ -71,8 +74,8 @@ class DatahubRestSink(Sink):
     def create(cls, config_dict, ctx):
         config = DatahubRestSinkConfig.parse_obj(config_dict)
         # TODO verify that config points to a valid server
-        #response = requests.get(f"http://{config.server}/")
-        #assert response.status_code == 200
+        # response = requests.get(f"http://{config.server}/")
+        # assert response.status_code == 200
         return cls(ctx, config)
 
     def get_ingest_endpoint(self, mce: MetadataChangeEvent):
@@ -90,7 +93,7 @@ class DatahubRestSink(Sink):
         pass
 
     def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
-        headers = {'X-RestLi-Protocol-Version' : '2.0.0'}
+        headers = {'X-RestLi-Protocol-Version': '2.0.0'}
 
         mce = record_envelope.record
         url = self.get_ingest_endpoint(mce)

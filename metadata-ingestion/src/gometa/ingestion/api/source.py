@@ -25,9 +25,10 @@ class Extractor(Closeable, metaclass=ABCMeta):
     def get_records(self, workunit: WorkUnit) -> Iterable[RecordEnvelope]:
         pass
 
+
 # See https://github.com/python/mypy/issues/5374 for why we suppress this mypy error.
 @dataclass  # type: ignore[misc]
-class Source(Closeable, metaclass = ABCMeta):
+class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod

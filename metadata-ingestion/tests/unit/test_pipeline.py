@@ -9,10 +9,7 @@ class PipelineTest(unittest.TestCase):
     @patch("gometa.ingestion.sink.console.ConsoleSink.close")
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
-            {
-                "source": {"type": "kafka", "kafka": {"bootstrap": "localhost:9092"},},
-                "sink": {"type": "console"},
-            }
+            {"source": {"type": "kafka", "kafka": {"bootstrap": "localhost:9092"},}, "sink": {"type": "console"},}
         )
         pipeline.run()
         mock_source.assert_called_once()

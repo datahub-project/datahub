@@ -4,14 +4,17 @@ from abc import abstractmethod, ABCMeta
 
 T = TypeVar('T')
 
+
 @dataclass
 class RecordEnvelope(Generic[T]):
-    record: T 
+    record: T
     metadata: dict
+
 
 @dataclass
 class _WorkUnitId(metaclass=ABCMeta):
     id: str
+
 
 # For information on why the WorkUnit class is structured this way
 # and is separating the dataclass portion from the abstract methods, see
@@ -21,7 +24,7 @@ class WorkUnit(_WorkUnitId, metaclass=ABCMeta):
     def get_metadata(self) -> dict:
         pass
 
+
 @dataclass
 class PipelineContext:
     run_id: str
-

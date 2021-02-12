@@ -3,8 +3,21 @@ from typing import List, Dict, Any
 import avro.schema
 
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata, KafkaSchema, SchemaField, SchemaFieldDataType,
-    BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass,
+    SchemaMetadata,
+    KafkaSchema,
+    SchemaField,
+    SchemaFieldDataType,
+    BooleanTypeClass,
+    FixedTypeClass,
+    StringTypeClass,
+    BytesTypeClass,
+    NumberTypeClass,
+    EnumTypeClass,
+    NullTypeClass,
+    MapTypeClass,
+    ArrayTypeClass,
+    UnionTypeClass,
+    RecordTypeClass,
 )
 
 """A helper file for Avro schema -> MCE schema transformations"""
@@ -14,18 +27,19 @@ logger = logging.getLogger(__name__)
 _field_type_mapping = {
     "null": NullTypeClass,
     "bool": BooleanTypeClass,
-    "int" : NumberTypeClass,
-    "long" : NumberTypeClass,
-    "float" : NumberTypeClass,
-    "double" : NumberTypeClass,
-    "bytes" : BytesTypeClass,
-    "string" : StringTypeClass,
-    "record" : RecordTypeClass,
-    "enum" : EnumTypeClass,
-    "array" : ArrayTypeClass,
-    "union" : UnionTypeClass,
-    "fixed" : FixedTypeClass,
+    "int": NumberTypeClass,
+    "long": NumberTypeClass,
+    "float": NumberTypeClass,
+    "double": NumberTypeClass,
+    "bytes": BytesTypeClass,
+    "string": StringTypeClass,
+    "record": RecordTypeClass,
+    "enum": EnumTypeClass,
+    "array": ArrayTypeClass,
+    "union": UnionTypeClass,
+    "fixed": FixedTypeClass,
 }
+
 
 def _get_column_type(field_type) -> SchemaFieldDataType:
     tp = field_type
@@ -38,7 +52,8 @@ def _get_column_type(field_type) -> SchemaFieldDataType:
     # field below, it is mostly ok to leave this as not fully initialized.
     dt = SchemaFieldDataType(type=TypeClass())
     return dt
-   
+
+
 def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
 
@@ -60,5 +75,5 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
         )
 
         fields.append(field)
-    
+
     return fields

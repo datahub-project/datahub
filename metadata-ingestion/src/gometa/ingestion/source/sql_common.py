@@ -15,8 +15,21 @@ from typing import Optional, List, Any, Dict
 from dataclasses import dataclass, field
 
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata, KafkaSchema, SchemaField, SchemaFieldDataType,
-    BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, UnionTypeClass, RecordTypeClass,
+    SchemaMetadata,
+    KafkaSchema,
+    SchemaField,
+    SchemaFieldDataType,
+    BooleanTypeClass,
+    FixedTypeClass,
+    StringTypeClass,
+    BytesTypeClass,
+    NumberTypeClass,
+    EnumTypeClass,
+    NullTypeClass,
+    MapTypeClass,
+    ArrayTypeClass,
+    UnionTypeClass,
+    RecordTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +48,7 @@ class SQLSourceReport(SourceReport):
 
     def report_table_scanned(self, table_name: str) -> None:
         self.tables_scanned += 1
-    
+
     def report_dropped(self, table_name: str) -> None:
         self.filtered.append(table_name)
 
@@ -50,18 +63,19 @@ class SQLAlchemyConfig(BaseModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
-        url=f'{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}'
+        url = f'{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}'
         logger.debug('sql_alchemy_url={url}')
         return url
 
 
 @dataclass
 class SqlWorkUnit(WorkUnit):
-    mce: MetadataChangeEvent 
-    
+    mce: MetadataChangeEvent
+
     def get_metadata(self):
         return {'mce': self.mce}
-    
+
+
 _field_type_mapping = {
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
@@ -73,6 +87,7 @@ _field_type_mapping = {
     types.String: StringTypeClass,
 }
 
+
 def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type) -> SchemaFieldDataType:
     """
     Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
@@ -83,7 +98,7 @@ def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type)
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
             break
-    
+
     if TypeClass is None:
         sql_report.report_warning(dataset_name, f'unable to map type {column_type} to metadata schema')
         TypeClass = NullTypeClass
@@ -102,7 +117,6 @@ def get_schema_metadata(sql_report: SQLSourceReport, dataset_name: str, platform
         )
         canonical_schema.append(field)
 
-
     actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -110,19 +124,16 @@ def get_schema_metadata(sql_report: SQLSourceReport, dataset_name: str, platform
         version=0,
         hash="",
         platformSchema=MySqlDDL(
-            #TODO: this is bug-compatible with existing scripts. Will fix later
-            tableSchema = ""
+            # TODO: this is bug-compatible with existing scripts. Will fix later
+            tableSchema=""
         ),
-        created = AuditStamp(time=sys_time, actor=actor),
-        lastModified = AuditStamp(time=sys_time, actor=actor),
-        fields = canonical_schema,
+        created=AuditStamp(time=sys_time, actor=actor),
+        lastModified=AuditStamp(time=sys_time, actor=actor),
+        fields=canonical_schema,
     )
     return schema_metadata
 
 
-
-
-       
 class SQLAlchemySource(Source):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -132,9 +143,8 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
-
     def get_workunits(self):
-        env:str = "PROD"
+        env: str = "PROD"
         sql_config = self.config
         platform = self.platform
         url = sql_config.get_sql_alchemy_url()
@@ -154,21 +164,19 @@ class SQLAlchemySource(Source):
                     mce = MetadataChangeEvent()
 
                     dataset_snapshot = DatasetSnapshot()
-                    dataset_snapshot.urn=(
-                        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-                    )
+                    dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
                     schema_metadata = get_schema_metadata(self.report, dataset_name, platform, columns)
                     dataset_snapshot.aspects.append(schema_metadata)
                     mce.proposedSnapshot = dataset_snapshot
-                    
-                    wu = SqlWorkUnit(id=dataset_name, mce = mce)
+
+                    wu = SqlWorkUnit(id=dataset_name, mce=mce)
                     self.report.report_workunit(wu)
-                    yield wu 
+                    yield wu
                 else:
                     self.report.report_dropped(dataset_name)
-    
+
     def get_report(self):
         return self.report
-     
+
     def close(self):
         pass

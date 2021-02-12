@@ -9,17 +9,13 @@ def is_responsive(container: str, port: int):
 
 @pytest.fixture(scope="session")
 def docker_compose_file(pytestconfig):
-    return os.path.join(
-        str(pytestconfig.rootdir), "tests/integration/", "docker-compose.yml"
-    )
+    return os.path.join(str(pytestconfig.rootdir), "tests/integration/", "docker-compose.yml")
 
 
 def wait_for_db(docker_services, container_name, container_port):
     port = docker_services.port_for(container_name, container_port)
     docker_services.wait_until_responsive(
-        timeout=30.0,
-        pause=0.1,
-        check=lambda: is_responsive(container_name, container_port),
+        timeout=30.0, pause=0.1, check=lambda: is_responsive(container_name, container_port),
     )
     import time
 

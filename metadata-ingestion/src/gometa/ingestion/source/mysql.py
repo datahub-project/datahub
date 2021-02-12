@@ -1,9 +1,11 @@
 from .sql_common import SQLAlchemySource, SQLAlchemyConfig
 
+
 class MySQLConfig(SQLAlchemyConfig):
-    #defaults
+    # defaults
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"
+
 
 class MySQLSource(SQLAlchemySource):
     def __init__(self, config, ctx):
