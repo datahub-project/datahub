@@ -1,7 +1,8 @@
 import dataclasses
-from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
-from gometa.ingestion.api.common import RecordEnvelope
 import logging
+
+from gometa.ingestion.api.common import RecordEnvelope
+from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
 
 logger = logging.getLogger(__name__)
 

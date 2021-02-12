@@ -1,10 +1,9 @@
+import unittest
+from unittest.mock import MagicMock, patch
+
 from gometa.ingestion.api.common import PipelineContext
 from gometa.ingestion.source.kafka import KafkaSource
-
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-
-import unittest
-from unittest.mock import patch, MagicMock
 
 
 class KafkaSourceTest(unittest.TestCase):

@@ -1,8 +1,8 @@
 import json
 import sys
-from avrogen import write_schema_files
 
 import click
+from avrogen import write_schema_files
 
 
 @click.command()

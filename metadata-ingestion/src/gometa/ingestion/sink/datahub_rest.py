@@ -1,24 +1,24 @@
+import logging
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Type, Dict
-from pydantic import BaseModel
+from typing import Dict, Type
+
 import requests
+from pydantic import BaseModel
 from requests.exceptions import HTTPError
-from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
+
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata import (
+from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from gometa.metadata import (  # MLFeatureSnapshotClass,
     ChartSnapshotClass,
     CorpGroupSnapshotClass,
     CorpUserSnapshotClass,
     DashboardSnapshotClass,
-    DatasetSnapshotClass,
     DataProcessSnapshotClass,
+    DatasetSnapshotClass,
     MLModelSnapshotClass,
-    # MLFeatureSnapshotClass,
 )
-from collections import OrderedDict
-
-import logging
+from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
 

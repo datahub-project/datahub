@@ -1,15 +1,15 @@
-import pathlib
 import logging
+import pathlib
 
 import click
 
 from gometa.configuration.common import (
-    ConfigurationMechanism,
     ConfigurationError,
+    ConfigurationMechanism,
     nicely_formatted_validation_errors,
 )
-from gometa.configuration.yaml import YamlConfigurationMechanism
 from gometa.configuration.toml import TomlConfigurationMechanism
+from gometa.configuration.yaml import YamlConfigurationMechanism
 from gometa.ingestion.run.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)

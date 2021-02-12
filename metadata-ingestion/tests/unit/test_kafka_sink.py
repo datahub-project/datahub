@@ -1,9 +1,9 @@
-from gometa.ingestion.sink.datahub_kafka import DatahubKafkaSink, KafkaCallback
-from gometa.ingestion.api.sink import WriteCallback, SinkReport
-
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from gometa.ingestion.api.common import RecordEnvelope
+from gometa.ingestion.api.sink import SinkReport, WriteCallback
+from gometa.ingestion.sink.datahub_kafka import DatahubKafkaSink, KafkaCallback
 
 
 class KafkaSinkTest(unittest.TestCase):

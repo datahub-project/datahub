@@ -1,8 +1,9 @@
-from typing import Iterable, List
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from abc import abstractmethod, ABCMeta
+from typing import Iterable, List
+
 from .closeable import Closeable
-from .common import WorkUnit, PipelineContext, RecordEnvelope
+from .common import PipelineContext, RecordEnvelope, WorkUnit
 from .report import Report
 
 

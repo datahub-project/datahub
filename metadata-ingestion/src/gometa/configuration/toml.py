@@ -1,5 +1,7 @@
 from typing import IO
+
 import toml
+
 from .common import ConfigurationMechanism
 
 
