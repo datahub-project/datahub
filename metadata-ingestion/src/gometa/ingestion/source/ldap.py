@@ -46,16 +46,24 @@ class LDAPSource(Source):
         if LDAP24API:
             return SimplePagedResultsControl(True, size=pagesize, cookie='')
         else:
-            return SimplePagedResultsControl(ldap.LDAP_CONTROL_PAGE_OID, True, (pagesize, ''))
+            return SimplePagedResultsControl(
+                ldap.LDAP_CONTROL_PAGE_OID, True, (pagesize, '')
+            )
 
     def get_pctrls(self, serverctrls):
         """
             Lookup an LDAP paged control object from the returned controls.
             """
         if LDAP24API:
-            return [c for c in serverctrls if c.controlType == SimplePagedResultsControl.controlType]
+            return [
+                c
+                for c in serverctrls
+                if c.controlType == SimplePagedResultsControl.controlType
+            ]
         else:
-            return [c for c in serverctrls if c.controlType == ldap.LDAP_CONTROL_PAGE_OID]
+            return [
+                c for c in serverctrls if c.controlType == ldap.LDAP_CONTROL_PAGE_OID
+            ]
 
     def set_cookie(self, lc_object, pctrls, pagesize):
         """
@@ -109,7 +117,11 @@ class LDAPSource(Source):
     def download_data(self):
         try:
             msgid = self.l.search_ext(
-                self.config.base_dn, ldap.SCOPE_SUBTREE, self.config.search_filter, ATTRLIST, serverctrls=[self.lc]
+                self.config.base_dn,
+                ldap.SCOPE_SUBTREE,
+                self.config.search_filter,
+                ATTRLIST,
+                serverctrls=[self.lc],
             )
         except ldap.LDAPError as e:
             sys.stdout.write('LDAP search failed: %s' % e)
@@ -136,7 +148,8 @@ class LDAPSource(Source):
                     manager_msgid = self.l.search_ext(
                         self.config.base_dn,
                         ldap.SCOPE_SUBTREE,
-                        '(&(objectCategory=Person)(cn=%s))' % attrs['manager'][0].split(',')[0][3:],
+                        '(&(objectCategory=Person)(cn=%s))'
+                        % attrs['manager'][0].split(',')[0][3:],
                         ['sAMAccountName'],
                         serverctrls=[lc],
                     )
@@ -144,7 +157,9 @@ class LDAPSource(Source):
                     sys.stdout.write('manager LDAP search failed: %s' % e)
                     continue
                 try:
-                    manager_ldap = l.result3(manager_msgid)[1][0][1]['sAMAccountName'][0]
+                    manager_ldap = l.result3(manager_msgid)[1][0][1]['sAMAccountName'][
+                        0
+                    ]
                 except ldap.LDAPError as e:
                     sys.stdout.write('Could not pull managerLDAP results: %s' % e)
                     continue
@@ -158,7 +173,9 @@ class LDAPSource(Source):
 
     while True:
         try:
-            msgid = l.search_ext(BASEDN, ldap.SCOPE_SUBTREE, SEARCHFILTER, ATTRLIST, serverctrls=[lc])
+            msgid = l.search_ext(
+                BASEDN, ldap.SCOPE_SUBTREE, SEARCHFILTER, ATTRLIST, serverctrls=[lc]
+            )
         except ldap.LDAPError as e:
             sys.stdout.write('LDAP search failed: %s' % e)
             continue

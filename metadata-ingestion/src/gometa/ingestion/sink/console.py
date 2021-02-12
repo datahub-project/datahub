@@ -20,7 +20,9 @@ class ConsoleSink(Sink):
     def handle_work_unit_end(self, wu):
         pass
 
-    def write_record_async(self, record_envelope: RecordEnvelope, write_callback: WriteCallback):
+    def write_record_async(
+        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
+    ):
         print(f'{self.ctx.run_id}:{record_envelope}')
         if write_callback:
             self.report.report_record_written(record_envelope)

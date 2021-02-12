@@ -26,7 +26,12 @@ class WriteCallback(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def on_failure(self, record_envelope: RecordEnvelope, failure_exception: Exception, failure_metadata: dict):
+    def on_failure(
+        self,
+        record_envelope: RecordEnvelope,
+        failure_exception: Exception,
+        failure_metadata: dict,
+    ):
         pass
 
 
@@ -61,7 +66,9 @@ class Sink(Closeable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def write_record_async(self, record_envelope: RecordEnvelope, callback: WriteCallback):
+    def write_record_async(
+        self, record_envelope: RecordEnvelope, callback: WriteCallback
+    ):
         # must call callback when done.
         pass
 

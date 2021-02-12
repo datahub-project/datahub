@@ -15,7 +15,11 @@ import gometa.ingestion.extractor.schema_util as schema_util
 
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, KafkaSchema, SchemaField
+from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaMetadata,
+    KafkaSchema,
+    SchemaField,
+)
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 
 logger = logging.getLogger(__name__)
@@ -68,7 +72,9 @@ class KafkaSource(Source):
                 **self.source_config.connection.consumer_config,
             }
         )
-        self.schema_registry_client = SchemaRegistryClient({"url": self.source_config.connection.schema_registry_url})
+        self.schema_registry_client = SchemaRegistryClient(
+            {"url": self.source_config.connection.schema_registry_url}
+        )
         self.report = KafkaSourceReport()
 
     @classmethod
@@ -98,14 +104,18 @@ class KafkaSource(Source):
         actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
 
         metadata_record = MetadataChangeEvent()
-        dataset_snapshot = DatasetSnapshot(urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",)
+        dataset_snapshot = DatasetSnapshot(
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+        )
         dataset_snapshot.aspects.append(Status(removed=False))
         metadata_record.proposedSnapshot = dataset_snapshot
 
         # Fetch schema from the registry.
         has_schema = True
         try:
-            registered_schema = self.schema_registry_client.get_latest_version(topic + "-value")
+            registered_schema = self.schema_registry_client.get_latest_version(
+                topic + "-value"
+            )
             schema = registered_schema.schema
         except Exception as e:
             self.report.report_warning(topic, f"failed to get schema: {e}")
@@ -116,7 +126,9 @@ class KafkaSource(Source):
         if has_schema and schema.schema_type == 'AVRO':
             fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
         elif has_schema:
-            self.report.report_warning(topic, f"unable to parse kafka schema type {schema.schema_type}")
+            self.report.report_warning(
+                topic, f"unable to parse kafka schema type {schema.schema_type}"
+            )
 
         if has_schema:
             schema_metadata = SchemaMetadata(

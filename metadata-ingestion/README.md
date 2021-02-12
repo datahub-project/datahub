@@ -8,15 +8,28 @@
 - source venv/bin/activate
 - pip install -e .
 
-# Run tests
-- pip install -r test_requirements.txt
-# Run Unit tests
-- pytest tests/unit
-# Run Integration tests
-- pytest tests/integration
+# Testing
+## Deps
+```sh
+pip install -r test_requirements.txt
+```
+## Run Unit tests
+```sh
+pytest tests/unit
+```
+## Run Integration tests
+```sh
+pytest tests/integration
+```
 
-# Sanity check code before checkin (currently broken)
-- flake8 src test && mypy -p gometa && black --check -l 120 src test && isort --check-only src test && pytest
+## Sanity check code before checkin (currently broken)
+```sh
+flake8 src tests
+mypy -p gometa
+black --exclude 'gometa/metadata' -S -t py36 src tests
+isort --check-only src tests
+pytest
+```
 
 # Recipes
 

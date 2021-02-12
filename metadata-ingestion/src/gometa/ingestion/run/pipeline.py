@@ -23,11 +23,14 @@ class PipelineConfig(ConfigModel):
 
 class LoggingCallback(WriteCallback):
     def on_success(self, record_envelope, success_meta):
-        logger.debug('sink called success callback')
+        logger.debug("sink called success callback")
 
     def on_failure(self, record_envelope, exception, failure_meta):
         # breakpoint()
-        logger.exception(f'failed to write {record_envelope.record} with {exception} and info {failure_meta}')
+        logger.exception(
+            f"failed to write {record_envelope.record}"
+            " with {exception} and info {failure_meta}"
+        )
 
 
 class Pipeline:
@@ -49,15 +52,21 @@ class Pipeline:
         try:
             source_class = source_class_mapping[source_type]
         except KeyError as e:
-            raise ValueError(f'Did not find a registered source class for {source_type}') from e
-        self.source: Source = source_class.create(self.config.source.dict().get(source_type, {}), self.ctx)
+            raise ValueError(
+                f"Did not find a registered source class for {source_type}"
+            ) from e
+        self.source: Source = source_class.create(
+            self.config.source.dict().get(source_type, {}), self.ctx
+        )
         logger.debug(f"Source type:{source_type},{source_class} configured")
 
         sink_type = self.config.sink.type
         try:
             sink_class = sink_class_mapping[sink_type]
         except KeyError as e:
-            raise ValueError(f'Did not find a registered sink class for {sink_type}') from e
+            raise ValueError(
+                f"Did not find a registered sink class for {sink_type}"
+            ) from e
         sink_config = self.config.sink.dict().get(sink_type, {})
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
@@ -66,7 +75,7 @@ class Pipeline:
         self.extractor_class = self.get_class_from_name(self.config.source.extractor)
 
     @classmethod
-    def create(cls, config_dict: dict) -> 'Pipeline':
+    def create(cls, config_dict: dict) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
         return cls(config)
 
@@ -85,7 +94,7 @@ class Pipeline:
         self.sink.close()
 
         print()
-        print('Source:')
+        print("Source:")
         print(self.source.get_report().as_string())
-        print('Sink:')
+        print("Sink:")
         print(self.sink.get_report().as_string())

@@ -54,7 +54,9 @@ class DatahubKafkaSink(Sink):
             tuple_encoding = mce.to_obj(tuples=True)
             return tuple_encoding
 
-        avro_serializer = AvroSerializer(SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict)
+        avro_serializer = AvroSerializer(
+            SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict
+        )
 
         producer_config = {
             "bootstrap.servers": self.config.connection.bootstrap,
@@ -76,14 +78,20 @@ class DatahubKafkaSink(Sink):
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         self.producer.flush()
 
-    def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
+    def write_record_async(
+        self,
+        record_envelope: RecordEnvelope[MetadataChangeEvent],
+        write_callback: WriteCallback,
+    ):
         # call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
         mce = record_envelope.record
         self.producer.produce(
             topic=self.config.topic,
             value=mce,
-            on_delivery=KafkaCallback(self.report, record_envelope, write_callback).kafka_callback,
+            on_delivery=KafkaCallback(
+                self.report, record_envelope, write_callback
+            ).kafka_callback,
         )
 
     def get_report(self):

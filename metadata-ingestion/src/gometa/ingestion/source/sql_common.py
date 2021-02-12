@@ -3,7 +3,12 @@ from sqlalchemy import types
 from sqlalchemy.engine import reflection
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL, SchemaField, SchemaFieldDataType
+from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaMetadata,
+    MySqlDDL,
+    SchemaField,
+    SchemaFieldDataType,
+)
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
 from gometa.ingestion.api.source import WorkUnit, Source, SourceReport
@@ -55,8 +60,8 @@ class SQLAlchemyConfig(BaseModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
-        url = f'{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}'
-        logger.debug('sql_alchemy_url={url}')
+        url = f"{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}"
+        logger.debug("sql_alchemy_url={url}")
         return url
 
 
@@ -65,7 +70,7 @@ class SqlWorkUnit(WorkUnit):
     mce: MetadataChangeEvent
 
     def get_metadata(self):
-        return {'mce': self.mce}
+        return {"mce": self.mce}
 
 
 _field_type_mapping = {
@@ -80,7 +85,9 @@ _field_type_mapping = {
 }
 
 
-def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type) -> SchemaFieldDataType:
+def get_column_type(
+    sql_report: SQLSourceReport, dataset_name: str, column_type
+) -> SchemaFieldDataType:
     """
     Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
     """
@@ -92,19 +99,23 @@ def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type)
             break
 
     if TypeClass is None:
-        sql_report.report_warning(dataset_name, f'unable to map type {column_type} to metadata schema')
+        sql_report.report_warning(
+            dataset_name, f"unable to map type {column_type} to metadata schema"
+        )
         TypeClass = NullTypeClass
 
     return SchemaFieldDataType(type=TypeClass())
 
 
-def get_schema_metadata(sql_report: SQLSourceReport, dataset_name: str, platform: str, columns) -> SchemaMetadata:
+def get_schema_metadata(
+    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns
+) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:
         field = SchemaField(
-            fieldPath=column['name'],
-            nativeDataType=repr(column['type']),
-            type=get_column_type(sql_report, dataset_name, column['type']),
+            fieldPath=column["name"],
+            nativeDataType=repr(column["type"]),
+            type=get_column_type(sql_report, dataset_name, column["type"]),
             description=column.get("comment", None),
         )
         canonical_schema.append(field)
@@ -112,13 +123,10 @@ def get_schema_metadata(sql_report: SQLSourceReport, dataset_name: str, platform
     actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
-        platform=f'urn:li:dataPlatform:{platform}',
+        platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
-        platformSchema=MySqlDDL(
-            # TODO: this is bug-compatible with existing scripts. Will fix later
-            tableSchema=""
-        ),
+        platformSchema=MySqlDDL(tableSchema=""),
         created=AuditStamp(time=sys_time, actor=actor),
         lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
@@ -146,9 +154,9 @@ class SQLAlchemySource(Source):
         for schema in inspector.get_schema_names():
             for table in inspector.get_table_names(schema):
                 if database != "":
-                    dataset_name = f'{database}.{schema}.{table}'
+                    dataset_name = f"{database}.{schema}.{table}"
                 else:
-                    dataset_name = f'{schema}.{table}'
+                    dataset_name = f"{schema}.{table}"
                 self.report.report_table_scanned(dataset_name)
 
                 if sql_config.table_pattern.allowed(dataset_name):
@@ -157,7 +165,9 @@ class SQLAlchemySource(Source):
 
                     dataset_snapshot = DatasetSnapshot()
                     dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-                    schema_metadata = get_schema_metadata(self.report, dataset_name, platform, columns)
+                    schema_metadata = get_schema_metadata(
+                        self.report, dataset_name, platform, columns
+                    )
                     dataset_snapshot.aspects.append(schema_metadata)
                     mce.proposedSnapshot = dataset_snapshot
 
