@@ -29,7 +29,7 @@ jobs:
         flake8 src tests --count --statistics
     - name: Check with mypy
       run: |
-        mypy -p gometa || true
+        mypy -p gometa
     - name: Tests with pytest
       run: |
         pytest
