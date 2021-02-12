@@ -1,6 +1,6 @@
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import TypeVar, Generic
-from abc import abstractmethod, ABCMeta
+from typing import Generic, TypeVar
 
 T = TypeVar('T')
 

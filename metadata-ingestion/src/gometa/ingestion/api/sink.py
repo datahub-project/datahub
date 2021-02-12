@@ -1,9 +1,9 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Any
+from typing import Any, List
 
 from gometa.ingestion.api.closeable import Closeable
-from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
+from gometa.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from gometa.ingestion.api.report import Report
 
 

@@ -27,6 +27,9 @@ jobs:
     - name: Lint with flake8
       run: |
         flake8 src tests --count --statistics
+    - name: Check import sorting
+      run: |
+        isort src tests --check-only
     - name: Check with mypy
       run: |
         mypy -p gometa

@@ -1,6 +1,7 @@
-import pytest
 import json
+
 import mce_helpers
+import pytest
 
 basic_1 = json.loads(
     """[

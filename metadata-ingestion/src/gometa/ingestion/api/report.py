@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import json
 import pprint
+from dataclasses import dataclass
 
 
 @dataclass

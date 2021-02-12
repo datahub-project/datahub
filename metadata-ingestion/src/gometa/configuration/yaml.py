@@ -1,4 +1,5 @@
 from typing import IO
+
 import yaml
 
 from gometa.configuration import ConfigurationMechanism

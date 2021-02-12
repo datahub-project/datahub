@@ -1,4 +1,4 @@
-from .sql_common import SQLAlchemySource, SQLAlchemyConfig
+from .sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
 class SQLServerConfig(SQLAlchemyConfig):
