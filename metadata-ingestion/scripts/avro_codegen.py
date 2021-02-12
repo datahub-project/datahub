@@ -1,5 +1,4 @@
 import json
-import sys
 
 import click
 from avrogen import write_schema_files
@@ -14,7 +13,9 @@ def generate(schema_file: str, outdir: str):
         raw_schema_text = f.read()
 
     no_spaces_schema = json.dumps(json.loads(raw_schema_text))
-    schema_json = no_spaces_schema.replace('{"type": "string", "avro.java.string": "String"}', '"string"')
+    schema_json = no_spaces_schema.replace(
+        '{"type": "string", "avro.java.string": "String"}', '"string"'
+    )
 
     redo_spaces = json.dumps(json.loads(schema_json), indent=2)
 
