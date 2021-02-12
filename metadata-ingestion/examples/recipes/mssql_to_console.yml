@@ -1,7 +1,7 @@
 ---
 source:
   type: mssql
-  mssql:
+  config:
     username: sa
     password: test!Password
     database: DemoData

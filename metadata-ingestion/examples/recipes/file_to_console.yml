@@ -1,7 +1,7 @@
 ---
 source:
   type: "file"
-  file:
+  config:
     filename: "./examples/mce_files/single_mce.json"
 
 sink:

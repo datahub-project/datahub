@@ -2,7 +2,7 @@ run_id: mysql-test
 
 source:
   type: mysql
-  mysql:
+  config:
     username: root
     password: example
     database: metagalaxy
@@ -10,5 +10,5 @@ source:
 
 sink:
   type: file
-  file:
+  config:
     filename: './mysql_mces.json'

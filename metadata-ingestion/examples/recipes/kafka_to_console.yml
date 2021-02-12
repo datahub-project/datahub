@@ -1,7 +1,7 @@
 ---
 source:
   type: "kafka"
-  kafka:
+  config:
     connection.bootstrap: "broker:9092"
 
 sink:
