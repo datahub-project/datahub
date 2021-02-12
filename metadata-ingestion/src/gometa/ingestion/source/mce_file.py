@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from typing import Optional, Iterable
 from gometa.ingestion.api.source import Source, SourceReport
 from gometa.ingestion.source.metadata_common import MetadataWorkUnit
-from gometa.metadata import json_converter
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 class MetadataFileSourceConfig(BaseModel):
@@ -27,7 +26,7 @@ class MetadataFileSource(Source):
             mce_obj_list = [mce_obj_list]
         
         for i, obj in enumerate(mce_obj_list):
-            mce = json_converter.from_json_object(obj, MetadataChangeEvent.RECORD_SCHEMA)
+            mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
             wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", mce)
             self.report.report_workunit(wu)
             yield wu
