@@ -23,10 +23,10 @@ jobs:
         pip install -r test_requirements.txt
     - name: Check formatting with black
       run: |
-        black --exclude 'gometa/metadata' -S -t py36 -l 120 src tests
+        black --check --exclude 'gometa/metadata' -S -t py36 src tests
     - name: Lint with flake8
       run: |
-        flake8 src tests --count --statistics || true
+        flake8 src tests --count --statistics
     - name: Check with mypy
       run: |
         mypy -p gometa || true
