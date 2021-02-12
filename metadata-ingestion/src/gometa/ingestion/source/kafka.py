@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
+    # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
