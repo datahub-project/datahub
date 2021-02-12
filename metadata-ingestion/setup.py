@@ -37,6 +37,7 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -53,28 +54,34 @@ setuptools.setup(
     ],
     python_requires=">=3.6",
     package_dir={"": "src"},
-    packages=setuptools.find_packages(where='./src'),
+    packages=setuptools.find_packages(where="./src"),
     include_package_data=True,
     package_data={"gometa": ["py.typed"]},
     entry_points={
-        "console_scripts": [
-            "gometa-ingest = gometa.entrypoints:gometa_ingest"
-        ],
+        "console_scripts": ["gometa-ingest = gometa.entrypoints:gometa_ingest"],
     },
     install_requires=[
-        'dataclasses; python_version<="3.6"', #TODO: is this the right directive?
+        # Compatability.
+        "dataclasses>=0.6; python_version < '3.7'",
+        "typing_extensions>=3.7.4; python_version < '3.8'",
+        "mypy_extensions>=0.4.3",
+        # Actual dependencies.
         "click>=7.1.1",
         "pyyaml>=5.4.1",
         "toml>=0.10.0",
         "pydantic>=1.5.1",
-        "watchdog>=0.10.3", #TODO: Check if we want this
-        "confluent_kafka>=1.5.0",
         "requests>=2.25.1",
-        "fastavro>=1.3.0", #TODO: Do we need both avro-s?
-        "avro-python3>=1.8.2",
-        "sqlalchemy>=1.3.23", #Required for SQL sources
-        "pymysql>=1.0.2", # Driver for MySQL
-        "sqlalchemy-pytds>=0.3", # Driver for MS-SQL
+        "confluent_kafka[avro]>=1.5.0",
         "avro_gen @ https://api.github.com/repos/hsheth2/avro_gen/tarball/master",
+        # Note: we currently require both Avro libraries. The codegen uses avro-python3
+        # schema parsers at runtime for generating and reading JSON into Python objects.
+        # At the same time, we use Kafka's AvroSerializer, which internally relies on
+        # fastavro for serialization.
+        "fastavro>=1.3.0",
+        "avro-python3>=1.8.2",
+        # Required for certain sources/sinks.
+        "sqlalchemy>=1.3.23",  # Required for SQL sources
+        "pymysql>=1.0.2",  # Driver for MySQL
+        "sqlalchemy-pytds>=0.3",  # Driver for MS-SQL
     ],
 )
