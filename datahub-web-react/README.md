@@ -1,4 +1,4 @@
-DataHub React Client (Incubating)
+DataHub React App (Incubating)
 ==============================================================================
 
 ## About
