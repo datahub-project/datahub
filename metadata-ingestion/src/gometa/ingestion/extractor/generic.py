@@ -4,6 +4,7 @@ from gometa.ingestion.api import RecordEnvelope
 from gometa.ingestion.api.common import PipelineContext
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
+
 class WorkUnitMCEExtractor(Extractor):
     """An extractor that simply returns MCE-s inside workunits back as records"""
 
@@ -17,4 +18,3 @@ class WorkUnitMCEExtractor(Extractor):
 
     def close(self):
         pass
-

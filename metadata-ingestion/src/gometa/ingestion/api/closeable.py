@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABCMeta
 
-class Closeable():
+
+class Closeable:
     def close(self):
         pass

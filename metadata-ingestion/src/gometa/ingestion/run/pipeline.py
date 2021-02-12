@@ -42,10 +42,10 @@ class Pipeline:
     sink: Sink
 
     def get_class_from_name(self, class_string: str):
-        module_name, class_name = class_string.rsplit(".",1)
+        module_name, class_name = class_string.rsplit(".", 1)
         MyClass = getattr(importlib.import_module(module_name), class_name)
         return MyClass
-    
+
     def __init__(self, config: PipelineConfig):
         self.config = config
         self.ctx = PipelineContext(run_id=self.config.run_id)

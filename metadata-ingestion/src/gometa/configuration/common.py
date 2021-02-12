@@ -28,8 +28,10 @@ class ConfigurationMechanism(ABC):
     def load_config(self, config_fp: IO) -> dict:
         pass
 
+
 class AllowDenyPattern(BaseModel):
     """ A class to store allow deny regexes"""
+
     allow: List[str] = [".*"]
     deny: List[str] = []
 

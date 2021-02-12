@@ -3,9 +3,9 @@ from dataclasses import dataclass
 import json
 import pprint
 
+
 @dataclass
 class Report:
-
     def as_obj(self) -> dict:
         return self.__dict__
 
