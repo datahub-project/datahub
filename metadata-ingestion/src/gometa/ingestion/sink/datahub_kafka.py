@@ -1,7 +1,5 @@
-from dataclasses import dataclass, field
-import json
-from typing import Optional, TypeVar, Type
-from pydantic import BaseModel, Field, ValidationError, validator
+from dataclasses import dataclass
+from pydantic import BaseModel
 from gometa.ingestion.api.sink import Sink, WriteCallback, SinkReport
 from gometa.ingestion.api.common import RecordEnvelope, WorkUnit, PipelineContext
 from gometa.configuration.kafka import KafkaProducerConnectionConfig

@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, field
 from pydantic import BaseModel
-from typing import Optional, Iterable
+from typing import Iterable
 from gometa.ingestion.api.source import Source, SourceReport
 from gometa.ingestion.source.metadata_common import MetadataWorkUnit
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent

@@ -1,6 +1,4 @@
 import os
-import pytest
-import subprocess
 
 import mce_helpers
 

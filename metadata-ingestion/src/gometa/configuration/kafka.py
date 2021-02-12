@@ -1,5 +1,4 @@
-from typing import Optional
-from pydantic import BaseModel, Field, ValidationError, validator
+from pydantic import BaseModel, validator
 
 
 class _KafkaConnectionConfig(BaseModel):

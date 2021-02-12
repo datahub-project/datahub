@@ -1,5 +1,5 @@
 from typing import Iterable
-from gometa.ingestion.api.source import Extractor, WorkUnit
+from gometa.ingestion.api.source import Extractor
 from gometa.ingestion.api import RecordEnvelope
 from gometa.ingestion.api.common import PipelineContext
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent

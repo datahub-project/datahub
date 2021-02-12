@@ -6,7 +6,7 @@ import click
 from gometa.configuration.common import ConfigurationMechanism, ConfigurationError, nicely_formatted_validation_errors
 from gometa.configuration.yaml import YamlConfigurationMechanism
 from gometa.configuration.toml import TomlConfigurationMechanism
-from gometa.ingestion.run.pipeline import Pipeline, PipelineConfig
+from gometa.ingestion.run.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 
