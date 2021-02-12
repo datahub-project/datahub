@@ -2,7 +2,8 @@ import pytest
 import json
 import mce_helpers
 
-basic_1 = json.loads("""[
+basic_1 = json.loads(
+    """[
     {
         "auditHeader": null,
         "proposedSnapshot": {
@@ -45,10 +46,12 @@ basic_1 = json.loads("""[
         },
         "proposedDelta": null
     }
-]""")
+]"""
+)
 
 # Timestamps changed from basic_1 but same otherwise.
-basic_2 = json.loads("""[
+basic_2 = json.loads(
+    """[
     {
         "auditHeader": null,
         "proposedSnapshot": {
@@ -91,10 +94,12 @@ basic_2 = json.loads("""[
         },
         "proposedDelta": null
     }
-]""")
+]"""
+)
 
 # Dataset owner changed from basic_2.
-basic_3 = json.loads("""[
+basic_3 = json.loads(
+    """[
     {
         "auditHeader": null,
         "proposedSnapshot": {
@@ -137,14 +142,18 @@ basic_3 = json.loads("""[
         },
         "proposedDelta": null
     }
-]""")
+]"""
+)
+
 
 def test_basic_diff_same():
     mce_helpers.assert_mces_equal(basic_1, basic_2)
 
+
 def test_basic_diff_only_owner_change():
     with pytest.raises(AssertionError):
         mce_helpers.assert_mces_equal(basic_2, basic_3)
+
 
 def test_basic_diff_owner_change():
     with pytest.raises(AssertionError):
