@@ -8,7 +8,7 @@ class PipelineTest(unittest.TestCase):
     @patch("gometa.ingestion.source.kafka.KafkaSource.get_workunits")
     @patch("gometa.ingestion.sink.console.ConsoleSink.close")
     def test_configure(self, mock_sink, mock_source):
-        pipeline = Pipeline(
+        pipeline = Pipeline.create(
             {
                 "source": {"type": "kafka", "kafka": {"bootstrap": "localhost:9092"},},
                 "sink": {"type": "console"},

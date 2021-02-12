@@ -3,7 +3,7 @@ import logging
 
 import click
 
-from gometa.configuration.common import ConfigurationMechanism, ConfigurationError
+from gometa.configuration.common import ConfigurationMechanism, ConfigurationError, nicely_formatted_validation_errors
 from gometa.configuration.yaml import YamlConfigurationMechanism
 from gometa.configuration.toml import TomlConfigurationMechanism
 from gometa.ingestion.run.pipeline import Pipeline, PipelineConfig
@@ -41,9 +41,12 @@ def gometa_ingest(config: str):
     else:
       raise ConfigurationError("Only .toml and .yml are supported. Cannot process file type {}".format(config_file.suffix))
 
-    pipeline_config = config_mech.load_config(PipelineConfig, config_file)
-    logger.debug(f'Using config: {pipeline_config}')
-    pipeline = Pipeline(pipeline_config)
+    with config_file.open() as fp:
+      pipeline_config = config_mech.load_config(fp)
+
+    with nicely_formatted_validation_errors():
+      logger.debug(f'Using config: {pipeline_config}')
+      pipeline = Pipeline.create(pipeline_config)
     pipeline.run()
 
 

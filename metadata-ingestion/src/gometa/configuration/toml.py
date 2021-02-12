@@ -1,14 +1,11 @@
-from typing import Type, TypeVar
-from pathlib import Path
+from typing import IO
 import toml
-from .common import ConfigModel, ConfigurationMechanism, generic_load_file
-
-T = TypeVar("T", bound=ConfigModel)
+from .common import ConfigurationMechanism
 
 
 class TomlConfigurationMechanism(ConfigurationMechanism):
     """Ability to load configuration from toml files"""
 
-    def load_config(self, cls: Type[T], config_file: Path) -> T:
-        config = generic_load_file(cls, config_file, toml.load)
+    def load_config(self, config_fp: IO):
+        config = toml.load(config_fp)
         return config

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: Optional[str] = "gometa.ingestion.extractor.generic.WorkUnitMCEExtractor"
+    extractor: str = "gometa.ingestion.extractor.generic.WorkUnitMCEExtractor"
 
 
 class PipelineConfig(ConfigModel):
@@ -46,8 +46,8 @@ class Pipeline:
         MyClass = getattr(importlib.import_module(module_name), class_name)
         return MyClass
     
-    def __init__(self, config_dict):
-        self.config = PipelineConfig.parse_obj(config_dict)
+    def __init__(self, config: PipelineConfig):
+        self.config = config
         self.ctx = PipelineContext(run_id=self.config.run_id)
 
         source_type = self.config.source.type
@@ -69,6 +69,11 @@ class Pipeline:
 
         # Ensure extractor can be constructed, even though we use them later
         self.extractor_class = self.get_class_from_name(self.config.source.extractor)
+
+    @classmethod
+    def create(cls, config_dict: dict) -> 'Pipeline':
+        config = PipelineConfig.parse_obj(config_dict)
+        return cls(config)
 
     def run(self):
         callback = LoggingCallback()
