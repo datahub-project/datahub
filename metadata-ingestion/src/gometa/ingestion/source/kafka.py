@@ -3,7 +3,7 @@ from gometa.configuration import ConfigModel
 from gometa.configuration.kafka import KafkaConsumerConnectionConfig
 from gometa.ingestion.api.source import Source, Extractor, SourceReport
 from gometa.ingestion.api.source import WorkUnit
-from typing import Optional, Iterable, List, Dict
+from typing import Optional, Iterable, List, Dict, Any
 from dataclasses import dataclass, field
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
@@ -54,7 +54,7 @@ class KafkaSourceReport(SourceReport):
 @dataclass
 class KafkaSource(Source):
     source_config: KafkaSourceConfig
-    topic_pattern: re.Pattern
+    topic_pattern: Any # actually re.Pattern
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
 
