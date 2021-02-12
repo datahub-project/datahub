@@ -5,7 +5,6 @@ import os
 import pathlib
 import logging
 import json
-from gometa.metadata import json_converter
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ class FileSink(Sink):
 
     def write_record_async(self, record_envelope: RecordEnvelope[MetadataChangeEvent], write_callback: WriteCallback):
         mce = record_envelope.record
-        obj = json_converter.to_json_object(mce, MetadataChangeEvent.RECORD_SCHEMA)
+        obj = mce.to_obj()
 
         if self.wrote_something:
             self.file.write(',\n')
