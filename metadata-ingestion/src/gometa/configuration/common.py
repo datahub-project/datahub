@@ -1,18 +1,21 @@
 import re
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import IO, List
+from typing import IO, Any, List, Optional
 
 from pydantic import BaseModel, ValidationError
 
 
 class ConfigModel(BaseModel):
-    class Config:
-        extra = "allow"
+    # This class is here for future compatibility reasons.
+    pass
 
 
 class DynamicTypedConfig(ConfigModel):
     type: str
+    # This config type is declared Optional[Any] here. The eventual parser for the
+    # specified type is responsible for further validation.
+    config: Optional[Any]
 
 
 class MetaError(Exception):

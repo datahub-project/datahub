@@ -1,10 +1,9 @@
----
 source:
   type: "file"
-  file:
+  config:
     filename: "./examples/mce_files/bootstrap_mce.json"
 
 sink:
   type: "datahub-rest"
-  datahub-rest:
+  config:
     server: 'http://localhost:8080'

@@ -1,10 +1,10 @@
 ---
 source:
   type: "file"
-  file:
+  config:
     filename: "./examples/mce_files/bootstrap_mce.json"
 
 sink:
   type: "file"
-  file:
+  config:
     filename: './output/bootstrap_mce.json'
