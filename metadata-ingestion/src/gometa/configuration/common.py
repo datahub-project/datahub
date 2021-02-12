@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Type, List
+from typing import TypeVar, Type, List, IO
 from pydantic import BaseModel, ValidationError
 from pathlib import Path
+from contextlib import contextmanager
 import re
 
 
@@ -22,12 +23,9 @@ class ConfigurationError(MetaError):
     """A configuration error has happened"""
 
 
-T = TypeVar("T", bound=ConfigModel)
-
-
 class ConfigurationMechanism(ABC):
     @abstractmethod
-    def load_config(self, cls: Type[T], config_file: Path) -> T:
+    def load_config(self, config_fp: IO) -> dict:
         pass
 
 class AllowDenyPattern(BaseModel):
@@ -51,18 +49,10 @@ class AllowDenyPattern(BaseModel):
         return False
 
 
-def generic_load_file(cls: Type[T], path: Path, loader_func) -> T:
-    if not path.exists():
-        return cls()
-
-    with path.open() as f:
-        try:
-            config = loader_func(f)
-        except ValueError as e:
-            raise ConfigurationError(f'File {path} is unparseable: {e}') from e
-
+@contextmanager
+def nicely_formatted_validation_errors():
     try:
-        return cls.parse_obj(config)
+        yield
     except ValidationError as e:
         messages = []
         for err in e.errors():
@@ -71,4 +61,4 @@ def generic_load_file(cls: Type[T], path: Path, loader_func) -> T:
             messages.append(f"  - {location}: {reason}")
 
         msg = "\n".join(messages)
-        raise ConfigurationError(f"Invalid value in configuration file {path}: \n{msg}") from e
+        raise ConfigurationError(f"Invalid value in configuration: \n{msg}") from e
