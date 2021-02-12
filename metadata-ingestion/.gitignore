@@ -1,6 +1,7 @@
 .envrc
 .vscode/
 output
+pvenv36/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
