@@ -3,6 +3,11 @@ source:
   type: "kafka"
   kafka:
     connection.bootstrap: "localhost:9092"
+  topic_patterns:
+    allow:
+      - ".*"
+    deny:
+      - "^_.+" # deny all tables that start with an underscore
 
 sink:
   type: "datahub-kafka"
