@@ -2,11 +2,10 @@ import logging
 from gometa.configuration import ConfigModel
 from gometa.configuration.kafka import KafkaConsumerConnectionConfig
 from gometa.ingestion.api.source import Source, SourceReport
-from typing import Iterable, List, Dict, Any
+from typing import Iterable, List, Dict
 from dataclasses import dataclass, field
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
-import re
 from gometa.ingestion.source.metadata_common import MetadataWorkUnit
 
 import time
@@ -20,6 +19,7 @@ from gometa.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
 )
+from gometa.configuration.common import AllowDenyPattern
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class KafkaSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic: str = ".*"  # default is wildcard subscription
+    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
 
 @dataclass
@@ -57,18 +57,16 @@ class KafkaSourceReport(SourceReport):
 @dataclass
 class KafkaSource(Source):
     source_config: KafkaSourceConfig
-    topic_pattern: Any  # actually re.Pattern
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
-        self.topic_pattern = re.compile(self.source_config.topic)
         self.consumer = confluent_kafka.Consumer(
             {
-                'group.id': 'test',
-                'bootstrap.servers': self.source_config.connection.bootstrap,
+                "group.id": "test",
+                "bootstrap.servers": self.source_config.connection.bootstrap,
                 **self.source_config.connection.consumer_config,
             }
         )
@@ -87,10 +85,9 @@ class KafkaSource(Source):
         for t in topics:
             self.report.report_topic_scanned(t)
 
-            # TODO: topics config should support allow and deny patterns
-            if re.fullmatch(self.topic_pattern, t) and not t.startswith("_"):
+            if self.source_config.topic_patterns.allowed(t):
                 mce = self._extract_record(t)
-                wu = MetadataWorkUnit(id=f'kafka-{t}', mce=mce)
+                wu = MetadataWorkUnit(id=f"kafka-{t}", mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
             else:
@@ -123,7 +120,7 @@ class KafkaSource(Source):
 
         # Parse the schema
         fields: List[SchemaField] = []
-        if has_schema and schema.schema_type == 'AVRO':
+        if has_schema and schema.schema_type == "AVRO":
             fields = schema_util.avro_schema_to_mce_fields(schema.schema_str)
         elif has_schema:
             self.report.report_warning(
