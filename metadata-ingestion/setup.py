@@ -50,7 +50,7 @@ setuptools.setup(
         "Environment :: MacOS X",
         "Topic :: Software Development",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where='./src'),
     include_package_data=True,
