@@ -75,13 +75,6 @@ class KafkaAuditHeaderClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "KafkaAuditHeaderClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def time(self) -> int:
@@ -220,13 +213,6 @@ class ChartInfoClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ChartInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def title(self) -> str:
@@ -353,13 +339,6 @@ class ChartQueryClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ChartQueryClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def rawQuery(self) -> str:
@@ -440,13 +419,6 @@ class AuditStampClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "AuditStampClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def time(self) -> int:
@@ -515,13 +487,6 @@ class ChangeAuditStampsClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ChangeAuditStampsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def created(self) -> "AuditStampClass":
@@ -588,13 +553,6 @@ class CostClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CostClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def costType(self) -> "CostTypeClass":
@@ -650,13 +608,6 @@ class CostCostClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CostCostClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -741,13 +692,6 @@ class DeprecationClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DeprecationClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def deprecated(self) -> bool:
@@ -824,13 +768,6 @@ class InstitutionalMemoryClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "InstitutionalMemoryClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def elements(self) -> List["InstitutionalMemoryMetadataClass"]:
@@ -874,13 +811,6 @@ class InstitutionalMemoryMetadataClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "InstitutionalMemoryMetadataClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -969,13 +899,6 @@ class OwnerClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OwnerClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def owner(self) -> str:
@@ -1042,13 +965,6 @@ class OwnershipClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OwnershipClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def owners(self) -> List["OwnerClass"]:
@@ -1102,13 +1018,6 @@ class OwnershipSourceClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OwnershipSourceClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1186,13 +1095,6 @@ class StatusClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "StatusClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def removed(self) -> bool:
@@ -1232,13 +1134,6 @@ class VersionTagClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "VersionTagClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1286,13 +1181,6 @@ class UDFTransformerClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "UDFTransformerClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1345,13 +1233,6 @@ class DashboardInfoClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DashboardInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1467,13 +1348,6 @@ class DataProcessInfoClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DataProcessInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def inputs(self) -> Union[None, List[str]]:
@@ -1531,13 +1405,6 @@ class DatasetDeprecationClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetDeprecationClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1620,13 +1487,6 @@ class DatasetFieldMappingClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetFieldMappingClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1718,13 +1578,6 @@ class DatasetPropertiesClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetPropertiesClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def description(self) -> Union[None, str]:
@@ -1801,13 +1654,6 @@ class DatasetUpstreamLineageClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetUpstreamLineageClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def fieldMappings(self) -> List["DatasetFieldMappingClass"]:
@@ -1851,13 +1697,6 @@ class UpstreamClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "UpstreamClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -1923,13 +1762,6 @@ class UpstreamLineageClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "UpstreamLineageClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def upstreams(self) -> List["UpstreamClass"]:
@@ -1975,13 +1807,6 @@ class CorpGroupInfoClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CorpGroupInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2064,13 +1889,6 @@ class CorpUserEditableInfoClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CorpUserEditableInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2167,13 +1985,6 @@ class CorpUserInfoClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CorpUserInfoClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2337,13 +2148,6 @@ class ChartSnapshotClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ChartSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def urn(self) -> str:
@@ -2397,13 +2201,6 @@ class CorpGroupSnapshotClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CorpGroupSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2459,13 +2256,6 @@ class CorpUserSnapshotClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CorpUserSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def urn(self) -> str:
@@ -2519,13 +2309,6 @@ class DashboardSnapshotClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DashboardSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2581,13 +2364,6 @@ class DataProcessSnapshotClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DataProcessSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def urn(self) -> str:
@@ -2641,13 +2417,6 @@ class DatasetSnapshotClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2703,13 +2472,6 @@ class MLFeatureSnapshotClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLFeatureSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def urn(self) -> str:
@@ -2763,13 +2525,6 @@ class MLModelSnapshotClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLModelSnapshotClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2826,13 +2581,6 @@ class BaseDataClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "BaseDataClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2901,13 +2649,6 @@ class CaveatDetailsClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CaveatDetailsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -2978,13 +2719,6 @@ class CaveatsAndRecommendationsClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "CaveatsAndRecommendationsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3057,13 +2791,6 @@ class EthicalConsiderationsClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "EthicalConsiderationsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3153,13 +2880,6 @@ class EvaluationDataClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "EvaluationDataClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def evaluationData(self) -> List["BaseDataClass"]:
@@ -3203,13 +2923,6 @@ class IntendedUseClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "IntendedUseClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3287,13 +3000,6 @@ class MLFeaturePropertiesClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLFeaturePropertiesClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def description(self) -> Union[None, str]:
@@ -3360,13 +3066,6 @@ class MLModelFactorPromptsClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLModelFactorPromptsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def relevantFactors(self) -> Union[None, List["MLModelFactorsClass"]]:
@@ -3422,13 +3121,6 @@ class MLModelFactorsClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLModelFactorsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3511,13 +3203,6 @@ class MLModelPropertiesClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MLModelPropertiesClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3633,13 +3318,6 @@ class MetricsClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MetricsClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def performanceMeasures(self) -> Union[None, List[str]]:
@@ -3694,13 +3372,6 @@ class QuantitativeAnalysesClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "QuantitativeAnalysesClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def unitaryResults(self) -> Union[None, str]:
@@ -3753,13 +3424,6 @@ class SourceCodeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SourceCodeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def sourceCode(self) -> List["SourceCodeUrlClass"]:
@@ -3801,13 +3465,6 @@ class SourceCodeUrlClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SourceCodeUrlClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3869,13 +3526,6 @@ class TrainingDataClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "TrainingDataClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def trainingData(self) -> List["BaseDataClass"]:
@@ -3919,13 +3569,6 @@ class MetadataChangeEventClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MetadataChangeEventClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -3991,13 +3634,6 @@ class ArrayTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ArrayTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def nestedType(self) -> Union[None, List[str]]:
@@ -4038,13 +3674,6 @@ class BinaryJsonSchemaClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "BinaryJsonSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def schema(self) -> str:
@@ -4084,13 +3713,6 @@ class BooleanTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "BooleanTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
 class BytesTypeClass(DictWrapper):
     """Bytes field type."""
@@ -4117,13 +3739,6 @@ class BytesTypeClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "BytesTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
 class DatasetFieldForeignKeyClass(DictWrapper):
@@ -4156,13 +3771,6 @@ class DatasetFieldForeignKeyClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "DatasetFieldForeignKeyClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4227,13 +3835,6 @@ class EnumTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "EnumTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
 class EspressoSchemaClass(DictWrapper):
     """Schema text of an espresso table schema."""
@@ -4263,13 +3864,6 @@ class EspressoSchemaClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "EspressoSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4322,13 +3916,6 @@ class FixedTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "FixedTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
 class ForeignKeySpecClass(DictWrapper):
     """Description of a foreign key in a schema."""
@@ -4356,13 +3943,6 @@ class ForeignKeySpecClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "ForeignKeySpecClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4403,13 +3983,6 @@ class KafkaSchemaClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "KafkaSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4452,13 +4025,6 @@ class KeyValueSchemaClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "KeyValueSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4514,13 +4080,6 @@ class MapTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MapTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def keyType(self) -> Union[None, str]:
@@ -4573,13 +4132,6 @@ class MySqlDDLClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "MySqlDDLClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def tableSchema(self) -> str:
@@ -4619,13 +4171,6 @@ class NullTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "NullTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
 class NumberTypeClass(DictWrapper):
     """Number data type: long, integer, short, etc.."""
@@ -4652,13 +4197,6 @@ class NumberTypeClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "NumberTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
 class OracleDDLClass(DictWrapper):
@@ -4687,13 +4225,6 @@ class OracleDDLClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OracleDDLClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4735,13 +4266,6 @@ class OrcSchemaClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OrcSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def schema(self) -> str:
@@ -4781,13 +4305,6 @@ class OtherSchemaClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "OtherSchemaClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -4829,13 +4346,6 @@ class PrestoDDLClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "PrestoDDLClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def rawSchema(self) -> str:
@@ -4874,13 +4384,6 @@ class RecordTypeClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "RecordTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
 class SchemaFieldClass(DictWrapper):
@@ -4921,13 +4424,6 @@ class SchemaFieldClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SchemaFieldClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -5041,13 +4537,6 @@ class SchemaFieldDataTypeClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SchemaFieldDataTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
     @property
     def type(self) -> Union["BooleanTypeClass", "FixedTypeClass", "StringTypeClass", "BytesTypeClass", "NumberTypeClass", "EnumTypeClass", "NullTypeClass", "MapTypeClass", "ArrayTypeClass", "UnionTypeClass", "RecordTypeClass"]:
@@ -5111,13 +4600,6 @@ class SchemaMetadataClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SchemaMetadataClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -5302,13 +4784,6 @@ class SchemalessClass(DictWrapper):
                 getattr(self, key)
                 setattr(self, key, value)
     
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "SchemalessClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
-    
     
 class StringTypeClass(DictWrapper):
     """String field type."""
@@ -5335,13 +4810,6 @@ class StringTypeClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "StringTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
 class UnionTypeClass(DictWrapper):
@@ -5370,13 +4838,6 @@ class UnionTypeClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "UnionTypeClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
@@ -5417,13 +4878,6 @@ class UrnForeignKeyClass(DictWrapper):
             if value is not None:
                 getattr(self, key)
                 setattr(self, key, value)
-    
-    @classmethod
-    def from_obj(cls, obj: dict, tuples=False) -> "UrnForeignKeyClass":
-        ...
-    
-    def to_obj(self, tuples=False) -> dict:
-        ...
     
     
     @property
