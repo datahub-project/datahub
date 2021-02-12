@@ -68,7 +68,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             },
             {
                 name: TabType.Documents,
-                path: 'Docs',
+                path: 'docs',
                 content: (
                     <DocumentsView
                         documents={institutionalMemory?.elements || EMPTY_ARR}
