@@ -3,7 +3,7 @@ from sqlalchemy import types
 from sqlalchemy.engine import reflection
 from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL
+from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MySqlDDL, SchemaField, SchemaFieldDataType
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
 from gometa.ingestion.api.source import WorkUnit, Source, SourceReport
@@ -15,21 +15,13 @@ from typing import Optional, List, Any, Dict
 from dataclasses import dataclass, field
 
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata,
-    KafkaSchema,
-    SchemaField,
-    SchemaFieldDataType,
     BooleanTypeClass,
-    FixedTypeClass,
     StringTypeClass,
     BytesTypeClass,
     NumberTypeClass,
     EnumTypeClass,
     NullTypeClass,
-    MapTypeClass,
     ArrayTypeClass,
-    UnionTypeClass,
-    RecordTypeClass,
 )
 
 logger = logging.getLogger(__name__)

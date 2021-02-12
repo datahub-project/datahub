@@ -1,8 +1,3 @@
-import os
-import pytest
-import subprocess
-import shutil
-
 from gometa.ingestion.run.pipeline import Pipeline
 
 import mce_helpers
@@ -19,8 +14,8 @@ def test_serde_large(pytestconfig, tmp_path):
 
     pipeline = Pipeline.create(
         {
-            'source': {'type': 'file', 'file': {'filename': str(golden_file),},},
-            'sink': {'type': 'file', 'file': {'filename': str(output_file),},},
+            'source': {'type': 'file', 'file': {'filename': str(golden_file)}},
+            'sink': {'type': 'file', 'file': {'filename': str(output_file)}},
         }
     )
     pipeline.run()

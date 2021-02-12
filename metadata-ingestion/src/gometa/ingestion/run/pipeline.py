@@ -1,14 +1,9 @@
-from typing import Dict
-from pydantic import BaseModel
-from dataclasses import dataclass, field
-import pprint
 from gometa.configuration.common import DynamicTypedConfig, ConfigModel
 from gometa.ingestion.api.source import Source, Extractor
 from gometa.ingestion.source import source_class_mapping
 from gometa.ingestion.api.common import PipelineContext
-from gometa.ingestion.api.sink import Sink, NoopWriteCallback, WriteCallback
+from gometa.ingestion.api.sink import Sink, WriteCallback
 from gometa.ingestion.sink import sink_class_mapping
-from typing import Optional
 import importlib
 import time
 import logging
@@ -77,7 +72,7 @@ class Pipeline:
 
     def run(self):
         callback = LoggingCallback()
-        extractor = self.extractor_class()
+        extractor: Extractor = self.extractor_class()
         for wu in self.source.get_workunits():
             # TODO: change extractor interface
             extractor.configure({}, self.ctx)

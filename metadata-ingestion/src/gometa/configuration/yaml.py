@@ -1,7 +1,7 @@
 from typing import IO
 import yaml
 
-from .common import ConfigModel, ConfigurationMechanism
+from gometa.configuration import ConfigurationMechanism
 
 
 class YamlConfigurationMechanism(ConfigurationMechanism):

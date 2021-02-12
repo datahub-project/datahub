@@ -1,10 +1,8 @@
 import logging
-from typing import List, Dict, Any
+from typing import List, Any
 import avro.schema
 
 from gometa.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaMetadata,
-    KafkaSchema,
     SchemaField,
     SchemaFieldDataType,
     BooleanTypeClass,
@@ -14,7 +12,6 @@ from gometa.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
     EnumTypeClass,
     NullTypeClass,
-    MapTypeClass,
     ArrayTypeClass,
     UnionTypeClass,
     RecordTypeClass,

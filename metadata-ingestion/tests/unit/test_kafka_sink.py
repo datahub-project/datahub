@@ -3,7 +3,7 @@ from gometa.ingestion.api.sink import WriteCallback, SinkReport
 
 import unittest
 from unittest.mock import patch, MagicMock
-from gometa.ingestion.api.common import RecordEnvelope, PipelineContext
+from gometa.ingestion.api.common import RecordEnvelope
 
 
 class KafkaSinkTest(unittest.TestCase):

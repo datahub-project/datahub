@@ -1,14 +1,12 @@
 import logging
 from gometa.configuration import ConfigModel
 from gometa.configuration.kafka import KafkaConsumerConnectionConfig
-from gometa.ingestion.api.source import Source, Extractor, SourceReport
-from gometa.ingestion.api.source import WorkUnit
-from typing import Optional, Iterable, List, Dict, Any
+from gometa.ingestion.api.source import Source, SourceReport
+from typing import Iterable, List, Dict, Any
 from dataclasses import dataclass, field
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 import re
-from gometa.ingestion.api.closeable import Closeable
 from gometa.ingestion.source.metadata_common import MetadataWorkUnit
 
 import time
