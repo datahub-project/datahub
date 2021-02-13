@@ -26,6 +26,8 @@ jobs:
           java-version: 1.8
       - name: Gradle build (and test)
         run: ./gradlew build
+      - name: Python ingest framework tests
+        run: cd metadata-ingestion && ./scripts/ci.sh
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
