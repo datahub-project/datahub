@@ -1,14 +1,28 @@
-# Getting Started
+# Metadata Ingestion
 
-## From source:
+This module hosts an extensible Python-based metadata ingestion system for DataHub.
+This supports sending data to DataHub using Kafka or through the REST api.
+The driver script is called gometa-ingest.
+Read on to figure out how to use it!
+
+
+## Pre-Requisites
+
+Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through Docker images.
+You can run these jobs by building from source or by running docker images.
+## Building from source:
 
 ### Pre-Requisites
-- Python 3.6+
-- Must have already run `./gradlew build` in the datahub root directory.
-- On MacOS: `brew install librdkafka`
-- On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+1. Python 3.6+ must be installed in your host environment.
+2. You also need to build the `mxe-schemas` module as below.
+   ```
+   ./gradlew :metadata-events:mxe-schemas:build
+   ```
+   This is needed to generate `MetadataChangeEvent.avsc` which is the schema for the `MetadataChangeEvent_v4` Kafka topic.
+3. On MacOS: `brew install librdkafka`
+4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
 
-### Set up python environment
+### Set up your Python environment
 ```sh
 python3 -m venv venv
 source venv/bin/activate
@@ -21,7 +35,7 @@ pip install -e .
 gometa-ingest -c examples/recipes/file_to_file.yml
 ```
 
-## Using Docker:
+## Running Ingestion using Docker:
 
 ### Build the image
 ```sh
