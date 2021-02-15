@@ -45,4 +45,4 @@ USER datahub
 #USER datahub
 
 #EXPOSE PORT_NUM
-ENTRYPOINT ["gometa-ingest"]
+ENTRYPOINT ["datahub"]
