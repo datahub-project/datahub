@@ -3,7 +3,7 @@ from typing import Any, List
 
 import avro.schema
 
-from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,

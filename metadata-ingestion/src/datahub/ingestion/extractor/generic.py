@@ -1,9 +1,9 @@
 from typing import Iterable
 
-from gometa.ingestion.api import RecordEnvelope
-from gometa.ingestion.api.common import PipelineContext
-from gometa.ingestion.api.source import Extractor
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.api import RecordEnvelope
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Extractor
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class WorkUnitMCEExtractor(Extractor):

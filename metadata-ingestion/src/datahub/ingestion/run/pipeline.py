@@ -2,18 +2,18 @@ import importlib
 import logging
 import time
 
-from gometa.configuration.common import ConfigModel, DynamicTypedConfig
-from gometa.ingestion.api.common import PipelineContext
-from gometa.ingestion.api.sink import Sink, WriteCallback
-from gometa.ingestion.api.source import Extractor, Source
-from gometa.ingestion.sink import sink_class_mapping
-from gometa.ingestion.source import source_class_mapping
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.sink import Sink, WriteCallback
+from datahub.ingestion.api.source import Extractor, Source
+from datahub.ingestion.sink import sink_class_mapping
+from datahub.ingestion.source import source_class_mapping
 
 logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "gometa.ingestion.extractor.generic.WorkUnitMCEExtractor"
+    extractor: str = "datahub.ingestion.extractor.generic.WorkUnitMCEExtractor"
 
 
 class PipelineConfig(ConfigModel):

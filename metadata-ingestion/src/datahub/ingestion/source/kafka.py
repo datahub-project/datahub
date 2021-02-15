@@ -6,17 +6,17 @@ from typing import Dict, Iterable, List
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
-import gometa.ingestion.extractor.schema_util as schema_util
-from gometa.configuration import ConfigModel
-from gometa.configuration.common import AllowDenyPattern
-from gometa.configuration.kafka import KafkaConsumerConnectionConfig
-from gometa.ingestion.api.common import PipelineContext
-from gometa.ingestion.api.source import Source, SourceReport
-from gometa.ingestion.source.metadata_common import MetadataWorkUnit
-from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
-from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+import datahub.ingestion.extractor.schema_util as schema_util
+from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
     SchemaMetadata,

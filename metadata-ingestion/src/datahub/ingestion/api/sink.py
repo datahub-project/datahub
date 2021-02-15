@@ -2,9 +2,9 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from gometa.ingestion.api.closeable import Closeable
-from gometa.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from gometa.ingestion.api.report import Report
+from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
+from datahub.ingestion.api.report import Report
 
 
 @dataclass

@@ -7,9 +7,9 @@ pip install -r test_requirements.txt
 
 ./scripts/codegen.sh
 
-black --check --exclude 'gometa/metadata' -S -t py36 src tests
+black --check --exclude 'datahub/metadata' -S -t py36 src tests
 isort --check-only src tests
 flake8 --count --statistics src tests
-mypy -p gometa
+mypy -p datahub
 
 pytest

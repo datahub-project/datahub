@@ -4,9 +4,9 @@ import pathlib
 
 from pydantic import BaseModel
 
-from gometa.ingestion.api.common import PipelineContext, RecordEnvelope
-from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
 

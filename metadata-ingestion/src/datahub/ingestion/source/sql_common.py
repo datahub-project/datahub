@@ -8,12 +8,12 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, types
 from sqlalchemy.engine import reflection
 
-from gometa.configuration.common import AllowDenyPattern
-from gometa.ingestion.api.source import Source, SourceReport, WorkUnit
-from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-from gometa.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,

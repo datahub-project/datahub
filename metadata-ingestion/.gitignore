@@ -1,7 +1,7 @@
 .envrc
 .vscode/
 output
-src/gometa/metadata/
+src/datahub/metadata/
 pvenv36/
 
 # Byte-compiled / optimized / DLL files
