@@ -4,7 +4,7 @@ set -euxo pipefail
 OUTDIR=./src/gometa/metadata
 
 # Note: this assumes that datahub has already been built with `./gradlew build`.
-DATAHUB_ROOT=../datahub
+DATAHUB_ROOT=..
 cp $DATAHUB_ROOT/metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc .
 
 rm -r $OUTDIR || true
