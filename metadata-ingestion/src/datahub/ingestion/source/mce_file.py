@@ -4,9 +4,9 @@ from typing import Iterable
 
 from pydantic import BaseModel
 
-from gometa.ingestion.api.source import Source, SourceReport
-from gometa.ingestion.source.metadata_common import MetadataWorkUnit
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class MetadataFileSourceConfig(BaseModel):

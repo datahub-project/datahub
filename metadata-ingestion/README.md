@@ -283,9 +283,9 @@ pytest tests/integration
 ## Sanity check code before checkin
 ```sh
 # Requires test_requirements.txt to have been installed.
-black --exclude 'gometa/metadata' -S -t py36 src tests
+black --exclude 'datahub/metadata' -S -t py36 src tests
 isort src tests
 flake8 src tests
-mypy -p gometa
+mypy -p datahub
 pytest
 ```

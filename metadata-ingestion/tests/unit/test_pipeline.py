@@ -1,12 +1,12 @@
 import unittest
 from unittest.mock import patch
 
-from gometa.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline
 
 
 class PipelineTest(unittest.TestCase):
-    @patch("gometa.ingestion.source.kafka.KafkaSource.get_workunits")
-    @patch("gometa.ingestion.sink.console.ConsoleSink.close")
+    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits")
+    @patch("datahub.ingestion.sink.console.ConsoleSink.close")
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
             {

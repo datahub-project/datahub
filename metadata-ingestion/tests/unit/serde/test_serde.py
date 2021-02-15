@@ -1,6 +1,6 @@
 import mce_helpers
 
-from gometa.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline
 
 
 def test_serde_large(pytestconfig, tmp_path):

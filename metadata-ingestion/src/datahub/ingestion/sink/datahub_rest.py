@@ -7,9 +7,9 @@ import requests
 from pydantic import BaseModel
 from requests.exceptions import HTTPError
 
-from gometa.ingestion.api.common import RecordEnvelope, WorkUnit
-from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from gometa.metadata import (  # MLFeatureSnapshotClass,
+from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
+from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.metadata import (  # MLFeatureSnapshotClass,
     ChartSnapshotClass,
     CorpGroupSnapshotClass,
     CorpUserSnapshotClass,
@@ -18,7 +18,7 @@ from gometa.metadata import (  # MLFeatureSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
 )
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
 

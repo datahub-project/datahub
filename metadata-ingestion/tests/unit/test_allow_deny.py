@@ -1,4 +1,4 @@
-from gometa.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern
 
 
 def test_allow_all():

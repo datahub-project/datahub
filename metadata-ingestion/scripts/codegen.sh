@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-OUTDIR=./src/gometa/metadata
+OUTDIR=./src/datahub/metadata
 
 # Note: this assumes that datahub has already been built with `./gradlew build`.
 DATAHUB_ROOT=..

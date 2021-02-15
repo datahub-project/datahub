@@ -1,6 +1,6 @@
 from typing import Dict, Type
 
-from gometa.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source
 
 # from .ldap import LDAPSource
 from .bigquery import BigQuerySource

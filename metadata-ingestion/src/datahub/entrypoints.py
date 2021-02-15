@@ -3,14 +3,14 @@ import pathlib
 
 import click
 
-from gometa.configuration.common import (
+from datahub.configuration.common import (
     ConfigurationError,
     ConfigurationMechanism,
     nicely_formatted_validation_errors,
 )
-from gometa.configuration.toml import TomlConfigurationMechanism
-from gometa.configuration.yaml import YamlConfigurationMechanism
-from gometa.ingestion.run.pipeline import Pipeline
+from datahub.configuration.toml import TomlConfigurationMechanism
+from datahub.configuration.yaml import YamlConfigurationMechanism
+from datahub.ingestion.run.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 

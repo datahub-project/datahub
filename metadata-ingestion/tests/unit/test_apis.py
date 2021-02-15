@@ -1,7 +1,7 @@
 import inspect
 
-from gometa.ingestion.sink import sink_class_mapping
-from gometa.ingestion.source import source_class_mapping
+from datahub.ingestion.sink import sink_class_mapping
+from datahub.ingestion.source import source_class_mapping
 
 
 def test_sources_not_abstract():
