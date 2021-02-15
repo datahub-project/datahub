@@ -11,7 +11,7 @@ on:
       - master
     paths:
       - 'docker/**'
-      - '.github/workflows/docker-frontend.yml'
+      - '.github/workflows/docker-frontend-react.yml'
     paths_ignore:
       - '**.md'
       - '**.env'
