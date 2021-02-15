@@ -1,4 +1,4 @@
-name: datahub-frontend docker
+name: datahub-frontend-react docker
 on:
   push:
     branches:
