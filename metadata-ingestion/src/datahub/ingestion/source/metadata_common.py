@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from gometa.ingestion.api.source import WorkUnit
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.api.source import WorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 @dataclass

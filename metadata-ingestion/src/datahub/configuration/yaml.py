@@ -2,7 +2,7 @@ from typing import IO
 
 import yaml
 
-from gometa.configuration import ConfigurationMechanism
+from datahub.configuration import ConfigurationMechanism
 
 
 class YamlConfigurationMechanism(ConfigurationMechanism):

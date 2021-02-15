@@ -6,11 +6,11 @@ from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import StringSerializer
 from pydantic import BaseModel
 
-from gometa.configuration.kafka import KafkaProducerConnectionConfig
-from gometa.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from gometa.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from gometa.metadata.schema_classes import SCHEMA_JSON_STR
+from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
+from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import SCHEMA_JSON_STR
 
 DEFAULT_KAFKA_TOPIC = "MetadataChangeEvent_v4"
 

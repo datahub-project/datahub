@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from gometa.ingestion.api.common import PipelineContext
-from gometa.ingestion.source.kafka import KafkaSource
-from gometa.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.kafka import KafkaSource
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class KafkaSourceTest(unittest.TestCase):
-    @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id="test")
         kafka_source = KafkaSource.create(
@@ -16,7 +16,7 @@ class KafkaSourceTest(unittest.TestCase):
         kafka_source.close()
         assert mock_kafka.call_count == 1
 
-    @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_workunits_wildcard_topic(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         mock_cluster_metadata = MagicMock()
@@ -37,7 +37,7 @@ class KafkaSourceTest(unittest.TestCase):
         mock_kafka_instance.list_topics.assert_called_once()
         assert len(workunits) == 2
 
-    @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_kafka_source_workunits_topic_pattern(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         mock_cluster_metadata = MagicMock()
@@ -70,7 +70,7 @@ class KafkaSourceTest(unittest.TestCase):
         workunits = [w for w in kafka_source.get_workunits()]
         assert len(workunits) == 2
 
-    @patch("gometa.ingestion.source.kafka.confluent_kafka.Consumer")
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer")
     def test_close(self, mock_kafka):
         mock_kafka_instance = mock_kafka.return_value
         ctx = PipelineContext(run_id="test")

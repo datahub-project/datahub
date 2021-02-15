@@ -1,6 +1,6 @@
 from typing import Dict, Type
 
-from gometa.ingestion.api.sink import Sink
+from datahub.ingestion.api.sink import Sink
 
 from .console import ConsoleSink
 from .datahub_kafka import DatahubKafkaSink

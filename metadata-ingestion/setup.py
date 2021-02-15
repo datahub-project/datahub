@@ -24,7 +24,7 @@ def get_long_description():
 
 
 setuptools.setup(
-    name="gometa",
+    name="datahub",
     version=get_version(),
     url="https://github.com/linkedin/datahub",
     author="DataHub Committers",
@@ -56,9 +56,9 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="./src"),
     include_package_data=True,
-    package_data={"gometa": ["py.typed"]},
+    package_data={"datahub": ["py.typed"]},
     entry_points={
-        "console_scripts": ["datahub = gometa.entrypoints:datahub"],
+        "console_scripts": ["datahub = datahub.entrypoints:datahub"],
     },
     install_requires=[
         # Compatability.
