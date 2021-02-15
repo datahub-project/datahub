@@ -173,6 +173,23 @@ source:
     # table_pattern is same as above
 ```
 
+## Snowflake `snowflake`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install snowflake-sqlalchemy`
+
+```yml
+source:
+  type: snowflake
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    # table_pattern is same as above
+```
+
 ## File `file`
 Pulls metadata from a previously generated file. Note that the file sink
 can produce such files, and a number of samples are included in the
