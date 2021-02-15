@@ -27,11 +27,16 @@ logging.basicConfig(level=logging.DEBUG, format=BASE_LOGGING_FORMAT)
 DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
-@click.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
+@click.group()
+def datahub():
+    pass
+
+
+@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
 @click.option(
     "-c", "--config", help="Config file in .toml or .yaml format", required=True
 )
-def gometa_ingest(config: str):
+def ingest(config: str):
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
