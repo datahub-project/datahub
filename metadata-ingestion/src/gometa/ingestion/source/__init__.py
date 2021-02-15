@@ -10,12 +10,14 @@ from .mssql import SQLServerSource
 from .mysql import MySQLSource
 from .hive import HiveSource
 from .postgres import PostgresSource
+from .snowflake import SnowflakeSource
 
 source_class_mapping: Dict[str, Type[Source]] = {
     "mssql": SQLServerSource,
     "mysql": MySQLSource,
     "hive": HiveSource,
     "postgres": PostgresSource,
+    "snowflake": SnowflakeSource,
     "kafka": KafkaSource,
     # "ldap": LDAPSource,
     "file": MetadataFileSource,
