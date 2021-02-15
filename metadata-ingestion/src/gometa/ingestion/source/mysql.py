@@ -1,7 +1,7 @@
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
-class MySQLConfig(SQLAlchemyConfig):
+class MySQLConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"

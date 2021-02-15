@@ -160,7 +160,7 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
-Extra requirements: `pip install psycopg2-binary`
+Extra requirements: `pip install psycopg2-binary` or `pip install psycopg2`
 
 ```yml
 source:
@@ -187,6 +187,23 @@ source:
     username: user
     password: pass
     host_port: account_name
+    # table_pattern is same as above
+```
+
+## Google BigQuery `bigquery`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install pybigquery`
+
+```yml
+source:
+  type: snowflake
+  config:
+    project_id: project
+    options:
+      credential_path: "/path/to/keyfile.json"
     # table_pattern is same as above
 ```
 
@@ -265,9 +282,10 @@ pytest tests/integration
 
 ## Sanity check code before checkin
 ```sh
-flake8 src tests
-mypy -p gometa
+# Requries test_requirements.txt to have been installed.
 black --exclude 'gometa/metadata' -S -t py36 src tests
 isort src tests
+flake8 src tests
+mypy -p gometa
 pytest
 ```

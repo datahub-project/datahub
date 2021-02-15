@@ -1,5 +1,6 @@
 import logging
 import time
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -48,17 +49,23 @@ class SQLSourceReport(SourceReport):
 
 
 class SQLAlchemyConfig(BaseModel):
+    options: Optional[dict] = {}
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    @abstractmethod
+    def get_sql_alchemy_url(self):
+        pass
+
+
+class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: str
     password: str
     host_port: str
     database: str = ""
     scheme: str
-    options: Optional[dict] = {}
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
         url = f"{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}"
-        logger.debug("sql_alchemy_url={url}")
         return url
 
 
@@ -145,6 +152,7 @@ class SQLAlchemySource(Source):
         sql_config = self.config
         platform = self.platform
         url = sql_config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **sql_config.options)
         inspector = reflection.Inspector.from_engine(engine)
         database = sql_config.database
