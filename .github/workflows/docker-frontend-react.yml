@@ -1,4 +1,4 @@
-name: datahub-frontend-react docker
+name: datahub-frontend docker
 on:
   push:
     branches:
@@ -11,7 +11,7 @@ on:
       - master
     paths:
       - 'docker/**'
-      - '.github/workflows/docker-frontend-react.yml'
+      - '.github/workflows/docker-frontend.yml'
     paths_ignore:
       - '**.md'
       - '**.env'
@@ -29,7 +29,7 @@ jobs:
       - id: tag
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
-          TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/heads/master,latest,g' -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=react-$(echo ${GITHUB_REF} | sed -e 's,refs/heads/master,latest,g' -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
-  build-and-publish-dockerhub:
+  build-and-publish-dockerhub-react:
     runs-on: ubuntu-latest
     needs: setup
     steps:
@@ -51,26 +51,9 @@ jobs:
           dockerfile: ./docker/datahub-frontend/Dockerfile
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: linkedin/datahub-frontend-react
+          repository: linkedin/datahub-frontend
           tags: ${{ needs.setup.outputs.tag }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
           build-args: |
             ENABLE_REACT=true
-            PORT=9091
-  build-and-publish-github:
-    runs-on: ubuntu-latest
-    if: ${{ needs.setup.outputs.publish == 'true' }}
-    needs: setup
-    steps:
-      - uses: actions/checkout@v2
-      - uses: VaultVulp/gp-docker-action@1.1.6
-        env:
-          DOCKER_BUILDKIT: 1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: ./docker/datahub-frontend/Dockerfile
-          image-name: datahub-frontend-react
-          image-tag: ${{ needs.setup.outputs.tag }}
-          build-args: |
-            ENABLE_REACT=true
-            PORT=9091
+            PORT=9002
