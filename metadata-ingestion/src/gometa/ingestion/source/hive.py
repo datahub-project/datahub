@@ -1,7 +1,7 @@
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
-class HiveConfig(SQLAlchemyConfig):
+class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "hive"
 

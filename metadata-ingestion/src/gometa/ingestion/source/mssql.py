@@ -1,7 +1,7 @@
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
-class SQLServerConfig(SQLAlchemyConfig):
+class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port = "localhost:1433"
     scheme = "mssql+pytds"

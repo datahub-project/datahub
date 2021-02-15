@@ -71,12 +71,13 @@ setuptools.setup(
         "toml>=0.10.0",
         "pydantic>=1.5.1",
         "requests>=2.25.1",
-        "confluent_kafka[avro]>=1.5.0",
         "avro_gen @ https://api.github.com/repos/hsheth2/avro_gen/tarball/master",
         # Note: we currently require both Avro libraries. The codegen uses avro-python3
         # schema parsers at runtime for generating and reading JSON into Python objects.
         # At the same time, we use Kafka's AvroSerializer, which internally relies on
-        # fastavro for serialization.
+        # fastavro for serialization. We do not use confluent_kafka[avro], since it
+        # is incompatible with its own dep on avro-python3.
+        "confluent_kafka>=1.5.0",
         "fastavro>=1.3.0",
         "avro-python3>=1.8.2",
         "sqlalchemy>=1.3.23",  # Required for SQL sources

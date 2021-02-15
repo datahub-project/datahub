@@ -1,7 +1,7 @@
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
-class SnowflakeConfig(SQLAlchemyConfig):
+class SnowflakeConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "snowflake"
 

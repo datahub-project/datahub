@@ -1,7 +1,7 @@
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
-class PostgresConfig(SQLAlchemyConfig):
+class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "postgresql+psycopg2"
 
