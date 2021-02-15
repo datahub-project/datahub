@@ -2,14 +2,13 @@
 
 This module hosts an extensible Python-based metadata ingestion system for DataHub.
 This supports sending data to DataHub using Kafka or through the REST api.
-The driver script is called gometa-ingest.
-Read on to figure out how to use it!
-
 
 ## Pre-Requisites
 
-Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through Docker images.
-You can run these jobs by building from source or by running docker images.
+Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
+
+<!-- You can run this ingestion framework by building from source or by running docker images. -->
+
 ## Building from source:
 
 ### Pre-Requisites
@@ -30,11 +29,12 @@ pip install -e .
 ./scripts/codegen.sh
 ```
 
-### Usage - from source
+### Usage
 ```sh
 gometa-ingest -c examples/recipes/file_to_file.yml
 ```
 
+<!--
 ## Running Ingestion using Docker:
 
 ### Build the image
@@ -47,10 +47,11 @@ We have a simple script provided that supports mounting a local directory for in
 ```sh
 source docker/docker_run.sh examples/recipes/file_to_file.yml
 ```
+-->
 
 # Recipes
 
-A recipe is a configuration that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
+A recipe is a configuration file that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 Here's a simple example that pulls metadata from MSSQL and puts it into datahub.
 
 ```yaml
