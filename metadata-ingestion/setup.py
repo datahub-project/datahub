@@ -79,9 +79,6 @@ setuptools.setup(
         # fastavro for serialization.
         "fastavro>=1.3.0",
         "avro-python3>=1.8.2",
-        # Required for certain sources/sinks.
         "sqlalchemy>=1.3.23",  # Required for SQL sources
-        "pymysql>=1.0.2",  # Driver for MySQL
-        "sqlalchemy-pytds>=0.3",  # Driver for MS-SQL
     ],
 )
