@@ -31,7 +31,7 @@ pip install -e .
 
 ### Usage
 ```sh
-gometa-ingest -c examples/recipes/file_to_file.yml
+datahub ingest -c examples/recipes/file_to_file.yml
 ```
 
 <!--
@@ -73,7 +73,7 @@ sink:
 Running a recipe is quite easy.
 
 ```sh
-gometa-ingest -c ./examples/recipes/mssql_to_datahub.yml
+datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
 A number of recipes are included in the examples/recipes directory.
@@ -282,7 +282,7 @@ pytest tests/integration
 
 ## Sanity check code before checkin
 ```sh
-# Requries test_requirements.txt to have been installed.
+# Requires test_requirements.txt to have been installed.
 black --exclude 'gometa/metadata' -S -t py36 src tests
 isort src tests
 flake8 src tests

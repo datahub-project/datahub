@@ -58,7 +58,7 @@ setuptools.setup(
     include_package_data=True,
     package_data={"gometa": ["py.typed"]},
     entry_points={
-        "console_scripts": ["gometa-ingest = gometa.entrypoints:gometa_ingest"],
+        "console_scripts": ["datahub = gometa.entrypoints:datahub"],
     },
     install_requires=[
         # Compatability.

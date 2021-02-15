@@ -9,4 +9,4 @@ docker run --rm --network host \
     --mount type=bind,source="$(pwd)"/$local_dir,target=/injected_dir \
     --mount type=bind,source=$output_dir,target=/output \
     local/dhub-ingest:latest \
-    -c /injected_dir/${filename}
+    ingest -c /injected_dir/${filename}
