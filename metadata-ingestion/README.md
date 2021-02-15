@@ -98,6 +98,8 @@ Extracts:
 - List of databases and tables
 - Column types and schema associated with each table
 
+Extra requirements: `pip install pymysql`
+
 ```yml
 source:
   type: mysql
@@ -117,6 +119,8 @@ source:
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
+
+Extra requirements: `pip install sqlalchemy-pytds`
 
 ```yml
 source:
@@ -138,6 +142,8 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
+Extra requirements: `pip install pyhive[hive]`
+
 ```yml
 source:
   type: hive
@@ -145,6 +151,24 @@ source:
     username: user
     password: pass
     host_port: localhost:10000
+    database: DemoDatabase
+    # table_pattern is same as above
+```
+
+## PostgreSQL `postgres`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install psycopg2-binary`
+
+```yml
+source:
+  type: postgres
+  config:
+    username: user
+    password: pass
+    host_port: localhost:5432
     database: DemoDatabase
     # table_pattern is same as above
 ```

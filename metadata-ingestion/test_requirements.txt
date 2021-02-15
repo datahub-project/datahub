@@ -8,3 +8,7 @@ pytest-cov>=2.8.1
 pytest-docker
 sqlalchemy-stubs
 deepdiff
+
+# These are used in integration tests.
+pymysql>=1.0.2  # Driver for MySQL
+sqlalchemy-pytds>=0.3  # Driver for MS-SQL
