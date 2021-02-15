@@ -8,10 +8,12 @@ from .kafka import KafkaSource
 from .mce_file import MetadataFileSource
 from .mssql import SQLServerSource
 from .mysql import MySQLSource
+from .hive import HiveSource
 
 source_class_mapping: Dict[str, Type[Source]] = {
     "mssql": SQLServerSource,
     "mysql": MySQLSource,
+    "hive": HiveSource,
     "kafka": KafkaSource,
     # "ldap": LDAPSource,
     "file": MetadataFileSource,
