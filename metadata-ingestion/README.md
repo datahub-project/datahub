@@ -105,7 +105,7 @@ source:
     username: root
     password: example
     database: dbname
-    host_port: localhost:53306
+    host_port: localhost:3306
     table_pattern:
       allow:
       - "schema1.table2"
@@ -131,6 +131,22 @@ source:
       - "schema1.table2"
       deny:
       - "^.*\.sys_.*" # deny all tables that start with sys_
+```
+
+## Hive `hive`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+```yml
+source:
+  type: hive
+  config:
+    username: user
+    password: pass
+    host_port: localhost:10000
+    database: DemoDatabase
+    # table_pattern is same as above
 ```
 
 ## File `file`
