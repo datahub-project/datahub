@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Type
+from typing import TypeVar, Type, List
 from pydantic import BaseModel, ValidationError
 from pathlib import Path
+import re
 
 
 class ConfigModel(BaseModel):
@@ -28,6 +29,27 @@ class ConfigurationMechanism(ABC):
     @abstractmethod
     def load_config(self, cls: Type[T], config_file: Path) -> T:
         pass
+
+class AllowDenyPattern(BaseModel):
+    """ A class to store allow deny regexes"""
+    allow: List[str] = [".*"]
+    deny: List[str] = []
+
+    @classmethod
+    def allow_all(cls):
+        return AllowDenyPattern()
+
+    def allowed(self, string: str) -> bool:
+        for deny_pattern in self.deny:
+            if re.match(deny_pattern, string):
+                return False
+
+        for allow_pattern in self.allow:
+            if re.match(allow_pattern, string):
+                return True
+
+        return False
+
 
 
 class DynamicFactory:
