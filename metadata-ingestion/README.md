@@ -16,8 +16,9 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 <!-- You can run this ingestion framework by building from source or by running docker images. -->
 
 ## Migrating from the old scripts
-If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a file source and pointing it to your JSON file, and then using the DataHub sink.
+If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
 This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
+Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
 
 If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
 
