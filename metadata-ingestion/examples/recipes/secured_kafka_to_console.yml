@@ -2,14 +2,14 @@ source:
   type: "kafka"
   config:
     connection.bootstrap: "broker:9092"
-    producer_config:
+    connection.consumer_config:
       security.protocol: ssl
       ssl.ca.location: certificate_ca.pem
       ssl.certificate.location: certificate.pem
       ssl.key.location: private_key.pem
       ssl.key.password: XXXXXXX
-    schema_registry_url: http://localhost:8081
-    schema_registry_config:
+    connection.schema_registry_url: http://localhost:8081
+    connection.schema_registry_config:
       # Schema Registry Certs
       ssl.ca.location: certificate_ca.pem
       ssl.certificate.location: certificate.pem
@@ -17,4 +17,19 @@ source:
       ssl.key.password: XXXXXXX
 
 sink:
-  type: "console"
+  type: "datahub-kafka"
+  config:
+    connection.bootstrap: "broker:9092"
+    connection.producer_config:
+      security.protocol: ssl
+      ssl.ca.location: certificate_ca.pem
+      ssl.certificate.location: certificate.pem
+      ssl.key.location: private_key.pem
+      ssl.key.password: XXXXXXX
+    connection.schema_registry_url: http://localhost:8081
+    connection.schema_registry_config:
+      # Schema Registry Certs
+      ssl.ca.location: certificate_ca.pem
+      ssl.certificate.location: certificate.pem
+      ssl.key.location: private_key.pem
+      ssl.key.password: XXXXXXX
