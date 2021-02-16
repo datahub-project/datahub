@@ -36,17 +36,17 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:harshal2",
+            "urn": "urn:li:corpuser:jane",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
                         "displayName": {
-                            "string": "Harshal2 Sheth2"
+                            "string": "Jane Doe"
                         },
-                        "email": "harshal@sheth.io",
+                        "email": "jane@example.com",
                         "title": {
-                            "string": "who knows?"
+                            "string": "CEO"
                         },
                         "managerUrn": null,
                         "departmentId": null,
@@ -54,7 +54,7 @@
                         "firstName": null,
                         "lastName": null,
                         "fullName": {
-                            "string": "Harshal2 Sheth2"
+                            "string": "Jane Doe"
                         },
                         "countryCode": null
                     }

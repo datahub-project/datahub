@@ -38,22 +38,24 @@ also provides a comparison of some features between LinkedIn production DataHub 
  - **Execution history**: Executions and their status. Link to external service for viewing full info.
 
 ### Metrics [*coming soon*]
- - **search**: full-text & advanced search, search ranking
+ - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Basic information**: ownershp, dimensions, formula, input & output datasets, dashboards
  - **Institutional knowledge**: support for adding free form doc to any metric
  
 ### Dashboards [*coming soon*] 
- - **search**: full-text & advanced search, search ranking
+ - **Search**: full-text & advanced search, search ranking
  - **Basic information**: ownership, location. Link to exzternal service for viewing the dashboard.
  - **Institutional knowledge**: support for adding free form doc to any dashboards 
 
 ## Metadata Sources
-You can integrate any data platform to DataHub easily. As long as you have a way of *Extracting* metadata from the platform and *Transform* that into our standard [MCE](what/mxe.md) format, you're free to *Load*/ingest metadata to DataHub from any available platform.
+There's a basic, Java-oriented overview of [metadata ingestion](architecture/metadata-ingestion.md).
 
-We have provided example [ETL ingestion](architecture/metadata-ingestion.md) scripts for:
+We also have a [Python-based ingestion framework](../metadata-ingestion/README.md) which supports the following sources:
  - Hive
  - Kafka
- - RDBMS (MySQL, Oracle, Postgres, MS SQL etc)
- - Data warehouse (Snowflake, BigQuery etc)
+ - RDBMS (MySQL, Oracle, Postgres, MS SQL, etc)
+ - Data warehouse (Snowflake, BigQuery, etc)
  - LDAP
+
+That ingestion framework is extensible, so you can easily create new sources of metadata. You just need to transform the metadata into our standard [MCE](what/mxe.md) format, and the framework will help ingest metadata to DataHub.
