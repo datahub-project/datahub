@@ -71,7 +71,12 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-* Stay Tuned!
+* Welcome - 5 mins
+* Latest React App Demo! by John Joyce  and Gabe Lyons - 5 mins
+* Use-Case: DataHub at Geotab by John Yoon - 15 mins
+* Tech Deep Dive: Tour of new pull-based Python Ingestion scripts by Harshal Sheth - 15 mins
+* General Q&A from sign up sheet, slack, and participants - 15 mins
+* Closing remarks - 5 mins
 
 # Past Meetings
 
