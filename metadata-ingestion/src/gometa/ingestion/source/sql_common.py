@@ -7,10 +7,11 @@ from gometa.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata, MyS
 from gometa.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
 from gometa.ingestion.api.source import WorkUnit
+from gometa.configuration.common import AllowDenyPattern
 from pydantic import BaseModel
 import logging
 import time
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class SQLAlchemyConfig(BaseModel):
     database: str = ""
     scheme: str
     options: Optional[dict] = {}
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
         url=f'{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}'
@@ -64,6 +66,7 @@ def get_schema_metadata(dataset_name, platform, columns) -> SchemaMetadata:
 
 
 
+
 def get_column_type(column_type):
     """
     Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
@@ -95,20 +98,23 @@ def get_sql_workunits(sql_config:SQLAlchemyConfig, platform: str, env: str = "PR
     database = sql_config.database
     for schema in inspector.get_schema_names():
         for table in inspector.get_table_names(schema):
-            columns = inspector.get_columns(table, schema)
-            mce = MetadataChangeEvent()
-            if database != "":
-                dataset_name = f'{database}.{schema}.{table}'
-            else:
-                dataset_name = f'{schema}.{table}'
+            if sql_config.table_pattern.allowed(f'{schema}.{table}'):
+                columns = inspector.get_columns(table, schema)
+                mce = MetadataChangeEvent()
+                if database != "":
+                    dataset_name = f'{database}.{schema}.{table}'
+                else:
+                    dataset_name = f'{schema}.{table}'
 
-            dataset_snapshot = DatasetSnapshot()
-            dataset_snapshot.urn=(
-                f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-            )
-            schema_metadata = get_schema_metadata(dataset_name, platform, columns)
-            dataset_snapshot.aspects.append(schema_metadata)
-            mce.proposedSnapshot = dataset_snapshot
-            yield SqlWorkUnit(id=dataset_name, mce = mce)
+                dataset_snapshot = DatasetSnapshot()
+                dataset_snapshot.urn=(
+                        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                    )
+                schema_metadata = get_schema_metadata(dataset_name, platform, columns)
+                dataset_snapshot.aspects.append(schema_metadata)
+                mce.proposedSnapshot = dataset_snapshot
+                yield SqlWorkUnit(id=dataset_name, mce = mce)
+            else:
+                logger.debug(f"Found table: {schema}.{table}, but skipping due to allow-deny patterns")
         
 
