@@ -24,6 +24,9 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
       - name: Gradle build (and test)
         run: ./gradlew build
       - name: Python ingest framework tests
