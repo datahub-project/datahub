@@ -71,7 +71,7 @@ setuptools.setup(
         "toml>=0.10.0",
         "pydantic>=1.5.1",
         "requests>=2.25.1",
-        "avro_gen @ https://api.github.com/repos/hsheth2/avro_gen/tarball/master",
+        "avro_gen @ https://api.github.com/repos/rbystrit/avro_gen/tarball/master",
         # Note: we currently require both Avro libraries. The codegen uses avro-python3
         # schema parsers at runtime for generating and reading JSON into Python objects.
         # At the same time, we use Kafka's AvroSerializer, which internally relies on
