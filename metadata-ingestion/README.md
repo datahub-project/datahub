@@ -3,6 +3,12 @@
 This module hosts an extensible Python-based metadata ingestion system for DataHub.
 This supports sending data to DataHub using Kafka or through the REST api.
 
+## Architecture
+
+![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
+
+The architecture of this metadata ingestion framework is heavily inspired by Apache Gobblin (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
+
 ## Pre-Requisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
