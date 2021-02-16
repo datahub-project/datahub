@@ -1,0 +1,14 @@
+run_id: mysql-test
+
+source:
+  type: mysql
+  config:
+    username: root
+    password: example
+    database: metagalaxy
+    host_port: localhost:53306
+
+sink:
+  type: file
+  config:
+    filename: './mysql_mces.json'

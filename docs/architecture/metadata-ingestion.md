@@ -2,8 +2,8 @@
 
 ## MCE Consumer Job
 
-Metadata providers communicate changes in metadata by emitting [MCE]s, which are consumed by a Kafka Streams job, [mce-consumer-job].
-The job converts the AVRO-based MCE into the equivalent [Pegasus Data Template] and saves it into the database by calling a special GMS ingest API.
+Metadata providers communicate changes in metadata by emitting [MCE]s, which are consumed by a Kafka Streams job, [mce-consumer-job]. The [Python ingestion framework](../../metadata-ingestion/README.md) makes it easy to emit these MCEs.
+The MCE consumer job converts the AVRO-based MCE into the equivalent [Pegasus Data Template] and saves it into the database by calling a special GMS ingest API.
 
 ## MAE Consumer Job
 

@@ -13,7 +13,11 @@ configurations {
 }
 
 dependencies {
-  assets project(path: ':datahub-web', configuration: 'assets')
+  if (project.hasProperty('enableReact') && project.getProperty('enableReact').toBoolean()) {
+    assets project(path: ':datahub-web-react', configuration: 'assets')
+  } else {
+    assets project(path: ':datahub-web', configuration: 'assets')
+  }
 
   play project(":datahub-dao")
   play project(":datahub-graphql-core")

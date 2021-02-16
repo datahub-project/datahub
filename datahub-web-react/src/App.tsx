@@ -3,25 +3,28 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
 import './App.css';
-import { Routes } from './components/Routes';
+import { Routes } from './app/Routes';
 import { mocks } from './Mocks';
-import EntityRegistry from './components/entity/EntityRegistry';
-import { DatasetEntity } from './components/entity/dataset/DatasetEntity';
-import { UserEntity } from './components/entity/user/User';
+import EntityRegistry from './app/entity/EntityRegistry';
+import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { UserEntity } from './app/entity/user/User';
 import { EntityRegistryContext } from './entityRegistryContext';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 
 /*
     Construct Apollo Client 
 */
 const client = new ApolloClient({
-    uri: 'http://localhost:9001/api/v2/graphql',
+    uri: '/api/v2/graphql',
     cache: new InMemoryCache({
         typePolicies: {
             Dataset: {
-                keyFields: ['urn'], // TODO: Set this as the default across the app.
+                keyFields: ['urn'],
+            },
+            CorpUser: {
+                keyFields: ['urn'],
             },
         },
     }),
@@ -29,7 +32,6 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
-    // TODO: Explore options to dynamically configure this.
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
