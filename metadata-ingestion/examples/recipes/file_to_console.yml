@@ -1,0 +1,8 @@
+---
+source:
+  type: "file"
+  config:
+    filename: "./examples/mce_files/single_mce.json"
+
+sink:
+  type: "console"

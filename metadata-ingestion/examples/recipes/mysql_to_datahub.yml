@@ -1,0 +1,11 @@
+---
+source:
+  type: "mysql"
+  config:
+    username: datahub
+    password: datahub
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

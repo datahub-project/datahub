@@ -1,0 +1,10 @@
+---
+source:
+  type: "file"
+  config:
+    filename: "./examples/mce_files/bootstrap_mce.json"
+
+sink:
+  type: "file"
+  config:
+    filename: './example_output_mces.json'

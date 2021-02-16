@@ -1,94 +1,312 @@
 # Metadata Ingestion
 
-## Prerequisites
-1. Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. Easiest
-way to do that is through [Docker images](../docker).
+This module hosts an extensible Python-based metadata ingestion system for DataHub.
+This supports sending data to DataHub using Kafka or through the REST api.
+
+## Architecture
+
+![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
+
+The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
+
+## Pre-Requisites
+
+Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
+
+<!-- You can run this ingestion framework by building from source or by running docker images. -->
+
+## Migrating from the old scripts
+If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
+This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
+Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
+
+If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
+
+## Building from source:
+
+### Pre-Requisites
+1. Python 3.6+ must be installed in your host environment.
 2. You also need to build the `mxe-schemas` module as below.
    ```
    ./gradlew :metadata-events:mxe-schemas:build
    ```
-   This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic.
-3. All the scripts are written using Python 3 and most likely won't work with Python 2.x interpreters.
-   You can verify the version of your Python using the following command.
-   ```
-   python --version
-   ```
-   We recommend using [pyenv](https://github.com/pyenv/pyenv) to install and manage your Python environment.
-4. Before launching each ETL ingestion pipeline, you can install/verify the library versions as below.
-   ```
-   pip install --user -r requirements.txt
-   ```
-    
-## MCE Producer/Consumer CLI
-`mce_cli.py` script provides a convenient way to produce a list of MCEs from a data file. 
-Every MCE in the data file should be in a single line. It also supports consuming from 
-`MetadataChangeEvent` topic.
+   This is needed to generate `MetadataChangeEvent.avsc` which is the schema for the `MetadataChangeEvent_v4` Kafka topic.
+3. On MacOS: `brew install librdkafka`
+4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
 
-Tested & confirmed platforms:
-* Red Hat Enterprise Linux Workstation release 7.6 (Maipo) w/Python 3.6.8
-* MacOS 10.15.5 (19F101) Darwin 19.5.0 w/Python 3.7.3
-
-```
-➜  python mce_cli.py --help
-usage: mce_cli.py [-h] [-b BOOTSTRAP_SERVERS] [-s SCHEMA_REGISTRY]
-                  [-d DATA_FILE] [-l SCHEMA_RECORD]
-                  {produce,consume}
-
-Client for producing/consuming MetadataChangeEvent
-
-positional arguments:
-  {produce,consume}     Execution mode (produce | consume)
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -b BOOTSTRAP_SERVERS  Kafka broker(s) (localhost[:port])
-  -s SCHEMA_REGISTRY    Schema Registry (http(s)://localhost[:port]
-  -l SCHEMA_RECORD      Avro schema record; required if running 'producer' mode
-  -d DATA_FILE          MCE data file; required if running 'producer' mode
+### Set up your Python environment
+```sh
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+./scripts/codegen.sh
 ```
 
-## Bootstrapping DataHub
-* Apply the step 1 & 2 from prerequisites.
-* [Optional] Open a new terminal to consume the events: 
+### Usage
+```sh
+datahub ingest -c examples/recipes/file_to_file.yml
 ```
-➜  python3 metadata-ingestion/mce-cli/mce_cli.py consume -l metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc
-```
-* Run the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
-```
-➜  python3 metadata-ingestion/mce-cli/mce_cli.py produce -l metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc -d metadata-ingestion/mce-cli/bootstrap_mce.dat
-Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
-  MCE1: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}), "proposedDelta": None}
-  MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
-Flushing records...
-```
-This will bootstrap DataHub with sample datasets and sample users.
 
-> ***Note***
-> There is a [known issue](https://github.com/fastavro/fastavro/issues/292) with the Python Avro serialization library
-> that can lead to unexpected result when it comes to union of types. 
-> Always [use the tuple notation](https://fastavro.readthedocs.io/en/latest/writer.html#using-the-tuple-notation-to-specify-which-branch-of-a-union-to-take) to avoid encountering these difficult-to-debug issues.
+<!--
+## Running Ingestion using Docker:
 
-## Ingest metadata from LDAP to DataHub
-The ldap_etl provides you ETL channel to communicate with your LDAP server.
+### Build the image
+```sh
+source docker/docker_build.sh
 ```
-➜  Config your LDAP server environmental variable in the file.
-    LDAPSERVER    # Your server host.
-    BASEDN        # Base dn as a container location.
-    LDAPUSER      # Your credential.
-    LDAPPASSWORD  # Your password.
-    PAGESIZE      # Pagination size.
-    ATTRLIST      # Return attributes relate to your model.
-    SEARCHFILTER  # Filter to build the search query.
-    
-➜  Config your Kafka broker environmental variable in the file.
-    AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC     # Your event topic.
-    BOOTSTRAP      # Kafka bootstrap server.
-    SCHEMAREGISTRY # Kafka schema registry host.
 
-➜  python ldap_etl.py
+### Usage - with Docker
+We have a simple script provided that supports mounting a local directory for input recipes and an output directory for output data:
+```sh
+source docker/docker_run.sh examples/recipes/file_to_file.yml
 ```
-This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
+-->
 
-## Ingest metadata from SQL-based data systems to DataHub
-See [sql-etl](sql-etl/) for more details.
+# Recipes
+
+A recipe is a configuration file that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
+Here's a simple example that pulls metadata from MSSQL and puts it into datahub.
+
+```yaml
+# A sample recipe that pulls metadata from MSSQL and puts it into DataHub
+# using the Rest API.
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: DemoData
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
+```
+
+Running a recipe is quite easy.
+
+```sh
+datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
+```
+
+A number of recipes are included in the examples/recipes directory.
+
+# Sources
+
+## Kafka Metadata `kafka`
+Extracts:
+- List of topics - from the Kafka broker
+- Schemas associated with each topic - from the schema registry
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection.bootstrap: "broker:9092"
+    connection.schema_registry_url: http://localhost:8081
+```
+
+## MySQL Metadata `mysql`
+Extracts:
+- List of databases and tables
+- Column types and schema associated with each table
+
+Extra requirements: `pip install pymysql`
+
+```yml
+source:
+  type: mysql
+  config:
+    username: root
+    password: example
+    database: dbname
+    host_port: localhost:3306
+    table_pattern:
+      allow:
+      - "schema1.table2"
+      deny:
+      - "performance_schema"
+```
+
+## Microsoft SQL Server Metadata `mssql`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install sqlalchemy-pytds`
+
+```yml
+source:
+  type: mssql
+  config:
+    username: user
+    password: pass
+    database: DemoDatabase
+    table_pattern:
+      allow:
+      - "schema1.table1"
+      - "schema1.table2"
+      deny:
+      - "^.*\\.sys_.*" # deny all tables that start with sys_
+```
+
+## Hive `hive`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install pyhive[hive]`
+
+```yml
+source:
+  type: hive
+  config:
+    username: user
+    password: pass
+    host_port: localhost:10000
+    database: DemoDatabase
+    # table_pattern is same as above
+```
+
+## PostgreSQL `postgres`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install psycopg2-binary` or `pip install psycopg2`
+
+```yml
+source:
+  type: postgres
+  config:
+    username: user
+    password: pass
+    host_port: localhost:5432
+    database: DemoDatabase
+    # table_pattern is same as above
+```
+
+## Snowflake `snowflake`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install snowflake-sqlalchemy`
+
+```yml
+source:
+  type: snowflake
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    # table_pattern is same as above
+```
+
+## Google BigQuery `bigquery`
+Extracts:
+- List of databases, schema, and tables
+- Column types associated with each table
+
+Extra requirements: `pip install pybigquery`
+
+```yml
+source:
+  type: bigquery
+  config:
+    project_id: project
+    options:
+      credential_path: "/path/to/keyfile.json"
+    # table_pattern is same as above
+```
+
+## File `file`
+Pulls metadata from a previously generated file. Note that the file sink
+can produce such files, and a number of samples are included in the
+[examples/mce_files](examples/mce_files) directory.
+
+```yml
+source:
+  type: file
+  filename: ./path/to/mce/file.json
+```
+
+# Sinks
+
+## DataHub Rest `datahub-rest`
+Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
+is that any errors can immediately be reported.
+
+```yml
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
+```
+
+## DataHub Kafka `datahub-kafka`
+Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
+interface is that it's asynchronous and can handle higher throughput. This requires the
+Datahub mce-consumer container to be running.
+
+```yml
+sink:
+  type: "datahub-kafka"
+  config:
+    connection.bootstrap: "localhost:9092"
+```
+
+## Console `console`
+Simply prints each metadata event to stdout. Useful for experimentation and debugging purposes.
+
+```yml
+sink:
+  type: "console"
+```
+
+## File `file`
+Outputs metadata to a file. This can be used to decouple metadata sourcing from the
+process of pushing it into DataHub, and is particularly useful for debugging purposes.
+Note that the file source can read files generated by this sink.
+
+```yml
+sink:
+  type: file
+  filename: ./path/to/mce/file.json
+```
+
+# Contributing
+
+Contributions welcome!
+
+## Code layout
+
+- The CLI interface is defined in [entrypoints.py](./src/datahub/entrypoints.py).
+- The high level interfaces are defined in the [API directory](./src/datahub/ingestion/api).
+- The actual [sources](./src/datahub/ingestion/source) and [sinks](./src/datahub/ingestion/sink) implementations have their own directories - the `__init__.py` files in those directories are used to register the short codes for use in recipes.
+- The metadata models are created using code generation, and eventually live in the `./src/datahub/metadata` directory. However, these files are not checked in and instead are generated at build time. See the [codegen](./scripts/codegen.sh) script for details.
+
+## Testing
+```sh
+# Follow standard install procedure - see above.
+
+# Install requirements.
+pip install -r test_requirements.txt
+
+# Run unit tests.
+pytest tests/unit
+
+# Run integration tests.
+# Note: the integration tests require docker.
+pytest tests/integration
+```
+
+## Sanity check code before committing
+```sh
+# Requires test_requirements.txt to have been installed.
+black --exclude 'datahub/metadata' -S -t py36 src tests
+isort src tests
+flake8 src tests
+mypy -p datahub
+pytest
+```

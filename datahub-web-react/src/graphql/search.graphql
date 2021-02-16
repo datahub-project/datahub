@@ -10,11 +10,10 @@ query getSearchResults($input: SearchInput!) {
         start
         count
         total
-        elements {
-            __typename
+        entities {
+            urn
+            type
             ... on Dataset {
-                urn
-                platform
                 name
                 origin
                 description
@@ -25,12 +24,17 @@ query getSearchResults($input: SearchInput!) {
                     key
                     value
                 }
-                createdTime
-                modifiedTime
+                created {
+                    time
+                }
+                lastModified {
+                    time
+                }
                 ownership {
                     owners {
                         owner {
                             urn
+                            type
                             username
                             info {
                                 active
@@ -46,11 +50,12 @@ query getSearchResults($input: SearchInput!) {
                         }
                         type
                     }
-                    lastModified
+                    lastModified {
+                        time
+                    }
                 }
             }
             ... on CorpUser {
-                urn
                 username
                 info {
                     active
@@ -58,6 +63,7 @@ query getSearchResults($input: SearchInput!) {
                     title
                     firstName
                     lastName
+                    fullName
                 }
                 editableInfo {
                     pictureLink

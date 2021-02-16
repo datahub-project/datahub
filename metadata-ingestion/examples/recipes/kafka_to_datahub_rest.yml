@@ -1,0 +1,10 @@
+---
+source:
+  type: "kafka"
+  config:
+    connection.bootstrap: "broker:9092"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

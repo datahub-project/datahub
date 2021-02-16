@@ -1,0 +1,7 @@
+[source]
+  type="kafka"
+[source.config.connection]
+    bootstrap="localhost:9092"
+
+[sink]
+  type = "console"

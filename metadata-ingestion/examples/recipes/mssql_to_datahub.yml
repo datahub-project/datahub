@@ -1,0 +1,12 @@
+---
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: DemoData
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
