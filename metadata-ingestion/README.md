@@ -134,7 +134,7 @@ source:
       - "schema1.table1"
       - "schema1.table2"
       deny:
-      - "^.*\.sys_.*" # deny all tables that start with sys_
+      - "^.*\\.sys_.*" # deny all tables that start with sys_
 ```
 
 ## Hive `hive`
@@ -233,7 +233,8 @@ sink:
 
 ## DataHub Kafka `datahub-kafka`
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
-interface is that it's asynchronous and can handle higher throughput.
+interface is that it's asynchronous and can handle higher throughput. This requires the
+Datahub mce-consumer container to be running.
 
 ```yml
 sink:
