@@ -7,6 +7,4 @@ source:
     database: DemoData
 
 sink:
-  type: "datahub-rest"
-  datahub-rest:
-    server: 'http://localhost:8080'
+  type: console

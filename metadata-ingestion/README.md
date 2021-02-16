@@ -10,7 +10,10 @@
 
 # Run tests
 - pip install -r test_requirements.txt
-- pytest
+# Run Unit tests
+- pytest tests/unit
+# Run Integration tests
+- pytest tests/integration
 
 # Sanity check code before checkin (currently broken)
 - flake8 src test && mypy -p gometa && black --check -l 120 src test && isort --check-only src test && pytest
