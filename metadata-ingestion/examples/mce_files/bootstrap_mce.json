@@ -588,5 +588,68 @@
             }
         },
         "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.metadata.snapshot.MLModelSnapshot": {
+                "urn": "urn:li:mlmodel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:jdoe",
+                                    "type": "DATAOWNER"
+                                },
+                                {
+                                    "owner": "urn:li:corpuser:datahub",
+                                    "type": "DATAOWNER"
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:jdoe"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.ml.metadata.MLModelProperties": {
+                            "description": "A sample model for predicting some outcome.",
+                            "date": 0,
+                            "version": {
+                                "versionTag": "1.5.3"
+                            },
+                            "tags": [
+                                "science"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.ml.metadata.TrainingData": {
+                            "trainingData": [
+                                {
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+                                    "motivation": "For science!",
+                                    "preProcessing": [
+                                        "Aggregation"
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.ml.metadata.EvaluationData": {
+                            "evaluationData": [
+                                {
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
     }
 ]
