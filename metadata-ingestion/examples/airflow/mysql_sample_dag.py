@@ -1,3 +1,10 @@
+"""MySQL DataHub Ingest DAG
+
+This example demonstrates how to ingest metadata from MySQL into DataHub
+from within an Airflow DAG. Note that the DB connection configuration is
+embedded within the code.
+"""
+
 from datetime import timedelta
 
 from airflow import DAG

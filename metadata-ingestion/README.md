@@ -57,6 +57,8 @@ source docker/docker_run.sh examples/recipes/file_to_file.yml
 -->
 
 We have also included a couple [sample DAGs](./examples/airflow) that can be used with [Airflow](https://airflow.apache.org/).
+- `generic_recipe_sample_dag.py` - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
+- `mysql_sample_dag.py` - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
 
 # Recipes
 

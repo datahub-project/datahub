@@ -1,3 +1,9 @@
+"""Generic DataHub Ingest via Recipe
+
+This example demonstrates how to load any configuration file and run a
+DataHub ingestion pipeline within an Airflow DAG.
+"""
+
 from datetime import timedelta
 
 import yaml
@@ -22,7 +28,7 @@ default_args = {
 
 
 def datahub_recipe():
-    with open('path/to/recipe.yml') as config_file:
+    with open("path/to/recipe.yml") as config_file:
         config = yaml.safe_load(config_file)
 
     pipeline = Pipeline.create(config)
