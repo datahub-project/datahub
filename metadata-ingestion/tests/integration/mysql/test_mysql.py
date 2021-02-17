@@ -3,7 +3,7 @@ import os
 import mce_helpers
 
 
-def test_ingest(mysql, pytestconfig, tmp_path):
+def test_mysql_ingest(mysql, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mysql"
 
     config_file = (test_resources_dir / "mysql_to_file.yml").resolve()

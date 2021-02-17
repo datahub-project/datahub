@@ -1,4 +1,5 @@
 import os
+import time
 
 import pytest
 
@@ -22,8 +23,8 @@ def wait_for_db(docker_services, container_name, container_port):
         pause=0.1,
         check=lambda: is_responsive(container_name, container_port),
     )
-    import time
 
+    # TODO: this is an ugly hack.
     time.sleep(5)
     return port
 
