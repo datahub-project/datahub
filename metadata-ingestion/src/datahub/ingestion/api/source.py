@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 from .closeable import Closeable
 from .common import PipelineContext, RecordEnvelope, WorkUnit
@@ -12,9 +12,22 @@ class SourceReport(Report):
     workunits_produced = 0
     workunit_ids: List[str] = field(default_factory=list)
 
+    warnings: Dict[str, List[str]] = field(default_factory=dict)
+    failures: Dict[str, List[str]] = field(default_factory=dict)
+
     def report_workunit(self, wu: WorkUnit):
         self.workunits_produced += 1
         self.workunit_ids.append(wu.id)
+
+    def report_warning(self, key: str, reason: str) -> None:
+        if key not in self.warnings:
+            self.warnings[key] = []
+        self.warnings[key].append(reason)
+
+    def report_failure(self, key: str, reason: str) -> None:
+        if key not in self.failures:
+            self.failures[key] = []
+        self.failures[key].append(reason)
 
 
 class Extractor(Closeable, metaclass=ABCMeta):
@@ -34,7 +47,7 @@ class Source(Closeable, metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> 'Source':
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         pass
 
     @abstractmethod
