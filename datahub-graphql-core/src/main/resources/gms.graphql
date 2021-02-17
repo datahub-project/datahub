@@ -37,6 +37,14 @@ enum EntityType {
     The DataPlatform Entity
     """
     DATA_PLATFORM
+    """
+    The Dashboard Entity
+    """
+    DASHBOARD
+    """
+    The Chart Entity
+    """
+    CHART
 }
 
 type Query {
@@ -49,6 +57,16 @@ type Query {
     Fetch a CorpUser by primary key
     """
     corpUser(urn: String!): CorpUser
+
+    """
+    Fetch a Dashboard by primary key
+    """
+    dashboard(urn: String!): Dashboard
+
+    """
+    Fetch a Chart by primary key
+    """
+    chart(urn: String!): Chart
 
     """
     Search DataHub entities
@@ -988,12 +1006,12 @@ input DatasetUpdateInput {
     """
     Update to ownership
     """
-   ownership: OwnershipUpdate
+    ownership: OwnershipUpdate
 
-   """
-   Update to deprecation status
-   """
-   deprecation: DatasetDeprecationUpdate
+    """
+    Update to deprecation status
+    """
+    deprecation: DatasetDeprecationUpdate
 
     """
     Update to institutional memory, ie documentation
@@ -1012,12 +1030,12 @@ input OwnerUpdate {
     """
     The owner URN, eg urn:li:corpuser:1
     """
-   owner: String!
+    owner: String!
 
     """
     The owner role type
     """
-   type: OwnershipType!
+    type: OwnershipType!
 }
 
 input DatasetDeprecationUpdate {
@@ -1064,4 +1082,225 @@ input InstitutionalMemoryMetadataUpdate {
     The time at which this metadata was created
     """
     createdAt: Long
+}
+
+type Dashboard implements Entity {
+    """
+    The unique dashboard URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The dashboard tool name
+    """
+    tool: String!
+
+    """
+    An id unique within the dashboard tool
+    """
+    dashboardId: String!
+
+    """
+    Info about the dashboard
+    """
+    info: DashboardInfo
+
+    """
+    Ownership metadata of the dashboard
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the dashboard
+    """
+    status: Status
+}
+
+type DashboardInfo {
+    """
+    Title of the dashboard
+    """
+    title: String!
+
+    """
+    Description of the dashboard
+    """
+    description: String!
+
+    """
+    Charts that comprise the dashboard
+    """
+    charts: [Chart!]!
+
+    """
+    Native platform URL of the dashboard
+    """
+    url: String
+
+    """
+    Access level for the dashboard
+    """
+    access: AccessLevel
+
+    """
+    The time when this dashboard last refreshed
+    """
+    lastRefreshed: Long
+
+    """
+    An AuditStamp corresponding to the modification of this dashboard
+    """
+    lastModified: AuditStamp!
+}
+
+enum AccessLevel {
+    """
+    Publicly available
+    """
+    PUBLIC
+
+    """
+    Restricted to a subset of viewers
+    """
+    PRIVATE
+}
+
+type Chart implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The chart tool name
+    """
+    tool: String!
+
+    """
+    An id unique within the charting tool
+    """
+    chartId: String!
+
+    """
+    Info about the chart
+    """
+    info: ChartInfo
+
+    """
+    Info about the query which is used to render the chart
+    """
+    query: ChartQuery
+
+    """
+    Ownership metadata of the chart
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the chart
+    """
+    status: Status
+}
+
+type ChartInfo {
+    """
+    Title of the chart
+    """
+    title: String!
+
+    """
+    Description of the chart
+    """
+    description: String!
+
+    """
+    Data sources for the chart
+    """
+    inputs: [Dataset!]
+
+    """
+    Native platform URL of the chart
+    """
+    url: String
+
+    """
+    Access level for the chart
+    """
+    type: ChartType
+
+    """
+    Access level for the chart
+    """
+    access: AccessLevel
+
+    """
+    The time when this chart last refreshed
+    """
+    lastRefreshed: Long
+
+    """
+    An AuditStamp corresponding to the modification of this chart
+    """
+    lastModified: AuditStamp!
+}
+
+enum ChartType {
+    """
+    Bar graph
+    """
+    BAR
+
+    """
+    Pie chart
+    """
+    PIE
+
+    """
+    Scatter plot
+    """
+    SCATTER
+
+    """
+    Table
+    """
+    TABLE
+
+    """
+    Markdown formatted text
+    """
+    TEXT
+}
+
+type ChartQuery {
+    """
+    Raw query to build a chart from input datasets
+    """
+    rawQuery: String!
+
+    """
+    The type of the chart query
+    """
+    type: ChartQueryType!
+}
+
+enum ChartQueryType {
+    """
+    Standard ANSI SQL
+    """
+    SQL
+
+    """
+    LookML
+    """
+    LOOKML
 }
