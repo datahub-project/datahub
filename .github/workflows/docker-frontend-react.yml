@@ -54,4 +54,4 @@ jobs:
           repository: linkedin/datahub-frontend
           tags: ${{ needs.setup.outputs.tag }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
-          build_args: ENABLE_REACT=true,PORT=9002
+          build_args: SERVER_PORT=9002,ENABLE_REACT=true
