@@ -1,0 +1,391 @@
+{
+  "name" : "mlModels",
+  "namespace" : "com.linkedin.ml",
+  "path" : "/mlModels",
+  "schema" : "com.linkedin.ml.MLModel",
+  "doc" : "generated from: com.linkedin.metadata.resources.ml.MLModels",
+  "collection" : {
+    "identifier" : {
+      "name" : "model",
+      "type" : "com.linkedin.ml.MLModelKey",
+      "params" : "com.linkedin.restli.common.EmptyRecord"
+    },
+    "supports" : [ "batch_get", "get", "get_all" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "get_all",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      } ],
+      "pagingSupported" : true
+    } ],
+    "finders" : [ {
+      "name" : "search",
+      "parameters" : [ {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      } ],
+      "metadata" : {
+        "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+      },
+      "pagingSupported" : true
+    } ],
+    "actions" : [ {
+      "name" : "autocomplete",
+      "parameters" : [ {
+        "name" : "query",
+        "type" : "string"
+      }, {
+        "name" : "field",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
+      "name" : "backfill",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "com.linkedin.metadata.restli.BackfillResult"
+    }, {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.MLModelSnapshot"
+    }, {
+      "name" : "ingest",
+      "parameters" : [ {
+        "name" : "snapshot",
+        "type" : "com.linkedin.metadata.snapshot.MLModelSnapshot"
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/mlModels/{model}",
+      "subresources" : [ {
+        "name" : "caveatsAndRecommendations",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/caveatsAndRecommendations",
+        "schema" : "com.linkedin.ml.metadata.CaveatsAndRecommendations",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/caveatsAndRecommendations\n\ngenerated from: com.linkedin.metadata.resources.ml.CaveatsAndRecommendationsResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "caveatsAndRecommendationsId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/caveatsAndRecommendations/{caveatsAndRecommendationsId}"
+          }
+        }
+      }, {
+        "name" : "cost",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/cost",
+        "schema" : "com.linkedin.common.Cost",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/cost\n\ngenerated from: com.linkedin.metadata.resources.ml.CostResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "costId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/cost/{costId}"
+          }
+        }
+      }, {
+        "name" : "deprecation",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/deprecation",
+        "schema" : "com.linkedin.common.Deprecation",
+        "doc" : "Rest.li entry point: /mlmodels/{mlModelKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.ml.DeprecationResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "deprecationId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/deprecation/{deprecationId}"
+          }
+        }
+      }, {
+        "name" : "ethicalConsiderations",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/ethicalConsiderations",
+        "schema" : "com.linkedin.ml.metadata.EthicalConsiderations",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/ethicalConsiderations\n\ngenerated from: com.linkedin.metadata.resources.ml.EthicalConsiderationsResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "ethicalConsiderationsId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/ethicalConsiderations/{ethicalConsiderationsId}"
+          }
+        }
+      }, {
+        "name" : "evaluationData",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/evaluationData",
+        "schema" : "com.linkedin.ml.metadata.EvaluationData",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/evaluationData\n\ngenerated from: com.linkedin.metadata.resources.ml.EvaluationDataResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "evaluationDataId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/evaluationData/{evaluationDataId}"
+          }
+        }
+      }, {
+        "name" : "institutionalMemory",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/institutionalMemory",
+        "schema" : "com.linkedin.common.InstitutionalMemory",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.ml.InstitutionalMemoryResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "institutionalMemoryId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/institutionalMemory/{institutionalMemoryId}"
+          }
+        }
+      }, {
+        "name" : "intendedUse",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/intendedUse",
+        "schema" : "com.linkedin.ml.metadata.IntendedUse",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/intendedUse\n\ngenerated from: com.linkedin.metadata.resources.ml.IntendedUseResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "intendedUseId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/intendedUse/{intendedUseId}"
+          }
+        }
+      }, {
+        "name" : "metrics",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/metrics",
+        "schema" : "com.linkedin.ml.metadata.Metrics",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/metrics\n\ngenerated from: com.linkedin.metadata.resources.ml.MetricsResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "metricsId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/metrics/{metricsId}"
+          }
+        }
+      }, {
+        "name" : "mlModelFactorPrompts",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/mlModelFactorPrompts",
+        "schema" : "com.linkedin.ml.metadata.MLModelFactorPrompts",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/mlModelFactorPrompts\n\ngenerated from: com.linkedin.metadata.resources.ml.MLModelFactorPromptsResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "mlModelFactorPromptsId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/mlModelFactorPrompts/{mlModelFactorPromptsId}"
+          }
+        }
+      }, {
+        "name" : "ownership",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/ownership",
+        "schema" : "com.linkedin.common.Ownership",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/ownership\n\ngenerated from: com.linkedin.metadata.resources.ml.OwnershipResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "ownershipId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/ownership/{ownershipId}"
+          }
+        }
+      }, {
+        "name" : "quantitativeAnalyses",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/quantitativeAnalyses",
+        "schema" : "com.linkedin.ml.metadata.QuantitativeAnalyses",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/quantitativeAnalyses\n\ngenerated from: com.linkedin.metadata.resources.ml.QuantitativeAnalysesResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "quantitativeAnalysesId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/quantitativeAnalyses/{quantitativeAnalysesId}"
+          }
+        }
+      }, {
+        "name" : "sourceCode",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/sourceCode",
+        "schema" : "com.linkedin.ml.metadata.SourceCode",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/sourceCode\n\ngenerated from: com.linkedin.metadata.resources.ml.SourceCodeResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "sourceCodeId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/sourceCode/{sourceCodeId}"
+          }
+        }
+      }, {
+        "name" : "trainingData",
+        "namespace" : "com.linkedin.ml",
+        "path" : "/mlModels/{model}/trainingData",
+        "schema" : "com.linkedin.ml.metadata.TrainingData",
+        "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/trainingData\n\ngenerated from: com.linkedin.metadata.resources.ml.TrainingDataResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "trainingDataId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/mlModels/{model}/trainingData/{trainingDataId}"
+          }
+        }
+      } ]
+    }
+  }
+}

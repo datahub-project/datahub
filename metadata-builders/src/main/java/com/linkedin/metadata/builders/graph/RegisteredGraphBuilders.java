@@ -25,6 +25,7 @@ public class RegisteredGraphBuilders {
           add(new DashboardGraphBuilder());
           add(new DataProcessGraphBuilder());
           add(new DatasetGraphBuilder());
+          add(new MLModelGraphBuilder());
         }
       });
 
