@@ -8,6 +8,8 @@ import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.MLModelUrn;
+
 import javax.annotation.Nonnull;
 
 
@@ -51,5 +53,10 @@ public final class Urns {
   @Nonnull
   public static DashboardUrn makeDashboardUrn(@Nonnull String dashboardId) {
     return new DashboardUrn("looker", dashboardId);
+  }
+
+  @Nonnull
+  public static MLModelUrn makeMLModelUrn(@Nonnull String name) {
+    return new MLModelUrn(new DataPlatformUrn("mysql"), name, FabricType.DEV);
   }
 }
