@@ -104,6 +104,7 @@ public class Dashboards extends BaseSearchableEntityResource<
   @Override
   protected Dashboard toValue(@Nonnull DashboardSnapshot snapshot) {
     final Dashboard value = new Dashboard()
+        .setUrn(snapshot.getUrn())
         .setTool(snapshot.getUrn().getDashboardToolEntity())
         .setDashboardId(snapshot.getUrn().getDashboardIdEntity());
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {

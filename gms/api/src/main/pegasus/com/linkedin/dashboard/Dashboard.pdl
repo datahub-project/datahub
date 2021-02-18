@@ -1,5 +1,6 @@
 namespace com.linkedin.dashboard
 
+import com.linkedin.common.DashboardUrn
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 
@@ -7,6 +8,11 @@ import com.linkedin.common.Status
  * Metadata for a dashboard
  */
 record Dashboard includes DashboardKey {
+
+  /**
+   * Dashboard urn
+   */
+  urn: DashboardUrn
 
   /**
    * Basic dashboard information

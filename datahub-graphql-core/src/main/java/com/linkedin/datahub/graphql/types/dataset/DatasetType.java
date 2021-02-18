@@ -59,6 +59,11 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
+    public Class<DatasetUpdateInput> inputClass() {
+        return DatasetUpdateInput.class;
+    }
+
+    @Override
     public EntityType type() {
         return EntityType.DATASET;
     }
@@ -141,11 +146,6 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
         final StringArray result = _datasetsClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn));
         return BrowsePathsMapper.map(result);
-    }
-
-    @Override
-    public Class<DatasetUpdateInput> inputClass() {
-        return DatasetUpdateInput.class;
     }
 
     @Override

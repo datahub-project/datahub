@@ -411,6 +411,109 @@
           ]
         }
       }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.ChartSnapshot": {
+          "urn": "urn:li:chart:(Looker,1)",
+          "aspects": [
+            {
+              "com.linkedin.chart.ChartInfo": {
+                "title": "Sample Looker Chart",
+                "description": "This chart contains sample data from Kafka",
+                "lastModified": {
+                  "lastModified": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "created": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                "inputs": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+                  }
+                ],
+                "chartUrl": "https://www.looker.com",
+                "type": "BAR",
+                "access": "PUBLIC"
+              }
+            },
+            {
+              "com.linkedin.chart.ChartQuery": {
+                "rawQuery": "SELECT * FROM SampleTable",
+                "type": "SQL"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "STAKEHOLDER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407589000,
+                  "actor": "urn:li:corpuser:datahub"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "proposedSnapshot": {
+        "com.linkedin.metadata.snapshot.DashboardSnapshot": {
+          "urn": "urn:li:dashboard:(Looker,0)",
+          "aspects": [
+            {
+              "com.linkedin.dashboard.DashboardInfo": {
+                "title": "Sample Looker Dashboard",
+                "description": "This dashboard shows charts about user retention.",
+                "lastModified": {
+                  "lastModified": {
+                    "time": 1581407139000,
+                    "actor": "urn:li:corpuser:datahub"
+                  },
+                  "created": {
+                    "time": 1581404189000,
+                    "actor": "urn:li:corpuser:jdoe"
+                  }
+                },
+                "charts": [ "urn:li:chart:(Looker,1)" ],
+                "dashboardUrl": "https://www.looker.com",
+                "access": "PUBLIC"
+              }
+            },
+            {
+              "com.linkedin.common.Ownership": {
+                "owners": [
+                  {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                  },
+                  {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "STAKEHOLDER"
+                  }
+                ],
+                "lastModified": {
+                  "time": 1581407389000,
+                  "actor": "urn:li:corpuser:jdoe"
+                }
+              }
+            }
+          ]
+        }
+      }
     }
   ]
 }
