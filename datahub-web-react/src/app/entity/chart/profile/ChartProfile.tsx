@@ -6,6 +6,7 @@ import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
 import { useGetChartQuery } from '../../../../graphql/chart.generated';
+import ChartSources from './ChartSources';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -14,9 +15,10 @@ const PageContainer = styled.div`
 
 export enum TabType {
     Ownership = 'Ownership',
+    Sources = 'Sources',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources];
 
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
@@ -38,7 +40,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
         />
     );
 
-    const getTabs = ({ ownership }: Chart) => {
+    const getTabs = ({ ownership, info }: Chart) => {
         return [
             {
                 name: TabType.Ownership,
@@ -50,6 +52,11 @@ export default function ChartProfile({ urn }: { urn: string }) {
                         updateOwnership={() => console.log('Update dashboard not yet implemented')}
                     />
                 ),
+            },
+            {
+                name: TabType.Sources,
+                path: TabType.Sources.toLowerCase(),
+                content: <ChartSources datasets={info?.inputs || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };

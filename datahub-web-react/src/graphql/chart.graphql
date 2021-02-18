@@ -8,6 +8,7 @@ query getChart($urn: String!) {
             name
             description
             inputs {
+                urn
                 name
                 origin
                 description
