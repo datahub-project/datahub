@@ -1,17 +1,22 @@
-import os
-
 import mce_helpers
+from click.testing import CliRunner
+
+from datahub.entrypoints import datahub
 
 
-def test_ingest(mysql, pytestconfig, tmp_path):
+def test_mysql_ingest(mysql, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mysql"
-
     config_file = (test_resources_dir / "mysql_to_file.yml").resolve()
-    ingest_command = f'cd {tmp_path} && datahub ingest -c {config_file}'
-    ret = os.system(ingest_command)
-    assert ret == 0
 
-    output = mce_helpers.load_json_file(str(tmp_path / "mysql_mces.json"))
+    # Run the metadata ingestion pipeline.
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
+        assert result.exit_code == 0
+
+        output = mce_helpers.load_json_file("mysql_mces.json")
+
+    # Verify the output.
     golden = mce_helpers.load_json_file(
         str(test_resources_dir / "mysql_mce_golden.json")
     )

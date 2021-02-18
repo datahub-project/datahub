@@ -1,19 +1,33 @@
-import os
 import subprocess
 
+import mce_helpers
+from click.testing import CliRunner
 
-def test_ingest(sql_server, pytestconfig):
+from datahub.entrypoints import datahub
+
+
+def test_mssql_ingest(sql_server, pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
+
+    # Run the setup.sql file to populate the database.
     docker = "docker"
     command = f"{docker} exec testsqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
     ret = subprocess.run(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     assert ret.returncode == 0
-    config_file = os.path.join(
-        str(pytestconfig.rootdir), "tests/integration/sql_server", "mssql_to_file.yml"
+
+    # Run the metadata ingestion pipeline.
+    config_file = (test_resources_dir / "mssql_to_file.yml").resolve()
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
+        assert result.exit_code == 0
+
+        output = mce_helpers.load_json_file("mssql_mces.json")
+
+    # Verify the output.
+    golden = mce_helpers.load_json_file(
+        str(test_resources_dir / "mssql_mces_golden.json")
     )
-    ingest_command = f'datahub ingest -c {config_file}'
-    ret = os.system(ingest_command)
-    assert ret == 0
-    # TODO: move to a better way to create an output test fixture
-    os.system("rm ./mssql_mces.json")
+    mce_helpers.assert_mces_equal(output, golden)
