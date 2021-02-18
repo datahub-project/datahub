@@ -39,7 +39,7 @@ public class DashboardMapper implements ModelMapper<com.linkedin.dashboard.Dashb
     private DashboardInfo mapDashboardInfo(final com.linkedin.dashboard.DashboardInfo info) {
         final DashboardInfo result = new DashboardInfo();
         result.setDescription(info.getDescription());
-        result.setTitle(info.getTitle());
+        result.setName(info.getTitle());
         result.setLastRefreshed(info.getLastRefreshed());
         result.setCharts(info.getCharts().stream().map(urn -> {
             final Chart chart = new Chart();

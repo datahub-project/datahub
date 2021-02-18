@@ -9,6 +9,8 @@ import EntityRegistry from './app/entity/EntityRegistry';
 import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
 import { UserEntity } from './app/entity/user/User';
 import { EntityRegistryContext } from './entityRegistryContext';
+import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
+import { ChartEntity } from './app/entity/chart/ChartEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -26,6 +28,12 @@ const client = new ApolloClient({
             CorpUser: {
                 keyFields: ['urn'],
             },
+            Dashboard: {
+                keyFields: ['urn'],
+            },
+            Chart: {
+                keyFields: ['urn'],
+            },
         },
     }),
     credentials: 'include',
@@ -36,6 +44,8 @@ const App: React.VFC = () => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
         register.register(new UserEntity());
+        register.register(new DashboardEntity());
+        register.register(new ChartEntity());
         return register;
     }, []);
     return (

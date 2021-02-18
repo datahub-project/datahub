@@ -16,7 +16,7 @@ dependencies {
   if (project.hasProperty('enableReact') && project.getProperty('enableReact').toBoolean()) {
     assets project(path: ':datahub-web-react', configuration: 'assets')
   } else {
-    assets project(path: ':datahub-web', configuration: 'assets')
+    // assets project(path: ':datahub-web', configuration: 'assets')
   }
 
   play project(":datahub-dao")

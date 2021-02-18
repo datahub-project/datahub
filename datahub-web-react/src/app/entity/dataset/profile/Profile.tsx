@@ -1,6 +1,7 @@
 import React from 'react';
+import { Alert } from 'antd';
 import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
-import { Ownership as OwnershipView } from './Ownership';
+import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { Dataset } from '../../../../types.generated';
@@ -26,6 +27,14 @@ const EMPTY_ARR: never[] = [];
 export const Profile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const [updateDataset] = useUpdateDatasetMutation();
+
+    if (loading) {
+        return <Alert type="info" message="Loading" />;
+    }
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
 
     const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
 
@@ -83,9 +92,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
 
     return (
         <>
-            {loading && <p>Loading...</p>}
-            {data && !data.dataset && !error && <p>Unable to find dataset with urn {urn}</p>}
-            {data && data.dataset && !error && (
+            {data && data.dataset && (
                 <EntityProfile
                     title={data.dataset.name}
                     tags={data.dataset.tags}
@@ -93,7 +100,6 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
                     header={getHeader(data.dataset as Dataset)}
                 />
             )}
-            {error && <p>Failed to load dataset with urn {urn}</p>}
         </>
     );
 };
