@@ -9,9 +9,36 @@ query getDashboard($urn: String!) {
             description
             charts {
                 urn
+                tool
+                type
                 info {
                     name
                     description
+                }
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                email
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
                 }
             }
             url

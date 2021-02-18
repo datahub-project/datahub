@@ -6,6 +6,7 @@ import { Dashboard } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import DashboardHeader from './DashboardHeader';
+import DashboardCharts from './DashboardCharts';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -14,9 +15,10 @@ const PageContainer = styled.div`
 
 export enum TabType {
     Ownership = 'Ownership',
+    Charts = 'Charts',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts];
 
 /**
  * Responsible for reading & writing users.
@@ -41,7 +43,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
         />
     );
 
-    const getTabs = ({ ownership }: Dashboard) => {
+    const getTabs = ({ ownership, info }: Dashboard) => {
         return [
             {
                 name: TabType.Ownership,
@@ -53,6 +55,11 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                         updateOwnership={() => console.log('Update dashboard not yet implemented')}
                     />
                 ),
+            },
+            {
+                name: TabType.Charts,
+                path: TabType.Charts.toLowerCase(),
+                content: <DashboardCharts charts={info?.charts || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };

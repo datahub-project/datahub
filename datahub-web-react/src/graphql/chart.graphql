@@ -8,8 +8,38 @@ query getChart($urn: String!) {
             name
             description
             inputs {
-                urn
                 name
+                origin
+                description
+                platformNativeType
+                tags
+                lastModified {
+                    time
+                }
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
+                }
             }
             url
             type
