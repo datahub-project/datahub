@@ -17,13 +17,13 @@ def test_mssql_ingest(sql_server, pytestconfig, tmp_path):
 
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "mssql_to_file.yml").resolve()
-    ingest_command = f'cd {tmp_path} && datahub ingest -c {config_file}'
+    ingest_command = f"cd {tmp_path} && datahub ingest -c {config_file}"
     ret = os.system(ingest_command)
     assert ret == 0
 
     # Verify the output.
     output = mce_helpers.load_json_file(str(tmp_path / "mssql_mces.json"))
     golden = mce_helpers.load_json_file(
-        str(test_resources_dir / "mssql_mce_golden.json")
+        str(test_resources_dir / "mssql_mces_golden.json")
     )
     mce_helpers.assert_mces_equal(output, golden)
