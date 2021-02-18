@@ -2,6 +2,7 @@
 
 This module hosts an extensible Python-based metadata ingestion system for DataHub.
 This supports sending data to DataHub using Kafka or through the REST api.
+It can be used through our CLI tool or as a library e.g. with an orchestrator like Airflow.
 
 ## Architecture
 
@@ -61,6 +62,10 @@ We have a simple script provided that supports mounting a local directory for in
 source docker/docker_run.sh examples/recipes/file_to_file.yml
 ```
 -->
+
+We have also included a couple [sample DAGs](./examples/airflow) that can be used with [Airflow](https://airflow.apache.org/).
+- `generic_recipe_sample_dag.py` - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
+- `mysql_sample_dag.py` - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
 
 # Recipes
 
