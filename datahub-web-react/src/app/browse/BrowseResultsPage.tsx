@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
 import * as QueryString from 'query-string';
-import { Affix } from 'antd';
+import { Affix, Alert } from 'antd';
 import { BrowseCfg } from '../../conf';
 import { BrowseResults } from './BrowseResults';
 import { SearchablePage } from '../search/SearchablePage';
@@ -39,6 +39,14 @@ export const BrowseResultsPage = () => {
         },
     });
 
+    if (loading) {
+        return <Alert type="info" message="Loading" />;
+    }
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
+
     const onChangePage = (newPage: number) => {
         history.push({
             pathname: rootPath,
@@ -55,8 +63,6 @@ export const BrowseResultsPage = () => {
             <Affix offsetTop={64}>
                 <BrowsePath type={entityType} path={path} />
             </Affix>
-            {error && <p>Error fetching browse results!</p>}
-            {loading && <p>Loading browse results...</p>}
             {data && data.browse && (
                 <BrowseResults
                     type={entityType}

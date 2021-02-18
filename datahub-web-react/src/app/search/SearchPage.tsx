@@ -1,7 +1,7 @@
 import React from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
-import { Affix, Col, Row, Tabs, Layout, List } from 'antd';
+import { Affix, Col, Row, Tabs, Layout, List, Alert } from 'antd';
 
 import { SearchablePage } from './SearchablePage';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
@@ -50,6 +50,14 @@ export const SearchPage = () => {
             },
         },
     });
+
+    if (loading) {
+        return <Alert type="info" message="Loading" />;
+    }
+
+    if (error || (!loading && !error && !data)) {
+        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+    }
 
     const onSearchTypeChange = (newType: string) => {
         const entityType = entityRegistry.getTypeFromCollectionName(newType);
@@ -105,8 +113,6 @@ export const SearchPage = () => {
                         />
                     </Col>
                     <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={18}>
-                        {loading && <p>Loading results...</p>}
-                        {error && !data && <p>Search error!</p>}
                         {data?.search && (
                             <SearchResults
                                 typeName={entityRegistry.getCollectionName(activeType)}
