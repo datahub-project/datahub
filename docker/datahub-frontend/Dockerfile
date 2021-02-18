@@ -22,6 +22,8 @@ RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 USER datahub
 
 ARG SERVER_PORT=9001
+RUN echo $SERVER_PORT
+
 EXPOSE $SERVER_PORT
 
 ENV JAVA_OPTS=" \
