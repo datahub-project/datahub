@@ -1,7 +1,6 @@
 FROM openjdk:8 as builder
 
-ARG ENABLE_REACT
-ARG PORT
+ARG ENABLE_REACT="false"
 
 RUN apt-get update && apt-get install -y wget \
     && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
@@ -21,15 +20,19 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 COPY --from=builder /datahub-frontend /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 USER datahub
-EXPOSE ${PORT:-9001}
+
+ARG SERVER_PORT=9001
+RUN echo $SERVER_PORT
+
+EXPOSE $SERVER_PORT
 
 ENV JAVA_OPTS=" \
-	-Xms512m \
-	-Xmx1024m \
-	-Dhttp.port=${PORT:-9001} \
-	-Dconfig.file=datahub-frontend/conf/application.conf \
-	-Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
-	-Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
-	-Dlogback.debug=true \
-	-Dpidfile.path=/datahub-frontend/play.pid"
+   -Xms512m \
+   -Xmx1024m \
+   -Dhttp.port=$SERVER_PORT \
+   -Dconfig.file=datahub-frontend/conf/application.conf \
+   -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
+   -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
+   -Dlogback.debug=true \
+   -Dpidfile.path=/datahub-frontend/play.pid"
 CMD ["datahub-frontend/bin/playBinary"]
