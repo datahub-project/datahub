@@ -37,3 +37,8 @@ def sql_server(docker_ip, docker_services):
 @pytest.fixture(scope="session")
 def mysql(docker_ip, docker_services):
     return wait_for_db(docker_services, "testmysql", 3306)
+
+
+@pytest.fixture(scope="session")
+def ldap(docker_ip, docker_services):
+    return wait_for_db(docker_services, "openldap", 3306)
