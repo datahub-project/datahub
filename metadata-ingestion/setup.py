@@ -81,5 +81,6 @@ setuptools.setup(
         "fastavro>=1.3.0",
         "avro-python3>=1.8.2",
         "sqlalchemy>=1.3.23",  # Required for SQL sources
+        "python-ldap",  # Required for LDAP
     ],
 )
