@@ -9,7 +9,6 @@ source frontend.env
 set +a
 
 export JAVA_OPTS="
-  -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
 	-Xms512m
 	-Xmx1024m
 	-Dhttp.port=$PORT

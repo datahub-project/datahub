@@ -1,5 +1,6 @@
 namespace com.linkedin.dashboard
 
+import com.linkedin.common.ChartUrn
 import com.linkedin.chart.ChartInfo
 import com.linkedin.chart.ChartQuery
 import com.linkedin.common.Ownership
@@ -9,6 +10,11 @@ import com.linkedin.common.Status
  * Metadata for a chart
  */
 record Chart includes ChartKey {
+
+  /**
+   * Chart urn
+   */
+  urn: ChartUrn
 
   /**
    * Basic chart information

@@ -1,14 +1,20 @@
 package com.linkedin.datahub.graphql;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.ChartInfo;
+import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
+import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
+import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
@@ -50,6 +56,8 @@ public class GmsGraphQLEngine {
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getDatasetsClient());
     public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getCorpUsersClient());
+    public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getChartsClient());
+    public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(GmsClientFactory.getLineagesClient());
 
@@ -60,7 +68,9 @@ public class GmsGraphQLEngine {
             DATASET_TYPE,
             CORP_USER_TYPE,
             DATA_PLATFORM_TYPE,
-            DOWNSTREAM_LINEAGE_TYPE
+            DOWNSTREAM_LINEAGE_TYPE,
+            CHART_TYPE,
+            DASHBOARD_TYPE
     );
 
     /**
@@ -109,6 +119,8 @@ public class GmsGraphQLEngine {
         configureMutationResolvers(builder);
         configureDatasetResolvers(builder);
         configureCorpUserResolvers(builder);
+        configureDashboardResolvers(builder);
+        configureChartResolvers(builder);
         configureTypeResolvers(builder);
         configureTypeExtensions(builder);
     }
@@ -148,6 +160,14 @@ public class GmsGraphQLEngine {
                 .dataFetcher("corpUser", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
                                 CORP_USER_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("dashboard", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                DASHBOARD_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("chart", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                CHART_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -205,6 +225,36 @@ public class GmsGraphQLEngine {
     }
 
     /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Dashboard} type.
+     */
+    private static void configureDashboardResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DashboardInfo", typeWiring -> typeWiring
+                .dataFetcher("charts", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CHART_TYPE,
+                                (env) -> ((DashboardInfo) env.getSource()).getCharts().stream()
+                                        .map(Chart::getUrn)
+                                        .collect(Collectors.toList())))
+                )
+        );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Chart} type.
+     */
+    private static void configureChartResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("ChartInfo", typeWiring -> typeWiring
+                .dataFetcher("inputs", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                DATASET_TYPE,
+                                (env) -> ((ChartInfo) env.getSource()).getInputs().stream()
+                                        .map(Dataset::getUrn)
+                                        .collect(Collectors.toList())))
+                )
+        );
+    }
+
+    /**
      * Configures {@link graphql.schema.TypeResolver}s for any GQL 'union' or 'interface' types.
      */
     private static void configureTypeResolvers(final RuntimeWiring.Builder builder) {
@@ -235,7 +285,7 @@ public class GmsGraphQLEngine {
             try {
                 return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.objectClass().getName()), e);
+                throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
     }
