@@ -1,0 +1,55 @@
+query getChart($urn: String!) {
+    chart(urn: $urn) {
+        urn
+        type
+        tool
+        chartId
+        info {
+            name
+            description
+            inputs {
+                urn
+                name
+            }
+            url
+            type
+            access
+            lastRefreshed
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+        }
+        query {
+            rawQuery
+            type
+        }
+        ownership {
+            owners {
+                owner {
+                    urn
+                    type
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+                type
+            }
+            lastModified {
+                time
+            }
+        }
+    }
+}
