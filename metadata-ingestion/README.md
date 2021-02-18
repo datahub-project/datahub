@@ -47,7 +47,7 @@ pip install -e .
 Common issues:
 
 <details>
-  <summary>Wheel issues e.g. `Failed building wheel for avro-python3` or `error: invalid command 'bdist_wheel'`</summary>
+  <summary>Wheel issues e.g. "Failed building wheel for avro-python3" or "error: invalid command 'bdist_wheel'"</summary>
 
   This means Python's `wheel` is not installed. Try running the following commands and then retry.
   ```sh
@@ -57,13 +57,13 @@ Common issues:
 </details>
 
 <details>
-  <summary>Failure to install confluent_kafka: `error: command 'x86_64-linux-gnu-gcc' failed with exit status 1`</summary>
+  <summary>Failure to install confluent_kafka: "error: command 'x86_64-linux-gnu-gcc' failed with exit status 1"</summary>
 
   This sometimes happens if there's a version mismatch between the Kafka's C library and the Python wrapper library. Try running `pip install confluent_kafka==1.5.0` and then retrying.
 </details>
 
 <details>
-  <summary>Failure to install avro-python3: `distutils.errors.DistutilsOptionError: Version loaded from file: avro/VERSION.txt does not comply with PEP 440`</summary>
+  <summary>Failure to install avro-python3: "distutils.errors.DistutilsOptionError: Version loaded from file: avro/VERSION.txt does not comply with PEP 440"</summary>
 
   The underlying `avro-python3` package is buggy. In particular, it often only installs correctly when installed from a pre-built "wheel" but not when from source. Try running the following commands and then retry.
   ```sh
