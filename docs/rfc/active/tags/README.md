@@ -56,10 +56,6 @@ We want to introduce some new under `datahub/metadata-models/src/main/pegasus/co
 
 First we create a `TagMetadata` entity, which defines the actual tag-object.
 
-The URN of the tag consists for two parts: a category and a name. This gives us more flexibility as to how tags are use
-and reduces the risk of name collisions. An example of an `category` could be `sensitivity` and the name could be `pii`
-or `public`.
-
 The edit property defines the edit rights of the tag, as some tags (like sensitivity tags) should be read-only for a
 majority of users
 
@@ -70,14 +66,9 @@ majority of users
 record TagMetadata {
 
   /**
-   * Tag URN, e.g. urn:li:tag:(<category>, <name>)
+   * Tag URN, e.g. urn:li:tag:<name>
    */
   tag: Urn
-
-  /**
-   * Who has edit rights. TBD
-   */
-  edit: union[None, any, role-urn]
 
    /**
    * Audit stamp associated with creation of this tag
@@ -86,9 +77,37 @@ record TagMetadata {
 }
 ```
 
+### `TagEmployment`
+
+We define a `TagEmployment`-model, which describes the application of a tag to a entity
+
+```
+/**
+ * Tag information
+ */
+record TagEmployment {
+
+  /**
+   * Tag in question
+   */
+  tag: TagMetadata
+
+  /**
+   * Who has edit rights to this employment. WIP
+   */
+  edit: union[None, any, role-urn]
+
+   /**
+   * Audit stamp associated with employment of this tag to this entity
+   */
+   applicationStamp: AuditStamp
+}
+```
+
 ### `Tags` container entity
 
-Then we define a `Tags`-model, which is used as a container for tags. This container is taken into use in aspects.
+Then we define a `Tags`-model, which is used as a container for tag employments. This container is taken into use in
+aspects.
 
 ```
 namespace com.linkedin.common
@@ -99,11 +118,13 @@ namespace com.linkedin.common
 record Tags {
 
    /**
-   * List of tags
+   * List of tag employments
    */
-   elements: array[TagMetadata] = [ ]
+   elements: array[TagEmployment] = [ ]
 }
 ```
+
+As `TagMetadata` is an entity in itself, it can be tagged as well, allowing for hierarchies of tags to be constructed.
 
 > This is the bulk of the RFC.
 
