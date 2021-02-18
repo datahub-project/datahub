@@ -45,6 +45,7 @@ def ingest_from_mysql():
         }
     )
     pipeline.run()
+    pipeline.raise_from_status()
 
 
 with DAG(

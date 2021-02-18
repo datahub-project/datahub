@@ -2,7 +2,7 @@ import logging
 import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import create_engine, types
@@ -34,12 +34,6 @@ logger = logging.getLogger(__name__)
 class SQLSourceReport(SourceReport):
     tables_scanned = 0
     filtered: List[str] = field(default_factory=list)
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-
-    def report_warning(self, table_name: str, reason: str) -> None:
-        if table_name not in self.warnings:
-            self.warnings[table_name] = []
-        self.warnings[table_name].append(reason)
 
     def report_table_scanned(self, table_name: str) -> None:
         self.tables_scanned += 1

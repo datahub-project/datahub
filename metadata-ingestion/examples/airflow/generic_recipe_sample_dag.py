@@ -33,6 +33,7 @@ def datahub_recipe():
 
     pipeline = Pipeline.create(config)
     pipeline.run()
+    pipeline.raise_from_status()
 
 
 with DAG(

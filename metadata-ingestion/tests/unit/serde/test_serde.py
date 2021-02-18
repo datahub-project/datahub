@@ -19,6 +19,7 @@ def test_serde_large(pytestconfig, tmp_path):
         }
     )
     pipeline.run()
+    pipeline.raise_from_status()
 
     output = mce_helpers.load_json_file(tmp_path / output_filename)
     golden = mce_helpers.load_json_file(golden_file)

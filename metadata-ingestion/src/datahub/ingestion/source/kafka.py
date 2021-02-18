@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List
+from typing import Iterable, List
 
 import confluent_kafka
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
@@ -34,22 +34,10 @@ class KafkaSourceConfig(ConfigModel):
 @dataclass
 class KafkaSourceReport(SourceReport):
     topics_scanned = 0
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-    failures: Dict[str, List[str]] = field(default_factory=dict)
     filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
-
-    def report_warning(self, topic: str, reason: str) -> None:
-        if topic not in self.warnings:
-            self.warnings[topic] = []
-        self.warnings[topic].append(reason)
-
-    def report_failure(self, topic: str, reason: str) -> None:
-        if topic not in self.failures:
-            self.failures[topic] = []
-        self.failures[topic].append(reason)
 
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)

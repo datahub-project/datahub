@@ -2,7 +2,13 @@ import importlib
 import logging
 import time
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+import click
+
+from datahub.configuration.common import (
+    ConfigModel,
+    DynamicTypedConfig,
+    PipelineExecutionError,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
@@ -94,8 +100,30 @@ class Pipeline:
             self.sink.handle_work_unit_end(wu)
         self.sink.close()
 
-        print()
-        print("Source:")
-        print(self.source.get_report().as_string())
-        print("Sink:")
-        print(self.sink.get_report().as_string())
+    def raise_from_status(self, raise_warnings=False):
+        if self.source.get_report().failures:
+            raise PipelineExecutionError(
+                "Source reported errors", self.source.get_report()
+            )
+        if self.sink.get_report().failures:
+            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+        if raise_warnings and (
+            self.source.get_report().warnings or self.sink.get_report().warnings
+        ):
+            raise PipelineExecutionError(
+                "Source reported warnings", self.source.get_report()
+            )
+
+    def pretty_print_summary(self):
+        click.echo()
+        click.secho("Source report:", bold=True)
+        click.echo(self.source.get_report().as_string())
+        click.secho("Sink report:", bold=True)
+        click.echo(self.sink.get_report().as_string())
+        click.echo()
+        if self.source.get_report().failures or self.sink.get_report().failures:
+            click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
+        elif self.source.get_report().warnings or self.sink.get_report().warnings:
+            click.secho("Pipeline finished with warnings", fg="yellow", bold=True)
+        else:
+            click.secho("Pipeline finished successfully", fg="green", bold=True)
