@@ -9,12 +9,15 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    # workunits_processed = 0
     records_written = 0
+    warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
 
     def report_record_written(self, record_envelope: RecordEnvelope):
         self.records_written += 1
+
+    def report_warning(self, info: Any) -> None:
+        self.warnings.append(info)
 
     def report_failure(self, info: Any) -> None:
         self.failures.append(info)
@@ -54,7 +57,7 @@ class Sink(Closeable, metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> 'Sink':
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Sink":
         pass
 
     @abstractmethod

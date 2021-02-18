@@ -22,6 +22,10 @@ class MetaError(Exception):
     """A base class for all meta exceptions"""
 
 
+class PipelineExecutionError(MetaError):
+    """An error occurred when executing the pipeline"""
+
+
 class ConfigurationError(MetaError):
     """A configuration error has happened"""
 

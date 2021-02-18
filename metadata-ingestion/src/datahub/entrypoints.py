@@ -62,3 +62,4 @@ def ingest(config: str):
         logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config)
     pipeline.run()
+    pipeline.pretty_print_summary()
