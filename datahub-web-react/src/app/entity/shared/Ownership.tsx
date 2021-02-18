@@ -1,10 +1,10 @@
-import { AutoComplete, Avatar, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
+import { AutoComplete, Avatar, Button, Form, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../../types.generated';
-import defaultAvatar from '../../../../images/default_avatar.png';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../types.generated';
+import defaultAvatar from '../../../images/default_avatar.png';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const OWNER_SEARCH_PLACEHOLDER = 'Search an LDAP';
 const NUMBER_OWNERS_REQUIRED = 2;
@@ -159,17 +159,19 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         />
                     </Form.Item>
                 ) : (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
-                        <Avatar
-                            style={{
-                                marginRight: '15px',
-                                color: '#f56a00',
-                                backgroundColor: '#fde3cf',
-                            }}
-                            src={record.pictureLink || defaultAvatar}
-                        />
-                        {text}
-                    </Link>
+                    <Tooltip placement="left" title={record.fullName}>
+                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
+                            <Avatar
+                                style={{
+                                    marginRight: '15px',
+                                    color: '#f56a00',
+                                    backgroundColor: '#fde3cf',
+                                }}
+                                src={record.pictureLink || defaultAvatar}
+                            />
+                            {text}
+                        </Link>
+                    </Tooltip>
                 );
             },
         },

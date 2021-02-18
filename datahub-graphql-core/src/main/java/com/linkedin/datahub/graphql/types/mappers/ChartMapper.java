@@ -44,7 +44,7 @@ public class ChartMapper implements ModelMapper<com.linkedin.dashboard.Chart, Ch
     private ChartInfo mapChartInfo(final com.linkedin.chart.ChartInfo info) {
         final ChartInfo result = new ChartInfo();
         result.setDescription(info.getDescription());
-        result.setTitle(info.getTitle());
+        result.setName(info.getTitle());
         result.setLastRefreshed(info.getLastRefreshed());
         result.setInputs(info.getInputs().stream().map(input -> {
             final Dataset dataset = new Dataset();

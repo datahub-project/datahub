@@ -1123,9 +1123,9 @@ type Dashboard implements Entity {
 
 type DashboardInfo {
     """
-    Title of the dashboard
+    Name of the dashboard
     """
-    title: String!
+    name: String!
 
     """
     Description of the dashboard
@@ -1224,9 +1224,9 @@ type Chart implements Entity {
 
 type ChartInfo {
     """
-    Title of the chart
+    Name of the chart
     """
-    title: String!
+    name: String!
 
     """
     Description of the chart
