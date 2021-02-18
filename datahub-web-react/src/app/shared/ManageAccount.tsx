@@ -1,11 +1,11 @@
 import React from 'react';
 import Cookies from 'js-cookie';
 import { Menu, Avatar, Dropdown } from 'antd';
-import { Link, Redirect } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import defaultAvatar from '../../images/default_avatar.png';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { isLoggedInVar, checkAuthStatus } from '../auth/checkAuthStatus';
+import { isLoggedInVar } from '../auth/checkAuthStatus';
 
 interface Props {
     urn: string;
@@ -19,10 +19,7 @@ const defaultProps = {
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    const isLoggedIn = checkAuthStatus();
-
     const handleLogout = () => {
-        Cookies.remove('PLAY_SESSION');
         Cookies.remove('IS_LOGGED_IN');
         localStorage.removeItem('userUrn');
         isLoggedInVar(false);
@@ -37,10 +34,6 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
             </Menu.Item>
         </Menu>
     );
-
-    if (!isLoggedIn) {
-        return <Redirect to="/login" />;
-    }
 
     return (
         <Dropdown overlay={menu}>
