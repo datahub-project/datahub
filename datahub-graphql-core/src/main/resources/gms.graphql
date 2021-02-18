@@ -1153,9 +1153,19 @@ type DashboardInfo {
     lastRefreshed: Long
 
     """
+    An AuditStamp corresponding to the creation of this dashboard
+    """
+    created: AuditStamp!
+
+    """
     An AuditStamp corresponding to the modification of this dashboard
     """
     lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion of this dashboard
+    """
+    deleted: AuditStamp
 }
 
 enum AccessLevel {
@@ -1249,9 +1259,19 @@ type ChartInfo {
     lastRefreshed: Long
 
     """
+    An AuditStamp corresponding to the creation of this chart
+    """
+    created: AuditStamp!
+
+    """
     An AuditStamp corresponding to the modification of this chart
     """
     lastModified: AuditStamp!
+
+    """
+    An optional AuditStamp corresponding to the deletion of this chart
+    """
+    deleted: AuditStamp
 }
 
 enum ChartType {

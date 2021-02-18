@@ -105,6 +105,7 @@ public class Charts extends BaseSearchableEntityResource<
   @Override
   protected Chart toValue(@Nonnull ChartSnapshot snapshot) {
     final Chart value = new Chart()
+        .setUrn(snapshot.getUrn())
         .setTool(snapshot.getUrn().getDashboardToolEntity())
         .setChartId(snapshot.getUrn().getChartIdEntity());
     ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {

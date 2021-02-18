@@ -254,6 +254,10 @@
       } ]
     } ],
     "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.DashboardUrn",
+      "doc" : "Dashboard urn"
+    }, {
       "name" : "info",
       "type" : {
         "type" : "record",

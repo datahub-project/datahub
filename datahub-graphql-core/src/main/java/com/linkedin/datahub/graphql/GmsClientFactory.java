@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql;
 
+import com.linkedin.chart.client.Charts;
+import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.dataset.client.Lineages;
@@ -27,6 +29,8 @@ public class GmsClientFactory {
 
     private static CorpUsers _corpUsers;
     private static Datasets _datasets;
+    private static Dashboards _dashboards;
+    private static Charts _charts;
     private static DataPlatforms _dataPlatforms;
     private static Lineages _lineages;
 
@@ -52,6 +56,28 @@ public class GmsClientFactory {
             }
         }
         return _datasets;
+    }
+
+    public static Dashboards getDashboardsClient() {
+        if (_dashboards == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_dashboards == null) {
+                    _dashboards = new Dashboards(REST_CLIENT);
+                }
+            }
+        }
+        return _dashboards;
+    }
+
+    public static Charts getChartsClient() {
+        if (_charts == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_charts == null) {
+                    _charts = new Charts(REST_CLIENT);
+                }
+            }
+        }
+        return _charts;
     }
 
     public static DataPlatforms getDataPlatformsClient() {
