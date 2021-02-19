@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euxo pipefail
 
+sudo apt-get install librdkafka-dev python-ldap libldap2-dev libsasl2-dev ldap-utils
+
 python -m pip install --upgrade pip
 pip install -e .
 pip install -r test_requirements.txt

@@ -98,6 +98,7 @@ class Pipeline:
                 self.sink.write_record_async(record_envelope, callback)
             extractor.close()
             self.sink.handle_work_unit_end(wu)
+        self.source.close()
         self.sink.close()
 
     def raise_from_status(self, raise_warnings=False):

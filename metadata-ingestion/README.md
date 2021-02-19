@@ -225,6 +225,24 @@ source:
     # table_pattern is same as above
 ```
 
+## LDAP `ldap`
+Extracts:
+- List of people
+- Names, emails, titles, and manager information for each person
+
+Extra requirements: `pip install python-ldap>=2.4`. See that [library's docs](https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#pre-built-binaries) for extra build requirements.
+
+```yml
+source:
+  type: "ldap"
+  config:
+    ldap_server: ldap://localhost
+    ldap_user: "cn=admin,dc=example,dc=org"
+    ldap_password: "admin"
+    base_dn: "dc=example,dc=org"
+    filter: "(objectClass=*)"  # optional field
+```
+
 ## File `file`
 Pulls metadata from a previously generated file. Note that the file sink
 can produce such files, and a number of samples are included in the
