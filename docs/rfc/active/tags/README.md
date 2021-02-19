@@ -61,26 +61,48 @@ majority of users
  * Tag information
  */
 record TagMetadata {
-
-  /**
+   /**
    * Tag URN, e.g. urn:li:tag:<name>
    */
-  tag: Urn
+   urn: TagUrn
 
    /**
    * Tag value.
    */
-  value: string
+   value: string
 
    /**
-   * Needed?
+   * Optional tag description
    */
-  properties: array [string] = []
+   description: optional string
+
+   /**
+   * Optional reference to an external definition
+   */
+   externalDefinition: optional ExternalDefinition
 
    /**
    * Audit stamp associated with creation of this tag
    */
    createStamp: AuditStamp
+}
+```
+
+here ExternalDefinition is simply
+
+```
+/**
+ * External definition for a Tag
+ */
+record ExternalDefinition {
+  /**
+   * Source of the definition
+   */
+  source: optional string
+  /**
+   * URL reference for the external definition
+   */
+  reference: optional string
 }
 ```
 
