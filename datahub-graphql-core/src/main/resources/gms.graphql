@@ -285,7 +285,7 @@ enum PlatformType {
     """
     Value for other platforms
     """
-    OTHER
+    OTHERS
 }
 
 enum FabricType {

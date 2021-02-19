@@ -9,8 +9,9 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
+
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
@@ -43,14 +44,11 @@ public class DataPlatforms extends BaseClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public List<DataPlatformInfo> getAllPlatforms() throws RemoteInvocationException {
+  public List<DataPlatform> getAllPlatforms() throws RemoteInvocationException {
     final GetAllRequest<DataPlatform> req = PLATFORMS_REQUEST_BUILDERS.getAll().build();
-    return _client.sendRequest(req)
-        .getResponse()
-        .getEntity()
-        .getElements()
-        .stream()
-        .map(e -> e.getDataPlatformInfo())
-        .collect(Collectors.toList());
+    return new ArrayList<>(_client.sendRequest(req)
+            .getResponse()
+            .getEntity()
+            .getElements());
   }
 }
