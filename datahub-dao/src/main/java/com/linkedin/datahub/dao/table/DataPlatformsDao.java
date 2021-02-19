@@ -20,6 +20,10 @@ public class DataPlatformsDao {
    * Get all data platforms
    */
   public List<Map<String, Object>> getAllPlatforms() throws Exception {
-    return _dataPlatforms.getAllPlatforms().stream().filter(DataPlatform::hasDataPlatformInfo).map(platform -> platform.getDataPlatformInfo().data()).collect(Collectors.toList());
+    return _dataPlatforms.getAllPlatforms()
+            .stream()
+            .filter(DataPlatform::hasDataPlatformInfo)
+            .map(platform -> platform.getDataPlatformInfo().data())
+            .collect(Collectors.toList());
   }
 }
