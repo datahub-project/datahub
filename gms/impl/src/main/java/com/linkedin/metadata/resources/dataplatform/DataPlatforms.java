@@ -19,6 +19,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -70,10 +71,19 @@ public class DataPlatforms extends BaseEntityResource<
    * @return list of all data platforms.
    */
   @RestMethod.GetAll
-  public Task<List<DataPlatformInfo>> getAllDataPlatforms(
+  public Task<List<DataPlatform>> getAllDataPlatforms(
       @Nonnull @PagingContextParam(defaultCount = 100) PagingContext pagingContext) {
-    return Task.value(
-        _localDAO.list(DataPlatformInfo.class, pagingContext.getStart(), pagingContext.getCount()).getValues());
+    return Task.value(_localDAO.list(DataPlatformInfo.class, pagingContext.getStart(), pagingContext.getCount())
+            .getValues()
+            .stream()
+            .map(info -> {
+              final DataPlatform platform = new DataPlatform();
+              platform.setDataPlatformInfo(info);
+              platform.setName(info.getName());
+              return platform;
+            })
+            .collect(Collectors.toList())
+    );
   }
 
   /**
