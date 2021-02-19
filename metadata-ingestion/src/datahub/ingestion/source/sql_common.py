@@ -6,8 +6,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import create_engine
-import sqlalchemy.sql.sqltypes as types
 from sqlalchemy.engine import reflection
+from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
