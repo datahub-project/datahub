@@ -9,7 +9,6 @@ import com.linkedin.dataplatform.client.DataPlatforms;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class DataPlatformType implements EntityType<DataPlatform> {
@@ -31,12 +30,12 @@ public class DataPlatformType implements EntityType<DataPlatform> {
         try {
             if (_urnToPlatform == null) {
                 _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
-                        .filter(Objects::nonNull)
-                        .map(info -> new DataPlatform(
-                                new DataPlatformUrn(info.getName()).toString(),
+                        .filter(com.linkedin.dataPlatforms.DataPlatform::hasDataPlatformInfo)
+                        .map(platform -> new DataPlatform(
+                                new DataPlatformUrn(platform.getName()).toString(),
                                 com.linkedin.datahub.graphql.generated.EntityType.DATA_PLATFORM,
-                                info.getName(),
-                                DataPlatformInfoMapper.map(info)))
+                                platform.getName(),
+                                DataPlatformInfoMapper.map(platform.getDataPlatformInfo())))
                         .collect(Collectors.toMap(DataPlatform::getUrn, platform -> platform));
             }
             return urns.stream()
