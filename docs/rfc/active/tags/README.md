@@ -7,46 +7,43 @@
 
 ## Summary
 
-Adding general support for tag lowers the bar to add simple metadata to entities. Tags can be used as part of the
-business logic (e.g. sensitivity tag on a data set) or more ad hoc use cases, such as a data analyst's favorite
-dashboard. A general tag implementation will also allow us to define and search based on a new kind relationship, like
-which datasets and ML models are marked to contain PII data.
-
-> needs work
-
-## Basic example
-
-> If the proposal involves a new or changed API, include a basic code example. Omit this section if it's not applicable.
+We suggest a generic, global tagging solution for Datahub. As the solution is quite generic and flexible, it can also
+hopefully serve as an stepping stone for cool features in the future.
 
 ## Motivation
 
-> Why are we doing this? What use cases does it support? What is the expected outcome?
->
-> Please focus on explaining the motivation so that if this RFC is not accepted, the motivation could be used to develop
-> alternative solutions. In other words, enumerate the constraints you are trying to solve without coupling them too
-> closely to the solution you have in mind.
+Currently some entities, such as Datasets, can be tagged using strings, but unfortunately this solution is quite
+limited.
+
+A general tag implementation will allow us to define and attach a new and simple type of metadata to all type of
+entities. As the tags would be defined globally, tagging multiple objects with the same tag will give us the possibility
+to define and search based on a new kind of relationship, for example which datasets and ML Models that are tagged to
+include PII data. This allows for describing relationships between object that would otherwise not have a direct lineage
+relationship. Moreover, tags would lower that bar to add simple metadata to any object in the Datahub instance.
+Remembering that tags themselves are entities, it would also be possible to tag tags, enabling a hierarchy of sorts.
+
+The solution is meant to be quite generic and flexible, and we're not trying to be too opinionated about how a user
+should use the feature. We hope that this initial generic solution can serve as a stepping stone for cool futures in the
+future.
 
 ## Requirements
 
-> What specific requirements does your design need to meet? This should ideally be a bulleted list of items you wish to
-> achieve with your design. This can help everyone involved (including yourself!) make sure your design is robust enough
-> to meet these requirements.
->
-> Once everyone has agreed upon the set of requirements for your design, we can use this list to review the detailed
-> design.
+- Ability to associate tags with any type of entity, even other tags!
+- Ability to tag the same entity with multiple tags.
+- Ability to tag multiple objects with the same tag instance.
+- To the point above, ability to make easy tag-based searches later on.
+- Metadata on tags is TBD
 
 ### Extensibility
 
-> Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding a
-> new API or set of models that others can build on in later? Please list these concerns here as well.
+The normal new-entity-onboarding work is obviously required.
+
+Hopefully this can serve as a stepping stone to work on special cases such as the tag-based privacy tagging mentioned in
+the roadmap.
 
 ## Non-Requirements
 
-> Call out things you don't want to discuss in detail during this review here, to help focus the conversation. This can
-> include things you may build in the future based off this design, but don't wish to discuss in detail, in which case
-> it may also be wise to explicitly list that extensibility in your design is a requirement.
->
-> This list can be high level and not detailed. It is to help focus the conversation on what you want to focus on.
+Let's leave the UI work required for this to another time.
 
 ## Detailed design
 
@@ -71,29 +68,42 @@ record TagMetadata {
   tag: Urn
 
    /**
+   * Tag value.
+   */
+  value: string
+
+   /**
+   * Needed?
+   */
+  properties: array [string] = []
+
+   /**
    * Audit stamp associated with creation of this tag
    */
    createStamp: AuditStamp
 }
 ```
 
-### `TagEmployment`
+### `TagAttachment`
 
-We define a `TagEmployment`-model, which describes the application of a tag to a entity
+We define a `TagAttachment`-model, which describes the application of a tag to a entity
 
 ```
 /**
  * Tag information
  */
-record TagEmployment {
+record TagAttachment {
 
   /**
    * Tag in question
    */
-  tag: TagMetadata
+  tag: TagUrn
 
   /**
-   * Who has edit rights to this employment. WIP
+   * Who has edit rights to this employment.
+   * WIP, pending access-control support in Datahub.
+   * Relevant for privacy tags at least.
+   * We might also want to add view rights?
    */
   edit: union[None, any, role-urn]
 
@@ -120,55 +130,59 @@ record Tags {
    /**
    * List of tag employments
    */
-   elements: array[TagEmployment] = [ ]
+   elements: array[TagAttachment] = [ ]
 }
 ```
 
-As `TagMetadata` is an entity in itself, it can be tagged as well, allowing for hierarchies of tags to be constructed.
-
-> This is the bulk of the RFC.
-
-> Explain the design in enough detail for somebody familiar with the framework to understand, and for somebody familiar
-> with the implementation to implement. This should get into specifics and corner-cases, and include examples of how the
-> feature is used. Any new terminology should be defined here.
-
 ## How we teach this
 
-> What names and terminology work best for these concepts and why? How is this idea best presented? As a continuation of
-> existing DataHub patterns, or as a wholly new one?
+We should create/update user guides to educate users for:
 
-> What audience or audiences would be impacted by this change? Just DataHub backend developers? Frontend developers?
-> Users of the DataHub application itself?
-
-> Would the acceptance of this proposal mean the DataHub guides must be re-organized or altered? Does it change how
-> DataHub is taught to new users at any level?
-
-> How should this feature be introduced and taught to existing audiences?
+- Suggestions on how to use tags: low threshold metadata-addition, and the possibility of doing new types of searches
 
 ## Drawbacks
 
-> Why should we _not_ do this? Please consider the impact on teaching DataHub, on the integration of this feature with
-> other existing and planned features, on the impact of the API churn on existing apps, etc.
-
-> There are tradeoffs to choosing any path, please attempt to identify them here.
+This is definitely more complex than just adding strings to an array.
 
 ## Alternatives
 
-> What other designs have been considered? What is the impact of not doing this?
+An array of string is a simple solution but does allow for the same functionality as suggested here.
 
-> This section could also include prior art, that is, how other frameworks in the same domain have solved this problem.
+Apache Atlas uses a similar approach. The require you to create a Tag instance before it can be associated with an
+"asset", and the attachment is done using a dropdown list. The tags can also have attributes and a description. See
+[here](https://docs.cloudera.com/HDPDocuments/HDP2/HDP-2.5.3/bk_data-governance/content/ch_working_with_atlas_tags.html)
+for an example. The tags are a central piece in the UI and readably searchable, as easily as datasets.
+
+Atlas also has concept very closely related to tags, called _classification_. Classifications are similar to tags in
+that they need to be created separately, can have attributes (but no description?) and are attached to assets is done
+using a dropdown list. Classifications have the added functionality of propagation, which means that they are
+automatically applied to downstream assets, unless specifically set to not do so. Any change to a classification (say an
+attribute change) also flows downstream, and in downstream assets you're able to see from where the classification
+propagated from. See
+[here](https://docs.cloudera.com/HDPDocuments/HDP3/HDP-3.1.5/using-atlas/content/propagate_classifications_to_derived_entities.html)
+for an example.
 
 ## Rollout / Adoption Strategy
 
-> If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
-> automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces?
+Using the functionality is optional and does not break other functionality as is. The solution is generic enough that
+the users can easily take into use. It can be take into use as any other entity and aspect.
 
 ## Future Work
 
-> Describe any future projects, at a very high level, that will build off this proposal. This does not need to be
-> exhaustive, nor does it need to be anything you work on. It just helps reviewers see how this can be used in the
-> future, so they can help ensure your design is flexible enough.
+- add `Tags` to aspects for entities.
+- Implement relationship builders as needed.
+- The implementation of and need for access control to tags is an open question
+- As this is first and foremost a tool for discovery, the UI work is extensible:
+  - Creating tags in a way that makes duplication and spelling mistakes difficult.
+  - Attaching tags to entities: autocomplete, dropdown, etc.
+  - Visualizing existing tags, and which are most popular?
+- Explore the concept of tagged tags for building tag hierarchies. What are the possible uses case (for example
+  "sensitivity" and "PII")? How is this visualized in the UI?
+- Explore the idea about a special "classification" type, that propagates downstream, as in Atlas.
 
 ## Unresolved questions
 
-> Optional, but suggested for first drafts. What parts of the design are still TBD?
+- Do we need more metadata on tags, like a description or attributes?
+- How to implement edit/view rights?
+- Hierarchical tags (tagging tags) could be cool but it can quickly get quite complex. How can we, as users, have better
+  control over these hierarchical tags?
