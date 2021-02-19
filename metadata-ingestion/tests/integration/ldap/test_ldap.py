@@ -1,8 +1,6 @@
-import os
+import mce_helpers
 
 from datahub.ingestion.run.pipeline import Pipeline
-
-import mce_helpers
 
 
 def test_ldap_ingest(mysql, pytestconfig, tmp_path):
