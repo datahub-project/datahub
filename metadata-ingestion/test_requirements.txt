@@ -12,3 +12,4 @@ deepdiff
 # These are used in integration tests.
 pymysql>=1.0.2  # Driver for MySQL
 sqlalchemy-pytds>=0.3  # Driver for MS-SQL
+python-ldap>=2.4  # LDAP client library

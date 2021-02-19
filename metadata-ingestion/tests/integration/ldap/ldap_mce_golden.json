@@ -1,0 +1,146 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:bsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": {
+                            "string": "Bart Simpson"
+                        },
+                        "email": "",
+                        "title": {
+                            "string": "Mr. Boss"
+                        },
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": {
+                            "string": "Bart"
+                        },
+                        "lastName": {
+                            "string": "Simpson"
+                        },
+                        "fullName": {
+                            "string": "Bart Simpson"
+                        },
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:hsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": {
+                            "string": "Homer Simpson"
+                        },
+                        "email": "hsimpson",
+                        "title": {
+                            "string": "Mr. Everything"
+                        },
+                        "managerUrn": {
+                            "string": "urn:li:corpuser:bsimpson"
+                        },
+                        "departmentId": null,
+                        "departmentName": {
+                            "string": "1001"
+                        },
+                        "firstName": {
+                            "string": "Homer"
+                        },
+                        "lastName": {
+                            "string": "Simpson"
+                        },
+                        "fullName": {
+                            "string": "Homer Simpson"
+                        },
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:lsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": {
+                            "string": "Lisa Simpson"
+                        },
+                        "email": "",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": {
+                            "string": "Lisa"
+                        },
+                        "lastName": {
+                            "string": "Simpson"
+                        },
+                        "fullName": {
+                            "string": "Lisa Simpson"
+                        },
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:msimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": {
+                            "string": "Maggie Simpson"
+                        },
+                        "email": "",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": {
+                            "string": "Maggie"
+                        },
+                        "lastName": {
+                            "string": "Simpson"
+                        },
+                        "fullName": {
+                            "string": "Maggie Simpson"
+                        },
+                        "countryCode": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+}
+]
