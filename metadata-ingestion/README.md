@@ -230,7 +230,7 @@ Extracts:
 - List of people
 - Names, emails, titles, and manager information for each person
 
-Extra requirements: `pip install python-ldap>=2.4`
+Extra requirements: `pip install python-ldap>=2.4`. See that [library's docs](https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#pre-built-binaries) for extra build requirements.
 
 ```yml
 source:
