@@ -592,11 +592,11 @@
     {
         "auditHeader": null,
         "proposedSnapshot": {
-            "com.linkedin.metadata.snapshot.MLModelSnapshot": {
-                "urn": "urn:li:mlmodel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+            "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+                "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
                 "aspects": [
                     {
-                        "com.linkedin.common.Ownership": {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
                                     "owner": "urn:li:corpuser:jdoe",
@@ -614,19 +614,15 @@
                         }
                     },
                     {
-                        "com.linkedin.ml.metadata.MLModelProperties": {
+                        "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
                             "description": "A sample model for predicting some outcome.",
-                            "date": 0,
-                            "version": {
-                                "versionTag": "1.5.3"
-                            },
-                            "tags": [
-                                "science"
-                            ]
+                            "date": null,
+                            "tags": [],
+                            "version": null
                         }
                     },
                     {
-                        "com.linkedin.ml.metadata.TrainingData": {
+                        "com.linkedin.pegasus2avro.ml.metadata.TrainingData": {
                             "trainingData": [
                                 {
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
@@ -639,7 +635,7 @@
                         }
                     },
                     {
-                        "com.linkedin.ml.metadata.EvaluationData": {
+                        "com.linkedin.pegasus2avro.ml.metadata.EvaluationData": {
                             "evaluationData": [
                                 {
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
