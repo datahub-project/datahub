@@ -88,7 +88,7 @@ record TagMetadata {
 }
 ```
 
-here ExternalDefinition is simply
+Here ExternalDefinition is simply
 
 ```
 /**
@@ -136,7 +136,7 @@ record TagAttachment {
 }
 ```
 
-### `Tags` container entity
+### `Tags` container
 
 Then we define a `Tags`-model, which is used as a container for tag employments. This container is taken into use in
 aspects.
@@ -170,6 +170,9 @@ This is definitely more complex than just adding strings to an array.
 
 An array of string is a simple solution but does allow for the same functionality as suggested here.
 
+Another alternative would be simplify the models by removing some of the metadata in the `TagMetadata` and
+`TagAttachment` entities, such as the the edit/view permission field, the audit stamps, and the descriptions.
+
 Apache Atlas uses a similar approach. The require you to create a Tag instance before it can be associated with an
 "asset", and the attachment is done using a dropdown list. The tags can also have attributes and a description. See
 [here](https://docs.cloudera.com/HDPDocuments/HDP2/HDP-2.5.3/bk_data-governance/content/ch_working_with_atlas_tags.html)
@@ -199,7 +202,7 @@ the users can easily take into use. It can be take into use as any other entity 
   - Attaching tags to entities: autocomplete, dropdown, etc.
   - Visualizing existing tags, and which are most popular?
 - Explore the concept of tagged tags for building tag hierarchies. What are the possible uses case (for example
-  "sensitivity" and "PII")? How is this visualized in the UI?
+  "data_science" and "churn_prediction")? How is this visualized in the UI?
 - Explore the idea about a special "classification" type, that propagates downstream, as in Atlas.
 
 ## Unresolved questions
