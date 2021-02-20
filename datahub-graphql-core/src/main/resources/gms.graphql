@@ -239,6 +239,11 @@ type DataPlatformInfo {
     The delimiter in the dataset names on the data platform
     """
     datasetNameDelimiter: String!
+
+    """
+    A logo URL associated with the platform
+    """
+    logoUrl: String
 }
 
 enum PlatformType {

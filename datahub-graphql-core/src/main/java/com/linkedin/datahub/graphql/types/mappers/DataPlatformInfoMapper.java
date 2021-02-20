@@ -18,6 +18,9 @@ public class DataPlatformInfoMapper implements ModelMapper<com.linkedin.dataplat
         final DataPlatformInfo result = new DataPlatformInfo();
         result.setType(PlatformType.valueOf(input.getType().toString()));
         result.setDatasetNameDelimiter(input.getDatasetNameDelimiter());
+        if (input.hasLogoUrl()) {
+            result.setLogoUrl(input.getLogoUrl().toString());
+        }
         return result;
     }
 }
