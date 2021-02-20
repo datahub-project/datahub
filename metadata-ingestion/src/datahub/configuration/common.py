@@ -1,14 +1,13 @@
 import re
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 from typing import IO, Any, List, Optional
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 
 class ConfigModel(BaseModel):
-    # This class is here for future compatibility reasons.
-    pass
+    class Config:
+        extra = "forbid"
 
 
 class DynamicTypedConfig(ConfigModel):
@@ -36,7 +35,7 @@ class ConfigurationMechanism(ABC):
         pass
 
 
-class AllowDenyPattern(BaseModel):
+class AllowDenyPattern(ConfigModel):
     """ A class to store allow deny regexes"""
 
     allow: List[str] = [".*"]
@@ -56,18 +55,3 @@ class AllowDenyPattern(BaseModel):
                 return True
 
         return False
-
-
-@contextmanager
-def nicely_formatted_validation_errors():
-    try:
-        yield
-    except ValidationError as e:
-        messages = []
-        for err in e.errors():
-            location = ".".join((str(x) for x in err["loc"]))
-            reason = err["msg"]
-            messages.append(f"  - {location}: {reason}")
-
-        msg = "\n".join(messages)
-        raise ConfigurationError(f"Invalid value in configuration: \n{msg}") from e

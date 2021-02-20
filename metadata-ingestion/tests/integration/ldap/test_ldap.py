@@ -8,7 +8,7 @@ def test_ldap_ingest(mysql, pytestconfig, tmp_path):
 
     pipeline = Pipeline.create(
         {
-            "run-id": "ldap-test",
+            "run_id": "ldap-test",
             "source": {
                 "type": "ldap",
                 "config": {

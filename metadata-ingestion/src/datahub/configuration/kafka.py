@@ -1,7 +1,9 @@
-from pydantic import BaseModel, validator
+from pydantic import validator
+
+from datahub.configuration.common import ConfigModel
 
 
-class _KafkaConnectionConfig(BaseModel):
+class _KafkaConnectionConfig(ConfigModel):
     # bootstrap servers
     bootstrap: str = "localhost:9092"
 
@@ -11,13 +13,13 @@ class _KafkaConnectionConfig(BaseModel):
     # extra schema registry config
     schema_registry_config: dict = {}
 
-    @validator('bootstrap')
+    @validator("bootstrap")
     def bootstrap_host_colon_port_comma(cls, val):
         for entry in val.split(","):
-            assert ":" in entry, f'entry must be of the form host:port, found {entry}'
+            assert ":" in entry, f"entry must be of the form host:port, found {entry}"
             (host, port) = entry.split(":")
-            assert host.isalnum(), f'host must be alphanumeric, found {host}'
-            assert port.isdigit(), f'port must be all digits, found {port}'
+            assert host.isalnum(), f"host must be alphanumeric, found {host}"
+            assert port.isdigit(), f"port must be all digits, found {port}"
 
 
 class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):

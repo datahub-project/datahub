@@ -3,9 +3,8 @@ from typing import Iterable, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
-from pydantic import BaseModel
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -47,7 +46,7 @@ def guess_person_ldap(dn, attrs) -> Optional[str]:
     return None
 
 
-class LDAPSourceConfig(BaseModel):
+class LDAPSourceConfig(ConfigModel):
     # Server configuration.
     ldap_server: str
     ldap_user: str

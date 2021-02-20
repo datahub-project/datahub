@@ -2,14 +2,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from pydantic import BaseModel
-
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
-class MetadataFileSourceConfig(BaseModel):
+class MetadataFileSourceConfig(ConfigModel):
     filename: str
 
 
@@ -24,7 +23,7 @@ class MetadataFileSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        with open(self.config.filename, 'r') as f:
+        with open(self.config.filename, "r") as f:
             mce_obj_list = json.load(f)
         if not isinstance(mce_obj_list, list):
             mce_obj_list = [mce_obj_list]
