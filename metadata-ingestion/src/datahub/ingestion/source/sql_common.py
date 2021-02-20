@@ -5,8 +5,9 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 from pydantic import BaseModel
-from sqlalchemy import create_engine, types
+from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
+from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
@@ -80,6 +81,9 @@ _field_type_mapping = {
     types.PickleType: BytesTypeClass,
     types.ARRAY: ArrayTypeClass,
     types.String: StringTypeClass,
+    # When SQLAlchemy is unable to map a type into its internally hierarchy, it
+    # assigns the NullType by default. We want to carry this warning through.
+    types.NullType: NullTypeClass,
 }
 
 
