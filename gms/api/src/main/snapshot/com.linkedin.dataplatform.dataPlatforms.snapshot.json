@@ -28,6 +28,15 @@
       }
     }
   }, {
+    "type" : "typeref",
+    "name" : "Url",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+    }
+  }, {
     "type" : "record",
     "name" : "DataPlatform",
     "namespace" : "com.linkedin.dataPlatforms",
@@ -76,6 +85,10 @@
           "name" : "datasetNameDelimiter",
           "type" : "string",
           "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
+        }, {
+          "name" : "logoUrl",
+          "type" : "com.linkedin.common.Url",
+          "optional" : true
         } ]
       },
       "doc" : "Metadata associated with a dataplatform information",

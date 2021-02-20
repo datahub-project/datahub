@@ -1,5 +1,7 @@
 namespace com.linkedin.dataplatform
 
+import com.linkedin.common.Url
+
 /**
  * Information about a data platform
  */
@@ -70,4 +72,9 @@ record DataPlatformInfo {
    * The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle
    */
   datasetNameDelimiter: string
+
+  /**
+   * The URL for a logo associated with the platform
+   */
+  logoUrl: optional Url
 }
