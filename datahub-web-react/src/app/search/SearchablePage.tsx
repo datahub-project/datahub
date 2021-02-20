@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntityType } from '../../types.generated';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const ALL_ENTITIES_SEARCH_TYPE_NAME = 'All Entities';
 
@@ -29,6 +30,9 @@ export const SearchablePage = ({ selectedType, initialQuery, children }: Props) 
 
     const entityRegistry = useEntityRegistry();
     const searchTypes = entityRegistry.getSearchEntityTypes();
+
+    const { data: userData } = useGetAuthenticatedUser();
+
     const searchTypeNames = [
         ALL_ENTITIES_SEARCH_TYPE_NAME,
         ...searchTypes.map((entityType) => entityRegistry.getCollectionName(entityType)),
@@ -78,7 +82,8 @@ export const SearchablePage = ({ selectedType, initialQuery, children }: Props) 
                 }
                 onSearch={search}
                 onQueryChange={autoComplete}
-                authenticatedUserUrn="urn:li:corpuser:0"
+                authenticatedUserUrn={userData?.corpUser?.urn || ''}
+                authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink || ''}
             />
             <div style={{ marginTop: 64 }}>{children}</div>
         </Layout>
