@@ -102,27 +102,16 @@ More on this is explained in [ES guides](https://www.elastic.co/guide/en/elastic
 
 ## 4: Modify index config, so that the new mapping is picked up next time
 
-If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser-index-config.json](../../docker/elasticsearch-setup/corpuser-index-config.json).
+If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser mappings](../../gms/impl/src/main/resources/index/corp-user/mappings.json).
 
 ```
 {
-  "settings": {
-    "index": {
-      "analysis": {
-       ...
-      }
-    }
-  },
-  "mappings": {
-    "doc": {
-      "properties": {
+  "properties": {
 
-        ...
+    ...
 
-        "courses": {
-          "type": "text"
-        }
-      }
+    "courses": {
+      "type": "text"
     }
   }
 }
