@@ -12,14 +12,15 @@ from datahub.configuration.common import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
-from datahub.ingestion.sink import sink_class_mapping
-from datahub.ingestion.source import source_class_mapping
+from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "datahub.ingestion.extractor.generic.WorkUnitMCEExtractor"
+    extractor: str = "mce"
 
 
 class PipelineConfig(ConfigModel):
@@ -56,30 +57,19 @@ class Pipeline:
         self.ctx = PipelineContext(run_id=self.config.run_id)
 
         source_type = self.config.source.type
-        try:
-            source_class = source_class_mapping[source_type]
-        except KeyError as e:
-            raise ValueError(
-                f"Did not find a registered source class for {source_type}"
-            ) from e
+        source_class = source_registry.get(source_type)
         self.source: Source = source_class.create(
             self.config.source.dict().get("config", {}), self.ctx
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
 
         sink_type = self.config.sink.type
-        try:
-            sink_class = sink_class_mapping[sink_type]
-        except KeyError as e:
-            raise ValueError(
-                f"Did not find a registered sink class for {sink_type}"
-            ) from e
+        sink_class = sink_registry.get(sink_type)
         sink_config = self.config.sink.dict().get("config", {})
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
-        # Ensure extractor can be constructed, even though we use them later
-        self.extractor_class = self.get_class_from_name(self.config.source.extractor)
+        self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
     @classmethod
     def create(cls, config_dict: dict) -> "Pipeline":
