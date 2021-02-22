@@ -4,7 +4,6 @@ from datahub.ingestion.api.source import Source
 from .bigquery import BigQuerySource
 from .hive import HiveSource
 from .kafka import KafkaSource
-from .ldap import LDAPSource
 from .mce_file import MetadataFileSource
 from .mssql import SQLServerSource
 from .mysql import MySQLSource
@@ -22,4 +21,12 @@ source_registry.register("postgres", PostgresSource)
 source_registry.register("snowflake", SnowflakeSource)
 source_registry.register("bigquery", BigQuerySource)
 source_registry.register("kafka", KafkaSource)
-source_registry.register("ldap", LDAPSource)
+
+# Attempt to enable the LDAP source. Because it has some imports that we don't
+# want to install by default, we instead use this approach.
+try:
+    from .ldap import LDAPSource
+
+    source_registry.register("ldap", LDAPSource)
+except ImportError as e:
+    source_registry.register_disabled("ldap", e)
