@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Add default URI (http) scheme if needed
-if [[ "$NEO4J_HOST" != *"://"* ]]; then
+if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
