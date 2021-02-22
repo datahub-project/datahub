@@ -1,8 +1,8 @@
-import importlib
 import logging
 import time
 
 import click
+from pydantic import Field
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -24,9 +24,13 @@ class SourceConfig(DynamicTypedConfig):
 
 
 class PipelineConfig(ConfigModel):
+    # Once support for discriminated unions gets merged into Pydantic, we can
+    # simplify this configuration and validation.
+    # See https://github.com/samuelcolvin/pydantic/pull/2336.
+
+    run_id: str = Field(default_factory=lambda: str(int(time.time()) * 1000))
     source: SourceConfig
     sink: DynamicTypedConfig
-    run_id: str = str(int(time.time()) * 1000)
 
 
 class LoggingCallback(WriteCallback):
@@ -46,11 +50,6 @@ class Pipeline:
     ctx: PipelineContext
     source: Source
     sink: Sink
-
-    def get_class_from_name(self, class_string: str):
-        module_name, class_name = class_string.rsplit(".", 1)
-        MyClass = getattr(importlib.import_module(module_name), class_name)
-        return MyClass
 
     def __init__(self, config: PipelineConfig):
         self.config = config
