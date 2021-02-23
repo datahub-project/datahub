@@ -15,6 +15,21 @@ export enum PreviewType {
     PREVIEW,
 }
 
+export enum IconStyleType {
+    /**
+     * Colored Icon
+     */
+    HIGHLIGHT,
+    /**
+     * Grayed out icon
+     */
+    ACCENT,
+    /**
+     * Rendered in a Tab pane header
+     */
+    TAB_VIEW,
+}
+
 /**
  * Base interface used for authoring DataHub Entities on the client side.
  *
@@ -25,6 +40,12 @@ export interface Entity<T> {
      * Corresponding GQL EntityType.
      */
     type: EntityType;
+
+    /**
+     * Ant-design icon associated with the Entity. For a list of all candidate icons, see
+     * https://ant.design/components/icon/
+     */
+    icon: (fontSize: number, styleType: IconStyleType) => JSX.Element;
 
     /**
      * Returns whether the entity search is enabled

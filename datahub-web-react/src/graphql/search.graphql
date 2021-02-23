@@ -18,6 +18,9 @@ query getSearchResults($input: SearchInput!) {
                 origin
                 description
                 uri
+                platform {
+                    name
+                }
                 platformNativeType
                 tags
                 properties {
@@ -87,12 +90,24 @@ query getSearchResults($input: SearchInput!) {
                     owners {
                         owner {
                             urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
                         }
                         type
-                        source {
-                            type
-                            url
-                        }
+                    }
+                    lastModified {
+                        time
                     }
                 }
             }
@@ -115,12 +130,24 @@ query getSearchResults($input: SearchInput!) {
                     owners {
                         owner {
                             urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
                         }
                         type
-                        source {
-                            type
-                            url
-                        }
+                    }
+                    lastModified {
+                        time
                     }
                 }
             }

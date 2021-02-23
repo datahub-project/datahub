@@ -1,6 +1,7 @@
+import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType } from '../../../types.generated';
-import { Entity, PreviewType } from '../Entity';
+import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
 
@@ -9,6 +10,25 @@ import ChartProfile from './profile/ChartProfile';
  */
 export class ChartEntity implements Entity<Chart> {
     type: EntityType = EntityType.Chart;
+
+    icon = (fontSize: number, styleType: IconStyleType) => {
+        if (styleType === IconStyleType.TAB_VIEW) {
+            return <LineChartOutlined style={{ fontSize }} />;
+        }
+
+        if (styleType === IconStyleType.HIGHLIGHT) {
+            return <LineChartOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+        }
+
+        return (
+            <LineChartOutlined
+                style={{
+                    fontSize,
+                    color: '#BFBFBF',
+                }}
+            />
+        );
+    };
 
     isSearchEnabled = () => true;
 
@@ -29,6 +49,8 @@ export class ChartEntity implements Entity<Chart> {
                 platform={data.tool}
                 name={data.info?.name}
                 description={data.info?.description}
+                access={data.info?.access}
+                owners={data.ownership?.owners}
             />
         );
     };

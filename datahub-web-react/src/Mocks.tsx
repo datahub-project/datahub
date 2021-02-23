@@ -477,6 +477,7 @@ export const mocks = [
                     total: 1,
                     entities: [
                         {
+                            __typename: 'Dataset',
                             ...dataset3,
                         },
                     ],
@@ -535,6 +536,7 @@ export const mocks = [
                     total: 1,
                     entities: [
                         {
+                            __typename: 'Dataset',
                             ...dataset3,
                         },
                     ],

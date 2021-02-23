@@ -9,6 +9,7 @@ import LineageView from './Lineage';
 import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
+import { Message } from '../../../shared/Message';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -27,10 +28,6 @@ const EMPTY_ARR: never[] = [];
 export const Profile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const [updateDataset] = useUpdateDatasetMutation();
-
-    if (loading) {
-        return <Alert type="info" message="Loading" />;
-    }
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -92,6 +89,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
 
     return (
         <>
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
                 <EntityProfile
                     title={data.dataset.name}
