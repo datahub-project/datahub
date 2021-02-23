@@ -114,7 +114,7 @@ to onboard their dashboard metadata to DataHub irrespective of their dashboardin
 Only thing users will need to do is to write an ETL script customized for their 
 dashboarding platform (if it's not already provided in DataHub repo). This ETL script will:
  - Extract the metadata for all available dashboards and charts using the APIs of the dashboarding platform
- - Construct and emit this metadata in the form of [MCEs](../../../what/MXE.md) 
+ - Construct and emit this metadata in the form of [MCEs](../../../what/mxe.md)
 
 ## Unresolved questions (To-do)
  
