@@ -29,7 +29,7 @@ export const SearchPage = () => {
     const entityRegistry = useEntityRegistry();
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
-    const params = QueryString.parse(location.search);
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const selectedType = entityRegistry.getTypeOrDefaultFromPathName(
         useParams<SearchPageParams>().type || '',
         undefined,

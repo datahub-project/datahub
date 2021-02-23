@@ -8,6 +8,7 @@ import { EntityRegistryContext } from '../../entityRegistryContext';
 
 type Props = {
     children: React.ReactNode;
+    initialEntries?: string[];
 };
 
 export function getTestEntityRegistry() {
@@ -17,11 +18,11 @@ export function getTestEntityRegistry() {
     return entityRegistry;
 }
 
-export default ({ children }: Props) => {
+export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
 
     return (
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
             <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
         </MemoryRouter>
     );
