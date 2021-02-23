@@ -43,6 +43,7 @@ export class DatasetEntity implements Entity<Dataset> {
     renderProfile = (urn: string) => <Profile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: Dataset) => {
+        console.log(data);
         return (
             <Preview
                 urn={data.urn}
