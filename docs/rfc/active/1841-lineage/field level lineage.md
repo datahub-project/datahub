@@ -80,7 +80,7 @@ There are alternate proposals for field level lineage (refer #1731 and #1784). H
 ### Models
 #### DatasetField
 We propose a standard identifier for the dataset field in the below format. 
->urn:li:datasetField:(\<datasetUrn>,\<fieldPath>)
+> `urn:li:datasetField:(\<datasetUrn>,\<fieldPath>)`
 
 It contains two parts
 - Dataset Urn -> Standard Identifier of the dataset. This URN is already part of DataHub models

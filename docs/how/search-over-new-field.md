@@ -55,7 +55,7 @@ record CorpUserInfoDocument includes BaseDocument {
 
 Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
-```json
+```sh
 curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
@@ -82,7 +82,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 
 However _fielddata_ enablement could consume significant heap space. If possible, use unanalyzed **keyword** field as a facet. For the current example, you could either choose keyword type for the field _courses_ or create a subfield of type keyword under _courses_ and use the same for sorting, aggregations, etc (second approach described below)
 
-```json
+```shell
 curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {

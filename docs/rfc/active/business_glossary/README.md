@@ -1,6 +1,6 @@
 - Start Date: 08/28/2020
-- RFC PR: <TBD>
-- Implementation PR(s): <TBD>
+- RFC PR: 1842
+- Implementation PR(s): TBD
 
 # Business Glossary
 
