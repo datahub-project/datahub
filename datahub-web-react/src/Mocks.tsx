@@ -1,15 +1,20 @@
 import { GetDatasetDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
-import { GetAutoCompleteResultsDocument, GetSearchResultsDocument } from './graphql/search.generated';
+import {
+    GetAutoCompleteResultsDocument,
+    GetSearchResultsDocument,
+    GetSearchResultsQuery,
+} from './graphql/search.generated';
 import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { EntityType } from './types.generated';
+import { Dataset, EntityType } from './types.generated';
 
 const user1 = {
     username: 'sdas',
     urn: 'urn:li:corpuser:2',
     type: EntityType.CorpUser,
     info: {
+        email: 'sdas@domain.com',
         active: true,
         displayName: 'sdas',
         title: 'Software Engineer',
@@ -27,6 +32,7 @@ const user2 = {
     urn: 'urn:li:corpuser:3',
     type: EntityType.CorpUser,
     info: {
+        email: 'john@domain.com',
         active: true,
         displayName: 'john',
         title: 'Eng',
@@ -184,7 +190,7 @@ const dataset3 = {
             time: 0,
         },
     },
-};
+} as Dataset;
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -440,7 +446,7 @@ export const mocks = [
                         },
                     ],
                 },
-            },
+            } as GetSearchResultsQuery,
         },
     },
     {
@@ -455,7 +461,7 @@ export const mocks = [
                     filters: [
                         {
                             field: 'platform',
-                            value: 'Kafka',
+                            value: 'kafka',
                         },
                     ],
                 },
@@ -463,32 +469,96 @@ export const mocks = [
         },
         result: {
             data: {
+                __typename: 'Query',
                 search: {
+                    __typename: 'SearchResults',
                     start: 0,
                     count: 1,
                     total: 1,
                     entities: [
                         {
-                            __typename: 'Dataset',
                             ...dataset3,
                         },
                     ],
                     facets: [
                         {
                             field: 'origin',
-                            aggregations: [{ value: 'PROD', count: 3 }],
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
                         },
                         {
                             field: 'platform',
                             aggregations: [
-                                { value: 'HDFS', count: 1 },
-                                { value: 'MySQL', count: 1 },
-                                { value: 'Kafka', count: 1 },
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
                             ],
                         },
                     ],
                 },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'kafka',
+                        },
+                        {
+                            field: 'platform',
+                            value: 'hdfs',
+                        },
+                    ],
+                },
             },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    entities: [
+                        {
+                            ...dataset3,
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
         },
     },
     {

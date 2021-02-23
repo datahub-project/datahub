@@ -56,7 +56,9 @@ export const SearchBar = ({
         >
             <Select value={activeType} style={{ marginRight: '12px', width: 250 }} onChange={onTypeChange}>
                 {types.map((t) => (
-                    <Option value={t}>{t}</Option>
+                    <Option key={t} value={t}>
+                        {t}
+                    </Option>
                 ))}
             </Select>
             <AutoComplete
