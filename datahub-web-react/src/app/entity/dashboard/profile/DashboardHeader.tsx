@@ -35,15 +35,13 @@ export default function DashboardHeader({ platform, description, ownership, url,
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
             <Avatar.Group maxCount={6} size="large">
-                {ownership &&
-                    ownership.owners &&
-                    ownership.owners.map((owner: any) => (
-                        <Tooltip title={owner.owner.info?.fullName}>
-                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                                <Avatar src={owner.owner.editableInfo.pictureLink || defaultAvatar} />
-                            </Link>
-                        </Tooltip>
-                    ))}
+                {ownership?.owners?.map((owner: any) => (
+                    <Tooltip title={owner.owner.info?.fullName}>
+                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
+                            <Avatar src={owner.owner.editableInfo.pictureLink || defaultAvatar} />
+                        </Link>
+                    </Tooltip>
+                ))}
             </Avatar.Group>
             {lastModified && (
                 <Typography.Text style={styles.lastUpdatedLabel}>

@@ -23,24 +23,22 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                 </Space>
                 <Typography.Paragraph>{description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">
-                    {ownership &&
-                        ownership.owners &&
-                        ownership.owners.map((owner: any) => (
-                            <Tooltip title={owner.owner.info?.fullName}>
-                                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                                    <Avatar
-                                        style={{
-                                            color: '#f56a00',
-                                            backgroundColor: '#fde3cf',
-                                        }}
-                                        src={
-                                            (owner.owner.editableInfo && owner.owner.editableInfo.pictureLink) ||
-                                            defaultAvatar
-                                        }
-                                    />
-                                </Link>
-                            </Tooltip>
-                        ))}
+                    {ownership?.owners?.map((owner: any) => (
+                        <Tooltip title={owner.owner.info?.fullName}>
+                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
+                                <Avatar
+                                    style={{
+                                        color: '#f56a00',
+                                        backgroundColor: '#fde3cf',
+                                    }}
+                                    src={
+                                        (owner.owner.editableInfo && owner.owner.editableInfo.pictureLink) ||
+                                        defaultAvatar
+                                    }
+                                />
+                            </Link>
+                        </Tooltip>
+                    ))}
                 </Avatar.Group>
                 <div>
                     {deprecation?.deprecated && (

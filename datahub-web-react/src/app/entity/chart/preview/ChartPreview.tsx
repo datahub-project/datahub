@@ -32,15 +32,13 @@ export const ChartPreview = ({
             qualifier={access}
             tags={[]}
             owners={
-                (owners &&
-                    owners.map((owner) => {
-                        return {
-                            urn: owner.owner.urn,
-                            name: owner.owner.info?.fullName || '',
-                            photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                        };
-                    })) ||
-                []
+                owners?.map((owner) => {
+                    return {
+                        urn: owner.owner.urn,
+                        name: owner.owner.info?.fullName || '',
+                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
+                    };
+                }) || []
             }
         />
     );
