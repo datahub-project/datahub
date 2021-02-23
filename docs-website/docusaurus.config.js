@@ -85,6 +85,7 @@ module.exports = {
       '@docusaurus/preset-classic',
       {
         docs: {
+          // path: 'genDocs',
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
           editUrl:
