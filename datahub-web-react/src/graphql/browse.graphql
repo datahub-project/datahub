@@ -13,7 +13,34 @@ query getBrowseResults($input: BrowseInput!) {
                 name
                 origin
                 description
-                platformNativeType
+                platform {
+                    name
+                }
+                tags
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
+                }
             }
         }
         start

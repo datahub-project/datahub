@@ -25,7 +25,7 @@ describe('SearchPage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('Loading')).toBeInTheDocument();
+        expect(getByText('Loading...')).toBeInTheDocument();
     });
 
     it('renders the selected filters as checked', async () => {
@@ -87,9 +87,9 @@ describe('SearchPage', () => {
         const hdfsPlatformBox = getByTestId('facet-platform-hdfs');
         expect(hdfsPlatformBox).toHaveProperty('checked', false);
 
-        expect(queryByText('Loading')).not.toBeInTheDocument();
+        expect(queryByText('Loading...')).not.toBeInTheDocument();
         fireEvent.click(hdfsPlatformBox);
-        expect(queryByText('Loading')).toBeInTheDocument();
+        expect(queryByText('Loading...')).toBeInTheDocument();
 
         await waitFor(() => expect(queryByTestId('facet-platform-kafka')).toBeInTheDocument());
 

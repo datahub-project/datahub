@@ -1,54 +1,47 @@
 import React from 'react';
-import { EntityType, FabricType, PlatformNativeType } from '../../../../types.generated';
+import { EntityType, FabricType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getLogoFromPlatform } from '../../chart/getLogoFromPlatform';
 
 export const Preview = ({
     urn,
     name,
     origin,
     description,
-    platformNativeType,
+    platformName,
+    tags,
+    owners,
 }: {
     urn: string;
     name: string;
     origin: FabricType;
     description?: string | null;
-    platformNativeType?: PlatformNativeType | null;
+    platformName: string;
+    tags: Array<string>;
+    owners?: Array<Owner> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    // TODO: Should we rename the search result card?
     return (
         <DefaultPreviewCard
             url={`/${entityRegistry.getPathName(EntityType.Dataset)}/${urn}`}
-            title={<div style={{ margin: '5px 0px 5px 2px', fontSize: '20px', fontWeight: 'bold' }}>{name}</div>}
-        >
-            <>
-                <div style={{ margin: '0px 0px 15px 0px' }}>{description}</div>
-                <div
-                    style={{
-                        width: '150px',
-                        margin: '5px 0px 5px 0px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                    <b style={{ justifySelf: 'left' }}>Data Origin</b>
-                    <div style={{ justifySelf: 'right' }}>{origin}</div>
-                </div>
-                <div
-                    style={{
-                        width: '150px',
-                        margin: '5px 0px 5px 0px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                    <b>Platform</b>
-                    <div>{platformNativeType}</div>
-                </div>
-            </>
-        </DefaultPreviewCard>
+            name={name || ''}
+            description={description || ''}
+            type="Dataset"
+            logoUrl={getLogoFromPlatform(platformName) || ''}
+            platform={platformName}
+            qualifier={origin}
+            tags={tags}
+            owners={
+                owners?.map((owner) => {
+                    return {
+                        urn: owner.owner.urn,
+                        name: owner.owner.info?.fullName || '',
+                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
+                    };
+                }) || []
+            }
+        />
     );
 };

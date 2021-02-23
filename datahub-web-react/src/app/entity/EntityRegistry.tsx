@@ -1,5 +1,5 @@
 import { EntityType } from '../../types.generated';
-import { Entity, PreviewType } from './Entity';
+import { Entity, IconStyleType, PreviewType } from './Entity';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -41,6 +41,11 @@ export default class EntityRegistry {
 
     getBrowseEntityTypes(): Array<EntityType> {
         return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
+    }
+
+    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.icon(fontSize, styleType);
     }
 
     getCollectionName(type: EntityType): string {

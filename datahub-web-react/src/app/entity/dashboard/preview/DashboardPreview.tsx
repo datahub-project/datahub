@@ -1,40 +1,45 @@
 import React from 'react';
-import { EntityType } from '../../../../types.generated';
+import { AccessLevel, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { getLogoFromPlatform } from '../../chart/getLogoFromPlatform';
 
 export const DashboardPreview = ({
     urn,
     name,
     description,
     platform,
+    access,
+    owners,
 }: {
     urn: string;
     platform: string;
     name?: string;
     description?: string | null;
+    access?: AccessLevel | null;
+    owners?: Array<Owner> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
     return (
         <DefaultPreviewCard
             url={`/${entityRegistry.getPathName(EntityType.Dashboard)}/${urn}`}
-            title={<div style={{ margin: '5px 0px 5px 2px', fontSize: '20px', fontWeight: 'bold' }}>{name}</div>}
-        >
-            <>
-                <div style={{ margin: '0px 0px 15px 0px' }}>{description}</div>
-                <div
-                    style={{
-                        width: '150px',
-                        margin: '5px 0px 5px 0px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                    }}
-                >
-                    <b style={{ justifySelf: 'left' }}>Platform</b>
-                    <div style={{ justifySelf: 'right' }}>{platform}</div>
-                </div>
-            </>
-        </DefaultPreviewCard>
+            name={name || ''}
+            description={description || ''}
+            type="Dashboard"
+            logoUrl={getLogoFromPlatform(platform) || ''}
+            platform={platform}
+            qualifier={access}
+            tags={[]}
+            owners={
+                owners?.map((owner) => {
+                    return {
+                        urn: owner.owner.urn,
+                        name: owner.owner.info?.fullName || '',
+                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
+                    };
+                }) || []
+            }
+        />
     );
 };

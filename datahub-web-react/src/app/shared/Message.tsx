@@ -5,9 +5,10 @@ type MessageType = 'loading' | 'info' | 'error' | 'warning' | 'success';
 export type MessageProps = {
     type: MessageType;
     content: ReactNode;
+    style?: React.CSSProperties;
 };
 
-export const Message = ({ type, content }: MessageProps): JSX.Element => {
+export const Message = ({ type, content, style }: MessageProps): JSX.Element => {
     const key = useMemo(() => {
         // We don't actually care about cryptographic security, but instead
         // just want something unique. That's why it's OK to use Math.random
@@ -21,11 +22,12 @@ export const Message = ({ type, content }: MessageProps): JSX.Element => {
             type,
             content,
             duration: 0,
+            style,
         });
         return () => {
             hide();
         };
-    }, [key, type, content]);
+    }, [key, type, content, style]);
 
     return <></>;
 };

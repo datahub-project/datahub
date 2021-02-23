@@ -7,6 +7,7 @@ import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
 import { useGetChartQuery } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
+import { Message } from '../../../shared/Message';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -22,10 +23,6 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources];
 
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
-
-    if (loading) {
-        return <Alert type="info" message="Loading" />;
-    }
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -65,6 +62,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
     return (
         <PageContainer>
             <>
+                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {data && data.chart && (
                     <EntityProfile
                         title={data.chart.info?.name || ''}
