@@ -37,6 +37,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
             platform={chart.tool}
             ownership={chart.ownership}
             lastModified={chart.info?.lastModified}
+            url={chart.info?.url}
         />
     );
 
