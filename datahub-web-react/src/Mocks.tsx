@@ -10,10 +10,10 @@ import { GetUserDocument } from './graphql/user.generated';
 import { Dataset, EntityType } from './types.generated';
 
 const user1 = {
+    username: 'sdas',
     urn: 'urn:li:corpuser:2',
     type: EntityType.CorpUser,
     info: {
-        username: 'sdas',
         email: 'sdas@domain.com',
         active: true,
         displayName: 'sdas',
