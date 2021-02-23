@@ -1,8 +1,12 @@
 import { execSync } from "child_process";
 import * as matter from "gray-matter";
 import { readFileSync } from "fs";
+import * as path from "path";
 
 // Note: this must be executed within the docs-website directory.
+
+// Constants.
+const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
 function list_markdown_files(): string[] {
   const all_markdown_files = execSync("cd .. && git ls-files . | grep '.md$'")
@@ -12,12 +16,14 @@ function list_markdown_files(): string[] {
 
   const filter_patterns = [
     // We don't need our issue and pull request templates.
-    /^\.github/,
+    /^\.github\//,
     // Ignore everything within this directory.
-    /^docs-website/,
+    /^docs-website\//,
     // Don't want hosted docs for these.
-    /^datahub-web/,
-    /^docs\/rfc\/templates\/000-template.md$/,
+    /^contrib\//,
+    /^datahub-web\//,
+    /^docs\/rfc\/templates\/000-template\.md$/,
+    /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
   ];
 
   const markdown_files = all_markdown_files.filter((filepath) => {
@@ -26,8 +32,8 @@ function list_markdown_files(): string[] {
   return markdown_files;
 }
 
-// const markdown_files = list_markdown_files();
-// console.log(markdown_files);
+const markdown_files = list_markdown_files();
+console.log(markdown_files);
 
 function markdown_guess_title(contents: matter.GrayMatterFile<string>): void {
   if (contents.data.title) {
@@ -40,9 +46,84 @@ function markdown_guess_title(contents: matter.GrayMatterFile<string>): void {
   contents.data.title = title;
 }
 
-const filepath = "docs/advanced/aspect-versioning.md";
+function new_url(original: string, filepath: string): string {
+  if (original.startsWith("http://") || original.startsWith("https://")) {
+    return original;
+  }
 
-const contents_string = readFileSync(`../${filepath}`).toString();
-const contents = matter(contents_string);
-markdown_guess_title(contents);
-console.log(contents);
+  if (original.startsWith("#")) {
+    // These are anchor links that reference within the document itself.
+    return original;
+  }
+
+  // Now we assume this is a local reference.
+  const suffix = path.extname(original);
+  if (
+    suffix == "" ||
+    [
+      ".java",
+      ".conf",
+      ".xml",
+      ".pdl",
+      ".json",
+      ".py",
+      ".ts",
+      ".yml",
+      ".sh",
+    ].some((ext) => suffix.startsWith(ext))
+  ) {
+    // A reference to a file or directory in the Github repo.
+    const relation = path.dirname(filepath);
+    const updated = path.normalize(
+      `${GITHUB_BROWSE_URL}/${relation}/${original}`
+    );
+    return updated;
+  } else if (suffix.startsWith(".md")) {
+    // Leave as-is.
+    // We use startsWith here so that we can allow anchor tags on links.
+    return original;
+  } else if ([".png", ".svg", ".pdf"].includes(suffix)) {
+    // Let docusaurus bundle these as static assets.
+    return `../../${original}`;
+  } else {
+    throw `unknown extension - ${original} in ${filepath}`;
+  }
+}
+
+function markdown_rewrite_urls(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  // We do a little bit of parenthesis matching here to account for parens in URLs.
+  // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
+
+  const new_content = contents.content
+    .replace(
+      // Look for the [text](url) syntax. Note that this will also capture images.
+      /\[(.+?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
+      (_, text, url) => {
+        const updated = new_url(url.trim(), filepath);
+        return `[${text}](${updated})`;
+      }
+    )
+    .replace(
+      // Also look for the [text]: url syntax.
+      /^\[(.+?)\]\s*:\s*(.+?)\s*$/gm,
+      (_, text, url) => {
+        const updated = new_url(url, filepath);
+        return `[${text}]: ${updated}`;
+      }
+    );
+  contents.content = new_content;
+}
+
+// const filepath = "docs/advanced/aspect-versioning.md";
+
+for (const filepath of markdown_files) {
+  // console.log("Reading:", filepath);
+  const contents_string = readFileSync(`../${filepath}`).toString();
+  const contents = matter(contents_string);
+  markdown_guess_title(contents);
+  markdown_rewrite_urls(contents, filepath);
+  // console.log(contents);
+}

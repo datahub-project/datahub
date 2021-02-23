@@ -7,7 +7,7 @@
 ## Summary
 
 Adding support for dashboards (and charts) metadata cataloging and enabling search & discovery for them.
-The design should accommodate for different dashboarding ([Looker](www.looker.com), [Redash](www.redash.io)) tools used within a company.
+The design should accommodate for different dashboarding ([Looker](https://looker.com), [Redash](https://redash.io/)) tools used within a company.
 
 ## Motivation
 
