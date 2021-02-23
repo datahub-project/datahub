@@ -1,4 +1,4 @@
-import { Avatar, Space, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Row, Space, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
@@ -10,16 +10,19 @@ export type Props = {
     description?: string;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
+    url?: string | null;
 };
 
-export default function DashboardHeader({ platform, description, ownership, lastModified }: Props) {
+export default function DashboardHeader({ platform, description, ownership, url, lastModified }: Props) {
     const entityRegistry = useEntityRegistry();
-
     return (
         <>
-            <Typography.Title level={5} style={{ color: 'gray' }}>
-                {platform}
-            </Typography.Title>
+            <Row justify="space-between">
+                <Typography.Title level={5} style={{ color: 'gray' }}>
+                    {platform}
+                </Typography.Title>
+                {url && <Button href={url}>View in {platform}</Button>}
+            </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
             <Space direction="vertical">
                 <Avatar.Group maxCount={6} size="large">

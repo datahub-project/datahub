@@ -40,6 +40,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
             platform={dashboard.tool}
             ownership={dashboard.ownership}
             lastModified={dashboard.info?.lastModified}
+            url={dashboard.info?.url}
         />
     );
 
