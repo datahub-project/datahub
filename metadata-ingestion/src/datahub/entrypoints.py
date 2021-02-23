@@ -1,13 +1,11 @@
 import logging
 import pathlib
+import sys
 
 import click
+from pydantic import ValidationError
 
-from datahub.configuration.common import (
-    ConfigurationError,
-    ConfigurationMechanism,
-    nicely_formatted_validation_errors,
-)
+from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 from datahub.ingestion.run.pipeline import Pipeline
@@ -34,7 +32,11 @@ def datahub():
 
 @datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
 @click.option(
-    "-c", "--config", help="Config file in .toml or .yaml format", required=True
+    "-c",
+    "--config",
+    type=click.Path(exists=True),
+    help="Config file in .toml or .yaml format",
+    required=True,
 )
 def ingest(config: str):
     """Main command for ingesting metadata into DataHub"""
@@ -58,8 +60,13 @@ def ingest(config: str):
     with config_file.open() as fp:
         pipeline_config = config_mech.load_config(fp)
 
-    with nicely_formatted_validation_errors():
+    try:
         logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config)
+    except ValidationError as e:
+        click.echo(e, err=True)
+        sys.exit(1)
+
     pipeline.run()
-    pipeline.pretty_print_summary()
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)

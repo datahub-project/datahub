@@ -1,8 +1,8 @@
-import importlib
 import logging
 import time
 
 import click
+from pydantic import Field
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -12,20 +12,25 @@ from datahub.configuration.common import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
-from datahub.ingestion.sink import sink_class_mapping
-from datahub.ingestion.source import source_class_mapping
+from datahub.ingestion.extractor.extractor_registry import extractor_registry
+from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "datahub.ingestion.extractor.generic.WorkUnitMCEExtractor"
+    extractor: str = "mce"
 
 
 class PipelineConfig(ConfigModel):
+    # Once support for discriminated unions gets merged into Pydantic, we can
+    # simplify this configuration and validation.
+    # See https://github.com/samuelcolvin/pydantic/pull/2336.
+
+    run_id: str = Field(default_factory=lambda: str(int(time.time()) * 1000))
     source: SourceConfig
     sink: DynamicTypedConfig
-    run_id: str = str(int(time.time()) * 1000)
 
 
 class LoggingCallback(WriteCallback):
@@ -46,40 +51,24 @@ class Pipeline:
     source: Source
     sink: Sink
 
-    def get_class_from_name(self, class_string: str):
-        module_name, class_name = class_string.rsplit(".", 1)
-        MyClass = getattr(importlib.import_module(module_name), class_name)
-        return MyClass
-
     def __init__(self, config: PipelineConfig):
         self.config = config
         self.ctx = PipelineContext(run_id=self.config.run_id)
 
         source_type = self.config.source.type
-        try:
-            source_class = source_class_mapping[source_type]
-        except KeyError as e:
-            raise ValueError(
-                f"Did not find a registered source class for {source_type}"
-            ) from e
+        source_class = source_registry.get(source_type)
         self.source: Source = source_class.create(
             self.config.source.dict().get("config", {}), self.ctx
         )
         logger.debug(f"Source type:{source_type},{source_class} configured")
 
         sink_type = self.config.sink.type
-        try:
-            sink_class = sink_class_mapping[sink_type]
-        except KeyError as e:
-            raise ValueError(
-                f"Did not find a registered sink class for {sink_type}"
-            ) from e
+        sink_class = sink_registry.get(sink_type)
         sink_config = self.config.sink.dict().get("config", {})
         self.sink: Sink = sink_class.create(sink_config, self.ctx)
         logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
 
-        # Ensure extractor can be constructed, even though we use them later
-        self.extractor_class = self.get_class_from_name(self.config.source.extractor)
+        self.extractor_class = extractor_registry.get(self.config.source.extractor)
 
     @classmethod
     def create(cls, config_dict: dict) -> "Pipeline":
@@ -115,7 +104,7 @@ class Pipeline:
                 "Source reported warnings", self.source.get_report()
             )
 
-    def pretty_print_summary(self):
+    def pretty_print_summary(self) -> int:
         click.echo()
         click.secho("Source report:", bold=True)
         click.echo(self.source.get_report().as_string())
@@ -124,7 +113,10 @@ class Pipeline:
         click.echo()
         if self.source.get_report().failures or self.sink.get_report().failures:
             click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
+            return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             click.secho("Pipeline finished with warnings", fg="yellow", bold=True)
+            return 0
         else:
             click.secho("Pipeline finished successfully", fg="green", bold=True)
+            return 0

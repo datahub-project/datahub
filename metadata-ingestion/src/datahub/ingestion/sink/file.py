@@ -2,8 +2,7 @@ import json
 import logging
 import pathlib
 
-from pydantic import BaseModel
-
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -11,7 +10,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 logger = logging.getLogger(__name__)
 
 
-class FileSinkConfig(BaseModel):
+class FileSinkConfig(ConfigModel):
     filename: str
 
 
@@ -25,9 +24,9 @@ class FileSink(Sink):
         self.report = SinkReport()
 
         fpath = pathlib.Path(self.config.filename)
-        logger.info(f'Will write to {fpath}')
-        self.file = fpath.open('w')
-        self.file.write('[\n')
+        logger.info(f"Will write to {fpath}")
+        self.file = fpath.open("w")
+        self.file.write("[\n")
         self.wrote_something = False
 
     @classmethod
@@ -50,7 +49,7 @@ class FileSink(Sink):
         obj = mce.to_obj()
 
         if self.wrote_something:
-            self.file.write(',\n')
+            self.file.write(",\n")
 
         json.dump(obj, self.file, indent=4)
         self.wrote_something = True
@@ -66,5 +65,5 @@ class FileSink(Sink):
         return self.report
 
     def close(self):
-        self.file.write('\n]')
+        self.file.write("\n]")
         self.file.close()

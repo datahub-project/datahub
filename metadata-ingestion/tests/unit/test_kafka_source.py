@@ -75,7 +75,11 @@ class KafkaSourceTest(unittest.TestCase):
         mock_kafka_instance = mock_kafka.return_value
         ctx = PipelineContext(run_id="test")
         kafka_source = KafkaSource.create(
-            {"topic": "test", "connection": {"bootstrap": "localhost:9092"}}, ctx
+            {
+                "topic_patterns": {"allow": ["test.*"]},
+                "connection": {"bootstrap": "localhost:9092"},
+            },
+            ctx,
         )
         kafka_source.close()
         assert mock_kafka_instance.close.call_count == 1
