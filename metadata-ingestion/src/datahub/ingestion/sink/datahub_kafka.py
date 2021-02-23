@@ -4,8 +4,8 @@ from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import StringSerializer
-from pydantic import BaseModel
 
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import SCHEMA_JSON_STR
 DEFAULT_KAFKA_TOPIC = "MetadataChangeEvent_v4"
 
 
-class KafkaSinkConfig(BaseModel):
+class KafkaSinkConfig(ConfigModel):
     connection: KafkaProducerConnectionConfig = KafkaProducerConnectionConfig()
     topic: str = DEFAULT_KAFKA_TOPIC
 
@@ -46,7 +46,7 @@ class DatahubKafkaSink(Sink):
         self.report = SinkReport()
 
         schema_registry_conf = {
-            'url': self.config.connection.schema_registry_url,
+            "url": self.config.connection.schema_registry_url,
             **self.config.connection.schema_registry_config,
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
@@ -61,8 +61,8 @@ class DatahubKafkaSink(Sink):
 
         producer_config = {
             "bootstrap.servers": self.config.connection.bootstrap,
-            'key.serializer': StringSerializer('utf_8'),
-            'value.serializer': avro_serializer,
+            "key.serializer": StringSerializer("utf_8"),
+            "value.serializer": avro_serializer,
             **self.config.connection.producer_config,
         }
 

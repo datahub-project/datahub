@@ -4,12 +4,11 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from pydantic import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes as types
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -43,7 +42,7 @@ class SQLSourceReport(SourceReport):
         self.filtered.append(table_name)
 
 
-class SQLAlchemyConfig(BaseModel):
+class SQLAlchemyConfig(ConfigModel):
     options: Optional[dict] = {}
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 

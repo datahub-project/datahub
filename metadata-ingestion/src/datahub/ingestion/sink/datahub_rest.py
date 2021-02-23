@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from typing import Dict, Type
 
 import requests
-from pydantic import BaseModel
 from requests.exceptions import HTTPError
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.metadata import (  # MLFeatureSnapshotClass,
@@ -55,7 +55,7 @@ def _rest_li_ify(obj):
     return obj
 
 
-class DatahubRestSinkConfig(BaseModel):
+class DatahubRestSinkConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
