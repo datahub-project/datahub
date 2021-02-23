@@ -9,6 +9,7 @@ import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
 import { BrowsePath } from './BrowsePath';
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { Message } from '../shared/Message';
 
 type BrowseResultsPageParams = {
     type: string;
@@ -39,10 +40,6 @@ export const BrowseResultsPage = () => {
         },
     });
 
-    if (loading) {
-        return <Alert type="info" message="Loading" />;
-    }
-
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
@@ -63,6 +60,7 @@ export const BrowseResultsPage = () => {
             <Affix offsetTop={64}>
                 <BrowsePath type={entityType} path={path} />
             </Affix>
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.browse && (
                 <BrowseResults
                     type={entityType}

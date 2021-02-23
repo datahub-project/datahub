@@ -12,15 +12,14 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput } from '../../types.generated';
 import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import { Message } from '../shared/Message';
 
 type SearchPageParams = {
     type?: string;
 };
 
 /**
- * A dedicated search page.
- *
- * TODO: Read / write filter parameters from / to the URL query parameters.
+ * A search results page.
  */
 export const SearchPage = () => {
     const history = useHistory();
@@ -51,10 +50,6 @@ export const SearchPage = () => {
         },
     });
 
-    if (loading) {
-        return <Alert type="info" message="Loading" />;
-    }
-
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
@@ -79,7 +74,9 @@ export const SearchPage = () => {
     const toSearchResults = (elements: any) => (
         <List
             dataSource={elements}
-            renderItem={(item) => <List.Item>{entityRegistry.renderSearchResult(activeType, item)}</List.Item>}
+            renderItem={(item) => (
+                <List.Item style={{ padding: 32 }}>{entityRegistry.renderSearchResult(activeType, item)}</List.Item>
+            )}
             bordered
         />
     );
@@ -104,6 +101,7 @@ export const SearchPage = () => {
                         ))}
                     </Tabs>
                 </Affix>
+                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 <Row style={{ width: '80%', margin: 'auto auto', backgroundColor: 'white' }}>
                     <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={6}>
                         <SearchFilters

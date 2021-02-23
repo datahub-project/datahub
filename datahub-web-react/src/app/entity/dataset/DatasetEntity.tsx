@@ -1,7 +1,8 @@
 import * as React from 'react';
+import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, EntityType } from '../../../types.generated';
 import { Profile } from './profile/Profile';
-import { Entity, PreviewType } from '../Entity';
+import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 
 /**
@@ -9,6 +10,25 @@ import { Preview } from './preview/Preview';
  */
 export class DatasetEntity implements Entity<Dataset> {
     type: EntityType = EntityType.Dataset;
+
+    icon = (fontSize: number, styleType: IconStyleType) => {
+        if (styleType === IconStyleType.TAB_VIEW) {
+            return <DatabaseOutlined style={{ fontSize }} />;
+        }
+
+        if (styleType === IconStyleType.HIGHLIGHT) {
+            return <DatabaseFilled style={{ fontSize, color: '#B37FEB' }} />;
+        }
+
+        return (
+            <DatabaseFilled
+                style={{
+                    fontSize,
+                    color: '#BFBFBF',
+                }}
+            />
+        );
+    };
 
     isSearchEnabled = () => true;
 
@@ -29,7 +49,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 name={data.name}
                 origin={data.origin}
                 description={data.description}
-                platformNativeType={data.platformNativeType}
+                platformName={data.platform.name}
+                tags={data.tags}
+                owners={data.ownership?.owners}
             />
         );
     };

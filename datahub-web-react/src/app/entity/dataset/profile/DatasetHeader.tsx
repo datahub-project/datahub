@@ -1,4 +1,4 @@
-import { Avatar, Badge, Popover, Space, Tooltip, Typography } from 'antd';
+import { Avatar, Badge, Divider, Popover, Space, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Dataset, EntityType } from '../../../../types.generated';
@@ -9,13 +9,19 @@ export type Props = {
     dataset: Dataset;
 };
 
-export default function DatasetHeader({ dataset: { description, ownership, deprecation } }: Props) {
+export default function DatasetHeader({ dataset: { description, ownership, deprecation, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
         <>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Space direction="vertical">
+            <Space direction="vertical" size="middle">
+                <Space split={<Divider type="vertical" />}>
+                    <Typography.Text style={{ color: 'grey' }}>Dataset</Typography.Text>
+                    <Typography.Text strong style={{ color: '#214F55' }}>
+                        {platform.name}
+                    </Typography.Text>
+                </Space>
+                <Typography.Paragraph>{description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">
                     {ownership &&
                         ownership.owners &&

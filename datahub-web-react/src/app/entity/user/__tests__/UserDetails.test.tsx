@@ -12,12 +12,20 @@ const ownerships = {
             origin: 'PROD',
             description: 'this is a dataset',
             platformNativeType: PlatformNativeType.Table,
+            platform: {
+                name: 'hive',
+            },
+            tags: [],
         },
         {
             name: 'KafkaDataset',
             origin: 'PROD',
             description: 'this is also a dataset',
             platformNativeType: PlatformNativeType.Table,
+            platform: {
+                name: 'kafka',
+            },
+            tags: [],
         },
     ],
 };

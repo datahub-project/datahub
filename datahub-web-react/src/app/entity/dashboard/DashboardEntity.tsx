@@ -1,6 +1,7 @@
+import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Dashboard, EntityType } from '../../../types.generated';
-import { Entity, PreviewType } from '../Entity';
+import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';
 
@@ -9,6 +10,25 @@ import DashboardProfile from './profile/DashboardProfile';
  */
 export class DashboardEntity implements Entity<Dashboard> {
     type: EntityType = EntityType.Dashboard;
+
+    icon = (fontSize: number, styleType: IconStyleType) => {
+        if (styleType === IconStyleType.TAB_VIEW) {
+            return <DashboardOutlined style={{ fontSize }} />;
+        }
+
+        if (styleType === IconStyleType.HIGHLIGHT) {
+            return <DashboardFilled style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+        }
+
+        return (
+            <DashboardOutlined
+                style={{
+                    fontSize,
+                    color: '#BFBFBF',
+                }}
+            />
+        );
+    };
 
     isSearchEnabled = () => true;
 
@@ -29,6 +49,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 platform={data.tool}
                 name={data.info?.name}
                 description={data.info?.description}
+                access={data.info?.access}
+                owners={data.ownership?.owners}
             />
         );
     };

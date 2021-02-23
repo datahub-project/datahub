@@ -15,21 +15,27 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
     const downstreamEntities = downstreamLineage?.downstreams.map((downstream) => downstream.dataset);
 
     return (
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Space direction="vertical" style={{ width: '100%', margin: '24px' }} size="large">
             <List
+                style={{ marginTop: '12px', padding: '16px 32px' }}
                 bordered
                 dataSource={upstreamEntities}
                 header={<Typography.Title level={3}>Upstream</Typography.Title>}
                 renderItem={(item) => (
-                    <List.Item>{entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}</List.Item>
+                    <List.Item style={{ paddingTop: '20px' }}>
+                        {entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}
+                    </List.Item>
                 )}
             />
             <List
+                style={{ marginTop: '12px', padding: '16px 32px' }}
                 bordered
                 dataSource={downstreamEntities}
                 header={<Typography.Title level={3}>Downstream</Typography.Title>}
                 renderItem={(item) => (
-                    <List.Item>{entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}</List.Item>
+                    <List.Item style={{ paddingTop: '20px' }}>
+                        {entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}
+                    </List.Item>
                 )}
             />
         </Space>

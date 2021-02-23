@@ -44,8 +44,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
     );
 
     if (isLoggedIn) {
-        // Redirect to search only for Demo Purposes
-        return <Redirect to="/search?type=dataset&query=test" />;
+        return <Redirect to="/" />;
     }
 
     return (
