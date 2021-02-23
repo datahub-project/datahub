@@ -76,5 +76,5 @@ export default function SchemaView({ schema }: Props) {
         return [...defaultColumns, ...categoryColumns];
     }, [schema]);
 
-    return <Table pagination={false} dataSource={schema?.fields} columns={columns} />;
+    return <Table pagination={false} dataSource={schema?.fields} columns={columns} rowKey="fieldPath" />;
 }
