@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 import * as matter from "gray-matter";
-import { readFileSync } from "fs";
+import * as fs from "fs";
 import * as path from "path";
 
 // Note: this must be executed within the docs-website directory.
@@ -33,7 +33,7 @@ function list_markdown_files(): string[] {
 }
 
 const markdown_files = list_markdown_files();
-console.log(markdown_files);
+// console.log(markdown_files);
 
 function markdown_guess_title(contents: matter.GrayMatterFile<string>): void {
   if (contents.data.title) {
@@ -44,6 +44,7 @@ function markdown_guess_title(contents: matter.GrayMatterFile<string>): void {
   const header = contents.content.match(/^# (.+)$/m);
   const title = header[1];
   contents.data.title = title;
+  contents.data.hide_title = true;
 }
 
 function new_url(original: string, filepath: string): string {
@@ -84,7 +85,12 @@ function new_url(original: string, filepath: string): string {
     return original;
   } else if ([".png", ".svg", ".pdf"].includes(suffix)) {
     // Let docusaurus bundle these as static assets.
-    return `../../${original}`;
+    const up_levels = (filepath.match(/\//g) ?? []).length;
+    const relation = path.dirname(filepath);
+    const updated = path.normalize(
+      `${"../".repeat(up_levels + 2)}/${relation}/${original}`
+    );
+    return updated;
   } else {
     throw `unknown extension - ${original} in ${filepath}`;
   }
@@ -94,12 +100,12 @@ function markdown_rewrite_urls(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  // We do a little bit of parenthesis matching here to account for parens in URLs.
-  // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
-
   const new_content = contents.content
     .replace(
       // Look for the [text](url) syntax. Note that this will also capture images.
+      //
+      // We do a little bit of parenthesis matching here to account for parens in URLs.
+      // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.+?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
         const updated = new_url(url.trim(), filepath);
@@ -117,13 +123,16 @@ function markdown_rewrite_urls(
   contents.content = new_content;
 }
 
-// const filepath = "docs/advanced/aspect-versioning.md";
-
 for (const filepath of markdown_files) {
-  // console.log("Reading:", filepath);
-  const contents_string = readFileSync(`../${filepath}`).toString();
+  console.log("Processing:", filepath);
+  const contents_string = fs.readFileSync(`../${filepath}`).toString();
   const contents = matter(contents_string);
   markdown_guess_title(contents);
   markdown_rewrite_urls(contents, filepath);
   // console.log(contents);
+
+  const outpath = `genDocs/${filepath}`;
+  const pathname = path.dirname(outpath);
+  fs.mkdirSync(pathname, { recursive: true });
+  fs.writeFileSync(outpath, contents.stringify(""));
 }
