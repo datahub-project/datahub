@@ -6,7 +6,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import defaultAvatar from '../../../../images/default_avatar.png';
 
 const styles = {
-    name: { color: '#0073b1' },
+    name: { margin: 0, color: '#0073b1' },
     title: { color: 'rgba(0, 0, 0, 0.45)' },
 };
 
