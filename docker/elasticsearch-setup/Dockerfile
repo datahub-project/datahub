@@ -9,7 +9,7 @@ RUN apk add --no-cache curl jq
 
 FROM base AS prod-install
 
-COPY docker/elasticsearch-setup/create-indices.sh /index
+COPY docker/elasticsearch-setup/create-indices.sh /
 RUN chmod 755 create-indices.sh
 COPY gms/impl/src/main/resources/index /index
 
