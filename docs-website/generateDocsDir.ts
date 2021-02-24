@@ -44,13 +44,25 @@ function get_id(filepath: string): string {
   return id;
 }
 
+const hardcoded_slugs = {
+  "README.md": "/",
+  "docs/README.md": "docs/overview",
+};
+
 function get_slug(filepath: string): string {
+  if (filepath in hardcoded_slugs) {
+    return hardcoded_slugs[filepath];
+  }
+
   let slug = get_id(filepath);
-  if (slug.startsWith("docs/") && slug != "docs/README") {
+  if (slug.startsWith("docs/")) {
     slug = slug.slice(5);
   }
-  slug = slug.toLowerCase();
   slug = `/${slug}`;
+  if (slug.endsWith("/README")) {
+    slug = slug.slice(0, -7);
+  }
+  slug = slug.toLowerCase();
   return slug;
 }
 
