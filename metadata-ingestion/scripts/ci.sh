@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-sudo apt-get install librdkafka-dev python-ldap libldap2-dev libsasl2-dev ldap-utils
+sudo apt-get update && sudo apt-get install -y librdkafka-dev python-ldap libldap2-dev libsasl2-dev ldap-utils
 
 python -m pip install --upgrade pip
 pip install -e .
