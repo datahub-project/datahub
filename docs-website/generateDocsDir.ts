@@ -201,12 +201,11 @@ for (const filepath of markdown_files) {
 }
 
 // Output a list of all docs which are not included in a sidebar.
-const sidebar = require("./sidebars.js");
-const sidebar_json = JSON.stringify(sidebar);
+const sidebar = fs.readFileSync("./sidebars.js").toString();
 for (const filepath of markdown_files) {
   const doc_id = get_id(filepath);
 
-  if (sidebar_json.indexOf(`"${doc_id}"`) < 0) {
+  if (sidebar.indexOf(`"${doc_id}"`) < 0) {
     console.warn("Not included in sidebar:", filepath);
   }
 }
