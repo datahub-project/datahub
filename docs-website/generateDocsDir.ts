@@ -21,6 +21,7 @@ function list_markdown_files(): string[] {
     /^docs-website\//,
     // Don't want hosted docs for these.
     /^contrib\//,
+    // /^contrib\/(?!kubernetes)/, // Keeps the Kubernetes docs.
     /^datahub-web\//,
     /^metadata-ingestion-examples\//,
     /^docs\/rfc\/templates\/000-template\.md$/,

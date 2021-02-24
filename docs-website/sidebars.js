@@ -10,39 +10,12 @@ module.exports = {
     'Getting Started': [
       'docs/quickstart',
       'docs/debugging',
-      'docs/developers',
-      'docs/docker/development',
     ],
     'Architecture': [
       'docs/README',
       'docs/architecture/architecture',
       'docs/architecture/metadata-ingestion',
       'docs/architecture/metadata-serving',
-      {
-        'Components': [
-          'datahub-web-react/README',
-          'datahub-graphql-core/README',
-          'datahub-frontend/README',
-          'datahub-gms-graphql-service/README',
-          'gms/README',
-          'metadata-jobs/README',
-          'metadata-jobs/mae-consumer-job/README',
-          'metadata-jobs/mce-consumer-job/README',
-          'metadata-ingestion/README',
-        ]
-      },
-      'docs/rfc',
-      {
-        "RFCs": [
-          "docs/rfc/active/1778-dashboards/README",
-          "docs/rfc/active/1812-ml_models/README",
-          "docs/rfc/active/1820-azkaban-flow-job/README",
-          "docs/rfc/active/1841-lineage/field level lineage",
-          "docs/rfc/active/business_glossary/README",
-          "docs/rfc/active/graph_ql_frontend/queries",
-          "docs/rfc/active/react-app/README",
-        ]
-      }
     ],
     'Concepts': [
       "docs/what/aspect",
@@ -79,6 +52,35 @@ module.exports = {
       "docs/advanced/high-cardinality",
       "docs/advanced/partial-update",
       "docs/advanced/pdl-best-practices",
+    ],
+    'Developing': [
+      'docs/developers',
+      'docs/docker/development',
+      {
+        'Components': [
+          'datahub-web-react/README',
+          'datahub-graphql-core/README',
+          'datahub-frontend/README',
+          'datahub-gms-graphql-service/README',
+          'gms/README',
+          'metadata-jobs/README',
+          'metadata-jobs/mae-consumer-job/README',
+          'metadata-jobs/mce-consumer-job/README',
+          'metadata-ingestion/README',
+        ]
+      },
+      'docs/rfc',
+      {
+        "RFCs": [
+          "docs/rfc/active/1778-dashboards/README",
+          "docs/rfc/active/1812-ml_models/README",
+          "docs/rfc/active/1820-azkaban-flow-job/README",
+          "docs/rfc/active/1841-lineage/field level lineage",
+          "docs/rfc/active/business_glossary/README",
+          "docs/rfc/active/graph_ql_frontend/queries",
+          "docs/rfc/active/react-app/README",
+        ]
+      },
     ],
     'Community': [
       'docs/slack',
