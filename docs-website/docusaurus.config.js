@@ -108,7 +108,6 @@ module.exports = {
         },
         blog: false,
         theme: {
-          // TODO: add custom colors?
           customCss: require.resolve('./src/css/custom.css'),
         },
       },
