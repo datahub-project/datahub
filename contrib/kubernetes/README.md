@@ -1,7 +1,12 @@
-# Kubernetes  Setup for DataHub
+---
+title: "Deploying with Kubernetes"
+hide_title: true
+---
+
+# Kubernetes Setup for DataHub
 
 ## Introduction
-This directory provides the Kubernetes [Helm](https://helm.sh/) charts for DataHub. 
+[This directory](https://github.com/linkedin/datahub/tree/master/contrib/kubernetes/datahub) provides the Kubernetes [Helm](https://helm.sh/) charts for DataHub. 
 
 ## Setup
 This kubernetes deployment doesn't contain the below artifacts. The idea is to use the original helm charts for deploying each of these separately.   

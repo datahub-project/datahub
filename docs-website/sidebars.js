@@ -79,6 +79,7 @@ module.exports = {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
+      "contrib/kubernetes/README",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

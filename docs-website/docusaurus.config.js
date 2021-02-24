@@ -67,6 +67,10 @@ module.exports = {
               href: 'https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA',
             },
             {
+              label: 'YouTube',
+              href: 'https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w',
+            },
+            {
               label: 'Town Halls',
               to: 'docs/townhalls',
             },
@@ -89,7 +93,7 @@ module.exports = {
             },
             {
               label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
+              href: 'https://github.com/linkedin/datahub',
             },
           ],
         },
@@ -105,6 +109,7 @@ module.exports = {
           path: 'genDocs',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/linkedin/datahub/blob/master/',
+          // TODO: make these work correctly with the copying
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
         },
