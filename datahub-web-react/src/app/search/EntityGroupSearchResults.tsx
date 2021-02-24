@@ -1,5 +1,5 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button, Card, Divider, List, Typography } from 'antd';
+import { Button, Card, Divider, List, Space, Typography } from 'antd';
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
 import { SearchCfg } from '../../conf';
@@ -8,6 +8,15 @@ import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+
+const styles = {
+    header: { marginBottom: 20 },
+    resultHeaderCardBody: { padding: '16px 24px' },
+    resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
+    resultList: { width: '100%', borderColor: '#f0f0f0', marginTop: '12px', padding: '16px 32px' },
+    seeAllButton: { fontSize: 18 },
+    resultsContainer: { width: '100%', padding: '40px 132px' },
+};
 
 interface Props {
     type: EntityType;
@@ -32,25 +41,22 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
     const results = data?.search?.entities || [];
 
     return (
-        <>
+        <Space direction="vertical" style={styles.resultsContainer}>
             <List
                 header={
-                    <div style={{ marginBottom: 20 }}>
+                    <span style={styles.header}>
                         <Typography.Title level={3}>{entityRegistry.getCollectionName(type)}</Typography.Title>
-                        <Card
-                            bodyStyle={{ padding: '16px 24px' }}
-                            style={{ right: '52px', top: '-40px', position: 'absolute' }}
-                        >
+                        <Card bodyStyle={styles.resultHeaderCardBody} style={styles.resultHeaderCard as any}>
                             {entityRegistry.getIcon(type, 36, IconStyleType.ACCENT)}
                         </Card>
-                    </div>
+                    </span>
                 }
                 footer={
                     data?.search &&
                     data?.search?.total > 0 && (
                         <Button
                             type="text"
-                            style={{ fontSize: 18 }}
+                            style={styles.seeAllButton}
                             onClick={() =>
                                 navigateToSearchUrl({
                                     type,
@@ -68,13 +74,7 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
                         </Button>
                     )
                 }
-                style={{
-                    width: '100%',
-                    borderColor: '#f0f0f0',
-                    marginTop: '24px',
-                    marginBottom: 40,
-                    padding: '16px 32px',
-                }}
+                style={styles.resultList}
                 dataSource={data?.search?.entities || []}
                 split={false}
                 renderItem={(item, index) => (
@@ -85,6 +85,6 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
                 )}
                 bordered
             />
-        </>
+        </Space>
     );
 };

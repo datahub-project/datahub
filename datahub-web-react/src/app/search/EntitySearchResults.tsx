@@ -1,5 +1,5 @@
 import { FilterOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Divider, List, Pagination, Typography } from 'antd';
+import { Alert, Button, Card, Divider, List, Pagination, Row, Typography } from 'antd';
 import * as React from 'react';
 import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
@@ -7,6 +7,17 @@ import { EntityType, FacetFilterInput } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
+
+const styles = {
+    loading: { marginTop: '10%' },
+    addFilters: { backgroundColor: '#F5F5F5' },
+    resultSummary: { color: 'gray', marginTop: '36px' },
+    resultHeaderCardBody: { padding: '16px 24px' },
+    resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
+    resultList: { width: '100%', borderColor: '#f0f0f0', marginTop: '12px', padding: '16px 32px' },
+    paginationRow: { padding: 40 },
+    resultsContainer: { width: '100%', padding: '20px 132px' },
+};
 
 interface Props {
     type: EntityType;
@@ -43,13 +54,13 @@ export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, 
     }
 
     return (
-        <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <Button style={{ backgroundColor: '#F5F5F5' }} color="#F5F5F5" onClick={onAddFilters}>
+        <div style={styles.resultsContainer}>
+            {loading && <Message type="loading" content="Loading..." style={styles.loading} />}
+            <Button style={styles.addFilters} onClick={onAddFilters}>
                 <FilterOutlined />
                 Add Filters
             </Button>
-            <Typography.Paragraph style={{ color: 'gray', marginTop: '36px' }}>
+            <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
                     {(page - 1) * pageSize} - {lastResultIndex}
@@ -58,14 +69,11 @@ export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, 
             </Typography.Paragraph>
             <List
                 header={
-                    <Card
-                        bodyStyle={{ padding: '16px 24px' }}
-                        style={{ right: '52px', top: '-40px', position: 'absolute' }}
-                    >
+                    <Card bodyStyle={styles.resultHeaderCardBody} style={styles.resultHeaderCard as any}>
                         {entityRegistry.getIcon(type, 36, IconStyleType.ACCENT)}
                     </Card>
                 }
-                style={{ width: '100%', borderColor: '#f0f0f0', marginTop: '12px', padding: '16px 32px' }}
+                style={styles.resultList}
                 dataSource={results}
                 split={false}
                 renderItem={(item, index) => (
@@ -76,14 +84,15 @@ export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, 
                 )}
                 bordered
             />
-            <Pagination
-                style={{ width: '100%', display: 'flex', justifyContent: 'center', margin: '40px 0px' }}
-                current={page}
-                pageSize={pageSize}
-                total={totalResults}
-                showLessItems
-                onChange={onChangePage}
-            />
-        </>
+            <Row justify="center" style={styles.paginationRow}>
+                <Pagination
+                    current={page}
+                    pageSize={pageSize}
+                    total={totalResults}
+                    showLessItems
+                    onChange={onChangePage}
+                />
+            </Row>
+        </div>
     );
 };
