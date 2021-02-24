@@ -4,7 +4,7 @@ module.exports = {
   url: 'https://your-docusaurus-test-site.com',
   baseUrl: '/',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  onBrokenMarkdownLinks: 'throw',
   favicon: 'img/favicon.ico',
   organizationName: 'linkedin', // Usually your GitHub org/user name.
   projectName: 'datahub', // Usually your repo name.
@@ -33,7 +33,6 @@ module.exports = {
           label: 'GitHub',
           position: 'right',
         },
-        // TODO: add search
       ],
     },
     footer: {
@@ -112,6 +111,16 @@ module.exports = {
           // TODO: add custom colors?
           customCss: require.resolve('./src/css/custom.css'),
         },
+      },
+    ],
+  ],
+  plugins: [
+    [
+      require.resolve("@easyops-cn/docusaurus-search-local"),
+      {
+        // `hashed` is recommended as long-term-cache of index file is possible.
+        hashed: true,
+        language: ["en"],
       },
     ],
   ],
