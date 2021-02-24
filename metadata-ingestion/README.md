@@ -4,28 +4,28 @@ This module hosts an extensible Python-based metadata ingestion system for DataH
 This supports sending data to DataHub using Kafka or through the REST api.
 It can be used through our CLI tool or as a library e.g. with an orchestrator like Airflow.
 
-## Architecture
+### Architecture
 
 ![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
 
 The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
 
-## Pre-Requisites
+### Pre-Requisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
 
 <!-- You can run this ingestion framework by building from source or by running docker images. -->
 
-## Migrating from the old scripts
+### Migrating from the old scripts
 If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
 This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
 Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
 
 If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
 
-## Building from source:
+### Building from source:
 
-### Pre-Requisites
+#### Pre-Requisites
 1. Python 3.6+ must be installed in your host environment.
 2. You also need to build the `mxe-schemas` module as below.
    ```
@@ -35,7 +35,7 @@ If you were previously using one of the `sql-etl` scripts: the new way for doing
 3. On MacOS: `brew install librdkafka`
 4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
 
-### Set up your Python environment
+#### Set up your Python environment
 ```sh
 python3 -m venv venv
 source venv/bin/activate
@@ -98,7 +98,7 @@ We have also included a couple [sample DAGs](./examples/airflow) that can be use
 - `generic_recipe_sample_dag.py` - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
 - `mysql_sample_dag.py` - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
 
-# Recipes
+## Recipes
 
 A recipe is a configuration file that tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 Here's a simple example that pulls metadata from MSSQL and puts it into datahub.
@@ -127,9 +127,9 @@ datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 
 A number of recipes are included in the examples/recipes directory.
 
-# Sources
+## Sources
 
-## Kafka Metadata `kafka`
+### Kafka Metadata `kafka`
 Extracts:
 - List of topics - from the Kafka broker
 - Schemas associated with each topic - from the schema registry
@@ -144,7 +144,7 @@ source:
       consumer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
 ```
 
-## MySQL Metadata `mysql`
+### MySQL Metadata `mysql`
 Extracts:
 - List of databases and tables
 - Column types and schema associated with each table
@@ -166,7 +166,7 @@ source:
       - "performance_schema"
 ```
 
-## Microsoft SQL Server Metadata `mssql`
+### Microsoft SQL Server Metadata `mssql`
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -192,7 +192,7 @@ source:
       charset: 'utf8'
 ```
 
-## Hive `hive`
+### Hive `hive`
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -211,7 +211,7 @@ source:
     # options is same as above
 ```
 
-## PostgreSQL `postgres`
+### PostgreSQL `postgres`
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -232,7 +232,7 @@ source:
     # options is same as above
 ```
 
-## Snowflake `snowflake`
+### Snowflake `snowflake`
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -250,7 +250,7 @@ source:
     # options is same as above
 ```
 
-## Google BigQuery `bigquery`
+### Google BigQuery `bigquery`
 Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -269,7 +269,7 @@ source:
     # table_pattern is same as above
 ```
 
-## LDAP `ldap`
+### LDAP `ldap`
 Extracts:
 - List of people
 - Names, emails, titles, and manager information for each person
@@ -287,7 +287,7 @@ source:
     filter: "(objectClass=*)"  # optional field
 ```
 
-## File `file`
+### File `file`
 Pulls metadata from a previously generated file. Note that the file sink
 can produce such files, and a number of samples are included in the
 [examples/mce_files](examples/mce_files) directory.
@@ -298,9 +298,9 @@ source:
   filename: ./path/to/mce/file.json
 ```
 
-# Sinks
+## Sinks
 
-## DataHub Rest `datahub-rest`
+### DataHub Rest `datahub-rest`
 Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
 is that any errors can immediately be reported.
 
@@ -311,7 +311,7 @@ sink:
     server: 'http://localhost:8080'
 ```
 
-## DataHub Kafka `datahub-kafka`
+### DataHub Kafka `datahub-kafka`
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
 interface is that it's asynchronous and can handle higher throughput. This requires the
 Datahub mce-consumer container to be running.
@@ -325,7 +325,7 @@ sink:
       producer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
 ```
 
-## Console `console`
+### Console `console`
 Simply prints each metadata event to stdout. Useful for experimentation and debugging purposes.
 
 ```yml
@@ -333,7 +333,7 @@ sink:
   type: "console"
 ```
 
-## File `file`
+### File `file`
 Outputs metadata to a file. This can be used to decouple metadata sourcing from the
 process of pushing it into DataHub, and is particularly useful for debugging purposes.
 Note that the file source can read files generated by this sink.
@@ -344,18 +344,18 @@ sink:
   filename: ./path/to/mce/file.json
 ```
 
-# Contributing
+## Contributing
 
 Contributions welcome!
 
-## Code layout
+### Code layout
 
 - The CLI interface is defined in [entrypoints.py](./src/datahub/entrypoints.py).
 - The high level interfaces are defined in the [API directory](./src/datahub/ingestion/api).
 - The actual [sources](./src/datahub/ingestion/source) and [sinks](./src/datahub/ingestion/sink) implementations have their own directories - the `__init__.py` files in those directories are used to register the short codes for use in recipes.
 - The metadata models are created using code generation, and eventually live in the `./src/datahub/metadata` directory. However, these files are not checked in and instead are generated at build time. See the [codegen](./scripts/codegen.sh) script for details.
 
-## Testing
+### Testing
 ```sh
 # Follow standard install procedure - see above.
 
@@ -370,7 +370,7 @@ pytest tests/unit
 pytest tests/integration
 ```
 
-## Sanity check code before committing
+### Sanity check code before committing
 ```sh
 # Requires test_requirements.txt to have been installed.
 black --exclude 'datahub/metadata' -S -t py36 src tests

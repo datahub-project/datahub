@@ -25,12 +25,12 @@ you need to make two small edits (don't check these changes in!).
 
 For example, to debug `datahub-gms`:
 
-```
+```sh
 # Add this line to docker/datahub-gms/env/docker.env. You can change the port and/or change suspend=n to y.
 JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
 ```
 
-```
+```yml
 # Change the definition in docker/docker-compose.dev.yml to this
   datahub-gms:
     image: linkedin/datahub-gms:debug

@@ -15,7 +15,7 @@ The following sequence diagram highlights the key features Datahub has, and how 
 5. The frontend of Datahub talks to the metadata restful API services of GMS. The metadata discovering users can browse, search metadatas, get the details of metadata such as the owner, the lineage and other customer tags. 
 
 
-# Documentation
+## Documentation
 * [DataHub Developer's Guide](developers.md)
 * [DataHub Architecture](architecture/architecture.md)
 * [DataHub Onboarding Guide](how/entity-onboarding.md)

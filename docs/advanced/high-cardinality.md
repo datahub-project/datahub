@@ -4,7 +4,7 @@ As explained in [What is a Relationship](../what/relationship.md), the raw metad
 
 Depending on the type of relationships, there are different strategies for dealing with high cardinality. 
 
-# 1:N Relationships
+### 1:N Relationships
 
 When `N` is large, simply store the relationship as a reverse pointer on the `N` side, instead of an `N`-element array on the `1` side. In other words, instead of doing this
 
@@ -24,7 +24,7 @@ record Membership {
 
 One drawback with this approach is that batch updating the member list becomes multiple DB operations and non-atomic. If the list is provided by an external metadata provider via [MCEs](../what/mxe.md), this also means that multiple MCEs will be required to update the list, instead of having one giant array in a single MCE.
 
-# M:N Relationships
+### M:N Relationships
 
 When one side of the relation (`M` or `N`) has low cardinality, you can apply the same trick in [1:N Relationship] by creating the array on the side with low-cardinality. For example, assuming a user can only be part of a small number of groups but each group can have a large number of users, the following model will be more efficient than the reverse.
 

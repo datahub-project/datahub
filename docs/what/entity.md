@@ -1,4 +1,6 @@
-# What is an entity?
+# Entities
+
+## What is an entity?
 
 An entity is very similar to the concept of a [resource](https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources) in [Rest.li](http://rest.li/). Generally speaking, an entity should have a defined [URN](urn.md) and a corresponding [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) API for the metadata associated with a particular instance of the entity. A particular instance of an entity is essentially a node in the [metadata graph](graph.md). 
 
@@ -65,7 +67,7 @@ record DatasetEntity includes BaseEntity {
 }
 ```
 
-# When to model something as an entity?
+## When to model something as an entity?
 
 A lot of time it may not be obvious if something should be modeled as an entity, a [metadata aspect](aspect.md), or even a field in a metadata aspect. One way to think of it is using the concept of [Third Normal Form](https://en.wikipedia.org/wiki/Third_normal_form). We'll use the example from the Wikipedia entry to illustrate the idea.
 
@@ -108,7 +110,7 @@ In other words, when you start asking yourself "Should I normalize this thing so
 | ... | ... |
 | 31 December | Capricorn | Poinsettia
 
-# How to delete an entity?
+## How to delete an entity?
 
 We purposely made all [metadata aspects](aspect.md) immutable, i.e. each edit results in a new version created with no easy way to remove a specific version. However, since the existance of an entity is determined by the existance of its associated metadata aspects, it seems that there's no easy way to delete an entity. In fact, this is echoed by the fact that [GMS](gms.md) doesn't actually provide any [DELETE](https://linkedin.github.io/rest.li/user_guide/restli_server#delete) API!
 

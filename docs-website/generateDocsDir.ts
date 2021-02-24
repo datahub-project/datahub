@@ -83,9 +83,11 @@ function markdown_guess_title(
     title = hardcoded_titles[filepath];
   } else {
     // Find first h1 header and use it as the title.
-    // TODO: check if there are multiple h1 headers and warn if so
-    const header = contents.content.match(/^# (.+)$/m);
-    title = header[1].trim();
+    const headers = contents.content.match(/^# (.+)$/gm);
+    if (headers.length > 1 && contents.content.indexOf("```") < 0) {
+      console.warn("too many h1 headers", filepath);
+    }
+    title = headers[0].slice(2).trim();
     if (title.startsWith("DataHub ")) {
       title = title.slice(8).trim();
     }
@@ -118,9 +120,8 @@ function new_url(original: string, filepath: string): string {
           .startsWith("https://github.com/linkedin/datahub/tree")) &&
       (original.endsWith(".md") || original.endsWith(".pdf"))
     ) {
-      console.log("absolute link:", original, "in", filepath);
+      console.warn("absolute link:", original, "in", filepath);
     }
-    // TODO warn on absolute internal github links
     return original;
   }
 
