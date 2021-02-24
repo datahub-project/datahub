@@ -1,12 +1,13 @@
+import React, { useState, useEffect } from 'react';
 import { FilterOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Divider, List, Pagination, Row, Typography } from 'antd';
-import * as React from 'react';
+import { Alert, Button, Card, Divider, List, Modal, Pagination, Row, Typography } from 'antd';
 import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { SearchFilters } from './SearchFilters';
 
 const styles = {
     loading: { marginTop: '10%' },
@@ -24,11 +25,17 @@ interface Props {
     query: string;
     page: number;
     filters: Array<FacetFilterInput>;
-    onAddFilters: () => void;
+    onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
 }
 
-export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, onChangePage }: Props) => {
+export const EntitySearchResults = ({ type, query, page, filters, onChangeFilters, onChangePage }: Props) => {
+    const [isEditingFilters, setIsEditingFilters] = useState(false);
+    const [selectedFilters, setSelectedFilters] = useState(filters);
+    useEffect(() => {
+        setSelectedFilters(filters);
+    }, [filters]);
+
     const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetSearchResultsQuery({
         variables: {
@@ -49,6 +56,22 @@ export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, 
     const lastResultIndex =
         pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
 
+    const onFilterSelect = (selected: boolean, field: string, value: string) => {
+        const newFilters = selected
+            ? [...selectedFilters, { field, value }]
+            : selectedFilters.filter((filter) => filter.field !== field || filter.value !== value);
+        setSelectedFilters(newFilters);
+    };
+
+    const onEditFilters = () => {
+        setIsEditingFilters(true);
+    };
+
+    const onCloseEditFilters = () => {
+        onChangeFilters(selectedFilters);
+        setIsEditingFilters(false);
+    };
+
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
@@ -56,10 +79,22 @@ export const EntitySearchResults = ({ type, query, page, filters, onAddFilters, 
     return (
         <div style={styles.resultsContainer}>
             {loading && <Message type="loading" content="Loading..." style={styles.loading} />}
-            <Button style={styles.addFilters} onClick={onAddFilters}>
+            <Button style={styles.addFilters} onClick={onEditFilters}>
                 <FilterOutlined />
                 Add Filters
             </Button>
+            <Modal
+                title="Filters"
+                footer={<Button onClick={onCloseEditFilters}>Apply</Button>}
+                visible={isEditingFilters}
+                closable={false}
+            >
+                <SearchFilters
+                    facets={data?.search?.facets || []}
+                    selectedFilters={selectedFilters}
+                    onFilterSelect={onFilterSelect}
+                />
+            </Modal>
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>

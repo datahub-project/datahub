@@ -47,7 +47,7 @@ export const SearchPage = () => {
         navigateToSearchUrl({ type: activeType, query: q, page: 1, history, entityRegistry });
     };
 
-    const onSearchTypeChange = (newType: string) => {
+    const onChangeSearchType = (newType: string) => {
         if (newType === ALL_ENTITIES_TAB_NAME) {
             navigateToSearchUrl({ query, page: 1, history, entityRegistry });
         } else {
@@ -56,21 +56,11 @@ export const SearchPage = () => {
         }
     };
 
-    const onAddFilters = () => {
-        // TODO.
-        return null;
+    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, entityRegistry });
     };
 
-    // TODO: Implement filters
-    // const onFilterSelect = (selected: boolean, field: string, value: string) => {
-    //     const newFilters = selected
-    //         ? [...filters, { field, value }]
-    //         : filters.filter((filter) => filter.field !== field || filter.value !== value);
-
-    //     navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, entityRegistry });
-    // };
-
-    const onResultsPageChange = (newPage: number) => {
+    const onChangePage = (newPage: number) => {
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
@@ -81,7 +71,7 @@ export const SearchPage = () => {
                     tabBarStyle={styles.tabs}
                     activeKey={activeType ? entityRegistry.getCollectionName(activeType) : ALL_ENTITIES_TAB_NAME}
                     size="large"
-                    onChange={onSearchTypeChange}
+                    onChange={onChangeSearchType}
                 >
                     <Tabs.TabPane
                         style={styles.tab}
@@ -107,8 +97,8 @@ export const SearchPage = () => {
                     page={page}
                     query={query}
                     filters={filters}
-                    onAddFilters={onAddFilters}
-                    onChangePage={onResultsPageChange}
+                    onChangeFilters={onChangeFilters}
+                    onChangePage={onChangePage}
                 />
             ) : (
                 entityRegistry
