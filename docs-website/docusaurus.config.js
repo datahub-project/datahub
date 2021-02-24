@@ -33,6 +33,7 @@ module.exports = {
           label: 'GitHub',
           position: 'right',
         },
+        // TODO: add search
       ],
     },
     footer: {
@@ -42,12 +43,20 @@ module.exports = {
           title: 'Docs',
           items: [
             {
-              label: 'Style Guide',
+              label: 'Introduction',
               to: 'docs/',
             },
             {
-              label: 'Second Doc',
-              to: 'docs/doc2/',
+              label: 'Quickstart',
+              to: 'docs/quickstart',
+            },
+            {
+              label: 'Features',
+              to: 'docs/features',
+            },
+            {
+              label: 'FAQs',
+              to: 'docs/faq',
             },
           ],
         },
@@ -55,16 +64,16 @@ module.exports = {
           title: 'Community',
           items: [
             {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
+              label: 'Slack',
+              href: 'https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA',
             },
             {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
+              label: 'Town Halls',
+              to: 'docs/townhalls',
             },
             {
-              label: 'Twitter',
-              href: 'https://twitter.com/docusaurus',
+              label: 'Adoption',
+              to: 'docs/#adoption',
             },
           ],
         },
@@ -72,8 +81,12 @@ module.exports = {
           title: 'More',
           items: [
             {
-              label: 'Blog',
-              to: 'blog',
+              label: 'Roadmap',
+              to: 'docs/roadmap',
+            },
+            {
+              label: 'Contributing',
+              to: 'docs/contributing',
             },
             {
               label: 'GitHub',
@@ -82,7 +95,7 @@ module.exports = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors. Built with Docusaurus.`,
     },
   },
   presets: [
