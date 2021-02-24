@@ -69,7 +69,7 @@ export const SearchHeader = ({
                 onSearch={onSearch}
                 onQueryChange={onQueryChange}
             />
-            <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink} />
+            <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
         </Header>
     );
 };
