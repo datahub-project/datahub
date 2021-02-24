@@ -16,10 +16,14 @@ public class RemoteWriterConfig {
     private String gmsHost;
     @Value("${GMS_PORT:8080}")
     private int gmsPort;
+    @Value("${GMS_USE_SSL:false}")
+    private boolean gmsUseSSL;
+    @Value("${GMS_SSL_PROTOCOL:#{null}}")
+    private String gmsSslProtocol;
 
     @Bean
     public BaseRemoteWriterDAO remoteWriterDAO() {
-        Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
+        Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
         return new RestliRemoteWriterDAO(restClient);
     }
 }
