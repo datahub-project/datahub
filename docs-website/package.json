@@ -9,7 +9,10 @@
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "serve": "docusaurus serve",
-    "clear": "docusaurus clear"
+    "clear": "docusaurus clear",
+    "generate": "rm -rf genDocs/* && ts-node generateDocsDir.ts",
+    "lint": "prettier -w generateDocsDir.ts sidebars.js",
+    "lint-check": "prettier -l generateDocsDir.ts sidebars.js"
   },
   "dependencies": {
     "@docusaurus/core": "2.0.0-alpha.70",
