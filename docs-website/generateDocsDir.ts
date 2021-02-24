@@ -6,6 +6,7 @@ import * as path from "path";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
+const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
 const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
 function list_markdown_files(): string[] {
@@ -95,6 +96,14 @@ function markdown_guess_title(
 
   contents.data.title = title;
   contents.data.hide_title = true;
+}
+
+function markdown_add_edit_url(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
+  contents.data.custom_edit_url = editUrl;
 }
 
 function markdown_add_slug(
@@ -205,6 +214,7 @@ for (const filepath of markdown_files) {
 
   markdown_guess_title(contents, filepath);
   markdown_add_slug(contents, filepath);
+  markdown_add_edit_url(contents, filepath);
   markdown_rewrite_urls(contents, filepath);
   // console.log(contents);
 

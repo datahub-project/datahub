@@ -17,7 +17,7 @@ module.exports = {
       // Serves as user guides.
       "docs/quickstart",
       "docs/debugging",
-      "docs/how/data-source-onboarding",
+      // OUTDATED "docs/how/data-source-onboarding",
     ],
     Architecture: [
       // "docs/README",

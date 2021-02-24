@@ -104,7 +104,9 @@ module.exports = {
         docs: {
           path: 'genDocs',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/linkedin/datahub/blob/master/'
+          editUrl: 'https://github.com/linkedin/datahub/blob/master/',
+          showLastUpdateAuthor: true,
+          showLastUpdateTime: true,
         },
         blog: false,
         theme: {
@@ -120,6 +122,8 @@ module.exports = {
         // `hashed` is recommended as long-term-cache of index file is possible.
         hashed: true,
         language: ["en"],
+        docsDir: "genDocs",
+        blogDir: [],
       },
     ],
   ],

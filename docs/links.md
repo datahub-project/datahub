@@ -1,4 +1,4 @@
-# Links
+# Articles & Talks
 
 ## Articles
 * [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
