@@ -52,7 +52,7 @@ Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy o
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
 * [Docker Images](docker/README.md)
 * [Frontend](datahub-frontend/README.md)
-* Older [Ember Web App](datahub-web/README.md)
+* Older [Ember Web App](datahub-web)
 * New [React Web App](datahub-web-react/README.md) (incubating)
 * [Generalized Metadata Service](gms/README.md)
 * Metadata Ingestion with [Python](metadata-ingestion/README.md) (recommended) or [Java](metadata-ingestion-examples)
