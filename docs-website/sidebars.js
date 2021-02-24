@@ -76,9 +76,24 @@ module.exports = {
     ],
     // },
     // operatorGuideSidebar: {
-    Deployment: ["docs/how/kafka-config", "docker/README"],
+    Deployment: [
+      "docs/how/kafka-config",
+      "docker/README",
+      // Purposely not including the following:
+      // - "docker/datahub-frontend/README",
+      // - "docker/datahub-gms-graphql-service/README",
+      // - "docker/datahub-gms/README",
+      // - "docker/datahub-mae-consumer/README",
+      // - "docker/datahub-mce-consumer/README",
+      // - "docker/elasticsearch-setup/README",
+      // - "docker/ingestion/README",
+      // - "docker/kafka-setup/README",
+      // - "docker/mariadb/README",
+      // - "docker/mysql/README",
+      // - "docker/neo4j/README",
+      // - "docker/postgres/README",
+    ],
     // },
-    // TODO: {
     Community: [
       "docs/slack",
       "docs/links",
@@ -91,7 +106,7 @@ module.exports = {
           "docs/rfc/active/1778-dashboards/README",
           "docs/rfc/active/1812-ml_models/README",
           "docs/rfc/active/1820-azkaban-flow-job/README",
-          "docs/rfc/active/1841-lineage/field level lineage",
+          "docs/rfc/active/1841-lineage/field_level_lineage",
           "docs/rfc/active/business_glossary/README",
           "docs/rfc/active/graph_ql_frontend/queries",
           "docs/rfc/active/react-app/README",

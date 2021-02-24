@@ -109,6 +109,17 @@ function markdown_add_slug(
 
 function new_url(original: string, filepath: string): string {
   if (original.startsWith("http://") || original.startsWith("https://")) {
+    if (
+      (original
+        .toLowerCase()
+        .startsWith("https://github.com/linkedin/datahub/blob") ||
+        original
+          .toLowerCase()
+          .startsWith("https://github.com/linkedin/datahub/tree")) &&
+      (original.endsWith(".md") || original.endsWith(".pdf"))
+    ) {
+      console.log("absolute link:", original, "in", filepath);
+    }
     // TODO warn on absolute internal github links
     return original;
   }
@@ -132,6 +143,8 @@ function new_url(original: string, filepath: string): string {
       ".ts",
       ".yml",
       ".sh",
+      ".env",
+      ".sql",
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.

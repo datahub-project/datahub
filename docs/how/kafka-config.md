@@ -29,7 +29,7 @@ DataHub components that connect to Kafka are currently:
 ## Configuring Topic Names
 
 By default, ingestion relies upon the `MetadataChangeEvent_v4`, `MetadataAuditEvent_v4`, and `FailedMetadataChangeEvent` kafka topics by default for
-[metadata events](https://github.com/linkedin/datahub/blob/master/docs/what/mxe.md).
+[metadata events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, if your company or organization has naming rules for your topics.
 

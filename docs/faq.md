@@ -48,7 +48,7 @@ The best way to engage is through the [Slack channel](https://datahubspace.slack
 For reproducible technical issues, bugs and code contributions, Github [issues](https://github.com/linkedin/datahub/issues) and [PRs](https://github.com/linkedin/datahub/pulls) are the preferred channel.
 
 ## What’s the best way to ramp up the product knowledge to properly test and evaluate DataHub?
-[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](https://github.com/linkedin/datahub/tree/master/docs/architecture), [definitions](https://github.com/linkedin/datahub/tree/master/docs/what), and [onboarding guides](https://github.com/linkedin/datahub/tree/master/docs/how).
+[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](./architecture), [definitions](./what), and [onboarding guides](./how).
 
 The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 
