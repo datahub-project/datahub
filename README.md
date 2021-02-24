@@ -4,6 +4,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
 [![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/docs/CONTRIBUTING.md)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/linkedin/datahub)](https://github.com/linkedin/datahub/pulls?q=is%3Apr)
 [![License](https://img.shields.io/github/license/linkedin/datahub)](https://github.com/linkedin/datahub/blob/master/LICENSE)
 
 ---
@@ -49,11 +50,12 @@ Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy o
 * [DataHub Developer's Guide](docs/developers.md)
 * [DataHub Architecture](docs/architecture/architecture.md)
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
-* [Docker Images](docker)
-* [Frontend](datahub-frontend)
-* [Web App](datahub-web)
-* [Generalized Metadata Service](gms)
-* Metadata Ingestion: \[[python](metadata-ingestion)\] \[[java](metadata-ingestion-examples)\]
+* [Docker Images](docker/README.md)
+* [Frontend](datahub-frontend/README.md)
+* Older [Ember Web App](datahub-web/README.md)
+* New [React Web App](datahub-web-react/README.md) (incubating)
+* [Generalized Metadata Service](gms/README.md)
+* Metadata Ingestion with [Python](metadata-ingestion/README.md) (recommended) or [Java](metadata-ingestion-examples)
 * [Metadata Processing Jobs](metadata-jobs)
 
 ## Releases

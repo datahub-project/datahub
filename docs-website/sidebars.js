@@ -3,7 +3,7 @@ module.exports = {
   // architects
   // modelers
   // developers
-  // operations
+  // operators
 
   overviewSidebar: {
     DataHub: [
@@ -30,6 +30,7 @@ module.exports = {
     // },
     // developerGuideSidebar: {
     "Metadata Modeling": [
+      // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
       "docs/what/entity",
       "docs/what/aspect",
       "docs/what/urn",
@@ -40,6 +41,7 @@ module.exports = {
       "docs/what/mxe",
     ],
     "Developer Guides": [
+      // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
       "docs/what/graph",
