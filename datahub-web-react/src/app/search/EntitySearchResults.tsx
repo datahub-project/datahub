@@ -81,7 +81,13 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             {loading && <Message type="loading" content="Loading..." style={styles.loading} />}
             <Button style={styles.addFilters} onClick={onEditFilters}>
                 <FilterOutlined />
-                Add Filters
+                Filters{' '}
+                {filters.length > 0 && (
+                    <>
+                        {' '}
+                        (<b>{filters.length}</b>)
+                    </>
+                )}
             </Button>
             <Modal
                 title="Filters"
