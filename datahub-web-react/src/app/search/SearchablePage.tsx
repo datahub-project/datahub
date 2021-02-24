@@ -9,6 +9,11 @@ import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generat
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
+const styles = {
+    pageContainer: { backgroundColor: '#FFFFFF' },
+    children: { marginTop: 80 },
+};
+
 interface Props extends React.PropsWithChildren<any> {
     initialQuery?: string;
     onSearch?: (query: string) => void;
@@ -51,7 +56,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     return (
-        <Layout style={{ backgroundColor: '#FFFFFF' }}>
+        <Layout style={styles.pageContainer}>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
@@ -63,7 +68,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 authenticatedUserUrn={userData?.corpUser?.urn || ''}
                 authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink}
             />
-            <div style={{ marginTop: 80 }}>{children}</div>
+            <div style={styles.children}>{children}</div>
         </Layout>
     );
 };

@@ -1,12 +1,30 @@
 import * as React from 'react';
 import 'antd/dist/antd.css';
-import { Image, Layout, Typography } from 'antd';
+import { Image, Layout, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
 import { GlobalCfg } from '../../conf';
 
 const { Header } = Layout;
+
+const styles = {
+    header: {
+        position: 'fixed',
+        zIndex: 1,
+        width: '100%',
+        backgroundColor: 'rgb(51 62 76)',
+        height: '80px',
+        lineHeight: '20px',
+        color: '#fff',
+        padding: '0px 40px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    logoImage: { width: '36px', height: '32px' },
+    title: { color: 'white', paddingLeft: '12px', margin: '0' },
+};
 
 type Props = {
     initialQuery: string;
@@ -35,32 +53,15 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
 }: Props) => {
     return (
-        <Header
-            style={{
-                position: 'fixed',
-                zIndex: 1,
-                width: '100%',
-                backgroundColor: 'rgb(51 62 76)',
-                height: '80px',
-                lineHeight: '20px',
-                color: '#fff',
-                padding: '0px 40px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}
-        >
-            <Link
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                }}
-                to="/"
-            >
-                <Image style={{ width: '34px', height: '30px' }} src={GlobalCfg.LOGO_IMAGE} preview={false} />
-                <Typography.Title level={4} style={{ color: 'white', paddingLeft: '12px', margin: '0' }}>
-                    DataHub
-                </Typography.Title>
+        <Header style={styles.header as any}>
+            <Link to="/">
+                <Space size={4}>
+                    {' '}
+                    <Image style={styles.logoImage} src={GlobalCfg.LOGO_IMAGE} preview={false} />
+                    <Typography.Title level={4} style={styles.title}>
+                        DataHub
+                    </Typography.Title>
+                </Space>
             </Link>
             <SearchBar
                 initialQuery={initialQuery}

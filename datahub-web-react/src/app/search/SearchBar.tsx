@@ -3,6 +3,10 @@ import { Input, AutoComplete } from 'antd';
 
 const { Search } = Input;
 
+const styles = {
+    autoComplete: { width: 650 },
+};
+
 interface Props {
     initialQuery: string;
     placeholderText: string;
@@ -23,7 +27,7 @@ export const SearchBar = ({ initialQuery, placeholderText, suggestions, onSearch
     return (
         <div style={style}>
             <AutoComplete
-                style={{ width: 650 }}
+                style={styles.autoComplete}
                 options={suggestions.map((result: string) => ({ value: result }))}
                 onSelect={(value: string) => onSearch(value)}
                 onSearch={(value: string) => onQueryChange(value)}
