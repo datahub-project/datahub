@@ -8,7 +8,7 @@
 ## Summary
 
 We suggest a generic, global tagging solution for Datahub. As the solution is quite generic and flexible, it can also
-hopefully serve as an stepping stone for cool features in the future.
+hopefully serve as an stepping stone for new, cool features in the future.
 
 ## Motivation
 
@@ -19,8 +19,9 @@ A general tag implementation will allow us to define and attach a new and simple
 entities. As the tags would be defined globally, tagging multiple objects with the same tag will give us the possibility
 to define and search based on a new kind of relationship, for example which datasets and ML Models that are tagged to
 include PII data. This allows for describing relationships between object that would otherwise not have a direct lineage
-relationship. Moreover, tags would lower that bar to add simple metadata to any object in the Datahub instance.
-Remembering that tags themselves are entities, it would also be possible to tag tags, enabling a hierarchy of sorts.
+relationship. Moreover, tags would lower that bar to add simple metadata to any object in the Datahub instance and open
+the door to crowd-sourcing metadata. Remembering that tags themselves are entities, it would also be possible to tag
+tags, enabling a hierarchy of sorts.
 
 The solution is meant to be quite generic and flexible, and we're not trying to be too opinionated about how a user
 should use the feature. We hope that this initial generic solution can serve as a stepping stone for cool futures in the
@@ -78,31 +79,14 @@ record TagMetadata {
 
    /**
    * Optional reference to an external definition
+   * Another option is to define simple ExternalDefinition model.
    */
-   externalDefinition: optional ExternalDefinition
+   externalDefinition: optional InstitutionalMemory
 
    /**
    * Audit stamp associated with creation of this tag
    */
    createStamp: AuditStamp
-}
-```
-
-Here ExternalDefinition is simply
-
-```
-/**
- * External definition for a Tag
- */
-record ExternalDefinition {
-  /**
-   * Source of the definition
-   */
-  source: optional string
-  /**
-   * URL reference for the external definition
-   */
-  reference: optional string
 }
 ```
 
@@ -132,14 +116,13 @@ record TagAttachment {
    /**
    * Audit stamp associated with employment of this tag to this entity
    */
-   applicationStamp: AuditStamp
+   attachmentStamp: AuditStamp
 }
 ```
 
 ### `Tags` container
 
-Then we define a `Tags`-model, which is used as a container for tag employments. This container is taken into use in
-aspects.
+Then we define a `Tags`-aspect, which is used as a container for tag employments.
 
 ```
 namespace com.linkedin.common
@@ -155,6 +138,10 @@ record Tags {
    elements: array[TagAttachment] = [ ]
 }
 ```
+
+This can easily be taken into use with wall entities that we want to be able to use tags, e.g. `Datasets`. As we see a
+lot of potential in tagging individual dataset fields as well, we can either add a reference to a Tags-object in the
+`SchemaField` object, or alternative create a new `DatasetFieldTags`, similar to `DatasetFieldMapping`.
 
 ## How we teach this
 
@@ -208,6 +195,8 @@ the users can easily take into use. It can be take into use as any other entity 
 ## Unresolved questions
 
 - Do we need more metadata on tags, like a description or attributes?
+- How do we want to map dataset fields to tags?
+- Can we use institutional memory for the `externalDefinition` of a tag?
 - How to implement edit/view rights?
 - Hierarchical tags (tagging tags) could be cool but it can quickly get quite complex. How can we, as users, have better
   control over these hierarchical tags?
