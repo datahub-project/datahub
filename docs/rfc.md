@@ -1,4 +1,4 @@
-# DataHub RFC
+# DataHub RFC Process
 
 ## What is an RFC?
 

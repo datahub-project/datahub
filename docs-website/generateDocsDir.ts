@@ -22,6 +22,7 @@ function list_markdown_files(): string[] {
     // Don't want hosted docs for these.
     /^contrib\//,
     /^datahub-web\//,
+    /^metadata-ingestion-examples\//,
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
   ];
@@ -35,20 +36,67 @@ function list_markdown_files(): string[] {
 const markdown_files = list_markdown_files();
 // console.log(markdown_files);
 
-function markdown_guess_title(contents: matter.GrayMatterFile<string>): void {
+function get_id(filepath: string): string {
+  // Removes the file extension (e.g. md).
+  const id = filepath.replace(/\.[^/.]+$/, "");
+  // console.log(id);
+  return id;
+}
+
+function get_slug(filepath: string): string {
+  let slug = get_id(filepath);
+  if (slug.startsWith("docs/") && slug != "docs/README") {
+    slug = slug.slice(5);
+  }
+  slug = slug.toLowerCase();
+  slug = `/${slug}`;
+  return slug;
+}
+
+const hardcoded_titles = {
+  "README.md": "Introduction",
+};
+
+function markdown_guess_title(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
   if (contents.data.title) {
     return;
   }
 
-  // Find first h1 header and use it as the title.
-  const header = contents.content.match(/^# (.+)$/m);
-  const title = header[1];
+  let title: string;
+  if (filepath in hardcoded_titles) {
+    title = hardcoded_titles[filepath];
+  } else {
+    // Find first h1 header and use it as the title.
+    // TODO: check if there are multiple h1 headers and warn if so
+    const header = contents.content.match(/^# (.+)$/m);
+    title = header[1].trim();
+    if (title.startsWith("DataHub ")) {
+      title = title.slice(8).trim();
+    }
+  }
+
   contents.data.title = title;
   contents.data.hide_title = true;
 }
 
+function markdown_add_slug(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  if (contents.data.slug) {
+    return;
+  }
+
+  const slug = get_slug(filepath);
+  contents.data.slug = slug;
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.startsWith("http://") || original.startsWith("https://")) {
+    // TODO warn on absolute internal github links
     return original;
   }
 
@@ -124,10 +172,12 @@ function markdown_rewrite_urls(
 }
 
 for (const filepath of markdown_files) {
-  console.log("Processing:", filepath);
+  // console.log("Processing:", filepath);
   const contents_string = fs.readFileSync(`../${filepath}`).toString();
   const contents = matter(contents_string);
-  markdown_guess_title(contents);
+
+  markdown_guess_title(contents, filepath);
+  markdown_add_slug(contents, filepath);
   markdown_rewrite_urls(contents, filepath);
   // console.log(contents);
 
@@ -135,4 +185,15 @@ for (const filepath of markdown_files) {
   const pathname = path.dirname(outpath);
   fs.mkdirSync(pathname, { recursive: true });
   fs.writeFileSync(outpath, contents.stringify(""));
+}
+
+// Output a list of all docs which are not included in a sidebar.
+const sidebar = require("./sidebars.js");
+const sidebar_json = JSON.stringify(sidebar);
+for (const filepath of markdown_files) {
+  const doc_id = get_id(filepath);
+
+  if (sidebar_json.indexOf(`"${doc_id}"`) < 0) {
+    console.warn("Not included in sidebar:", filepath);
+  }
 }
