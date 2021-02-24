@@ -40,7 +40,7 @@ export const SearchHeader = ({
                 position: 'fixed',
                 zIndex: 1,
                 width: '100%',
-                backgroundColor: GlobalCfg.THEME_COLOR_PRIMARY,
+                backgroundColor: 'rgb(51 62 76)',
                 height: '80px',
                 lineHeight: '20px',
                 color: '#fff',
