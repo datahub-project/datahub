@@ -76,7 +76,7 @@ module.exports = {
     ],
     // },
     // operatorGuideSidebar: {
-    Deployment: ["docs/how/kafka-config"],
+    Deployment: ["docs/how/kafka-config", "docker/README"],
     // },
     // TODO: {
     Community: [

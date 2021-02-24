@@ -1,3 +1,8 @@
+---
+title: "Strongly Consistent Secondary Index"
+hide_title: true
+---
+
 # How to onboard to Strongly Consistent Secondary Index (SCSI)?
 
 ## 1. Create urn path extractor for your entity

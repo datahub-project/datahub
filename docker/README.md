@@ -1,3 +1,8 @@
+---
+title: "Deploying with Docker"
+hide_title: true
+---
+
 # Docker Images
 
 ## Prerequisites
