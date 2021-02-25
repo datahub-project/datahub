@@ -1,18 +1,27 @@
 import React from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
-import { Affix, Col, Row, Tabs, Layout, List, Alert } from 'antd';
-
+import { Affix, Tabs } from 'antd';
 import { SearchablePage } from './SearchablePage';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
-import { SearchResults } from './SearchResults';
-import { SearchFilters } from './SearchFilters';
-import { SearchCfg } from '../../conf';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput } from '../../types.generated';
 import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { Message } from '../shared/Message';
+import { EntitySearchResults } from './EntitySearchResults';
+import { IconStyleType } from '../entity/Entity';
+import { EntityGroupSearchResults } from './EntityGroupSearchResults';
+
+const ALL_ENTITIES_TAB_NAME = 'All';
+
+const styles = {
+    tabs: {
+        backgroundColor: '#FFFFFF',
+        paddingLeft: '165px',
+        paddingTop: '12px',
+        color: 'rgba(0, 0, 0, 0.45)',
+    },
+    tab: { fontSize: 20 },
+};
 
 type SearchPageParams = {
     type?: string;
@@ -29,101 +38,73 @@ export const SearchPage = () => {
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const selectedType = entityRegistry.getTypeOrDefaultFromPathName(
-        useParams<SearchPageParams>().type || '',
-        undefined,
-    );
-    const activeType = selectedType || entityRegistry.getDefaultSearchEntityType();
+    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const query: string = params.query ? (params.query as string) : '';
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
 
-    const { loading, error, data } = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type: activeType,
-                query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
-                filters,
-            },
-        },
-    });
-
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
-    const onSearchTypeChange = (newType: string) => {
-        const entityType = entityRegistry.getTypeFromCollectionName(newType);
-        navigateToSearchUrl({ type: entityType, query, page: 1, history, entityRegistry });
+    const onSearch = (q: string) => {
+        navigateToSearchUrl({ type: activeType, query: q, page: 1, history, entityRegistry });
     };
 
-    const onFilterSelect = (selected: boolean, field: string, value: string) => {
-        const newFilters = selected
-            ? [...filters, { field, value }]
-            : filters.filter((filter) => filter.field !== field || filter.value !== value);
+    const onChangeSearchType = (newType: string) => {
+        if (newType === ALL_ENTITIES_TAB_NAME) {
+            navigateToSearchUrl({ query, page: 1, history, entityRegistry });
+        } else {
+            const entityType = entityRegistry.getTypeFromCollectionName(newType);
+            navigateToSearchUrl({ type: entityType, query, page: 1, history, entityRegistry });
+        }
+    };
 
+    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, entityRegistry });
     };
 
-    const onResultsPageChange = (newPage: number) => {
+    const onChangePage = (newPage: number) => {
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
-    const toSearchResults = (elements: any) => (
-        <List
-            dataSource={elements}
-            renderItem={(item) => (
-                <List.Item style={{ padding: 32 }}>{entityRegistry.renderSearchResult(activeType, item)}</List.Item>
-            )}
-            bordered
-        />
-    );
-
-    const searchResults = toSearchResults(data?.search?.entities || []);
-
     return (
-        <SearchablePage initialQuery={query} selectedType={selectedType}>
-            <Layout.Content style={{ backgroundColor: 'white' }}>
-                <Affix offsetTop={64}>
-                    <Tabs
-                        tabBarStyle={{ backgroundColor: 'white', padding: '0px 165px', marginBottom: '0px' }}
-                        activeKey={entityRegistry.getCollectionName(activeType)}
-                        size="large"
-                        onChange={onSearchTypeChange}
-                    >
-                        {searchTypes.map((t) => (
-                            <Tabs.TabPane
-                                tab={entityRegistry.getCollectionName(t)}
-                                key={entityRegistry.getCollectionName(t)}
-                            />
-                        ))}
-                    </Tabs>
-                </Affix>
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-                <Row style={{ width: '80%', margin: 'auto auto', backgroundColor: 'white' }}>
-                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={6}>
-                        <SearchFilters
-                            facets={data?.search?.facets || []}
-                            selectedFilters={filters}
-                            onFilterSelect={onFilterSelect}
+        <SearchablePage initialQuery={query} onSearch={onSearch}>
+            <Affix offsetTop={80}>
+                <Tabs
+                    tabBarStyle={styles.tabs}
+                    activeKey={activeType ? entityRegistry.getCollectionName(activeType) : ALL_ENTITIES_TAB_NAME}
+                    size="large"
+                    onChange={onChangeSearchType}
+                >
+                    <Tabs.TabPane
+                        style={styles.tab}
+                        tab={<span style={styles.tab}>All</span>}
+                        key={ALL_ENTITIES_TAB_NAME}
+                    />
+                    {searchTypes.map((t) => (
+                        <Tabs.TabPane
+                            tab={
+                                <>
+                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}{' '}
+                                    <span style={styles.tab}>{entityRegistry.getCollectionName(t)}</span>
+                                </>
+                            }
+                            key={entityRegistry.getCollectionName(t)}
                         />
-                    </Col>
-                    <Col style={{ margin: '24px 0px 0px 0px', padding: '0px 16px' }} span={18}>
-                        {data?.search && (
-                            <SearchResults
-                                typeName={entityRegistry.getCollectionName(activeType)}
-                                results={searchResults}
-                                pageStart={data?.search?.start}
-                                pageSize={data.search?.count}
-                                totalResults={data.search?.total}
-                                onChangePage={onResultsPageChange}
-                            />
-                        )}
-                    </Col>
-                </Row>
-            </Layout.Content>
+                    ))}
+                </Tabs>
+            </Affix>
+            {activeType ? (
+                <EntitySearchResults
+                    type={activeType}
+                    page={page}
+                    query={query}
+                    filters={filters}
+                    onChangeFilters={onChangeFilters}
+                    onChangePage={onChangePage}
+                />
+            ) : (
+                entityRegistry
+                    .getSearchEntityTypes()
+                    .map((entityType) => <EntityGroupSearchResults type={entityType} query={query} />)
+            )}
         </SearchablePage>
     );
 };

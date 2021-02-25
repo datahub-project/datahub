@@ -43,9 +43,9 @@ const App: React.VFC = () => {
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
-        register.register(new UserEntity());
         register.register(new DashboardEntity());
         register.register(new ChartEntity());
+        register.register(new UserEntity());
         return register;
     }, []);
     return (

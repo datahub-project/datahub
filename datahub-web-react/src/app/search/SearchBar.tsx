@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Input, AutoComplete, Select } from 'antd';
+import React from 'react';
+import { Input, AutoComplete } from 'antd';
 
 const { Search } = Input;
-const { Option } = Select;
+
+const styles = {
+    autoComplete: { width: 650 },
+};
 
 interface Props {
-    types: Array<string>;
-    selectedType: string;
     initialQuery: string;
     placeholderText: string;
     suggestions: Array<string>;
-    onSearch: (type: string, query: string) => void;
-    onQueryChange: (type: string, query: string) => void;
+    onSearch: (query: string) => void;
+    onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
 }
 
@@ -22,53 +23,17 @@ const defaultProps = {
 /**
  * Represents the search bar appearing in the default header view.
  */
-export const SearchBar = ({
-    types,
-    selectedType,
-    initialQuery,
-    placeholderText,
-    suggestions,
-    onSearch,
-    onQueryChange,
-    style,
-}: Props) => {
-    const [activeType, setActiveType] = useState(selectedType);
-
-    useEffect(() => {
-        setActiveType(selectedType);
-    }, [selectedType]);
-
-    const onTypeChange = (value: string) => {
-        setActiveType(value);
-    };
-
+export const SearchBar = ({ initialQuery, placeholderText, suggestions, onSearch, onQueryChange, style }: Props) => {
     return (
-        <div
-            style={{
-                height: '64px',
-                width: '900px',
-                padding: '0px 40px',
-                margin: '0px auto',
-                display: 'flex',
-                alignItems: 'center',
-                ...style,
-            }}
-        >
-            <Select value={activeType} style={{ marginRight: '12px', width: 250 }} onChange={onTypeChange}>
-                {types.map((t) => (
-                    <Option key={t} value={t}>
-                        {t}
-                    </Option>
-                ))}
-            </Select>
+        <div style={style}>
             <AutoComplete
-                style={{ width: 500 }}
+                style={styles.autoComplete}
                 options={suggestions.map((result: string) => ({ value: result }))}
-                onSelect={(value: string) => onSearch(activeType, value)}
-                onSearch={(value: string) => onQueryChange(activeType, value)}
+                onSelect={(value: string) => onSearch(value)}
+                onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery}
             >
-                <Search placeholder={placeholderText} onSearch={(value: string) => onSearch(activeType, value)} />
+                <Search placeholder={placeholderText} onSearch={(value: string) => onSearch(value)} />
             </AutoComplete>
         </div>
     );

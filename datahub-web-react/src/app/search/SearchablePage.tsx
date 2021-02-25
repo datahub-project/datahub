@@ -7,63 +7,48 @@ import { SearchCfg } from '../../conf';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { EntityType } from '../../types.generated';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
-const ALL_ENTITIES_SEARCH_TYPE_NAME = 'All Entities';
+const styles = {
+    pageContainer: { backgroundColor: '#FFFFFF' },
+    children: { marginTop: 80 },
+};
 
 interface Props extends React.PropsWithChildren<any> {
-    selectedType?: EntityType;
     initialQuery?: string;
+    onSearch?: (query: string) => void;
+    onAutoComplete?: (query: string) => void;
 }
 
 const defaultProps = {
-    selectedType: undefined,
     initialQuery: '',
+    onSearch: undefined,
+    onAutoComplete: undefined,
 };
 
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ selectedType, initialQuery, children }: Props) => {
+export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, children }: Props) => {
     const history = useHistory();
-
     const entityRegistry = useEntityRegistry();
-    const searchTypes = entityRegistry.getSearchEntityTypes();
 
     const { data: userData } = useGetAuthenticatedUser();
-
-    const searchTypeNames = [
-        ALL_ENTITIES_SEARCH_TYPE_NAME,
-        ...searchTypes.map((entityType) => entityRegistry.getCollectionName(entityType)),
-    ];
-
-    const selectedSearchTypeName =
-        selectedType && searchTypes.includes(selectedType)
-            ? entityRegistry.getCollectionName(selectedType)
-            : ALL_ENTITIES_SEARCH_TYPE_NAME;
-
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
-    const search = (typeName: string, query: string) => {
+    const search = (query: string) => {
         navigateToSearchUrl({
-            type:
-                ALL_ENTITIES_SEARCH_TYPE_NAME === typeName
-                    ? undefined
-                    : entityRegistry.getTypeFromCollectionName(typeName),
             query,
             history,
             entityRegistry,
         });
     };
 
-    const autoComplete = (type: string, query: string) => {
-        const entityType =
-            ALL_ENTITIES_SEARCH_TYPE_NAME === type ? searchTypes[0] : entityRegistry.getTypeFromCollectionName(type);
+    const autoComplete = (query: string) => {
         getAutoCompleteResults({
             variables: {
                 input: {
-                    type: entityType,
+                    type: entityRegistry.getDefaultSearchEntityType(),
                     query,
                 },
             },
@@ -71,21 +56,19 @@ export const SearchablePage = ({ selectedType, initialQuery, children }: Props) 
     };
 
     return (
-        <Layout>
+        <Layout style={styles.pageContainer}>
             <SearchHeader
-                types={searchTypeNames}
-                selectedType={selectedSearchTypeName}
                 initialQuery={initialQuery as string}
                 placeholderText={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
                 suggestions={
                     (suggestionsData && suggestionsData?.autoComplete && suggestionsData.autoComplete.suggestions) || []
                 }
-                onSearch={search}
-                onQueryChange={autoComplete}
+                onSearch={onSearch || search}
+                onQueryChange={onAutoComplete || autoComplete}
                 authenticatedUserUrn={userData?.corpUser?.urn || ''}
-                authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink || ''}
+                authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink}
             />
-            <div style={{ marginTop: 64 }}>{children}</div>
+            <div style={styles.children}>{children}</div>
         </Layout>
     );
 };

@@ -1,41 +1,47 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { Route } from 'react-router';
 
 import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../Mocks';
+import { PageRoutes } from '../../../conf/Global';
 
 describe('SearchPage', () => {
     it('renders', () => {
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=hive,kafka&page=1&query=sample']}>
-                    <SearchPage />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
     });
 
-    it('renders loading', () => {
+    it('renders loading', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=hive,kafka&page=1&query=sample']}>
-                    <SearchPage />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('Loading...')).toBeInTheDocument();
+        await waitFor(() => expect(getByText('Loading...')).toBeInTheDocument());
     });
 
     it('renders the selected filters as checked', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka&page=1&query=test']}>
-                    <SearchPage />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
+
+        await waitFor(() => expect(getByTestId('filters-button')).toBeInTheDocument());
+        const filtersButton = getByTestId('filters-button');
+        fireEvent.click(filtersButton);
 
         await waitFor(() => expect(queryByTestId('facet-platform-kafka')).toBeInTheDocument());
 
@@ -53,10 +59,14 @@ describe('SearchPage', () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka,hdfs&page=1&query=test']}>
-                    <SearchPage />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
+
+        await waitFor(() => expect(getByTestId('filters-button')).toBeInTheDocument());
+        const filtersButton = getByTestId('filters-button');
+        fireEvent.click(filtersButton);
 
         await waitFor(() => expect(queryByTestId('facet-platform-kafka')).toBeInTheDocument());
 
@@ -71,13 +81,17 @@ describe('SearchPage', () => {
     });
 
     it('clicking a filter selects a new filter', async () => {
-        const { getByTestId, queryByTestId, queryByText } = render(
+        const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka&page=1&query=test']}>
-                    <SearchPage />
+                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
+
+        await waitFor(() => expect(getByTestId('filters-button')).toBeInTheDocument());
+        const filtersButton = getByTestId('filters-button');
+        fireEvent.click(filtersButton);
 
         await waitFor(() => expect(queryByTestId('facet-platform-kafka')).toBeInTheDocument());
 
@@ -87,9 +101,7 @@ describe('SearchPage', () => {
         const hdfsPlatformBox = getByTestId('facet-platform-hdfs');
         expect(hdfsPlatformBox).toHaveProperty('checked', false);
 
-        expect(queryByText('Loading...')).not.toBeInTheDocument();
         fireEvent.click(hdfsPlatformBox);
-        expect(queryByText('Loading...')).toBeInTheDocument();
 
         await waitFor(() => expect(queryByTestId('facet-platform-kafka')).toBeInTheDocument());
 
