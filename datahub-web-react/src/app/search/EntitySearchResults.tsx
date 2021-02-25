@@ -67,8 +67,12 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
         setIsEditingFilters(true);
     };
 
-    const onCloseEditFilters = () => {
+    const onApplyFilters = () => {
         onChangeFilters(selectedFilters);
+        setIsEditingFilters(false);
+    };
+
+    const onCloseEditFilters = () => {
         setIsEditingFilters(false);
     };
 
@@ -91,9 +95,10 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             </Button>
             <Modal
                 title="Filters"
-                footer={<Button onClick={onCloseEditFilters}>Apply</Button>}
+                footer={<Button onClick={onApplyFilters}>Apply</Button>}
                 visible={isEditingFilters}
-                closable={false}
+                destroyOnClose
+                onCancel={onCloseEditFilters}
             >
                 <SearchFilters
                     facets={data?.search?.facets || []}

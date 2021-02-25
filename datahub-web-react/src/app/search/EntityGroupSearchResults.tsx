@@ -38,7 +38,11 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
         },
     });
 
-    const results = data?.search?.entities || [];
+    if (!data?.search?.entities.length) {
+        return null;
+    }
+
+    const results = !data?.search?.entities || [];
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>
@@ -75,7 +79,7 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
                     )
                 }
                 style={styles.resultList}
-                dataSource={data?.search?.entities || []}
+                dataSource={results}
                 split={false}
                 renderItem={(item, index) => (
                     <>
