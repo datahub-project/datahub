@@ -1,5 +1,4 @@
-// import { Card } from 'antd';
-import { Card, Checkbox } from 'antd';
+import { Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
 
@@ -22,11 +21,7 @@ interface Props {
 
 export const SearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props) => {
     return (
-        <Card
-            style={{ border: '1px solid #d2d2d2' }}
-            title={<h3 style={{ marginBottom: '0px' }}>Filters</h3>}
-            bodyStyle={{ padding: '24px 0px' }}
-        >
+        <>
             {facets.map((facet) => (
                 <div key={facet.field} style={{ padding: '0px 25px 15px 25px' }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>
@@ -53,6 +48,6 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props
                     ))}
                 </div>
             ))}
-        </Card>
+        </>
     );
 };
