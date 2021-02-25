@@ -211,6 +211,8 @@ Extracts:
 
 Extra requirements: `pip install psycopg2-binary` or `pip install psycopg2`
 
+If you're using PostGIS extensions for Postgres, also use `pip install GeoAlchemy2`.
+
 ```yml
 source:
   type: postgres
