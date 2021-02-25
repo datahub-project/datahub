@@ -1,11 +1,11 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { Route } from 'react-router';
 
 import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../Mocks';
-import { Route } from 'react-router';
 import { PageRoutes } from '../../../conf/Global';
 
 describe('SearchPage', () => {
