@@ -7,13 +7,23 @@
 
 /* You can override the default Infima variables here. */
 :root {
+  /* Darker blue theme
   --ifm-color-primary: #3578e5;
   --ifm-color-primary-dark: #306cce;
   --ifm-color-primary-darker: #2d66c3;
   --ifm-color-primary-darkest: #2554a0;
   --ifm-color-primary-light: #538ce9;
   --ifm-color-primary-lighter: #72a1ed;
-  --ifm-color-primary-lightest: #9abcf2;
+  --ifm-color-primary-lightest: #9abcf2; */
+
+  /* DataHub blue theme */
+  --ifm-color-primary: #4398c8;
+  --ifm-color-primary-dark: #368aba;
+  --ifm-color-primary-darker: #3383b0;
+  --ifm-color-primary-darkest: #2a6c91;
+  --ifm-color-primary-light: #58a3ce;
+  --ifm-color-primary-lighter: #62a9d1;
+  --ifm-color-primary-lightest: #81bada;
 
   /* Purple color theme
   --ifm-color-primary: #a547c4;
