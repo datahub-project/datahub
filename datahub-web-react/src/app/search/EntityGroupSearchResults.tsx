@@ -42,7 +42,7 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
         return null;
     }
 
-    const results = !data?.search?.entities || [];
+    const results = data?.search?.entities || [];
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>

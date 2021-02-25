@@ -74,6 +74,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
 
     const onCloseEditFilters = () => {
         setIsEditingFilters(false);
+        setSelectedFilters(filters);
     };
 
     if (error || (!loading && !error && !data)) {
