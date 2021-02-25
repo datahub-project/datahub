@@ -84,7 +84,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     return (
         <div style={styles.resultsContainer}>
             {loading && <Message type="loading" content="Loading..." style={styles.loading} />}
-            <Button style={styles.addFilters} onClick={onEditFilters}>
+            <Button style={styles.addFilters} onClick={onEditFilters} data-testid="filters-button">
                 <FilterOutlined />
                 Filters{' '}
                 {filters.length > 0 && (

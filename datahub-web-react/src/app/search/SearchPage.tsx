@@ -64,6 +64,8 @@ export const SearchPage = () => {
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
+    console.log({ activeType });
+
     return (
         <SearchablePage initialQuery={query} onSearch={onSearch}>
             <Affix offsetTop={80}>
