@@ -16,6 +16,8 @@ public class DaoFactory {
 
   private static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
   private static final String GMS_PORT_ENV_VAR = "DATAHUB_GMS_PORT";
+  private static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
+  private static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
 
   private static GmsDao _gmsDao;
   private static DocumentSearchDao datasetDocumentSearchDao;
@@ -35,7 +37,9 @@ public class DaoFactory {
   private static GmsDao getGmsDao() {
     if (_gmsDao == null) {
       _gmsDao = new GmsDao(Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR),
-              Integer.valueOf(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR)));
+              Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR)),
+              Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False")),
+              Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR));
     }
     return _gmsDao;
   }
