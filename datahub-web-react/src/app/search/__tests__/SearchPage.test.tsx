@@ -1,11 +1,10 @@
 import React from 'react';
-import { fireEvent, getByText, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 
 import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../Mocks';
-import { Routes } from '../../Routes';
 import { Route } from 'react-router';
 import { PageRoutes } from '../../../conf/Global';
 
@@ -32,7 +31,7 @@ describe('SearchPage', () => {
     });
 
     it('renders the selected filters as checked', async () => {
-        const { getByTestId, queryByTestId, getByText } = render(
+        const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka&page=1&query=test']}>
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
@@ -57,7 +56,7 @@ describe('SearchPage', () => {
     });
 
     it('renders multiple checked filters at once', async () => {
-        const { getByTestId, queryByTestId, getByText } = render(
+        const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka,hdfs&page=1&query=test']}>
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
@@ -82,7 +81,7 @@ describe('SearchPage', () => {
     });
 
     it('clicking a filter selects a new filter', async () => {
-        const { getByTestId, queryByTestId, queryByText, getByText } = render(
+        const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/search/dataset?filter_platform=kafka&page=1&query=test']}>
                     <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
