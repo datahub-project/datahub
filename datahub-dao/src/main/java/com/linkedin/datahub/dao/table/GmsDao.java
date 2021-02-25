@@ -40,4 +40,8 @@ public class GmsDao {
   public GmsDao(@Nonnull String restliHostName, @Nonnull int restliHostPort) {
     this(DefaultRestliClientFactory.getRestLiClient(restliHostName, restliHostPort));
   }
+
+  public GmsDao(@Nonnull String restliHostName, @Nonnull int restliHostPort, boolean useSSL, String sslProtocol) {
+    this(DefaultRestliClientFactory.getRestLiClient(restliHostName, restliHostPort, useSSL, sslProtocol));
+  }
 }
