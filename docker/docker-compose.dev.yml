@@ -11,6 +11,18 @@
 # TODO mount + debug docker file for frontend
 version: '3.8'
 services:
+  # Pre-creates the search indices using local mapping/settings.json
+  elasticsearch-setup:
+    image: elasticsearch-setup:debug
+    build:
+      context: elasticsearch-setup
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
+      - ../gms/impl/src/main/resources/index/:/index
+
   datahub-gms:
     image: linkedin/datahub-gms:debug
     build:

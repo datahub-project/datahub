@@ -4,8 +4,8 @@ set -e
 
 function create_index {
   jq -n \
-    --slurpfile settings $2 \
-    --slurpfile mappings $3 \
+    --slurpfile settings index/$2 \
+    --slurpfile mappings index/$3 \
     '.settings=$settings[0] | .mappings.doc=$mappings[0]' > /tmp/data
 
   curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/$1 --data @/tmp/data
