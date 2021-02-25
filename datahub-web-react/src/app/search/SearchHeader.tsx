@@ -56,7 +56,6 @@ export const SearchHeader = ({
         <Header style={styles.header as any}>
             <Link to="/">
                 <Space size={4}>
-                    {' '}
                     <Image style={styles.logoImage} src={GlobalCfg.LOGO_IMAGE} preview={false} />
                     <Typography.Title level={4} style={styles.title}>
                         DataHub
