@@ -4,42 +4,45 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import ThemedImage from '@theme/ThemedImage';
 import styles from './styles.module.css';
 
 const features = [
   {
-    title: 'Easy to Use',
-    imageUrl: 'img/undraw_docusaurus_mountain.svg',
+    title: 'Open Source',
+    imageUrl: 'img/undraw_open_source_1qxw.svg',
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        DataHub was originally <Link to={"https://engineering.linkedin.com/blog/2019/data-hub"}>built
+        at LinkedIn</Link> and subsequently <Link to={"https://github.com/linkedin/datahub"}>open-sourced</Link> under
+        the Apache 2.0 License. It now has a thriving community with over 75 contributors.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    imageUrl: 'img/undraw_docusaurus_tree.svg',
+    title: 'Forward Looking Architecture',
+    imageUrl: 'img/undraw_building_blocks_n0nc.svg',
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        DataHub follows a <Link to={"https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained"}>push-based architecture</Link>,
+        which lets it support advanced use cases and scale with an organization while not being too complex when getting started.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    imageUrl: 'img/undraw_docusaurus_react.svg',
+    title: 'Massive Ecosystem',
+    imageUrl: 'img/undraw_online_connection_6778.svg',
     description: (
+      // TODO: update the integrations link to scroll down the page.
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        DataHub has pre-built integrations with Kafka, MySQL, MS SQL, Postgres, LDAP, Snowflake,
+        Hive, BigQuery, and <Link to={"docs/metadata-ingestion"}>many others</Link>.
       </>
     ),
   },
 ];
 
-function Feature({imageUrl, title, description}) {
+function Feature({ imageUrl, title, description }) {
   const imgUrl = useBaseUrl(imageUrl);
   return (
     <div className={clsx('col col--4', styles.feature)}>
@@ -56,30 +59,50 @@ function Feature({imageUrl, title, description}) {
 
 function Home() {
   const context = useDocusaurusContext();
-  const {siteConfig = {}} = context;
+  const { siteConfig = {} } = context;
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
+      title={`${siteConfig.title} - ${siteConfig.tagline}`}
       description="Description will go into a meta tag in <head />">
-      <header className={clsx('hero hero--primary', styles.heroBanner)}>
+      <header className={clsx('hero', styles.heroBanner)}>
         <div className="container">
-          <h1 className="hero__title">{siteConfig.title}</h1>
-          <p className="hero__subtitle">{siteConfig.tagline}</p>
-          <div className={styles.buttons}>
-            <Link
-              className={clsx(
-                'button button--outline button--secondary button--lg',
-                styles.getStarted,
-              )}
-              to={useBaseUrl('docs/')}>
-              Get Started
+          <div className="row">
+            <div className="col col--8">
+              <h1 className={clsx("hero__title", styles.not_bold_text, styles.centerTextMobile)}>{siteConfig.tagline}</h1>
+              <p className={clsx("hero__subtitle", styles.centerTextMobile)}>TODO: a brief description of what datahub is and why it might be interesting to a company. Can be a few lines</p>
+              <div className={styles.buttons}>
+                <Link
+                  className={clsx(
+                    'button button--primary button--lg', styles.hero_button
+                  )}
+                  to={useBaseUrl('docs/')}>
+                  Get Started
             </Link>
+                <Link
+                  className={clsx(
+                    'button button--secondary button--outline button--lg',
+                    styles.hero_button
+                  )}
+                  to='https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA'>
+                  Join our Slack
+            </Link>
+              </div>
+            </div>
+            <div className={clsx("col col--4", styles.hiddenMobile, styles.bumpUpLogo)}>
+              <ThemedImage
+                alt="DataHub Logo"
+                sources={{
+                  light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
+                  dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
+                }}
+              />
+            </div>
           </div>
         </div>
       </header>
-      <main>
+      <section>
         {features && features.length > 0 && (
-          <section className={styles.features}>
+          <div className={styles.features}>
             <div className="container">
               <div className="row">
                 {features.map((props, idx) => (
@@ -87,9 +110,15 @@ function Home() {
                 ))}
               </div>
             </div>
-          </section>
+          </div>
         )}
-      </main>
+      </section>
+      <section className="hero hero--dark">
+        <div className="container">
+          TODO
+        </div>
+      </section>
+
     </Layout>
   );
 }
