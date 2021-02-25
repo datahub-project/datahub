@@ -7,6 +7,7 @@ record Owner {
 
   /**
    * Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name
+   * (Caveat: only corpuser is currently supported in the frontend.)
    */
   owner: Urn
 
