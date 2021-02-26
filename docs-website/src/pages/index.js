@@ -54,11 +54,11 @@ const features = [
   },
 ];
 
-const svgFormatter = (Logo) => {
-  return <Logo width="100%" height="100%" />;
+const svgFormatter = (Logo, className) => {
+  return <Logo className={clsx(styles.logo_image, className)} width="100%" height="100%" />;
 }
-const pngFormatter = (src) => {
-  return <Image img={src} width="100%" />
+const pngFormatter = (src, className) => {
+  return <Image className={clsx(styles.logo_image, className)} img={src} width="100%" />
 }
 
 const logos = [
@@ -72,7 +72,7 @@ const logos = [
   },
   {
     name: 'Saxo Bank',
-    image: svgFormatter(LogoSaxo),
+    image: svgFormatter(LogoSaxo, clsx(styles.logo_image_medium)),
   },
   {
     name: 'Grofers',
@@ -187,17 +187,21 @@ function Home() {
           </div>
         )}
       </section>
-      <section className={styles.section}>
+      <section className={clsx(styles.section, styles.logo_section)}>
         <div className="container">
-          <h1 className={clsx(styles.centerText)}>
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
             <span className={styles.larger_on_desktop}>
               Trusted Across the Industry
             </span>
           </h1>
-          <div className="row">
+          <div className={styles.logo_container}>
             {logos.map((logo) => (
-              <div key={logo.name} className="col col--3">
-                {logo.image}
+              <div key={logo.name}>
+                <div className={styles.logo_frame}>
+                  <div className={styles.logo_image_constrain}>
+                  {logo.image}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
