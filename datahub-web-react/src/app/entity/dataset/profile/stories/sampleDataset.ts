@@ -12,8 +12,6 @@ export const sampleDataset: Dataset = {
     origin: FabricType.Prod,
     description: 'Some description',
     type: EntityType.Dataset,
-    created: { time: 1 },
-    lastModified: { time: 1 },
     tags: [],
     ownership: {
         owners: [
@@ -35,8 +33,6 @@ export const sampleDeprecatedDataset: Dataset = {
     origin: FabricType.Prod,
     description: 'Some deprecated description',
     type: EntityType.Dataset,
-    created: { time: 1 },
-    lastModified: { time: 1 },
     tags: [],
     ownership: {
         owners: [
