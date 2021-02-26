@@ -100,6 +100,10 @@ module.exports = {
       ],
       copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors. Built with Docusaurus.`,
     },
+    // prism: {
+    //   theme: require('prism-react-renderer/themes/github'),
+    //   darkTheme: require('prism-react-renderer/themes/dracula'),
+    // },
   },
   presets: [
     [

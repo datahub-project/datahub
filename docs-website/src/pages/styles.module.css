@@ -3,9 +3,17 @@
   position: relative;
 }
 
+.larger_on_desktop {
+  font-size: 1.5em;
+}
+
 @media screen and (max-width: 966px) {
   .heroBanner {
     padding: 2rem 0.5rem;
+  }
+
+  .larger_on_desktop {
+    font-size: 1em;
   }
 
   .hiddenMobile {
@@ -50,4 +58,17 @@
 
 .centerText {
   text-align: center;
+}
+
+.big_padding_top {
+  padding-top: 4rem;
+}
+.big_padding_bottom {
+  padding-bottom: 4rem;
+}
+.small_padding_top {
+  padding-top: 2rem;
+}
+.section {
+  padding: 4rem 0;
 }

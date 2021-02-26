@@ -8,6 +8,7 @@ import ThemedImage from '@theme/ThemedImage';
 import styles from './styles.module.css';
 
 import Image from '@theme/IdealImage';
+import CodeBlock from '@theme/CodeBlock';
 import LogoLinkedin from './logos/linkedin.svg';
 import LogoExpedia from './logos/expedia.svg';
 import LogoSaxo from './logos/SaxoBank.svg';
@@ -36,7 +37,7 @@ const features = [
     description: (
       <>
         DataHub follows a <Link to={"https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained"}>push-based architecture</Link>,
-        which lets it support advanced use cases and scale with an organization while not being too complex when getting started.
+        which means it's built for continuously changing metadata. The modular design lets it scale with data growth at any organization.
       </>
     ),
   },
@@ -57,7 +58,7 @@ const svgFormatter = (Logo) => {
   return <Logo width="100%" height="100%" />;
 }
 const pngFormatter = (src) => {
-  return <Image img={src}/>
+  return <Image img={src} />
 }
 
 const logos = [
@@ -97,7 +98,20 @@ const logos = [
     name: 'Viasat',
     image: pngFormatter(LogoViasat),
   },
-]
+];
+
+const example_recipe = `
+source:
+  type: "mysql"
+  config:
+    username: "datahub"
+    password: "datahub"
+    host_port: "localhost:3306"
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'`.trim();
+const example_recipe_run = "datahub ingest -c recipe.yml"
 
 function Feature({ imageUrl, title, description }) {
   const imgUrl = useBaseUrl(imageUrl);
@@ -157,7 +171,7 @@ function Home() {
           </div>
         </div>
       </header>
-      <section>
+      <section className={styles.big_padding_bottom}>
         {features && features.length > 0 && (
           <div className={styles.features}>
             <div className="container">
@@ -170,9 +184,13 @@ function Home() {
           </div>
         )}
       </section>
-      <section className="hero">
+      <section className={styles.section}>
         <div className="container">
-          <h1 className={clsx(styles.centerText)}>Trusted Across the Industry</h1>
+          <h1 className={clsx(styles.centerText)}>
+            <span className={styles.larger_on_desktop}>
+              Trusted Across the Industry
+            </span>
+          </h1>
           <div className="row">
             {logos.map((logo) => (
               <div key={logo.name} className="col col--3">
@@ -182,7 +200,47 @@ function Home() {
           </div>
         </div>
       </section>
-
+      <section className={styles.section}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.big_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>
+              How does it work?
+            </span>
+          </h1>
+          <div className="row">
+            <div className="col col--6">
+              <h2><span className={styles.larger_on_desktop}>
+                1. Automated Metadata Ingestion
+              </span></h2>
+              <p>
+                There're two way to get metadata into DataHub: <b>push</b> and <b>pull</b>.
+                Notice that DataHub's push-based architecture also supports
+                pull, but pull-first systems cannot support push.
+              </p>
+              <p>
+                <b>Push</b>-based ingestion can use a prebuilt emitter or can emit custom events using our framework.
+              </p>
+              <p>
+                <b>Pull</b>-based ingestion crawls a metadata source. We have prebuilt integrations with
+                Kafka, MySQL, MS SQL, Postgres, LDAP, Snowflake, Hive, BigQuery, and more.
+                Ingestion can be automated using our Airflow integration or another scheduler of choice.
+                {/* TODO: add logos for these integration */}
+              </p>
+              <p>
+                Learn more about metadata ingestion with DataHub in the <Link to={'docs/metadata-ingestion'}>docs</Link>.
+              </p>
+            </div>
+            <div className="col col--6">
+              <p className={styles.small_padding_top}>
+              <CodeBlock className={'language-yml'} metastring='title="recipe.yml"'>{example_recipe}</CodeBlock>
+              </p>
+              <p>
+              <CodeBlock className={'language-shell'}>{example_recipe_run}</CodeBlock>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
     </Layout>
   );
 }
