@@ -51,7 +51,7 @@ the application directly from command line after a successful [build](#build):
 cd datahub-frontend/run && ./run-local-frontend
 ```
 
-If you are running the React app locally via `yarn start`, it will be forwarding graphql requests to port `9002`. In order to use `./run-local-frontend` with the React app, change the httpPort value in [./play.gradle](./play.gradle) to `9002` and run `./gradlew :datahub-frontend:build`.
+If you are running the React app locally via `yarn start`, it will be forwarding graphql requests to port `9002`. In order to use `./run-local-frontend` with the React app, change the PORT value in [./run/frontend.env](./run/frontend.env) to `9002` and restart `./run-local-frontend`
 
 ## Checking out DataHub UI
 After starting your application in one of the two ways mentioned above, you can connect to it by typing below 
