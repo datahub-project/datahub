@@ -17,9 +17,6 @@ query getChart($urn: String!) {
                 }
                 platformNativeType
                 tags
-                lastModified {
-                    time
-                }
                 ownership {
                     owners {
                         owner {

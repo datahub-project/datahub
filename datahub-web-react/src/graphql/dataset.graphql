@@ -14,12 +14,6 @@ fragment nonRecursiveDatasetFields on Dataset {
         key
         value
     }
-    created {
-        time
-    }
-    lastModified {
-        time
-    }
     ownership {
         owners {
             owner {
