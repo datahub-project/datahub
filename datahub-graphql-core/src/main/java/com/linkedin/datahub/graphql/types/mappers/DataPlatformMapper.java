@@ -19,7 +19,7 @@ public class DataPlatformMapper implements ModelMapper<com.linkedin.dataPlatform
         result.setName(input.getName());
         if (input.hasDataPlatformInfo()) {
             result.setInfo(DataPlatformInfoMapper.map(input.getDataPlatformInfo()));
-         }
+        }
         return result;
     }
 }
