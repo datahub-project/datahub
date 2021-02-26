@@ -21,6 +21,7 @@ public class DashboardSearchSanityTest extends BaseSearchSanityTests<DashboardDo
 
   private static final DashboardUrn URN = new DashboardUrn("testTool", "testId");
   private static final DashboardDocument DOCUMENT = new DashboardDocument().setAccess(AccessLevel.PUBLIC)
+      .setBrowsePaths(new StringArray("foo", "bar"))
       .setDescription("a test dashboard")
       .setOwners(new StringArray("fbaggings"))
       .setTitle("the test dashboard")

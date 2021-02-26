@@ -5,6 +5,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.search.DashboardDocument;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import java.util.Collections;
@@ -22,10 +23,16 @@ public class DashboardIndexBuilder extends BaseIndexBuilder<DashboardDocument> {
   }
 
   @Nonnull
+  private static String buildBrowsePath(@Nonnull DashboardUrn urn) {
+    return ("/" + urn.getDashboardToolEntity() + "/"  + urn.getDashboardIdEntity()).toLowerCase();
+  }
+
+  @Nonnull
   private static DashboardDocument setUrnDerivedFields(@Nonnull DashboardUrn urn) {
     return new DashboardDocument()
         .setUrn(urn)
-        .setTool(urn.getDashboardToolEntity());
+        .setTool(urn.getDashboardToolEntity())
+        .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
 
   @Nonnull

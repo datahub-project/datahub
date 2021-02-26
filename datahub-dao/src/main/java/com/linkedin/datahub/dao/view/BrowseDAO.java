@@ -2,6 +2,8 @@ package com.linkedin.datahub.dao.view;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.chart.client.Charts;
+import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.util.DatasetUtil;
 import com.linkedin.dataset.client.Datasets;
@@ -30,6 +32,10 @@ public class BrowseDAO<CLIENT> {
     final BrowseResult resp;
     if (_client instanceof Datasets) {
       resp = ((Datasets) _client).browse(path, requestFilters, start, count);
+    } else if (_client instanceof Dashboards) {
+      resp = ((Dashboards) _client).browse(path, requestFilters, start, count);
+    } else if (_client instanceof Charts) {
+      resp = ((Charts) _client).browse(path, requestFilters, start, count);
     } else {
       throw new IllegalArgumentException("Unexpected client type: " + _client.getClass().getName());
     }

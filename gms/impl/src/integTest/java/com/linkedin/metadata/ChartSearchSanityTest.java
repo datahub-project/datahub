@@ -23,6 +23,7 @@ public class ChartSearchSanityTest extends BaseSearchSanityTests<ChartDocument> 
 
   private static final ChartUrn URN = new ChartUrn("testTool", "testId");
   private static final ChartDocument DOCUMENT = new ChartDocument().setAccess(AccessLevel.PUBLIC)
+      .setBrowsePaths(new StringArray("foo", "bar"))
       .setDescription("a test chart")
       .setOwners(new StringArray("fbaggings"))
       .setQueryType(ChartQueryType.SQL)
