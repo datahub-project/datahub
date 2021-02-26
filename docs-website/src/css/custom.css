@@ -34,7 +34,7 @@
   --ifm-color-primary-lighter: #b465ce;
   --ifm-color-primary-lightest: #c384d7;; */
 
-  --ifm-code-font-size: 80%;
+  --ifm-code-font-size: 90%;
 }
 
 /* Purple color theme
@@ -54,3 +54,8 @@ html[data-theme='dark'] {
   margin: 0 calc(-1 * var(--ifm-pre-padding));
   padding: 0 var(--ifm-pre-padding);
 } */
+
+.codeBlockTitle_node_modules-\@docusaurus-theme-classic-lib-next-theme-CodeBlock-, 
+.codeBlockLines_node_modules-\@docusaurus-theme-classic-lib-next-theme-CodeBlock- {
+  font-size: 0.9em !important;
+}

@@ -7,6 +7,16 @@
   font-size: 1.5em;
 }
 
+.browse_image {
+  margin-left: -2rem;
+  margin-right: 4rem;
+}
+
+.recipe_example {
+  margin-left: 3rem;
+  margin-right:-2rem;
+}
+
 @media screen and (max-width: 966px) {
   .heroBanner {
     padding: 2rem 0.5rem;
@@ -22,6 +32,14 @@
 
   .centerTextMobile {
     text-align: center;
+  }
+
+  .browse_image {
+    margin: 1.5rem;
+  }
+
+  .recipe_example {
+    margin: 0;
   }
 }
 
@@ -67,7 +85,7 @@
   padding-bottom: 4rem;
 }
 .small_padding_top {
-  padding-top: 2rem;
+  padding-top: 1.5rem;
 }
 .section {
   padding: 4rem 0;

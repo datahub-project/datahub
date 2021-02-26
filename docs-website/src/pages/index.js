@@ -58,7 +58,7 @@ const svgFormatter = (Logo) => {
   return <Logo width="100%" height="100%" />;
 }
 const pngFormatter = (src) => {
-  return <Image img={src} />
+  return <Image img={src} width="100%" />
 }
 
 const logos = [
@@ -140,7 +140,10 @@ function Home() {
           <div className="row">
             <div className="col col--8">
               <h1 className={clsx("hero__title", styles.not_bold_text, styles.centerTextMobile)}>{siteConfig.tagline}</h1>
-              <p className={clsx("hero__subtitle", styles.centerTextMobile)}>TODO: a brief description of what datahub is and why it might be interesting to a company. Can be a few lines</p>
+              <p className={clsx("hero__subtitle", styles.centerTextMobile)}>
+                TODO: a brief description of what datahub is and why it might be interesting to a company.
+                Can be a few lines of content here - in fact three lines would be ideal.
+                </p>
               <div className={styles.buttons}>
                 <Link
                   className={clsx(
@@ -202,21 +205,19 @@ function Home() {
       </section>
       <section className={styles.section}>
         <div className="container">
-          <h1 className={clsx(styles.centerText, styles.big_padding_bottom)}>
+          <h1 className={clsx(styles.centerText)}>
             <span className={styles.larger_on_desktop}>
               How does it work?
             </span>
           </h1>
-          <div className="row">
+          <div className={clsx("row", styles.big_padding_top)}>
             <div className="col col--6">
               <h2><span className={styles.larger_on_desktop}>
-                1. Automated Metadata Ingestion
+                Automated Metadata Ingestion
               </span></h2>
-              <p>
+              {/* <p>
                 There're two way to get metadata into DataHub: <b>push</b> and <b>pull</b>.
-                Notice that DataHub's push-based architecture also supports
-                pull, but pull-first systems cannot support push.
-              </p>
+              </p> */}
               <p>
                 <b>Push</b>-based ingestion can use a prebuilt emitter or can emit custom events using our framework.
               </p>
@@ -227,18 +228,37 @@ function Home() {
                 {/* TODO: add logos for these integration */}
               </p>
               <p>
+                DataHub's push-based architecture also supports pull, but pull-first systems cannot support push.
                 Learn more about metadata ingestion with DataHub in the <Link to={'docs/metadata-ingestion'}>docs</Link>.
               </p>
             </div>
             <div className="col col--6">
-              <p className={styles.small_padding_top}>
+              <div className={styles.recipe_example}>
+              <p>
               <CodeBlock className={'language-yml'} metastring='title="recipe.yml"'>{example_recipe}</CodeBlock>
               </p>
               <p>
               <CodeBlock className={'language-shell'}>{example_recipe_run}</CodeBlock>
               </p>
+              </div>
             </div>
           </div>
+          <div className={clsx("row", styles.big_padding_top)}>
+            <div className="col col--6">
+              <div className={clsx("item shadow--tl", styles.browse_image)}>
+              <img src="img/screenshots/browse.gif" width="100%" alt="Browsing DataHub" />
+              </div>
+            </div>
+            <div className="col col--6">
+              <h2><span className={styles.larger_on_desktop}>
+                Discover Trusted Data
+              </span></h2>
+              <p className={styles.larger_on_desktop}>
+                Browse and search over a continuously updated catalog of datasets, dashboards, charts, ML models, and more.
+              </p>
+            </div>
+          </div>
+
         </div>
       </section>
     </Layout>
