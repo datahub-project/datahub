@@ -35,13 +35,7 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         partialPlatform.setUrn(dataset.getPlatform().toString());
         result.setPlatform(partialPlatform);
 
-        // TODO: Modify GMS to return created, lastModified at the top level as contract requires.
         if (dataset.hasSchemaMetadata()) {
-            result.setCreated(AuditStampMapper.map(dataset.getSchemaMetadata().getCreated()));
-            result.setLastModified(AuditStampMapper.map(dataset.getSchemaMetadata().getLastModified()));
-            if (dataset.getSchemaMetadata().hasDeleted()) {
-                result.setDeleted(AuditStampMapper.map(dataset.getSchemaMetadata().getDeleted()));
-            }
             result.setSchema(SchemaMetadataMapper.map(dataset.getSchemaMetadata()));
         }
         if (dataset.hasPlatformNativeType()) {
