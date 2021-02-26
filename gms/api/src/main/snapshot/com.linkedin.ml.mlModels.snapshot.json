@@ -972,6 +972,36 @@
       } ]
     }, "com.linkedin.common.ChangeAuditStamps" ],
     "fields" : [ {
+      "name" : "id",
+      "type" : "long",
+      "doc" : "Model unique identifier. System assigned value when a new model is created.",
+      "default" : 0
+    }, {
+      "name" : "urn",
+      "type" : "com.linkedin.common.MLModelUrn",
+      "doc" : "Model urn"
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Description for model",
+      "default" : ""
+    }, {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "tags for searching model",
+      "default" : [ ]
+    }, {
+      "name" : "properties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "A key-value map of platform-specific properties",
+      "optional" : true
+    }, {
       "name" : "ownership",
       "type" : "com.linkedin.common.Ownership",
       "doc" : "Ownership Info",
