@@ -1,6 +1,7 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 

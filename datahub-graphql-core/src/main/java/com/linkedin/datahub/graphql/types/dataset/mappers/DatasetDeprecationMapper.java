@@ -1,6 +1,7 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.generated.DatasetDeprecation;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 

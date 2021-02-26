@@ -17,7 +17,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.mappers.ChartMapper;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;

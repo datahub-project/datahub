@@ -1,8 +1,10 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetLineageType;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
+import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataset.Downstream;
 
 import javax.annotation.Nonnull;

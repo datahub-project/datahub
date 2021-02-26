@@ -1,7 +1,8 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataplatform.mappers;
 
 import com.linkedin.datahub.graphql.generated.DataPlatformInfo;
 import com.linkedin.datahub.graphql.generated.PlatformType;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 

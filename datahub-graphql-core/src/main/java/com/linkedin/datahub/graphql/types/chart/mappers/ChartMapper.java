@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.chart.mappers;
 
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -7,6 +7,10 @@ import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
