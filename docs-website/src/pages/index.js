@@ -7,6 +7,17 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import ThemedImage from '@theme/ThemedImage';
 import styles from './styles.module.css';
 
+import Image from '@theme/IdealImage';
+import LogoLinkedin from './logos/linkedin.svg';
+import LogoExpedia from './logos/expedia.svg';
+import LogoSaxo from './logos/SaxoBank.svg';
+import LogoGrofers from './logos/grofers.png';
+import LogoTypeform from './logos/typeform.svg';
+import LogoSpothero from './logos/SpotHero.png';
+import LogoGeotab from './logos/geotab.jpg';
+import LogoThoughtworks from './logos/Thoughtworks.png';
+import LogoViasat from './logos/viasat.png';
+
 const features = [
   {
     title: 'Open Source',
@@ -41,6 +52,52 @@ const features = [
     ),
   },
 ];
+
+const svgFormatter = (Logo) => {
+  return <Logo width="100%" height="100%" />;
+}
+const pngFormatter = (src) => {
+  return <Image img={src}/>
+}
+
+const logos = [
+  {
+    name: 'LinkedIn',
+    image: svgFormatter(LogoLinkedin),
+  },
+  {
+    name: 'Expedia Group',
+    image: svgFormatter(LogoExpedia),
+  },
+  {
+    name: 'Saxo Bank',
+    image: svgFormatter(LogoSaxo),
+  },
+  {
+    name: 'Grofers',
+    image: pngFormatter(LogoGrofers),
+  },
+  {
+    name: 'Typeform',
+    image: svgFormatter(LogoTypeform),
+  },
+  {
+    name: 'SpotHero',
+    image: pngFormatter(LogoSpothero),
+  },
+  {
+    name: 'Geotab',
+    image: pngFormatter(LogoGeotab),
+  },
+  {
+    name: 'ThoughtWorks',
+    image: pngFormatter(LogoThoughtworks),
+  },
+  {
+    name: 'Viasat',
+    image: pngFormatter(LogoViasat),
+  },
+]
 
 function Feature({ imageUrl, title, description }) {
   const imgUrl = useBaseUrl(imageUrl);
@@ -113,9 +170,16 @@ function Home() {
           </div>
         )}
       </section>
-      <section className="hero hero--dark">
+      <section className="hero">
         <div className="container">
-          TODO
+          <h1 className={clsx(styles.centerText)}>Trusted Across the Industry</h1>
+          <div className="row">
+            {logos.map((logo) => (
+              <div key={logo.name} className="col col--3">
+                {logo.image}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

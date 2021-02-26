@@ -1,5 +1,5 @@
 .heroBanner {
-  padding: 8rem 0;
+  padding: 6rem 0;
   position: relative;
 }
 
@@ -46,4 +46,8 @@
 .featureImage {
   height: 200px;
   width: 200px;
+}
+
+.centerText {
+  text-align: center;
 }
