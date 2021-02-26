@@ -17,6 +17,11 @@
   margin-right:-2rem;
 }
 
+.how_third_image {
+  margin-left: 4rem;
+  margin-right:-2rem;
+}
+
 @media screen and (max-width: 966px) {
   .heroBanner {
     padding: 2rem 0.5rem;
@@ -39,6 +44,10 @@
   }
 
   .recipe_example {
+    margin: 0;
+  }
+
+  .how_third_image {
     margin: 0;
   }
 }

@@ -210,7 +210,7 @@ function Home() {
               How does it work?
             </span>
           </h1>
-          <div className={clsx("row", styles.big_padding_top)}>
+          <div className={clsx("row", styles.section)}>
             <div className="col col--6">
               <h2><span className={styles.larger_on_desktop}>
                 Automated Metadata Ingestion
@@ -243,7 +243,8 @@ function Home() {
               </div>
             </div>
           </div>
-          <div className={clsx("row", styles.big_padding_top)}>
+
+          <div className={clsx("row", styles.section)}>
             <div className="col col--6">
               <div className={clsx("item shadow--tl", styles.browse_image)}>
               <img src="img/screenshots/browse.gif" width="100%" alt="Browsing DataHub" />
@@ -256,6 +257,22 @@ function Home() {
               <p className={styles.larger_on_desktop}>
                 Browse and search over a continuously updated catalog of datasets, dashboards, charts, ML models, and more.
               </p>
+            </div>
+          </div>
+
+          <div className={clsx("row", styles.section)}>
+            <div className="col col--6">
+              <h2><span className={styles.larger_on_desktop}>
+                Understand Data in Context
+              </span></h2>
+              <p className={styles.larger_on_desktop}>
+                DataHub is the one-stop shop for documentation, schemas, ownership, and lineage. Pipelines, usage, and quality information coming soon.
+              </p>
+            </div>
+            <div className="col col--6">
+              <div className={clsx("item shadow--tl", styles.how_third_image)}>
+                <img src="img/screenshots/context.gif" width="100%" alt="DataHub Dataset View" />
+              </div>
             </div>
           </div>
 
