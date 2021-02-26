@@ -53,7 +53,7 @@
 }
 
 .bumpUpLogo {
-  margin-top: -2rem;
+  margin-top: -1rem;
 }
 
 .not_bold_text {
@@ -102,33 +102,29 @@
 .logo_frame {
   border: 1px solid var(--ifm-color-emphasis-400);
   background-color: #ffffff;
-  padding: 1em;
+  /* padding: 2em 3em; */
   width: 16em;
   height: 12em;
   margin: 1em;
 }
-.logo_image_constrain {
-  width: 10em;
-  height: 8em;
-  flex: 0 1 auto;
-  margin: 1em 2em;
+.logo_center {
   position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-block;
 }
 .logo_image {
-  max-height: 100%;
-  max-width: 100%;
-  width: auto;
-  height: auto;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  margin: auto;
+  max-height: 8em;
+  max-width: 10em;
 }
-.logo_image_medium {
-  max-height: 70%;
-  max-width: 70%;
+.logo_image_small {
+  max-height: 5em;
+  max-width: 7em;
+}
+.logo_image_large {
+  max-height: 10em;
+  max-width: 12em;
 }
 
 .big_padding_top {
@@ -136,6 +132,12 @@
 }
 .big_padding_bottom {
   padding-bottom: 4rem;
+}
+.big_margin_top {
+  margin-top: 4rem;
+}
+.massive_margin_top {
+  margin-top: 6rem;
 }
 .small_padding_top {
   padding-top: 1.5rem;

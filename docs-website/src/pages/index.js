@@ -72,7 +72,7 @@ const logos = [
   },
   {
     name: 'Saxo Bank',
-    image: svgFormatter(LogoSaxo, clsx(styles.logo_image_medium)),
+    image: svgFormatter(LogoSaxo, clsx(styles.logo_image_small)),
   },
   {
     name: 'Grofers',
@@ -84,7 +84,7 @@ const logos = [
   },
   {
     name: 'SpotHero',
-    image: pngFormatter(LogoSpothero),
+    image: pngFormatter(LogoSpothero, clsx(styles.logo_image_small)),
   },
   {
     name: 'Geotab',
@@ -92,7 +92,7 @@ const logos = [
   },
   {
     name: 'ThoughtWorks',
-    image: pngFormatter(LogoThoughtworks),
+    image: pngFormatter(LogoThoughtworks, clsx(styles.logo_image_large)),
   },
   {
     name: 'Viasat',
@@ -141,8 +141,9 @@ function Home() {
             <div className="col col--8">
               <h1 className={clsx("hero__title", styles.not_bold_text, styles.centerTextMobile)}>{siteConfig.tagline}</h1>
               <p className={clsx("hero__subtitle", styles.centerTextMobile)}>
-                TODO: a brief description of what datahub is and why it might be interesting to a company.
-                Can be a few lines of content here - in fact three lines would be ideal.
+                {/* DataHub helps you understand your data where it lives. */}
+                {/* DataHub is a stream-first metadata platform that powers multiple vertical applications: powerful search &amp; discovery, data ops &amp; data quality, compliance, data management, and access control. */}
+                Data ecosystems are diverse &#8212; too diverse. DataHub is a data discovery application built on an extensible metadata platform that helps you tame this complexity.
                 </p>
               <div className={styles.buttons}>
                 <Link
@@ -198,9 +199,9 @@ function Home() {
             {logos.map((logo) => (
               <div key={logo.name}>
                 <div className={styles.logo_frame}>
-                  <div className={styles.logo_image_constrain}>
+                <div className={styles.logo_center}>
                   {logo.image}
-                  </div>
+                </div>
                 </div>
               </div>
             ))}
@@ -255,7 +256,7 @@ function Home() {
               </div>
             </div>
             <div className="col col--6">
-              <h2><span className={styles.larger_on_desktop}>
+              <h2 className={styles.big_margin_top}><span className={styles.larger_on_desktop}>
                 Discover Trusted Data
               </span></h2>
               <p className={styles.larger_on_desktop}>
@@ -266,7 +267,7 @@ function Home() {
 
           <div className={clsx("row", styles.section)}>
             <div className="col col--6">
-              <h2><span className={styles.larger_on_desktop}>
+              <h2 className={styles.massive_margin_top}><span className={styles.larger_on_desktop}>
                 Understand Data in Context
               </span></h2>
               <p className={styles.larger_on_desktop}>
