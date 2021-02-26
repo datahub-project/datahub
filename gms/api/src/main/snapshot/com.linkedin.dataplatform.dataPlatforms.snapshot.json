@@ -62,6 +62,11 @@
             }
           }
         }, {
+          "name" : "displayName",
+          "type" : "string",
+          "doc" : "The name that will be used for displaying a platform type.",
+          "optional" : true
+        }, {
           "name" : "type",
           "type" : {
             "type" : "enum",
@@ -88,6 +93,7 @@
         }, {
           "name" : "logoUrl",
           "type" : "com.linkedin.common.Url",
+          "doc" : "The URL for a logo associated with the platform",
           "optional" : true
         } ]
       },
