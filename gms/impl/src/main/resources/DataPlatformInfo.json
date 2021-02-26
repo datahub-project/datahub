@@ -105,13 +105,13 @@
     "datasetNameDelimiter": ".",
     "name": "snowflake",
     "displayName": "Snowflake",
-    "type": "OLAP_DATASTORE"
+    "type": "RELATIONAL_DB"
   },
   "urn:li:dataPlatform:redshift": {
     "datasetNameDelimiter": ".",
     "name": "redshift",
     "displayName": "Redshift",
-    "type": "OLAP_DATASTORE"
+    "type": "RELATIONAL_DB"
   },
   "urn:li:dataPlatform:mssql": {
     "datasetNameDelimiter": ".",
