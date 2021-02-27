@@ -221,6 +221,11 @@ type DataPlatformInfo {
     type: PlatformType!
 
     """
+    Display name associated with the platform
+    """
+    displayName: String
+
+    """
     The delimiter in the dataset names on the data platform
     """
     datasetNameDelimiter: String!
