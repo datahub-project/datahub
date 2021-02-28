@@ -6,6 +6,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.search.ChartDocument;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import java.util.Collections;
@@ -23,10 +24,16 @@ public class ChartIndexBuilder extends BaseIndexBuilder<ChartDocument> {
   }
 
   @Nonnull
+  private static String buildBrowsePath(@Nonnull ChartUrn urn) {
+    return ("/" + urn.getDashboardToolEntity() + "/"  + urn.getChartIdEntity()).toLowerCase();
+  }
+
+  @Nonnull
   private static ChartDocument setUrnDerivedFields(@Nonnull ChartUrn urn) {
     return new ChartDocument()
         .setUrn(urn)
-        .setTool(urn.getDashboardToolEntity());
+        .setTool(urn.getDashboardToolEntity())
+        .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
 
   @Nonnull

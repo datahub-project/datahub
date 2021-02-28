@@ -3,19 +3,23 @@ package com.linkedin.metadata.resources.dashboard;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DashboardUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.dashboard.DashboardKey;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.DashboardAspect;
+import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
-import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
 import com.linkedin.metadata.search.DashboardDocument;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.parseq.Task;
@@ -44,7 +48,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 
 
 @RestLiCollection(name = "dashboards", namespace = "com.linkedin.dashboard", keyName = "key")
-public class Dashboards extends BaseSearchableEntityResource<
+public class Dashboards extends BaseBrowsableEntityResource<
     // @formatter:off
     ComplexResourceKey<DashboardKey, EmptyRecord>,
     Dashboard,
@@ -66,6 +70,10 @@ public class Dashboards extends BaseSearchableEntityResource<
   @Named("dashboardSearchDAO")
   private BaseSearchDAO _esSearchDAO;
 
+  @Inject
+  @Named("dashboardBrowseDao")
+  private BaseBrowseDAO _browseDAO;
+
   @Nonnull
   @Override
   protected BaseSearchDAO<DashboardDocument> getSearchDAO() {
@@ -76,6 +84,12 @@ public class Dashboards extends BaseSearchableEntityResource<
   @Override
   protected BaseLocalDAO<DashboardAspect, DashboardUrn> getLocalDAO() {
     return _localDAO;
+  }
+
+  @Nonnull
+  @Override
+  protected BaseBrowseDAO getBrowseDAO() {
+    return _browseDAO;
   }
 
   @Nonnull
@@ -183,6 +197,23 @@ public class Dashboards extends BaseSearchableEntityResource<
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
     return super.autocomplete(query, field, filter, limit);
+  }
+
+  @Action(name = ACTION_BROWSE)
+  @Override
+  @Nonnull
+  public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_LIMIT) int limit) {
+    return super.browse(path, filter, start, limit);
+  }
+
+  @Action(name = ACTION_GET_BROWSE_PATHS)
+  @Override
+  @Nonnull
+  public Task<StringArray> getBrowsePaths(
+      @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
+    return super.getBrowsePaths(urn);
   }
 
   @Action(name = ACTION_INGEST)

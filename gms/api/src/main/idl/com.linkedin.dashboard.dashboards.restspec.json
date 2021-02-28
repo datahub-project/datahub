@@ -93,6 +93,30 @@
       } ],
       "returns" : "com.linkedin.metadata.restli.BackfillResult"
     }, {
+      "name" : "browse",
+      "parameters" : [ {
+        "name" : "path",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.BrowseResult"
+    }, {
+      "name" : "getBrowsePaths",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "com.linkedin.common.Urn"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
       "name" : "getSnapshot",
       "parameters" : [ {
         "name" : "urn",

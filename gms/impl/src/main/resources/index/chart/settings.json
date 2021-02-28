@@ -25,6 +25,13 @@
         }
       },
       "analyzer": {
+        "slash_pattern": {
+          "filter": [
+            "lowercase"
+          ],
+          "type": "custom",
+          "tokenizer": "slash_tokenizer"
+        },
         "comma_pattern": {
           "filter": [
             "lowercase"
@@ -61,9 +68,25 @@
           ],
           "type": "custom",
           "tokenizer": "keyword"
+        },
+        "custom_browse_slash": {
+          "filter": [
+            "lowercase"
+          ],
+          "type": "custom",
+          "tokenizer": "path_hierarchy"
         }
       },
       "tokenizer": {
+        "path_hierarchy_tokenizer": {
+          "type": "path_hierarchy",
+          "replacement": "/",
+          "delimiter": "."
+        },
+        "slash_tokenizer": {
+          "pattern": "[/]",
+          "type": "pattern"
+        },
         "comma_tokenizer": {
           "pattern": ",",
           "type": "pattern"
