@@ -1,5 +1,16 @@
 {
   "properties": {
+    "browsePaths": {
+      "type": "text",
+      "fields": {
+        "length": {
+          "type": "token_count",
+          "analyzer": "slash_pattern"
+        }
+      },
+      "analyzer": "custom_browse_slash",
+      "fielddata": true
+    },
     "access": {
       "type": "keyword",
       "fields": {

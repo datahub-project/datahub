@@ -1,16 +1,20 @@
 package com.linkedin.dashboard.client;
 
 import com.linkedin.common.urn.DashboardUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardKey;
 import com.linkedin.dashboard.DashboardsDoAutocompleteRequestBuilder;
+import com.linkedin.dashboard.DashboardsDoBrowseRequestBuilder;
+import com.linkedin.dashboard.DashboardsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.dashboard.DashboardsFindBySearchRequestBuilder;
 import com.linkedin.dashboard.DashboardsRequestBuilders;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseSearchableClient;
+import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
@@ -18,16 +22,16 @@ import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
-public class Dashboards extends BaseSearchableClient<Dashboard> {
+
+public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
 
     private static final DashboardsRequestBuilders DASHBOARDS_REQUEST_BUILDERS = new DashboardsRequestBuilders();
     private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();
@@ -44,6 +48,21 @@ public class Dashboards extends BaseSearchableClient<Dashboard> {
                 .build();
 
         return _client.sendRequest(getRequest).getResponse().getEntity();
+    }
+
+    /**
+     * Gets browse path(s) given dataset urn
+     *
+     * @param urn urn for the entity
+     * @return list of paths given urn
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+        DashboardsDoGetBrowsePathsRequestBuilder requestBuilder = DASHBOARDS_REQUEST_BUILDERS
+            .actionGetBrowsePaths()
+            .urnParam(urn);
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
     @Nonnull
@@ -99,6 +118,30 @@ public class Dashboards extends BaseSearchableClient<Dashboard> {
                 .filterParam(newFilter(requestFilters))
                 .limitParam(limit);
 
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Gets browse snapshot of a given path
+     *
+     * @param path path being browsed
+     * @param requestFilters browse filters
+     * @param start start offset of first dataset
+     * @param limit max number of datasets
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    @Override
+    public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
+        int start, int limit) throws RemoteInvocationException {
+        DashboardsDoBrowseRequestBuilder requestBuilder = DASHBOARDS_REQUEST_BUILDERS
+            .actionBrowse()
+            .pathParam(path)
+            .startParam(start)
+            .limitParam(limit);
+        if (requestFilters != null) {
+            requestBuilder.filterParam(newFilter(requestFilters));
+        }
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
