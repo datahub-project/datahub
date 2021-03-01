@@ -34,6 +34,7 @@ dependencies {
   compile externalDependency.gmaNeo4jDao
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaRestliResourcesDataTemplate
+  compile externalDependency.neo4jJavaDriver
 
   compileOnly externalDependency.lombok
 
