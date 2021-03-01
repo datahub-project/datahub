@@ -158,9 +158,9 @@ function new_url(original: string, filepath: string): string {
   ) {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
-    const updated = path.normalize(
-      `${GITHUB_BROWSE_URL}/${relation}/${original}`
-    );
+    const updated = `${GITHUB_BROWSE_URL}/${path.normalize(
+      `${relation}/${original}`
+    )}`;
     return updated;
   } else if (suffix.startsWith(".md")) {
     // Leave as-is.
