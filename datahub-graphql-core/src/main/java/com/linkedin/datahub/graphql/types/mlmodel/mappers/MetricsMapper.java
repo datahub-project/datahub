@@ -16,11 +16,8 @@ public class MetricsMapper implements ModelMapper<com.linkedin.ml.metadata.Metri
     @Override
     public Metrics apply(@NonNull final com.linkedin.ml.metadata.Metrics metrics) {
         final Metrics result = new Metrics();
-        result.setClassificationSystems(metrics.getClassificationSystems());
-        result.setConfidence(metrics.getConfidence());
-        result.setLatency(metrics.getLatency());
-        result.setRpm(metrics.getRpm());
-        result.setScoreBasedAnalyses(metrics.getScoreBasedAnalyses());
+        result.setDecisionThreshold(metrics.getDecisionThreshold());
+        result.setPerformanceMeasures(metrics.getPerformanceMeasures());
         return result;
     }
 }

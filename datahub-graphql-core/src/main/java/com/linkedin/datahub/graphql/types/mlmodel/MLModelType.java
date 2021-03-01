@@ -23,7 +23,7 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.mappers.MlModelMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MlModelMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.ml.client.MLModels;

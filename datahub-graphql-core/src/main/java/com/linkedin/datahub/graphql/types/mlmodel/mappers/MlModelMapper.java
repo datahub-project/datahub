@@ -1,4 +1,6 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.mlmodel.mappers;
+
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -10,17 +12,10 @@ import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapEntryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.CaveatsAndRecommendationsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.EthicalConsiderationsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.EvaluationDataMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.IntendedUseMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MetricsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.ModelFactorsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelPropertiesMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.QuantitativeAnalysesMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.TrainingDataMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.ml.metadata.BaseData;
+import com.linkedin.ml.metadata.TrainingData;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -60,16 +55,16 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
             result.setIntendedUse(IntendedUseMapper.map(mlModel.getIntendedUse()));
         }
         if(mlModel.getMlModelFactorPrompts() != null) {
-            result.setMlModelFactorPrompts(ModelFactorsMapper.map(mlModel.getMlModelFactorPrompts()));
+            result.setMlModelFactorPrompts(MLModelFactorPromptsMapper.map(mlModel.getMlModelFactorPrompts()));
         }
         if(mlModel.getMetrics() != null) {
             result.setMetrics(MetricsMapper.map(mlModel.getMetrics()));
         }
         if(mlModel.getEvaluationData() != null) {
-            result.setEvaluationData(EvaluationDataMapper.map(mlModel.getEvaluationData()));
+            result.setEvaluationData(mlModel.getEvaluationData().getEvaluationData().stream().map(BaseDataMapper::map).collect(Collectors.toList()));
         }
         if(mlModel.getTrainingData() != null) {
-            result.setTrainingData(TrainingDataMapper.map(mlModel.getTrainingData()));
+            result.setTrainingData(mlModel.getTrainingData().getTrainingData().stream().map(BaseDataMapper::map).collect(Collectors.toList()));
         }
         if(mlModel.getCost() != null) {
             result.setCost(CostMapper.map(mlModel.getCost()));

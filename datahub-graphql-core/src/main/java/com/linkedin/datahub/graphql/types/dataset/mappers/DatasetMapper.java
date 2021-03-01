@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
@@ -10,9 +10,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetDeprecationMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.UpstreamLineageMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 

@@ -15,8 +15,16 @@ public class CaveatsAndRecommendationsMapper implements ModelMapper<com.linkedin
 
     @Override
     public CaveatsAndRecommendations apply(com.linkedin.ml.metadata.CaveatsAndRecommendations caveatsAndRecommendations) {
-        CaveatsAndRecommendations result = new CaveatsAndRecommendations();
-        result.setCaveatsAndRecommendations(caveatsAndRecommendations.getCaveatsAndRecommendations());
+        final CaveatsAndRecommendations result = new CaveatsAndRecommendations();
+        if(caveatsAndRecommendations.getCaveats() != null) {
+            result.setCaveats(CaveatsDetailsMapper.map(caveatsAndRecommendations.getCaveats()));
+        }
+        if(caveatsAndRecommendations.getRecommendations() != null) {
+            result.setRecommendations(caveatsAndRecommendations.getRecommendations());
+        }
+        if(caveatsAndRecommendations.getIdealDatasetCharacteristics() != null) {
+            result.setIdealDatasetCharacteristics(caveatsAndRecommendations.getIdealDatasetCharacteristics());
+        }
         return result;
     }
 }

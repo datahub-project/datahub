@@ -16,8 +16,8 @@ public class QuantitativeAnalysesMapper implements ModelMapper<com.linkedin.ml.m
     @Override
     public QuantitativeAnalyses apply(@NonNull final com.linkedin.ml.metadata.QuantitativeAnalyses quantitativeAnalyses) {
         final QuantitativeAnalyses result = new QuantitativeAnalyses();
-        result.setIntersectionalResults(quantitativeAnalyses.getIntersectionalResults());
-        result.setUnitaryResults(quantitativeAnalyses.getUnitaryResults());
+        result.setIntersectionalResults(ResultsTypeMapper.map(quantitativeAnalyses.getIntersectionalResults()));
+        result.setUnitaryResults(ResultsTypeMapper.map(quantitativeAnalyses.getUnitaryResults()));
         return result;
     }
 }

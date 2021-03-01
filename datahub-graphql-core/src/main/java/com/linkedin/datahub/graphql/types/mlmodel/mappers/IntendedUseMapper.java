@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import java.util.stream.Collectors;
+
 import com.linkedin.datahub.graphql.generated.IntendedUse;
+import com.linkedin.datahub.graphql.generated.IntendedUserType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import lombok.NonNull;
@@ -18,7 +21,9 @@ public class IntendedUseMapper implements ModelMapper<com.linkedin.ml.metadata.I
         final IntendedUse result = new IntendedUse();
         result.setOutOfScopeUses(intendedUse.getOutOfScopeUses());
         result.setPrimaryUses(intendedUse.getPrimaryUses());
-        result.setPrimaryUsers(intendedUse.getPrimaryUsers());
+        if(intendedUse.getPrimaryUsers() != null) {
+            result.setPrimaryUsers(intendedUse.getPrimaryUsers().stream().map(v -> IntendedUserType.valueOf(v.toString())).collect(Collectors.toList()));
+        }
         return result;
     }
 }

@@ -1505,7 +1505,7 @@ type MLModelProperties {
 
     description: String
 
-    date: String
+    date: Long
 
     version: String
 
@@ -1513,7 +1513,7 @@ type MLModelProperties {
 
     hyperParameters: HyperParameterMap
 
-    mlFeatures: [MLFeature]
+    mlFeatures: [String]
 
     tags: [String]
 }
@@ -1541,83 +1541,6 @@ type BooleanBox {
 
 union HyperParameterValueType = StringBox | IntBox | FloatBox | BooleanBox
 
-type MLFeature {
-
-    """
-    Ownership Info
-    """
-    ownership: Ownership
-
-    """
-    MLFeature Properties
-    """
-    featureProperties: MLFeatureProperties
-
-    """
-    Institutional Memory
-    """
-    institutionalMemory: InstitutionalMemory
-
-    """
-    Status
-    """
-    status: Status
-
-    """
-    Deprecation
-    """
-    deprecation: DatasetDeprecation
-}
-
-type MLFeatureProperties {
-
-    """
-    Documentation of the MLFeature
-    """
-    description: String
-
-    """
-    Data Type of the MLFeature
-    """
-    dataType: MLFeatureDataType
-
-    """
-    Version of the MLFeature
-    """
-    version: String
-}
-
-enum MLFeatureDataType {
-
-    USELESS
-
-    NOMINAL
-
-    ORDINAL
-
-    BINARY
-
-    COUNT
-
-    TIME
-
-    INTERVAL
-
-    IMAGE
-
-    VIDEO
-
-    AUDIO
-
-    TEXT
-
-    MAP
-
-    SEQUENCE
-
-    SET
-}
-
 type MLModelFactorPrompts {
 
     """
@@ -1636,27 +1559,17 @@ type MLModelFactors {
     """
     Distinct categories with similar characteristics that are present in the evaluation data instances.
     """
-    groups: String
+    groups: [String]
 
     """
     Instrumentation used for MLModel
     """
-    instrumentation: String
+    instrumentation: [String]
 
     """
     Environment in which the MLModel is deployed.
     """
-    environment: String
-
-    """
-    Relevant factors for which model performance may vary
-    """
-    relevantFactors: String
-
-    """
-    Factors those are being reported
-    """
-    evaluationFactors: String
+    environment: [String]
 }
 
 type QuantitativeAnalyses {

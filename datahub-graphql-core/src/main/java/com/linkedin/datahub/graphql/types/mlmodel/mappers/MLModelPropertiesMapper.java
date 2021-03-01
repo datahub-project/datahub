@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 
+import java.util.stream.Collectors;
+
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
@@ -24,14 +27,22 @@ public class MLModelPropertiesMapper implements ModelMapper<com.linkedin.ml.meta
             result.setDescription(mlModelProperties.getDescription());
         }
         if(mlModelProperties.getVersion() != null) {
-            result.setVersion(mlModelProperties.getVersion());
+            result.setVersion(mlModelProperties.getVersion().getVersionTag());
         }
         if(mlModelProperties.getType() != null) {
             result.setType(mlModelProperties.getType());
         }
-        if(mlModelProperties.getTags() != null) {
-            result.setTags(mlModelProperties.getTags());
+        if(mlModelProperties.getHyperParameters() != null) {
+            result.setHyperParameters(HyperParameterMapMapper.map(mlModelProperties.getHyperParameters()));
         }
+        if(mlModelProperties.getMlFeatures() != null) {
+            result.setMlFeatures(mlModelProperties
+                .getMlFeatures()
+                .stream()
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
+        }
+        result.setTags(mlModelProperties.getTags());
 
         return result;
     }
