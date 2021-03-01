@@ -33,3 +33,4 @@ jobs:
         with:
           deploy_key: ${{ secrets.GH_PAGES_DEPLOY }}
           publish_dir: ./docs-website/build
+          cname: datahubproject.io
