@@ -27,27 +27,9 @@ jobs:
           yarn run lint-check
           yarn run generate
           yarn run build
-      - name: Add key to allow access to repository
+      - name: Deploy
         if: github.event_name == 'push'
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          echo "${{ secrets.GH_PAGES_DEPLOY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          cat <<EOT >> ~/.ssh/config
-          Host github.com
-          HostName github.com
-          IdentityFile ~/.ssh/id_rsa
-          EOT
-      - name: Release to GitHub Pages
-        if: github.event_name == 'push'
-        env:
-          USE_SSH: true
-          GIT_USER: actions
-        run: |
-          git config --global user.email "bot@acryl.io"
-          git config --global user.name "actions"
-          cd docs-website
-          yarn run deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.GH_PAGES_DEPLOY }}
+          publish_dir: ./docs-website/build
