@@ -2,7 +2,7 @@ import logging
 import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
@@ -26,6 +26,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
     StringTypeClass,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
-    def get_workunits(self):
+    def get_workunits(self) -> Iterable[SqlWorkUnit]:
         env: str = "PROD"
         sql_config = self.config
         platform = self.platform
@@ -171,10 +172,26 @@ class SQLAlchemySource(Source):
 
                 if sql_config.table_pattern.allowed(dataset_name):
                     columns = inspector.get_columns(table, schema)
+                    try:
+                        description: Optional[str] = inspector.get_table_comment(
+                            table, schema
+                        )["text"]
+                    except NotImplementedError:
+                        description = None
+
+                    # TODO: capture inspector.get_pk_constraint
+                    # TODO: capture inspector.get_sorted_table_and_fkc_names
+
                     mce = MetadataChangeEvent()
 
                     dataset_snapshot = DatasetSnapshot()
                     dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                    if description is not None:
+                        dataset_properties = DatasetPropertiesClass(
+                            description=description,
+                            # uri=dataset_name,
+                        )
+                        dataset_snapshot.aspects.append(dataset_properties)
                     schema_metadata = get_schema_metadata(
                         self.report, dataset_name, platform, columns
                     )
