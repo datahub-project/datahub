@@ -32,7 +32,7 @@ insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdb
 -- create metadata index table
 CREATE TABLE metadata_index (
  `id` BIGINT NOT NULL AUTO_INCREMENT,
- `urn` VARCHAR(200) NOT NULL,
+ `urn` VARCHAR(200) NOT NULL COMMENT "This is a column comment about URNs",
  `aspect` VARCHAR(150) NOT NULL,
  `path` VARCHAR(150) NOT NULL,
  `longVal` BIGINT,
@@ -42,4 +42,4 @@ CREATE TABLE metadata_index (
  INDEX longIndex (`urn`,`aspect`,`path`,`longVal`),
  INDEX stringIndex (`urn`,`aspect`,`path`,`stringVal`),
  INDEX doubleIndex (`urn`,`aspect`,`path`,`doubleVal`)
-);
+) COMMENT="This is a table comment";

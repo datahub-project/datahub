@@ -1,12 +1,13 @@
 import subprocess
 
+import fs_helpers
 import mce_helpers
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
 
 
-def test_mssql_ingest(sql_server, pytestconfig):
+def test_mssql_ingest(sql_server, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
 
     # Run the setup.sql file to populate the database.
@@ -20,7 +21,7 @@ def test_mssql_ingest(sql_server, pytestconfig):
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "mssql_to_file.yml").resolve()
     runner = CliRunner()
-    with runner.isolated_filesystem():
+    with fs_helpers.isolated_filesystem(tmp_path):
         result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
         assert result.exit_code == 0
 
