@@ -54,9 +54,12 @@ setuptools.setup(
     ],
     python_requires=">=3.6",
     package_dir={"": "src"},
-    packages=setuptools.find_packages(where="./src"),
+    packages=setuptools.find_namespace_packages(where="./src"),
     include_package_data=True,
-    package_data={"datahub": ["py.typed"]},
+    package_data={
+        "datahub": ["py.typed"],
+        "datahub.metadata": ["schema.avsc"],
+    },
     entry_points={
         "console_scripts": ["datahub = datahub.entrypoints:datahub"],
     },
