@@ -8,6 +8,7 @@ import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchFilters } from './SearchFilters';
+import { filtersToGraphqlParams } from './utils/filtersToGraphqlParams';
 
 const styles = {
     loading: { marginTop: '10%' },
@@ -44,7 +45,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters,
+                filters: filtersToGraphqlParams(filters),
             },
         },
     });

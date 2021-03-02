@@ -516,11 +516,7 @@ export const mocks = [
                     filters: [
                         {
                             field: 'platform',
-                            value: 'kafka',
-                        },
-                        {
-                            field: 'platform',
-                            value: 'hdfs',
+                            value: 'kafka,hdfs',
                         },
                     ],
                 },
