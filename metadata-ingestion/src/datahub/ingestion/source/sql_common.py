@@ -52,14 +52,22 @@ class SQLAlchemyConfig(ConfigModel):
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
-    username: str
-    password: str
+    username: Optional[str] = None
+    password: Optional[str] = None
     host_port: str
-    database: str = ""
+    database: Optional[str] = None
     scheme: str
 
     def get_sql_alchemy_url(self):
-        url = f"{self.scheme}://{self.username}:{self.password}@{self.host_port}/{self.database}"
+        url = f"{self.scheme}://"
+        if self.username:
+            url += f"{self.username}"
+            if self.password:
+                url += f":{self.password}"
+            url += "@"
+        url += f"{self.host_port}"
+        if self.database:
+            url += f"/{self.database}"
         return url
 
 
