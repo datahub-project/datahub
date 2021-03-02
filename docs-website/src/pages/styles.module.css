@@ -71,6 +71,10 @@
   margin-right: 0.25rem;
 }
 
+.hero_button_cta {
+  color: #ffffff;
+}
+
 .features {
   display: flex;
   align-items: center;

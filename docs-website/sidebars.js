@@ -88,6 +88,7 @@ module.exports = {
       // - "docker/datahub-gms/README",
       // - "docker/datahub-mae-consumer/README",
       // - "docker/datahub-mce-consumer/README",
+      // - "docker/datahub-ingestion/README",
       // - "docker/elasticsearch-setup/README",
       // - "docker/ingestion/README",
       // - "docker/kafka-setup/README",

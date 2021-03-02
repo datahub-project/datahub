@@ -30,6 +30,11 @@ module.exports = {
           position: "right",
         },
         {
+          to: "https://demo.acryl.io/",
+          label: "Demo",
+          position: "right",
+        },
+        {
           href: "https://github.com/linkedin/datahub",
           label: "GitHub",
           position: "right",
@@ -85,6 +90,10 @@ module.exports = {
         {
           title: "More",
           items: [
+            {
+              label: "Demo",
+              href: "https://demo.acryl.io/",
+            },
             {
               label: "Roadmap",
               to: "docs/roadmap",

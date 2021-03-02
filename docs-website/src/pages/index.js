@@ -148,7 +148,7 @@ function Home() {
               <div className={styles.buttons}>
                 <Link
                   className={clsx(
-                    'button button--primary button--lg', styles.hero_button
+                    'button button--primary button--lg', styles.hero_button, styles.hero_button_cta,
                   )}
                   to={useBaseUrl('docs/')}>
                   Get Started
