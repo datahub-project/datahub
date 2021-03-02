@@ -6,24 +6,29 @@ FROM python:3.8 as base
 # RUN apk --no-cache add curl tar \
 #     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
 #     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
-
-FROM openjdk:8 as prod-build
-COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
-
-FROM base as prod-install
-COPY --from=prod-build /datahub-src /datahub-src
 RUN apt-get update && apt-get install -y \
-        python-dev \
         librdkafka-dev \
-        python-ldap \
+        python3-ldap \
         libldap2-dev \
         libsasl2-dev \
         ldap-utils \
         libsasl2-dev \
     && python -m pip install --upgrade pip wheel
+
+FROM openjdk:8 as prod-build
+COPY . /datahub-src
+RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
+
+FROM base as prod-codegen
+COPY --from=prod-build /datahub-src /datahub-src
 RUN cd /datahub-src/metadata-ingestion && \
-    pip install . \
+    pip install -e . && \
+    ./scripts/codegen.sh
+
+FROM base as prod-install
+COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
+RUN cd /datahub-ingestion && \
+    pip install . && \
     pip install -r test_requirements.txt -r plugin_requirements.txt
 
 FROM base as dev-install
