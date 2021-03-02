@@ -85,7 +85,7 @@ function markdown_guess_title(
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);
     if (headers.length > 1 && contents.content.indexOf("```") < 0) {
-      console.warn("too many h1 headers", filepath);
+      throw new Error(`too many h1 headers in ${filepath}`);
     }
     title = headers[0].slice(2).trim();
     if (title.startsWith("DataHub ")) {
@@ -128,7 +128,7 @@ function new_url(original: string, filepath: string): string {
           .startsWith("https://github.com/linkedin/datahub/tree")) &&
       (original.endsWith(".md") || original.endsWith(".pdf"))
     ) {
-      console.warn("absolute link:", original, "in", filepath);
+      throw new Error(`absolute link (${original}) found in ${filepath}`);
     }
     return original;
   }
@@ -157,6 +157,7 @@ function new_url(original: string, filepath: string): string {
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.
+    // TODO: detect dangling references.
     const relation = path.dirname(filepath);
     const updated = `${GITHUB_BROWSE_URL}/${path.normalize(
       `${relation}/${original}`
@@ -164,7 +165,7 @@ function new_url(original: string, filepath: string): string {
     return updated;
   } else if (suffix.startsWith(".md")) {
     // Leave as-is.
-    // We use startsWith here so that we can allow anchor tags on links.
+    // We use startsWith above so that we can allow anchor tags on links.
     return original;
   } else if ([".png", ".svg", ".pdf"].includes(suffix)) {
     // Let docusaurus bundle these as static assets.
@@ -229,6 +230,6 @@ for (const filepath of markdown_files) {
   const doc_id = get_id(filepath);
 
   if (sidebar.indexOf(`"${doc_id}"`) < 0) {
-    console.warn("Not included in sidebar:", filepath);
+    throw new Error(`File not accounted for in sidebar ${filepath}`);
   }
 }
