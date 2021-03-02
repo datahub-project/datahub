@@ -2,16 +2,17 @@
 version: '3.5'
 services:
   ingestion:
-    image: datahub-ingestion
-    env_file: env/docker.env
     build:
       context: ../../
-      dockerfile: docker/ingestion/Dockerfile
+      dockerfile: docker/datahub-ingestion/Dockerfile
+    image: linkedin/datahub-ingestion:${DATAHUB_VERSION:-latest}
     hostname: ingestion
     container_name: ingestion
-    environment:
-      - KAFKA_BOOTSTRAP_SERVER=broker:29092
-      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    command: "ingest -c /sample_recipe.yml"
+    volumes: 
+      # Most of the config is embedded inside the sample recipe file.
+      - ./sample_recipe.yml:/sample_recipe.yml:ro
+      - ../../metadata-ingestion/examples/mce_files/bootstrap_mce.json:/bootstrap_mce.json:ro
 
 networks:
   default:

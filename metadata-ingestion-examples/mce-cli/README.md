@@ -52,7 +52,4 @@ Where `my-file.json` is some file that contains a
 
 ### Producing the Example Events with Docker
 
-We have some example events in the `example-bootstrap.json` file, which can be invoked via the above example or in a
-docker environment using `docker/ingestion/ingestion.sh`. We also have a developer image
-(`docker/ingestion/ingestion-dev.sh`) which uses your locally built jar rather than building on the docker image itself,
-which may be faster if you have already built code locally.
+We have some example events in the `example-bootstrap.json` file, which can be invoked via the above example.
