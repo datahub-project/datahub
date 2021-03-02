@@ -1,0 +1,8 @@
+pymysql>=1.0.2  # Driver for MySQL
+sqlalchemy-pytds>=0.3  # Driver for MS-SQL
+pyhive[hive]  # Driver for Hive
+psycopg2-binary  # Driver for Postgres
+snowflake-sqlalchemy  # Driver for Snowflake
+pybigquery  # Driver for BigQuery
+python-ldap>=2.4  # LDAP client library
+
