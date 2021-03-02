@@ -78,12 +78,6 @@ record TagMetadata {
    description: optional string
 
    /**
-   * Optional reference to an external definition
-   * Another option is to define simple ExternalDefinition model.
-   */
-   externalDefinition: optional InstitutionalMemory
-
-   /**
    * Audit stamp associated with creation of this tag
    */
    createStamp: AuditStamp
@@ -188,15 +182,9 @@ the users can easily take into use. It can be take into use as any other entity 
   - Creating tags in a way that makes duplication and spelling mistakes difficult.
   - Attaching tags to entities: autocomplete, dropdown, etc.
   - Visualizing existing tags, and which are most popular?
-- Explore the concept of tagged tags for building tag hierarchies. What are the possible uses case (for example
-  "data_science" and "churn_prediction")? How is this visualized in the UI?
 - Explore the idea about a special "classification" type, that propagates downstream, as in Atlas.
 
 ## Unresolved questions
 
-- Do we need more metadata on tags, like a description or attributes?
 - How do we want to map dataset fields to tags?
-- Can we use institutional memory for the `externalDefinition` of a tag?
-- How to implement edit/view rights?
-- Hierarchical tags (tagging tags) could be cool but it can quickly get quite complex. How can we, as users, have better
-  control over these hierarchical tags?
+- Do we want to implement edit/view rights?
