@@ -35,7 +35,6 @@ export const Routes = (): JSX.Element => {
             <Switch>
                 <ProtectedRoute isLoggedIn={isLoggedIn} exact path="/" render={() => <HomePage />} />
                 <Route path={PageRoutes.LOG_IN} component={LogIn} />
-
                 {entityRegistry.getEntities().map((entity) => (
                     <ProtectedRoute
                         key={entity.getPathName()}
@@ -54,6 +53,8 @@ export const Routes = (): JSX.Element => {
                     path={PageRoutes.BROWSE_RESULTS}
                     render={() => <BrowseResultsPage />}
                 />
+                {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
+                <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
                 <Route component={NoPageFound} />
             </Switch>
         </div>
