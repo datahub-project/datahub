@@ -14,15 +14,17 @@ RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 FROM base as prod-install
 COPY --from=prod-build /datahub-src /datahub-src
 RUN apt-get update && apt-get install -y \
+        python-dev \
         librdkafka-dev \
         python-ldap \
         libldap2-dev \
         libsasl2-dev \
         ldap-utils \
+        libsasl2-dev \
     && python -m pip install --upgrade pip wheel
 RUN cd /datahub-src/metadata-ingestion && \
     pip install . \
-    pip install -r test_requirements.txt
+    pip install -r test_requirements.txt -r plugin_requirements.txt
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
