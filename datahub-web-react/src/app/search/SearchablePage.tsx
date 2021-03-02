@@ -1,13 +1,12 @@
 import React from 'react';
-import 'antd/dist/antd.css';
 import { Layout } from 'antd';
 import { useHistory } from 'react-router';
 import { SearchHeader } from './SearchHeader';
-import { SearchCfg } from '../../conf';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import themeConfig from '../../theme.config.json';
 
 const styles = {
     pageContainer: { backgroundColor: '#FFFFFF' },
@@ -59,7 +58,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
         <Layout style={styles.pageContainer}>
             <SearchHeader
                 initialQuery={initialQuery as string}
-                placeholderText={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
+                placeholderText={themeConfig.appVariables.search.searchbarMessage}
                 suggestions={
                     (suggestionsData && suggestionsData?.autoComplete && suggestionsData.autoComplete.suggestions) || []
                 }

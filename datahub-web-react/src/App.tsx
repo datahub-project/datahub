@@ -2,7 +2,9 @@ import React, { useMemo } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
-import './App.css';
+import { ThemeProvider } from 'styled-components';
+
+import './App.less';
 import { Routes } from './app/Routes';
 import { mocks } from './Mocks';
 
@@ -14,6 +16,8 @@ import { TagEntity } from './app/entity/tag/Tag';
 
 import EntityRegistry from './app/entity/EntityRegistry';
 import { EntityRegistryContext } from './entityRegistryContext';
+
+import themeConfig from './theme.config.json';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -52,21 +56,36 @@ const App: React.VFC = () => {
         register.register(new TagEntity());
         return register;
     }, []);
+
+    const stylingOverridesWithoutPrefix = useMemo(() => {
+        const overridesWithoutPrefix = {};
+        // this is based on the assumpton that antdStylingOverrides will always be a dictionary of <string, string>. If that changes,
+        // we will need to turn this into a deep copy
+        Object.assign(overridesWithoutPrefix, themeConfig.antdStylingOverrides);
+        Object.keys(overridesWithoutPrefix).forEach((key) => {
+            overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
+            delete overridesWithoutPrefix[key];
+        });
+        return overridesWithoutPrefix;
+    }, []);
+
     return (
-        <Router>
-            <EntityRegistryContext.Provider value={entityRegistry}>
-                {/* Temporary: For local testing during development. */}
-                {MOCK_MODE ? (
-                    <MockedProvider mocks={mocks} addTypename={false}>
-                        <Routes />
-                    </MockedProvider>
-                ) : (
-                    <ApolloProvider client={client}>
-                        <Routes />
-                    </ApolloProvider>
-                )}
-            </EntityRegistryContext.Provider>
-        </Router>
+        <ThemeProvider theme={stylingOverridesWithoutPrefix}>
+            <Router>
+                <EntityRegistryContext.Provider value={entityRegistry}>
+                    {/* Temporary: For local testing during development. */}
+                    {MOCK_MODE ? (
+                        <MockedProvider mocks={mocks} addTypename={false}>
+                            <Routes />
+                        </MockedProvider>
+                    ) : (
+                        <ApolloProvider client={client}>
+                            <Routes />
+                        </ApolloProvider>
+                    )}
+                </EntityRegistryContext.Provider>
+            </Router>
+        </ThemeProvider>
     );
 };
 

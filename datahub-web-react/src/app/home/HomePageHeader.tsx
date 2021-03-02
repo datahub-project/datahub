@@ -3,10 +3,10 @@ import { useHistory } from 'react-router';
 import { Typography, Image, Space, AutoComplete, Input, Row } from 'antd';
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { GlobalCfg, SearchCfg } from '../../conf';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import themeConfig from '../../theme.config.json';
 
 const styles = {
     background: {
@@ -58,7 +58,7 @@ export const HomePageHeader = () => {
                 />
             </Row>
             <Space direction="vertical" align="center" style={styles.searchContainer}>
-                <Image src={GlobalCfg.LOGO_IMAGE} preview={false} style={styles.logoImage} />
+                <Image src={themeConfig.appVariables.logoUrl} preview={false} style={styles.logoImage} />
                 <AutoComplete
                     style={styles.searchBox}
                     options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({
@@ -68,14 +68,14 @@ export const HomePageHeader = () => {
                     onSearch={(value: string) => onAutoComplete(value)}
                 >
                     <Input.Search
-                        placeholder={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
+                        placeholder={themeConfig.appVariables.search.searchbarMessage}
                         onSearch={(value: string) => onSearch(value)}
                         data-testid="search-input"
                     />
                 </AutoComplete>
 
                 <Typography.Text style={styles.subHeaderText}>
-                    Find <b>data</b> you can count on.
+                    {themeConfig.appVariables.homepage.homepageMessage}
                 </Typography.Text>
             </Space>
         </Space>

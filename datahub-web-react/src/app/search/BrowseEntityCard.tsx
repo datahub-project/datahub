@@ -1,8 +1,6 @@
 import React from 'react';
-import 'antd/dist/antd.css';
 import { Card, Typography, Row } from 'antd';
 import { Link } from 'react-router-dom';
-import '../../App.css';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { PageRoutes } from '../../conf/Global';
 import { IconStyleType } from '../entity/Entity';
