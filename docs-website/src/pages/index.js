@@ -134,7 +134,7 @@ function Home() {
   return (
     <Layout
       title={`${siteConfig.title} - ${siteConfig.tagline}`}
-      description="Description will go into a meta tag in <head />">
+      description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.">
       <header className={clsx('hero', styles.heroBanner)}>
         <div className="container">
           <div className="row">
@@ -199,9 +199,9 @@ function Home() {
             {logos.map((logo) => (
               <div key={logo.name}>
                 <div className={styles.logo_frame}>
-                <div className={styles.logo_center}>
-                  {logo.image}
-                </div>
+                  <div className={styles.logo_center}>
+                    {logo.image}
+                  </div>
                 </div>
               </div>
             ))}
@@ -239,12 +239,12 @@ function Home() {
             </div>
             <div className="col col--6">
               <div className={styles.recipe_example}>
-              <p>
-              <CodeBlock className={'language-yml'} metastring='title="recipe.yml"'>{example_recipe}</CodeBlock>
-              </p>
-              <p>
-              <CodeBlock className={'language-shell'}>{example_recipe_run}</CodeBlock>
-              </p>
+                <p>
+                  <CodeBlock className={'language-yml'} metastring='title="recipe.yml"'>{example_recipe}</CodeBlock>
+                </p>
+                <p>
+                  <CodeBlock className={'language-shell'}>{example_recipe_run}</CodeBlock>
+                </p>
               </div>
             </div>
           </div>
@@ -252,7 +252,7 @@ function Home() {
           <div className={clsx("row", styles.section)}>
             <div className="col col--6">
               <div className={clsx("item shadow--tl", styles.browse_image)}>
-              <img src="img/screenshots/browse.gif" width="100%" alt="Browsing DataHub" />
+                <img src="img/screenshots/browse.gif" width="100%" alt="Browsing DataHub" />
               </div>
             </div>
             <div className="col col--6">
