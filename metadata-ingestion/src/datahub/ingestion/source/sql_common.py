@@ -117,7 +117,7 @@ def get_column_type(
 
     if TypeClass is None:
         sql_report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
+            dataset_name, f"unable to map type {column_type!r} to metadata schema"
         )
         TypeClass = NullTypeClass
 
