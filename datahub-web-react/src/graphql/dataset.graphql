@@ -76,6 +76,15 @@ fragment nonRecursiveDatasetFields on Dataset {
             type
             nativeDataType
             recursive
+            globalTags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        description
+                    }
+                }
+            }
         }
         primaryKeys
     }
@@ -84,6 +93,15 @@ fragment nonRecursiveDatasetFields on Dataset {
         deprecated
         note
         decommissionTime
+    }
+    globalTags {
+        tags {
+            tag {
+                urn
+                name
+                description
+            }
+        }
     }
 }
 
@@ -95,7 +113,107 @@ mutation updateDataset($input: DatasetUpdateInput!) {
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        ...nonRecursiveDatasetFields
+        urn
+        name
+        type
+        origin
+        description
+        uri
+        platform {
+            name
+        }
+        platformNativeType
+        tags
+        properties {
+            key
+            value
+        }
+        ownership {
+            owners {
+                owner {
+                    urn
+                    type
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+                type
+            }
+            lastModified {
+                time
+            }
+        }
+        institutionalMemory {
+            elements {
+                url
+                author
+                description
+                created {
+                    actor
+                    time
+                }
+            }
+        }
+        schema {
+            datasetUrn
+            name
+            platformUrn
+            version
+            hash
+            platformSchema {
+                ... on TableSchema {
+                    schema
+                }
+                ... on KeyValueSchema {
+                    keySchema
+                    valueSchema
+                }
+            }
+            fields {
+                fieldPath
+                jsonPath
+                nullable
+                description
+                type
+                nativeDataType
+                recursive
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+            primaryKeys
+        }
+        deprecation {
+            actor
+            deprecated
+            note
+            decommissionTime
+        }
+        globalTags {
+            tags {
+                tag {
+                    urn
+                    name
+                    description
+                }
+            }
+        }
         upstreamLineage {
             upstreams {
                 dataset {

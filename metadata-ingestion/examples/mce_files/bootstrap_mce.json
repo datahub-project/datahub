@@ -421,6 +421,11 @@
                             "primaryKeys": null,
                             "foreignKeysSpecs": null
                         }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.GlobalTags": {
+                            "tags": [{ "tag": "urn:li:tag:sampletag" }]
+                        }
                     }
                 ]
             }
@@ -504,6 +509,11 @@
                             "type": null,
                             "access": null,
                             "lastRefreshed": null
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.GlobalTags": {
+                            "tags": [{ "tag": "urn:li:tag:sampletag" }]
                         }
                     }
                 ]
@@ -641,6 +651,39 @@
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
                                 }
                             ]
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+                "urn": "urn:li:tag:sampletag",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.tag.TagProperties": {
+                            "name": "sampletag",
+                            "description": "A sample tag"
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:jdoe",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            }
                         }
                     }
                 ]

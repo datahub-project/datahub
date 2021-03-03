@@ -50,6 +50,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name={data.info?.name}
                 description={data.info?.description}
                 access={data.info?.access}
+                tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
             />
         );
