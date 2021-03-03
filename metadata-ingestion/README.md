@@ -261,9 +261,9 @@ source:
   config:
     project_id: project  # optional - can autodetect from environment
     dataset: dataset_name
-    options:
+    options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
-      credentials_path: "/path/to/keyfile.json"
+      credentials_path: "/path/to/keyfile.json"  # optional
     # table_pattern is same as above
 ```
 
