@@ -1,0 +1,18 @@
+{
+    "antdStylingOverrides": {
+        "@primary-color": "#1DA57A",
+        "@border-radius-base": "8px",
+        "@layout-header-background": "#333E4C",
+        "@layout-header-color": "white"
+    },
+    "appVariables": {
+        "logoUrl": "/assets/logo.png",
+        "title": "Dataportal",
+        "homepage": {
+            "homepageMessage": "Find data you can count on"
+        },
+        "search": {
+            "searchbarMessage": "Search Datasets, People, & more..."
+        }
+    }
+}
