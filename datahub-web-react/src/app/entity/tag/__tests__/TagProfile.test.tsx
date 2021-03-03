@@ -1,19 +1,18 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import { createMemoryHistory } from 'history';
+import { Route } from 'react-router';
 
 import TagProfile from '../TagProfile';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
 import { mocks } from '../../../../Mocks';
-import { Route } from 'react-router';
 
 describe('TagProfile', () => {
     it('renders tag details', async () => {
         const { getByText, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/tag/urn:li:tag:abc-sample-tag']}>
-                    <Route path={'/tag/:urn'} render={() => <TagProfile />} />
+                    <Route path="/tag/:urn" render={() => <TagProfile />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
@@ -25,10 +24,10 @@ describe('TagProfile', () => {
     });
 
     it('renders tag ownership', async () => {
-        const { getByText, getByTestId, queryByText } = render(
+        const { getByTestId, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/tag/urn:li:tag:abc-sample-tag']}>
-                    <Route path={'/tag/:urn'} render={() => <TagProfile />} />
+                    <Route path="/tag/:urn" render={() => <TagProfile />} />
                 </TestPageContainer>
             </MockedProvider>,
         );
