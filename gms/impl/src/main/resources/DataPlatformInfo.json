@@ -118,5 +118,11 @@
     "name": "mssql",
     "displayName": "SQL Server",
     "type": "RELATIONAL_DB"
+  },
+  "urn:li:dataPlatform:bigquery": {
+    "datasetNameDelimiter": ".",
+    "name": "bigquery",
+    "displayName": "BigQuery",
+    "type": "RELATIONAL_DB"
   }
 }
