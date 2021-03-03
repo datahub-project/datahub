@@ -25,9 +25,6 @@ public class CorpUserMapper implements ModelMapper<com.linkedin.identity.CorpUse
         result.setUrn(new CorpuserUrn(corpUser.getUsername()).toString());
         result.setType(EntityType.CORP_USER);
         result.setUsername(corpUser.getUsername());
-        if (corpUser.hasGlobalTags()) {
-            result.setGlobalTags(GlobalTagsMapper.map(corpUser.getGlobalTags()));
-        }
         if (corpUser.hasInfo()) {
             result.setInfo(CorpUserInfoMapper.map(corpUser.getInfo()));
         }
