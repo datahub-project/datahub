@@ -1,38 +1,23 @@
 package com.linkedin.tag.client;
 
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
-import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
-import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.tag.Tag;
 import com.linkedin.tag.TagKey;
-import com.linkedin.tag.TagsDoBrowseRequestBuilder;
-import com.linkedin.tag.TagsDoGetBrowsePathsRequestBuilder;
-import com.linkedin.tag.TagsFindBySearchRequestBuilder;
 import com.linkedin.tag.TagsRequestBuilders;
-import com.linkedin.tag.TagsDoAutocompleteRequestBuilder;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 public class Tags extends BaseClient {
 
