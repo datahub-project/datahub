@@ -21,15 +21,15 @@ public class HyperParameterValueTypeMapper implements ModelMapper<com.linkedin.m
     public HyperParameterValueType apply(@NonNull final com.linkedin.ml.metadata.HyperParameterValueType input) {
         HyperParameterValueType result = null;
 
-        if(input.isString()) {
+        if (input.isString()) {
             result = new StringBox(input.getString());
-        } else if(input.isBoolean()) {
+        } else if (input.isBoolean()) {
             result = new BooleanBox(input.getBoolean());
-        } else if(input.isInt()) {
+        } else if (input.isInt()) {
             result = new IntBox(input.getInt());
-        } else if(input.isDouble()) {
+        } else if (input.isDouble()) {
             result = new FloatBox(input.getDouble());
-        } else if(input.isFloat()) {
+        } else if (input.isFloat()) {
             result = new FloatBox(new Double(input.getFloat()));
         }
         return result;

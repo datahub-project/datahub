@@ -18,7 +18,7 @@ public class HyperParameterMapMapper implements ModelMapper<HyperParameterValueT
     public HyperParameterMap apply(@NonNull final HyperParameterValueTypeMap input) {
         final HyperParameterMap result = new HyperParameterMap();
 
-        for(String key: input.keySet()) {
+        for (String key: input.keySet()) {
             result.setKey(key);
             result.setValue(HyperParameterValueTypeMapper.map(input.get(key)));
         }

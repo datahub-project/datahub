@@ -12,7 +12,7 @@ public class ResultsTypeResolver implements TypeResolver {
 
     @Override
     public GraphQLObjectType getType(TypeResolutionEnvironment env) {
-        if(env.getObject() instanceof StringBox) {
+        if (env.getObject() instanceof StringBox) {
             return env.getSchema().getObjectType(STRING_BOX);
         } else {
             throw new RuntimeException("Unrecognized object type provided to type resolver");

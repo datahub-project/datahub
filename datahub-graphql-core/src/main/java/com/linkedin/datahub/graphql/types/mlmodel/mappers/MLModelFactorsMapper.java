@@ -18,13 +18,13 @@ public class MLModelFactorsMapper implements ModelMapper<com.linkedin.ml.metadat
     @Override
     public MLModelFactors apply(@NonNull final com.linkedin.ml.metadata.MLModelFactors mlModelFactors) {
         final MLModelFactors result = new MLModelFactors();
-        if(mlModelFactors.getEnvironment() != null) {
+        if (mlModelFactors.getEnvironment() != null) {
             result.setEnvironment(new ArrayList<>(mlModelFactors.getEnvironment()));
         }
-        if(mlModelFactors.getGroups() != null) {
+        if (mlModelFactors.getGroups() != null) {
             result.setGroups(new ArrayList<>(mlModelFactors.getGroups()));
         }
-        if(mlModelFactors.getInstrumentation() != null) {
+        if (mlModelFactors.getInstrumentation() != null) {
             result.setInstrumentation(new ArrayList<>(mlModelFactors.getInstrumentation()));
         }
         return result;

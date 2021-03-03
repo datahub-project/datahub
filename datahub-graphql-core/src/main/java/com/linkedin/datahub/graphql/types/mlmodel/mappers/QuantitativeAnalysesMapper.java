@@ -5,7 +5,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import lombok.NonNull;
 
-public class QuantitativeAnalysesMapper implements ModelMapper<com.linkedin.ml.metadata.QuantitativeAnalyses,QuantitativeAnalyses> {
+public class QuantitativeAnalysesMapper implements ModelMapper<com.linkedin.ml.metadata.QuantitativeAnalyses, QuantitativeAnalyses> {
 
     public static final QuantitativeAnalysesMapper INSTANCE = new QuantitativeAnalysesMapper();
 

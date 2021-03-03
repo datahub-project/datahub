@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import lombok.NonNull;
 
-public class IntendedUseMapper implements ModelMapper<com.linkedin.ml.metadata.IntendedUse,IntendedUse> {
+public class IntendedUseMapper implements ModelMapper<com.linkedin.ml.metadata.IntendedUse, IntendedUse> {
 
     public static final IntendedUseMapper INSTANCE = new IntendedUseMapper();
 
@@ -21,7 +21,7 @@ public class IntendedUseMapper implements ModelMapper<com.linkedin.ml.metadata.I
         final IntendedUse result = new IntendedUse();
         result.setOutOfScopeUses(intendedUse.getOutOfScopeUses());
         result.setPrimaryUses(intendedUse.getPrimaryUses());
-        if(intendedUse.getPrimaryUsers() != null) {
+        if (intendedUse.getPrimaryUsers() != null) {
             result.setPrimaryUsers(intendedUse.getPrimaryUsers().stream().map(v -> IntendedUserType.valueOf(v.toString())).collect(Collectors.toList()));
         }
         return result;

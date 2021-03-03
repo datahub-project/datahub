@@ -16,13 +16,13 @@ public class CaveatsDetailsMapper implements ModelMapper<com.linkedin.ml.metadat
     @Override
     public CaveatDetails apply(@NonNull final com.linkedin.ml.metadata.CaveatDetails input) {
         final CaveatDetails result = new CaveatDetails();
-        if(input.getCaveatDescription() != null) {
+        if (input.getCaveatDescription() != null) {
             result.setCaveatDescription(input.getCaveatDescription());
         }
-        if(input.getGroupsNotRepresented() != null) {
+        if (input.getGroupsNotRepresented() != null) {
             result.setGroupsNotRepresented(input.getGroupsNotRepresented());
         }
-        if(input.isNeedsFurtherTesting() != null) {
+        if (input.isNeedsFurtherTesting() != null) {
             result.setNeedsFurtherTesting(input.isNeedsFurtherTesting());
         }
         return result;

@@ -6,6 +6,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 
 public class CorpUserUtils {
 
+    private CorpUserUtils() { }
+
     public static CorpuserUrn getCorpUserUrn(final String urnStr) {
         if (urnStr == null) {
             return null;

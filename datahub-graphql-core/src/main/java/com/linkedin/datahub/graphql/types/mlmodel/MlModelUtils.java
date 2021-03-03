@@ -9,7 +9,7 @@ public class MlModelUtils {
     private MlModelUtils() { }
 
     static MLModelUrn getMLModelUrn(String modelUrn) {
-        try{
+        try {
             return MLModelUrn.createFromString(modelUrn);
         } catch (URISyntaxException uriSyntaxException) {
             throw new RuntimeException(String.format("Failed to retrieve mlmodel with urn %s, invalid urn", modelUrn));

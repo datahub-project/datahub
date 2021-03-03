@@ -37,8 +37,8 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
     private final MLModels _mlModelsClient;
 
-    public MLModelType(MLModels _mlModelsClient) {
-        this._mlModelsClient = _mlModelsClient;
+    public MLModelType(final MLModels mlModelsClient) {
+        _mlModelsClient = mlModelsClient;
     }
 
     @Override

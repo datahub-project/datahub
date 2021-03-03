@@ -41,37 +41,37 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
         if (mlModel.getOwnership() != null) {
             result.setOwnership(OwnershipMapper.map(mlModel.getOwnership()));
         }
-        if(mlModel.getMlModelProperties() != null) {
+        if (mlModel.getMlModelProperties() != null) {
             result.setMlModelProperties(MLModelPropertiesMapper.map(mlModel.getMlModelProperties()));
         }
-        if(mlModel.getIntendedUse() != null) {
+        if (mlModel.getIntendedUse() != null) {
             result.setIntendedUse(IntendedUseMapper.map(mlModel.getIntendedUse()));
         }
-        if(mlModel.getMlModelFactorPrompts() != null) {
+        if (mlModel.getMlModelFactorPrompts() != null) {
             result.setMlModelFactorPrompts(MLModelFactorPromptsMapper.map(mlModel.getMlModelFactorPrompts()));
         }
-        if(mlModel.getMetrics() != null) {
+        if (mlModel.getMetrics() != null) {
             result.setMetrics(MetricsMapper.map(mlModel.getMetrics()));
         }
-        if(mlModel.getEvaluationData() != null) {
+        if (mlModel.getEvaluationData() != null) {
             result.setEvaluationData(mlModel.getEvaluationData().getEvaluationData().stream().map(BaseDataMapper::map).collect(Collectors.toList()));
         }
-        if(mlModel.getTrainingData() != null) {
+        if (mlModel.getTrainingData() != null) {
             result.setTrainingData(mlModel.getTrainingData().getTrainingData().stream().map(BaseDataMapper::map).collect(Collectors.toList()));
         }
-        if(mlModel.getQuantitativeAnalyses() != null) {
+        if (mlModel.getQuantitativeAnalyses() != null) {
             result.setQuantitativeAnalyses(QuantitativeAnalysesMapper.map(mlModel.getQuantitativeAnalyses()));
         }
-        if(mlModel.getEthicalConsiderations() != null) {
+        if (mlModel.getEthicalConsiderations() != null) {
             result.setEthicalConsiderations(EthicalConsiderationsMapper.map(mlModel.getEthicalConsiderations()));
         }
-        if(mlModel.getCaveatsAndRecommendations() != null) {
+        if (mlModel.getCaveatsAndRecommendations() != null) {
             result.setCaveatsAndRecommendations(CaveatsAndRecommendationsMapper.map(mlModel.getCaveatsAndRecommendations()));
         }
         if (mlModel.getInstitutionalMemory() != null) {
             result.setInstitutionalMemory(InstitutionalMemoryMapper.map(mlModel.getInstitutionalMemory()));
         }
-        if(mlModel.getSourceCode() != null) {
+        if (mlModel.getSourceCode() != null) {
             SourceCode sourceCode = new SourceCode();
             sourceCode.setSourceCode(
                 mlModel.getSourceCode()
@@ -85,10 +85,10 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
         if (mlModel.getStatus() != null) {
             result.setStatus(StatusMapper.map(mlModel.getStatus()));
         }
-        if(mlModel.getCost() != null) {
+        if (mlModel.getCost() != null) {
             result.setCost(CostMapper.map(mlModel.getCost()));
         }
-        if(mlModel.getDeprecation() != null) {
+        if (mlModel.getDeprecation() != null) {
             result.setDeprecation(DeprecationMapper.map(mlModel.getDeprecation()));
         }
         return result;

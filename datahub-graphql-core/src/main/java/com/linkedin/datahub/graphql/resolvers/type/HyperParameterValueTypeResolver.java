@@ -18,13 +18,13 @@ public class HyperParameterValueTypeResolver implements TypeResolver {
 
     @Override
     public GraphQLObjectType getType(TypeResolutionEnvironment env) {
-        if(env.getObject() instanceof StringBox) {
+        if (env.getObject() instanceof StringBox) {
             return env.getSchema().getObjectType(STRING_BOX);
-        } else if(env.getObject() instanceof IntBox) {
+        } else if (env.getObject() instanceof IntBox) {
             return env.getSchema().getObjectType(INT_BOX);
-        } else if(env.getObject() instanceof BooleanBox) {
+        } else if (env.getObject() instanceof BooleanBox) {
             return env.getSchema().getObjectType(BOOLEAN_BOX);
-        } else if(env.getObject() instanceof FloatBox) {
+        } else if (env.getObject() instanceof FloatBox) {
             return env.getSchema().getObjectType(FLOAT_BOX);
         } else {
             throw new RuntimeException("Unrecognized object type provided to type resolver");

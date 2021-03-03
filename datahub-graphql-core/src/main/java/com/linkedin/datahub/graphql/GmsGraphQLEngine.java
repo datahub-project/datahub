@@ -300,7 +300,7 @@ public class GmsGraphQLEngine {
             .type("HyperParameterValueType", typeWiring -> typeWiring
                     .typeResolver(new HyperParameterValueTypeResolver())
             )
-            .type("ResultsType",typeWiring -> typeWiring
+            .type("ResultsType", typeWiring -> typeWiring
                     .typeResolver(new ResultsTypeResolver()));
     }
 

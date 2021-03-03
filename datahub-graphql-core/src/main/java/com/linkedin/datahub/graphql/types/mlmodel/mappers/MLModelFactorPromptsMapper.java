@@ -18,10 +18,10 @@ public class MLModelFactorPromptsMapper implements ModelMapper<com.linkedin.ml.m
     @Override
     public MLModelFactorPrompts apply(@NonNull final com.linkedin.ml.metadata.MLModelFactorPrompts input) {
         final MLModelFactorPrompts mlModelFactorPrompts = new MLModelFactorPrompts();
-        if(input.getEvaluationFactors() != null) {
+        if (input.getEvaluationFactors() != null) {
             mlModelFactorPrompts.setEvaluationFactors(input.getEvaluationFactors().stream().map(MLModelFactorsMapper::map).collect(Collectors.toList()));
         }
-        if(input.getRelevantFactors() != null) {
+        if (input.getRelevantFactors() != null) {
             mlModelFactorPrompts.setRelevantFactors(input.getRelevantFactors().stream().map(MLModelFactorsMapper::map).collect(Collectors.toList()));
         }
         return mlModelFactorPrompts;

@@ -17,7 +17,7 @@ public class ResultsTypeMapper implements ModelMapper<com.linkedin.ml.metadata.R
     @Override
     public ResultsType apply(@NonNull final com.linkedin.ml.metadata.ResultsType input) {
         ResultsType result = null;
-        if(input.isString()) {
+        if (input.isString()) {
             result = new StringBox(input.getString());
         }
         return result;

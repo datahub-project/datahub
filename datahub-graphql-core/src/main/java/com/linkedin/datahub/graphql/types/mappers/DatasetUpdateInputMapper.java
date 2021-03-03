@@ -27,7 +27,7 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
         if (datasetUpdateInput.getDeprecation() != null) {
             final DatasetDeprecation deprecation = new DatasetDeprecation();
             deprecation.setDeprecated(datasetUpdateInput.getDeprecation().getDeprecated());
-            if(datasetUpdateInput.getDeprecation().getDecommissionTime() != null) {
+            if (datasetUpdateInput.getDeprecation().getDecommissionTime() != null) {
                 deprecation.setDecommissionTime(datasetUpdateInput.getDeprecation().getDecommissionTime());
             }
             deprecation.setNote(datasetUpdateInput.getDeprecation().getNote());
