@@ -7,6 +7,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     uri
     platform {
         name
+        info {
+            logoUrl
+        }
     }
     platformNativeType
     tags
