@@ -118,6 +118,12 @@ module.exports = {
     gtag: {
       trackingID: "G-2G54RXWD4D",
     },
+    algolia: {
+      apiKey: '26a4b687e96e7476b5a6f11365a83336',
+      indexName: 'datahubproject',
+      contextualSearch: true,
+      searchParameters: {},
+    },
   },
   presets: [
     [
@@ -141,15 +147,15 @@ module.exports = {
   plugins: [
     "@docusaurus/plugin-ideal-image",
     // '@docusaurus/plugin-google-gtag',
-    [
-      require.resolve("@easyops-cn/docusaurus-search-local"),
-      {
-        // `hashed` is recommended as long-term-cache of index file is possible.
-        hashed: true,
-        language: ["en"],
-        docsDir: "genDocs",
-        blogDir: [],
-      },
-    ],
+    // [
+    //   require.resolve("@easyops-cn/docusaurus-search-local"),
+    //   {
+    //     // `hashed` is recommended as long-term-cache of index file is possible.
+    //     hashed: true,
+    //     language: ["en"],
+    //     docsDir: "genDocs",
+    //     blogDir: [],
+    //   },
+    // ],
   ],
 };
