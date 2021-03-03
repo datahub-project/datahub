@@ -18,6 +18,7 @@ import LogoSpothero from './logos/SpotHero.png';
 import LogoGeotab from './logos/geotab.jpg';
 import LogoThoughtworks from './logos/Thoughtworks.png';
 import LogoViasat from './logos/viasat.png';
+import LogoKlarna from './logos/klarna.svg';
 
 const features = [
   {
@@ -97,6 +98,10 @@ const logos = [
   {
     name: 'Viasat',
     image: pngFormatter(LogoViasat),
+  },
+  {
+    name: 'Klarna',
+    image: svgFormatter(LogoKlarna),
   },
 ];
 
