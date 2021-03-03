@@ -13,7 +13,7 @@ import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
-const MOCK_MODE = false;
+const MOCK_MODE = true;
 
 /*
     Construct Apollo Client 

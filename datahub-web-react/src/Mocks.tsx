@@ -7,7 +7,7 @@ import {
 } from './graphql/search.generated';
 import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, EntityType } from './types.generated';
+import { Dataset, EntityType, PlatformType } from './types.generated';
 
 const user1 = {
     username: 'sdas',
@@ -52,6 +52,11 @@ const dataset1 = {
         urn: 'urn:li:dataPlatform:hdfs',
         name: 'HDFS',
         type: EntityType.DataPlatform,
+        info: {
+            type: PlatformType.FileSystem,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
     },
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
@@ -114,6 +119,11 @@ const dataset2 = {
     platform: {
         urn: 'urn:li:dataPlatform:mysql',
         name: 'MySQL',
+        info: {
+            type: PlatformType.RelationalDb,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
         type: EntityType.DataPlatform,
     },
     platformNativeType: 'TABLE',
@@ -156,6 +166,11 @@ const dataset3 = {
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
         type: EntityType.DataPlatform,
     },
     platformNativeType: 'STREAM',
