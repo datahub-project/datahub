@@ -627,8 +627,9 @@
                         "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
                             "description": "A sample model for predicting some outcome.",
                             "date": null,
-                            "tags": [],
-                            "version": null
+                            "tags": ["Sample"],
+                            "version": null,
+                            "type": "Naive Bayes classifier"
                         }
                     },
                     {
@@ -651,6 +652,71 @@
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
                                 }
                             ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+                            "elements": [
+                                {
+                                    "url": "https://www.linkedin.com",
+                                    "description": "Sample doc",
+                                    "createStamp": {
+                                        "time": 1581407189000,
+                                        "actor": "urn:li:corpuser:jdoe",
+                                        "impersonator": null
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
+                            "primaryUses" : [
+                                "Sample Model",
+                                "Primary Use"
+                            ],
+                            "primaryUsers": [
+                               "ENTERPRISE"
+                            ],
+                            "outOfScopeUses": [
+                                "Production Deployment"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
+                            "performanceMeasures": ["performanceMeasures"],
+                            "decisionThreshold": ["decisionThreshold"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
+                            "data": ["data"],
+                            "humanLife": ["humanLife"],
+                            "mitigations": ["mitigations"],
+                            "risksAndHarms": ["risksAndHarms"],
+                            "useCases": ["useCases"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
+                            "recommendations": "recommendations",
+                            "idealDatasetCharacteristics": [
+                                "idealDatasetCharacteristics"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "boolean" : false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Cost": {
+                            "costType": "ORG_COST_TYPE",
+                            "cost": {
+                                "costCode": "costCode"
+                            }
                         }
                     }
                 ]

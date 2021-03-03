@@ -1421,11 +1421,6 @@ type MLModel implements Entity {
     tags: [String!]!
 
     """
-    A list of platform-specific metadata tuples
-    """
-    properties: [StringMapEntry!]
-
-    """
     Ownership metadata of the mlmodel
     """
     ownership: Ownership

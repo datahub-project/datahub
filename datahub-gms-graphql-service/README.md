@@ -151,17 +151,13 @@ Sample Request:
 
 ```
 {
-  mlmodel(urn: "urn:li:model:(urn:li:dataPlatform:dataScience,dataScienceModel,TEST)") {
+  mlmodel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)") {
     urn
     type
     name
     origin
     description
     tags
-    properties {
-      key
-      value
-    }
     ownership {
       owners {
         owner {
@@ -178,18 +174,6 @@ Sample Request:
         source {
           type
           url
-        }
-      }
-    }
-    status {
-      removed
-    }
-    institutionalMemory {
-      elements {
-        url
-        description
-        created {
-          actor
         }
       }
     }
@@ -217,6 +201,18 @@ Sample Request:
       }
       mlFeatures
       tags
+    }
+    status {
+      removed
+    }
+    institutionalMemory {
+      elements {
+        url
+        description
+        created {
+          actor
+        }
+      }
     }
     intendedUse {
       primaryUses
@@ -292,5 +288,142 @@ Sample Request:
 Sample Response:
 
 ```
-
+{
+  "data": {
+    "mlmodel": {
+      "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+      "type": "MLMODEL",
+      "name": "scienceModel",
+      "origin": "PROD",
+      "description": "A sample model for predicting some outcome.",
+      "tags": [
+        "Sample"
+      ],
+      "ownership": {
+        "owners": [
+          {
+            "owner": {
+              "urn": "urn:li:corpuser:jdoe",
+              "username": "jdoe",
+              "editableInfo": null,
+              "info": {
+                "firstName": null
+              }
+            },
+            "type": "DATAOWNER",
+            "source": null
+          },
+          {
+            "owner": {
+              "urn": "urn:li:corpuser:datahub",
+              "username": "datahub",
+              "editableInfo": {
+                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+              },
+              "info": {
+                "firstName": null
+              }
+            },
+            "type": "DATAOWNER",
+            "source": null
+          }
+        ]
+      },
+      "mlModelProperties": {
+        "description": "A sample model for predicting some outcome.",
+        "date": null,
+        "version": null,
+        "type": "Naive Bayes classifier",
+        "hyperParameters": null,
+        "mlFeatures": null,
+        "tags": [
+          "Sample"
+        ]
+      },
+      "status": {
+        "removed": false
+      },
+      "institutionalMemory": {
+        "elements": [
+          {
+            "url": "https://www.linkedin.com",
+            "description": "Sample doc",
+            "created": {
+              "actor": "urn:li:corpuser:jdoe"
+            }
+          }
+        ]
+      },
+      "intendedUse": {
+        "primaryUses": [
+          "Sample Model",
+          "Primary Use"
+        ],
+        "primaryUsers": [
+          "ENTERPRISE"
+        ],
+        "outOfScopeUses": [
+          "Production Deployment"
+        ]
+      },
+      "mlModelFactorPrompts": null,
+      "metrics": {
+        "decisionThreshold": [
+          "decisionThreshold"
+        ],
+        "performanceMeasures": [
+          "performanceMeasures"
+        ]
+      },
+      "trainingData": [
+        {
+          "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+          "motivation": "For science!",
+          "preProcessing": [
+            "Aggregation"
+          ]
+        }
+      ],
+      "evaluationData": [
+        {
+          "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+          "motivation": null,
+          "preProcessing": null
+        }
+      ],
+      "quantitativeAnalyses": null,
+      "ethicalConsiderations": {
+        "useCases": [
+          "useCases"
+        ],
+        "humanLife": [
+          "humanLife"
+        ],
+        "mitigations": [
+          "mitigations"
+        ],
+        "risksAndHarms": [
+          "risksAndHarms"
+        ],
+        "data": [
+          "data"
+        ]
+      },
+      "caveatsAndRecommendations": {
+        "caveats": null,
+        "recommendations": "recommendations",
+        "idealDatasetCharacteristics": [
+          "idealDatasetCharacteristics"
+        ]
+      },
+      "cost": {
+        "costType": "ORG_COST_TYPE",
+        "costValue": {
+          "costId": null,
+          "costCode": "costCode"
+        }
+      }
+    }
+  }
+}
 ```

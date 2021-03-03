@@ -236,7 +236,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<MLModel> get(@Nonnull ComplexResourceKey<MLModelKey, EmptyRecord> key,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.get(key, aspectNames);
     }
 
@@ -245,14 +245,14 @@ public class MLModels extends BaseSearchableEntityResource<
     @Nonnull
     public Task<Map<ComplexResourceKey<MLModelKey, EmptyRecord>, MLModel>> batchGet(
         @Nonnull Set<ComplexResourceKey<MLModelKey, EmptyRecord>> keys,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.batchGet(keys, aspectNames);
     }
 
     @RestMethod.GetAll
     @Nonnull
     public Task<List<MLModel>> getAll(@PagingContextParam @Nonnull PagingContext pagingContext,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
         return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
@@ -262,7 +262,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<CollectionResult<MLModel, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
         @PagingContextParam @Nonnull PagingContext pagingContext) {
@@ -289,7 +289,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<MLModelSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
-        @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+        @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.getSnapshot(urnString, aspectNames);
     }
 
@@ -297,7 +297,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-        @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+        @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.backfill(urnString, aspectNames);
     }
 }
