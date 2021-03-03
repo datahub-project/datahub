@@ -47,11 +47,6 @@ record MLModel includes MLModelKey, ChangeAuditStamps {
   tags: array[string] = [ ]
 
   /**
-   * A key-value map of platform-specific properties
-   */
-  properties: optional map[string, string]
-
-  /**
    * Ownership Info
    */
   ownership: optional Ownership

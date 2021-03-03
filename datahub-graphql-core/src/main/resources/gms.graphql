@@ -1498,7 +1498,7 @@ type MLModel implements Entity {
     """
     Deprecation
     """
-    deprecation: DatasetDeprecation
+    deprecation: Deprecation
 }
 
 type MLModelProperties {
@@ -1524,19 +1524,19 @@ type HyperParameterMap {
 }
 
 type StringBox {
-    value: String
+    stringValue: String
 }
 
 type IntBox {
-    value: Int
+    intValue: Int
 }
 
 type FloatBox {
-    value: Float
+    floatValue: Float
 }
 
 type BooleanBox {
-    value: Boolean
+    booleanValue: Boolean
 }
 
 union HyperParameterValueType = StringBox | IntBox | FloatBox | BooleanBox
@@ -1770,4 +1770,26 @@ enum CostType {
     Org Cost Type to which the Cost of this entity should be attributed to
     """
     ORG_COST_TYPE
+}
+
+type Deprecation {
+    """
+    Whether the dataset has been deprecated by owner
+    """
+    deprecated: Boolean!
+
+    """
+    The time user plan to decommission this dataset
+    """
+    decommissionTime: Long
+
+    """
+    Additional information about the dataset deprecation plan
+    """
+    note: String!
+
+    """
+    The user who will be credited for modifying this deprecation content
+    """
+    actor: String
 }

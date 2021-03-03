@@ -8,14 +8,13 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.SourceCode;
 import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.ml.metadata.BaseData;
-import com.linkedin.ml.metadata.TrainingData;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -39,14 +38,8 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
         result.setOrigin(Enum.valueOf(FabricType.class, mlModel.getOrigin().name()));
         result.setTags(mlModel.getTags());
 
-        if (mlModel.getProperties() != null) {
-            result.setProperties(StringMapMapper.map(mlModel.getProperties()));
-        }
         if (mlModel.getOwnership() != null) {
             result.setOwnership(OwnershipMapper.map(mlModel.getOwnership()));
-        }
-        if (mlModel.getInstitutionalMemory() != null) {
-            result.setInstitutionalMemory(InstitutionalMemoryMapper.map(mlModel.getInstitutionalMemory()));
         }
         if(mlModel.getMlModelProperties() != null) {
             result.setMlModelProperties(MLModelPropertiesMapper.map(mlModel.getMlModelProperties()));
@@ -66,9 +59,6 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
         if(mlModel.getTrainingData() != null) {
             result.setTrainingData(mlModel.getTrainingData().getTrainingData().stream().map(BaseDataMapper::map).collect(Collectors.toList()));
         }
-        if(mlModel.getCost() != null) {
-            result.setCost(CostMapper.map(mlModel.getCost()));
-        }
         if(mlModel.getQuantitativeAnalyses() != null) {
             result.setQuantitativeAnalyses(QuantitativeAnalysesMapper.map(mlModel.getQuantitativeAnalyses()));
         }
@@ -78,8 +68,28 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
         if(mlModel.getCaveatsAndRecommendations() != null) {
             result.setCaveatsAndRecommendations(CaveatsAndRecommendationsMapper.map(mlModel.getCaveatsAndRecommendations()));
         }
+        if (mlModel.getInstitutionalMemory() != null) {
+            result.setInstitutionalMemory(InstitutionalMemoryMapper.map(mlModel.getInstitutionalMemory()));
+        }
+        if(mlModel.getSourceCode() != null) {
+            SourceCode sourceCode = new SourceCode();
+            sourceCode.setSourceCode(
+                mlModel.getSourceCode()
+                    .getSourceCode()
+                    .stream()
+                    .map(SourceCodeUrlMapper::map)
+                    .collect(Collectors.toList())
+            );
+            result.setSourceCode(sourceCode);
+        }
         if (mlModel.getStatus() != null) {
             result.setStatus(StatusMapper.map(mlModel.getStatus()));
+        }
+        if(mlModel.getCost() != null) {
+            result.setCost(CostMapper.map(mlModel.getCost()));
+        }
+        if(mlModel.getDeprecation() != null) {
+            result.setDeprecation(DeprecationMapper.map(mlModel.getDeprecation()));
         }
         return result;
     }

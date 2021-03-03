@@ -70,7 +70,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                 .map(gmsMlModel -> gmsMlModel == null ? null : MlModelMapper.map(gmsMlModel))
                 .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load Datasets", e);
+            throw new RuntimeException("Failed to batch load MLModels", e);
         }
     }
 

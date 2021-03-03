@@ -145,3 +145,152 @@ Sample Response:
 }
 ```
 
+### Query MLModel
+
+Sample Request:
+
+```
+{
+  mlmodel(urn: "urn:li:model:(urn:li:dataPlatform:dataScience,dataScienceModel,TEST)") {
+    urn
+    type
+    name
+    origin
+    description
+    tags
+    properties {
+      key
+      value
+    }
+    ownership {
+      owners {
+        owner {
+          urn
+          username
+          editableInfo {
+            pictureLink
+          }
+          info {
+            firstName
+          }
+        }
+        type
+        source {
+          type
+          url
+        }
+      }
+    }
+    status {
+      removed
+    }
+    institutionalMemory {
+      elements {
+        url
+        description
+        created {
+          actor
+        }
+      }
+    }
+    mlModelProperties {
+      description
+      date
+      version
+      type
+      hyperParameters {
+        key
+        value {
+          ...on StringBox {
+            stringValue
+          }
+          ... on IntBox {
+            intValue
+          }
+          ... on FloatBox {
+            floatValue
+          }
+          ... on BooleanBox {
+            booleanValue
+          }
+        }
+      }
+      mlFeatures
+      tags
+    }
+    intendedUse {
+      primaryUses
+      primaryUsers
+      outOfScopeUses
+    }
+    mlModelFactorPrompts {
+      relevantFactors {
+        groups
+        instrumentation
+        environment
+      }
+      evaluationFactors {
+        groups
+        instrumentation
+        environment
+      }
+    }
+    metrics {
+      decisionThreshold
+      performanceMeasures
+    }
+    trainingData {
+      dataset
+      motivation
+      preProcessing
+    }
+    evaluationData {
+      dataset
+      motivation
+      preProcessing
+    }
+    quantitativeAnalyses {
+      unitaryResults {
+        ...on StringBox {
+          stringValue
+        }
+      }
+      intersectionalResults {
+        ...on StringBox {
+          stringValue
+        }
+      }
+    }
+    ethicalConsiderations {
+      useCases
+      humanLife
+      mitigations
+      risksAndHarms
+      useCases
+      data
+    }
+    caveatsAndRecommendations {
+      caveats {
+        caveatDescription
+        needsFurtherTesting
+        groupsNotRepresented
+      }
+      recommendations 
+      idealDatasetCharacteristics
+    }
+    cost {
+      costType
+      costValue {
+        costId
+        costCode
+      }
+    }
+  }
+}
+```
+
+Sample Response:
+
+```
+
+```
