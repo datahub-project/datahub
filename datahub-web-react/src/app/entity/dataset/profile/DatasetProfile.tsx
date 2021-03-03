@@ -4,7 +4,7 @@ import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphq
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset } from '../../../../types.generated';
+import { Dataset, GlobalTags } from '../../../../types.generated';
 import LineageView from './Lineage';
 import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
@@ -25,7 +25,7 @@ const EMPTY_ARR: never[] = [];
 /**
  * Responsible for display the Dataset Page
  */
-export const Profile = ({ urn }: { urn: string }): JSX.Element => {
+export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const [updateDataset] = useUpdateDatasetMutation();
 
@@ -93,7 +93,7 @@ export const Profile = ({ urn }: { urn: string }): JSX.Element => {
             {data && data.dataset && (
                 <EntityProfile
                     title={data.dataset.name}
-                    tags={data.dataset.tags}
+                    tags={data.dataset?.globalTags as GlobalTags}
                     tabs={getTabs(data.dataset as Dataset)}
                     header={getHeader(data.dataset as Dataset)}
                 />

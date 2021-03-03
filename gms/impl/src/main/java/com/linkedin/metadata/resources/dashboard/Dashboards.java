@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.dashboard;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DashboardUrn;
@@ -131,6 +132,8 @@ public class Dashboards extends BaseBrowsableEntityResource<
       } else if (aspect instanceof Status) {
         Status status = Status.class.cast(aspect);
         value.setStatus(status);
+      } else if (aspect instanceof GlobalTags) {
+        value.setGlobalTags(GlobalTags.class.cast(aspect));
       }
     });
 
@@ -149,6 +152,9 @@ public class Dashboards extends BaseBrowsableEntityResource<
     }
     if (dashboard.hasStatus()) {
       aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getStatus()));
+    }
+    if (dashboard.hasGlobalTags()) {
+      aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getGlobalTags()));
     }
     return ModelUtils.newSnapshot(DashboardSnapshot.class, urn, aspects);
   }

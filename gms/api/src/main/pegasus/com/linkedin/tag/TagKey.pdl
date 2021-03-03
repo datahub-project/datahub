@@ -1,0 +1,16 @@
+namespace com.linkedin.tag
+
+/**
+ * Key for Tag resource
+ */
+record TagKey {
+
+  /**
+   * tag name
+   */
+  @validate.strlen = {
+    "max" : 200,
+    "min" : 1
+  }
+  name: string
+}

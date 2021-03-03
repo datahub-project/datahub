@@ -16,5 +16,14 @@ query getUser($urn: String!) {
             teams
             skills
         }
+        globalTags {
+            tags {
+                tag {
+                    urn
+                    name
+                    description
+                }
+            }
+        }
     }
 }

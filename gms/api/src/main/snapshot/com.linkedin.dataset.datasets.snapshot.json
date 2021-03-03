@@ -193,6 +193,55 @@
     }
   }, {
     "type" : "record",
+    "name" : "GlobalTags",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Tags information",
+    "fields" : [ {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "TagAssociation",
+          "doc" : "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters.",
+          "fields" : [ {
+            "name" : "tag",
+            "type" : {
+              "type" : "typeref",
+              "name" : "TagUrn",
+              "doc" : "Standardized data platforms available",
+              "ref" : "string",
+              "java" : {
+                "class" : "com.linkedin.common.urn.TagUrn"
+              },
+              "validate" : {
+                "com.linkedin.common.validator.TypedUrnValidator" : {
+                  "accessible" : true,
+                  "constructable" : true,
+                  "doc" : "Standardized data platforms available",
+                  "entityType" : "tag",
+                  "fields" : [ {
+                    "doc" : "tag name",
+                    "maxLength" : 200,
+                    "name" : "name",
+                    "type" : "string"
+                  } ],
+                  "maxLength" : 220,
+                  "name" : "Tag",
+                  "namespace" : "li",
+                  "owners" : [ ],
+                  "owningTeam" : "urn:li:internalTeam:datahub"
+                }
+              }
+            },
+            "doc" : "Urn of the applied tag"
+          } ]
+        }
+      },
+      "doc" : "Tags associated with a given entity"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
     "doc" : "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.",
@@ -237,7 +286,7 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
     }, {
       "name" : "type",
       "type" : {
@@ -317,7 +366,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false
     } ]
-  }, "com.linkedin.common.Time", {
+  }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
     "type" : "typeref",
     "name" : "Uri",
     "namespace" : "com.linkedin.common",
@@ -741,6 +790,11 @@
                 "type" : "boolean",
                 "doc" : "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.",
                 "default" : false
+              }, {
+                "name" : "globalTags",
+                "type" : "com.linkedin.common.GlobalTags",
+                "doc" : "Tags associated with the field",
+                "optional" : true
               } ]
             }
           },
@@ -852,6 +906,11 @@
       },
       "doc" : "Upstream lineage metadata of the dataset",
       "optional" : true
+    }, {
+      "name" : "globalTags",
+      "type" : "com.linkedin.common.GlobalTags",
+      "doc" : "List of global tags applied to the dataset",
+      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", {
     "type" : "record",
@@ -897,7 +956,7 @@
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "tags for the dataset",
+      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `Tags` aspect.",
       "default" : [ ]
     }, {
       "name" : "customProperties",
@@ -970,7 +1029,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.common.GlobalTags" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",

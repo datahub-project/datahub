@@ -1,20 +1,21 @@
 import { Avatar, Divider, Image, Row, Space, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
+import { EntityType, GlobalTags } from '../../types.generated';
 import defaultAvatar from '../../images/default_avatar.png';
 import { useEntityRegistry } from '../useEntityRegistry';
+import TagGroup from '../shared/TagGroup';
 
 interface Props {
     name: string;
     logoUrl?: string;
     url: string;
     description: string;
-    type: string;
-    platform: string;
+    type?: string;
+    platform?: string;
     qualifier?: string | null;
-    tags: Array<string>;
-    owners: Array<{ urn: string; name?: string; photoUrl?: string }>;
+    tags?: GlobalTags;
+    owners?: Array<{ urn: string; name?: string; photoUrl?: string }>;
 }
 
 const styles = {
@@ -64,17 +65,15 @@ export default function DefaultPreviewCard({
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space>
-                    {tags.map((tag) => (
-                        <Tag color="processing">{tag}</Tag>
-                    ))}
+                    <TagGroup globalTags={tags} />
                 </Space>
                 <Space direction="vertical" size={12}>
                     <Typography.Text strong style={styles.ownedBy}>
                         Owned By
                     </Typography.Text>
                     <Avatar.Group maxCount={4}>
-                        {owners.map((owner) => (
-                            <Tooltip title={owner.name}>
+                        {owners?.map((owner) => (
+                            <Tooltip title={owner.name} key={owner.urn}>
                                 <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.urn}`}>
                                     <Avatar src={owner.photoUrl || defaultAvatar} />
                                 </Link>

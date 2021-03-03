@@ -45,6 +45,10 @@ enum EntityType {
     The Chart Entity
     """
     CHART
+    """
+    The Tag Entity
+    """
+    TAG
 }
 
 type Query {
@@ -67,6 +71,10 @@ type Query {
     Fetch a Chart by primary key
     """
     chart(urn: String!): Chart
+    """
+    Fetch a Tag by primary key
+    """
+    tag(urn: String!): Tag
 
     """
     Search DataHub entities
@@ -190,6 +198,11 @@ type Dataset implements Entity {
     Downstream Lineage metadata of the dataset
     """
     downstreamLineage: DownstreamLineage
+
+    """
+    The structured tags associated with the dataset
+    """
+    globalTags: GlobalTags
 }
 
 type DataPlatform implements Entity {
@@ -450,6 +463,10 @@ type SchemaField {
     Whether the field references its own type recursively
     """
     recursive: Boolean!
+    """
+    The structured tags associated with the field
+    """
+    globalTags: GlobalTags
 }
 
 enum SchemaFieldDataType {
@@ -682,6 +699,11 @@ type CorpUser implements Entity {
     Writable info about the corp user
     """
     editableInfo: CorpUserEditableInfo
+
+    """
+    The structured tags associated with the user
+    """
+    globalTags: GlobalTags
 }
 
 type CorpUserInfo {
@@ -761,6 +783,33 @@ type CorpUserEditableInfo {
     A URL which points to a picture which user wants to set as a profile photo
     """
     pictureLink: String
+}
+
+type Tag implements Entity{
+    urn: String!
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+    name: String!
+
+    """
+    Description of the tag
+    """
+    description: String
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+}
+
+type TagAssociation {
+    tag: Tag!
+}
+
+type GlobalTags {
+    tags: [TagAssociation!]
 }
 
 input SearchInput {
@@ -1114,6 +1163,11 @@ type Dashboard implements Entity {
     Status metadata of the dashboard
     """
     status: Status
+
+    """
+    The structured tags associated with the dashboard
+    """
+    globalTags: GlobalTags
 }
 
 type DashboardInfo {
@@ -1215,6 +1269,11 @@ type Chart implements Entity {
     Status metadata of the chart
     """
     status: Status
+
+    """
+    The structured tags associated with the chart
+    """
+    globalTags: GlobalTags
 }
 
 type ChartInfo {

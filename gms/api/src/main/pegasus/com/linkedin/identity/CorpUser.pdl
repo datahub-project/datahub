@@ -1,5 +1,7 @@
 namespace com.linkedin.identity
 
+import com.linkedin.common.GlobalTags
+
 /**
  * Metadata for a corp user
  */
@@ -19,4 +21,9 @@ record CorpUser {
    * Editable information of the corp user
    */
   editableInfo: optional CorpUserEditableInfo
+
+  /**
+   * List of global tags applied to the corp user
+   */
+  globalTags: optional GlobalTags
 }

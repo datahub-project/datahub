@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+import com.linkedin.datahub.graphql.types.tag.TagType;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -60,6 +61,7 @@ public class GmsGraphQLEngine {
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(GmsClientFactory.getLineagesClient());
+    public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -70,7 +72,8 @@ public class GmsGraphQLEngine {
             DATA_PLATFORM_TYPE,
             DOWNSTREAM_LINEAGE_TYPE,
             CHART_TYPE,
-            DASHBOARD_TYPE
+            DASHBOARD_TYPE,
+            TAG_TYPE
     );
 
     /**
@@ -123,6 +126,7 @@ public class GmsGraphQLEngine {
         configureChartResolvers(builder);
         configureTypeResolvers(builder);
         configureTypeExtensions(builder);
+        configureTagAssociationResolver(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -168,6 +172,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("chart", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
                                 CHART_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("tag", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                TAG_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -221,6 +229,16 @@ public class GmsGraphQLEngine {
                             CORP_USER_TYPE,
                             (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn()))
             )
+        );
+    }
+
+    private static void configureTagAssociationResolver(final RuntimeWiring.Builder builder) {
+        builder.type("TagAssociation", typeWiring -> typeWiring
+                .dataFetcher("tag", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                TAG_TYPE,
+                                (env) -> ((com.linkedin.datahub.graphql.generated.TagAssociation) env.getSource()).getTag().getUrn()))
+                )
         );
     }
 

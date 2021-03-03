@@ -61,6 +61,55 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string"
   }, {
+    "type" : "record",
+    "name" : "GlobalTags",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Tags information",
+    "fields" : [ {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "TagAssociation",
+          "doc" : "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters.",
+          "fields" : [ {
+            "name" : "tag",
+            "type" : {
+              "type" : "typeref",
+              "name" : "TagUrn",
+              "doc" : "Standardized data platforms available",
+              "ref" : "string",
+              "java" : {
+                "class" : "com.linkedin.common.urn.TagUrn"
+              },
+              "validate" : {
+                "com.linkedin.common.validator.TypedUrnValidator" : {
+                  "accessible" : true,
+                  "constructable" : true,
+                  "doc" : "Standardized data platforms available",
+                  "entityType" : "tag",
+                  "fields" : [ {
+                    "doc" : "tag name",
+                    "maxLength" : 200,
+                    "name" : "name",
+                    "type" : "string"
+                  } ],
+                  "maxLength" : 220,
+                  "name" : "Tag",
+                  "namespace" : "li",
+                  "owners" : [ ],
+                  "owningTeam" : "urn:li:internalTeam:datahub"
+                }
+              }
+            },
+            "doc" : "Urn of the applied tag"
+          } ]
+        }
+      },
+      "doc" : "Tags associated with a given entity"
+    } ]
+  }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", {
     "type" : "typeref",
     "name" : "Urn",
     "namespace" : "com.linkedin.common",
@@ -133,7 +182,7 @@
     "name" : "CorpGroupAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpGroup",
-    "ref" : [ "com.linkedin.identity.CorpGroupInfo" ]
+    "ref" : [ "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",

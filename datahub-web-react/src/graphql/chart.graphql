@@ -82,5 +82,14 @@ query getChart($urn: String!) {
                 time
             }
         }
+        globalTags {
+            tags {
+                tag {
+                    urn
+                    name
+                    description
+                }
+            }
+        }
     }
 }
