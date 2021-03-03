@@ -239,12 +239,12 @@ function Home() {
             </div>
             <div className="col col--6">
               <div className={styles.recipe_example}>
-                <p>
+                <div className={styles.recipe_codeblock}>
                   <CodeBlock className={'language-yml'} metastring='title="recipe.yml"'>{example_recipe}</CodeBlock>
-                </p>
-                <p>
+                </div>
+                <div className={styles.recipe_codeblock}>
                   <CodeBlock className={'language-shell'}>{example_recipe_run}</CodeBlock>
-                </p>
+                </div>
               </div>
             </div>
           </div>

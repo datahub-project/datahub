@@ -119,10 +119,11 @@ module.exports = {
       trackingID: "G-2G54RXWD4D",
     },
     algolia: {
-      apiKey: '26a4b687e96e7476b5a6f11365a83336',
-      indexName: 'datahubproject',
-      contextualSearch: true,
-      searchParameters: {},
+      apiKey: "26a4b687e96e7476b5a6f11365a83336",
+      indexName: "datahubproject",
+      // contextualSearch: true,
+      // searchParameters: {},
+      // debug: true,
     },
   },
   presets: [
