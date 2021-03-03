@@ -4,8 +4,9 @@ import com.linkedin.chart.ChartInfo
 import com.linkedin.chart.ChartQuery
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
 
 /**
  * A union of all supported metadata aspects for a Chart
  */
-typeref ChartAspect = union[ChartInfo, ChartQuery, Ownership, Status]
+typeref ChartAspect = union[ChartInfo, ChartQuery, Ownership, Status, GlobalTags]

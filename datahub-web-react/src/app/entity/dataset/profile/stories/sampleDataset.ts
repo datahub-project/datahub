@@ -19,6 +19,23 @@ export const sampleDataset: Dataset = {
         ],
         lastModified: { time: 1 },
     },
+    globalTags: null,
+    upstreamLineage: null,
+    downstreamLineage: null,
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                author: 'datahub',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
+    },
+    schema: null,
 };
 
 export const sampleDeprecatedDataset: Dataset = {
@@ -46,4 +63,21 @@ export const sampleDeprecatedDataset: Dataset = {
         note: "Don't touch this dataset with a 10 foot pole",
         decommissionTime: 1612565520292,
     },
+    globalTags: null,
+    upstreamLineage: null,
+    downstreamLineage: null,
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                author: 'datahub',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
+    },
+    schema: null,
 };

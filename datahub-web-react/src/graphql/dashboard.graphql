@@ -76,5 +76,14 @@ query getDashboard($urn: String!) {
                 time
             }
         }
+        globalTags {
+            tags {
+                tag {
+                    urn
+                    name
+                    description
+                }
+            }
+        }
     }
 }

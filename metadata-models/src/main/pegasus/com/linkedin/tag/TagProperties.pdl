@@ -1,0 +1,17 @@
+namespace com.linkedin.tag
+
+/**
+ * Properties associated with a Tag
+ */
+record TagProperties {
+
+  /**
+   * Name of the tag
+   */
+  name: string
+
+  /**
+   * Documentation of the tag
+   */
+  description: optional string
+}

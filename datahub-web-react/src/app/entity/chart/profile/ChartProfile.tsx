@@ -1,7 +1,7 @@
 import { Alert } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Chart } from '../../../../types.generated';
+import { Chart, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
@@ -65,8 +65,8 @@ export default function ChartProfile({ urn }: { urn: string }) {
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {data && data.chart && (
                     <EntityProfile
+                        tags={data.chart?.globalTags as GlobalTags}
                         title={data.chart.info?.name || ''}
-                        tags={[]}
                         tabs={getTabs(data.chart as Chart)}
                         header={getHeader(data.chart as Chart)}
                     />

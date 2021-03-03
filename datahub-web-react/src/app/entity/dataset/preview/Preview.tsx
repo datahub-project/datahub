@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityType, FabricType, Owner } from '../../../../types.generated';
+import { EntityType, FabricType, Owner, GlobalTags } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../chart/getLogoFromPlatform';
@@ -10,16 +10,16 @@ export const Preview = ({
     origin,
     description,
     platformName,
-    tags,
     owners,
+    globalTags,
 }: {
     urn: string;
     name: string;
     origin: FabricType;
     description?: string | null;
     platformName: string;
-    tags: Array<string>;
     owners?: Array<Owner> | null;
+    globalTags?: GlobalTags | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -32,7 +32,7 @@ export const Preview = ({
             logoUrl={getLogoFromPlatform(platformName) || ''}
             platform={platformName}
             qualifier={origin}
-            tags={tags}
+            tags={globalTags || undefined}
             owners={
                 owners?.map((owner) => {
                     return {

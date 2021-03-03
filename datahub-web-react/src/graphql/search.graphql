@@ -51,6 +51,15 @@ query getSearchResults($input: SearchInput!) {
                         time
                     }
                 }
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
             }
             ... on CorpUser {
                 username

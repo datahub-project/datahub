@@ -1,10 +1,14 @@
 import * as React from 'react';
-import { Col, Row, Tag, Divider, Layout } from 'antd';
+import { Col, Row, Divider, Layout, Space } from 'antd';
+import styled from 'styled-components';
+
 import { RoutedTabs } from './RoutedTabs';
+import { GlobalTags } from '../../types.generated';
+import TagGroup from './TagGroup';
 
 export interface EntityProfileProps {
     title: string;
-    tags?: Array<string>;
+    tags?: GlobalTags;
     header: React.ReactNode;
     tabs?: Array<{
         name: string;
@@ -12,6 +16,10 @@ export interface EntityProfileProps {
         content: React.ReactNode;
     }>;
 }
+
+const TagsContainer = styled.div`
+    margin-top: -8px;
+`;
 
 const defaultProps = {
     tags: [],
@@ -29,12 +37,12 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
         <Layout.Content style={{ backgroundColor: 'white', padding: '0px 100px' }}>
             <Row style={{ padding: '20px 0px 10px 0px' }}>
                 <Col span={24}>
-                    <div>
-                        <h1 style={{ float: 'left' }}>{title}</h1>
-                        <div style={{ float: 'left', margin: '5px 20px' }}>
-                            {tags && tags.map((t) => <Tag color="blue">{t}</Tag>)}
-                        </div>
-                    </div>
+                    <Space>
+                        <h1>{title}</h1>
+                        <TagsContainer>
+                            <TagGroup globalTags={tags} />
+                        </TagsContainer>
+                    </Space>
                 </Col>
             </Row>
             {header}
