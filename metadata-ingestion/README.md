@@ -138,8 +138,10 @@ Extracts:
 source:
   type: "kafka"
   config:
-    connection.bootstrap: "broker:9092"
-    connection.schema_registry_url: http://localhost:8081
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: http://localhost:8081
+      consumer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
 ```
 
 ## MySQL Metadata `mysql`
@@ -318,7 +320,9 @@ Datahub mce-consumer container to be running.
 sink:
   type: "datahub-kafka"
   config:
-    connection.bootstrap: "localhost:9092"
+    connection:
+      bootstrap: "localhost:9092"
+      producer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
 ```
 
 ## Console `console`
