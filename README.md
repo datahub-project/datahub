@@ -19,7 +19,7 @@
 
 ---
 
-![DataHub](docs/imgs/datahub-logo.png)
+[![DataHub Demo GIF](docs/imgs/demo_large.gif)](docs/demo.md)
 
 > 📣 Next DataHub town hall meeting on Mar 19th, 7am-8am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)

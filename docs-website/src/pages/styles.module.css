@@ -25,6 +25,10 @@
   margin-right:-2rem;
 }
 
+.bumpUpLogo {
+  margin-top: -0.5rem;
+}
+
 @media screen and (max-width: 966px) {
   .heroBanner {
     padding: 2rem 0.5rem;
@@ -53,10 +57,10 @@
   .how_third_image {
     margin: 1.5rem;
   }
-}
 
-.bumpUpLogo {
-  margin-top: -1rem;
+  .bumpUpLogo {
+    margin-top: 2rem;
+  }
 }
 
 .not_bold_text {

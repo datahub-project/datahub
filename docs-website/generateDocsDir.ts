@@ -167,7 +167,7 @@ function new_url(original: string, filepath: string): string {
     // Leave as-is.
     // We use startsWith above so that we can allow anchor tags on links.
     return original;
-  } else if ([".png", ".svg", ".pdf"].includes(suffix)) {
+  } else if ([".png", ".svg", ".gif", ".pdf"].includes(suffix)) {
     // Let docusaurus bundle these as static assets.
     const up_levels = (filepath.match(/\//g) ?? []).length;
     const relation = path.dirname(filepath);

@@ -30,7 +30,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "https://demo.acryl.io/",
+          to: "docs/demo",
           label: "Demo",
           position: "right",
         },
@@ -92,7 +92,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              href: "https://demo.acryl.io/",
+              href: "docs/demo",
             },
             {
               label: "Roadmap",

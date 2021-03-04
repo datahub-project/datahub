@@ -143,7 +143,7 @@ function Home() {
       <header className={clsx('hero', styles.heroBanner)}>
         <div className="container">
           <div className="row">
-            <div className="col col--8">
+            <div className="col col--6">
               <h1 className={clsx("hero__title", styles.not_bold_text, styles.centerTextMobile)}>{siteConfig.tagline}</h1>
               <p className={clsx("hero__subtitle", styles.centerTextMobile)}>
                 {/* DataHub helps you understand your data where it lives. */}
@@ -168,14 +168,10 @@ function Home() {
             </Link>
               </div>
             </div>
-            <div className={clsx("col col--4", styles.hiddenMobile, styles.bumpUpLogo)}>
-              <ThemedImage
-                alt="DataHub Logo"
-                sources={{
-                  light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
-                  dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
-                }}
-              />
+            <div className={clsx("col col--6", styles.bumpUpLogo)}>
+              <div className={clsx("item shadow--tl")}>
+                <img src={useBaseUrl('img/screenshots/demo.gif')} alt="Demo GIF" />
+              </div>
             </div>
           </div>
         </div>
