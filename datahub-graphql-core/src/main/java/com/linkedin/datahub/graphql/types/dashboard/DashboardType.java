@@ -101,7 +101,10 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     }
 
     @Override
-    public BrowseResults browse(@Nonnull List<String> path, @Nullable List<FacetFilterInput> filters, int start, int count, @Nonnull QueryContext context) throws Exception {
+    public BrowseResults browse(@Nonnull List<String> path,
+                                @Nullable List<FacetFilterInput> filters,
+                                int start, int count,
+                                @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _dashboardsClient.browse(
