@@ -2,6 +2,18 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 2/19/2021
+[Full Recording](https://www.youtube.com/watch?v=Z9ImbcsAVl0)
+[Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0)
+
+* Welcome - 5 mins
+* Latest React App Demo! ([video](https://www.youtube.com/watch?v=RQBEJhcen5E)) by John Joyce and Gabe Lyons - 5 mins
+* Use-Case: DataHub at Geotab ([slides](https://docs.google.com/presentation/d/1qcgO3BW5NauuG0HnPqrxGcujsK-rJ1-EuU-7cbexkqE/edit?usp=sharing),[video](https://www.youtube.com/watch?v=boyjT2OrlU4)) by [John Yoon](https://www.linkedin.com/in/yhjyoon/) - 15 mins
+* Tech Deep Dive: Tour of new pull-based Python Ingestion scripts ([slides](https://docs.google.com/presentation/d/15Xay596WDIhzkc5c8DEv6M-Bv1N4hP8quup1tkws6ms/edit#slide=id.gb478361595_0_10),[video](https://www.youtube.com/watch?v=u0IUQvG-_xI)) by [Harshal Sheth](https://www.linkedin.com/in/hsheth2/) - 15 mins
+* General Q&A from sign up sheet, slack, and participants - 15 mins
+* Closing remarks - 5 mins
+
+
 ## 1/15/2021
 [Full Recording](https://youtu.be/r862MZTLAJ0)
 

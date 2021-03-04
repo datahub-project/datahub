@@ -5,19 +5,20 @@ Currently it's held on the third Friday of every month.
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-# Coming up - February 19th, 2021 @ 9 AM US Pacific (GMT-7)
+# Coming up - March 19th, 2021 @ 7 AM US Pacific (GMT-7)
 
 # Meeting Invite
 
 You can join with this link, or see the full invite below. https://linkedin.zoom.us/j/4698262890
 
-[Sign up sheet](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM/)
+- Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
+- Signup to get an invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
 
 <details>
   <summary>Full Invite</summary>
 
 ```
-Nagarjuna Kanamarlapudi is inviting you to a scheduled Zoom meeting.
+DataHub is inviting you to a scheduled Zoom meeting.
 
 Topic: DataHub Town Hall
 Time: Dec 4, 2020 09:00 AM Pacific Time (US and Canada)
@@ -71,12 +72,7 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-* Welcome - 5 mins
-* Latest React App Demo! by John Joyce  and Gabe Lyons - 5 mins
-* Use-Case: DataHub at Geotab by John Yoon - 15 mins
-* Tech Deep Dive: Tour of new pull-based Python Ingestion scripts by Harshal Sheth - 15 mins
-* General Q&A from sign up sheet, slack, and participants - 15 mins
-* Closing remarks - 5 mins
+* Coming Soon!
 
 # Past Meetings
 
