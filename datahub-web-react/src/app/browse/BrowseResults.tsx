@@ -36,9 +36,6 @@ export const BrowseResults = ({
     onChangePage,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    console.log(page);
-    console.log(pageSize);
-    console.log(totalResults);
     return (
         <div>
             <Content style={{ backgroundColor: 'white', padding: '25px 100px' }}>
