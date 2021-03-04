@@ -51,14 +51,14 @@ public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
     }
 
     /**
-     * Gets browse path(s) given dataset urn
+     * Gets browse path(s) given a chart urn
      *
      * @param urn urn for the entity
      * @return list of paths given urn
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull ChartUrn urn) throws RemoteInvocationException {
         ChartsDoGetBrowsePathsRequestBuilder requestBuilder = CHARTS_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);
