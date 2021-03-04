@@ -6,6 +6,8 @@ import UserHeader from './UserHeader';
 import UserDetails from './UserDetails';
 import useUserParams from './routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
+import { useGetSearchResultsQuery } from '../../../graphql/search.generated';
+import { EntityType } from '../../../types.generated';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -19,13 +21,68 @@ export default function UserProfile() {
     const { urn, subview, item } = useUserParams();
     const { loading, error, data } = useGetUserQuery({ variables: { urn } });
 
-    if (loading) {
+    const username = data?.corpUser?.username;
+
+    const ownershipResult: any = {};
+
+    ownershipResult[EntityType.Chart] = useGetSearchResultsQuery({
+        variables: {
+            input: {
+                type: EntityType.Chart,
+                query: `owners:${username}`,
+            },
+        },
+    });
+
+    ownershipResult[EntityType.Dashboard] = useGetSearchResultsQuery({
+        variables: {
+            input: {
+                type: EntityType.Dashboard,
+                query: `owners:${username}`,
+            },
+        },
+    });
+
+    ownershipResult[EntityType.DataPlatform] = useGetSearchResultsQuery({
+        variables: {
+            input: {
+                type: EntityType.DataPlatform,
+                query: `owners:${username}`,
+            },
+        },
+    });
+
+    ownershipResult[EntityType.Dataset] = useGetSearchResultsQuery({
+        variables: {
+            input: {
+                type: EntityType.Dataset,
+                query: `owners:${username}`,
+            },
+        },
+    });
+
+    const contentLoading =
+        Object.keys(ownershipResult).some((type) => {
+            return ownershipResult[type].loading;
+        }) || loading;
+
+    if (contentLoading) {
         return <Alert type="info" message="Loading" />;
     }
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
+
+    Object.keys(ownershipResult).forEach((type) => {
+        const entities = ownershipResult[type].data?.search?.entities;
+
+        if (!entities || entities.length === 0) {
+            delete ownershipResult[type];
+        } else {
+            ownershipResult[type] = ownershipResult[type].data?.search?.entities;
+        }
+    });
 
     return (
         <PageContainer>
@@ -38,7 +95,7 @@ export default function UserProfile() {
                 teams={data?.corpUser?.editableInfo?.teams}
             />
             <Divider />
-            <UserDetails urn={urn} subview={subview} item={item} ownerships={{}} />
+            <UserDetails urn={urn} subview={subview} item={item} ownerships={ownershipResult} />
         </PageContainer>
     );
 }
