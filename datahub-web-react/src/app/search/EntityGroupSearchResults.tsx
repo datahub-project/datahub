@@ -2,7 +2,6 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, List, Space, Typography } from 'antd';
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
-import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
@@ -23,6 +22,8 @@ interface Props {
     query: string;
 }
 
+const RESULTS_PER_GROUP = 3;
+
 export const EntityGroupSearchResults = ({ type, query }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -32,7 +33,7 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
                 type,
                 query,
                 start: 0,
-                count: SearchCfg.RESULTS_PER_PAGE,
+                count: RESULTS_PER_GROUP,
                 filters: null,
             },
         },
