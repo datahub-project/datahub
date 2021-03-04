@@ -184,6 +184,10 @@ source:
       - "schema1.table2"
       deny:
       - "^.*\\.sys_.*" # deny all tables that start with sys_
+    options:
+      # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
+      # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
+      charset: 'utf8'
 ```
 
 ## Hive `hive`
@@ -202,6 +206,7 @@ source:
     host_port: localhost:10000
     database: DemoDatabase
     # table_pattern is same as above
+    # options is same as above
 ```
 
 ## PostgreSQL `postgres`
@@ -222,6 +227,7 @@ source:
     host_port: localhost:5432
     database: DemoDatabase
     # table_pattern is same as above
+    # options is same as above
 ```
 
 ## Snowflake `snowflake`
@@ -239,6 +245,7 @@ source:
     password: pass
     host_port: account_name
     # table_pattern is same as above
+    # options is same as above
 ```
 
 ## Google BigQuery `bigquery`
@@ -252,9 +259,11 @@ Extra requirements: `pip install pybigquery`
 source:
   type: bigquery
   config:
-    project_id: project
-    options:
-      credential_path: "/path/to/keyfile.json"
+    project_id: project  # optional - can autodetect from environment
+    dataset: dataset_name
+    options: # options is same as above
+      # See https://github.com/mxmzdlv/pybigquery#authentication for details.
+      credentials_path: "/path/to/keyfile.json"  # optional
     # table_pattern is same as above
 ```
 

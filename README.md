@@ -20,16 +20,16 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
-> 📣 Next DataHub town hall meeting on Feb 19th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Mar 19th, 7am-8am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-> - Questions for the team: [add it here](https://docs.google.com/spreadsheets/d/1hCTFQZnhYHAPa-DeIfyye4MlwmrY7GF4hBds5pTZJYM)
+> - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
 > - VC link: https://linkedin.zoom.us/j/4698262890
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update: 
+> - Monthly project update: [Feb 2021 Edition](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog. 
-> - Check out the latest [DataHub Podcast](https://www.dataengineeringpodcast.com/datahub-metadata-management-episode-147/) @ Data Engineering Podcast.
-> - We've released v0.6.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.6.0)
+> - We've released v0.6.1. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.6.1)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 
