@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import javax.annotation.Nonnull;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.url.Url;
@@ -11,12 +13,12 @@ public class InstitutionalMemoryMetadataUpdateMapper implements ModelMapper<Inst
 
     private static final InstitutionalMemoryMetadataUpdateMapper INSTANCE = new InstitutionalMemoryMetadataUpdateMapper();
 
-    public static InstitutionalMemoryMetadata map(InstitutionalMemoryMetadataUpdate input) {
+    public static InstitutionalMemoryMetadata map(@Nonnull final InstitutionalMemoryMetadataUpdate input) {
         return INSTANCE.apply(input);
     }
 
     @Override
-    public InstitutionalMemoryMetadata apply(InstitutionalMemoryMetadataUpdate input) {
+    public InstitutionalMemoryMetadata apply(@Nonnull final InstitutionalMemoryMetadataUpdate input) {
         final InstitutionalMemoryMetadata metadata = new InstitutionalMemoryMetadata();
         metadata.setDescription(input.getDescription());
         metadata.setUrl(new Url(input.getUrl()));
