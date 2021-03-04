@@ -55,7 +55,11 @@ class SQLAlchemyConfig(ConfigModel):
     def get_identifier(self, schema: str, table: str) -> str:
         return f"{schema}.{table}"
 
-    def mangle_schema_table_names(self, schema: str, table: str) -> Tuple[str, str]:
+    def standardize_schema_table_names(
+        self, schema: str, table: str
+    ) -> Tuple[str, str]:
+        # Some SQLAlchemy dialects need a standardization step to clean the schema
+        # and table names. See BigQuery for an example of when this is useful.
         return schema, table
 
 
@@ -170,7 +174,7 @@ class SQLAlchemySource(Source):
         inspector = reflection.Inspector.from_engine(engine)
         for schema in inspector.get_schema_names():
             for table in inspector.get_table_names(schema):
-                schema, table = sql_config.mangle_schema_table_names(schema, table)
+                schema, table = sql_config.standardize_schema_table_names(schema, table)
                 dataset_name = sql_config.get_identifier(schema, table)
                 self.report.report_table_scanned(dataset_name)
 

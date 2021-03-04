@@ -20,7 +20,15 @@ class BigQueryConfig(SQLAlchemyConfig):
             return f"{self.project_id}.{schema}.{table}"
         return f"{schema}.{table}"
 
-    def mangle_schema_table_names(self, schema: str, table: str) -> Tuple[str, str]:
+    def standardize_schema_table_names(
+        self, schema: str, table: str
+    ) -> Tuple[str, str]:
+        # The get_table_names() method of the BigQuery driver returns table names
+        # formatted as "<schema>.<table>" as the table name. Since later calls
+        # pass both schema and table, schema essentially is passed in twice. As
+        # such, one of the schema names is incorrectly interpreted as the
+        # project ID. By removing the schema from the table name, we avoid this
+        # issue.
         segments = table.split(".")
         if len(segments) != 2:
             raise ValueError(f"expected table to contain schema name already {table}")
