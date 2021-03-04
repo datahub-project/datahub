@@ -17,7 +17,7 @@ from datahub.metadata import (  # MLFeatureSnapshotClass,
     DataProcessSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
-    TagSnapshotClass
+    TagSnapshotClass,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
