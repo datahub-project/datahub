@@ -75,7 +75,6 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
                 </Menu>
             </MenuWrapper>
             <Content>
-                {/* <UserOwnership ownerships={ownerships} entityPath={item} /> */}
                 {subview === Subview.Ownership && <UserOwnership ownerships={ownerships} entityPath={item} />}
             </Content>
         </DetailWrapper>
