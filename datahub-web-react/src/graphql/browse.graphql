@@ -15,6 +15,9 @@ query getBrowseResults($input: BrowseInput!) {
                 description
                 platform {
                     name
+                    info {
+                        logoUrl
+                    }
                 }
                 tags
                 ownership {
