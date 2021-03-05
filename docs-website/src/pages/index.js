@@ -28,7 +28,8 @@ const features = [
       <>
         DataHub was originally <Link to={"https://engineering.linkedin.com/blog/2019/data-hub"}>built
         at LinkedIn</Link> and subsequently <Link to={"https://github.com/linkedin/datahub"}>open-sourced</Link> under
-        the Apache 2.0 License. It now has a thriving community with over 75 contributors.
+        the Apache 2.0 License. It now has a thriving community with over 75 contributors, and many
+        organizations are trying out or already using DataHub internally.
       </>
     ),
   },
@@ -38,7 +39,8 @@ const features = [
     description: (
       <>
         DataHub follows a <Link to={"https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained"}>push-based architecture</Link>,
-        which means it's built for continuously changing metadata. The modular design lets it scale with data growth at any organization.
+        which means it's built for continuously changing metadata. The modular design lets it scale with data growth at any organization
+        from a single database under your desk to multiple regions or datacenters spanning the globe.
       </>
     ),
   },
@@ -48,8 +50,10 @@ const features = [
     description: (
       // TODO: update the integrations link to scroll down the page.
       <>
-        DataHub has pre-built integrations with Kafka, MySQL, MS SQL, Postgres, LDAP, Snowflake,
-        Hive, BigQuery, and <Link to={"docs/metadata-ingestion"}>many others</Link>.
+        DataHub has pre-built integrations with your favorite systems:
+        Kafka, MySQL, SQL Server, Postgres, LDAP, Snowflake, Hive, BigQuery, and <Link
+          to={"docs/metadata-ingestion"}>many others</Link>.
+          The community is continuously adding more integrations, so this list keeps getting longer and longer.
       </>
     ),
   },
