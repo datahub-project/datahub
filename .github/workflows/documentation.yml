@@ -4,11 +4,9 @@ on:
   pull_request:
     branches:
       - master
-      - docs
   push:
     branches:
       - master
-      - docs
   # release:
   #   types: [published, edited]
 
