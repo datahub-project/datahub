@@ -156,6 +156,7 @@ def get_schema_metadata(
             nativeDataType=repr(column["type"]),
             type=get_column_type(sql_report, dataset_name, column["type"]),
             description=column.get("comment", None),
+            nullable=column["nullable"],
         )
         canonical_schema.append(field)
 
