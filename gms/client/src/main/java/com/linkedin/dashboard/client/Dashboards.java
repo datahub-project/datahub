@@ -1,7 +1,6 @@
 package com.linkedin.dashboard.client;
 
 import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardKey;
 import com.linkedin.dashboard.DashboardsDoAutocompleteRequestBuilder;
@@ -58,7 +57,7 @@ public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull DashboardUrn urn) throws RemoteInvocationException {
         DashboardsDoGetBrowsePathsRequestBuilder requestBuilder = DASHBOARDS_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);

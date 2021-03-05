@@ -16,7 +16,7 @@ If you find a bug:
 
 ## Submitting a Request For Comment (RFC)
 
-If you have a substantial feature or a design discussion that you'd like to have with the community follow the RFC process outlined [here](https://github.com/linkedin/datahub/blob/master/docs/rfc.md)
+If you have a substantial feature or a design discussion that you'd like to have with the community follow the RFC process outlined [here](./rfc.md)
 
 ## Submitting a Pull Request (PR)
 

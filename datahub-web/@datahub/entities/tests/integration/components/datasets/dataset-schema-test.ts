@@ -87,7 +87,7 @@ module('Integration | Component | datasets/dataset-schema', function(hooks): voi
 
     assert
       .dom('.dataset-schema__header')
-      .hasText('Table JSON Last modified:', 'Expected toggle header row to be visible');
+      .hasText('Table Raw Last modified:', 'Expected toggle header row to be visible');
 
     await toggleJson();
 

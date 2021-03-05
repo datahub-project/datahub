@@ -5,11 +5,15 @@ import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 
+const styles = {
+    browseCard: { marginTop: 20 },
+};
+
 interface Props {
     type: EntityType;
     title: string;
     rootPath: string;
-    pageStart: number;
+    page: number;
     pageSize: number;
     totalResults: number;
     groups: Array<BrowseResultGroup>;
@@ -24,7 +28,7 @@ export const BrowseResults = ({
     type,
     title,
     rootPath,
-    pageStart,
+    page,
     pageSize,
     totalResults,
     entities,
@@ -43,7 +47,7 @@ export const BrowseResults = ({
                         </Col>
                     ))}
                     {entities.map((entity) => (
-                        <Col span={24}>
+                        <Col style={styles.browseCard} span={24}>
                             {entityRegistry.renderBrowse(type, entity)}
                             <Divider />
                         </Col>
@@ -51,9 +55,10 @@ export const BrowseResults = ({
                     <Col span={24}>
                         <Pagination
                             style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
-                            current={pageStart}
+                            current={page}
                             pageSize={pageSize}
-                            total={totalResults / pageSize}
+                            total={totalResults}
+                            showTitle
                             showLessItems
                             onChange={onChangePage}
                         />

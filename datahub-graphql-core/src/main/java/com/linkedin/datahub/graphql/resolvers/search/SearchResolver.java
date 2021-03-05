@@ -64,7 +64,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         input.getQuery(),
                         input.getFilters(),
                         start,
-                        count));
+                        count), e);
             }
         });
     }

@@ -1,4 +1,4 @@
-# DataHub Architecture
+# DataHub Architecture Overview
 ![datahub-architecture](../imgs/datahub-architecture.svg)
 
 ## Generalized Metadata Architecture (GMA)

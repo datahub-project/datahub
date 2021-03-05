@@ -15,14 +15,14 @@ The following sequence diagram highlights the key features Datahub has, and how 
 5. The frontend of Datahub talks to the metadata restful API services of GMS. The metadata discovering users can browse, search metadatas, get the details of metadata such as the owner, the lineage and other customer tags. 
 
 
-# Documentation
+## Documentation
 * [DataHub Developer's Guide](developers.md)
 * [DataHub Architecture](architecture/architecture.md)
 * [DataHub Onboarding Guide](how/entity-onboarding.md)
-* [Docker Images](https://github.com/linkedin/datahub/tree/master/docker)
-* [Frontend](https://github.com/linkedin/datahub/tree/master/datahub-frontend)
-* [Web App](https://github.com/linkedin/datahub/tree/master/datahub-web)
-* [Generalized Metadata Service](https://github.com/linkedin/datahub/tree/master/gms)
-* [Metadata Ingestion](https://github.com/linkedin/datahub/tree/master/metadata-ingestion)
-* [Metadata Processing Jobs](https://github.com/linkedin/datahub/tree/master/metadata-jobs)
+* [Docker Images](../docker)
+* [Frontend](../datahub-frontend)
+* [Web App](../datahub-web)
+* [Generalized Metadata Service](../gms)
+* [Metadata Ingestion](../metadata-ingestion)
+* [Metadata Processing Jobs](../metadata-jobs)
 * [The RFC Process](rfc.md)

@@ -1,6 +1,6 @@
 - Start Date: 08/28/2020
-- RFC PR: <TBD>
-- Implementation PR(s): <TBD>
+- RFC PR: 1842
+- Implementation PR(s): TBD
 
 # Business Glossary
 
@@ -75,7 +75,7 @@ A business term  URN (BusinessTermUrn) will look like below:
 urn:li:businessTerm:(<<namespace>>,<<name>>)
 ```
 
-A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of field-level-lineage [RFC](https://github.com/linkedin/datahub/tree/master/docs/rfc/active/1841-lineage/field%20level%20lineage.md))
+A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of field-level-lineage [RFC](../../active/1841-lineage/field_level_lineage.md))
 ```
 urn:li:datasetField:(<datasetUrn>,<fieldPath>)
 ```

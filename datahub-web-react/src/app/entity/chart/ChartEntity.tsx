@@ -32,7 +32,7 @@ export class ChartEntity implements Entity<Chart> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'title';
 

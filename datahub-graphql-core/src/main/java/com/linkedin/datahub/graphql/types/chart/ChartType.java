@@ -2,19 +2,26 @@ package com.linkedin.datahub.graphql.types.chart;
 
 import com.linkedin.chart.client.Charts;
 import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
@@ -26,7 +33,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class ChartType implements SearchableEntityType<Chart> {
+import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+
+public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart> {
 
     private final Charts _chartsClient;
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
@@ -62,7 +71,7 @@ public class ChartType implements SearchableEntityType<Chart> {
                 gmsResults.add(chartMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : ChartMapper.map(gmsDataset))
+                    .map(gmsChart -> gmsChart == null ? null : ChartMapper.map(gmsChart))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Charts", e);
@@ -89,6 +98,38 @@ public class ChartType implements SearchableEntityType<Chart> {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
         final AutoCompleteResult result = _chartsClient.autocomplete(query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
+    }
+
+    @Override
+    public BrowseResults browse(@Nonnull List<String> path,
+                                @Nullable List<FacetFilterInput> filters,
+                                int start,
+                                int count,
+                                @Nonnull QueryContext context) throws Exception {
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
+        final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
+        final BrowseResult result = _chartsClient.browse(
+                pathStr,
+                facetFilters,
+                start,
+                count);
+        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
+        final List<Chart> charts = batchLoad(urns, context);
+        final BrowseResults browseResults = new BrowseResults();
+        browseResults.setStart(result.getFrom());
+        browseResults.setCount(result.getPageSize());
+        browseResults.setTotal(result.getNumEntities());
+        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
+        browseResults.setEntities(charts.stream()
+                .map(chart -> (com.linkedin.datahub.graphql.generated.Entity) chart)
+                .collect(Collectors.toList()));
+        return browseResults;
+    }
+
+    @Override
+    public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
+        final StringArray result = _chartsClient.getBrowsePaths(getChartUrn(urn));
+        return BrowsePathsMapper.map(result);
     }
 
     private ChartUrn getChartUrn(String urnStr) {

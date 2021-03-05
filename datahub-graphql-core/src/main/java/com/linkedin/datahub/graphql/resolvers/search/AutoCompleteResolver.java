@@ -61,7 +61,7 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                                 input.getField(),
                                 input.getQuery(),
                                 input.getFilters(),
-                                input.getLimit()));
+                                input.getLimit()), e);
             }
         });
     }

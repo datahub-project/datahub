@@ -50,6 +50,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 description={data.description}
                 platformName={data.platform.name}
+                platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
             />

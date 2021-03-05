@@ -52,7 +52,7 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
                         input.getPath(),
                         input.getFilters(),
                         start,
-                        count));
+                        count), e);
             }
         });
     }

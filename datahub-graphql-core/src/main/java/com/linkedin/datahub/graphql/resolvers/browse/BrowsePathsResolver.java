@@ -37,7 +37,7 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
                 throw new RuntimeException("Failed to retrieve browse paths: "
                         + String.format("entity type %s, urn %s",
                         input.getType(),
-                        input.getUrn()));
+                        input.getUrn()), e);
             }
         });
     }

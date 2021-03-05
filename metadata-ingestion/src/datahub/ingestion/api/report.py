@@ -9,7 +9,7 @@ class Report:
         return self.__dict__
 
     def as_string(self) -> str:
-        return pprint.pformat(self.as_obj())
+        return pprint.pformat(self.as_obj(), width=120)
 
     def as_json(self) -> str:
         return json.dumps(self.as_obj())

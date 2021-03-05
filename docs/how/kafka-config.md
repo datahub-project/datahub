@@ -1,3 +1,8 @@
+---
+title: "Configuring Kafka"
+hide_title: true
+---
+
 # How to configure Kafka?
 
 With the exception of `KAFKA_BOOTSTRAP_SERVER` and `KAFKA_SCHEMAREGISTRY_URL`, Kafka is configured via [spring-boot](https://spring.io/projects/spring-boot), specifically with [KafkaProperties](https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/autoconfigure/kafka/KafkaProperties.html). See [Integration Properties](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#integration-properties) prefixed with `spring.kafka`. 
@@ -24,7 +29,7 @@ DataHub components that connect to Kafka are currently:
 ## Configuring Topic Names
 
 By default, ingestion relies upon the `MetadataChangeEvent_v4`, `MetadataAuditEvent_v4`, and `FailedMetadataChangeEvent` kafka topics by default for
-[metadata events](https://github.com/linkedin/datahub/blob/master/docs/what/mxe.md.
+[metadata events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, if your company or organization has naming rules for your topics.
 

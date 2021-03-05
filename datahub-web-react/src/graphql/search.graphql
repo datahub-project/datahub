@@ -20,6 +20,9 @@ query getSearchResults($input: SearchInput!) {
                 uri
                 platform {
                     name
+                    info {
+                        logoUrl
+                    }
                 }
                 platformNativeType
                 tags

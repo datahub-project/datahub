@@ -1,9 +1,8 @@
 # DataHub Features
 
-DataHub is made up of a [generic backend](what/gma.md) and a [Ember-based UI](../datahub-web). Original DataHub 
-[blog post](https://engineering.linkedin.com/blog/2019/data-hub) talks about the design extensively and mentions some of
-the features of DataHub. Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) 
-also provides a comparison of some features between LinkedIn production DataHub vs open source DataHub. Below is a list of the latest features that are available in DataHub, as well as ones that will soon become available.
+DataHub is made up of a [generic backend](what/gma.md) and a [React-based UI](../datahub-web-react/README.md).
+Original DataHub [blog post](https://engineering.linkedin.com/blog/2019/data-hub) talks about the design extensively and mentions some of the features of DataHub.
+Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) also provides a comparison of some features between LinkedIn production DataHub vs open source DataHub. Below is a list of the latest features that are available in DataHub, as well as ones that will soon become available.
 
 ## Data Constructs (Entities)
 

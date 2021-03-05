@@ -2,13 +2,14 @@ import logging
 import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Tuple
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -44,12 +45,22 @@ class SQLSourceReport(SourceReport):
 
 
 class SQLAlchemyConfig(ConfigModel):
-    options: Optional[dict] = {}
+    options: dict = {}
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     @abstractmethod
     def get_sql_alchemy_url(self):
         pass
+
+    def get_identifier(self, schema: str, table: str) -> str:
+        return f"{schema}.{table}"
+
+    def standardize_schema_table_names(
+        self, schema: str, table: str
+    ) -> Tuple[str, str]:
+        # Some SQLAlchemy dialects need a standardization step to clean the schema
+        # and table names. See BigQuery for an example of when this is useful.
+        return schema, table
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
@@ -110,7 +121,7 @@ def get_column_type(
 
     if TypeClass is None:
         sql_report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
+            dataset_name, f"unable to map type {column_type!r} to metadata schema"
         )
         TypeClass = NullTypeClass
 
@@ -147,7 +158,7 @@ def get_schema_metadata(
 class SQLAlchemySource(Source):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
-    def __init__(self, config, ctx, platform: str):
+    def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
         super().__init__(ctx)
         self.config = config
         self.platform = platform
@@ -161,13 +172,10 @@ class SQLAlchemySource(Source):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **sql_config.options)
         inspector = reflection.Inspector.from_engine(engine)
-        database = sql_config.database
         for schema in inspector.get_schema_names():
             for table in inspector.get_table_names(schema):
-                if database != "":
-                    dataset_name = f"{database}.{schema}.{table}"
-                else:
-                    dataset_name = f"{schema}.{table}"
+                schema, table = sql_config.standardize_schema_table_names(schema, table)
+                dataset_name = sql_config.get_identifier(schema, table)
                 self.report.report_table_scanned(dataset_name)
 
                 if sql_config.table_pattern.allowed(dataset_name):
