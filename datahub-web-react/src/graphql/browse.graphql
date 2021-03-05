@@ -45,6 +45,85 @@ query getBrowseResults($input: BrowseInput!) {
                     }
                 }
             }
+            ... on Dashboard {
+                urn
+                type
+                tool
+                dashboardId
+                info {
+                    name
+                    description
+                    url
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
+                }
+            }
+            ... on Chart {
+                urn
+                type
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    url
+                    type
+                    access
+                    lastModified {
+                        time
+                    }
+                }
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
+                }
+            }
         }
         start
         count
