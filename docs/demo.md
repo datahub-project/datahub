@@ -1,8 +1,3 @@
----
-title: "Demo"
-hide_title: true
----
-
 # DataHub Demo Environment
 
 We have a hosted demo environment available, kindly provided by [Acryl](https://acryl.io/).
