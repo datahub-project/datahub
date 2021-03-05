@@ -16,13 +16,6 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 <!-- You can run this ingestion framework by building from source or by running docker images. -->
 
-### Migrating from the old scripts
-If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
-This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
-Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
-
-If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
-
 ### Building from source:
 
 #### Pre-Requisites
@@ -39,7 +32,7 @@ If you were previously using one of the `sql-etl` scripts: the new way for doing
 ```sh
 python3 -m venv venv
 source venv/bin/activate
-pip install --upgrade pip wheel
+pip install --upgrade pip wheel setuptools
 pip install -e .
 ./scripts/codegen.sh
 ```
@@ -51,7 +44,7 @@ Common issues:
 
   This means Python's `wheel` is not installed. Try running the following commands and then retry.
   ```sh
-  pip install --upgrade pip wheel
+  pip install --upgrade pip wheel setuptools
   pip cache purge
   ```
 </details>
@@ -68,7 +61,7 @@ Common issues:
   The underlying `avro-python3` package is buggy. In particular, it often only installs correctly when installed from a pre-built "wheel" but not when from source. Try running the following commands and then retry.
   ```sh
   pip uninstall avro-python3  # sanity check, ok if this fails
-  pip install --upgrade pip wheel
+  pip install --upgrade pip wheel setuptools
   pip cache purge
   pip install avro-python3
   ```
@@ -179,6 +172,7 @@ source:
   config:
     username: user
     password: pass
+    host_port: localhost:1433
     database: DemoDatabase
     table_pattern:
       allow:
@@ -343,6 +337,13 @@ sink:
   type: file
   filename: ./path/to/mce/file.json
 ```
+
+## Migrating from the old scripts
+If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
+This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
+Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
+
+If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
 
 ## Contributing
 
