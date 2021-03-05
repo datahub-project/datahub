@@ -5,13 +5,11 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
 
-import themeConfig from '../../theme.config.json';
-
 const Title = styled(Typography.Text)`
     && {
         margin: 0px 0px 0px 120px;
         font-size: 32px;
-        color: ${themeConfig.appVariables.homepage.backgroundColorUpperFade};
+        color: ${(props) => props.theme.appVariables.homepage.backgroundColorUpperFade};
     }
 `;
 
@@ -20,7 +18,7 @@ const EntityGridRow = styled(Row)`
 `;
 
 const BodyContainer = styled.div`
-    background-color: ${themeConfig.appVariables.homepage.backgroundColorLowerFade};
+    background-color: ${(props) => props.theme.appVariables.homepage.backgroundColorLowerFade};
 `;
 
 export const HomePageBody = () => {

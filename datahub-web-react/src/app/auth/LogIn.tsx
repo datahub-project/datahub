@@ -9,7 +9,7 @@ import styles from './login.module.css';
 import { useLoginMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
-import themeConfig from '../../theme.config.json';
+import themeConfig from '../../conf/theme/themeConfig';
 
 type FormValues = {
     username: string;

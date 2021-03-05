@@ -1,6 +1,6 @@
 const CracoAntDesignPlugin = require('craco-antd');
 
-const themeConfig = require('./src/theme.config.json');
+const themeConfig = require('./src/conf/theme/theme_light.config.json');
 
 module.exports = {
     plugins: [

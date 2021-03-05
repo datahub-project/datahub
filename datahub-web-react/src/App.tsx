@@ -17,7 +17,7 @@ import { TagEntity } from './app/entity/tag/Tag';
 import EntityRegistry from './app/entity/EntityRegistry';
 import { EntityRegistryContext } from './entityRegistryContext';
 
-import themeConfig from './theme.config.json';
+import themeConfig from './conf/theme/themeConfig';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -57,8 +57,8 @@ const App: React.VFC = () => {
         return register;
     }, []);
 
-    const stylingOverridesWithoutPrefix = useMemo(() => {
-        const overridesWithoutPrefix = {};
+    const theme = useMemo(() => {
+        const overridesWithoutPrefix: { [key: string]: any } = {};
         // this is based on the assumpton that antdStylingOverrides will always be a dictionary of <string, string>. If that changes,
         // we will need to turn this into a deep copy
         Object.assign(overridesWithoutPrefix, themeConfig.antdStylingOverrides);
@@ -66,11 +66,12 @@ const App: React.VFC = () => {
             overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
             delete overridesWithoutPrefix[key];
         });
+        overridesWithoutPrefix.appVariables = themeConfig.appVariables;
         return overridesWithoutPrefix;
     }, []);
 
     return (
-        <ThemeProvider theme={stylingOverridesWithoutPrefix}>
+        <ThemeProvider theme={theme}>
             <Router>
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     {/* Temporary: For local testing during development. */}

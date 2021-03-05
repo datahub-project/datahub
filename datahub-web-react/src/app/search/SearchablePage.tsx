@@ -6,7 +6,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import themeConfig from '../../theme.config.json';
+import themeConfig from '../../conf/theme/themeConfig';
 
 const styles = {
     children: { marginTop: 80 },

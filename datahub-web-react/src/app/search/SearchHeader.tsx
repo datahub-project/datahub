@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
-import themeConfig from '../../theme.config.json';
+import themeConfig from '../../conf/theme/themeConfig';
 
 const HeaderTitle = styled(Typography.Title)`
     && {

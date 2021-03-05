@@ -1,20 +1,30 @@
 import React from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Space, AutoComplete, Input, Row } from 'antd';
+import styled from 'styled-components';
+
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
-import themeConfig from '../../theme.config.json';
+import themeConfig from '../../conf/theme/themeConfig';
+
+const Background = styled(Space)`
+    width: 100%;
+    background-image: linear-gradient(
+        ${(props) => props.theme.appVariables.homepage.backgroundColorUpperFade},
+        ${(props) => props.theme.appVariables.homepage.backgroundColorLowerFade}
+    );
+`;
+
+const WelcomeText = styled(Typography.Text)`
+    font-size: 16px;
+    color: ${(props) => props.theme.appVariables.homepage.backgroundColorLowerFade};
+`;
 
 const styles = {
-    background: {
-        width: '100%',
-        backgroundImage: `linear-gradient(${themeConfig.appVariables.homepage.backgroundColorUpperFade}, ${themeConfig.appVariables.homepage.backgroundColorLowerFade})`,
-    },
     navBar: { padding: '24px' },
-    welcomeText: { color: themeConfig.appVariables.homepage.backgroundColorLowerFade, fontSize: 16 },
     searchContainer: { width: '100%', marginTop: '40px', marginBottom: '160px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
@@ -47,11 +57,11 @@ export const HomePageHeader = () => {
     };
 
     return (
-        <Space direction="vertical" style={styles.background}>
+        <Background direction="vertical">
             <Row justify="space-between" style={styles.navBar}>
-                <Typography.Text style={styles.welcomeText}>
+                <WelcomeText>
                     Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
-                </Typography.Text>
+                </WelcomeText>
                 <ManageAccount
                     urn={data?.corpUser?.urn || ''}
                     pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
@@ -78,6 +88,6 @@ export const HomePageHeader = () => {
                     {themeConfig.appVariables.homepage.homepageMessage}
                 </Typography.Text>
             </Space>
-        </Space>
+        </Background>
     );
 };
