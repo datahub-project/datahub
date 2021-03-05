@@ -109,7 +109,7 @@ module.exports = {
           ],
         },
       ],
-      copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors. Built with Docusaurus.`,
+      copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors.`,
     },
     // prism: {
     //   theme: require('prism-react-renderer/themes/github'),

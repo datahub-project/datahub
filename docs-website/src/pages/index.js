@@ -4,7 +4,6 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
-import ThemedImage from '@theme/ThemedImage';
 import styles from './styles.module.css';
 
 import Image from '@theme/IdealImage';
@@ -161,7 +160,7 @@ function Home() {
                   )}
                   to={useBaseUrl('docs/')}>
                   Get Started
-            </Link>
+                </Link>
                 <Link
                   className={clsx(
                     'button button--secondary button--outline button--lg',

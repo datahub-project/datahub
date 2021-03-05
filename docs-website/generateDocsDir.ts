@@ -207,6 +207,16 @@ function markdown_rewrite_urls(
   contents.content = new_content;
 }
 
+function markdown_enable_specials(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content
+    .replace(/^<!--HOSTED_DOCS_ONLY$/gm, "")
+    .replace(/^HOSTED_DOCS_ONLY-->$/gm, "");
+  contents.content = new_content;
+}
+
 for (const filepath of markdown_files) {
   // console.log("Processing:", filepath);
   const contents_string = fs.readFileSync(`../${filepath}`).toString();
@@ -216,6 +226,7 @@ for (const filepath of markdown_files) {
   markdown_add_slug(contents, filepath);
   markdown_add_edit_url(contents, filepath);
   markdown_rewrite_urls(contents, filepath);
+  markdown_enable_specials(contents, filepath);
   // console.log(contents);
 
   const outpath = `genDocs/${filepath}`;

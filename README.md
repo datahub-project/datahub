@@ -10,7 +10,7 @@
 ---
 
 [Quickstart](docs/quickstart.md) |
-[Documentation](#documentation) |
+[Documentation](https://datahubproject.io/docs/) |
 [Features](docs/features.md) |
 [Roadmap](docs/roadmap.md) |
 [Adoption](#adoption) |
@@ -19,7 +19,31 @@
 
 ---
 
-[![DataHub Demo GIF](docs/imgs/demo_large.gif)](docs/demo.md)
+<!--HOSTED_DOCS_ONLY
+import ThemedImage from '@theme/ThemedImage';
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+
+export const Logo = (props) => {
+  const siteConfig = useDocusaurusContext().siteConfig;
+  return (
+    <ThemedImage
+      alt="DataHub Logo"
+      sources={{
+          light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
+          dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
+      }}
+      {...props}
+    />
+  )
+};
+
+<Logo style={{"maxWidth": "16em", "margin": "0 auto"}} />
+
+<!--
+HOSTED_DOCS_ONLY-->
+![DataHub](docs/imgs/datahub-logo.png)
+<!-- -->
 
 > 📣 Next DataHub town hall meeting on Mar 19th, 7am-8am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
@@ -42,11 +66,19 @@ DataHub is LinkedIn's generalized metadata search & discovery tool. Read about t
 ## Quickstart
 Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy of DataHub up & running locally using [Docker](https://docker.com). As the guide assumes some basic knowledge of Docker, we'd recommend you to go through the "Hello World" example of [A Docker Tutorial for Beginners](https://docker-curriculum.com) if Docker is completely foreign to you. 
 
+## Demo and Screenshots
+
+There's a [hosted demo environment](docs/demo.md) where you can play around with DataHub before installing.
+
+[![DataHub Demo GIF](docs/imgs/demo_large.gif)](docs/demo.md)
+
 ## Source Code and Repositories
 * [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services. We currently follow a hybrid open source model for development in this repository. See [this blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) for details on how we do it. 
 * [linkedin/datahub-gma](https://github.com/linkedin/datahub-gma): This repository contains the source code for DataHub's metadata infrastructure libraries (Generalized Metadata Architecture, or GMA). We follow an open-source-first model for development in this repository. 
 
 ## Documentation
+We have documentation available at [https://datahubproject.io/docs/](https://datahubproject.io/docs/).
+
 * [DataHub Developer's Guide](docs/developers.md)
 * [DataHub Architecture](docs/architecture/architecture.md)
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
