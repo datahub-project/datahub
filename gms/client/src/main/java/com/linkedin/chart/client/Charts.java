@@ -6,7 +6,6 @@ import com.linkedin.chart.ChartsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.chart.ChartsFindBySearchRequestBuilder;
 import com.linkedin.chart.ChartsRequestBuilders;
 import com.linkedin.common.urn.ChartUrn;
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dashboard.Chart;
 import com.linkedin.dashboard.ChartKey;
 import com.linkedin.data.template.StringArray;
@@ -51,14 +50,14 @@ public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
     }
 
     /**
-     * Gets browse path(s) given dataset urn
+     * Gets browse path(s) given a chart urn
      *
      * @param urn urn for the entity
      * @return list of paths given urn
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull ChartUrn urn) throws RemoteInvocationException {
         ChartsDoGetBrowsePathsRequestBuilder requestBuilder = CHARTS_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);

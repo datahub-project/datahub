@@ -32,7 +32,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'title';
 
