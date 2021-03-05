@@ -8,7 +8,7 @@ import { EntityType } from '../../types.generated';
 
 const styles = {
     card: { width: 360 },
-    title: { margin: 0, color: '#525252' },
+    title: { margin: 0 },
     iconFlag: { right: '32px', top: '-28px' },
     icon: { padding: '16px 24px' },
 };

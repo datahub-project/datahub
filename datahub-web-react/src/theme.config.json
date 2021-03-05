@@ -1,15 +1,19 @@
 {
     "antdStylingOverrides": {
-        "@primary-color": "#1DA57A",
         "@border-radius-base": "8px",
         "@layout-header-background": "#333E4C",
-        "@layout-header-color": "white"
+        "@layout-header-color": "white",
+        "@layout-body-background": "white",
+        "@component-background": "white",
+        "@body-background": "white"
     },
     "appVariables": {
         "logoUrl": "/assets/logo.png",
-        "title": "Dataportal",
+        "title": "DataHub",
         "homepage": {
-            "homepageMessage": "Find data you can count on"
+            "homepageMessage": "Find data you can count on",
+            "backgroundColorUpperFade": "#132935",
+            "backgroundColorLowerFade": "#FFFFFF"
         },
         "search": {
             "searchbarMessage": "Search Datasets, People, & more..."

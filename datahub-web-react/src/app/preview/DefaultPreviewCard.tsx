@@ -23,7 +23,7 @@ const styles = {
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
     logoImage: { width: '48px' },
-    name: { color: '#214F55', fontSize: '18px' },
+    name: { fontSize: '18px' },
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
     ownedBy: { color: '#585858' },
@@ -52,10 +52,8 @@ export default function DefaultPreviewCard({
                                 {name}
                             </Typography.Text>
                             <Space split={<Divider type="vertical" />} size={16}>
-                                <Typography.Text style={styles.typeName}>{type}</Typography.Text>
-                                <Typography.Text style={styles.platformName} strong>
-                                    {platform}
-                                </Typography.Text>
+                                <Typography.Text>{type}</Typography.Text>
+                                <Typography.Text strong>{platform}</Typography.Text>
                                 <Tag>{qualifier}</Tag>
                             </Space>
                         </Space>
@@ -68,9 +66,7 @@ export default function DefaultPreviewCard({
                     <TagGroup globalTags={tags} />
                 </Space>
                 <Space direction="vertical" size={12}>
-                    <Typography.Text strong style={styles.ownedBy}>
-                        Owned By
-                    </Typography.Text>
+                    <Typography.Text strong>Owned By</Typography.Text>
                     <Avatar.Group maxCount={4}>
                         {owners?.map((owner) => (
                             <Tooltip title={owner.name} key={owner.urn}>

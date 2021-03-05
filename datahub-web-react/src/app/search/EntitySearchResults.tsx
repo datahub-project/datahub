@@ -12,7 +12,6 @@ import { filtersToGraphqlParams } from './utils/filtersToGraphqlParams';
 
 const styles = {
     loading: { marginTop: '10%' },
-    addFilters: { backgroundColor: '#F5F5F5' },
     resultSummary: { color: 'gray', marginTop: '36px' },
     resultHeaderCardBody: { padding: '16px 24px' },
     resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
@@ -85,7 +84,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     return (
         <div style={styles.resultsContainer}>
             {loading && <Message type="loading" content="Loading..." style={styles.loading} />}
-            <Button style={styles.addFilters} onClick={onEditFilters} data-testid="filters-button">
+            <Button onClick={onEditFilters} data-testid="filters-button">
                 <FilterOutlined />
                 Filters{' '}
                 {filters.length > 0 && (

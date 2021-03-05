@@ -9,7 +9,6 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import themeConfig from '../../theme.config.json';
 
 const styles = {
-    pageContainer: { backgroundColor: '#FFFFFF' },
     children: { marginTop: 80 },
 };
 
@@ -55,7 +54,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     return (
-        <Layout style={styles.pageContainer}>
+        <Layout>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.appVariables.search.searchbarMessage}

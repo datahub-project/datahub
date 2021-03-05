@@ -9,7 +9,7 @@ import themeConfig from '../../theme.config.json';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
-        color: @layout-header-color;
+        color: ${(props) => props.theme['layout-header-color']};
         padding-left: 12px;
         margin: 0;
     }

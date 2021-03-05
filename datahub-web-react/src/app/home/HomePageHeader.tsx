@@ -11,10 +11,10 @@ import themeConfig from '../../theme.config.json';
 const styles = {
     background: {
         width: '100%',
-        backgroundImage: 'linear-gradient(#132935, #FFFFFF)',
+        backgroundImage: `linear-gradient(${themeConfig.appVariables.homepage.backgroundColorUpperFade}, ${themeConfig.appVariables.homepage.backgroundColorLowerFade})`,
     },
     navBar: { padding: '24px' },
-    welcomeText: { color: '#FFFFFF', fontSize: 16 },
+    welcomeText: { color: themeConfig.appVariables.homepage.backgroundColorLowerFade, fontSize: 16 },
     searchContainer: { width: '100%', marginTop: '40px', marginBottom: '160px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },

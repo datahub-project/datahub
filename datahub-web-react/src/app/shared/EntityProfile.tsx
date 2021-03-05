@@ -34,7 +34,7 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
 
     /* eslint-disable spaced-comment */
     return (
-        <Layout.Content style={{ backgroundColor: 'white', padding: '0px 100px' }}>
+        <Layout.Content style={{ padding: '0px 100px' }}>
             <Row style={{ padding: '20px 0px 10px 0px' }}>
                 <Col span={24}>
                     <Space>
