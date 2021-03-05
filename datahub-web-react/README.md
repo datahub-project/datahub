@@ -45,6 +45,29 @@ can run the following in this directory:
 which will start a forwarding server at `localhost:3000`. Note that to fetch real data, `datahub-frontend` server will also
 need to be deployed, still at `http://localhost:9002`, to service GraphQL API requests.
 
+### Theming
+
+#### Selecting a theme
+
+Theme configuraions are stored in `./app/conf/theme`. To select a theme, update the theme imported into `./app/conf/theme/themeConfig.ts` and `./craco.config.js`.
+The first file, `themeConfig.ts` imports the theme into the React app for use in dynamic configuration. The second file `/.craco.config.js` merges the theme with
+the antd styles on build time to theme the antd components. To change the selected theme, update the imports in both those locations and re-run `yarn start`.
+
+#### Editing a theme
+
+To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.config.json`,
+and then update the two imports as descibed above. The theme files have two sections, `antdStylingOverrides` and `appVariables`.
+
+`antdStylingOverrides`
+configure overrides for antd's theming variables. You can read more about all the customizable options antd supports here:
+[ant design less variables](https://ant.design/docs/react/customize-theme#Ant-Design-Less-variables).
+
+`appVariables` configure datahub-specific display parameters. This allows you to set a custom logo, default search text, etc.
+
+While developing on your theme, all changes to appVariables are seen immediately in your local app. However, changes to antdStylingOverrides require
+you to terminate and re-run `yarn start` to see updated styles.
+
+
 ## Design Details
 
 ### Package Organization
