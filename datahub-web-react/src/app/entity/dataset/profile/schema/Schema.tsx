@@ -18,7 +18,7 @@ const BadgeGroup = styled.div`
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
-    padding-bottom: 8px;
+    padding-bottom: 16px;
 `;
 
 export type Props = {
@@ -88,9 +88,7 @@ export default function SchemaView({ schema }: Props) {
         <>
             {schema?.platformSchema?.__typename === 'TableSchema' && (
                 <ViewRawButtonContainer>
-                    <Button type="link" onClick={() => setShowRaw(!showRaw)}>
-                        {showRaw ? 'View Schema' : 'View Raw'}
-                    </Button>
+                    <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
                 </ViewRawButtonContainer>
             )}
             {showRaw ? (
