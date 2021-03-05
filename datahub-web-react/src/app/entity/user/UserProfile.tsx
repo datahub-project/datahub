@@ -6,8 +6,7 @@ import UserHeader from './UserHeader';
 import UserDetails from './UserDetails';
 import useUserParams from './routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { useGetSearchResultsQuery } from '../../../graphql/search.generated';
-import { EntityType } from '../../../types.generated';
+import { useGetEachEntitySearchResults } from '../../../utils/customGraphQL/useGetEachEntitySearchResults';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -23,42 +22,8 @@ export default function UserProfile() {
 
     const username = data?.corpUser?.username;
 
-    const ownershipResult: any = {};
-
-    ownershipResult[EntityType.Chart] = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type: EntityType.Chart,
-                query: `owners:${username}`,
-            },
-        },
-    });
-
-    ownershipResult[EntityType.Dashboard] = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type: EntityType.Dashboard,
-                query: `owners:${username}`,
-            },
-        },
-    });
-
-    ownershipResult[EntityType.DataPlatform] = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type: EntityType.DataPlatform,
-                query: `owners:${username}`,
-            },
-        },
-    });
-
-    ownershipResult[EntityType.Dataset] = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type: EntityType.Dataset,
-                query: `owners:${username}`,
-            },
-        },
+    const ownershipResult = useGetEachEntitySearchResults({
+        query: `owners:${username}`,
     });
 
     const contentLoading =

@@ -35,7 +35,15 @@ export default ({ ownerships, entityPath }: Props) => {
                     </Typography.Title>
                 }
                 renderItem={(item) => {
-                    return entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item);
+                    return (
+                        <div
+                            style={{
+                                marginTop: '10px',
+                            }}
+                        >
+                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item)}
+                        </div>
+                    );
                 }}
             />
         </ListContainer>
