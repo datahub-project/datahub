@@ -11,7 +11,9 @@ yarn install
 ## Local Development
 
 ```console
-yarn start
+yarn run lint
+yarn run generate
+yarn run start
 ```
 
 This command starts a local development server and open up a browser window. Most changes are reflected live without having to restart the server.
