@@ -11,7 +11,7 @@ We have a hosted demo environment available, kindly provided by [Acryl](https://
 <a
     class='button button--primary button--lg'
     href="https://demo.datahubproject.io/">
-    Go to demo
+    Check out the demo
 </a>
 </p>
 

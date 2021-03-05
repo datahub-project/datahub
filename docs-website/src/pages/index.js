@@ -38,8 +38,9 @@ const features = [
     description: (
       <>
         DataHub follows a <Link to={"https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained"}>push-based architecture</Link>,
-        which means it's built for continuously changing metadata. The modular design lets it scale with data growth at any organization
-        from a single database under your desk to multiple regions or datacenters spanning the globe.
+        which means it's built for continuously changing metadata.
+        The modular design lets it scale with data growth at any organization, from a
+        single database under your desk to multiple data centers spanning the globe.
       </>
     ),
   },
