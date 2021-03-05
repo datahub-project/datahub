@@ -37,7 +37,7 @@ We had couple of meetings/discussions with external parties who are interested i
 - [Vrbo (Expedia Group)](https://www.vrbo.com/)
 
 ## Is there a contributor selection criteria?
-We welcome contributions from everyone in the community. Please read our [contirbuting guidelines](CONTRIBUTING.md). In general, we will review PRs with the same rigor as our internal code review process to maintain overall quality.
+We welcome contributions from everyone in the community. Please read our [contributing guidelines](CONTRIBUTING.md). In general, we will review PRs with the same rigor as our internal code review process to maintain overall quality.
 
 ## How does LinkedIn plan to engage with the community?
 We plan to organize public town hall meetings at a monthly cadence, which may change depending on the interest from the community. Also we recently deprecated Gitter and start using [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) as one of the main ways to support the community.
@@ -48,7 +48,7 @@ The best way to engage is through the [Slack channel](https://datahubspace.slack
 For reproducible technical issues, bugs and code contributions, Github [issues](https://github.com/linkedin/datahub/issues) and [PRs](https://github.com/linkedin/datahub/pulls) are the preferred channel.
 
 ## What’s the best way to ramp up the product knowledge to properly test and evaluate DataHub?
-[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](https://github.com/linkedin/datahub/tree/master/docs/architecture), [definitions](https://github.com/linkedin/datahub/tree/master/docs/what), and [onboarding guides](https://github.com/linkedin/datahub/tree/master/docs/how).
+[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](./architecture), [definitions](./what), and [onboarding guides](./how).
 
 The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 

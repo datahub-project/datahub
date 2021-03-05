@@ -1,4 +1,4 @@
-# Datahub GMS GraphQL Service
+# DataHub GMS GraphQL Service
 
 Datahub GMS GraphQL Service wraps the Generalized Metadata Store (GMS) Rest.li calls around a GraphQL API.
 

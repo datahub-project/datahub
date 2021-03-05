@@ -1,5 +1,4 @@
-DataHub React App (Incubating)
-==============================================================================
+# DataHub React App (Incubating)
 
 ## About
 This module contains a React version of the DataHub UI, which is currently under incubation. Notice that this
