@@ -6,7 +6,9 @@ For this exercise, we'll add a new field to an existing aspect of corp users and
 
 This document will also guide you on how to leverage an existing field for faceted search i.e. use the field in aggregations, sorting or in a script.
 
-## 1: Add field to aspect (skip this step if the field already exists in an aspect)
+## Steps
+
+### 1: Add field to aspect (skip this step if the field already exists in an aspect)
 
 For this example, we will add new field `courses` to [CorpUserEditableInfo](../../metadata-models/src/main/pegasus/com/linkedin/identity/CorpUserEditableInfo.pdl) which is an aspect of corp user entity.
 
@@ -29,7 +31,7 @@ record CorpUserEditableInfo {
 }
 ```
 
-## 2: Add field to search document model
+### 2: Add field to search document model
 
 For this example, we will add field `courses` to [CorpUserInfoDocument.pdl](../../metadata-models/src/main/pegasus/com/linkedin/metadata/search/CorpUserInfoDocument.pdl) which is the search document model for corp user entity.
 
@@ -51,11 +53,11 @@ record CorpUserInfoDocument includes BaseDocument {
 }
 ```
 
-## 3: Modify the mapping of search index
+### 3: Modify the mapping of search index
 
 Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
-```json
+```sh
 curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
@@ -82,7 +84,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 
 However _fielddata_ enablement could consume significant heap space. If possible, use unanalyzed **keyword** field as a facet. For the current example, you could either choose keyword type for the field _courses_ or create a subfield of type keyword under _courses_ and use the same for sorting, aggregations, etc (second approach described below)
 
-```json
+```shell
 curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
@@ -100,7 +102,7 @@ curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 
 More on this is explained in [ES guides](https://www.elastic.co/guide/en/elasticsearch/reference/current/fielddata.html).
 
-## 4: Modify index config, so that the new mapping is picked up next time
+### 4: Modify index config, so that the new mapping is picked up next time
 
 If you want corp user search index to contain this new field `courses` next time docker containers are brought up, we need to add this field to [corpuser mappings](../../gms/impl/src/main/resources/index/corp-user/mappings.json).
 
@@ -119,7 +121,7 @@ If you want corp user search index to contain this new field `courses` next time
 
 Choose your analyzer wisely. For this example, we store the field `courses` as an array of string and hence use `text` data type. Default analyzer is `standard` and it provides grammar based tokenization.
 
-## 5: Update the index builder logic
+### 5: Update the index builder logic
 
 Index builder is where the logic to transform an aspect to search document model is defined. For this example, we will add the logic in [CorpUserInfoIndexBuilder](../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/CorpUserInfoIndexBuilder.java).
 
@@ -153,7 +155,7 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
 
 ```
 
-## 6: Update search query template, to start searching over the new field
+### 6: Update search query template, to start searching over the new field
 
 For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/impl/src/main/resources/corpUserESSearchQueryTemplate.json) to start searching over the field `courses`. Here is an example.
 
@@ -193,7 +195,7 @@ For this example, we will modify [corpUserESSearchQueryTemplate.json](../../gms/
 
 As you can see in the above query template, corp user search is performed across multiple fields, to which the field `courses` has been added.
 
-## 7: (_Optional_) For a field that is a facet, modify the search config.
+### 7: (_Optional_) For a field that is a facet, modify the search config.
 
 We define the list of facets in search config. If your field needs to be a facet, add it to the set of facets defined in method _getFacetFields_. For this example, we will add the logic in [CorpUserSearchConfig](../../gms/impl/src/main/java/com/linkedin/metadata/configs/CorpUserSearchConfig.java).
 
@@ -211,7 +213,7 @@ public class CorpUserSearchConfig extends BaseSearchConfig<CorpUserInfoDocument>
 }
 ```
 
-## 8: Test your changes
+### 8: Test your changes
 
 Make sure relevant docker containers are rebuilt before testing the changes.
 If this is a new field that has been added to an existing snapshot, then you can test by ingesting data that contains this new field. Here is an example of ingesting to `/corpUsers` endpoint, with the new field `courses`.
@@ -293,9 +295,9 @@ Response:
 }
 ```
 
-# Appendix: MidTier and UI changes
+## Appendix: MidTier and UI changes
 
-## 1: Check if facets are enabled for the entity (optional)
+### 1: Check if facets are enabled for the entity (optional)
 
 Inside the `PersonEntity` [render-props.ts](../../datahub-web/@datahub/data-models/addon/entity/person/render-props.ts)
 
@@ -309,7 +311,7 @@ Inside the `PersonEntity` [render-props.ts](../../datahub-web/@datahub/data-mode
 
 make sure `showFacets` property is set to `true`.
 
-## 2: Add fields to facets in MidTier if desired (optional)
+### 2: Add fields to facets in MidTier if desired (optional)
 
 In [Search.java](../../datahub-frontend/app/controllers/api/v2/Search.java) add the desired fields here:
 
@@ -317,7 +319,7 @@ In [Search.java](../../datahub-frontend/app/controllers/api/v2/Search.java) add 
 private static final Set<String> CORP_USER_FACET_FIELDS = ImmutableSet.of("courses");
 ```
 
-## 3: Add field in the Person entity
+### 3: Add field in the Person entity
 
 In [person-entity.ts](../../datahub-web/%40datahub/data-models/addon/entity/person/person-entity.ts), add your new property
 
@@ -326,7 +328,7 @@ In [person-entity.ts](../../datahub-web/%40datahub/data-models/addon/entity/pers
 courses?: Array<string>;
 ```
 
-## 4: Add fields in the Person configuration json
+### 4: Add fields in the Person configuration json
 
 Inside the `PersonEntity` [render-props.ts](../../datahub-web/@datahub/data-models/addon/entity/person/render-props.ts), add your new property:
 

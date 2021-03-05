@@ -36,8 +36,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub%20at%20Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
-- [DataHub UI development - Part 2](demo/Town%20Hall%20Presentation%20-%2012-2020%20-%20UI%20Development%20Part%202.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub_at_Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- [DataHub UI development - Part 2](demo/Town_Hall_Presentation_-_12-2020_-_UI_Development_Part_2.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 minutes
 
@@ -48,9 +48,9 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Lightning talk on Metadata use-cases at LinkedIn](https://github.com/linkedin/datahub/blob/master/docs/demo/Metadata%20Use-Cases%20at%20LinkedIn%20-%20Lightning%20Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
-- [Strongly Consistent Secondary Index (SCSI) in GMA](https://github.com/linkedin/datahub/blob/master/docs/demo/Datahub%20-%20Strongly%20Consistent%20Secondary%20Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
-- [DataHub UI overview](https://github.com/linkedin/datahub/blob/master/docs/demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
+- [Lightning talk on Metadata use-cases at LinkedIn](demo/Metadata_Use-Cases_at_LinkedIn_-_Lightning_Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
+- [Strongly Consistent Secondary Index (SCSI) in GMA](demo/Datahub_-_Strongly_Consistent_Secondary_Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
+- [DataHub UI overview](demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 10 mins
 - Closing remarks - 5 minutes
 
@@ -62,8 +62,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Data Discoverability at SpotHero](https://github.com/linkedin/datahub/blob/master/docs/demo/Data%20Discoverability%20at%20SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
-- [Designing the next generation of metadata events for scale](https://github.com/linkedin/datahub/blob/master/docs/demo/Designing%20the%20next%20generation%20of%20metadata%20events%20for%20scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
+- [Data Discoverability at SpotHero](demo/Data_Discoverability_at_SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
+- [Designing the next generation of metadata events for scale](demo/Designing_the_next_generation_of_metadata_events_for_scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 mins
 
@@ -87,7 +87,7 @@ Agenda
   * Quick intro - 5 mins
   * Showcasing new entities onboarded to internal LinkedIn DataHub (Data Concepts, Schemas) by [Nagarjuna Kanamarlapudi](https://www.linkedin.com/in/nagarjunak) (LinkedIn) - 15 mins
   * Showcasing new Lineage UI in internal LinkedIn DataHub By [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 10 mins
-  * New [RFC Process](https://github.com/linkedin/datahub/blob/master/docs/rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) (LinkedIn) - 2 mins
+  * New [RFC Process](./rfc.md) by [John Plaisted](https://www.linkedin.com/in/john-plaisted-49a00a78/) (LinkedIn) - 2 mins
   * Answering questions from the signup sheet - 13 mins
   * Questions from the participants - 10 mins
   * Closing remarks - 5 mins

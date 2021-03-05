@@ -14,5 +14,6 @@
     ./docker/ingestion/ingestion.sh
     ```
    After running this, you should be able to see and search sample datasets in DataHub.
+7. That's it! To get some real data into DataHub, take a look at the [ingestion framework](../metadata-ingestion/README.md).
 
 Please refer to the [debugging guide](debugging.md) if you encounter any issues during the quickstart.

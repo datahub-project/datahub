@@ -7,7 +7,7 @@
 ## Summary
 
 Adding support for dashboards (and charts) metadata cataloging and enabling search & discovery for them.
-The design should accommodate for different dashboarding ([Looker](www.looker.com), [Redash](www.redash.io)) tools used within a company.
+The design should accommodate for different dashboarding ([Looker](https://looker.com), [Redash](https://redash.io/)) tools used within a company.
 
 ## Motivation
 
@@ -114,7 +114,7 @@ to onboard their dashboard metadata to DataHub irrespective of their dashboardin
 Only thing users will need to do is to write an ETL script customized for their 
 dashboarding platform (if it's not already provided in DataHub repo). This ETL script will:
  - Extract the metadata for all available dashboards and charts using the APIs of the dashboarding platform
- - Construct and emit this metadata in the form of [MCEs](../../../what/MXE.md) 
+ - Construct and emit this metadata in the form of [MCEs](../../../what/mxe.md)
 
 ## Unresolved questions (To-do)
  

@@ -1,0 +1,34 @@
+name: documentation
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  # release:
+  #   types: [published, edited]
+
+jobs:
+  gh-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14.x'
+      - name: Build
+        run: |
+          cd docs-website
+          yarn install --frozen-lockfile
+          yarn run lint-check
+          yarn run generate
+          yarn run build
+      - name: Deploy
+        if: github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-website/build
+          cname: datahubproject.io
