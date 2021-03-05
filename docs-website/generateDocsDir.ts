@@ -6,6 +6,7 @@ import * as path from "path";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
+const HOSTED_SITE_URL = "https://datahubproject.io";
 const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
 const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
@@ -68,6 +69,7 @@ function get_slug(filepath: string): string {
 
 const hardcoded_titles = {
   "README.md": "Introduction",
+  "docs/demo.md": "Demo",
 };
 
 function markdown_guess_title(
@@ -105,20 +107,28 @@ function markdown_add_edit_url(
   contents.data.custom_edit_url = editUrl;
 }
 
+const reverse_slug_cache: Record<string, string> = {};
+
 function markdown_add_slug(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  if (contents.data.slug) {
-    return;
+  if (!contents.data.slug) {
+    const slug = get_slug(filepath);
+    contents.data.slug = slug;
   }
 
-  const slug = get_slug(filepath);
-  contents.data.slug = slug;
+  reverse_slug_cache[contents.data.slug] = filepath;
 }
 
 function new_url(original: string, filepath: string): string {
   if (original.startsWith("http://") || original.startsWith("https://")) {
+    if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
+      // For absolute links to the hosted docs site, we transform them into local ones.
+      // Note that HOSTED_SITE_URL does not have a trailing slash, so after the replacement,
+      // the url will start with a slash.
+      return original.replace(HOSTED_SITE_URL, "");
+    }
     if (
       (original
         .toLowerCase()

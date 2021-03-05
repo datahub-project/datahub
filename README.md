@@ -1,23 +1,3 @@
-# DataHub: A Generalized Metadata Search & Discovery Tool
-[![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
-[![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
-[![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
-[![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/docs/CONTRIBUTING.md)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/linkedin/datahub)](https://github.com/linkedin/datahub/pulls?q=is%3Apr)
-[![License](https://img.shields.io/github/license/linkedin/datahub)](https://github.com/linkedin/datahub/blob/master/LICENSE)
-
----
-
-[Quickstart](docs/quickstart.md) |
-[Documentation](https://datahubproject.io/docs/) |
-[Features](docs/features.md) |
-[Roadmap](docs/roadmap.md) |
-[Adoption](#adoption) |
-[FAQ](docs/faq.md) |
-[Town Hall](docs/townhalls.md)
-
----
 
 <!--HOSTED_DOCS_ONLY
 import ThemedImage from '@theme/ThemedImage';
@@ -42,8 +22,33 @@ export const Logo = (props) => {
 
 <!--
 HOSTED_DOCS_ONLY-->
-![DataHub](docs/imgs/datahub-logo.png)
+<p align="center">
+<img alt="DataHub" src="docs/imgs/datahub-logo.png" height="200px" />
+</p>
 <!-- -->
+
+# DataHub: A Generalized Metadata Search & Discovery Tool
+
+[![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
+[![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
+[![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
+[![Get on Slack](https://img.shields.io/badge/slack-join-orange.svg)](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/docs/CONTRIBUTING.md)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/linkedin/datahub)](https://github.com/linkedin/datahub/pulls?q=is%3Apr)
+[![License](https://img.shields.io/github/license/linkedin/datahub)](https://github.com/linkedin/datahub/blob/master/LICENSE)
+
+---
+
+[Quickstart](https://datahubproject.io/docs/quickstart) |
+[Documentation](https://datahubproject.io/docs/) |
+[Features](https://datahubproject.io/docs/features) |
+[Roadmap](https://datahubproject.io/docs/roadmap) |
+[Adoption](#adoption) |
+[FAQ](https://datahubproject.io/docs/faq) |
+[Demo](https://datahubproject.io/docs/demo) |
+[Town Hall](https://datahubproject.io/docs/townhalls)
+
+---
 
 > 📣 Next DataHub town hall meeting on Mar 19th, 7am-8am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
@@ -68,9 +73,9 @@ Please follow the [DataHub Quickstart Guide](docs/quickstart.md) to get a copy o
 
 ## Demo and Screenshots
 
-There's a [hosted demo environment](docs/demo.md) where you can play around with DataHub before installing.
+There's a [hosted demo environment](https://datahubproject.io/docs/demo) where you can play around with DataHub before installing.
 
-[![DataHub Demo GIF](docs/imgs/demo_large.gif)](docs/demo.md)
+[![DataHub Demo GIF](docs/imgs/demo_large.gif)](https://datahubproject.io/docs/demo)
 
 ## Source Code and Repositories
 * [linkedin/datahub](https://github.com/linkedin/datahub): This repository contains the complete source code for both DataHub's frontend & backend services. We currently follow a hybrid open source model for development in this repository. See [this blog post](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) for details on how we do it. 
