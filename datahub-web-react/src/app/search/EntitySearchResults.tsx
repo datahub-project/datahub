@@ -135,7 +135,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             <Row justify="center" style={styles.paginationRow}>
                 <Pagination
                     current={page}
-                    pageSize={pageSize}
+                    pageSize={SearchCfg.RESULTS_PER_PAGE}
                     total={totalResults}
                     showLessItems
                     onChange={onChangePage}

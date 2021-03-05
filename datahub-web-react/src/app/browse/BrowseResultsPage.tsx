@@ -26,7 +26,7 @@ export const BrowseResultsPage = () => {
     const params = QueryString.parse(location.search);
     const entityType = entityRegistry.getTypeFromPathName(type);
     const path = rootPath.split('/').slice(3);
-    const page = Number(params.page) || 1;
+    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
 
     const { data, loading, error } = useGetBrowseResultsQuery({
         variables: {
@@ -66,8 +66,8 @@ export const BrowseResultsPage = () => {
                     type={entityType}
                     rootPath={rootPath}
                     title={path.length > 0 ? path[path.length - 1] : entityRegistry.getCollectionName(entityType)}
+                    page={page}
                     pageSize={BrowseCfg.RESULTS_PER_PAGE}
-                    pageStart={page * BrowseCfg.RESULTS_PER_PAGE}
                     groups={data.browse.metadata.groups}
                     entities={data.browse.entities}
                     totalResults={data.browse.total}
