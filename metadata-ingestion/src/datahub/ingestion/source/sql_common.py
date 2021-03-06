@@ -97,12 +97,22 @@ _field_type_mapping = {
     types.Boolean: BooleanTypeClass,
     types.Enum: EnumTypeClass,
     types._Binary: BytesTypeClass,
+    types.LargeBinary: BytesTypeClass,
     types.PickleType: BytesTypeClass,
     types.ARRAY: ArrayTypeClass,
     types.String: StringTypeClass,
     # When SQLAlchemy is unable to map a type into its internally hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
+}
+_known_unknown_field_types = {
+    types.Date,
+    types.Time,
+    types.DateTime,
+    types.Interval,
+    types.DATE,
+    types.DATETIME,
+    types.TIMESTAMP,
 }
 
 
@@ -118,6 +128,11 @@ def get_column_type(
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
             break
+    if TypeClass is None:
+        for sql_type in _known_unknown_field_types:
+            if isinstance(column_type, sql_type):
+                TypeClass = NullTypeClass
+                break
 
     if TypeClass is None:
         sql_report.report_warning(
