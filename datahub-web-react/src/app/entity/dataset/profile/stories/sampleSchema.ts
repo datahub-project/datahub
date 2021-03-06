@@ -94,6 +94,11 @@ export const sampleSchema: Schema = {
             recursive: false,
         },
     ],
+    platformSchema: {
+        __typename: 'TableSchema',
+        schema:
+            '{ "type": "record", "name": "SampleHdfsSchema", "namespace": "com.linkedin.dataset", "doc": "Sample HDFS dataset", "fields": [ { "name": "field_foo", "type": [ "string" ] }, { "name": "field_bar", "type": [ "boolean" ] } ] }',
+    },
 };
 
 export const sampleSchemaWithTags: Schema = {

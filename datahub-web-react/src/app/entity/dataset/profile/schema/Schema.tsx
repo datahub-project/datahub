@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
-import { Table, Typography } from 'antd';
+import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 
@@ -13,6 +13,12 @@ import { Schema, SchemaField, SchemaFieldDataType } from '../../../../../types.g
 const BadgeGroup = styled.div`
     margin-top: 4px;
     margin-left: -4px;
+`;
+
+const ViewRawButtonContainer = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    padding-bottom: 16px;
 `;
 
 export type Props = {
@@ -76,5 +82,27 @@ export default function SchemaView({ schema }: Props) {
         return [...defaultColumns, ...categoryColumns];
     }, [schema]);
 
-    return <Table pagination={false} dataSource={schema?.fields} columns={columns} rowKey="fieldPath" />;
+    const [showRaw, setShowRaw] = useState(false);
+
+    return (
+        <>
+            {schema?.platformSchema?.__typename === 'TableSchema' && (
+                <ViewRawButtonContainer>
+                    <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
+                </ViewRawButtonContainer>
+            )}
+            {showRaw ? (
+                <Typography.Text data-testid="schema-raw-view">
+                    <pre>
+                        <code>
+                            {schema?.platformSchema?.__typename === 'TableSchema' &&
+                                JSON.stringify(JSON.parse(schema.platformSchema.schema), null, 2)}
+                        </code>
+                    </pre>
+                </Typography.Text>
+            ) : (
+                <Table pagination={false} dataSource={schema?.fields} columns={columns} rowKey="fieldPath" />
+            )}
+        </>
+    );
 }
