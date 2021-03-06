@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
-import Cookies from 'js-cookie';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { UserEntity } from '../../app/entity/user/User';
 import EntityRegistry from '../../app/entity/EntityRegistry';
@@ -20,7 +19,6 @@ export function getTestEntityRegistry() {
 
 export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
-    localStorage.setItem('userUrn', 'urn:li:corpuser:1');
     return (
         <MemoryRouter initialEntries={initialEntries}>
             <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
