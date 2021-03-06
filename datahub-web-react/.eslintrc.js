@@ -31,6 +31,7 @@ module.exports = {
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
         'react/require-default-props': 'off',
+        'no-underscore-dangle': 'off',
         '@typescript-eslint/no-unused-vars': [
             'error',
             {
