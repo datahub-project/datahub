@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [ "$1" = "log" ]; then
+    # We want to monkey-patch `git log` so that it finds the real paths
+    # to the files, instead of the generated copies.
+
+    # We assume the filepath is the last parameter.
+    original_filepath=${@:$#}
+    # echo $original_filepath
+
+    # Replace 'genDocs' with '..'
+    updated_filepath="${original_filepath/genDocs/..}"    
+    # echo $updated_filepath
+
+    # Pass along to git.
+    # We can afford to use $@ here, since we're guaranteed that genDocs/... won't exist,
+    # and so only the updated filepath will take effect.
+    $REAL_GIT "$@" $updated_filepath
+else
+    $REAL_GIT $@
+fi
+
+exit $?

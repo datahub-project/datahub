@@ -5,10 +5,10 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "build": "docusaurus build",
+    "build": "REAL_GIT=$(which git) PATH=$(pwd)/fake_bin:$PATH docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
-    "serve": "docusaurus serve",
+    "serve": "REAL_GIT=$(which git) PATH=$(pwd)/fake_bin:$PATH docusaurus serve",
     "clear": "docusaurus clear",
     "generate": "rm -rf genDocs/* && ts-node generateDocsDir.ts",
     "lint": "prettier -w generateDocsDir.ts sidebars.js",
