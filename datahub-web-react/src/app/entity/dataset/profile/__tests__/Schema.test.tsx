@@ -28,13 +28,13 @@ describe('Schema', () => {
         expect(queryAllByTestId('icon-STRING')).toHaveLength(2);
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
 
-        const rawButton = getByText('View Raw');
+        const rawButton = getByText('Raw');
         fireEvent.click(rawButton);
 
         expect(queryAllByTestId('icon-STRING')).toHaveLength(0);
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(1);
 
-        const schemaButton = getByText('View Schema');
+        const schemaButton = getByText('Tabular');
         fireEvent.click(schemaButton);
 
         expect(queryAllByTestId('icon-STRING')).toHaveLength(2);
