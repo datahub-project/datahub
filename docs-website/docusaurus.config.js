@@ -92,7 +92,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              href: "docs/demo",
+              to: "docs/demo",
             },
             {
               label: "Roadmap",
