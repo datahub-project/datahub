@@ -10,6 +10,15 @@ const HOSTED_SITE_URL = "https://datahubproject.io";
 const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
 const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
+const SIDEBARS_DEF_PATH = "./sidebars.js";
+const sidebars = require(SIDEBARS_DEF_PATH);
+
+function actually_in_sidebar(filepath: string): boolean {
+  const slug = get_slug(filepath);
+  const json = JSON.stringify(sidebars);
+  return json.indexOf(slug) < 0;
+}
+
 function list_markdown_files(): string[] {
   const all_markdown_files = execSync("cd .. && git ls-files . | grep '.md$'")
     .toString()
@@ -166,12 +175,17 @@ function new_url(original: string, filepath: string): string {
     ].some((ext) => suffix.startsWith(ext))
   ) {
     // A reference to a file or directory in the Github repo.
-    // TODO: detect dangling references.
     const relation = path.dirname(filepath);
-    const updated = `${GITHUB_BROWSE_URL}/${path.normalize(
-      `${relation}/${original}`
-    )}`;
-    return updated;
+    const updated_path = path.normalize(`${relation}/${original}`);
+    if (!fs.existsSync(`../${updated_path}`) && actually_in_sidebar(filepath)) {
+      // Detects when the path is a dangling reference, according to the locally
+      // checked out repo.
+      throw new Error(
+        `broken github repo link: ${updated_path} in ${filepath}`
+      );
+    }
+    const updated_url = `${GITHUB_BROWSE_URL}/${updated_path}`;
+    return updated_url;
   } else if (suffix.startsWith(".md")) {
     // Leave as-is.
     // We use startsWith above so that we can allow anchor tags on links.
@@ -185,7 +199,7 @@ function new_url(original: string, filepath: string): string {
     );
     return updated;
   } else {
-    throw `unknown extension - ${original} in ${filepath}`;
+    throw new Error(`unknown extension - ${original} in ${filepath}`);
   }
 }
 
@@ -245,7 +259,7 @@ for (const filepath of markdown_files) {
 }
 
 // Output a list of all docs which are not included in a sidebar.
-const sidebar = fs.readFileSync("./sidebars.js").toString();
+const sidebar = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 for (const filepath of markdown_files) {
   const doc_id = get_id(filepath);
 
