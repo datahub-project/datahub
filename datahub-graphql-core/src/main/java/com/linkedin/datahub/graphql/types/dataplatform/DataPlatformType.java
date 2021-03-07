@@ -3,10 +3,11 @@ package com.linkedin.datahub.graphql.types.dataplatform;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.EntityType;
-import com.linkedin.datahub.graphql.types.mappers.DataPlatformInfoMapper;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.types.mappers.DataPlatformMapper;
 import com.linkedin.dataplatform.client.DataPlatforms;
 
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,16 +31,11 @@ public class DataPlatformType implements EntityType<DataPlatform> {
         try {
             if (_urnToPlatform == null) {
                 _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
-                        .filter(com.linkedin.dataPlatforms.DataPlatform::hasDataPlatformInfo)
-                        .map(platform -> new DataPlatform(
-                                new DataPlatformUrn(platform.getName()).toString(),
-                                com.linkedin.datahub.graphql.generated.EntityType.DATA_PLATFORM,
-                                platform.getName(),
-                                DataPlatformInfoMapper.map(platform.getDataPlatformInfo())))
+                        .map(DataPlatformMapper::map)
                         .collect(Collectors.toMap(DataPlatform::getUrn, platform -> platform));
             }
             return urns.stream()
-                    .map(key -> _urnToPlatform.get(key))
+                    .map(key -> _urnToPlatform.containsKey(key) ? _urnToPlatform.get(key) : getUnknownDataPlatform(key))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataPlatforms", e);
@@ -49,5 +45,15 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     @Override
     public com.linkedin.datahub.graphql.generated.EntityType type() {
         return com.linkedin.datahub.graphql.generated.EntityType.DATA_PLATFORM;
+    }
+
+    private DataPlatform getUnknownDataPlatform(final String urnStr) {
+        try {
+            final com.linkedin.dataPlatforms.DataPlatform platform = new com.linkedin.dataPlatforms.DataPlatform()
+                    .setName(DataPlatformUrn.createFromString(urnStr).getPlatformNameEntity());
+            return DataPlatformMapper.map(platform);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(String.format("Invalid DataPlatformUrn %s provided", urnStr), e);
+        }
     }
 }
