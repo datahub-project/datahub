@@ -11,7 +11,7 @@ import { Dataset, EntityType, PlatformType } from './types.generated';
 
 const user1 = {
     username: 'sdas',
-    urn: 'urn:li:corpuser:2',
+    urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
     info: {
         email: 'sdas@domain.com',
@@ -251,7 +251,7 @@ export const mocks = [
         },
         result: {
             data: {
-                dataset: {
+                corpUser: {
                     ...user1,
                 },
             },

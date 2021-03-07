@@ -70,6 +70,7 @@ export const HomePageHeader = () => {
                     <Input.Search
                         placeholder={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
                         onSearch={(value: string) => onSearch(value)}
+                        data-testid="search-input"
                     />
                 </AutoComplete>
 
