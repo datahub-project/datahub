@@ -18,13 +18,13 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text style={{ color: 'grey' }}>Dataset</Typography.Text>
                     <Typography.Text strong style={{ color: '#214F55' }}>
-                        {platform.name}
+                        {platform?.name}
                     </Typography.Text>
                 </Space>
                 <Typography.Paragraph>{description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">
-                    {ownership?.owners?.map((owner: any) => (
-                        <Tooltip title={owner.owner.info?.fullName}>
+                    {ownership?.owners?.map((owner) => (
+                        <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
                             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
                                 <Avatar
                                     style={{

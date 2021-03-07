@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.identity;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.identity.CorpUser;
@@ -104,6 +105,8 @@ public final class CorpUsers extends BaseSearchableEntityResource<
         value.setInfo(CorpUserInfo.class.cast(aspect));
       } else if (aspect instanceof CorpUserEditableInfo) {
         value.setEditableInfo(CorpUserEditableInfo.class.cast(aspect));
+      } else if (aspect instanceof GlobalTags) {
+        value.setGlobalTags(GlobalTags.class.cast(aspect));
       }
     });
     return value;
@@ -118,6 +121,9 @@ public final class CorpUsers extends BaseSearchableEntityResource<
     }
     if (corpUser.hasEditableInfo()) {
       aspects.add(ModelUtils.newAspectUnion(CorpUserAspect.class, corpUser.getEditableInfo()));
+    }
+    if (corpUser.hasGlobalTags()) {
+      aspects.add(ModelUtils.newAspectUnion(CorpUserAspect.class, corpUser.getGlobalTags()));
     }
     return ModelUtils.newSnapshot(CorpUserSnapshot.class, corpuserUrn, aspects);
   }

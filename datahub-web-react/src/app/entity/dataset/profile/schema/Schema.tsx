@@ -2,18 +2,10 @@ import React, { useMemo, useState } from 'react';
 
 import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
-import styled from 'styled-components';
 
-// TODO(Gabe): Create these types in the graph and remove the mock tag types
-import { Tag, TaggedSchemaField } from '../stories/sampleSchema';
 import TypeIcon from './TypeIcon';
-import SchemaTags from './SchemaTags';
-import { Schema, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
-
-const BadgeGroup = styled.div`
-    margin-top: 4px;
-    margin-left: -4px;
-`;
+import { Schema, SchemaFieldDataType, GlobalTags } from '../../../../../types.generated';
+import TagGroup from '../../../../shared/TagGroup';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;
@@ -40,17 +32,8 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        render: (fieldPath: string, row: SchemaField) => {
-            const { tags = [] } = row as TaggedSchemaField;
-            const descriptorTags = tags.filter((tag) => tag.descriptor);
-            return (
-                <>
-                    <Typography.Text strong>{fieldPath}</Typography.Text>
-                    <BadgeGroup>
-                        <SchemaTags tags={descriptorTags} />
-                    </BadgeGroup>
-                </>
-            );
+        render: (fieldPath: string) => {
+            return <Typography.Text strong>{fieldPath}</Typography.Text>;
         },
     },
     {
@@ -60,26 +43,20 @@ const defaultColumns = [
     },
 ];
 
+const tagColumn = {
+    title: 'Tags',
+    dataIndex: 'globalTags',
+    key: 'tag',
+    render: (tags: GlobalTags) => {
+        return <TagGroup globalTags={tags} />;
+    },
+};
+
 export default function SchemaView({ schema }: Props) {
     const columns = useMemo(() => {
-        const distinctTagCategories = Array.from(
-            new Set(
-                schema?.fields
-                    .flatMap((field) => (field as TaggedSchemaField).tags)
-                    .map((tag) => !tag?.descriptor && tag?.category)
-                    .filter(Boolean),
-            ),
-        );
+        const hasTags = schema?.fields?.some((field) => (field?.globalTags?.tags?.length || 0) > 0);
 
-        const categoryColumns = distinctTagCategories.map((category) => ({
-            title: category,
-            dataIndex: 'tags',
-            key: `tag-${category}`,
-            render: (tags: Tag[] = []) => {
-                return <SchemaTags tags={tags.filter((tag) => tag.category === category)} />;
-            },
-        }));
-        return [...defaultColumns, ...categoryColumns];
+        return [...defaultColumns, ...(hasTags ? [tagColumn] : [])];
     }, [schema]);
 
     const [showRaw, setShowRaw] = useState(false);

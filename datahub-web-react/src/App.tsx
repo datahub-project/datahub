@@ -5,12 +5,15 @@ import { MockedProvider } from '@apollo/client/testing';
 import './App.css';
 import { Routes } from './app/Routes';
 import { mocks } from './Mocks';
-import EntityRegistry from './app/entity/EntityRegistry';
-import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
-import { UserEntity } from './app/entity/user/User';
-import { EntityRegistryContext } from './entityRegistryContext';
+
 import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
+import { UserEntity } from './app/entity/user/User';
+import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { TagEntity } from './app/entity/tag/Tag';
+
+import EntityRegistry from './app/entity/EntityRegistry';
+import { EntityRegistryContext } from './entityRegistryContext';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -46,6 +49,7 @@ const App: React.VFC = () => {
         register.register(new DashboardEntity());
         register.register(new ChartEntity());
         register.register(new UserEntity());
+        register.register(new TagEntity());
         return register;
     }, []);
     return (

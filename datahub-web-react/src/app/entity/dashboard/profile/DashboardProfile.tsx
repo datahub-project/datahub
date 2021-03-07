@@ -2,7 +2,7 @@ import { Alert } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { useGetDashboardQuery } from '../../../../graphql/dashboard.generated';
-import { Dashboard } from '../../../../types.generated';
+import { Dashboard, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import DashboardHeader from './DashboardHeader';
@@ -69,7 +69,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                 {data && data.dashboard && (
                     <EntityProfile
                         title={data.dashboard.info?.name || ''}
-                        tags={[]}
+                        tags={data.dashboard?.globalTags as GlobalTags}
                         tabs={getTabs(data.dashboard as Dashboard)}
                         header={getHeader(data.dashboard as Dashboard)}
                     />

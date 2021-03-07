@@ -31,6 +31,9 @@ public class CorpUserMapper implements ModelMapper<com.linkedin.identity.CorpUse
         if (corpUser.hasEditableInfo()) {
             result.setEditableInfo(CorpUserEditableInfoMapper.map(corpUser.getEditableInfo()));
         }
+        if (corpUser.hasGlobalTags()) {
+            result.setGlobalTags(GlobalTagsMapper.map(corpUser.getGlobalTags()));
+        }
         return result;
     }
 }

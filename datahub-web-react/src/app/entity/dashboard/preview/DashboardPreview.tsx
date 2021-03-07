@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessLevel, EntityType, Owner } from '../../../../types.generated';
+import { AccessLevel, EntityType, GlobalTags, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../chart/getLogoFromPlatform';
@@ -11,6 +11,7 @@ export const DashboardPreview = ({
     platform,
     access,
     owners,
+    tags,
 }: {
     urn: string;
     platform: string;
@@ -18,6 +19,7 @@ export const DashboardPreview = ({
     description?: string | null;
     access?: AccessLevel | null;
     owners?: Array<Owner> | null;
+    tags?: GlobalTags;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -30,7 +32,6 @@ export const DashboardPreview = ({
             logoUrl={getLogoFromPlatform(platform) || ''}
             platform={platform}
             qualifier={access}
-            tags={[]}
             owners={
                 owners?.map((owner) => {
                     return {
@@ -40,6 +41,7 @@ export const DashboardPreview = ({
                     };
                 }) || []
             }
+            tags={tags}
         />
     );
 };
