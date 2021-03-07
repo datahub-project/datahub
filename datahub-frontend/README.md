@@ -42,7 +42,7 @@ python metadata-ingestion/mce_cli.py produce
 This will create a default user with username `datahub`. You can sign in to the app using `datahub` as your username.
 
 ## Start via Docker image
-Quickest way to try out `DataHub Frontend` is running the [Docker image](../docker/frontend).
+Quickest way to try out `DataHub Frontend` is running the [Docker image](../docker/datahub-frontend).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run

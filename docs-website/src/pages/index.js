@@ -142,7 +142,7 @@ function Home() {
   const { siteConfig = {} } = context;
   return (
     <Layout
-      title={`${siteConfig.title} - ${siteConfig.tagline}`}
+      title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.">
       <header className={clsx('hero', styles.heroBanner)}>
         <div className="container">
