@@ -51,6 +51,7 @@ export class ChartEntity implements Entity<Chart> {
                 description={data.info?.description}
                 access={data.info?.access}
                 owners={data.ownership?.owners}
+                tags={data?.globalTags || undefined}
             />
         );
     };

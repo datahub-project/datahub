@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.dashboard;
 
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.chart.ChartQuery;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.ChartUrn;
@@ -135,6 +136,8 @@ public class Charts extends BaseBrowsableEntityResource<
       } else if (aspect instanceof Status) {
         Status status = Status.class.cast(aspect);
         value.setStatus(status);
+      } else if (aspect instanceof GlobalTags) {
+        value.setGlobalTags(GlobalTags.class.cast(aspect));
       }
     });
 
@@ -156,6 +159,9 @@ public class Charts extends BaseBrowsableEntityResource<
     }
     if (chart.hasStatus()) {
       aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getStatus()));
+    }
+    if (chart.hasGlobalTags()) {
+      aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getGlobalTags()));
     }
     return ModelUtils.newSnapshot(ChartSnapshot.class, urn, aspects);
   }

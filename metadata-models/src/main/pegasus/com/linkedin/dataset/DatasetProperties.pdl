@@ -18,7 +18,7 @@ record DatasetProperties {
   uri: optional Uri
 
   /**
-   * tags for the dataset
+   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
    */
   tags: array[string] = [ ]
 

@@ -8,6 +8,7 @@ import {
 import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import { Dataset, EntityType, PlatformType } from './types.generated';
+import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
     username: 'sdas',
@@ -205,7 +206,61 @@ const dataset3 = {
             time: 0,
         },
     },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                author: 'datahub',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
+    },
+    schema: null,
+    deprecation: null,
 } as Dataset;
+
+const sampleTag = {
+    urn: 'urn:li:tag:abc-sample-tag',
+    name: 'abc-sample-tag',
+    description: 'sample tag description',
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+};
 
 /*
     Define mock data to be returned by Apollo MockProvider. 
@@ -231,13 +286,13 @@ export const mocks = [
         request: {
             query: GetDatasetDocument,
             variables: {
-                urn: 'urn:li:dataset:1',
+                urn: 'urn:li:dataset:3',
             },
         },
         result: {
             data: {
                 dataset: {
-                    ...dataset1,
+                    ...dataset3,
                 },
             },
         },
@@ -636,6 +691,19 @@ export const mocks = [
                         },
                     },
                 },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetTagDocument,
+            variables: {
+                urn: 'urn:li:tag:abc-sample-tag',
+            },
+        },
+        result: {
+            data: {
+                tag: { ...sampleTag },
             },
         },
     },

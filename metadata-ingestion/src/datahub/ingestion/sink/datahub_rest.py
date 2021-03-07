@@ -17,6 +17,7 @@ from datahub.metadata import (  # MLFeatureSnapshotClass,
     DataProcessSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
+    TagSnapshotClass,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
@@ -30,6 +31,7 @@ resource_locator: Dict[Type[object], str] = {
     DatasetSnapshotClass: "datasets",
     DataProcessSnapshotClass: "dataProcesses",
     MLModelSnapshotClass: "mlModels",
+    TagSnapshotClass: "tags",
 }
 
 

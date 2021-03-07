@@ -33,6 +33,9 @@ public class DashboardMapper implements ModelMapper<com.linkedin.dashboard.Dashb
         if (dashboard.hasStatus()) {
             result.setStatus(StatusMapper.map(dashboard.getStatus()));
         }
+        if (dashboard.hasGlobalTags()) {
+            result.setGlobalTags(GlobalTagsMapper.map(dashboard.getGlobalTags()));
+        }
         return result;
     }
 

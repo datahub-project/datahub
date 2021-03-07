@@ -8,6 +8,7 @@ import com.linkedin.dataset.client.Lineages;
 import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
+import com.linkedin.tag.client.Tags;
 import com.linkedin.util.Configuration;
 
 /**
@@ -33,6 +34,8 @@ public class GmsClientFactory {
     private static Charts _charts;
     private static DataPlatforms _dataPlatforms;
     private static Lineages _lineages;
+    private static Tags _tags;
+
 
     private GmsClientFactory() { }
 
@@ -100,5 +103,16 @@ public class GmsClientFactory {
             }
         }
         return _lineages;
+    }
+
+    public static Tags getTagsClient() {
+        if (_tags == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_tags == null) {
+                    _tags = new Tags(REST_CLIENT);
+                }
+            }
+        }
+        return _tags;
     }
 }

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, EntityType } from '../../../types.generated';
-import { Profile } from './profile/Profile';
+import { DatasetProfile } from './profile/DatasetProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 
@@ -40,7 +40,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
-    renderProfile = (urn: string) => <Profile urn={urn} />;
+    renderProfile = (urn: string) => <DatasetProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: Dataset) => {
         return (
@@ -51,8 +51,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 description={data.description}
                 platformName={data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
-                tags={data.tags}
                 owners={data.ownership?.owners}
+                globalTags={data.globalTags}
             />
         );
     };

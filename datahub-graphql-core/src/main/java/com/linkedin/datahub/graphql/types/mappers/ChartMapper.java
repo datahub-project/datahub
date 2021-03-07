@@ -38,6 +38,9 @@ public class ChartMapper implements ModelMapper<com.linkedin.dashboard.Chart, Ch
         if (chart.hasStatus()) {
             result.setStatus(StatusMapper.map(chart.getStatus()));
         }
+        if (chart.hasGlobalTags()) {
+            result.setGlobalTags(GlobalTagsMapper.map(chart.getGlobalTags()));
+        }
         return result;
     }
 

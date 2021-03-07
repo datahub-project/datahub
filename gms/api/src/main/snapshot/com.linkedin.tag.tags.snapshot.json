@@ -1,0 +1,334 @@
+{
+  "models" : [ {
+    "type" : "record",
+    "name" : "AuditStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+    "fields" : [ {
+      "name" : "time",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Time",
+        "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+        "ref" : "long"
+      },
+      "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+    }, {
+      "name" : "actor",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Urn",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      },
+      "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+    }, {
+      "name" : "impersonator",
+      "type" : "Urn",
+      "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ChangeAuditStamps",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
+    "fields" : [ {
+      "name" : "created",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+    }, {
+      "name" : "lastModified",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+    }, {
+      "name" : "deleted",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Owner",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Ownership information",
+    "fields" : [ {
+      "name" : "owner",
+      "type" : "Urn",
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+    }, {
+      "name" : "type",
+      "type" : {
+        "type" : "enum",
+        "name" : "OwnershipType",
+        "doc" : "Owner category or owner role",
+        "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "symbolDocs" : {
+          "CONSUMER" : "A person, group, or service that consumes the data",
+          "DATAOWNER" : "A person or group that is owning the data",
+          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+          "DEVELOPER" : "A person or group that is in charge of developing the code",
+          "PRODUCER" : "A person, group, or service that produces/generates the data",
+          "STAKEHOLDER" : "A person or a group that has direct business interest"
+        }
+      },
+      "doc" : "The type of the ownership"
+    }, {
+      "name" : "source",
+      "type" : {
+        "type" : "record",
+        "name" : "OwnershipSource",
+        "doc" : "Source/provider of the ownership information",
+        "fields" : [ {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "OwnershipSourceType",
+            "symbols" : [ "AUDIT", "DATABASE", "FILE_SYSTEM", "ISSUE_TRACKING_SYSTEM", "MANUAL", "SERVICE", "SOURCE_CONTROL", "OTHER" ],
+            "symbolDocs" : {
+              "AUDIT" : "Auditing system or audit logs",
+              "DATABASE" : "Database, e.g. GRANTS table",
+              "FILE_SYSTEM" : "File system, e.g. file/directory owner",
+              "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
+              "MANUAL" : "Manually provided by a user",
+              "OTHER" : "Other sources",
+              "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
+              "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN"
+            }
+          },
+          "doc" : "The type of the source"
+        }, {
+          "name" : "url",
+          "type" : "string",
+          "doc" : "A reference URL for the source",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Source information for the ownership",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Ownership",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Ownership information of an entity.",
+    "fields" : [ {
+      "name" : "owners",
+      "type" : {
+        "type" : "array",
+        "items" : "Owner"
+      },
+      "doc" : "List of owners of the entity."
+    }, {
+      "name" : "lastModified",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who last modified the record and when."
+    } ]
+  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
+    "type" : "typeref",
+    "name" : "TagUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized data platforms available",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.TagUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized data platforms available",
+        "entityType" : "tag",
+        "fields" : [ {
+          "doc" : "tag name",
+          "maxLength" : 200,
+          "name" : "name",
+          "type" : "string"
+        } ],
+        "maxLength" : 220,
+        "name" : "Tag",
+        "namespace" : "li",
+        "owners" : [ ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
+      }
+    }
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+    "type" : "typeref",
+    "name" : "TagAspect",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A union of all supported metadata aspects for a tag",
+    "ref" : [ "com.linkedin.common.Ownership", {
+      "type" : "record",
+      "name" : "TagProperties",
+      "namespace" : "com.linkedin.tag",
+      "doc" : "Properties associated with a Tag",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Name of the tag"
+      }, {
+        "name" : "description",
+        "type" : "string",
+        "doc" : "Documentation of the tag",
+        "optional" : true
+      } ]
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BackfillResult",
+    "namespace" : "com.linkedin.metadata.restli",
+    "doc" : "The model for the result of a backfill",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BackfillResultEntity",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the backfilled entity"
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : "string"
+            },
+            "doc" : "List of the aspects backfilled for the entity"
+          } ]
+        }
+      },
+      "doc" : "List of backfilled entities"
+    } ]
+  }, "com.linkedin.metadata.restli.BackfillResultEntity", {
+    "type" : "record",
+    "name" : "TagSnapshot",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "A metadata snapshot for a specific dataset entity.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.TagUrn",
+      "doc" : "URN for the entity the metadata snapshot is associated with."
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.TagAspect"
+      },
+      "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EmptyRecord",
+    "namespace" : "com.linkedin.restli.common",
+    "doc" : "An literally empty record.  Intended as a marker to indicate the absence of content where a record type is required.  If used the underlying DataMap *must* be empty, EmptyRecordValidator is provided to help enforce this.  For example,  CreateRequest extends Request<EmptyRecord> to indicate it has no response body.   Also, a ComplexKeyResource implementation that has no ParamKey should have a signature like XyzResource implements ComplexKeyResource<XyzKey, EmptyRecord, Xyz>.",
+    "fields" : [ ],
+    "validate" : {
+      "com.linkedin.restli.common.EmptyRecordValidator" : { }
+    }
+  }, {
+    "type" : "record",
+    "name" : "Tag",
+    "namespace" : "com.linkedin.tag",
+    "doc" : "Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent",
+    "include" : [ {
+      "type" : "record",
+      "name" : "TagKey",
+      "doc" : "Key for Tag resource",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "tag name",
+        "validate" : {
+          "strlen" : {
+            "max" : 200,
+            "min" : 1
+          }
+        }
+      } ]
+    }, "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.TagUrn",
+      "doc" : "Tag urn"
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "description of the tag",
+      "default" : ""
+    }, {
+      "name" : "ownership",
+      "type" : "com.linkedin.common.Ownership",
+      "doc" : "Ownership metadata of the dataset",
+      "optional" : true
+    } ]
+  }, "com.linkedin.tag.TagKey", "com.linkedin.tag.TagProperties" ],
+  "schema" : {
+    "name" : "tags",
+    "namespace" : "com.linkedin.tag",
+    "path" : "/tags",
+    "schema" : "com.linkedin.tag.Tag",
+    "doc" : "generated from: com.linkedin.metadata.resources.tag.Tags",
+    "collection" : {
+      "identifier" : {
+        "name" : "tag",
+        "type" : "com.linkedin.tag.TagKey",
+        "params" : "com.linkedin.restli.common.EmptyRecord"
+      },
+      "supports" : [ "batch_get", "get", "get_all" ],
+      "methods" : [ {
+        "method" : "get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        } ]
+      }, {
+        "method" : "batch_get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        } ]
+      }, {
+        "method" : "get_all",
+        "pagingSupported" : true
+      } ],
+      "actions" : [ {
+        "name" : "backfill",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.restli.BackfillResult"
+      }, {
+        "name" : "getSnapshot",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.TagSnapshot"
+      }, {
+        "name" : "ingest",
+        "parameters" : [ {
+          "name" : "snapshot",
+          "type" : "com.linkedin.metadata.snapshot.TagSnapshot"
+        } ]
+      } ],
+      "entity" : {
+        "path" : "/tags/{tag}"
+      }
+    }
+  }
+}

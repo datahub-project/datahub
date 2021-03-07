@@ -1,0 +1,65 @@
+{
+  "name" : "tags",
+  "namespace" : "com.linkedin.tag",
+  "path" : "/tags",
+  "schema" : "com.linkedin.tag.Tag",
+  "doc" : "generated from: com.linkedin.metadata.resources.tag.Tags",
+  "collection" : {
+    "identifier" : {
+      "name" : "tag",
+      "type" : "com.linkedin.tag.TagKey",
+      "params" : "com.linkedin.restli.common.EmptyRecord"
+    },
+    "supports" : [ "batch_get", "get", "get_all" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ]
+    }, {
+      "method" : "get_all",
+      "pagingSupported" : true
+    } ],
+    "actions" : [ {
+      "name" : "backfill",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.restli.BackfillResult"
+    }, {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.TagSnapshot"
+    }, {
+      "name" : "ingest",
+      "parameters" : [ {
+        "name" : "snapshot",
+        "type" : "com.linkedin.metadata.snapshot.TagSnapshot"
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/tags/{tag}"
+    }
+  }
+}

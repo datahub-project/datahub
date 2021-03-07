@@ -2,8 +2,9 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.identity.CorpUserEditableInfo
 import com.linkedin.identity.CorpUserInfo
+import com.linkedin.common.GlobalTags
 
 /**
  * A union of all supported metadata aspects for a CorpUser
  */
-typeref CorpUserAspect = union[CorpUserInfo, CorpUserEditableInfo]
+typeref CorpUserAspect = union[CorpUserInfo, CorpUserEditableInfo, GlobalTags]
