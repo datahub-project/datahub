@@ -5,6 +5,7 @@ dependencies {
   compile project(':metadata-dao-impl:kafka-producer')
 
   compile externalDependency.elasticSearchRest
+  compile externalDependency.httpClient
   compile externalDependency.gson
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
