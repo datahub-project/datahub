@@ -12,11 +12,30 @@ const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
+const sidebars_json = JSON.stringify(sidebars);
+const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
+console.log(sidebars_json);
 
 function actually_in_sidebar(filepath: string): boolean {
-  const slug = get_slug(filepath);
-  const json = JSON.stringify(sidebars);
-  return json.indexOf(slug) < 0;
+  const doc_id = get_id(filepath);
+  return sidebars_json.indexOf(`"${doc_id}"`) >= 0;
+}
+
+function accounted_for_in_sidebar(filepath: string): boolean {
+  if (actually_in_sidebar(filepath)) {
+    return true;
+  }
+
+  // If we want to explicitly not include a doc in the sidebar but still have it
+  // available via a direct link, then keeping it commented out in the sidebar
+  // serves this purpose. To make it work, we search the text of the sidebar JS
+  // file.
+  const doc_id = get_id(filepath);
+  if (sidebars_text.indexOf(`"${doc_id}"`) >= 0) {
+    return true;
+  }
+
+  return false;
 }
 
 function list_markdown_files(): string[] {
@@ -80,6 +99,15 @@ const hardcoded_titles = {
   "README.md": "Introduction",
   "docs/demo.md": "Demo",
 };
+
+// FIXME: Eventually, we'd like to fix all of the broken links within these files.
+const allowed_broken_links = [
+  "docs/architecture/metadata-serving.md",
+  "docs/developers.md",
+  "docs/how/customize-elasticsearch-query-template.md",
+  "docs/how/graph-onboarding.md",
+  "docs/how/search-onboarding.md",
+];
 
 function markdown_guess_title(
   contents: matter.GrayMatterFile<string>,
@@ -177,11 +205,16 @@ function new_url(original: string, filepath: string): string {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    if (!fs.existsSync(`../${updated_path}`) && actually_in_sidebar(filepath)) {
+    const check_path = updated_path.replace(/#.+$/, "");
+    if (
+      !fs.existsSync(`../${check_path}`) &&
+      actually_in_sidebar(filepath) &&
+      !allowed_broken_links.includes(filepath)
+    ) {
       // Detects when the path is a dangling reference, according to the locally
       // checked out repo.
       throw new Error(
-        `broken github repo link: ${updated_path} in ${filepath}`
+        `broken github repo link to ${updated_path} in ${filepath}`
       );
     }
     const updated_url = `${GITHUB_BROWSE_URL}/${updated_path}`;
@@ -258,12 +291,12 @@ for (const filepath of markdown_files) {
   fs.writeFileSync(outpath, contents.stringify(""));
 }
 
-// Output a list of all docs which are not included in a sidebar.
+// Error if a doc is not accounted for in a sidebar.
 const sidebar = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 for (const filepath of markdown_files) {
-  const doc_id = get_id(filepath);
-
-  if (sidebar.indexOf(`"${doc_id}"`) < 0) {
-    throw new Error(`File not accounted for in sidebar ${filepath}`);
+  if (!accounted_for_in_sidebar(filepath)) {
+    throw new Error(
+      `File not accounted for in sidebar ${filepath} - try adding it to docs-website/sidebars.js`
+    );
   }
 }
