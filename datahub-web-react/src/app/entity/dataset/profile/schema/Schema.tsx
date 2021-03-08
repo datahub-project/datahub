@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 
 import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
+import styled from 'styled-components';
 
 import TypeIcon from './TypeIcon';
 import { Schema, SchemaFieldDataType, GlobalTags } from '../../../../../types.generated';

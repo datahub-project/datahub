@@ -35,10 +35,10 @@ describe('TagProfile', () => {
         await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
 
         expect(getByTestId('avatar-tag-urn:li:corpuser:3')).toBeInTheDocument();
-        expect(getByTestId('avatar-tag-urn:li:corpuser:2')).toBeInTheDocument();
+        expect(getByTestId('avatar-tag-urn:li:corpuser:1')).toBeInTheDocument();
 
-        expect(getByTestId('avatar-tag-urn:li:corpuser:2').closest('a').href).toEqual(
-            'http://localhost/user/urn:li:corpuser:2',
+        expect(getByTestId('avatar-tag-urn:li:corpuser:1').closest('a').href).toEqual(
+            'http://localhost/user/urn:li:corpuser:1',
         );
         expect(getByTestId('avatar-tag-urn:li:corpuser:3').closest('a').href).toEqual(
             'http://localhost/user/urn:li:corpuser:3',
