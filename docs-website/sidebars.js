@@ -115,6 +115,7 @@ module.exports = {
           "docs/rfc/active/business_glossary/README",
           "docs/rfc/active/graph_ql_frontend/queries",
           "docs/rfc/active/react-app/README",
+          "docs/rfc/active/tags/README",
         ],
       },
     ],
