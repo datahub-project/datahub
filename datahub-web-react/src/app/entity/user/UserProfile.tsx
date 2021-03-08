@@ -6,7 +6,7 @@ import UserHeader from './UserHeader';
 import UserDetails from './UserDetails';
 import useUserParams from './routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { useGetEachEntitySearchResults } from '../../../utils/customGraphQL/useGetEachEntitySearchResults';
+import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 
 const PageContainer = styled.div`
     background-color: white;
@@ -22,7 +22,7 @@ export default function UserProfile() {
 
     const username = data?.corpUser?.username;
 
-    const ownershipResult = useGetEachEntitySearchResults({
+    const ownershipResult = useGetAllEntitySearchResults({
         query: `owners:${username}`,
     });
 

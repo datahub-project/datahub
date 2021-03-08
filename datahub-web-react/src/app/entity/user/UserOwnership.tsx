@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Typography } from 'antd';
+import { List, Typography, Divider } from 'antd';
 import styled from 'styled-components';
 
 import { EntityType } from '../../../types.generated';
@@ -16,6 +16,10 @@ const ListContainer = styled.div`
     flex-grow: default;
 `;
 
+const TitleContainer = styled.div`
+    margin-bottom: 30px;
+`;
+
 export default ({ ownerships, entityPath }: Props) => {
     const entityRegistry = useEntityRegistry();
 
@@ -27,23 +31,14 @@ export default ({ ownerships, entityPath }: Props) => {
 
     return (
         <ListContainer>
+            <TitleContainer>
+                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)} they own</Typography.Title>
+                <Divider />
+            </TitleContainer>
             <List
                 dataSource={entitiesToShow}
-                header={
-                    <Typography.Title level={3}>
-                        {entityRegistry.getCollectionName(entityType)} they own
-                    </Typography.Title>
-                }
                 renderItem={(item) => {
-                    return (
-                        <div
-                            style={{
-                                marginTop: '10px',
-                            }}
-                        >
-                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item)}
-                        </div>
-                    );
+                    return entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item);
                 }}
             />
         </ListContainer>

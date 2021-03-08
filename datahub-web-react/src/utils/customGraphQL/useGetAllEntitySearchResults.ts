@@ -1,7 +1,7 @@
 import { EntityType } from '../../types.generated';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 
-export function useGetEachEntitySearchResults(input: any) {
+export function useGetAllEntitySearchResults(input: any) {
     const result: any = {};
 
     result[EntityType.Chart] = useGetSearchResultsQuery({
