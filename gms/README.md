@@ -17,11 +17,11 @@ However, if you only want to build `DataHub GMS` specifically:
 ```
 
 ## Dependencies
-Before starting `DataHub GMS`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka),  
+Before starting `DataHub GMS`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka-setup),  
 [Elasticsearch](../docker/elasticsearch) and [MySQL](../docker/mysql) Docker containers are up and running.
 
 ## Start via Docker image
-Quickest way to try out `DataHub GMS` is running the [Docker image](../docker/gms).
+Quickest way to try out `DataHub GMS` is running the [Docker image](../docker/datahub-gms).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
