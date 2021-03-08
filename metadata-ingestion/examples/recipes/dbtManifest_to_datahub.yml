@@ -1,0 +1,11 @@
+---
+source:
+  type: "dbt_manifest"
+  config:
+    manifest_path: "./examples/demo_data/dbt_manifest.json"
+    catalog_path: "./examples/demo_data/catalog.json"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

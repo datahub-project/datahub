@@ -9,6 +9,7 @@ from .mssql import SQLServerSource
 from .mysql import MySQLSource
 from .postgres import PostgresSource
 from .snowflake import SnowflakeSource
+from .dbt_manifest import DBTManifestSource
 
 source_registry = Registry[Source]()
 
@@ -21,6 +22,7 @@ source_registry.register("postgres", PostgresSource)
 source_registry.register("snowflake", SnowflakeSource)
 source_registry.register("bigquery", BigQuerySource)
 source_registry.register("kafka", KafkaSource)
+source_registry.register("dbt_manifest", DBTManifestSource)
 
 # Attempt to enable the LDAP source. Because it has some imports that we don't
 # want to install by default, we instead use this approach.
