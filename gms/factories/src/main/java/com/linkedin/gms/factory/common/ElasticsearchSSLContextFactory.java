@@ -36,7 +36,7 @@ public class ElasticsearchSSLContextFactory {
     private String sslTrustStorePassword;
 
     @Value("${ELASTICSEARCH_SSL_KEYSTORE_FILE:#{null}}")
-    private String sslKeystoreFile;
+    private String sslKeyStoreFile;
 
     @Value("${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}")
     private String sslKeyStoreType;
@@ -55,8 +55,8 @@ public class ElasticsearchSSLContextFactory {
             loadKeyStore(sslContextBuilder, sslTrustStoreFile, sslTrustStoreType, sslTrustStorePassword);
         }
 
-        if (sslKeystoreFile != null && sslKeyStoreType != null && sslKeyStorePassword != null) {
-            loadKeyStore(sslContextBuilder, sslKeystoreFile, sslKeyStoreType, sslKeyStorePassword);
+        if (sslKeyStoreFile != null && sslKeyStoreType != null && sslKeyStorePassword != null) {
+            loadKeyStore(sslContextBuilder, sslKeyStoreFile, sslKeyStoreType, sslKeyStorePassword);
         }
 
         final SSLContext sslContext;
