@@ -1,3 +1,24 @@
+const fs = require("fs");
+
+function list_ids_in_directory(directory) {
+  const files = fs.readdirSync(`../${directory}`);
+  let ids = [];
+  for (const name of files) {
+    if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
+      // Recurse into the directory.
+      const inner_ids = list_ids_in_directory(`${directory}/${name}`);
+      ids = ids.concat(inner_ids);
+    } else {
+      if (name.endsWith(".md")) {
+        const id = `${directory}/${name}`.replace(/\.md$/, "");
+        ids.push(id);
+      }
+    }
+  }
+  ids.sort();
+  return ids;
+}
+
 module.exports = {
   // users
   // architects
@@ -107,16 +128,7 @@ module.exports = {
       "docs/CODE_OF_CONDUCT",
       "docs/rfc",
       {
-        RFCs: [
-          "docs/rfc/active/1778-dashboards/README",
-          "docs/rfc/active/1812-ml_models/README",
-          "docs/rfc/active/1820-azkaban-flow-job/README",
-          "docs/rfc/active/1841-lineage/field_level_lineage",
-          "docs/rfc/active/business_glossary/README",
-          "docs/rfc/active/graph_ql_frontend/queries",
-          "docs/rfc/active/react-app/README",
-          "docs/rfc/active/tags/README",
-        ],
+        RFCs: list_ids_in_directory("docs/rfc/active"),
       },
     ],
   },

@@ -321,7 +321,7 @@ private static final Set<String> CORP_USER_FACET_FIELDS = ImmutableSet.of("cours
 
 ### 3: Add field in the Person entity
 
-In [person-entity.ts](../../datahub-web/%40datahub/data-models/addon/entity/person/person-entity.ts), add your new property
+In [person-entity.ts](../../datahub-web/@datahub/data-models/addon/entity/person/person-entity.ts), add your new property
 
 ```ts
 @alias('entity.courses')
