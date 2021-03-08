@@ -1,7 +1,9 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchInput } from '../../types.generated';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 
-export function useGetAllEntitySearchResults(input: any) {
+type AllEntityInput<T, K> = Pick<T, Exclude<keyof T, keyof K>> & K;
+
+export function useGetAllEntitySearchResults(input: AllEntityInput<SearchInput, { type?: EntityType }>) {
     const result: any = {};
 
     result[EntityType.Chart] = useGetSearchResultsQuery({
