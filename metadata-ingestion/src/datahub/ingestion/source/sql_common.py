@@ -26,6 +26,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    DateTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -101,18 +103,19 @@ _field_type_mapping = {
     types.PickleType: BytesTypeClass,
     types.ARRAY: ArrayTypeClass,
     types.String: StringTypeClass,
+    types.Date: DateTypeClass,
+    types.DATE: DateTypeClass,
+    types.Time: TimeTypeClass,
+    types.DateTime: TimeTypeClass,
+    types.DATETIME: TimeTypeClass,
+    types.TIMESTAMP: TimeTypeClass,
     # When SQLAlchemy is unable to map a type into its internally hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
 _known_unknown_field_types = {
-    types.Date,
-    types.Time,
-    types.DateTime,
     types.Interval,
-    types.DATE,
-    types.DATETIME,
-    types.TIMESTAMP,
+    types.CLOB,
 }
 
 

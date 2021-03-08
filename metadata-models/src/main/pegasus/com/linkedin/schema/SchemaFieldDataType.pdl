@@ -14,6 +14,8 @@ record SchemaFieldDataType {
     StringType,
     BytesType,
     NumberType,
+    DateType,
+    TimeType,
     EnumType,
     NullType,
     MapType,

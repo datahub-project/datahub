@@ -64,7 +64,7 @@
     "type" : "record",
     "name" : "GlobalTags",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tags information",
+    "doc" : "Tag aspect used for applying tags to an entity",
     "fields" : [ {
       "name" : "tags",
       "type" : {
@@ -78,7 +78,7 @@
             "type" : {
               "type" : "typeref",
               "name" : "TagUrn",
-              "doc" : "Standardized data platforms available",
+              "doc" : "Globally defined tag",
               "ref" : "string",
               "java" : {
                 "class" : "com.linkedin.common.urn.TagUrn"
@@ -87,7 +87,7 @@
                 "com.linkedin.common.validator.TypedUrnValidator" : {
                   "accessible" : true,
                   "constructable" : true,
-                  "doc" : "Standardized data platforms available",
+                  "doc" : "Globally defined tags",
                   "entityType" : "tag",
                   "fields" : [ {
                     "doc" : "tag name",
