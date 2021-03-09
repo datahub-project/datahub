@@ -1,16 +1,23 @@
 package com.linkedin.tag.client;
 
 import com.linkedin.common.urn.TagUrn;
-import com.linkedin.metadata.restli.BaseClient;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.configs.TagSearchConfig;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.tag.Tag;
 import com.linkedin.tag.TagKey;
+import com.linkedin.tag.TagsDoAutocompleteRequestBuilder;
+import com.linkedin.tag.TagsFindBySearchRequestBuilder;
 import com.linkedin.tag.TagsRequestBuilders;
 
 import java.util.List;
@@ -18,10 +25,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-public class Tags extends BaseClient {
+import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+
+public class Tags extends BaseSearchableClient<Tag>  {
 
     private static final TagsRequestBuilders TAGS_REQUEST_BUILDERS = new TagsRequestBuilders();
+    private static final TagSearchConfig TAGS_SEARCH_CONFIG = new TagSearchConfig();
 
     public Tags(@Nonnull Client restliClient) {
         super(restliClient);
@@ -65,6 +76,47 @@ public class Tags extends BaseClient {
                         entry -> getUrnFromKey(entry.getKey()),
                         entry -> entry.getValue().getEntity())
                 );
+    }
+
+    @Nonnull
+    @Override
+    public CollectionResponse<Tag> search(@Nonnull String input,
+                                            @Nullable StringArray aspectNames,
+                                            @Nullable Map<String, String> requestFilters,
+                                            @Nullable SortCriterion sortCriterion,
+                                            int start,
+                                            int count)
+            throws RemoteInvocationException {
+        final TagsFindBySearchRequestBuilder requestBuilder = TAGS_REQUEST_BUILDERS.findBySearch()
+                .aspectsParam(aspectNames)
+                .inputParam(input)
+                .sortParam(sortCriterion)
+                .paginate(start, count);
+        if (requestFilters != null) {
+            requestBuilder.filterParam(newFilter(requestFilters));
+        }
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    @Nonnull
+    public CollectionResponse<Tag> search(@Nonnull String input, int start, int count)
+            throws RemoteInvocationException {
+        return search(input, null, null, start, count);
+    }
+
+    @Nonnull
+    @Override
+    public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field, @Nonnull Map<String, String> requestFilters, int limit)
+            throws RemoteInvocationException {
+        final String autocompleteField = (field != null) ? field : TAGS_SEARCH_CONFIG.getDefaultAutocompleteField();
+        TagsDoAutocompleteRequestBuilder requestBuilder = TAGS_REQUEST_BUILDERS
+                .actionAutocomplete()
+                .queryParam(query)
+                .fieldParam(autocompleteField)
+                .filterParam(newFilter(requestFilters))
+                .limitParam(limit);
+
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
     }
 
     /**

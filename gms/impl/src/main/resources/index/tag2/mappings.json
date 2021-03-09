@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "name": {
+      "type": "keyword",
+      "fields": {
+        "delimited": {
+          "type": "text",
+          "analyzer": "delimit"
+        },
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      },
+      "normalizer": "custom_normalizer"
+    },
+    "urn": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer"
+    }
+  }
+}
