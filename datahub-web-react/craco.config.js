@@ -1,13 +1,14 @@
+require('dotenv').config();
 const CracoAntDesignPlugin = require('craco-antd');
 
-const themeConfig = require('./src/conf/theme/theme_light.config.json');
+const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
 
 module.exports = {
     plugins: [
         {
             plugin: CracoAntDesignPlugin,
             options: {
-                customizeTheme: themeConfig.antdStylingOverrides,
+                customizeTheme: themeConfig.styles,
             },
         },
     ],

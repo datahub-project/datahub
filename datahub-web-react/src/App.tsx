@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
@@ -16,8 +16,8 @@ import { TagEntity } from './app/entity/tag/Tag';
 
 import EntityRegistry from './app/entity/EntityRegistry';
 import { EntityRegistryContext } from './entityRegistryContext';
-
-import themeConfig from './conf/theme/themeConfig';
+import { Theme } from './conf/theme/types';
+import defaultThemeConfig from './conf/theme/theme_light.config.json';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -47,6 +47,14 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
+    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme | null>(null);
+
+    useEffect(() => {
+        import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
+            setDynamicThemeConfig(theme);
+        });
+    }, []);
+
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();
         register.register(new DatasetEntity());
@@ -57,18 +65,21 @@ const App: React.VFC = () => {
         return register;
     }, []);
 
-    const theme = useMemo(() => {
+    const theme: Theme = useMemo(() => {
         const overridesWithoutPrefix: { [key: string]: any } = {};
+        const themeConfig = dynamicThemeConfig || defaultThemeConfig;
         // this is based on the assumpton that antdStylingOverrides will always be a dictionary of <string, string>. If that changes,
         // we will need to turn this into a deep copy
-        Object.assign(overridesWithoutPrefix, themeConfig.antdStylingOverrides);
+        Object.assign(overridesWithoutPrefix, themeConfig.styles);
         Object.keys(overridesWithoutPrefix).forEach((key) => {
             overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
             delete overridesWithoutPrefix[key];
         });
-        overridesWithoutPrefix.appVariables = themeConfig.appVariables;
-        return overridesWithoutPrefix;
-    }, []);
+        return {
+            ...themeConfig,
+            styles: overridesWithoutPrefix as Theme['styles'],
+        };
+    }, [dynamicThemeConfig]);
 
     return (
         <ThemeProvider theme={theme}>

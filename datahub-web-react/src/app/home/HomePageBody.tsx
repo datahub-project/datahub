@@ -9,7 +9,7 @@ const Title = styled(Typography.Text)`
     && {
         margin: 0px 0px 0px 120px;
         font-size: 32px;
-        color: ${(props) => props.theme.appVariables.homepage.backgroundColorUpperFade};
+        color: ${(props) => props.theme.styles['homepage-background-upper-fade']};
     }
 `;
 
@@ -18,7 +18,7 @@ const EntityGridRow = styled(Row)`
 `;
 
 const BodyContainer = styled.div`
-    background-color: ${(props) => props.theme.appVariables.homepage.backgroundColorLowerFade};
+    background-color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
 `;
 
 export const HomePageBody = () => {

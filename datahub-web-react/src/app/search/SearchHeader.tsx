@@ -1,15 +1,14 @@
 import * as React from 'react';
 import { Image, Layout, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
-import themeConfig from '../../conf/theme/themeConfig';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
-        color: ${(props) => props.theme['layout-header-color']};
+        color: ${(props) => props.theme.styles['layout-header-color']};
         padding-left: 12px;
         margin: 0;
     }
@@ -58,12 +57,14 @@ export const SearchHeader = ({
     authenticatedUserUrn,
     authenticatedUserPictureLink,
 }: Props) => {
+    const themeConfig = useTheme();
+
     return (
         <Header style={styles.header as any}>
             <Link to="/">
                 <Space size={4}>
-                    <Image style={styles.logoImage} src={themeConfig.appVariables.logoUrl} preview={false} />
-                    <HeaderTitle level={4}>{themeConfig.appVariables.title}</HeaderTitle>
+                    <Image style={styles.logoImage} src={themeConfig.assets.logoUrl} preview={false} />
+                    <HeaderTitle level={4}>{themeConfig.content.title}</HeaderTitle>
                 </Space>
             </Link>
             <SearchBar

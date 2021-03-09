@@ -1,5 +1,5 @@
 {
-    "antdStylingOverrides": {
+    "styles": {
         "@border-radius-base": "4px",
         "@layout-header-background": "#333E4C",
         "@layout-header-color": "white",
@@ -13,15 +13,17 @@
         "@background-color-light": "#4b5b71",
         "@divider-color": "fade(white, 6%)",
         "@disabled-color": "fade(white, 25%)",
-        "@steps-nav-arrow-color": "fade(white, 25%)"
+        "@steps-nav-arrow-color": "fade(white, 25%)",
+        "@homepage-background-upper-fade": "#FFFFFF",
+        "@homepage-background-lower-fade": "#333E4C"
     },
-    "appVariables": {
-        "logoUrl": "/assets/logo.png",
+    "assets": {
+        "logoUrl": "/assets/logo.png"
+    },
+    "content": {
         "title": "DataHub",
         "homepage": {
-            "homepageMessage": "Find data you can count(*) on",
-            "backgroundColorUpperFade": "#FFFFFF",
-            "backgroundColorLowerFade": "#132935"
+            "homepageMessage": "Find data you can count(*) on"
         },
         "search": {
             "searchbarMessage": "Search Datasets, People, & more..."
