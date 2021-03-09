@@ -1,69 +1,90 @@
 # DataHub Roadmap
 
-Below is DataHub's roadmap for the short, medium and long term. We welcome suggestions from the community.
+Here is DataHub's roadmap for the next six months (starting Jan 2021).
 
-ETAs are revisted on a regular basis and are subject to change. If you would like to see something prioritized, please reach out to us on [Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or attend the [town hall](townhalls.md) to discuss!
+We publish only a short roadmap, because we are evolving very fast and want to adapt to the community's needs. We will be checking off against this roadmap as we make progress over the next few months.
 
-## Short term (3 months) [ETA October 2020]
-### Dashboards as entities 
-- Models + UI
-### Jobs & Flows as entities
-- Link datasets to jobs & flows
-### AI models as entities
-- Models + UI
-### Strongly consistent secondary index (SCSI)
-- Add query-after-write capability to local DAO 
-### Gremlin-based Query DAO
-- Support majority of gremlin-compatible graph DBs
-### Integration tests
-- Add docker-based integration tests
-### Kubernetes migration
-- Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
+**Caveat**: ETA-s are subject to change. Do let us know before you commit to your stakeholders about deploying these capabilities at your company.
 
-## Medium term (3 - 6 months) [ETA January 2021]
-### Aspect-specific MCE & MAE
-- Split up unified events to improve scalability & modularity
-### Dataset field-level lineage
-- Models + impact analysis
-### Data Concepts as an entity
-- Models + UI
-### Metrics as entities
-- Models + UI
-### Schemas as an entity
-- Make schemas searchable
-- Support GraphQL schemas
-### Entity Insights
-- UI to highlight high value information about Entities within Search and Entity Pages
-### Data privacy management for datasets
-- Simple tag-based data privacy metadata
-### Social features
-- Users will be able to like and follow entities
-- Dataset & field-level commenting
-### Templatized UI
-- Config-driven UI
-- Generate TypeScript types from Pegasus 
-### Add GraphQL endpoint to GMS
-- Use GraphQL exclusively for frontend queries
-### Adopt Redux
-- Use Redux exclusively for UI state management
-### JNoSQL-based Local DAO
-- Support a wide range of document stores
-### Ownership Transfer
-- Donate code to a foundation, e.g. Apache, Linux Foundation.
-### Azure deployment
-- Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide how-to guides
+If you would like to suggest new items or request timeline changes to the existing items, please submit your request through this [form](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request).
 
-## Long term (6 months - 1 year)
-### Operational metadata
-- Indexing in OLAP store ([Pinot](https://github.com/apache/incubator-pinot)) with TTL
-### Microservices as an entity
-- Initially focus on rest.li services & GraphQL integration
-### AWS & GCP deployment
-- Run DataHub in [AWS](https://aws.amazon.com/) & [GCP](https://cloud.google.com/gcp) and provide how-to guides
+Of course, you always have access to our community through [Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or our [town halls](townhalls.md) to chat with us live!
 
-## Visionary Goals (1 year+)
-### Rewrite midtier in Node
-- TypeScript-only frontend development
-### gRPC + protobuf
-- Modeling in protobuf + serving in gRPC
-### UI for metadata graph exploration
+## Q1 2021 [Jan - Mar 2021]
+
+### React UI
+- [x] Build a new UI based on React
+- [ ] Deprecate open-source support for Ember UI
+
+### Python-based Metadata Integration
+- [x] Build a Python-based Ingestion Framework
+- [x] Support common people repositories (LDAP)
+- [x] Support common data repositories (Kafka, SQL databases, AWS Glue, Hive)
+- [ ] Support common transformation sources (dbt, Looker)
+- [ ] Support for push-based metadata emission from Python (e.g. Airflow DAGs)
+
+### Dashboards and Charts
+- [x] Support for dashboard and chart entity page
+- [ ] Support browse, search and discovery
+
+### SSO for Authentication
+- [ ] Support for Authentication (login) using OIDC providers (Okta, Google etc)
+
+### Tags 
+Use-Case: Support for free-form global tags for social collaboration and aiding discovery
+- [ ] Edit / Create new tags
+- [ ] Attach tags to relevant constructs (e.g. datasets, dashboards, users, schema\_fields)
+- [ ] Search using tags (e.g. find all datasets with this tag, find all entities with this tag)
+
+### Business Glossary
+- [ ] Support for business glossary model (definition + storage)
+- [ ] Browse taxonomy
+- [ ] UI support for attaching business terms to entities and fields
+
+### Jobs, Flows / Pipelines
+Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand lineage with datasets
+- [ ] Support for Metadata Models + Backend Implementation
+- [ ] Metadata Integrations with systems like Airflow.
+
+### Data Profiling and Dataset Previews
+Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
+- [ ] Support for data profiling and preview extraction through ingestion pipeline
+- Out of scope for Q1: Access control of data profiles and sample data
+
+## Q2 2021 (Apr - Jun 2021)
+
+### Cloud Deployment
+- [ ] Production-grade Helm charts for Kubernetes-based deployment
+- [ ] How-to guides for deploying DataHub to all the major cloud providers (AWS, Azure, GCP)
+
+
+### Data Quality
+- Support for data quality visualization
+- Support for data health score based on data quality results and pipeline observability
+- Integration with systems like Great Expectations, AWS deequ etc.
+
+### Product Analytics for DataHub
+- Helping you understand how your users are interacting with DataHub
+- Integration with common systems like Google Analytics etc.
+
+### Usage-Based Insights
+- Display frequently used datasets, dashboards
+- Improved search relevance through usage data
+
+### Role-based Access Control
+- Support for fine-grained access control for metadata operations (read, write, modify)
+- Scope: Access control on entity-level, aspect-level and within aspects as well.
+- This provides the foundation for Tag Governance, Dataset Preview access control etc.
+
+### No-code Metadata Model Additions
+Use Case: Developers should be able to add new entities and aspects to the metadata model easily
+- No need to write any code (in Java or Python) to store, retrieve, search and query metadata
+
+## Beyond the horizon
+
+### Let us know what you want!
+- Submit requests [here](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or
+- Submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request). 
+
+
+
