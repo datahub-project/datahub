@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.config;
 
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
@@ -17,7 +18,7 @@ import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexBuildersConfig.class})
+@Import({RestHighLevelClientFactory.class, IndexBuildersConfig.class, ElasticsearchSSLContextFactory.class})
 public class ElasticSearchConfig {
 
   @Value("${ELASTICSEARCH_HOST:localhost}")
