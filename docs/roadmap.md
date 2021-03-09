@@ -1,10 +1,10 @@
 # DataHub Roadmap
 
-Here are DataHub's roadmap for the next six months (starting Jan 2021).
+Here is DataHub's roadmap for the next six months (starting Jan 2021).
 
 We publish only a short roadmap, because we are evolving very fast and want to adapt to the community's needs. We will be checking off against this roadmap as we make progress over the next few months.
 
-*Caveat*: ETA-s are subject to change. Do let us know before you commit to your stakeholders about deploying these capabilities at your company.
+**Caveat**: ETA-s are subject to change. Do let us know before you commit to your stakeholders about deploying these capabilities at your company.
 
 If you would like to suggest new items or request timeline changes to the existing items, please submit your request through this [form](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request).
 
@@ -28,7 +28,7 @@ Of course, you always have access to our community through [Slack](https://join.
 - [ ] Support browse, search and discovery
 
 ### SSO for Authentication
-- [ ] Support for Authentication (login) using SAML/OIDC providers (Okta, Google etc)
+- [ ] Support for Authentication (login) using OIDC providers (Okta, Google etc)
 
 ### Tags 
 Use-Case: Support for free-form global tags for social collaboration and aiding discovery
