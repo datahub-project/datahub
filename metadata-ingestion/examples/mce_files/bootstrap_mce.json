@@ -424,7 +424,7 @@
                     },
                     {
                         "com.linkedin.pegasus2avro.common.GlobalTags": {
-                            "tags": [{ "tag": "urn:li:tag:sampletag" }]
+                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
                         }
                     }
                 ]
@@ -513,7 +513,7 @@
                     },
                     {
                         "com.linkedin.pegasus2avro.common.GlobalTags": {
-                            "tags": [{ "tag": "urn:li:tag:sampletag" }]
+                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
                         }
                     }
                 ]
@@ -662,12 +662,12 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
-                "urn": "urn:li:tag:sampletag",
+                "urn": "urn:li:tag:Legacy",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.tag.TagProperties": {
-                            "name": "sampletag",
-                            "description": "A sample tag"
+                            "name": "Legacy",
+                            "description": "Indicates the dataset is no longer supported"
                         }
                     },
                     {
