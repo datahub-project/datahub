@@ -33,6 +33,8 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
         if (type.isBytesType()) {
             return SchemaFieldDataType.BYTES;
+        } else if (type.isFixedType()) {
+            return SchemaFieldDataType.FIXED;
         } else if (type.isBooleanType()) {
             return SchemaFieldDataType.BOOLEAN;
         } else if (type.isStringType()) {
@@ -52,7 +54,8 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         } else if (type.isUnionType()) {
             return SchemaFieldDataType.UNION;
         } else {
-            throw new RuntimeException(String.format("Unrecognized SchemaFieldDataType provided %s", type.memberType().getType().name()));
+            throw new RuntimeException(String.format("Unrecognized SchemaFieldDataType provided %s",
+                    type.memberType().toString()));
         }
     }
 }
