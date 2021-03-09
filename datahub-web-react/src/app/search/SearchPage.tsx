@@ -17,7 +17,7 @@ const ALL_ENTITIES_TAB_NAME = 'All';
 
 const StyledTabs = styled(Tabs)`
      {
-        background-color: ${(props) => props.theme['body-background']};
+        background-color: ${(props) => props.theme.styles['body-background']};
         .ant-tabs-nav {
             padding-left: 165px;
             margin-bottom: 0px;
