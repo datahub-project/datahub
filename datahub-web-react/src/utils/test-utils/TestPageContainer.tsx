@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
+import { ThemeProvider } from 'styled-components';
+
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { UserEntity } from '../../app/entity/user/User';
 import EntityRegistry from '../../app/entity/EntityRegistry';
 import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
-import { ThemeProvider } from 'styled-components';
 
 import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
 
