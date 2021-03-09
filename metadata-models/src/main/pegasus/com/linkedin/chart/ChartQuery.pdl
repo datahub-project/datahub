@@ -14,4 +14,3 @@ record ChartQuery {
    * Chart query type
    */
   type: ChartQueryType
-}

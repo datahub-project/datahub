@@ -7,7 +7,7 @@
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "strict": true,
-        "noImplicitAny": true,
+        "noImplicitAny": false,
         "forceConsistentCasingInFileNames": true,
         "noFallthroughCasesInSwitch": true,
         "module": "esnext",
@@ -17,5 +17,5 @@
         "noEmit": true,
         "jsx": "react-jsx"
     },
-    "include": ["src"]
+    "include": ["src", "src/conf/theme/styled-components.d.ts"]
 }

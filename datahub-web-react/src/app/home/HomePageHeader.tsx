@@ -1,20 +1,29 @@
 import React from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Space, AutoComplete, Input, Row } from 'antd';
+import styled, { useTheme } from 'styled-components';
+
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { GlobalCfg, SearchCfg } from '../../conf';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 
+const Background = styled(Space)`
+    width: 100%;
+    background-image: linear-gradient(
+        ${(props) => props.theme.styles['homepage-background-upper-fade']},
+        ${(props) => props.theme.styles['homepage-background-lower-fade']}
+    );
+`;
+
+const WelcomeText = styled(Typography.Text)`
+    font-size: 16px;
+    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+`;
+
 const styles = {
-    background: {
-        width: '100%',
-        backgroundImage: 'linear-gradient(#132935, #FFFFFF)',
-    },
     navBar: { padding: '24px' },
-    welcomeText: { color: '#FFFFFF', fontSize: 16 },
     searchContainer: { width: '100%', marginTop: '40px', marginBottom: '160px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
@@ -26,6 +35,7 @@ export const HomePageHeader = () => {
     const entityRegistry = useEntityRegistry();
     const { data } = useGetAuthenticatedUser();
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const themeConfig = useTheme();
 
     const onSearch = (query: string) => {
         navigateToSearchUrl({
@@ -47,18 +57,18 @@ export const HomePageHeader = () => {
     };
 
     return (
-        <Space direction="vertical" style={styles.background}>
+        <Background direction="vertical">
             <Row justify="space-between" style={styles.navBar}>
-                <Typography.Text style={styles.welcomeText}>
+                <WelcomeText>
                     Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
-                </Typography.Text>
+                </WelcomeText>
                 <ManageAccount
                     urn={data?.corpUser?.urn || ''}
                     pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
                 />
             </Row>
             <Space direction="vertical" align="center" style={styles.searchContainer}>
-                <Image src={GlobalCfg.LOGO_IMAGE} preview={false} style={styles.logoImage} />
+                <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
                 <AutoComplete
                     style={styles.searchBox}
                     options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({
@@ -68,16 +78,16 @@ export const HomePageHeader = () => {
                     onSearch={(value: string) => onAutoComplete(value)}
                 >
                     <Input.Search
-                        placeholder={SearchCfg.SEARCH_BAR_PLACEHOLDER_TEXT}
+                        placeholder={themeConfig.content.search.searchbarMessage}
                         onSearch={(value: string) => onSearch(value)}
                         data-testid="search-input"
                     />
                 </AutoComplete>
 
                 <Typography.Text style={styles.subHeaderText}>
-                    Find <b>data</b> you can count on.
+                    {themeConfig.content.homepage.homepageMessage}
                 </Typography.Text>
             </Space>
-        </Space>
+        </Background>
     );
 };
