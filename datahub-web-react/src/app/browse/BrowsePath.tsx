@@ -15,7 +15,7 @@ interface Props {
 const BrowseRow = styled(Row)`
     padding: 10px 100px;
     border-bottom: 1px solid #dcdcdc;
-    background-color: ${(props) => props.theme['body-background']};
+    background-color: ${(props) => props.theme.styles['body-background']};
 `;
 
 /**

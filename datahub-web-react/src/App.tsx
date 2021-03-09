@@ -68,8 +68,6 @@ const App: React.VFC = () => {
     const theme: Theme = useMemo(() => {
         const overridesWithoutPrefix: { [key: string]: any } = {};
         const themeConfig = dynamicThemeConfig || defaultThemeConfig;
-        // this is based on the assumpton that antdStylingOverrides will always be a dictionary of <string, string>. If that changes,
-        // we will need to turn this into a deep copy
         Object.assign(overridesWithoutPrefix, themeConfig.styles);
         Object.keys(overridesWithoutPrefix).forEach((key) => {
             overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
