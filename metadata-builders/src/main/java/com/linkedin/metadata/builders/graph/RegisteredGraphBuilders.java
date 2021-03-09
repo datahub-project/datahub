@@ -23,6 +23,8 @@ public class RegisteredGraphBuilders {
           add(new ChartGraphBuilder());
           add(new CorpUserGraphBuilder());
           add(new DashboardGraphBuilder());
+          add(new DataFlowGraphBuilder());
+          add(new DataJobGraphBuilder());
           add(new DataProcessGraphBuilder());
           add(new DatasetGraphBuilder());
           add(new MLModelGraphBuilder());
