@@ -1,4 +1,4 @@
-package com.linkedin.metadata.utils.elasticsearch;
+package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.data.template.RecordTemplate;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
