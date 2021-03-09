@@ -6,7 +6,7 @@ is a completely separate frontend experience from Ember and will remain so as it
 
 Feel free to take a look around, deploy, and make contributions. 
 
-For details about the motivation please see [this RFC](../docs/rfc/active/react-app/README.md). 
+For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
 The initial milestone for the app is to achieve functional parity with the existing Ember app. This means supporting
