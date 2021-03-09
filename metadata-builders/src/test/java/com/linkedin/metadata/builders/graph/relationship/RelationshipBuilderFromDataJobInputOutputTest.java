@@ -55,10 +55,10 @@ public class RelationshipBuilderFromDataJobInputOutputTest {
     assertEquals(operations.get(1).getRelationships().size(), 2);
     assertEquals(
       operations.get(1).getRelationships().get(0),
-      makeConsumes(makeDatasetUrn("input1"), job));
+      makeConsumes(job, makeDatasetUrn("input1")));
     assertEquals(
       operations.get(1).getRelationships().get(1),
-      makeConsumes(makeDatasetUrn("input2"), job));
+      makeConsumes(job, makeDatasetUrn("input2")));
     assertEquals(operations.get(1).getPreUpdateOperation(),
         BaseGraphWriterDAO.RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE);
 
@@ -80,7 +80,7 @@ public class RelationshipBuilderFromDataJobInputOutputTest {
         .setDestination(destination);
   }
 
-  private Consumes makeConsumes(DatasetUrn source, DataJobUrn destination) {
+  private Consumes makeConsumes(DataJobUrn source, DatasetUrn destination) {
     return new Consumes()
         .setSource(source)
         .setDestination(destination);

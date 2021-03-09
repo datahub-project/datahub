@@ -31,7 +31,7 @@ public class RelationshipBuilderFromDataJobInputOutput extends BaseRelationshipB
 
     final List<Consumes> inputsList = inputOutput.getInputDatasets()
         .stream()
-        .map(inputDataset -> new Consumes().setSource(inputDataset).setDestination(urn))
+        .map(inputDataset -> new Consumes().setSource(urn).setDestination(inputDataset))
         .collect(Collectors.toList());
 
     final List<Produces> outputsList = inputOutput.getOutputDatasets()
