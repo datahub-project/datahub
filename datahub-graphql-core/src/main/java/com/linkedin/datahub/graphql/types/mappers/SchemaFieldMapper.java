@@ -33,6 +33,8 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
         if (type.isBytesType()) {
             return SchemaFieldDataType.BYTES;
+        } else if (type.isFixedType()) {
+            return SchemaFieldDataType.FIXED;
         } else if (type.isBooleanType()) {
             return SchemaFieldDataType.BOOLEAN;
         } else if (type.isStringType()) {
