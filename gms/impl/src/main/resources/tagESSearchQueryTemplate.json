@@ -1,0 +1,17 @@
+{
+  "function_score": {
+    "query": {
+      "query_string": {
+        "query": "$INPUT",
+        "fields": [
+          "name^8",
+          "name.delimited"
+        ],
+        "default_operator": "and",
+        "analyzer": "standard"
+      }
+    },
+    "functions": [],
+    "score_mode": "multiply"
+  }
+}
