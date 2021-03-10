@@ -9,7 +9,7 @@ services:
       args:
         SERVER_PORT: 9002
         ENABLE_REACT: "true"
-    image: linkedin/datahub-frontend:react-${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-latest}
     env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend-react
     container_name: datahub-frontend-react
