@@ -38,7 +38,7 @@ export const BrowseResults = ({
     const entityRegistry = useEntityRegistry();
     return (
         <div>
-            <Content style={{ backgroundColor: 'white', padding: '25px 100px' }}>
+            <Content style={{ padding: '25px 100px' }}>
                 <h1 className="ant-typography">{title}</h1>
                 <Row gutter={[4, 8]}>
                     {groups.map((group) => (

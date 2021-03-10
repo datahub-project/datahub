@@ -2,6 +2,8 @@ import React from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Tabs } from 'antd';
+import styled from 'styled-components';
+
 import { SearchablePage } from './SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput } from '../../types.generated';
@@ -13,15 +15,23 @@ import { EntityGroupSearchResults } from './EntityGroupSearchResults';
 
 const ALL_ENTITIES_TAB_NAME = 'All';
 
-const styles = {
-    tabs: {
-        backgroundColor: '#FFFFFF',
-        paddingLeft: '165px',
-        paddingTop: '12px',
-        color: 'rgba(0, 0, 0, 0.45)',
-    },
-    tab: { fontSize: 20 },
-};
+const StyledTabs = styled(Tabs)`
+     {
+        background-color: ${(props) => props.theme.styles['body-background']};
+        .ant-tabs-nav {
+            padding-left: 165px;
+            margin-bottom: 0px;
+        }
+        padding-top: 12px;
+        margin-bottom: 16px;
+    }
+`;
+
+const StyledTab = styled.span`
+    &&& {
+        font-size: 20px;
+    }
+`;
 
 type SearchPageParams = {
     type?: string;
@@ -67,29 +77,24 @@ export const SearchPage = () => {
     return (
         <SearchablePage initialQuery={query} onSearch={onSearch}>
             <Affix offsetTop={80}>
-                <Tabs
-                    tabBarStyle={styles.tabs}
+                <StyledTabs
                     activeKey={activeType ? entityRegistry.getCollectionName(activeType) : ALL_ENTITIES_TAB_NAME}
                     size="large"
                     onChange={onChangeSearchType}
                 >
-                    <Tabs.TabPane
-                        style={styles.tab}
-                        tab={<span style={styles.tab}>All</span>}
-                        key={ALL_ENTITIES_TAB_NAME}
-                    />
+                    <Tabs.TabPane tab={<StyledTab>All</StyledTab>} key={ALL_ENTITIES_TAB_NAME} />
                     {searchTypes.map((t) => (
                         <Tabs.TabPane
                             tab={
                                 <>
                                     {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}{' '}
-                                    <span style={styles.tab}>{entityRegistry.getCollectionName(t)}</span>
+                                    <StyledTab>{entityRegistry.getCollectionName(t)}</StyledTab>
                                 </>
                             }
                             key={entityRegistry.getCollectionName(t)}
                         />
                     ))}
-                </Tabs>
+                </StyledTabs>
             </Affix>
             {activeType ? (
                 <EntitySearchResults
