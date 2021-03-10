@@ -25,9 +25,6 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         result.setNullable(input.isNullable());
         result.setNativeDataType(input.getNativeDataType());
         result.setType(mapSchemaFieldDataType(input.getType()));
-        if (input.hasGlobalTags()) {
-            result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags()));
-        }
         return result;
     }
 
