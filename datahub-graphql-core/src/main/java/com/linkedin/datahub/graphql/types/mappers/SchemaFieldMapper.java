@@ -41,6 +41,10 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
             return SchemaFieldDataType.STRING;
         } else if (type.isNumberType()) {
             return SchemaFieldDataType.NUMBER;
+        } else if (type.isDateType()) {
+            return SchemaFieldDataType.DATE;
+        } else if (type.isTimeType()) {
+            return SchemaFieldDataType.TIME;
         } else if (type.isEnumType()) {
             return SchemaFieldDataType.ENUM;
         } else if (type.isNullType()) {

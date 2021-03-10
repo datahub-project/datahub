@@ -11,12 +11,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -93,7 +93,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "DATETIME(fsp=6)",
@@ -160,12 +160,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -311,12 +311,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -407,7 +407,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -460,12 +460,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -553,12 +553,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270700000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -912,12 +912,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1009,12 +1009,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1091,7 +1091,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -1158,12 +1158,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1265,12 +1265,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1291,7 +1291,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -1400,12 +1400,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1497,12 +1497,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1596,12 +1596,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1703,12 +1703,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1782,12 +1782,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1861,12 +1861,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -1986,12 +1986,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2054,7 +2054,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -2139,12 +2139,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2193,7 +2193,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -2274,12 +2274,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2328,7 +2328,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -2381,12 +2381,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2460,12 +2460,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2584,7 +2584,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -2623,12 +2623,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2733,7 +2733,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -2772,12 +2772,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -2919,12 +2919,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -3034,12 +3034,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -3145,12 +3145,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977188000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -3199,7 +3199,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -3266,12 +3266,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -3443,12 +3443,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4004,12 +4004,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4293,12 +4293,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4528,12 +4528,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4554,7 +4554,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -4582,7 +4582,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIME(fsp=6)",
@@ -4596,7 +4596,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIME(fsp=6)",
@@ -4747,12 +4747,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4843,7 +4843,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -4910,12 +4910,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -4989,12 +4989,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -5068,12 +5068,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -5147,12 +5147,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -5240,12 +5240,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -5361,12 +5361,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -5975,7 +5975,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -6116,12 +6116,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -6213,12 +6213,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -6385,7 +6385,7 @@
                                 },
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -6449,7 +6449,7 @@
                                 },
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -6478,12 +6478,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -6547,12 +6547,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -6742,12 +6742,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -6993,12 +6993,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7019,7 +7019,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -7118,12 +7118,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7242,7 +7242,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7256,7 +7256,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7285,12 +7285,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7395,7 +7395,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7409,7 +7409,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7438,12 +7438,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7548,7 +7548,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7562,7 +7562,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7591,12 +7591,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7701,7 +7701,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7715,7 +7715,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7744,12 +7744,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -7840,7 +7840,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7854,7 +7854,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -7883,12 +7883,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8092,12 +8092,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8301,12 +8301,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8510,12 +8510,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8663,12 +8663,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8802,12 +8802,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -8941,12 +8941,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -9080,12 +9080,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -9205,12 +9205,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -9834,12 +9834,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -9987,12 +9987,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -10112,12 +10112,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -10741,12 +10741,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -11370,12 +11370,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -11789,12 +11789,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -12193,7 +12193,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -12207,7 +12207,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -12277,7 +12277,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -12320,12 +12320,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -12725,12 +12725,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -13214,12 +13214,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -13619,12 +13619,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -14024,12 +14024,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -14415,12 +14415,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -14792,12 +14792,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -15169,12 +15169,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -15546,12 +15546,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -15839,12 +15839,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -16118,12 +16118,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -16397,12 +16397,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -16676,12 +16676,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -16941,12 +16941,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -17248,12 +17248,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -17555,12 +17555,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -17862,12 +17862,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18015,12 +18015,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18154,12 +18154,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18293,12 +18293,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18432,12 +18432,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18571,12 +18571,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18696,12 +18696,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -18779,12 +18779,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977189000,
+                            "time": 1615270701000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -19142,12 +19142,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -19533,12 +19533,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -19602,12 +19602,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -19671,12 +19671,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20047,7 +20047,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -20061,7 +20061,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -20075,7 +20075,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -20089,7 +20089,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",
@@ -20118,12 +20118,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20201,12 +20201,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20284,12 +20284,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20381,12 +20381,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20604,12 +20604,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -20813,12 +20813,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21022,12 +21022,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21231,12 +21231,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21426,12 +21426,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21621,12 +21621,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21704,12 +21704,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21857,12 +21857,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -21954,12 +21954,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -22023,12 +22023,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -22554,12 +22554,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -22707,12 +22707,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -22856,12 +22856,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -22938,7 +22938,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -22981,12 +22981,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -23049,7 +23049,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23078,12 +23078,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -23175,12 +23175,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -23271,7 +23271,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23299,7 +23299,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23313,7 +23313,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23327,7 +23327,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23341,7 +23341,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23369,7 +23369,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23383,7 +23383,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23397,7 +23397,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23426,12 +23426,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -23536,7 +23536,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23564,7 +23564,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23578,7 +23578,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23592,7 +23592,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23606,7 +23606,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23634,7 +23634,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23648,7 +23648,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23662,7 +23662,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23718,7 +23718,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23774,7 +23774,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -23803,12 +23803,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -23940,12 +23940,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -24045,12 +24045,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -24456,12 +24456,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -24568,7 +24568,7 @@
                                 },
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24624,7 +24624,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24652,7 +24652,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24666,7 +24666,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24680,7 +24680,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24694,7 +24694,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24722,7 +24722,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24736,7 +24736,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24750,7 +24750,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -24779,12 +24779,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25002,12 +25002,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25141,12 +25141,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25238,12 +25238,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25335,12 +25335,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25432,12 +25432,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25501,12 +25501,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25570,12 +25570,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25681,12 +25681,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25750,12 +25750,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25875,12 +25875,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -25986,12 +25986,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -26111,12 +26111,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -26250,12 +26250,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -26613,12 +26613,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -26990,12 +26990,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -27087,12 +27087,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -27170,12 +27170,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -27253,12 +27253,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -27336,12 +27336,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -27489,12 +27489,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -28076,12 +28076,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -28649,12 +28649,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -29642,12 +29642,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -29935,12 +29935,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30018,12 +30018,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30129,12 +30129,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30212,12 +30212,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30295,12 +30295,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30378,12 +30378,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30474,7 +30474,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP(fsp=6)",
@@ -30531,12 +30531,12 @@
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614977190000,
+                            "time": 1615270702000,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -30585,7 +30585,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "TIMESTAMP()",

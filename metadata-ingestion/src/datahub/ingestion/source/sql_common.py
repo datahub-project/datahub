@@ -2,7 +2,7 @@ import logging
 import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Type
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
@@ -18,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DateTypeClass,
     EnumTypeClass,
     MySqlDDL,
     NullTypeClass,
@@ -26,6 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -101,29 +103,30 @@ _field_type_mapping = {
     types.PickleType: BytesTypeClass,
     types.ARRAY: ArrayTypeClass,
     types.String: StringTypeClass,
+    types.Date: DateTypeClass,
+    types.DATE: DateTypeClass,
+    types.Time: TimeTypeClass,
+    types.DateTime: TimeTypeClass,
+    types.DATETIME: TimeTypeClass,
+    types.TIMESTAMP: TimeTypeClass,
     # When SQLAlchemy is unable to map a type into its internally hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
 _known_unknown_field_types = {
-    types.Date,
-    types.Time,
-    types.DateTime,
     types.Interval,
-    types.DATE,
-    types.DATETIME,
-    types.TIMESTAMP,
+    types.CLOB,
 }
 
 
 def get_column_type(
-    sql_report: SQLSourceReport, dataset_name: str, column_type
+    sql_report: SQLSourceReport, dataset_name: str, column_type: Any
 ) -> SchemaFieldDataType:
     """
     Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
     """
 
-    TypeClass: Any = None
+    TypeClass: Optional[Type] = None
     for sql_type in _field_type_mapping.keys():
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]

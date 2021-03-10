@@ -195,7 +195,7 @@
     "type" : "record",
     "name" : "GlobalTags",
     "namespace" : "com.linkedin.common",
-    "doc" : "Tags information",
+    "doc" : "Tag aspect used for applying tags to an entity",
     "fields" : [ {
       "name" : "tags",
       "type" : {
@@ -209,7 +209,7 @@
             "type" : {
               "type" : "typeref",
               "name" : "TagUrn",
-              "doc" : "Standardized data platforms available",
+              "doc" : "Globally defined tag",
               "ref" : "string",
               "java" : {
                 "class" : "com.linkedin.common.urn.TagUrn"
@@ -218,7 +218,7 @@
                 "com.linkedin.common.validator.TypedUrnValidator" : {
                   "accessible" : true,
                   "constructable" : true,
-                  "doc" : "Standardized data platforms available",
+                  "doc" : "Globally defined tags",
                   "entityType" : "tag",
                   "fields" : [ {
                     "doc" : "tag name",
@@ -722,6 +722,16 @@
                       "fields" : [ ]
                     }, {
                       "type" : "record",
+                      "name" : "DateType",
+                      "doc" : "Date field type.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
+                      "name" : "TimeType",
+                      "doc" : "Time field type. This should also be used for datetimes.",
+                      "fields" : [ ]
+                    }, {
+                      "type" : "record",
                       "name" : "EnumType",
                       "doc" : "Enum field type.",
                       "fields" : [ ]
@@ -956,7 +966,7 @@
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `Tags` aspect.",
+      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
       "default" : [ ]
     }, {
       "name" : "customProperties",
@@ -1335,7 +1345,7 @@
     "validate" : {
       "com.linkedin.restli.common.EmptyRecordValidator" : { }
     }
-  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
+  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
   "schema" : {
     "name" : "datasets",
     "namespace" : "com.linkedin.dataset",

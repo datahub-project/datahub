@@ -164,7 +164,9 @@ if __name__ == "__main__":
     ]
 
     owner_names = {owner for directive in directives for owner in directive.owners}
-    owner_entity_mces = [create_owner_entity_mce(owner) for owner in owner_names]
+    owner_entity_mces = [
+        create_owner_entity_mce(owner) for owner in sorted(owner_names)
+    ]
 
     ownership_aspect_mces = [
         create_ownership_aspect_mce(directive)
