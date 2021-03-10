@@ -119,6 +119,28 @@
                         }
                     },
                     {
+                        "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+                            "created": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "editableSchemaFieldInfo": [
+                                {
+                                    "fieldPath": "field_foo",
+                                    "description": "hello",
+                                    "globalTags": { "tags": [] }
+                                }
+                            ]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "SampleKafkaSchema",
                             "platform": "urn:li:dataPlatform:kafka",
