@@ -48,6 +48,11 @@ class SQLSourceReport(SourceReport):
 
 class SQLAlchemyConfig(ConfigModel):
     options: dict = {}
+    # Although the 'table_pattern' enables you to skip everything from certain schemas,
+    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+    # them out afterwards via the table_pattern.
+    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     @abstractmethod
@@ -192,44 +197,46 @@ class SQLAlchemySource(Source):
         engine = create_engine(url, **sql_config.options)
         inspector = reflection.Inspector.from_engine(engine)
         for schema in inspector.get_schema_names():
-            for table in inspector.get_table_names(schema):
-                schema, table = sql_config.standardize_schema_table_names(schema, table)
-                dataset_name = sql_config.get_identifier(schema, table)
-                self.report.report_table_scanned(dataset_name)
-
-                if sql_config.table_pattern.allowed(dataset_name):
-                    columns = inspector.get_columns(table, schema)
-                    try:
-                        description: Optional[str] = inspector.get_table_comment(
-                            table, schema
-                        )["text"]
-                    except NotImplementedError:
-                        description = None
-
-                    # TODO: capture inspector.get_pk_constraint
-                    # TODO: capture inspector.get_sorted_table_and_fkc_names
-
-                    mce = MetadataChangeEvent()
-
-                    dataset_snapshot = DatasetSnapshot()
-                    dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
-                    if description is not None:
-                        dataset_properties = DatasetPropertiesClass(
-                            description=description,
-                            # uri=dataset_name,
-                        )
-                        dataset_snapshot.aspects.append(dataset_properties)
-                    schema_metadata = get_schema_metadata(
-                        self.report, dataset_name, platform, columns
+            if sql_config.schema_pattern.allowed(schema):
+                for table in inspector.get_table_names(schema):
+                    schema, table = sql_config.standardize_schema_table_names(
+                        schema, table
                     )
-                    dataset_snapshot.aspects.append(schema_metadata)
-                    mce.proposedSnapshot = dataset_snapshot
+                    dataset_name = sql_config.get_identifier(schema, table)
+                    self.report.report_table_scanned(dataset_name)
+                    if sql_config.table_pattern.allowed(dataset_name):
+                        columns = inspector.get_columns(table, schema)
+                        try:
+                            description: Optional[str] = inspector.get_table_comment(
+                                table, schema
+                            )["text"]
+                        except NotImplementedError:
+                            description = None
 
-                    wu = SqlWorkUnit(id=dataset_name, mce=mce)
-                    self.report.report_workunit(wu)
-                    yield wu
-                else:
-                    self.report.report_dropped(dataset_name)
+                        # TODO: capture inspector.get_pk_constraint
+                        # TODO: capture inspector.get_sorted_table_and_fkc_names
+
+                        mce = MetadataChangeEvent()
+
+                        dataset_snapshot = DatasetSnapshot()
+                        dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                        if description is not None:
+                            dataset_properties = DatasetPropertiesClass(
+                                description=description,
+                                # uri=dataset_name,
+                            )
+                            dataset_snapshot.aspects.append(dataset_properties)
+                        schema_metadata = get_schema_metadata(
+                            self.report, dataset_name, platform, columns
+                        )
+                        dataset_snapshot.aspects.append(schema_metadata)
+                        mce.proposedSnapshot = dataset_snapshot
+
+                        wu = SqlWorkUnit(id=dataset_name, mce=mce)
+                        self.report.report_workunit(wu)
+                        yield wu
+                    else:
+                        self.report.report_dropped(dataset_name)
 
     def get_report(self):
         return self.report
