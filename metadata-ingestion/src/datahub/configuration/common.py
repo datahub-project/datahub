@@ -25,6 +25,20 @@ class PipelineExecutionError(MetaError):
     """An error occurred when executing the pipeline"""
 
 
+class OperationalError(PipelineExecutionError):
+    """An error occurred because of client-provided metadata"""
+
+    message: str
+    info: dict
+
+    def __init__(self, message: str, info: dict = None):
+        self.message = message
+        if info:
+            self.info = info
+        else:
+            self.info = {}
+
+
 class ConfigurationError(MetaError):
     """A configuration error has happened"""
 
