@@ -1,14 +1,7 @@
 package com.linkedin.metadata;
 
-import com.linkedin.chart.ChartQueryType;
-import com.linkedin.chart.ChartType;
-import com.linkedin.common.AccessLevel;
-import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.TagUrn;
-import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.configs.TagSearchConfig;
-import com.linkedin.metadata.search.ChartDocument;
 import com.linkedin.metadata.search.TagDocument;
 import com.linkedin.metadata.testing.BaseSearchSanityTests;
 import com.linkedin.metadata.testing.SearchIndex;
