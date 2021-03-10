@@ -10,7 +10,7 @@ It can be used through our CLI tool or as a library e.g. with an orchestrator li
 
 The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
 
-### Pre-Requisites
+### Prerequisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
 
@@ -18,7 +18,8 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Building from source:
 
-#### Pre-Requisites
+#### Requirements
+
 1. Python 3.6+ must be installed in your host environment.
 2. You also need to build the `mxe-schemas` module as below.
    ```
@@ -29,6 +30,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
 
 #### Set up your Python environment
+
 ```sh
 python3 -m venv venv
 source venv/bin/activate
@@ -37,37 +39,43 @@ pip install -e .
 ./scripts/codegen.sh
 ```
 
-Common issues:
+Common issues (click to expand):
 
 <details>
   <summary>Wheel issues e.g. "Failed building wheel for avro-python3" or "error: invalid command 'bdist_wheel'"</summary>
 
-  This means Python's `wheel` is not installed. Try running the following commands and then retry.
-  ```sh
-  pip install --upgrade pip wheel setuptools
-  pip cache purge
-  ```
+This means Python's `wheel` is not installed. Try running the following commands and then retry.
+
+```sh
+pip install --upgrade pip wheel setuptools
+pip cache purge
+```
+
 </details>
 
 <details>
   <summary>Failure to install confluent_kafka: "error: command 'x86_64-linux-gnu-gcc' failed with exit status 1"</summary>
 
-  This sometimes happens if there's a version mismatch between the Kafka's C library and the Python wrapper library. Try running `pip install confluent_kafka==1.5.0` and then retrying.
+This sometimes happens if there's a version mismatch between the Kafka's C library and the Python wrapper library. Try running `pip install confluent_kafka==1.5.0` and then retrying.
+
 </details>
 
 <details>
   <summary>Failure to install avro-python3: "distutils.errors.DistutilsOptionError: Version loaded from file: avro/VERSION.txt does not comply with PEP 440"</summary>
 
-  The underlying `avro-python3` package is buggy. In particular, it often only installs correctly when installed from a pre-built "wheel" but not when from source. Try running the following commands and then retry.
-  ```sh
-  pip uninstall avro-python3  # sanity check, ok if this fails
-  pip install --upgrade pip wheel setuptools
-  pip cache purge
-  pip install avro-python3
-  ```
+The underlying `avro-python3` package is buggy. In particular, it often only installs correctly when installed from a pre-built "wheel" but not when from source. Try running the following commands and then retry.
+
+```sh
+pip uninstall avro-python3  # sanity check, ok if this fails
+pip install --upgrade pip wheel setuptools
+pip cache purge
+pip install avro-python3
+```
+
 </details>
 
 ### Usage
+
 ```sh
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
@@ -88,6 +96,7 @@ source docker/docker_run.sh examples/recipes/file_to_file.yml
 -->
 
 We have also included a couple [sample DAGs](./examples/airflow) that can be used with [Airflow](https://airflow.apache.org/).
+
 - `generic_recipe_sample_dag.py` - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
 - `mysql_sample_dag.py` - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
 
@@ -109,7 +118,7 @@ source:
 sink:
   type: "datahub-rest"
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"
 ```
 
 Running a recipe is quite easy.
@@ -123,7 +132,9 @@ A number of recipes are included in the examples/recipes directory.
 ## Sources
 
 ### Kafka Metadata `kafka`
+
 Extracts:
+
 - List of topics - from the Kafka broker
 - Schemas associated with each topic - from the schema registry
 
@@ -134,11 +145,13 @@ source:
     connection:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
-      consumer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
 ```
 
 ### MySQL Metadata `mysql`
+
 Extracts:
+
 - List of databases and tables
 - Column types and schema associated with each table
 
@@ -154,13 +167,15 @@ source:
     host_port: localhost:3306
     table_pattern:
       allow:
-      - "schema1.table2"
+        - "schema1.table2"
       deny:
-      - "performance_schema"
+        - "performance_schema"
 ```
 
 ### Microsoft SQL Server Metadata `mssql`
+
 Extracts:
+
 - List of databases, schema, and tables
 - Column types associated with each table
 
@@ -176,18 +191,20 @@ source:
     database: DemoDatabase
     table_pattern:
       allow:
-      - "schema1.table1"
-      - "schema1.table2"
+        - "schema1.table1"
+        - "schema1.table2"
       deny:
-      - "^.*\\.sys_.*" # deny all tables that start with sys_
+        - "^.*\\.sys_.*" # deny all tables that start with sys_
     options:
       # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
       # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
-      charset: 'utf8'
+      charset: "utf8"
 ```
 
 ### Hive `hive`
+
 Extracts:
+
 - List of databases, schema, and tables
 - Column types associated with each table
 
@@ -206,7 +223,9 @@ source:
 ```
 
 ### PostgreSQL `postgres`
+
 Extracts:
+
 - List of databases, schema, and tables
 - Column types associated with each table
 
@@ -227,7 +246,9 @@ source:
 ```
 
 ### Snowflake `snowflake`
+
 Extracts:
+
 - List of databases, schema, and tables
 - Column types associated with each table
 
@@ -245,7 +266,9 @@ source:
 ```
 
 ### Google BigQuery `bigquery`
+
 Extracts:
+
 - List of databases, schema, and tables
 - Column types associated with each table
 
@@ -255,16 +278,18 @@ Extra requirements: `pip install pybigquery`
 source:
   type: bigquery
   config:
-    project_id: project  # optional - can autodetect from environment
+    project_id: project # optional - can autodetect from environment
     dataset: dataset_name
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
-      credentials_path: "/path/to/keyfile.json"  # optional
+      credentials_path: "/path/to/keyfile.json" # optional
     # table_pattern is same as above
 ```
 
 ### LDAP `ldap`
+
 Extracts:
+
 - List of people
 - Names, emails, titles, and manager information for each person
 
@@ -278,10 +303,11 @@ source:
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
-    filter: "(objectClass=*)"  # optional field
+    filter: "(objectClass=*)" # optional field
 ```
 
 ### File `file`
+
 Pulls metadata from a previously generated file. Note that the file sink
 can produce such files, and a number of samples are included in the
 [examples/mce_files](examples/mce_files) directory.
@@ -295,6 +321,7 @@ source:
 ## Sinks
 
 ### DataHub Rest `datahub-rest`
+
 Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
 is that any errors can immediately be reported.
 
@@ -302,10 +329,11 @@ is that any errors can immediately be reported.
 sink:
   type: "datahub-rest"
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"
 ```
 
 ### DataHub Kafka `datahub-kafka`
+
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
 interface is that it's asynchronous and can handle higher throughput. This requires the
 Datahub mce-consumer container to be running.
@@ -316,10 +344,11 @@ sink:
   config:
     connection:
       bootstrap: "localhost:9092"
-      producer_config: {}  # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
 ```
 
 ### Console `console`
+
 Simply prints each metadata event to stdout. Useful for experimentation and debugging purposes.
 
 ```yml
@@ -328,6 +357,7 @@ sink:
 ```
 
 ### File `file`
+
 Outputs metadata to a file. This can be used to decouple metadata sourcing from the
 process of pushing it into DataHub, and is particularly useful for debugging purposes.
 Note that the file source can read files generated by this sink.
@@ -338,7 +368,15 @@ sink:
   filename: ./path/to/mce/file.json
 ```
 
+## Using as a library
+
+In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
+
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py)
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py)
+
 ## Migrating from the old scripts
+
 If you were previously using the `mce_cli.py` tool to push metadata into DataHub: the new way for doing this is by creating a recipe with a file source pointing at your JSON file and a DataHub sink to push that metadata into DataHub.
 This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
 Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
@@ -357,6 +395,7 @@ Contributions welcome!
 - The metadata models are created using code generation, and eventually live in the `./src/datahub/metadata` directory. However, these files are not checked in and instead are generated at build time. See the [codegen](./scripts/codegen.sh) script for details.
 
 ### Testing
+
 ```sh
 # Follow standard install procedure - see above.
 
@@ -372,6 +411,7 @@ pytest tests/integration
 ```
 
 ### Sanity check code before committing
+
 ```sh
 # Requires test_requirements.txt to have been installed.
 black --exclude 'datahub/metadata' -S -t py36 src tests
