@@ -1,9 +1,3 @@
-import DataHubLogo from '../images/landing-logo.png';
-/*
-    Reference to the Logo Image used in Log in page and in search header 
-*/
-export const LOGO_IMAGE = DataHubLogo;
-
 /*
    Default top-level page route names (excludes entity pages)
 */

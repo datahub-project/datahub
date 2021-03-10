@@ -1,8 +1,6 @@
 import React from 'react';
-import 'antd/dist/antd.css';
 import { Card, Typography, Row } from 'antd';
 import { Link } from 'react-router-dom';
-import '../../App.css';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { PageRoutes } from '../../conf/Global';
 import { IconStyleType } from '../entity/Entity';
@@ -10,7 +8,7 @@ import { EntityType } from '../../types.generated';
 
 const styles = {
     card: { width: 360 },
-    title: { margin: 0, color: '#525252' },
+    title: { margin: 0 },
     iconFlag: { right: '32px', top: '-28px' },
     icon: { padding: '16px 24px' },
 };

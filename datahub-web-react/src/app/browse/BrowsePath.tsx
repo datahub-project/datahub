@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Breadcrumb, Row } from 'antd';
+import styled from 'styled-components';
+
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
@@ -9,6 +11,12 @@ interface Props {
     type: EntityType;
     path: Array<string>;
 }
+
+const BrowseRow = styled(Row)`
+    padding: 10px 100px;
+    border-bottom: 1px solid #dcdcdc;
+    background-color: ${(props) => props.theme.styles['body-background']};
+`;
 
 /**
  * Responsible for rendering a clickable browse path view.
@@ -29,13 +37,13 @@ export const BrowsePath = ({ type, path }: Props) => {
     ));
 
     return (
-        <Row style={{ backgroundColor: 'white', padding: '10px 100px', borderBottom: '1px solid #dcdcdc' }}>
+        <BrowseRow>
             <Breadcrumb style={{ fontSize: '16px' }}>
                 <Breadcrumb.Item>
                     <Link to={baseBrowsePath}>{entityRegistry.getCollectionName(type)}</Link>
                 </Breadcrumb.Item>
                 {pathCrumbs}
             </Breadcrumb>
-        </Row>
+        </BrowseRow>
     );
 };

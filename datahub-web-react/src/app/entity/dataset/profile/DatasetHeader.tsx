@@ -16,10 +16,8 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
         <>
             <Space direction="vertical" size="middle">
                 <Space split={<Divider type="vertical" />}>
-                    <Typography.Text style={{ color: 'grey' }}>Dataset</Typography.Text>
-                    <Typography.Text strong style={{ color: '#214F55' }}>
-                        {platform?.name}
-                    </Typography.Text>
+                    <Typography.Text>Dataset</Typography.Text>
+                    <Typography.Text strong>{platform?.name}</Typography.Text>
                 </Space>
                 <Typography.Paragraph>{description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

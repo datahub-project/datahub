@@ -39,6 +39,7 @@ module.exports = {
                 argsIgnorePattern: '^_',
             },
         ],
+        '@typescript-eslint/no-empty-interface': 'off',
     },
     settings: {
         react: {

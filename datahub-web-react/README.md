@@ -45,6 +45,28 @@ can run the following in this directory:
 which will start a forwarding server at `localhost:3000`. Note that to fetch real data, `datahub-frontend` server will also
 need to be deployed, still at `http://localhost:9002`, to service GraphQL API requests.
 
+### Theming
+
+#### Selecting a theme
+
+Theme configuraions are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
+To change the selected theme, update the `.env` file and re-run `yarn start`.
+
+#### Editing a theme
+
+To edit an existing theme, the recommendation is to clone one of the existing themes into a new file with the name `<your_themes_name>.config.json`,
+and then update the env variable as descibed above. The theme files have three sections, `styles`, `assets` and `content`. The type of the theme configs is specified
+in `./src/conf/theme/types.ts`.
+
+`styles` configure overrides for the apps theming variables.
+
+`assets` configures the logo url.
+
+`content` specifies customizable text fields.
+
+While developing on your theme, all changes to assets and content are seen immediately in your local app. However, changes to styles require
+you to terminate and re-run `yarn start` to see updated styles.
+
 ## Design Details
 
 ### Package Organization

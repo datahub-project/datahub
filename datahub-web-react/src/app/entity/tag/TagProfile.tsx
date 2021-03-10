@@ -12,7 +12,6 @@ import { Message } from '../../shared/Message';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const PageContainer = styled.div`
-    background-color: white;
     padding: 32px 100px;
 `;
 

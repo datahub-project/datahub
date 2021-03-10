@@ -9,7 +9,6 @@ import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 
 const PageContainer = styled.div`
-    background-color: white;
     padding: 32px 100px;
 `;
 

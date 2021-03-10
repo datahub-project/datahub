@@ -3,13 +3,13 @@ import { Input, Button, Form, message, Image } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { ApolloError, useReactiveVar } from '@apollo/client';
 import Cookies from 'js-cookie';
+import { useTheme } from 'styled-components';
 
 import { Redirect } from 'react-router';
 import styles from './login.module.css';
 import { useLoginMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
-import { GlobalCfg } from '../../conf';
 
 type FormValues = {
     username: string;
@@ -20,6 +20,7 @@ export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
+    const themeConfig = useTheme();
     const [loginMutation, { loading }] = useLoginMutation({});
 
     const handleLogin = useCallback(
@@ -50,7 +51,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
     return (
         <div className={styles.login_page}>
             <div className={styles.login_box}>
-                <Image wrapperClassName={styles.logo_image} src={GlobalCfg.LOGO_IMAGE} preview={false} />
+                <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
                 {loading && <Message type="loading" content="Logging in..." />}
                 <h3 className={styles.title}>Connecting you to the data that matters</h3>
                 <Form onFinish={handleLogin}>

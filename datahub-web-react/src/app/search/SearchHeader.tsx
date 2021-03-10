@@ -1,10 +1,18 @@
 import * as React from 'react';
-import 'antd/dist/antd.css';
 import { Image, Layout, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
-import { GlobalCfg } from '../../conf';
+
+const HeaderTitle = styled(Typography.Title)`
+    && {
+        color: ${(props) => props.theme.styles['layout-header-color']};
+        padding-left: 12px;
+        margin: 0;
+    }
+`;
 
 const { Header } = Layout;
 
@@ -13,17 +21,14 @@ const styles = {
         position: 'fixed',
         zIndex: 1,
         width: '100%',
-        backgroundColor: 'rgb(51 62 76)',
         height: '80px',
         lineHeight: '20px',
-        color: '#fff',
         padding: '0px 40px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     logoImage: { width: '36px', height: '32px' },
-    title: { color: 'white', paddingLeft: '12px', margin: '0' },
 };
 
 type Props = {
@@ -52,14 +57,14 @@ export const SearchHeader = ({
     authenticatedUserUrn,
     authenticatedUserPictureLink,
 }: Props) => {
+    const themeConfig = useTheme();
+
     return (
         <Header style={styles.header as any}>
             <Link to="/">
                 <Space size={4}>
-                    <Image style={styles.logoImage} src={GlobalCfg.LOGO_IMAGE} preview={false} />
-                    <Typography.Title level={4} style={styles.title}>
-                        DataHub
-                    </Typography.Title>
+                    <Image style={styles.logoImage} src={themeConfig.assets.logoUrl} preview={false} />
+                    <HeaderTitle level={4}>{themeConfig.content.title}</HeaderTitle>
                 </Space>
             </Link>
             <SearchBar
