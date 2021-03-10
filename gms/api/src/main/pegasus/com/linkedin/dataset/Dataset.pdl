@@ -8,6 +8,7 @@ import com.linkedin.common.Status
 import com.linkedin.common.Uri
 import com.linkedin.common.VersionTag
 import com.linkedin.schema.SchemaMetadata
+import com.linkedin.schema.EditableSchemaMetadata
 import com.linkedin.common.GlobalTags
 
 /**
@@ -101,6 +102,11 @@ record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
    * Schema metadata of the dataset
    */
   schemaMetadata: optional SchemaMetadata
+
+  /**
+   * Editable schema metadata of the dataset
+   */
+  editableSchemaMetadata: optional EditableSchemaMetadata
 
   /**
    * Status metadata of the dataset
