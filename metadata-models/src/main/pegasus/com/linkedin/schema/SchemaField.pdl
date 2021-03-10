@@ -1,7 +1,6 @@
 namespace com.linkedin.schema
 
 import com.linkedin.dataset.SchemaFieldPath
-import com.linkedin.common.GlobalTags
 
 /**
  * SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema
