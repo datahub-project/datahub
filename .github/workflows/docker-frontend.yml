@@ -57,7 +57,7 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             linkedin/datahub-frontend
-            docker.pkg.github.com/linkedin/datahub-fork/datahub-frontend
+            docker.pkg.github.com/linkedin/datahub/datahub-frontend
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
