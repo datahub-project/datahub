@@ -238,7 +238,8 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -879,9 +880,9 @@
               "name" : "EditableSchemaFieldInfo",
               "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
               "fields" : [ {
-                "name" : "jsonPath",
+                "name" : "fieldPath",
                 "type" : "string",
-                "doc" : "Json path uniquely identifying the SchemaField this metadata is associated with",
+                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with",
                 "optional" : true
               }, {
                 "name" : "description",
@@ -1073,7 +1074,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
