@@ -475,6 +475,8 @@ enum SchemaFieldDataType {
     STRING
     BYTES
     NUMBER
+    DATE
+    TIME
     ENUM
     NULL
     MAP

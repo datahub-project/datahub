@@ -2,8 +2,10 @@ import {
     FieldBinaryOutlined,
     NumberOutlined,
     UnorderedListOutlined,
-    CloseCircleOutlined,
+    QuestionCircleOutlined,
     UnderlineOutlined,
+    CalendarOutlined,
+    FieldTimeOutlined,
 } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { FC } from 'react';
@@ -32,8 +34,10 @@ const DATA_TYPE_ICON_MAP: Record<
         text: 'Bytes',
     },
     [SchemaFieldDataType.Number]: { icon: NumberOutlined, size: 14, text: 'Number' },
+    [SchemaFieldDataType.Date]: { icon: CalendarOutlined, size: 18, text: 'Date' },
+    [SchemaFieldDataType.Time]: { icon: FieldTimeOutlined, size: 18, text: 'Time' },
     [SchemaFieldDataType.Enum]: { icon: UnorderedListOutlined, size: 18, text: 'Enum' },
-    [SchemaFieldDataType.Null]: { icon: CloseCircleOutlined, size: 14, text: 'Null' },
+    [SchemaFieldDataType.Null]: { icon: QuestionCircleOutlined, size: 16, text: '' },
     [SchemaFieldDataType.Map]: { icon: null, size: 0, text: 'Map' },
     [SchemaFieldDataType.Array]: { icon: UnorderedListOutlined, size: 14, text: 'Array' },
     [SchemaFieldDataType.Union]: { icon: UnderlineOutlined, size: 14, text: 'Union' },

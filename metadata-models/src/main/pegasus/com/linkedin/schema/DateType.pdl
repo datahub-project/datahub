@@ -1,0 +1,6 @@
+namespace com.linkedin.schema
+
+/**
+ * Date field type.
+ */
+record DateType {}

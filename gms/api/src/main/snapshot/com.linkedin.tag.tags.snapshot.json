@@ -130,7 +130,7 @@
     "type" : "typeref",
     "name" : "TagUrn",
     "namespace" : "com.linkedin.common",
-    "doc" : "Standardized data platforms available",
+    "doc" : "Globally defined tag",
     "ref" : "string",
     "java" : {
       "class" : "com.linkedin.common.urn.TagUrn"
@@ -139,7 +139,7 @@
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
         "constructable" : true,
-        "doc" : "Standardized data platforms available",
+        "doc" : "Globally defined tags",
         "entityType" : "tag",
         "fields" : [ {
           "doc" : "tag name",
