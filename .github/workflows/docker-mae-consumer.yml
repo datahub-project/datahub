@@ -57,7 +57,7 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             linkedin/datahub-mae-consumer
-            docker.pkg.github.com/linkedin/datahub-fork/datahub-mae-consumer
+            docker.pkg.github.com/linkedin/datahub/datahub-mae-consumer
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
