@@ -5,7 +5,7 @@
         "query": "$INPUT",
         "fields": [
           "name^8",
-          "name.delimited^4"
+          "name.delimited"
         ],
         "default_operator": "and",
         "analyzer": "standard"
