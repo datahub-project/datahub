@@ -42,12 +42,13 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         properties,
         institutionalMemory,
         schema,
+        editableSchemaMetadata,
     }: Dataset) => {
         return [
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
-                content: <SchemaView schema={schema} />,
+                content: <SchemaView schema={schema} editableSchemaMetadata={editableSchemaMetadata} />,
             },
             {
                 name: TabType.Ownership,

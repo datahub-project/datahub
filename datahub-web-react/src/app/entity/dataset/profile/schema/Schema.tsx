@@ -5,7 +5,7 @@ import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 
 import TypeIcon from './TypeIcon';
-import { Schema, SchemaFieldDataType, GlobalTags } from '../../../../../types.generated';
+import { Schema, SchemaFieldDataType, GlobalTags, EditableSchemaMetadata } from '../../../../../types.generated';
 import TagGroup from '../../../../shared/TagGroup';
 
 const ViewRawButtonContainer = styled.div`
@@ -16,6 +16,7 @@ const ViewRawButtonContainer = styled.div`
 
 export type Props = {
     schema?: Schema | null;
+    editableSchemaMetadata?: EditableSchemaMetadata | null;
 };
 
 const defaultColumns = [
@@ -53,12 +54,23 @@ const tagColumn = {
     },
 };
 
-export default function SchemaView({ schema }: Props) {
+export default function SchemaView({ schema, editableSchemaMetadata }: Props) {
     const columns = useMemo(() => {
-        const hasTags = schema?.fields?.some((field) => (field?.globalTags?.tags?.length || 0) > 0);
+        const hasTags = editableSchemaMetadata?.editableSchemaFieldInfo?.some(
+            (field) => (field?.globalTags?.tags?.length || 0) > 0,
+        );
 
         return [...defaultColumns, ...(hasTags ? [tagColumn] : [])];
-    }, [schema]);
+    }, [editableSchemaMetadata]);
+
+    const tableData = useMemo(() => {
+        return schema?.fields.map((field) => {
+            const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+                (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === field.fieldPath,
+            );
+            return { ...field, globalTags: relevantEditableFieldInfo?.globalTags };
+        });
+    }, [schema, editableSchemaMetadata]);
 
     const [showRaw, setShowRaw] = useState(false);
 
@@ -79,7 +91,7 @@ export default function SchemaView({ schema }: Props) {
                     </pre>
                 </Typography.Text>
             ) : (
-                <Table pagination={false} dataSource={schema?.fields} columns={columns} rowKey="fieldPath" />
+                <Table pagination={false} dataSource={tableData} columns={columns} rowKey="fieldPath" />
             )}
         </>
     );
