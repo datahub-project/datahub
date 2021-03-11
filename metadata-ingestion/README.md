@@ -170,6 +170,15 @@ source:
         - "schema1.table2"
       deny:
         - "performance_schema"
+     # Although the 'table_pattern' enables you to skip everything from certain schemas,
+     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+     # them out afterwards via the table_pattern.
+    schema_pattern:
+       allow:
+          - "schema1"
+       deny:
+          - "garbage_schema"
 ```
 
 ### Microsoft SQL Server Metadata `mssql`
@@ -218,7 +227,7 @@ source:
     password: pass
     host_port: localhost:10000
     database: DemoDatabase
-    # table_pattern is same as above
+    # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
 
@@ -241,7 +250,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
-    # table_pattern is same as above
+    # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
 
@@ -261,7 +270,7 @@ source:
     username: user
     password: pass
     host_port: account_name
-    # table_pattern is same as above
+    # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
 
@@ -283,7 +292,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
-    # table_pattern is same as above
+    # table_pattern/schema_pattern is same as above
 ```
 
 ### LDAP `ldap`
