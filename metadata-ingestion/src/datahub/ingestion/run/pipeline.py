@@ -28,7 +28,7 @@ class PipelineConfig(ConfigModel):
     # simplify this configuration and validation.
     # See https://github.com/samuelcolvin/pydantic/pull/2336.
 
-    run_id: str = Field(default_factory=lambda: str(int(time.time()) * 1000))
+    run_id: str = Field(default_factory=lambda: str(int(time.time() * 1000)))
     source: SourceConfig
     sink: DynamicTypedConfig
 

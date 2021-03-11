@@ -87,7 +87,7 @@ class KafkaSource(Source):
         platform = "kafka"
         dataset_name = topic
         env = "PROD"  # TODO: configure!
-        actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
+        actor, sys_time = "urn:li:corpuser:etl", int(time.time() * 1000)
 
         metadata_record = MetadataChangeEvent()
         dataset_snapshot = DatasetSnapshot(
