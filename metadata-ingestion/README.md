@@ -295,6 +295,29 @@ source:
     # table_pattern/schema_pattern is same as above
 ```
 
+### AWS Athena `athena`
+
+Extracts:
+
+- List of databases and tables
+- Column types associated with each table
+
+Extra requirements: `pip install PyAthena[SQLAlchemy]`
+
+```yml
+source:
+  type: athena
+  config:
+     username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules
+     # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+     password: aws_secret_access_key # Optional.
+     database: database # Optional, defaults to "default"
+     aws_region: aws_region_name # i.e. "eu-west-1"
+     s3_output_location: s3_location # "s3://<bucket-name>/prefix/"
+     work_group: athena_workgroup # "primary"
+    # table_pattern/schema_pattern is same as above
+```
+
 ### LDAP `ldap`
 
 Extracts:
