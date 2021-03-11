@@ -5,4 +5,5 @@ psycopg2-binary  # Driver for Postgres
 snowflake-sqlalchemy  # Driver for Snowflake
 pybigquery  # Driver for BigQuery
 python-ldap>=2.4  # LDAP client library
+PyAthena[SQLAlchemy]<2.0.0 # Driver for Aws Athena
 
