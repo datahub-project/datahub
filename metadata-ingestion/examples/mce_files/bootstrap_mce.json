@@ -134,7 +134,6 @@
                             "editableSchemaFieldInfo": [
                                 {
                                     "fieldPath": "field_foo",
-                                    "description": "hello",
                                     "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
                                 }
                             ]
