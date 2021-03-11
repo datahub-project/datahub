@@ -38,7 +38,7 @@
     },
     "scripts": {
         "start": "yarn run generate && BROWSER=none craco start",
-        "build": "yarn run generate && craco build && rm -rf dist/ && cp -r build/ dist/ && rm -r build/",
+        "build": "yarn run generate && CI=false craco build && rm -rf dist/ && cp -r build/ dist/ && rm -r build/",
         "test": "craco test",
         "eject": "react-scripts eject",
         "storybook": "start-storybook -p 6006 -s public",
