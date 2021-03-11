@@ -6,6 +6,7 @@ import defaultAvatar from '../../images/default_avatar.png';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
+import { GlobalCfg } from '../../conf';
 
 interface Props {
     urn: string;
@@ -20,9 +21,8 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
     const entityRegistry = useEntityRegistry();
 
     const handleLogout = () => {
-        Cookies.remove('IS_LOGGED_IN');
-        localStorage.removeItem('userUrn');
         isLoggedInVar(false);
+        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
     };
 
     const menu = (

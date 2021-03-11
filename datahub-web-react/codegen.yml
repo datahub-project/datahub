@@ -1,7 +1,6 @@
 overwrite: true
 schema:
     - '../datahub-graphql-core/src/main/resources/gms.graphql'
-    - '../datahub-frontend/conf/datahub-frontend.graphql'
 config:
     scalars:
         Long: number

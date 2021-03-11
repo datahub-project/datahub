@@ -37,8 +37,17 @@ GET           /api/v2/datasets/:urn/snapshot                                  co
 GET           /api/v2/datasets/:urn/upstreams                                 controllers.api.v2.Dataset.getDatasetUpstreams(urn: String)
 GET           /api/v2/list/platforms                                          controllers.api.v2.Dataset.getDataPlatforms
 GET           /api/v2/search                                                  controllers.api.v2.Search.search()
-POST          /api/v2/graphql                                                 controllers.api.v2.GraphQLController.execute()
 
+# Routes used exclusively by the React application.
+
+# Authentication in React
+GET           /authenticate                                                   react.controllers.AuthenticationController.authenticate()
+POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
+GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
+POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
+
+# Data fetching in React
+POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
 
 GET           /api/*path                                                      controllers.Application.apiNotFound(path)
 POST          /api/*path                                                      controllers.Application.apiNotFound(path)
