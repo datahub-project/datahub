@@ -21,14 +21,13 @@ RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 FROM base as prod-codegen
 COPY --from=prod-build /datahub-src /datahub-src
 RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[all]" && \
+    pip install -e ".[base]" && \
     ./scripts/codegen.sh
 
 FROM base as prod-install
 COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
 RUN cd /datahub-ingestion && \
-    pip install . && \
-    pip install -r test_requirements.txt -r plugin_requirements.txt
+    pip install ".[all]"
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
