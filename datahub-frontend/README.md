@@ -18,6 +18,13 @@ However, if you only want to build `DataHub Frontend` specifically:
 ./gradlew :datahub-frontend:build
 ```
 
+### Building React App
+To build datahub-frontend to serve the React app, build with the additional "enableReact" property:
+
+```
+./gradlew :datahub-frontend:build -PenableReact=true
+```
+
 ## Dependencies
 Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../gms) and 
 all its dependencies have already started and running.
@@ -51,6 +58,7 @@ the application directly from command line after a successful [build](#build):
 cd datahub-frontend/run && ./run-local-frontend
 ```
 
+### Serving React App
 If you are running the React app locally via `yarn start`, it will be forwarding graphql requests to port `9002`. In order to use `./run-local-frontend` with the React app, change the PORT value in [./run/frontend.env](./run/frontend.env) to `9002` and restart `./run-local-frontend`
 
 ## Checking out DataHub UI
@@ -321,7 +329,10 @@ WHZ-Authentication {
 };
 ```
 
-Note that the special keyword `USERNAME` will be substituted by the actual username.  
+### Authentication in React
+The React app supports both JAAS as described above and separately OIDC authentication. To learn about configuring OIDC for React,
+see the [OIDC in React](../docs/how/configure-oidc-react.md) document. 
+
 
 ### API Debugging
 Most DataHub frontend API endpoints are protected using [Play Authentication](https://www.playframework.com/documentation/2.1.0/JavaGuide4), which means it requires authentication information stored in the cookie for the request to go through. This makes debugging using curl difficult. One option is to first make a curl call against the `/authenticate` endpoint and stores the authentication info in a cookie file like this

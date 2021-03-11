@@ -29,6 +29,11 @@ dependencies {
   play externalDependency.jerseyCore
   play externalDependency.jerseyGuava
 
+  play externalDependency.pac4j
+  play externalDependency.playPac4j
+  play externalDependency.shiroCore
+  play externalDependency.playCache
+
   playTest externalDependency.mockito
   playTest externalDependency.playTest
 

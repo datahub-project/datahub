@@ -5,7 +5,6 @@ import {
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
-import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import { Dataset, EntityType, PlatformType } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
@@ -266,22 +265,6 @@ const sampleTag = {
     Define mock data to be returned by Apollo MockProvider. 
 */
 export const mocks = [
-    {
-        request: {
-            query: LoginDocument,
-            variables: {
-                username: 'datahub',
-                password: 'datahub',
-            },
-        },
-        result: {
-            data: {
-                login: {
-                    ...user1,
-                },
-            },
-        },
-    },
     {
         request: {
             query: GetDatasetDocument,

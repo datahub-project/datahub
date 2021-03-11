@@ -2,6 +2,10 @@
    Default top-level page route names (excludes entity pages)
 */
 export enum PageRoutes {
+    /**
+     * Server-side authentication route
+     */
+    AUTHENTICATE = '/authenticate',
     LOG_IN = '/login',
     SEARCH_RESULTS = '/search/:type?',
     SEARCH = '/search',
@@ -10,3 +14,8 @@ export enum PageRoutes {
     DATASETS = '/datasets',
     ASSETS = '/assets',
 }
+
+/**
+ * Name of the auth cookie checked on client side (contains the currently authenticated user urn).
+ */
+export const CLIENT_AUTH_COOKIE = 'actor';

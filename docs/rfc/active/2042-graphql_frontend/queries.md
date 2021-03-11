@@ -111,7 +111,7 @@ For more details about the GraphQL Schemas & Types, see [here](https://graphql.o
 ### Configuring a GraphQL Endpoint
 All GraphQL queries are serviced via a single endpoint. We place the new POST route in `datahub-frontend/conf/routes`:
 
-```POST          /api/v2/graphql                                                 controllers.api.v2.GraphQLController.execute()```
+```POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()```
 
 We also provide an implementation of a GraphQL Play Controller, exposing an "execute" method. The controller is responsible for 
 - parsing & validating incoming queries

@@ -1,13 +1,10 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Input, Button, Form, message, Image } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { ApolloError, useReactiveVar } from '@apollo/client';
-import Cookies from 'js-cookie';
+import { useReactiveVar } from '@apollo/client';
 import { useTheme } from 'styled-components';
-
 import { Redirect } from 'react-router';
 import styles from './login.module.css';
-import { useLoginMutation } from '../../graphql/auth.generated';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
 
@@ -20,29 +17,32 @@ export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
-    const themeConfig = useTheme();
-    const [loginMutation, { loading }] = useLoginMutation({});
 
-    const handleLogin = useCallback(
-        (values: FormValues) => {
-            loginMutation({
-                variables: {
-                    username: values.username,
-                    password: values.password,
-                },
+    const themeConfig = useTheme();
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = useCallback((values: FormValues) => {
+        setLoading(true);
+        const requestOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: values.username, password: values.password }),
+        };
+        fetch('/logIn', requestOptions)
+            .then(async (response) => {
+                if (!response.ok) {
+                    const data = await response.json();
+                    const error = (data && data.message) || response.status;
+                    return Promise.reject(error);
+                }
+                isLoggedInVar(true);
+                return Promise.resolve();
             })
-                .then((res) => {
-                    Cookies.set('PLAY_SESSION', 'DUMMY_VALUE'); // TODO: Validate that this works in non mock mode.
-                    Cookies.set('IS_LOGGED_IN', 'true');
-                    localStorage.setItem('userUrn', res.data?.logIn?.urn || '');
-                    isLoggedInVar(true);
-                })
-                .catch((e: ApolloError) => {
-                    message.error(e.message);
-                });
-        },
-        [loginMutation],
-    );
+            .catch((error) => {
+                message.error(`Failed to log in! ${error}`);
+            })
+            .finally(() => setLoading(false));
+    }, []);
 
     if (isLoggedIn) {
         return <Redirect to="/" />;
