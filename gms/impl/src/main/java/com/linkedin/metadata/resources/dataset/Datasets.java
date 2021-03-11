@@ -157,6 +157,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       } else if (aspect instanceof GlobalTags) {
         value.setGlobalTags(GlobalTags.class.cast(aspect));
       } else if (aspect instanceof EditableSchemaMetadata) {
+        System.out.println("reading editable schema metadata");
         value.setEditableSchemaMetadata(EditableSchemaMetadata.class.cast(aspect));
       }
   });
