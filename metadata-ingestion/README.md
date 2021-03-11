@@ -308,7 +308,7 @@ Extra requirements: `pip install PyAthena[SQLAlchemy]`
 source:
   type: athena
   config:
-     username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules
+     username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
      # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
      password: aws_secret_access_key # Optional.
      database: database # Optional, defaults to "default"
