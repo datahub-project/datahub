@@ -60,6 +60,7 @@ sql_common = {
 plugins: Dict[str, Set[str]] = {
     # Source plugins
     "kafka": kafka_common,
+    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery"},
     "hive": sql_common | {"pyhive[hive]"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
@@ -88,7 +89,14 @@ dev_requirements = {
     # Also add the plugins which are used for tests.
     *list(
         dependency
-        for plugin in ["mysql", "mssql", "ldap", "datahub-kafka", "datahub-rest"]
+        for plugin in [
+            "bigquery",
+            "mysql",
+            "mssql",
+            "ldap",
+            "datahub-kafka",
+            "datahub-rest",
+        ]
         for dependency in plugins[plugin]
     ),
 }

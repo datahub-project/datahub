@@ -84,6 +84,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | ------------- | ------------------------------------------------- | -------------------------- |
 | file          | _included by default_                             | File source and sink       |
 | console       | _included by default_                             | Console sink               |
+| athena        | `pip install -e '.[athena]'`                      | AWS Athena source          |
 | bigquery      | `pip install -e '.[bigquery]'`                    | BigQuery source            |
 | hive          | `pip install -e '.[hive]'`                        | Hive source                |
 | mssql         | `pip install -e '.[mssql]'`                       | SQL Server source          |
@@ -204,15 +205,15 @@ source:
         - "schema1.table2"
       deny:
         - "performance_schema"
-     # Although the 'table_pattern' enables you to skip everything from certain schemas,
-     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-     # them out afterwards via the table_pattern.
+      # Although the 'table_pattern' enables you to skip everything from certain schemas,
+      # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+      # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+      # them out afterwards via the table_pattern.
     schema_pattern:
-       allow:
-          - "schema1"
-       deny:
-          - "garbage_schema"
+      allow:
+        - "schema1"
+      deny:
+        - "garbage_schema"
 ```
 
 ### Microsoft SQL Server Metadata `mssql`
@@ -325,22 +326,20 @@ Extracts:
 - List of databases and tables
 - Column types associated with each table
 
-Extra requirements: `pip install PyAthena[SQLAlchemy]`
-
 ```yml
 source:
   type: athena
   config:
-     username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-     # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-     password: aws_secret_access_key # Optional.
-     database: database # Optional, defaults to "default"
-     aws_region: aws_region_name # i.e. "eu-west-1"
-     s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
-     # The s3_staging_dir parameter is needed because Athena always writes query results to S3. 
-     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
-     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
-     work_group: athena_workgroup # "primary"
+    username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
+    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+    password: aws_secret_access_key # Optional.
+    database: database # Optional, defaults to "default"
+    aws_region: aws_region_name # i.e. "eu-west-1"
+    s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
+    # The s3_staging_dir parameter is needed because Athena always writes query results to S3.
+    # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
+    # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
+    work_group: athena_workgroup # "primary"
     # table_pattern/schema_pattern is same as above
 ```
 
