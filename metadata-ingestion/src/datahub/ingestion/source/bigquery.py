@@ -1,5 +1,8 @@
 from typing import Optional, Tuple
 
+# This import verifies that the dependencies are available.
+import pybigquery  # noqa: F401
+
 from .sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
