@@ -47,7 +47,7 @@ const client = new ApolloClient({
 });
 
 const App: React.VFC = () => {
-    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme | null>(null);
+    const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
 
     useEffect(() => {
         import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
@@ -65,22 +65,8 @@ const App: React.VFC = () => {
         return register;
     }, []);
 
-    const theme: Theme = useMemo(() => {
-        const overridesWithoutPrefix: { [key: string]: any } = {};
-        const themeConfig = dynamicThemeConfig || defaultThemeConfig;
-        Object.assign(overridesWithoutPrefix, themeConfig.styles);
-        Object.keys(overridesWithoutPrefix).forEach((key) => {
-            overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
-            delete overridesWithoutPrefix[key];
-        });
-        return {
-            ...themeConfig,
-            styles: overridesWithoutPrefix as Theme['styles'],
-        };
-    }, [dynamicThemeConfig]);
-
     return (
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={dynamicThemeConfig}>
             <Router>
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     {/* Temporary: For local testing during development. */}

@@ -1,21 +1,21 @@
 {
     "styles": {
-        "@border-radius-base": "8px",
-        "@layout-header-background": "#333E4C",
-        "@layout-header-color": "white",
-        "@layout-body-background": "white",
-        "@component-background": "white",
-        "@body-background": "white",
-        "@border-color-base": "#333E4C",
-        "@text-color": "fade(black, 85%)",
-        "@text-color-secondary": "fade(black, 45%)",
-        "@heading-color": "fade(black, 85%)",
-        "@background-color-light": "hsv(0, 0, 98%)",
-        "@divider-color": "fade(black, 6%)",
-        "@disabled-color": "fade(black, 25%)",
-        "@steps-nav-arrow-color": "fade(black, 25%)",
-        "@homepage-background-upper-fade": "#132935",
-        "@homepage-background-lower-fade": "#FFFFFF"
+        "border-radius-base": "8px",
+        "layout-header-background": "#333E4C",
+        "layout-header-color": "white",
+        "layout-body-background": "white",
+        "component-background": "white",
+        "body-background": "white",
+        "border-color-base": "#333E4C",
+        "text-color": "fade(black, 85%)",
+        "text-color-secondary": "fade(black, 45%)",
+        "heading-color": "fade(black, 85%)",
+        "background-color-light": "hsv(0, 0, 98%)",
+        "divider-color": "fade(black, 6%)",
+        "disabled-color": "fade(black, 25%)",
+        "steps-nav-arrow-color": "fade(black, 25%)",
+        "homepage-background-upper-fade": "#132935",
+        "homepage-background-lower-fade": "#FFFFFF"
     },
     "assets": {
         "logoUrl": "/assets/logo.png"
