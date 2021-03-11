@@ -135,7 +135,7 @@
                                 {
                                     "fieldPath": "field_foo",
                                     "description": "hello",
-                                    "globalTags": { "tags": [] }
+                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
                                 }
                             ]
                         }
