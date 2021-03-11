@@ -11,12 +11,12 @@
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
-                            "time": 1614821100000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614821100000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -33,7 +33,7 @@
                             {
                                 "fieldPath": "ID",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -47,7 +47,7 @@
                             {
                                 "fieldPath": "ProductName",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -80,12 +80,12 @@
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
-                            "time": 1614821100000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1614821100000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
@@ -102,7 +102,7 @@
                             {
                                 "fieldPath": "ID",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -116,7 +116,7 @@
                             {
                                 "fieldPath": "ItemName",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {

@@ -160,7 +160,7 @@ def get_schema_metadata(
         )
         canonical_schema.append(field)
 
-    actor, sys_time = "urn:li:corpuser:etl", int(time.time()) * 1000
+    actor, sys_time = "urn:li:corpuser:etl", int(time.time() * 1000)
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
