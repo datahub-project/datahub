@@ -202,9 +202,7 @@ class SQLAlchemySource(Source):
                 continue
 
             for table in inspector.get_table_names(schema):
-                schema, table = sql_config.standardize_schema_table_names(
-                    schema, table
-                )
+                schema, table = sql_config.standardize_schema_table_names(schema, table)
                 dataset_name = sql_config.get_identifier(schema, table)
                 self.report.report_table_scanned(dataset_name)
                 if sql_config.table_pattern.allowed(dataset_name):
