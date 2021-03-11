@@ -64,7 +64,7 @@ export default function SchemaView({ schema }: Props) {
 
     return (
         <>
-            {schema?.platformSchema?.__typename === 'TableSchema' && (
+            {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                 <ViewRawButtonContainer>
                     <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
                 </ViewRawButtonContainer>
