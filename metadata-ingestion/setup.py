@@ -1,3 +1,4 @@
+from typing import Dict, Set
 import os
 
 import setuptools
@@ -21,6 +22,84 @@ def get_long_description():
         description += f.read()
 
     return description
+
+
+base_requirements = {
+    # Compatability.
+    "dataclasses>=0.6; python_version < '3.7'",
+    "typing_extensions>=3.7.4; python_version < '3.8'",
+    "mypy_extensions>=0.4.3",
+    # Actual dependencies.
+    "pydantic>=1.5.1",
+}
+
+framework_common = {
+    "click>=7.1.1",
+    "pyyaml>=5.4.1",
+    "toml>=0.10.0",
+    "avro-gen3>=0.3.2",
+    "avro-python3>=1.8.2",
+}
+
+kafka_common = {
+    # We currently require both Avro libraries. The codegen uses avro-python3 (above)
+    # schema parsers at runtime for generating and reading JSON into Python objects.
+    # At the same time, we use Kafka's AvroSerializer, which internally relies on
+    # fastavro for serialization. We do not use confluent_kafka[avro], since it
+    # is incompatible with its own dep on avro-python3.
+    "confluent_kafka>=1.5.0",
+    "fastavro>=1.3.0",
+}
+
+sql_common = {
+    # Required for all SQL sources.
+    "sqlalchemy>=1.3.23",
+}
+
+# Note: for all of these, framework_common will be added.
+plugins: Dict[str, Set[str]] = {
+    # Source plugins
+    "kafka": kafka_common,
+    "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    "bigquery": sql_common | {"pybigquery"},
+    "hive": sql_common | {"pyhive[hive]"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy"},
+    "ldap": {"python-ldap>=2.4"},
+    # Sink plugins.
+    "datahub-kafka": kafka_common,
+    "datahub-rest": {"requests>=2.25.1"},
+}
+
+dev_requirements = {
+    *base_requirements,
+    *framework_common,
+    "black>=19.10b0",
+    "coverage>=5.1",
+    "flake8>=3.8.3",
+    "isort>=5.7.0",
+    "mypy>=0.782",
+    "pytest>=6.2.2",
+    "pytest-cov>=2.8.1",
+    "pytest-docker",
+    "sqlalchemy-stubs",
+    "deepdiff",
+    # Also add the plugins which are used for tests.
+    *list(
+        dependency
+        for plugin in [
+            "bigquery",
+            "mysql",
+            "mssql",
+            "ldap",
+            "datahub-kafka",
+            "datahub-rest",
+        ]
+        for dependency in plugins[plugin]
+    ),
+}
 
 
 setuptools.setup(
@@ -63,26 +142,14 @@ setuptools.setup(
     entry_points={
         "console_scripts": ["datahub = datahub.entrypoints:datahub"],
     },
-    install_requires=[
-        # Compatability.
-        "dataclasses>=0.6; python_version < '3.7'",
-        "typing_extensions>=3.7.4; python_version < '3.8'",
-        "mypy_extensions>=0.4.3",
-        # Actual dependencies.
-        "click>=7.1.1",
-        "pyyaml>=5.4.1",
-        "toml>=0.10.0",
-        "pydantic>=1.5.1",
-        "requests>=2.25.1",
-        "avro_gen @ https://api.github.com/repos/rbystrit/avro_gen/tarball/master",
-        # Note: we currently require both Avro libraries. The codegen uses avro-python3
-        # schema parsers at runtime for generating and reading JSON into Python objects.
-        # At the same time, we use Kafka's AvroSerializer, which internally relies on
-        # fastavro for serialization. We do not use confluent_kafka[avro], since it
-        # is incompatible with its own dep on avro-python3.
-        "confluent_kafka>=1.5.0",
-        "fastavro>=1.3.0",
-        "avro-python3>=1.8.2",
-        "sqlalchemy>=1.3.23",  # Required for SQL sources
-    ],
+    install_requires=list(base_requirements | framework_common),
+    extras_require={
+        "base": list(framework_common),
+        **{
+            plugin: list(framework_common | dependencies)
+            for (plugin, dependencies) in plugins.items()
+        },
+        "all": list(framework_common.union(*plugins.values())),
+        "dev": list(dev_requirements),
+    },
 )

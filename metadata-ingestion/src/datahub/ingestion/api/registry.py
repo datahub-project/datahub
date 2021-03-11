@@ -26,6 +26,10 @@ class Registry(Generic[T]):
     def register_disabled(self, key: str, reason: Exception) -> None:
         self._register(key, reason)
 
+    def is_enabled(self, key: str) -> bool:
+        tp = self._mapping[key]
+        return not isinstance(tp, Exception)
+
     @property
     def mapping(self):
         return self._mapping
@@ -42,7 +46,16 @@ class Registry(Generic[T]):
             raise KeyError(f"Did not find a registered class for {key}")
         tp = self._mapping[key]
         if isinstance(tp, Exception):
-            raise ConfigurationError(f"{key} is disabled") from tp
+            raise ConfigurationError(
+                f"{key} is disabled; try running: pip install \".[{key}]\""
+            ) from tp
         else:
             # If it's not an exception, then it's a registered type.
             return tp
+
+    def __str__(self):
+        col_width = 15
+        return '\n'.join(
+            f"{key}{'' if self.is_enabled(key) else (' ' * (col_width - len(key))) + '(disabled)'}"
+            for key in sorted(self._mapping.keys())
+        )

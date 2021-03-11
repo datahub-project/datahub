@@ -8,9 +8,8 @@ sudo apt-get update && sudo apt-get install -y \
     libsasl2-dev \
     ldap-utils
 
-python -m pip install --upgrade pip
-pip install -e .
-pip install -r test_requirements.txt
+python -m pip install --upgrade pip wheel setuptools
+pip install -e ".[dev]"
 
 ./scripts/codegen.sh
 

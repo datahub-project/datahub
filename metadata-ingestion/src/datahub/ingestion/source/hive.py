@@ -1,3 +1,6 @@
+# This import verifies that the dependencies are available.
+from pyhive import hive  # noqa: F401
+
 from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
