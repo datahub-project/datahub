@@ -7,8 +7,6 @@ on:
       - 'docker/elasticsearch-setup/**'
       - '.github/workflows/docker-elasticsearch-setup.yml'
       - 'gms/impl/src/main/resources/index/**'
-    paths-ignore:
-      - '**.md'
   pull_request:
     branches:
       - master
@@ -16,8 +14,6 @@ on:
       - 'docker/elasticsearch-setup/**'
       - '.github/workflows/docker-elasticsearch-setup.yml'
       - 'gms/impl/src/main/resources/index/**'
-    paths_ignore:
-      - '**.md'
   release:
     types: [published, edited]
 
