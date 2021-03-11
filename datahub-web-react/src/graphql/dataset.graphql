@@ -76,6 +76,13 @@ fragment nonRecursiveDatasetFields on Dataset {
             type
             nativeDataType
             recursive
+        }
+        primaryKeys
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
             globalTags {
                 tags {
                     tag {
@@ -86,7 +93,6 @@ fragment nonRecursiveDatasetFields on Dataset {
                 }
             }
         }
-        primaryKeys
     }
     deprecation {
         actor
@@ -187,6 +193,13 @@ query getDataset($urn: String!) {
                 type
                 nativeDataType
                 recursive
+            }
+            primaryKeys
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
                 globalTags {
                     tags {
                         tag {
@@ -197,7 +210,6 @@ query getDataset($urn: String!) {
                     }
                 }
             }
-            primaryKeys
         }
         deprecation {
             actor
