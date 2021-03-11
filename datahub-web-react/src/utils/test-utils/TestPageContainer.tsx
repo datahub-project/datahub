@@ -9,7 +9,6 @@ import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
 
 import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
-import { Theme } from '../../conf/theme/types';
 
 type Props = {
     children: React.ReactNode;
@@ -27,22 +26,8 @@ export function getTestEntityRegistry() {
 export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
 
-    const theme: Theme = useMemo(() => {
-        const overridesWithoutPrefix: { [key: string]: any } = {};
-        const themeConfig = defaultThemeConfig;
-        Object.assign(overridesWithoutPrefix, themeConfig.styles);
-        Object.keys(overridesWithoutPrefix).forEach((key) => {
-            overridesWithoutPrefix[key.substring(1)] = overridesWithoutPrefix[key];
-            delete overridesWithoutPrefix[key];
-        });
-        return {
-            ...themeConfig,
-            styles: overridesWithoutPrefix as Theme['styles'],
-        };
-    }, []);
-
     return (
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>
                 <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
             </MemoryRouter>
