@@ -12,8 +12,7 @@ RUN apt-get update && apt-get install -y \
         libldap2-dev \
         libsasl2-dev \
         ldap-utils \
-        libsasl2-dev \
-    && python -m pip install --upgrade pip wheel
+    && python -m pip install --upgrade pip wheel setuptools
 
 FROM openjdk:8 as prod-build
 COPY . /datahub-src
@@ -22,7 +21,7 @@ RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 FROM base as prod-codegen
 COPY --from=prod-build /datahub-src /datahub-src
 RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e . && \
+    pip install -e ".[all]" && \
     ./scripts/codegen.sh
 
 FROM base as prod-install

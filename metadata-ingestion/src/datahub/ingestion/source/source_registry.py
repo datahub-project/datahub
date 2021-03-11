@@ -1,31 +1,70 @@
 from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.source import Source
 
-from .athena import AthenaSource
-from .bigquery import BigQuerySource
-from .hive import HiveSource
-from .kafka import KafkaSource
 from .mce_file import MetadataFileSource
-from .mssql import SQLServerSource
-from .mysql import MySQLSource
-from .postgres import PostgresSource
-from .snowflake import SnowflakeSource
 
 source_registry = Registry[Source]()
 
-# Add some defaults to source registry.
+# This source is always enabled.
 source_registry.register("file", MetadataFileSource)
-source_registry.register("mssql", SQLServerSource)
-source_registry.register("mysql", MySQLSource)
-source_registry.register("hive", HiveSource)
-source_registry.register("postgres", PostgresSource)
-source_registry.register("snowflake", SnowflakeSource)
-source_registry.register("bigquery", BigQuerySource)
-source_registry.register("kafka", KafkaSource)
-source_registry.register("athena", AthenaSource)
 
-# Attempt to enable the LDAP source. Because it has some imports that we don't
-# want to install by default, we instead use this approach.
+try:
+    from .athena import AthenaSource
+
+    source_registry.register("athena", AthenaSource)
+except ImportError as e:
+    source_registry.register_disabled("athena", e)
+
+try:
+    from .bigquery import BigQuerySource
+
+    source_registry.register("bigquery", BigQuerySource)
+except ImportError as e:
+    source_registry.register_disabled("bigquery", e)
+
+try:
+    from .hive import HiveSource
+
+    source_registry.register("hive", HiveSource)
+except ImportError as e:
+    source_registry.register_disabled("hive", e)
+
+try:
+    from .mssql import SQLServerSource
+
+    source_registry.register("mssql", SQLServerSource)
+except ImportError as e:
+    source_registry.register_disabled("mssql", e)
+
+try:
+    from .mysql import MySQLSource
+
+    source_registry.register("mysql", MySQLSource)
+except ImportError as e:
+    source_registry.register_disabled("mysql", e)
+
+try:
+    from .postgres import PostgresSource
+
+    source_registry.register("postgres", PostgresSource)
+except ImportError as e:
+    source_registry.register_disabled("postgres", e)
+
+try:
+    from .snowflake import SnowflakeSource
+
+    source_registry.register("snowflake", SnowflakeSource)
+except ImportError as e:
+    source_registry.register_disabled("snowflake", e)
+
+try:
+    from .kafka import KafkaSource
+
+    source_registry.register("kafka", KafkaSource)
+except ImportError as e:
+    source_registry.register_disabled("kafka", e)
+
+
 try:
     from .ldap import LDAPSource
 

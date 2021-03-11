@@ -9,6 +9,8 @@ from datahub.configuration.common import ConfigurationError, ConfigurationMechan
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +73,14 @@ def ingest(config: str):
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
+
+
+@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
+def ingest_list_plugins():
+    click.secho("Sources:", bold=True)
+    click.echo(str(source_registry))
+    click.echo()
+    click.secho("Sinks:", bold=True)
+    click.echo(str(sink_registry))
+    click.echo()
+    click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')

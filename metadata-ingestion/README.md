@@ -10,13 +10,15 @@ It can be used through our CLI tool or as a library e.g. with an orchestrator li
 
 The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
 
+## Getting Started
+
 ### Prerequisites
 
 Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. If you are trying this out locally, the easiest way to do that is through [quickstart Docker images](../docker).
 
 <!-- You can run this ingestion framework by building from source or by running docker images. -->
 
-### Building from source:
+### Install
 
 #### Requirements
 
@@ -74,9 +76,44 @@ pip install avro-python3
 
 </details>
 
-### Usage
+### Installing Plugins
+
+We use a plugin architecture so that you can install only the dependencies you actually need.
+
+| Plugin Name   | Install Command                                   | Provides                   |
+| ------------- | ------------------------------------------------- | -------------------------- |
+| file          | _included by default_                             | File source and sink       |
+| console       | _included by default_                             | Console sink               |
+| athena        | `pip install -e '.[athena]'`                      | AWS Athena source          |
+| bigquery      | `pip install -e '.[bigquery]'`                    | BigQuery source            |
+| hive          | `pip install -e '.[hive]'`                        | Hive source                |
+| mssql         | `pip install -e '.[mssql]'`                       | SQL Server source          |
+| mysql         | `pip install -e '.[mysql]'`                       | MySQL source               |
+| postgres      | `pip install -e '.[postgres]'`                    | Postgres source            |
+| snowflake     | `pip install -e '.[snowflake]'`                   | Snowflake source           |
+| ldap          | `pip install -e '.[ldap]'` ([extra requirements]) | LDAP source                |
+| kakfa         | `pip install -e '.[kafka]'`                       | Kafka source               |
+| datahub-rest  | `pip install -e '.[datahub-rest]'`                | DataHub sink over REST API |
+| datahub-kafka | `pip install -e '.[datahub-kafka]'`               | DataHub sink over Kafka    |
+
+These plugins can be mixed and matched as desired. For example:
 
 ```sh
+pip install -e '.[bigquery,datahub-rest]
+```
+
+You can check the active plugins:
+
+```sh
+datahub ingest-list-plugins
+```
+
+[extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
+
+### Basic Usage
+
+```sh
+pip install -e '.[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
@@ -155,8 +192,6 @@ Extracts:
 - List of databases and tables
 - Column types and schema associated with each table
 
-Extra requirements: `pip install pymysql`
-
 ```yml
 source:
   type: mysql
@@ -170,15 +205,15 @@ source:
         - "schema1.table2"
       deny:
         - "performance_schema"
-     # Although the 'table_pattern' enables you to skip everything from certain schemas,
-     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-     # them out afterwards via the table_pattern.
+      # Although the 'table_pattern' enables you to skip everything from certain schemas,
+      # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+      # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+      # them out afterwards via the table_pattern.
     schema_pattern:
-       allow:
-          - "schema1"
-       deny:
-          - "garbage_schema"
+      allow:
+        - "schema1"
+      deny:
+        - "garbage_schema"
 ```
 
 ### Microsoft SQL Server Metadata `mssql`
@@ -187,8 +222,6 @@ Extracts:
 
 - List of databases, schema, and tables
 - Column types associated with each table
-
-Extra requirements: `pip install sqlalchemy-pytds`
 
 ```yml
 source:
@@ -217,8 +250,6 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
-Extra requirements: `pip install pyhive[hive]`
-
 ```yml
 source:
   type: hive
@@ -237,10 +268,7 @@ Extracts:
 
 - List of databases, schema, and tables
 - Column types associated with each table
-
-Extra requirements: `pip install psycopg2-binary` or `pip install psycopg2`
-
-If you're using PostGIS extensions for Postgres, also use `pip install GeoAlchemy2`.
+- Also supports PostGIS extensions
 
 ```yml
 source:
@@ -261,8 +289,6 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
-Extra requirements: `pip install snowflake-sqlalchemy`
-
 ```yml
 source:
   type: snowflake
@@ -280,8 +306,6 @@ Extracts:
 
 - List of databases, schema, and tables
 - Column types associated with each table
-
-Extra requirements: `pip install pybigquery`
 
 ```yml
 source:
@@ -302,22 +326,20 @@ Extracts:
 - List of databases and tables
 - Column types associated with each table
 
-Extra requirements: `pip install PyAthena[SQLAlchemy]`
-
 ```yml
 source:
   type: athena
   config:
-     username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-     # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-     password: aws_secret_access_key # Optional.
-     database: database # Optional, defaults to "default"
-     aws_region: aws_region_name # i.e. "eu-west-1"
-     s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
-     # The s3_staging_dir parameter is needed because Athena always writes query results to S3. 
-     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
-     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
-     work_group: athena_workgroup # "primary"
+    username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
+    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+    password: aws_secret_access_key # Optional.
+    database: database # Optional, defaults to "default"
+    aws_region: aws_region_name # i.e. "eu-west-1"
+    s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
+    # The s3_staging_dir parameter is needed because Athena always writes query results to S3.
+    # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
+    # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
+    work_group: athena_workgroup # "primary"
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -327,8 +349,6 @@ Extracts:
 
 - List of people
 - Names, emails, titles, and manager information for each person
-
-Extra requirements: `pip install python-ldap>=2.4`. See that [library's docs](https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#pre-built-binaries) for extra build requirements.
 
 ```yml
 source:
@@ -407,8 +427,8 @@ sink:
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
 
-- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py)
-- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py)
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`)
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`)
 
 ## Migrating from the old scripts
 
@@ -416,7 +436,7 @@ If you were previously using the `mce_cli.py` tool to push metadata into DataHub
 This [example recipe](./examples/recipes/example_to_datahub_rest.yml) demonstrates how to ingest the [sample data](./examples/mce_files/bootstrap_mce.json) (previously called `bootstrap_mce.dat`) into DataHub over the REST API.
 Note that we no longer use the `.dat` format, but instead use JSON. The main differences are that the JSON uses `null` instead of `None` and uses objects/dictionaries instead of tuples when representing unions.
 
-If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [below](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
+If you were previously using one of the `sql-etl` scripts: the new way for doing this is by using the associated source. See [above](#Sources) for configuration details. Note that the source needs to be paired with a sink - likely `datahub-kafka` or `datahub-rest`, depending on your needs.
 
 ## Contributing
 
@@ -426,7 +446,7 @@ Contributions welcome!
 
 - The CLI interface is defined in [entrypoints.py](./src/datahub/entrypoints.py).
 - The high level interfaces are defined in the [API directory](./src/datahub/ingestion/api).
-- The actual [sources](./src/datahub/ingestion/source) and [sinks](./src/datahub/ingestion/sink) implementations have their own directories - the `__init__.py` files in those directories are used to register the short codes for use in recipes.
+- The actual [sources](./src/datahub/ingestion/source) and [sinks](./src/datahub/ingestion/sink) have their own directories. The registry files in those directories import the implementations.
 - The metadata models are created using code generation, and eventually live in the `./src/datahub/metadata` directory. However, these files are not checked in and instead are generated at build time. See the [codegen](./scripts/codegen.sh) script for details.
 
 ### Testing
@@ -434,21 +454,20 @@ Contributions welcome!
 ```sh
 # Follow standard install procedure - see above.
 
-# Install requirements.
-pip install -r test_requirements.txt
+# Install, including all dev requirements.
+pip install -e '.[dev]'
 
 # Run unit tests.
 pytest tests/unit
 
-# Run integration tests.
-# Note: the integration tests require docker.
+# Run integration tests. Note that the integration tests require docker.
 pytest tests/integration
 ```
 
 ### Sanity check code before committing
 
 ```sh
-# Requires test_requirements.txt to have been installed.
+# Assumes: pip install -e '.[dev]'
 black --exclude 'datahub/metadata' -S -t py36 src tests
 isort src tests
 flake8 src tests
