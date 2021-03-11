@@ -1,6 +1,7 @@
 from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.source import Source
 
+from .athena import AthenaSource
 from .bigquery import BigQuerySource
 from .hive import HiveSource
 from .kafka import KafkaSource
@@ -21,6 +22,7 @@ source_registry.register("postgres", PostgresSource)
 source_registry.register("snowflake", SnowflakeSource)
 source_registry.register("bigquery", BigQuerySource)
 source_registry.register("kafka", KafkaSource)
+source_registry.register("athena", AthenaSource)
 
 # Attempt to enable the LDAP source. Because it has some imports that we don't
 # want to install by default, we instead use this approach.
