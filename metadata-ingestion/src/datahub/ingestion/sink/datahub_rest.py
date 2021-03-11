@@ -9,6 +9,39 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 logger = logging.getLogger(__name__)
 
+resource_locator: Dict[Type[object], str] = {
+    ChartSnapshotClass: "charts",
+    DashboardSnapshotClass: "dashboards",
+    CorpUserSnapshotClass: "corpUsers",
+    CorpGroupSnapshotClass: "corpGroups",
+    DatasetSnapshotClass: "datasets",
+    DataProcessSnapshotClass: "dataProcesses",
+    MLModelSnapshotClass: "mlModels",
+    TagSnapshotClass: "tags",
+}
+
+
+def _rest_li_ify(obj):
+    if isinstance(obj, (dict, OrderedDict)):
+        if len(obj.keys()) == 1:
+            key = list(obj.keys())[0]
+            value = obj[key]
+            breakpoint()
+            if key.find("com.linkedin.pegasus2avro.") >= 0:
+                new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
+                return {new_key: _rest_li_ify(value)}
+            elif key == "string" or key == "array":
+                return value
+
+        new_obj = {}
+        for key, value in obj.items():
+            if value is not None:
+                new_obj[key] = _rest_li_ify(value)
+        return new_obj
+    elif isinstance(obj, list):
+        new_obj = [_rest_li_ify(item) for item in obj]
+        return new_obj
+    return obj
 
 class DatahubRestSinkConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
@@ -46,6 +79,9 @@ class DatahubRestSink(Sink):
     ):
         mce = record_envelope.record
 
+        mce_obj = _rest_li_ify(raw_mce_obj)
+        snapshot = {"snapshot": mce_obj}
+        breakpoint()
         try:
             self.emitter.emit_mce(mce)
             self.report.report_record_written(record_envelope)
