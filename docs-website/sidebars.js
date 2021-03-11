@@ -77,6 +77,8 @@ module.exports = {
       "docs/how/search-onboarding",
       "docs/how/search-over-new-field",
       "docs/how/configure-oidc-react",
+      "docs/how/sso/configure-oidc-react-google",
+      "docs/how/sso/configure-oidc-react-okta",
     ],
     Components: [
       "datahub-web-react/README",
