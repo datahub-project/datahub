@@ -39,7 +39,7 @@
   }, {
     "type" : "record",
     "name" : "DataFlowOrchestrator",
-    "namespace" : "com.linkedin.datafloworchestrator",
+    "namespace" : "com.linkedin.datajob",
     "doc" : "Value Class for DataFlowOrchestrator resource",
     "fields" : [ {
       "name" : "name",
