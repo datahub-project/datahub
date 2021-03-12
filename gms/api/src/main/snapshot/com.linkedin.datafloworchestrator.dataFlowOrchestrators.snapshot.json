@@ -1,0 +1,161 @@
+{
+  "models" : [ {
+    "type" : "typeref",
+    "name" : "DataFlowOrchestratorUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized data flow orchestrators available",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized data flow orchestrators available",
+        "entityType" : "dataFlowOrchestrator",
+        "fields" : [ {
+          "doc" : "data flow orchestrator name",
+          "maxLength" : 25,
+          "name" : "orchestratorName",
+          "type" : "string"
+        } ],
+        "maxLength" : 373,
+        "name" : "DataFlowOrchestrator",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:wherehows"
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "Url",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+    }
+  }, {
+    "type" : "record",
+    "name" : "DataFlowOrchestrator",
+    "namespace" : "com.linkedin.datafloworchestrator",
+    "doc" : "Value Class for DataFlowOrchestrator resource",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Name of the orchestrator"
+    }, {
+      "name" : "dataFlowOrchestratorInfo",
+      "type" : {
+        "type" : "record",
+        "name" : "DataFlowOrchestratorInfo",
+        "namespace" : "com.linkedin.datajob",
+        "doc" : "Information about a orchestrator",
+        "fields" : [ {
+          "name" : "name",
+          "type" : "string",
+          "doc" : "Name of the data orchestrator",
+          "validate" : {
+            "strlen" : {
+              "max" : 15
+            }
+          }
+        }, {
+          "name" : "displayName",
+          "type" : "string",
+          "doc" : "The name that will be used for displaying a orchestrator",
+          "optional" : true
+        }, {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "OrchestratorType",
+            "doc" : "Orchestrator types available at LinkedIn",
+            "symbols" : [ "AZKABAN", "AIRFLOW"],
+            "symbolDocs" : {
+              "AZKABAN" : "Azkaban",
+              "AIRFLOW" : "Airflow"
+            }
+          },
+          "doc" : "Orchestrator type this data flow orchestrator describes"
+        }, {
+          "name" : "logoUrl",
+          "type" : "com.linkedin.common.Url",
+          "doc" : "The URL for a logo associated with the orchestrator",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Metadata associated with a orchestrator information",
+      "optional" : true
+    } ]
+  }, "com.linkedin.datajob.DataFlowOrchestratorInfo", "com.linkedin.datajob.OrchestratorType", {
+    "type" : "typeref",
+    "name" : "DataFlowOrchestratorAspect",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A union of all supported metadata aspects for a Data Flow Orchestrator",
+    "ref" : [ "com.linkedin.datajob.DataFlowOrchestratorInfo" ]
+  }, {
+    "type" : "record",
+    "name" : "DataFlowOrchestratorSnapshot",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "A metadata snapshot for a specific data flow orchestrator entity.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.DataFlowOrchestratorUrn",
+      "doc" : "URN for the entity the metadata snapshot is associated with."
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.DataFlowOrchestratorAspect"
+      },
+      "doc" : "The list of metadata aspects associated with the data flow orchestrator. Depending on the use case, this can either be all, or a selection, of supported aspects."
+    } ]
+  } ],
+  "schema" : {
+    "name" : "dataFlowOrchestrators",
+    "namespace" : "com.linkedin.datafloworchestrator",
+    "path" : "/dataFlowOrchestrators",
+    "schema" : "com.linkedin.datajob.DataFlowOrchestrator",
+    "doc" : "Resource provides information about various data flow orchestrators.\n\ngenerated from: com.linkedin.metadata.resources.datafloworchestrators.DataFlowOrchestrator",
+    "collection" : {
+      "identifier" : {
+        "name" : "orchestratorName",
+        "type" : "string"
+      },
+      "supports" : [ "get", "get_all" ],
+      "methods" : [ {
+        "method" : "get",
+        "doc" : "Get data flow orchestrator.",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "doc" : "list of aspects to be retrieved. Null to retrieve all aspects of the dataFlowOrchestrators."
+        } ]
+      }, {
+        "method" : "get_all",
+        "doc" : "Get all data flow orchestrators.",
+        "pagingSupported" : true
+      } ],
+      "actions" : [ {
+        "name" : "getSnapshot",
+        "doc" : "Get the snapshot of data flow orchestrator.\nService Returns: Snapshot of data flow orchestrator with the requested aspects.",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "data flow orchestrator urn."
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true,
+          "doc" : "list of aspects to be returned. null, when all aspects are to be returned."
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.DataFlowOrchestratorSnapshot"
+      } ],
+      "entity" : {
+        "path" : "/dataFlowOrchestrators/{orchestratorName}"
+      }
+    }
+  }
+}

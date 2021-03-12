@@ -31,7 +31,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Resource provides information about various data flow orchestrators.
  */
-@RestLiCollection(name = "dataFlowOrchestrators", namespace = "com.linkedin.datajob", keyName = "orchestratorName")
+@RestLiCollection(name = "dataFlowOrchestrators", namespace = "com.linkedin.datafloworchestrator", keyName = "orchestratorName")
 public class DataFlowOrchestrators extends BaseEntityResource<
     // @formatter:off
     String,

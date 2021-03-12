@@ -1,9 +1,9 @@
 package com.linkedin.datajob.client;
 
 import com.linkedin.data.template.StringArray;
-import com.linkedin.datajob.DataFlowOrchestrator;
+import com.linkedin.datafloworchestrator.DataFlowOrchestrator;
 import com.linkedin.datajob.DataFlowOrchestratorInfo;
-import com.linkedin.datajob.DataFlowOrchestratorsRequestBuilders;
+import com.linkedin.datafloworchestrator.DataFlowOrchestratorsRequestBuilders;
 import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;

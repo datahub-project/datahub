@@ -65,8 +65,8 @@
         "doc" : "Standardized data flow orchestrator identifier.",
         "entityType" : "dataFlowOrchestrator",
         "fields" : [ {
-          "doc" : "data flow orchestrator name ",
-          "maxLength" : 20,
+          "doc" : "data flow orchestrator name",
+          "maxLength" : 25,
           "name" : "orchestratorName",
           "type" : "string"
         } ],
