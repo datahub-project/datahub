@@ -9,7 +9,7 @@ import com.linkedin.common.DataJobUrn
 record DataJobDocument includes BaseDocument {
 
   /*
-   * Urn for the DataFlow
+   * Urn for the DataJob
    */
   urn: DataJobUrn
 

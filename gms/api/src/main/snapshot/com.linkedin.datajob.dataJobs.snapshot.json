@@ -66,9 +66,8 @@
         "entityType" : "dataFlow",
         "fields" : [ {
           "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
-          "maxLength" : 50,
           "name" : "orchestrator",
-          "type" : "string"
+          "type" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
         }, {
           "doc" : "Unique Identifier of the data flow",
           "maxLength" : 200,
@@ -246,7 +245,7 @@
         "type" : "com.linkedin.common.DataFlowUrn",
         "doc" : "Standardized platform urn where dataset is defined. The data platform Urn (urn:li:platform:{platform_name})",
         "validate" : {
-          "com.linkedin.dataset.rest.validator.DataFlowValidator" : { }
+          "com.linkedin.datajob.rest.validator.DataFlowValidator" : { }
         }
       }, {
         "name" : "jobId",

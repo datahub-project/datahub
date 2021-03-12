@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.datajob",
   "path" : "/dataJobs",
   "schema" : "com.linkedin.datajob.DataJob",
-  "doc" : "generated from: com.linkedin.metadata.resources.dashboard.DataJobs",
+  "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataJobs",
   "collection" : {
     "identifier" : {
       "name" : "key",

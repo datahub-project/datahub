@@ -51,6 +51,34 @@
     } ]
   }, {
     "type" : "typeref",
+    "name" : "DataFlowOrchestratorUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized data processing flow identifier.",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized data flow orchestrator identifier.",
+        "entityType" : "dataFlowOrchestrator",
+        "fields" : [ {
+          "doc" : "data flow orchestrator name ",
+          "maxLength" : 20,
+          "name" : "orchestratorName",
+          "type" : "string"
+        } ],
+        "maxLength" : 373,
+        "name" : "DataFlowOrchestrator",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
+      }
+    }
+  }, {
+    "type" : "typeref",
     "name" : "DataFlowUrn",
     "namespace" : "com.linkedin.common",
     "doc" : "Standardized data processing flow identifier.",
@@ -66,9 +94,8 @@
         "entityType" : "dataFlow",
         "fields" : [ {
           "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
-          "maxLength" : 50,
           "name" : "orchestrator",
-          "type" : "string"
+          "type" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
         }, {
           "doc" : "Unique Identifier of the data flow",
           "maxLength" : 200,
@@ -172,15 +199,12 @@
     "include" : [ {
       "type" : "record",
       "name" : "DataFlowKey",
-      "doc" : "Key for dataset resource",
+      "doc" : "Key for data flow resource",
       "fields" : [ {
         "name" : "orchestrator",
-        "type" : "string",
+        "type" : "com.linkedin.common.DataFlowOrchestratorUrn",
         "validate" : {
-          "strlen" : {
-            "max" : 50,
-            "min" : 1
-          }
+          "com.linkedin.datajob.rest.validator.DataFlowOrchestratorValidator" : { }
         }
       }, {
         "name" : "flowId",

@@ -15,7 +15,6 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
    */
   urn: DataJobUrn
 
-
   /**
    * Ownership Info
    */
