@@ -53,7 +53,7 @@
     "type" : "typeref",
     "name" : "DataFlowOrchestratorUrn",
     "namespace" : "com.linkedin.common",
-    "doc" : "Standardized data processing flow identifier.",
+    "doc" : "Standardized data flow orchestrators available",
     "ref" : "string",
     "java" : {
       "class" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
@@ -62,19 +62,18 @@
       "com.linkedin.common.validator.TypedUrnValidator" : {
         "accessible" : true,
         "constructable" : true,
-        "doc" : "Standardized data flow orchestrator identifier.",
+        "doc" : "Standardized data flow orchestrators available",
         "entityType" : "dataFlowOrchestrator",
         "fields" : [ {
           "doc" : "data flow orchestrator name",
           "maxLength" : 25,
-          "name" : "orchestratorName",
-          "type" : "string"
+          "name" : "dataFlowOrchestrator"
         } ],
-        "maxLength" : 373,
+        "maxLength" : 45,
         "name" : "DataFlowOrchestrator",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
+        "owningTeam" : "urn:li:internalTeam:wherehows"
       }
     }
   }, {
@@ -195,7 +194,7 @@
     "type" : "record",
     "name" : "DataFlow",
     "namespace" : "com.linkedin.datajob",
-    "doc" : "MLFeature spec. for a feature store. A collection of MLFeature metadata schema that can evolve over time.",
+    "doc" : "Metadata for DataFlow",
     "include" : [ {
       "type" : "record",
       "name" : "DataFlowKey",
@@ -203,12 +202,14 @@
       "fields" : [ {
         "name" : "orchestrator",
         "type" : "com.linkedin.common.DataFlowOrchestratorUrn",
+        "doc" : "Standardized data flow orchestrator urn where dataset is defined. The data flow orchestrator Urn (urn:li:dataFlowOrchestrator:{orchestrator_name})",
         "validate" : {
           "com.linkedin.datajob.rest.validator.DataFlowOrchestratorValidator" : { }
         }
       }, {
         "name" : "flowId",
         "type" : "string",
+        "doc" : "Id of the flow",
         "validate" : {
           "strlen" : {
             "max" : 200,
@@ -218,6 +219,7 @@
       }, {
         "name" : "cluster",
         "type" : "string",
+        "doc" : "Cluster of the flow",
         "validate" : {
           "strlen" : {
             "max" : 100,
@@ -229,7 +231,7 @@
     "fields" : [ {
       "name" : "urn",
       "type" : "com.linkedin.common.DataFlowUrn",
-      "doc" : "Ownership Info"
+      "doc" : "DataFlow urn"
     }, {
       "name" : "ownership",
       "type" : "com.linkedin.common.Ownership",
@@ -257,7 +259,7 @@
           "optional" : true
         } ]
       },
-      "doc" : "Ownership Info",
+      "doc" : "Optional additional metadata about the data flow",
       "optional" : true
     } ]
   }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", {
@@ -526,7 +528,7 @@
     "namespace" : "com.linkedin.dataflow",
     "path" : "/dataFlows",
     "schema" : "com.linkedin.datajob.DataFlow",
-    "doc" : "generated from: com.linkedin.metadata.resources.dashboard.DataFlows",
+    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
     "collection" : {
       "identifier" : {
         "name" : "key",

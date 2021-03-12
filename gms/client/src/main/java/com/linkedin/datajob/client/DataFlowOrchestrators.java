@@ -1,7 +1,7 @@
 package com.linkedin.datajob.client;
 
 import com.linkedin.data.template.StringArray;
-import com.linkedin.datafloworchestrator.DataFlowOrchestrator;
+import com.linkedin.datajob.DataFlowOrchestrator;
 import com.linkedin.datajob.DataFlowOrchestratorInfo;
 import com.linkedin.datafloworchestrator.DataFlowOrchestratorsRequestBuilders;
 import com.linkedin.metadata.restli.BaseClient;

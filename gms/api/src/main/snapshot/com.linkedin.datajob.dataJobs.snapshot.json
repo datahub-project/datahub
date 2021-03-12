@@ -235,22 +235,22 @@
     "type" : "record",
     "name" : "DataJob",
     "namespace" : "com.linkedin.datajob",
-    "doc" : "MLFeature spec. for a feature store. A collection of MLFeature metadata schema that can evolve over time.",
+    "doc" : "Metadata bout DataJob",
     "include" : [ {
       "type" : "record",
       "name" : "DataJobKey",
-      "doc" : "Key for dataset resource",
+      "doc" : "Key for data job resource",
       "fields" : [ {
         "name" : "dataFlow",
         "type" : "com.linkedin.common.DataFlowUrn",
-        "doc" : "Standardized platform urn where dataset is defined. The data platform Urn (urn:li:platform:{platform_name})",
+        "doc" : "Standardized dataflow urn where flow is defined. The data flow Urn (urn:li:dataflow:{orchestrator,flow_id, cluster})",
         "validate" : {
           "com.linkedin.datajob.rest.validator.DataFlowValidator" : { }
         }
       }, {
         "name" : "jobId",
         "type" : "string",
-        "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+        "doc" : "The Id of the data job",
         "validate" : {
           "strlen" : {
             "max" : 200,
@@ -262,7 +262,7 @@
     "fields" : [ {
       "name" : "urn",
       "type" : "com.linkedin.common.DataJobUrn",
-      "doc" : "Ownership Info"
+      "doc" : "DataJob urn"
     }, {
       "name" : "ownership",
       "type" : "com.linkedin.common.Ownership",
@@ -290,7 +290,7 @@
           "doc" : "Output datasets produced by the data job during processing"
         } ]
       },
-      "doc" : "Ownership Info",
+      "doc" : "Input and output datasets of job",
       "optional" : true
     }, {
       "name" : "info",
@@ -327,7 +327,7 @@
           "doc" : "Datajob type"
         } ]
       },
-      "doc" : "Ownership Info",
+      "doc" : "Optional additional metadata about the job",
       "optional" : true
     } ]
   }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.azkaban.AzkabanJobType", {
@@ -596,7 +596,7 @@
     "namespace" : "com.linkedin.datajob",
     "path" : "/dataJobs",
     "schema" : "com.linkedin.datajob.DataJob",
-    "doc" : "generated from: com.linkedin.metadata.resources.dashboard.DataJobs",
+    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataJobs",
     "collection" : {
       "identifier" : {
         "name" : "key",
