@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;

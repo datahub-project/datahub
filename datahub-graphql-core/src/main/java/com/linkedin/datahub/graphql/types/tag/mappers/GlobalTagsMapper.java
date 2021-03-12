@@ -1,8 +1,9 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.tag.mappers;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;

@@ -1,8 +1,10 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.tag.mappers;
 
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 

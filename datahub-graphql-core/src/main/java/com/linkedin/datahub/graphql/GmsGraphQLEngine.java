@@ -78,7 +78,7 @@ public class GmsGraphQLEngine {
             DOWNSTREAM_LINEAGE_TYPE,
             CHART_TYPE,
             DASHBOARD_TYPE,
-            TAG_TYPE
+            TAG_TYPE,
             ML_MODEL_TYPE
     );
 

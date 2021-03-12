@@ -50,6 +50,8 @@ enum EntityType {
     """
     TAG
     """
+    The MLModel Entity
+    """
     MLMODEL
 }
 

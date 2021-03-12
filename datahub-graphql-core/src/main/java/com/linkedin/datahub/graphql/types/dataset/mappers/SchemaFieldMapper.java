@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.generated.SchemaField;
 import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
