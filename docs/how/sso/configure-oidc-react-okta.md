@@ -74,7 +74,7 @@ Replacing the placeholders above with the client id & client secret received fro
 Now, simply restart the `datahub-frontend-react` container to enable the integration.
 
 ```
-docker-compose restart datahub-frontend-react
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.react.yml restart datahub-frontend-react
 ```
 
 Navigate to your DataHub domain to see SSO in action.
