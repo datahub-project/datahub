@@ -24,6 +24,15 @@ For local development, our recommendation is to run the `docker/nuke.sh` script 
 
 To migrate without losing data, please refer to the python script and Dockerfile in `contrib/elasticsearch/es7-upgrade`. The script takes source and destination elasticsearch cluster URL and SSL configuration (if applicable) as input. It ports the mappings and settings for all indices in the source cluster to the destination cluster making the necessary changes stated above. Then it transfers all documents in the source cluster to the destination cluster. 
 
+You can run the script in a docker container as follows
+```
+docker build -t migrate-es-7 .
+docker run migrate-es-7 -s SOURCE -d DEST [--disable-source-ssl]
+                   [--disable-dest-ssl] [--cert-file CERT_FILE]
+                   [--key-file KEY_FILE] [--ca-file CA_FILE] [--create-only]
+                   [-i INDICES] [--name-override NAME_OVERRIDE]
+```
+
 ## Plan
 
-We will create an "elasticsearch5" branch with the version of master prior to the elasticsearch 7 upgrade. However, we will not be supporting this branch moving forward and all future development will be done using elasticsearch 7.9.3
+We will create an "elasticsearch-5-legacy" branch with the version of master prior to the elasticsearch 7 upgrade. However, we will not be supporting this branch moving forward and all future development will be done using elasticsearch 7.9.3
