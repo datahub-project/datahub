@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.dashboard;
+package com.linkedin.metadata.resources.datajob;
 
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
@@ -128,8 +128,7 @@ public class DataJobs extends BaseBrowsableEntityResource<
       } else if (aspect instanceof DataJobInputOutput) {
         DataJobInputOutput inputOutput = DataJobInputOutput.class.cast(aspect);
         value.setInputOutput(inputOutput);
-      }
-      else if (aspect instanceof Ownership) {
+      } else if (aspect instanceof Ownership) {
         Ownership ownership = Ownership.class.cast(aspect);
         value.setOwnership(ownership);
       }

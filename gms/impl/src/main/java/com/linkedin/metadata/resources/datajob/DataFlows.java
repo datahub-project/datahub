@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.dashboard;
+package com.linkedin.metadata.resources.datajob;
 
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.common.Ownership;

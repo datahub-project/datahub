@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.datafloworchestrator;
+package com.linkedin.metadata.resources.datajob;
 
 import com.linkedin.common.urn.DataFlowOrchestratorUrn;
 import com.linkedin.datajob.DataFlowOrchestrator;

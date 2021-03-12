@@ -17,10 +17,9 @@
         "fields" : [ {
           "doc" : "data flow orchestrator name",
           "maxLength" : 25,
-          "name" : "orchestratorName",
-          "type" : "string"
+          "name" : "dataFlowOrchestrator"
         } ],
-        "maxLength" : 373,
+        "maxLength" : 45,
         "name" : "DataFlowOrchestrator",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -44,38 +43,37 @@
     "fields" : [ {
       "name" : "name",
       "type" : "string",
-      "doc" : "Name of the orchestrator"
+      "doc" : "Name of the data platform"
     }, {
       "name" : "dataFlowOrchestratorInfo",
       "type" : {
         "type" : "record",
         "name" : "DataFlowOrchestratorInfo",
-        "namespace" : "com.linkedin.datajob",
-        "doc" : "Information about a orchestrator",
+        "doc" : "Information about a data flow orchestrator",
         "fields" : [ {
           "name" : "name",
           "type" : "string",
-          "doc" : "Name of the data orchestrator",
+          "doc" : "Name of the orchestrator",
           "validate" : {
             "strlen" : {
-              "max" : 15
+              "max" : 20
             }
           }
         }, {
           "name" : "displayName",
           "type" : "string",
-          "doc" : "The name that will be used for displaying a orchestrator",
+          "doc" : "The name that will be used for displaying a orchestrator type.",
           "optional" : true
         }, {
           "name" : "type",
           "type" : {
             "type" : "enum",
             "name" : "OrchestratorType",
-            "doc" : "Orchestrator types available at LinkedIn",
-            "symbols" : [ "AZKABAN", "AIRFLOW"],
+            "doc" : "Orchestrator types available",
+            "symbols" : [ "AZKABAN", "AIRFLOW" ],
             "symbolDocs" : {
-              "AZKABAN" : "Azkaban",
-              "AIRFLOW" : "Airflow"
+              "AIRFLOW" : "Airflow",
+              "AZKABAN" : "Azkaban"
             }
           },
           "doc" : "Orchestrator type this data flow orchestrator describes"
@@ -86,7 +84,7 @@
           "optional" : true
         } ]
       },
-      "doc" : "Metadata associated with a orchestrator information",
+      "doc" : "Metadata associated with a data flow orchestrator information",
       "optional" : true
     } ]
   }, "com.linkedin.datajob.DataFlowOrchestratorInfo", "com.linkedin.datajob.OrchestratorType", {
@@ -110,7 +108,7 @@
         "type" : "array",
         "items" : "com.linkedin.metadata.aspect.DataFlowOrchestratorAspect"
       },
-      "doc" : "The list of metadata aspects associated with the data flow orchestrator. Depending on the use case, this can either be all, or a selection, of supported aspects."
+      "doc" : "The list of metadata aspects associated with the orchestrator. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ]
   } ],
   "schema" : {
@@ -118,7 +116,7 @@
     "namespace" : "com.linkedin.datafloworchestrator",
     "path" : "/dataFlowOrchestrators",
     "schema" : "com.linkedin.datajob.DataFlowOrchestrator",
-    "doc" : "Resource provides information about various data flow orchestrators.\n\ngenerated from: com.linkedin.metadata.resources.datafloworchestrators.DataFlowOrchestrator",
+    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlowOrchestrators",
     "collection" : {
       "identifier" : {
         "name" : "orchestratorName",
@@ -127,29 +125,23 @@
       "supports" : [ "get", "get_all" ],
       "methods" : [ {
         "method" : "get",
-        "doc" : "Get data flow orchestrator.",
         "parameters" : [ {
           "name" : "aspects",
-          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "doc" : "list of aspects to be retrieved. Null to retrieve all aspects of the dataFlowOrchestrators."
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
         } ]
       }, {
         "method" : "get_all",
-        "doc" : "Get all data flow orchestrators.",
         "pagingSupported" : true
       } ],
       "actions" : [ {
         "name" : "getSnapshot",
-        "doc" : "Get the snapshot of data flow orchestrator.\nService Returns: Snapshot of data flow orchestrator with the requested aspects.",
         "parameters" : [ {
           "name" : "urn",
-          "type" : "string",
-          "doc" : "data flow orchestrator urn."
+          "type" : "string"
         }, {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
-          "optional" : true,
-          "doc" : "list of aspects to be returned. null, when all aspects are to be returned."
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.snapshot.DataFlowOrchestratorSnapshot"
       } ],
