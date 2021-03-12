@@ -151,7 +151,7 @@ Sample Request:
 
 ```
 {
-  mlmodel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)") {
+  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)") {
     urn
     type
     name
@@ -177,7 +177,7 @@ Sample Request:
         }
       }
     }
-    mlModelProperties {
+    properties {
       description
       date
       version
@@ -219,7 +219,7 @@ Sample Request:
       primaryUsers
       outOfScopeUses
     }
-    mlModelFactorPrompts {
+    factorPrompts {
       relevantFactors {
         groups
         instrumentation
@@ -290,7 +290,7 @@ Sample Response:
 ```
 {
   "data": {
-    "mlmodel": {
+    "mlModel": {
       "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
       "type": "MLMODEL",
       "name": "scienceModel",
@@ -329,7 +329,7 @@ Sample Response:
           }
         ]
       },
-      "mlModelProperties": {
+      "properties": {
         "description": "A sample model for predicting some outcome.",
         "date": null,
         "version": null,
@@ -366,7 +366,7 @@ Sample Response:
           "Production Deployment"
         ]
       },
-      "mlModelFactorPrompts": null,
+      "factorPrompts": null,
       "metrics": {
         "decisionThreshold": [
           "decisionThreshold"
