@@ -102,5 +102,3 @@ def check_mce_schema(json_file: str):
 
     report = check_mce_file(json_file)
     click.echo(report)
-    click.echo()
-    click.secho("Success", fg="green", bold=True)
