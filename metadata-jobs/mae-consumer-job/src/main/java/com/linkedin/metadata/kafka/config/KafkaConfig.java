@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.config;
 import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -40,7 +41,7 @@ public class KafkaConfig {
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
     if (kafkaBootstrapServer != null && kafkaBootstrapServer.length() > 0) {
-      props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServer);
+      props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, Arrays.asList(kafkaBootstrapServer.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
