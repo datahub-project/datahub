@@ -7,10 +7,13 @@ import UserDetails from './UserDetails';
 import useUserParams from './routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { Message } from '../../shared/Message';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
 `;
+
+const messageStyle = { marginTop: '10%' };
 
 /**
  * Responsible for reading & writing users.
@@ -30,10 +33,6 @@ export default function UserProfile() {
             return ownershipResult[type].loading;
         }) || loading;
 
-    if (contentLoading) {
-        return <Alert type="info" message="Loading" />;
-    }
-
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
@@ -50,6 +49,7 @@ export default function UserProfile() {
 
     return (
         <PageContainer>
+            {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
             <UserHeader
                 profileSrc={data?.corpUser?.editableInfo?.pictureLink}
                 name={data?.corpUser?.info?.displayName}

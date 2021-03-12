@@ -43,7 +43,12 @@ export const BrowseResults = ({
                 <Row gutter={[4, 8]}>
                     {groups.map((group) => (
                         <Col span={24}>
-                            <BrowseResultCard name={group.name} count={group.count} url={`${rootPath}/${group.name}`} />
+                            <BrowseResultCard
+                                name={group.name}
+                                count={group.count}
+                                url={`${rootPath}/${group.name}`}
+                                type={entityRegistry.getCollectionName(type)}
+                            />
                         </Col>
                     ))}
                     {entities.map((entity) => (
