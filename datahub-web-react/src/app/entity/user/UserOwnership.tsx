@@ -20,6 +20,10 @@ const TitleContainer = styled.div`
     margin-bottom: 30px;
 `;
 
+const ListItem = styled.div`
+    margin: 40px;
+`;
+
 export default ({ ownerships, entityPath }: Props) => {
     const entityRegistry = useEntityRegistry();
 
@@ -32,13 +36,18 @@ export default ({ ownerships, entityPath }: Props) => {
     return (
         <ListContainer>
             <TitleContainer>
-                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)} they own</Typography.Title>
+                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)} owned</Typography.Title>
                 <Divider />
             </TitleContainer>
             <List
                 dataSource={entitiesToShow}
                 renderItem={(item) => {
-                    return entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item);
+                    return (
+                        <ListItem>
+                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item)}
+                            <Divider />
+                        </ListItem>
+                    );
                 }}
             />
         </ListContainer>
