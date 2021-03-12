@@ -36,7 +36,7 @@ describe('UserOwnership', () => {
                 <UserOwnership ownerships={ownerships} entityPath="dataset" />
             </TestPageContainer>,
         );
-        expect(getByText('Datasets they own')).toBeInTheDocument();
+        expect(getByText('Datasets owned')).toBeInTheDocument();
     });
 
     it('renders the entity rows', () => {
