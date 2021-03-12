@@ -14,12 +14,12 @@ import time
 parser = argparse.ArgumentParser(description="Transfers ES indexes between clusters.")
 parser.add_argument('-s', '--source', required=True, help='Source cluster URL and port.')
 parser.add_argument('-d', '--dest', required=True, help='Destination cluster URL and port.')
-parser.add_argument('--source-ssl', required=False, default=True, help='Enables / disables source SSL.')
-parser.add_argument('--dest-ssl', required=False, default=True, help='Enables / disables destination SSL.')
+parser.add_argument('--disable-source-ssl', required=False, action='store_true', help='If set, disable source SSL.')
+parser.add_argument('--disable-dest-ssl', required=False, action='store_true', help='If set, disable destination SSL.')
 parser.add_argument('--cert-file', required=False, default=None, help='Cert file to use with SSL.')
 parser.add_argument('--key-file', required=False, default=None, help='Key file to use with SSL.')
 parser.add_argument('--ca-file', required=False, default=None, help='Certificate authority file to use for SSL.')
-parser.add_argument('--create-only', required=False, default=False, help='If true, only create the index (with settings/mappings/aliases).')
+parser.add_argument('--create-only', required=False, action='store_true', help='If set, only create the index (with settings/mappings/aliases).')
 parser.add_argument('-i', '--indices', required=False, default="*", help='Regular expression for indexes to copy.')
 parser.add_argument('--name-override', required=False, default=None, help='destination index name override')
 
@@ -207,9 +207,9 @@ def copy_index_data(clients, index, name_override):
 
 
 def main():
-    ssl_context=create_ssl_context()
-    source_ssl_context = ssl_context if args.source_ssl else None
-    dest_ssl_context = ssl_context if args.dest_ssl else None
+    ssl_context = create_ssl_context() if not args.disable_source_ssl or not args.disable_dest_ssl else None
+    source_ssl_context = ssl_context if not args.disable_source_ssl else None
+    dest_ssl_context = ssl_context if not args.disable_dest_ssl else None
     clients = EsClients(create_client(args.source, source_ssl_context), create_client(args.dest, dest_ssl_context))
     indices = get_index_settings(clients.source_client, args.indices)
 
