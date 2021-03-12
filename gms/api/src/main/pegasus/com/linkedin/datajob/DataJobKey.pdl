@@ -11,7 +11,7 @@ record DataJobKey {
   /**
    * Standardized dataflow urn where flow is defined. The data flow Urn (urn:li:dataflow:{orchestrator,flow_id, cluster})
    */
-  @validate.`com.linkedin.dataset.rest.validator.DataFlowValidator` = { }
+  @validate.`com.linkedin.datajob.rest.validator.DataFlowValidator` = { }
   dataFlow: DataFlowUrn
 
   /**

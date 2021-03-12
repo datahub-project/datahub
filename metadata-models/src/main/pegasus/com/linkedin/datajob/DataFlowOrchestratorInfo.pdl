@@ -1,0 +1,46 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.common.Url
+
+/**
+ * Information about a data flow orchestrator
+ */
+record DataFlowOrchestratorInfo {
+
+  /**
+   * Name of the orchestrator
+   */
+  @validate.strlen.max = 20
+  name: string
+
+  /**
+   * The name that will be used for displaying a orchestrator type.
+   */
+  displayName: optional string
+
+  /**
+   * Orchestrator type this data flow orchestrator describes
+   */
+  type:
+    /**
+     * Orchestrator types available
+     */
+    enum OrchestratorType {
+
+      /**
+       * Azkaban
+       */
+      AZKABAN
+
+      /**
+       * Airflow
+       */
+      AIRFLOW
+
+    }
+
+  /**
+   * The URL for a logo associated with the orchestrator
+   */
+  logoUrl: optional Url
+}

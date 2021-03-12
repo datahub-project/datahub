@@ -1,6 +1,7 @@
 namespace com.linkedin.metadata.entity
 
 import com.linkedin.common.DataFlowUrn
+import com.linkedin.common.DataFlowOrchestratorUrn
 
 /**
  * Data model for a DataFlow entity
@@ -15,7 +16,7 @@ record DataFlowEntity includes BaseEntity {
   /**
    * Workflow orchestrator ex: Azkaban, Airflow
    */
-  orchestrator: optional string
+  orchestrator: optional DataFlowOrchestratorUrn
 
   /**
    * Id of the flow

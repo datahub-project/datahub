@@ -4,24 +4,25 @@ import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
+import com.linkedin.common.urn.DataFlowOrchestratorUrn;
 
 
 public final class DataFlowUrn extends Urn {
 
   public static final String ENTITY_TYPE = "dataFlow";
 
-  private final String _orchestrator;
+  private final DataFlowOrchestratorUrn _orchestrator;
   private final String _flowId;
   private final String _cluster;
 
-  public DataFlowUrn(String orchestrator, String flowId, String cluster) {
+  public DataFlowUrn(DataFlowOrchestratorUrn orchestrator, String flowId, String cluster) {
     super(ENTITY_TYPE, TupleKey.create(orchestrator, flowId, cluster));
     this._orchestrator = orchestrator;
     this._flowId = flowId;
     this._cluster = cluster;
   }
 
-  public String getOrchestratorEntity() {
+  public DataFlowOrchestratorUrn getOrchestratorEntity() {
     return _orchestrator;
   }
 
@@ -48,7 +49,7 @@ public final class DataFlowUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new DataFlowUrn((String) key.getAs(0, String.class), (String) key.getAs(1, String.class),
+          return new DataFlowUrn((DataFlowOrchestratorUrn) key.getAs(0, DataFlowOrchestratorUrn.class), (String) key.getAs(1, String.class),
               (String) key.getAs(2, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());

@@ -6,6 +6,7 @@ import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.common.urn.DataFlowOrchestratorUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
@@ -64,13 +65,13 @@ public final class Urns {
 
   @Nonnull
   public static DataFlowUrn makeDataFlowUrn(@Nonnull String name) {
-    return new DataFlowUrn("airflow", name, "production_cluster");
+    return new DataFlowUrn(new DataFlowOrchestratorUrn("airflow"), name, "production_cluster");
   }
 
 
   @Nonnull
   public static DataJobUrn makeDataJobUrn(@Nonnull String jobId) {
-    return new DataJobUrn(new DataFlowUrn("airflow", "my_flow", "production_cluster"), jobId);
+    return new DataJobUrn(new DataFlowUrn(new DataFlowOrchestratorUrn("airflow"), "my_flow", "production_cluster"), jobId);
   }
 
 }

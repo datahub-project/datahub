@@ -9,6 +9,7 @@ typeref Snapshot = union[
   CorpUserSnapshot,
   DashboardSnapshot,
   DataFlowSnapshot,
+  DataFlowOrchestratorSnapshot,
   DataJobSnapshot,
   DatasetSnapshot,
   DataProcessSnapshot,

@@ -1,0 +1,12 @@
+{
+    "urn:li:dataPlatform:azkaban": {
+      "name": "azkaban",
+      "displayName": "Azkaban",
+      "type": "AZKABAN",
+    },
+    "urn:li:dataPlatform:airflow": {
+      "name": "airflow",
+      "displayName": "Airflow",
+      "type": "AIRFLOW"
+    }
+  }
