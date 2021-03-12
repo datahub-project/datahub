@@ -162,6 +162,7 @@ def get_schema_metadata(
             type=get_column_type(sql_report, dataset_name, column["type"]),
             description=column.get("comment", None),
             nullable=column["nullable"],
+            recursive=False,
         )
         canonical_schema.append(field)
 
@@ -229,6 +230,8 @@ class SQLAlchemySource(Source):
                 if description is not None:
                     dataset_properties = DatasetPropertiesClass(
                         description=description,
+                        tags=[],
+                        customProperties={},
                         # uri=dataset_name,
                     )
                     dataset_snapshot.aspects.append(dataset_properties)
