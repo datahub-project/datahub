@@ -87,7 +87,7 @@ export const SearchPage = () => {
                         <Tabs.TabPane
                             tab={
                                 <>
-                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}{' '}
+                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(t)}</StyledTab>
                                 </>
                             }

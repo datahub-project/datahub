@@ -47,7 +47,7 @@ describe('UserDetails', () => {
                 <UserDetails urn="some:urn" ownerships={ownerships} />;
             </TestPageContainer>,
         );
-        expect(queryByText('Datasets they own')).not.toBeInTheDocument();
+        expect(queryByText('Datasets owned')).not.toBeInTheDocument();
     });
 
     it('will the show the ownership details when selected', () => {
@@ -56,6 +56,6 @@ describe('UserDetails', () => {
                 <UserDetails urn="some:urn" ownerships={ownerships} subview={Subview.Ownership} item="dataset" />;
             </TestPageContainer>,
         );
-        expect(getByText('Datasets they own')).toBeInTheDocument();
+        expect(getByText('Datasets owned')).toBeInTheDocument();
     });
 });
