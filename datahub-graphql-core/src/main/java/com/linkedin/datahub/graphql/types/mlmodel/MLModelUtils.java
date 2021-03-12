@@ -4,9 +4,9 @@ import java.net.URISyntaxException;
 
 import com.linkedin.common.urn.MLModelUrn;
 
-public class MlModelUtils {
+public class MLModelUtils {
 
-    private MlModelUtils() { }
+    private MLModelUtils() { }
 
     static MLModelUrn getMLModelUrn(String modelUrn) {
         try {

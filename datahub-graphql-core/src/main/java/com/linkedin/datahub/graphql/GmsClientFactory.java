@@ -34,7 +34,7 @@ public class GmsClientFactory {
     private static Dashboards _dashboards;
     private static Charts _charts;
     private static DataPlatforms _dataPlatforms;
-    private static MLModels _mlmodels;
+    private static MLModels _mlModels;
     private static Lineages _lineages;
     private static Tags _tags;
 
@@ -96,15 +96,15 @@ public class GmsClientFactory {
         return _dataPlatforms;
     }
 
-    public static MLModels getMlModelsClient() {
-        if (_mlmodels == null) {
+    public static MLModels getMLModelsClient() {
+        if (_mlModels == null) {
             synchronized (GmsClientFactory.class) {
-                if (_mlmodels == null) {
-                    _mlmodels = new MLModels(REST_CLIENT);
+                if (_mlModels == null) {
+                    _mlModels = new MLModels(REST_CLIENT);
                 }
             }
         }
-        return _mlmodels;
+        return _mlModels;
     }
 
     public static Lineages getLineagesClient() {

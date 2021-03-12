@@ -83,7 +83,7 @@ type Query {
     """
     Fetch a MLModel by primary key
     """
-    mlmodel(urn: String!): MLModel
+    mlModel(urn: String!): MLModel
 
     """
     Search DataHub entities
@@ -1430,7 +1430,7 @@ type MLModel implements Entity {
     """
     ModelProperties metadata of the mlmodel
     """
-    mlModelProperties: MLModelProperties
+    properties: MLModelProperties
 
     """
     Intended use of the mlmodel
@@ -1440,7 +1440,7 @@ type MLModel implements Entity {
     """
     Factors metadata of the mlmodel
     """
-    mlModelFactorPrompts: MLModelFactorPrompts
+    factorPrompts: MLModelFactorPrompts
 
     """
     Metrics metadata of the mlmodel
@@ -1450,12 +1450,12 @@ type MLModel implements Entity {
     """
     Evaluation Data of the mlmodel
     """
-    evaluationData: [BaseData]
+    evaluationData: [BaseData!]
 
     """
     Training Data of the mlmodel
     """
-    trainingData: [BaseData]
+    trainingData: [BaseData!]
 
     """
     Quantitative Analyses of the mlmodel
@@ -1510,30 +1510,30 @@ type MLModelProperties {
 
     hyperParameters: HyperParameterMap
 
-    mlFeatures: [String]
+    mlFeatures: [String!]
 
-    tags: [String]
+    tags: [String!]
 }
 
 type HyperParameterMap {
-    key: String
-    value: HyperParameterValueType
+    key: String!
+    value: HyperParameterValueType!
 }
 
 type StringBox {
-    stringValue: String
+    stringValue: String!
 }
 
 type IntBox {
-    intValue: Int
+    intValue: Int!
 }
 
 type FloatBox {
-    floatValue: Float
+    floatValue: Float!
 }
 
 type BooleanBox {
-    booleanValue: Boolean
+    booleanValue: Boolean!
 }
 
 union HyperParameterValueType = StringBox | IntBox | FloatBox | BooleanBox
@@ -1543,12 +1543,12 @@ type MLModelFactorPrompts {
     """
     What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?
     """
-    relevantFactors: [MLModelFactors]
+    relevantFactors: [MLModelFactors!]
 
     """
     Which factors are being reported, and why were these chosen?
     """
-    evaluationFactors: [MLModelFactors]
+    evaluationFactors: [MLModelFactors!]
 }
 
 type MLModelFactors {
@@ -1556,17 +1556,17 @@ type MLModelFactors {
     """
     Distinct categories with similar characteristics that are present in the evaluation data instances.
     """
-    groups: [String]
+    groups: [String!]
 
     """
     Instrumentation used for MLModel
     """
-    instrumentation: [String]
+    instrumentation: [String!]
 
     """
     Environment in which the MLModel is deployed.
     """
-    environment: [String]
+    environment: [String!]
 }
 
 type QuantitativeAnalyses {
@@ -1598,9 +1598,8 @@ type CaveatsAndRecommendations {
     """
     Ideal characteristics of an evaluation dataset for this MLModel
     """
-    idealDatasetCharacteristics: [String]
+    idealDatasetCharacteristics: [String!]
 }
-
 type CaveatDetails {
 
     """
@@ -1616,7 +1615,7 @@ type CaveatDetails {
     """
     Relevant groups that were not represented in the evaluation dataset?
     """
-    groupsNotRepresented: [String]
+    groupsNotRepresented: [String!]
 }
 
 type EthicalConsiderations {
@@ -1624,27 +1623,27 @@ type EthicalConsiderations {
     """
     Does the model use any sensitive data (e.g., protected classes)?
     """
-    data: [String]
+    data: [String!]
 
     """
     Is the model intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?
     """
-    humanLife: [String]
+    humanLife: [String!]
 
     """
     What risk mitigation strategies were used during model development?
     """
-    mitigations: [String]
+    mitigations: [String!]
 
     """
     What risks may be present in model usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown.
     """
-    risksAndHarms: [String]
+    risksAndHarms: [String!]
 
     """
     Are there any known model use cases that are especially fraught? This may connect directly to the intended use section
     """
-    useCases: [String]
+    useCases: [String!]
 }
 
 type BaseData {
@@ -1652,7 +1651,7 @@ type BaseData {
     """
     Dataset used for the Training/Evaluation of the MLModel
     """
-    dataset: String
+    dataset: String!
 
     """
     Motivation to pick these datasets
@@ -1662,7 +1661,7 @@ type BaseData {
     """
     Details of Data Proprocessing
     """
-    preProcessing: [String]
+    preProcessing: [String!]
 }
 
 type Metrics {
@@ -1670,12 +1669,12 @@ type Metrics {
     """
     Measures of MLModel performance
     """
-    performanceMeasures: [String]
+    performanceMeasures: [String!]
 
     """
     Decision Thresholds used (if any)?
     """
-    decisionThreshold: [String]
+    decisionThreshold: [String!]
 
 }
 
@@ -1684,25 +1683,34 @@ type IntendedUse {
     """
     Primary Use cases for the model.
     """
-    primaryUses: [String]
+    primaryUses: [String!]
 
     """
     Primary Intended Users
     """
-    primaryUsers: [IntendedUserType]
+    primaryUsers: [IntendedUserType!]
 
     """
     Out of scope uses of the MLModel
     """
-    outOfScopeUses: [String]
+    outOfScopeUses: [String!]
 }
 
 enum IntendedUserType {
 
+    """
+    Developed for Enterprise Users
+    """
     ENTERPRISE
 
+    """
+    Developed for Hobbyists
+    """
     HOBBY
 
+    """
+    Developed for Entertainment Purposes
+    """
     ENTERTAINMENT
 }
 
@@ -1710,7 +1718,7 @@ type SourceCode {
     """
     Source Code along with types
     """
-    sourceCode: [SourceCodeUrl]
+    sourceCode: [SourceCodeUrl!]
 }
 
 type SourceCodeUrl {
@@ -1718,20 +1726,29 @@ type SourceCodeUrl {
     """
     Source Code Url Types
     """
-    type: SourceCodeUrlType
+    type: SourceCodeUrlType!
 
     """
     Source Code Url
     """
-    sourceCodeUrl: String
+    sourceCodeUrl: String!
 }
 
 enum SourceCodeUrlType {
 
+    """
+    MLModel Source Code
+    """
     ML_MODEL_SOURCE_CODE
 
+    """
+    Training Pipeline Source Code
+    """
     TRAINING_PIPELINE_SOURCE_CODE
 
+    """
+    Evaluation Pipeline Source Code
+    """
     EVALUATION_PIPELINE_SOURCE_CODE
 }
 
@@ -1740,12 +1757,12 @@ type Cost {
     """
     Type of Cost Code
     """
-    costType: CostType
+    costType: CostType!
 
     """
     Code to which the Cost of this entity should be attributed to i.e. organizational cost ID
     """
-    costValue: CostValue
+    costValue: CostValue!
 }
 
 type CostValue {
@@ -1771,17 +1788,17 @@ enum CostType {
 
 type Deprecation {
     """
-    Whether the dataset has been deprecated by owner
+    Whether the entity has been deprecated by owner
     """
     deprecated: Boolean!
 
     """
-    The time user plan to decommission this dataset
+    The time user plan to decommission this entity
     """
     decommissionTime: Long
 
     """
-    Additional information about the dataset deprecation plan
+    Additional information about the entity deprecation plan
     """
     note: String!
 

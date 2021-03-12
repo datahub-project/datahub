@@ -15,7 +15,7 @@ public class EthicalConsiderationsMapper implements ModelMapper<com.linkedin.ml.
 
     @Override
     public EthicalConsiderations apply(@NonNull final com.linkedin.ml.metadata.EthicalConsiderations ethicalConsiderations) {
-        EthicalConsiderations result = new EthicalConsiderations();
+        final EthicalConsiderations result = new EthicalConsiderations();
         result.setData(ethicalConsiderations.getData());
         result.setHumanLife(ethicalConsiderations.getHumanLife());
         result.setMitigations(ethicalConsiderations.getMitigations());

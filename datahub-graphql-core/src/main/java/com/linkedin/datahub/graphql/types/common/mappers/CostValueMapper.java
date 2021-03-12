@@ -8,13 +8,13 @@ import lombok.NonNull;
 public class CostValueMapper implements ModelMapper<com.linkedin.common.CostValue, CostValue> {
     public static final CostValueMapper INSTANCE = new CostValueMapper();
 
-    public static CostValue map(@NonNull com.linkedin.common.CostValue costValue) {
+    public static CostValue map(@NonNull final com.linkedin.common.CostValue costValue) {
         return INSTANCE.apply(costValue);
     }
 
     @Override
-    public CostValue apply(com.linkedin.common.CostValue costValue) {
-        CostValue result = new CostValue();
+    public CostValue apply(@NonNull final com.linkedin.common.CostValue costValue) {
+        final CostValue result = new CostValue();
         result.setCostCode(costValue.getCostCode());
         result.setCostId(costValue.getCostId());
         return result;

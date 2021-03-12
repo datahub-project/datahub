@@ -20,18 +20,13 @@ public class MLModelPropertiesMapper implements ModelMapper<com.linkedin.ml.meta
     @Override
     public MLModelProperties apply(@NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties) {
         final MLModelProperties result = new MLModelProperties();
-        if (mlModelProperties.getDate() != null) {
-            result.setDate(mlModelProperties.getDate());
-        }
-        if (mlModelProperties.getDescription() != null) {
-            result.setDescription(mlModelProperties.getDescription());
-        }
+
+        result.setDate(mlModelProperties.getDate());
+        result.setDescription(mlModelProperties.getDescription());
         if (mlModelProperties.getVersion() != null) {
             result.setVersion(mlModelProperties.getVersion().getVersionTag());
         }
-        if (mlModelProperties.getType() != null) {
-            result.setType(mlModelProperties.getType());
-        }
+        result.setType(mlModelProperties.getType());
         if (mlModelProperties.getHyperParameters() != null) {
             result.setHyperParameters(HyperParameterMapMapper.map(mlModelProperties.getHyperParameters()));
         }

@@ -66,7 +66,7 @@ public class GmsGraphQLEngine {
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(GmsClientFactory.getLineagesClient());
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
-    public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMlModelsClient());
+    public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -184,7 +184,7 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                                 TAG_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("mlmodel", new AuthenticatedResolver<>(
+                .dataFetcher("mlModel", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                         ML_MODEL_TYPE,
                         (env) -> env.getArgument(URN_FIELD_NAME))))

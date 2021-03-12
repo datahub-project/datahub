@@ -15,7 +15,7 @@ public class ResultsTypeResolver implements TypeResolver {
         if (env.getObject() instanceof StringBox) {
             return env.getSchema().getObjectType(STRING_BOX);
         } else {
-            throw new RuntimeException("Unrecognized object type provided to type resolver");
+            throw new RuntimeException("Unrecognized object type provided to type resolver, Type:"+env.getObject().toString());
         }
     }
 }

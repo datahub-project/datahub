@@ -1,10 +1,11 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import javax.annotation.Nonnull;
 
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
 

@@ -16,9 +16,11 @@ public class ResultsTypeMapper implements ModelMapper<com.linkedin.ml.metadata.R
 
     @Override
     public ResultsType apply(@NonNull final com.linkedin.ml.metadata.ResultsType input) {
-        ResultsType result = null;
+        final ResultsType result;
         if (input.isString()) {
             result = new StringBox(input.getString());
+        } else {
+            throw new RuntimeException("Type is not one of the Union Types, Type:"+input.toString());
         }
         return result;
     }

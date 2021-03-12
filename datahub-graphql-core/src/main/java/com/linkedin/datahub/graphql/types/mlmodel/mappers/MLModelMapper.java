@@ -20,9 +20,9 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
  *
  */
-public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLModel> {
+public class MLModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLModel> {
 
-    public static final MlModelMapper INSTANCE = new MlModelMapper();
+    public static final MLModelMapper INSTANCE = new MLModelMapper();
 
     public static MLModel map(@Nonnull final com.linkedin.ml.MLModel mlModel) {
         return INSTANCE.apply(mlModel);
@@ -30,25 +30,25 @@ public class MlModelMapper implements ModelMapper<com.linkedin.ml.MLModel, MLMod
 
     @Override
     public MLModel apply(@Nonnull final com.linkedin.ml.MLModel mlModel) {
-        MLModel result = new MLModel();
+        final MLModel result = new MLModel();
         result.setUrn(mlModel.getUrn().toString());
         result.setType(EntityType.MLMODEL);
         result.setName(mlModel.getName());
         result.setDescription(mlModel.getDescription());
-        result.setOrigin(Enum.valueOf(FabricType.class, mlModel.getOrigin().name()));
+        result.setOrigin(FabricType.valueOf(mlModel.getOrigin().name()));
         result.setTags(mlModel.getTags());
 
         if (mlModel.getOwnership() != null) {
             result.setOwnership(OwnershipMapper.map(mlModel.getOwnership()));
         }
         if (mlModel.getMlModelProperties() != null) {
-            result.setMlModelProperties(MLModelPropertiesMapper.map(mlModel.getMlModelProperties()));
+            result.setProperties(MLModelPropertiesMapper.map(mlModel.getMlModelProperties()));
         }
         if (mlModel.getIntendedUse() != null) {
             result.setIntendedUse(IntendedUseMapper.map(mlModel.getIntendedUse()));
         }
         if (mlModel.getMlModelFactorPrompts() != null) {
-            result.setMlModelFactorPrompts(MLModelFactorPromptsMapper.map(mlModel.getMlModelFactorPrompts()));
+            result.setFactorPrompts(MLModelFactorPromptsMapper.map(mlModel.getMlModelFactorPrompts()));
         }
         if (mlModel.getMetrics() != null) {
             result.setMetrics(MetricsMapper.map(mlModel.getMetrics()));
