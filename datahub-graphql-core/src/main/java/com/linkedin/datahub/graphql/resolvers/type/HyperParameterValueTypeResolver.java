@@ -27,7 +27,7 @@ public class HyperParameterValueTypeResolver implements TypeResolver {
         } else if (env.getObject() instanceof FloatBox) {
             return env.getSchema().getObjectType(FLOAT_BOX);
         } else {
-            throw new RuntimeException("Unrecognized object type provided to type resolver, Type:"+env.getObject().toString());
+            throw new RuntimeException("Unrecognized object type provided to type resolver, Type:" + env.getObject().toString());
         }
     }
 }

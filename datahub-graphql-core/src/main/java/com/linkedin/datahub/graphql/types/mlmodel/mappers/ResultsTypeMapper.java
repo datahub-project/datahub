@@ -20,7 +20,7 @@ public class ResultsTypeMapper implements ModelMapper<com.linkedin.ml.metadata.R
         if (input.isString()) {
             result = new StringBox(input.getString());
         } else {
-            throw new RuntimeException("Type is not one of the Union Types, Type:"+input.toString());
+            throw new RuntimeException("Type is not one of the Union Types, Type:" + input.toString());
         }
         return result;
     }
