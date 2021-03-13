@@ -69,7 +69,7 @@ Providing these configs will cause DataHub to delegate authentication to your id
 provider, requesting the "oidc email profile" scopes and parsing the "preferred_username" claim from 
 the authenticated profile as the DataHub CorpUser identity.
 
-> By default, the login callback endpoint exposed by DataHub will be located at `${baseUrl}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
+> By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
 
 #### Advanced
 
@@ -91,16 +91,19 @@ regex to do so. (e.g. `([^@]+)`)
 - `AUTH_OIDC_SCOPE`: a string representing the scopes to be requested from the identity provider, granted by the end user. For more info,
   see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).
   
-Once configuration has been updated, `datahub-frontend` will need to be rebuilt (either by rebuilding the `datahub-frontend-react` container or via `./gradlew :datahub-frontend:build -PenableReact=true` for testing)
+Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
 
+```
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.react.yml restart datahub-frontend-react
+```
 
 >Note that by default, enabling OIDC will *not* disable the dummy JAAS authentication path, which can be reached at the `/login`
 route of the React app. To disable this authentication path, additionally specify the following config: 
-> `auth.jaas.enabled = false`
+> `AUTH_JAAS_ENABLED=false`
 
 ### Summary
 
-Once configured, deploying `datahub-frontend` to serve React will enable an indirect authentication flow in which DataHub delegates
+Once configured, deploying the `datahub-frontend-react` container will enable an indirect authentication flow in which DataHub delegates
 authentication to the specified identity provider.
 
 Once a user is authenticated by the identity provider, DataHub will extract a username from the provided claims
