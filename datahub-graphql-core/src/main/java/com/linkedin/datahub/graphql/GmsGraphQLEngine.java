@@ -8,6 +8,8 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -29,6 +31,8 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.tag.TagType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
+
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -62,6 +66,7 @@ public class GmsGraphQLEngine {
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(GmsClientFactory.getLineagesClient());
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
+    public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -73,7 +78,8 @@ public class GmsGraphQLEngine {
             DOWNSTREAM_LINEAGE_TYPE,
             CHART_TYPE,
             DASHBOARD_TYPE,
-            TAG_TYPE
+            TAG_TYPE,
+            ML_MODEL_TYPE
     );
 
     /**
@@ -127,6 +133,7 @@ public class GmsGraphQLEngine {
         configureTypeResolvers(builder);
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
+        configureMlModelResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -177,6 +184,10 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                                 TAG_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("mlModel", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        ML_MODEL_TYPE,
+                        (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
 
@@ -285,7 +296,12 @@ public class GmsGraphQLEngine {
                     )))
             .type("PlatformSchema", typeWiring -> typeWiring
                     .typeResolver(new PlatformSchemaUnionTypeResolver())
-            );
+            )
+            .type("HyperParameterValueType", typeWiring -> typeWiring
+                    .typeResolver(new HyperParameterValueTypeResolver())
+            )
+            .type("ResultsType", typeWiring -> typeWiring
+                    .typeResolver(new ResultsTypeResolver()));
     }
 
     /**
@@ -293,6 +309,20 @@ public class GmsGraphQLEngine {
      */
     private static void configureTypeExtensions(final RuntimeWiring.Builder builder) {
         builder.scalar(GraphQLLong);
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLModel} type.
+     */
+    private static void configureMlModelResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("Owner", typeWiring -> typeWiring
+                .dataFetcher("owner", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        CORP_USER_TYPE,
+                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
+                )
+            );
     }
 
 

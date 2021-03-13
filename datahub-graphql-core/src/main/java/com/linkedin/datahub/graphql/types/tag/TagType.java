@@ -4,7 +4,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
-import com.linkedin.datahub.graphql.types.mappers.TagMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
 import com.linkedin.tag.client.Tags;
 
 import java.net.URISyntaxException;

@@ -4,7 +4,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DownstreamLineage;
 import com.linkedin.datahub.graphql.types.LoadableType;
-import com.linkedin.datahub.graphql.types.mappers.DownstreamLineageMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DownstreamLineageMapper;
 import com.linkedin.dataset.client.Lineages;
 import com.linkedin.r2.RemoteInvocationException;
 

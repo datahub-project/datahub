@@ -145,3 +145,285 @@ Sample Response:
 }
 ```
 
+### Query MLModel
+
+Sample Request:
+
+```
+{
+  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)") {
+    urn
+    type
+    name
+    origin
+    description
+    tags
+    ownership {
+      owners {
+        owner {
+          urn
+          username
+          editableInfo {
+            pictureLink
+          }
+          info {
+            firstName
+          }
+        }
+        type
+        source {
+          type
+          url
+        }
+      }
+    }
+    properties {
+      description
+      date
+      version
+      type
+      hyperParameters {
+        key
+        value {
+          ...on StringBox {
+            stringValue
+          }
+          ... on IntBox {
+            intValue
+          }
+          ... on FloatBox {
+            floatValue
+          }
+          ... on BooleanBox {
+            booleanValue
+          }
+        }
+      }
+      mlFeatures
+      tags
+    }
+    status {
+      removed
+    }
+    institutionalMemory {
+      elements {
+        url
+        description
+        created {
+          actor
+        }
+      }
+    }
+    intendedUse {
+      primaryUses
+      primaryUsers
+      outOfScopeUses
+    }
+    factorPrompts {
+      relevantFactors {
+        groups
+        instrumentation
+        environment
+      }
+      evaluationFactors {
+        groups
+        instrumentation
+        environment
+      }
+    }
+    metrics {
+      decisionThreshold
+      performanceMeasures
+    }
+    trainingData {
+      dataset
+      motivation
+      preProcessing
+    }
+    evaluationData {
+      dataset
+      motivation
+      preProcessing
+    }
+    quantitativeAnalyses {
+      unitaryResults {
+        ...on StringBox {
+          stringValue
+        }
+      }
+      intersectionalResults {
+        ...on StringBox {
+          stringValue
+        }
+      }
+    }
+    ethicalConsiderations {
+      useCases
+      humanLife
+      mitigations
+      risksAndHarms
+      useCases
+      data
+    }
+    caveatsAndRecommendations {
+      caveats {
+        caveatDescription
+        needsFurtherTesting
+        groupsNotRepresented
+      }
+      recommendations 
+      idealDatasetCharacteristics
+    }
+    cost {
+      costType
+      costValue {
+        costId
+        costCode
+      }
+    }
+  }
+}
+```
+
+Sample Response:
+
+```
+{
+  "data": {
+    "mlModel": {
+      "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+      "type": "MLMODEL",
+      "name": "scienceModel",
+      "origin": "PROD",
+      "description": "A sample model for predicting some outcome.",
+      "tags": [
+        "Sample"
+      ],
+      "ownership": {
+        "owners": [
+          {
+            "owner": {
+              "urn": "urn:li:corpuser:jdoe",
+              "username": "jdoe",
+              "editableInfo": null,
+              "info": {
+                "firstName": null
+              }
+            },
+            "type": "DATAOWNER",
+            "source": null
+          },
+          {
+            "owner": {
+              "urn": "urn:li:corpuser:datahub",
+              "username": "datahub",
+              "editableInfo": {
+                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+              },
+              "info": {
+                "firstName": null
+              }
+            },
+            "type": "DATAOWNER",
+            "source": null
+          }
+        ]
+      },
+      "properties": {
+        "description": "A sample model for predicting some outcome.",
+        "date": null,
+        "version": null,
+        "type": "Naive Bayes classifier",
+        "hyperParameters": null,
+        "mlFeatures": null,
+        "tags": [
+          "Sample"
+        ]
+      },
+      "status": {
+        "removed": false
+      },
+      "institutionalMemory": {
+        "elements": [
+          {
+            "url": "https://www.linkedin.com",
+            "description": "Sample doc",
+            "created": {
+              "actor": "urn:li:corpuser:jdoe"
+            }
+          }
+        ]
+      },
+      "intendedUse": {
+        "primaryUses": [
+          "Sample Model",
+          "Primary Use"
+        ],
+        "primaryUsers": [
+          "ENTERPRISE"
+        ],
+        "outOfScopeUses": [
+          "Production Deployment"
+        ]
+      },
+      "factorPrompts": null,
+      "metrics": {
+        "decisionThreshold": [
+          "decisionThreshold"
+        ],
+        "performanceMeasures": [
+          "performanceMeasures"
+        ]
+      },
+      "trainingData": [
+        {
+          "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+          "motivation": "For science!",
+          "preProcessing": [
+            "Aggregation"
+          ]
+        }
+      ],
+      "evaluationData": [
+        {
+          "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+          "motivation": null,
+          "preProcessing": null
+        }
+      ],
+      "quantitativeAnalyses": null,
+      "ethicalConsiderations": {
+        "useCases": [
+          "useCases"
+        ],
+        "humanLife": [
+          "humanLife"
+        ],
+        "mitigations": [
+          "mitigations"
+        ],
+        "risksAndHarms": [
+          "risksAndHarms"
+        ],
+        "data": [
+          "data"
+        ]
+      },
+      "caveatsAndRecommendations": {
+        "caveats": null,
+        "recommendations": "recommendations",
+        "idealDatasetCharacteristics": [
+          "idealDatasetCharacteristics"
+        ]
+      },
+      "cost": {
+        "costType": "ORG_COST_TYPE",
+        "costValue": {
+          "costId": null,
+          "costCode": "costCode"
+        }
+      }
+    }
+  }
+}
+```
