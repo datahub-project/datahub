@@ -4,7 +4,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.types.mappers.DataPlatformMapper;
+import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformMapper;
 import com.linkedin.dataplatform.client.DataPlatforms;
 
 import java.net.URISyntaxException;

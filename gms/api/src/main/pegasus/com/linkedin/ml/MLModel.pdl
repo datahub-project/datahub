@@ -1,7 +1,7 @@
 namespace com.linkedin.ml
 
 import com.linkedin.common.ChangeAuditStamps
-import com.linkedin.common.MlModelUrn
+import com.linkedin.common.MLModelUrn
 import com.linkedin.common.VersionTag
 import com.linkedin.common.Ownership
 import com.linkedin.common.InstitutionalMemory
@@ -25,6 +25,26 @@ import com.linkedin.ml.metadata.SourceCode
  * MlModel spec. for a model store. A collection of MlModel metadata schema that can evolve over time.
  */
 record MLModel includes MLModelKey, ChangeAuditStamps {
+
+  /**
+   * Model unique identifier. System assigned value when a new model is created.
+   */
+  id: long = 0
+
+  /**
+   * Model urn
+   */
+  urn: MLModelUrn
+
+  /**
+   * Description for model
+   */
+  description: string = ""
+
+  /**
+   * tags for searching model
+   */
+  tags: array[string] = [ ]
 
   /**
    * Ownership Info

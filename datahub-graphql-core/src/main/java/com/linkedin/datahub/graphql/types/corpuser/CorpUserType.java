@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.mappers.CorpUserMapper;
+import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.metadata.query.AutoCompleteResult;
