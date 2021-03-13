@@ -1,7 +1,5 @@
 namespace com.linkedin.datajob
 
-import com.linkedin.common.DataFlowOrchestratorUrn
-
 
 /**
  * Key for data flow resource
@@ -9,10 +7,13 @@ import com.linkedin.common.DataFlowOrchestratorUrn
 record DataFlowKey {
 
   /**
-   * Standardized data flow orchestrator urn where dataset is defined. The data flow orchestrator Urn (urn:li:dataFlowOrchestrator:{orchestrator_name})
+   * The workflow orchestrator, ex: Azkaban, Airflow
    */
-  @validate.`com.linkedin.datajob.rest.validator.DataFlowOrchestratorValidator` = { }
-  orchestrator: DataFlowOrchestratorUrn
+  @validate.strlen = {
+    "max" : 50,
+    "min" : 1
+  }
+  orchestrator: string
 
   /**
    * Id of the flow

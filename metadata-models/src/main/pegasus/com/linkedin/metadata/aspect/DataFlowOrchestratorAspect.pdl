@@ -1,8 +1,0 @@
-namespace com.linkedin.metadata.aspect
-
-import com.linkedin.datajob.DataFlowOrchestratorInfo
-
-/**
- * A union of all supported metadata aspects for a Data Flow Orchestrator
- */
-typeref DataFlowOrchestratorAspect = union[DataFlowOrchestratorInfo]

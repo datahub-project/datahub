@@ -16,7 +16,8 @@ namespace com.linkedin.common
   "fields" : [ {
     "name" : "orchestrator",
     "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
-    "type" : "com.linkedin.common.urn.DataFlowOrchestratorUrn",
+    "type" : "string",
+    "maxLength" : 50
   }, {
     "name" : "flowId",
     "doc" : "Unique Identifier of the data flow",

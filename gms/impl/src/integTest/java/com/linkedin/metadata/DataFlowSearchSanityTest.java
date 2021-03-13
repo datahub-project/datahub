@@ -3,7 +3,6 @@ package com.linkedin.metadata;
 import java.util.Collections;
 
 import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.common.urn.DataFlowOrchestratorUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.configs.DataFlowSearchConfig;
 import com.linkedin.metadata.search.DataFlowDocument;
@@ -21,7 +20,7 @@ public class DataFlowSearchSanityTest extends BaseSearchSanityTests<DataFlowDocu
     @SearchIndexMappings("/index/dataflow/mappings.json")
     public SearchIndex<DataFlowDocument> _index;
 
-    private static final DataFlowUrn URN = new DataFlowUrn( new DataFlowOrchestratorUrn("airflow"), "my_pipeline", "prod_cluster");
+    private static final DataFlowUrn URN = new DataFlowUrn("airflow", "my_pipeline", "prod_cluster");
     private static final DataFlowDocument DOCUMENT = new DataFlowDocument().setUrn(URN)
         .setFlowId(URN.getFlowIdEntity())
         .setName("go_with_the_flow")

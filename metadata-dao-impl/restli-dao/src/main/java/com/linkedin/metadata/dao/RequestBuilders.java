@@ -23,7 +23,6 @@ public class RequestBuilders {
           add(new CorpUserActionRequestBuilder());
           add(new DashboardActionRequestBuilder());
           add(new DataFlowActionRequestBuilder());
-          add(new DataFlowOrchestratorActionRequestBuilder());
           add(new DataJobActionRequestBuilder());
           add(new DataPlatformActionRequestBuilder());
           add(new DataProcessActionRequestBuilder());

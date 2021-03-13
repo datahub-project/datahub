@@ -66,8 +66,9 @@
         "entityType" : "dataFlow",
         "fields" : [ {
           "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
+          "maxLength" : 50,
           "name" : "orchestrator",
-          "type" : "com.linkedin.common.urn.DataFlowOrchestratorUrn"
+          "type" : "string"
         }, {
           "doc" : "Unique Identifier of the data flow",
           "maxLength" : 200,

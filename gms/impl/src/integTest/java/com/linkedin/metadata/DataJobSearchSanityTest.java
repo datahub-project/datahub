@@ -4,7 +4,6 @@ import java.util.Collections;
 
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.common.urn.DataFlowOrchestratorUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.configs.DataJobSearchConfig;
 import com.linkedin.metadata.search.DataJobDocument;
@@ -22,7 +21,7 @@ public class DataJobSearchSanityTest extends BaseSearchSanityTests<DataJobDocume
     @SearchIndexMappings("/index/datajob/mappings.json")
     public SearchIndex<DataJobDocument> _index;
 
-    private static final DataFlowUrn DATAFLOW_URN = new DataFlowUrn(new DataFlowOrchestratorUrn("airflow"), "my_pipeline", "prod_cluster");
+    private static final DataFlowUrn DATAFLOW_URN = new DataFlowUrn("airflow", "my_pipeline", "prod_cluster");
     private static final DataJobUrn URN = new DataJobUrn(DATAFLOW_URN, "my_job");
 
     private static final DataJobDocument DOCUMENT = new DataJobDocument().setUrn(URN)

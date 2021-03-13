@@ -2,8 +2,6 @@ namespace com.linkedin.metadata.search
 
 import com.linkedin.common.AccessLevel
 import com.linkedin.common.DataFlowUrn
-import com.linkedin.common.DataFlowOrchestratorUrn
-
 
 /**
  * Data model for DataFlow entity search
@@ -33,7 +31,7 @@ record DataFlowDocument includes BaseDocument {
   /**
    * Workflow orchestrator ex: Azkaban, Airflow
    */
-  orchestrator: optional DataFlowOrchestratorUrn
+  orchestrator: optional string
 
   /**
    * Cluster of the flow
