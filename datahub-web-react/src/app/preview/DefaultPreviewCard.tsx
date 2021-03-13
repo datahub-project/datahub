@@ -27,6 +27,8 @@ const styles = {
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
     ownedBy: { color: '#585858' },
+    description: { paddingLeft: 8, margin: 0 },
+    noDescription: { color: '#d8d8d8' },
 };
 
 export default function DefaultPreviewCard({
@@ -45,7 +47,7 @@ export default function DefaultPreviewCard({
         <Row style={styles.row} justify="space-between">
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
-                    <Space direction="horizontal" size={28} align="center">
+                    <Space direction="horizontal" size={20} align="center">
                         {logoUrl && <Image style={styles.logoImage} src={logoUrl} preview />}
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>
@@ -59,12 +61,20 @@ export default function DefaultPreviewCard({
                         </Space>
                     </Space>
                 </Link>
-                <Typography.Paragraph>{description}</Typography.Paragraph>
+                {description.length === 0 ? (
+                    <Typography.Paragraph style={{ ...styles.description, ...styles.noDescription }}>
+                        No description
+                    </Typography.Paragraph>
+                ) : (
+                    <Typography.Paragraph style={styles.description}>{description}</Typography.Paragraph>
+                )}
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
-                <Space>
-                    <TagGroup globalTags={tags} />
-                </Space>
+                {tags && tags.tags?.length && (
+                    <Space>
+                        <TagGroup globalTags={tags} />
+                    </Space>
+                )}
                 <Space direction="vertical" size={12}>
                     <Typography.Text strong>Owned By</Typography.Text>
                     <Avatar.Group maxCount={4}>

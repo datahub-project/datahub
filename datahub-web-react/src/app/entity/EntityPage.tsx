@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
+import { SearchablePage } from '../search/SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 
 interface RouteParams {
@@ -18,10 +19,11 @@ interface Props {
 export const EntityPage = ({ entityType }: Props) => {
     const { urn } = useParams<RouteParams>();
     const entityRegistry = useEntityRegistry();
-
+    const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
+    const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
     return (
-        <BrowsableEntityPage urn={urn} type={entityType}>
+        <ContainerPage urn={urn} type={entityType}>
             {entityRegistry.renderProfile(entityType, urn)}
-        </BrowsableEntityPage>
+        </ContainerPage>
     );
 };
