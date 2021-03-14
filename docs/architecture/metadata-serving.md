@@ -1,118 +1,42 @@
-# Metadata Serving Architecture
+# DataHub Serving Architecture
 
-This section describes how metadata is served in GMA. In particular, it demonstrates how GMA can efficiently service different types of queries, including key-value, complex queries, and full text search.
-Below shows a high-level system diagram for the metadata serving architecture.
+The figure below shows the high-level system diagram for DataHub's Serving Tier. 
 
-![metadata-serving](../imgs/metadata-serving.png)
+![datahub-serving](../imgs/datahub-serving.png)
 
-There are four types of Data Access Object ([DAO]) that standardize the way metadata is accessed. 
-This section describes each type of DAO, its purpose, and the interface. 
+The primary service is called [gms](../../gms) and exposes a REST API for performing CRUD operations on metadata. The metadata service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) and [datahub-gms-graphql](../../datahub-gms-graphql-service) services expose a GraphQL API on top of the metadata graph. 
 
-These DAOs rely heavily on [Java Generics](https://docs.oracle.com/javase/tutorial/extra/generics/index.html) so that the core logics can remain type-neutral. 
-However, as there’s no inheritance in [Pegasus], the generics often fallback to extending [RecordTemplate] instead of the desired types (i.e. [entity], [relationship], metadata [aspect] etc). Additional runtime type checking has been added to the DAOs to avoid binding to unexpected types. We also cache the type checking result to minimize runtime overhead.
+## DataHub Serving Tier Components
 
-## Key-value DAO (Local DAO)
+### Metadata Storage
 
-[GMS] use [Local DAO] to store and retrieve metadata [aspect]s from the local document store. 
-Below shows the base class and its simple key-value interface. 
-As the DAO is a generic class, it needs to be bound to specific type during instantiation. 
-Each entity type will need to instantiate its own version of DAO.
+The DataHub Metadata Service (gms) persists metadata in a document store (could be an RDBMS like MySQL, Postgres or a key-value store like Couchbase etc.). 
 
-```java
-public abstract class BaseLocalDAO<ASPECT extends UnionTemplate> {
+### Metadata Commit Log Stream (MAE)
 
- public abstract <URN extends Urn, METADATA extends RecordTemplate> void 
-  add(Class<METADATA> type, URN urn, METADATA value);
+The DataHub Service Tier also emits a commit event [Metadata Audit Event (MAE)] when a metadata change has been successfully committed to persistent storage. This event is sent over Kafka. 
 
- public abstract <URN extends Urn, METADATA extends RecordTemplate> 
-  Optional<METADATA> get(Class<METADATA> type, URN urn, int version);
+The MAE stream is a public API and can be subscribed to by external systems providing an extremely powerful way to react in real-time to changes happening in metadata. For example, you could build an access control enforcer that reacts to change in metadata (e.g. a previously world-readable dataset now has a pii field) to immediately lock down the dataset in question.
+Note that not all MCE-s will result in an MAE, because the DataHub serving tier will ignore any duplicate changes to metadata.
 
- public abstract <URN extends Urn, METADATA extends RecordTemplate> 
-  ListResult<Integer> listVersions(Class<METADATA> type, URN urn, int start, 
-    int pageSize);
+### Metadata Index Applier (mae-consumer-job)
 
- public abstract <METADATA extends RecordTemplate> ListResult<Urn> listUrns( 
-  Class<METADATA> type, int start, int pageSize);
+[MAE]-s are consumed by another Kafka Streams job, [mae-consumer-job], which applies the changes to the [graph] and [search index] accordingly. 
+The job is entity-agnostic and will execute corresponding graph & search index builders, which will be invoked by the job when a specific metadata aspect is changed. 
+The builder should instruct the job how to update the graph and search index based on the metadata change. 
+The builder can optionally use [Remote DAO] to fetch additional metadata from other sources to help compute the final update.
 
- public abstract <URN extends Urn, METADATA extends RecordTemplate> 
-  ListResult<METADATA> list(Class<METADATA> type, URN urn, int start, int pageSize);
-}
-```
+To ensure that metadata changes are processed in the correct chronological order, MAEs are keyed by the entity [URN] — meaning all MAEs for a particular entity will be processed sequentially by a single Kafka streams thread. 
 
-Another important function of [Local DAO] is to automatically emit [MAE]s whenever the metadata is updated. 
-This is doable because MAE effectively use the same [Pegasus] models so [RecordTemplate] can be easily converted into the corresponding [GenericRecord].
+### Metadata Query Serving
 
-## Search DAO
+Primary-key based reads (e.g. getting schema metadata for a dataset based on the `dataset-urn`) on metadata are routed to the document store. Secondary index based reads on metadata are routed to the search index (or alternately can use the strongly consistent secondary index support described [here]()). Full-text and advanced search queries are routed to the search index. Complex graph queries usch as lineage are routed to the graph index. 
 
-Search DAO is also a generic class that can be bound to a specific type of search document. 
-The DAO provides 3 APIs:
-* A `search` API that takes the search input, a [Filter], a [SortCriterion], some pagination parameters, and returns a [SearchResult]. 
-* An `autoComplete` API which allows typeahead-style autocomplete based on the current input and a [Filter], and returns [AutocompleteResult].
-* A `filter` API which allows for filtering only without a search input. It takes a a [Filter] and a [SortCriterion] as input and returns [SearchResult].
+### Further Reading
 
-```java
-public abstract class BaseSearchDAO<DOCUMENT extends RecordTemplate> {
-
-  public abstract SearchResult<DOCUMENT> search(String input, Filter filter, 
-        SortCriterion sortCriterion, int from, int size);
-
-  public abstract AutoCompleteResult autoComplete(String input, String field,
-        Filter filter, int limit);
-
-  public abstract SearchResult<DOCUMENT> filter(Filter filter, SortCriterion sortCriterion, 
-        int from, int size);
-}
-```
-
-## Query DAO
-
-Query DAO allows clients, e.g. [GMS](../what/gms.md), [MAE Consumer Job](metadata-ingestion.md#mae-consumer-job) etc, to perform both graph & non-graph queries against the metadata graph. 
-For instance, a GMS can use the Query DAO to find out “all the dataset owned by the users who is part of the group `foo` and report to `bar`,” which naturally translates to a graph query. 
-Alternatively, a client may wish to retrieve “all the datasets that stored under /jobs/metrics”, which doesn’t involve any graph traversal.
-
-Below is the base class for Query DAOs, which contains the `findEntities` and `findRelationships` methods. 
-Both methods also have two versions, one involves graph traversal, and the other doesn’t. 
-You can use `findMixedTypesEntities` and `findMixedTypesRelationships` for queries that return a mixture of different types of entities or relationships. 
-As these methods return a list of [RecordTemplate], callers will need to manually cast them back to the specific entity type using [isInstance()](https://docs.oracle.com/javase/8/docs/api/java/lang/Class.html#isInstance-java.lang.Object-) or reflection.
-
-Note that the generics (ENTITY, RELATIONSHIP) are purposely left untyped, as these types are native to the underlying graph DB and will most likely differ from one implementation to another.
-
-```java
-public abstract class BaseQueryDAO<ENTITY, RELATIONSHIP> {
-
- public abstract <ENTITY extends RecordTemplate> List<ENTITY> findEntities(
-  Class<ENTITY> type, Filter filter, int offset, int count);
-
- public abstract <ENTITY extends RecordTemplate> List<ENTITY> findEntities(
-  Class<ENTITY> type, Statement function);
-
- public abstract List<RecordTemplate> findMixedTypesEntities(Statement function);
-
- public abstract <ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate> List<RELATIONSHIP> 
-  findRelationships(Class<ENTITY> entityType, Class<RELATIONSHIP> relationshipType, Filter filter, int offset, int count);
-
- public abstract <RELATIONSHIP extends RecordTemplate> List<RELATIONSHIP> 
-  findRelationships(Class<RELATIONSHIP> type, Statement function);
-
- public abstract List<RecordTemplate> findMixedTypesRelationships(
-  Statement function);
-}
-```
-
-## Remote DAO
-
-[Remote DAO] is nothing but a specialized readonly implementation of [Local DAO]. 
-Rather than retrieving metadata from a local storage, Remote DAO will fetch the metadata from another [GMS]. 
-The mapping between [entity] type and GMS is implemented as a hard-coded map.
-
-To prevent circular dependency ([rest.li] service depends on remote DAO, which in turn depends on rest.li client generated by each rest.li service), 
-Remote DAO will need to construct raw rest.li requests directly, instead of using each entity’s rest.li request builder.
+Read the [metadata service developer guide](../how/build-metadata-service.md) to understand how to customize the DataHub metadata service tier. 
 
 
-[AutocompleteResult]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/AutoCompleteResult.pdl
-[Filter]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/Filter.pdl
-[SortCriterion]: ../../metadata-dao/src/main/pegasus/com/linkedin/metadata/query/SortCriterion.pdl
-[SearchResult]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/SearchResult.java
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java
 [DAO]: https://en.wikipedia.org/wiki/Data_access_object
@@ -121,7 +45,25 @@ Remote DAO will need to construct raw rest.li requests directly, instead of usin
 [entity]: ../what/entity.md
 [aspect]: ../what/aspect.md
 [GMS]: ../what/gms.md
-[Local DAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseLocalDAO.java
-[Remote DAO]: ../../metadata-dao/src/main/java/com/linkedin/metadata/dao/BaseRemoteDAO.java
 [MAE]: ../what/mxe.md#metadata-audit-event-mae
 [rest.li]: https://rest.li
+
+
+[Metadata Change Event (MCE)]: ../what/mxe.md#metadata-change-event-mce
+[Metadata Audit Event (MAE)]: ../what/mxe.md#metadata-audit-event-mae
+[MAE]: ../what/mxe.md#metadata-audit-event-mae
+[equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
+[graph]: ../what/graph.md
+[search index]: ../what/search-index.md
+[mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
+[mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
+[Remote DAO]: ../architecture/metadata-serving.md#remote-dao
+[URN]: ../what/urn.md
+[Metadata Modelling]: ../how/metadata-modelling.md
+[Entity]: ../what/entity.md
+[Relationship]: ../what/relationship.md
+[Search Document]: ../what/search-document.md
+[metadata aspect]: ../what/aspect.md
+[Python emitters]: https://datahubproject.io/docs/metadata-ingestion/#using-as-a-library
+
+
