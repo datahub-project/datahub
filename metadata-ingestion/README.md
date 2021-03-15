@@ -343,6 +343,24 @@ source:
     # table_pattern/schema_pattern is same as above
 ```
 
+### Druid `druid`
+
+Extracts:
+
+- List of databases, schema, and tables
+- Column types associated with each table
+
+```yml
+source:
+  type: druid
+  config:
+    # Point to broker address
+    host_port: localhost:8082
+    database: DemoDatabase
+    # table_pattern/schema_pattern is same as above
+    # options is same as above
+```
+
 ### LDAP `ldap`
 
 Extracts:
