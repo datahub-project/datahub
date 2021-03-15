@@ -8,25 +8,15 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": {
-                            "string": "Bart Simpson"
-                        },
+                        "displayName": "Bart Simpson",
                         "email": "",
-                        "title": {
-                            "string": "Mr. Boss"
-                        },
+                        "title": "Mr. Boss",
                         "managerUrn": null,
                         "departmentId": null,
                         "departmentName": null,
-                        "firstName": {
-                            "string": "Bart"
-                        },
-                        "lastName": {
-                            "string": "Simpson"
-                        },
-                        "fullName": {
-                            "string": "Bart Simpson"
-                        },
+                        "firstName": "Bart",
+                        "lastName": "Simpson",
+                        "fullName": "Bart Simpson",
                         "countryCode": null
                     }
                 }
@@ -44,29 +34,15 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": {
-                            "string": "Homer Simpson"
-                        },
+                        "displayName": "Homer Simpson",
                         "email": "hsimpson",
-                        "title": {
-                            "string": "Mr. Everything"
-                        },
-                        "managerUrn": {
-                            "string": "urn:li:corpuser:bsimpson"
-                        },
+                        "title": "Mr. Everything",
+                        "managerUrn": "urn:li:corpuser:bsimpson",
                         "departmentId": null,
-                        "departmentName": {
-                            "string": "1001"
-                        },
-                        "firstName": {
-                            "string": "Homer"
-                        },
-                        "lastName": {
-                            "string": "Simpson"
-                        },
-                        "fullName": {
-                            "string": "Homer Simpson"
-                        },
+                        "departmentName": "1001",
+                        "firstName": "Homer",
+                        "lastName": "Simpson",
+                        "fullName": "Homer Simpson",
                         "countryCode": null
                     }
                 }
@@ -84,23 +60,15 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": {
-                            "string": "Lisa Simpson"
-                        },
+                        "displayName": "Lisa Simpson",
                         "email": "",
                         "title": null,
                         "managerUrn": null,
                         "departmentId": null,
                         "departmentName": null,
-                        "firstName": {
-                            "string": "Lisa"
-                        },
-                        "lastName": {
-                            "string": "Simpson"
-                        },
-                        "fullName": {
-                            "string": "Lisa Simpson"
-                        },
+                        "firstName": "Lisa",
+                        "lastName": "Simpson",
+                        "fullName": "Lisa Simpson",
                         "countryCode": null
                     }
                 }
@@ -118,23 +86,15 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": {
-                            "string": "Maggie Simpson"
-                        },
+                        "displayName": "Maggie Simpson",
                         "email": "",
                         "title": null,
                         "managerUrn": null,
                         "departmentId": null,
                         "departmentName": null,
-                        "firstName": {
-                            "string": "Maggie"
-                        },
-                        "lastName": {
-                            "string": "Simpson"
-                        },
-                        "fullName": {
-                            "string": "Maggie Simpson"
-                        },
+                        "firstName": "Maggie",
+                        "lastName": "Simpson",
+                        "fullName": "Maggie Simpson",
                         "countryCode": null
                     }
                 }

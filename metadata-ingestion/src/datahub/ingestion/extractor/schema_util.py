@@ -41,7 +41,7 @@ _field_type_mapping = {
 
 def _get_column_type(field_type) -> SchemaFieldDataType:
     tp = field_type
-    if hasattr(tp, 'type'):
+    if hasattr(tp, "type"):
         tp = tp.type
     tp = str(tp)
     TypeClass: Any = _field_type_mapping.get(tp)
@@ -56,7 +56,7 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
 
     # Handle some library compatability issues.
-    if hasattr(avro.schema, 'parse'):
+    if hasattr(avro.schema, "parse"):
         schema_parse_fn = avro.schema.parse
     else:
         schema_parse_fn = avro.schema.Parse
@@ -69,7 +69,9 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
             fieldPath=parsed_field.name,
             nativeDataType=str(parsed_field.type),
             type=_get_column_type(parsed_field.type),
-            description=parsed_field.props.get('doc', None),
+            description=parsed_field.props.get("doc", None),
+            recursive=False,
+            nullable=(parsed_field.type == "null"),
         )
 
         fields.append(field)
