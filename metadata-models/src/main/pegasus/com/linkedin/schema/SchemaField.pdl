@@ -41,4 +41,9 @@ record SchemaField {
    * There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.
    */
   recursive: boolean = false
+
+  /**
+   * Tags associated with the field
+   */
+  globalTags: optional GlobalTags
 }

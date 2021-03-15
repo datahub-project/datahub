@@ -495,7 +495,7 @@ type EditableSchemaFieldInfo {
     description: String
 
     """
-    Tags associated with the field
+    Edited tags associated with the field
     """
     globalTags: GlobalTags
 }

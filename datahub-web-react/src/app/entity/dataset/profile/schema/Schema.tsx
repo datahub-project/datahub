@@ -56,19 +56,24 @@ const tagColumn = {
 
 export default function SchemaView({ schema, editableSchemaMetadata }: Props) {
     const columns = useMemo(() => {
-        const hasTags = editableSchemaMetadata?.editableSchemaFieldInfo?.some(
-            (field) => (field?.globalTags?.tags?.length || 0) > 0,
-        );
-
+        const hasTags =
+            editableSchemaMetadata?.editableSchemaFieldInfo?.some(
+                (field) => (field?.globalTags?.tags?.length || 0) > 0,
+            ) || schema?.fields?.some((field) => (field?.globalTags?.tags?.length || 0) > 0);
         return [...defaultColumns, ...(hasTags ? [tagColumn] : [])];
-    }, [editableSchemaMetadata]);
+    }, [schema, editableSchemaMetadata]);
 
     const tableData = useMemo(() => {
         return schema?.fields.map((field) => {
             const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
                 (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === field.fieldPath,
             );
-            return { ...field, globalTags: relevantEditableFieldInfo?.globalTags };
+            return {
+                ...field,
+                globalTags: {
+                    tags: [...(field.globalTags?.tags || []), ...(relevantEditableFieldInfo?.globalTags?.tags || [])],
+                },
+            };
         });
     }, [schema, editableSchemaMetadata]);
 
