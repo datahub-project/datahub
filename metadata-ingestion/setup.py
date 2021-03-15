@@ -68,6 +68,7 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "ldap": {"python-ldap>=2.4"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},

@@ -93,6 +93,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | snowflake     | `pip install -e '.[snowflake]'`                   | Snowflake source           |
 | ldap          | `pip install -e '.[ldap]'` ([extra requirements]) | LDAP source                |
 | kakfa         | `pip install -e '.[kafka]'`                       | Kafka source               |
+| druid         | `pip install -e '.[druid]'`                       | Druid Source               |
 | datahub-rest  | `pip install -e '.[datahub-rest]'`                | DataHub sink over REST API |
 | datahub-kafka | `pip install -e '.[datahub-kafka]'`               | DataHub sink over Kafka    |
 
