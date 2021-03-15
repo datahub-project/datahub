@@ -138,7 +138,7 @@
                                 }
                             ]
                         }
-                    },
+                    }
                     {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "SampleKafkaSchema",
@@ -442,6 +442,11 @@
                             "primaryKeys": null,
                             "foreignKeysSpecs": null
                         }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.GlobalTags": {
+                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
+                        }
                     }
                 ]
             }
@@ -525,6 +530,11 @@
                             "type": null,
                             "access": null,
                             "lastRefreshed": null
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.GlobalTags": {
+                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
                         }
                     }
                 ]
@@ -638,8 +648,9 @@
                         "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
                             "description": "A sample model for predicting some outcome.",
                             "date": null,
-                            "tags": [],
-                            "version": null
+                            "tags": ["Sample"],
+                            "version": null,
+                            "type": "Naive Bayes classifier"
                         }
                     },
                     {
@@ -662,6 +673,104 @@
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
                                 }
                             ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+                            "elements": [
+                                {
+                                    "url": "https://www.linkedin.com",
+                                    "description": "Sample doc",
+                                    "createStamp": {
+                                        "time": 1581407189000,
+                                        "actor": "urn:li:corpuser:jdoe",
+                                        "impersonator": null
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
+                            "primaryUses" : [
+                                "Sample Model",
+                                "Primary Use"
+                            ],
+                            "primaryUsers": [
+                               "ENTERPRISE"
+                            ],
+                            "outOfScopeUses": [
+                                "Production Deployment"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
+                            "performanceMeasures": ["performanceMeasures"],
+                            "decisionThreshold": ["decisionThreshold"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
+                            "data": ["data"],
+                            "humanLife": ["humanLife"],
+                            "mitigations": ["mitigations"],
+                            "risksAndHarms": ["risksAndHarms"],
+                            "useCases": ["useCases"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
+                            "recommendations": "recommendations",
+                            "idealDatasetCharacteristics": [
+                                "idealDatasetCharacteristics"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "boolean" : false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Cost": {
+                            "costType": "ORG_COST_TYPE",
+                            "cost": {
+                                "costCode": "costCode"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+                "urn": "urn:li:tag:Legacy",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.tag.TagProperties": {
+                            "name": "Legacy",
+                            "description": "Indicates the dataset is no longer supported"
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:jdoe",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            }
                         }
                     }
                 ]
