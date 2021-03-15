@@ -76,6 +76,15 @@ fragment nonRecursiveDatasetFields on Dataset {
             type
             nativeDataType
             recursive
+            globalTags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        description
+                    }
+                }
+            }
         }
         primaryKeys
     }
@@ -193,6 +202,15 @@ query getDataset($urn: String!) {
                 type
                 nativeDataType
                 recursive
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
             }
             primaryKeys
         }
