@@ -172,8 +172,7 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity",
-      "optional" : true
+      "doc" : "Tags associated with a given entity"
     } ]
   }, {
     "type" : "record",
