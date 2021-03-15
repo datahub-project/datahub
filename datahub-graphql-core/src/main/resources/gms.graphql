@@ -477,6 +477,10 @@ type SchemaField {
     Whether the field references its own type recursively
     """
     recursive: Boolean!
+    """
+    Tags associated with the field
+    """
+    globalTags: GlobalTags
 }
 
 type EditableSchemaMetadata {
