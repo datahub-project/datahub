@@ -10,6 +10,7 @@ from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.ingestion.source.mce_file import check_mce_file
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ def datahub():
 @click.option(
     "-c",
     "--config",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, dir_okay=False),
     help="Config file in .toml or .yaml format",
     required=True,
 )
@@ -77,6 +78,8 @@ def ingest(config: str):
 
 @datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
 def ingest_list_plugins():
+    """List enabled ingestion plugins"""
+
     click.secho("Sources:", bold=True)
     click.echo(str(source_registry))
     click.echo()
@@ -84,3 +87,17 @@ def ingest_list_plugins():
     click.echo(str(sink_registry))
     click.echo()
     click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')
+
+
+@datahub.group()
+def check():
+    pass
+
+
+@check.command()
+@click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
+def mce_file(json_file: str):
+    """Check the schema of a MCE JSON file"""
+
+    report = check_mce_file(json_file)
+    click.echo(report)

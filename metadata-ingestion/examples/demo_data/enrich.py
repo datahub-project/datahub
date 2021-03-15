@@ -107,7 +107,7 @@ def create_ownership_aspect_mce(directive: Directive) -> MetadataChangeEventClas
                     owners=[
                         OwnerClass(
                             owner=owner_name_to_urn(clean_owner_name(owner)),
-                            type=OwnershipTypeClass.DATAOWNER,  # type: ignore
+                            type=OwnershipTypeClass.DATAOWNER,
                         )
                         for owner in directive.owners
                     ],
@@ -130,7 +130,7 @@ def create_lineage_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
                     upstreams=[
                         UpstreamClass(
                             dataset=dataset_name_to_urn(upstream),
-                            type=DatasetLineageTypeClass.TRANSFORMED,  # type: ignore
+                            type=DatasetLineageTypeClass.TRANSFORMED,
                             auditStamp=AuditStampClass(
                                 time=int(time.time() * 1000),
                                 actor="urn:li:corpuser:datahub",

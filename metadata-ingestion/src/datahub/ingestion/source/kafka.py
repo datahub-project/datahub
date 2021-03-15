@@ -92,6 +92,7 @@ class KafkaSource(Source):
         metadata_record = MetadataChangeEvent()
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+            aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
         metadata_record.proposedSnapshot = dataset_snapshot
