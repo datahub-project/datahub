@@ -34,9 +34,7 @@ def test_check_mce_schema(pytestconfig):
     json_file_path = test_resources_dir / json_filename
 
     runner = CliRunner()
-    result = runner.invoke(
-        datahub, ["check-mce-schema", "--json-file", f"{json_file_path}"]
-    )
+    result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
     assert result.exit_code == 0
 
 
@@ -46,7 +44,5 @@ def test_reader_allows_verbose_unions(pytestconfig):
     json_file_path = test_resources_dir / json_filename
 
     runner = CliRunner()
-    result = runner.invoke(
-        datahub, ["check-mce-schema", "--json-file", f"{json_file_path}"]
-    )
+    result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
     assert result.exit_code == 0

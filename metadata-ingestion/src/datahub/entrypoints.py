@@ -89,15 +89,14 @@ def ingest_list_plugins():
     click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')
 
 
-@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
-@click.option(
-    "-f",
-    "--json-file",
-    type=click.Path(exists=True, dir_okay=False),
-    help="JSON file with a list of MCE objects",
-    required=True,
-)
-def check_mce_schema(json_file: str):
+@datahub.group()
+def check():
+    pass
+
+
+@check.command()
+@click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
+def mce_file(json_file: str):
     """Check the schema of a MCE JSON file"""
 
     report = check_mce_file(json_file)
