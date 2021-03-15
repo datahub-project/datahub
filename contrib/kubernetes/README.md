@@ -40,7 +40,7 @@ The following table lists the configuration parameters and its default values
 | file://./charts/datahub-gms | datahub-gms | 0.2.1 |
 | file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.2.1 |
 | file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.2.1 |
-| file://./charts/datahub-crawler | datahub-ingestion | 0.2.1 |
+| file://./charts/datahub-ingestion-cron | datahub-ingestion-cron | 0.2.1 |
 
 ## Install DataHub
 Navigate to the current directory and run the below command.  Update the `datahub/values.yaml` file with valid hostname/IP address configuration for elasticsearch, neo4j, schema-registry, broker & mysql. 

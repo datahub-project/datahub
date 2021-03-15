@@ -1,4 +1,4 @@
-# Default values for datahub-ingestion.
+# Default values for datahub-ingestion-cron.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -16,7 +16,7 @@ crons: []
   #name: "crawler"
 
   ## Daily at midnight (we may want to offset this to not conflict with other processes)
-  #schedule: "0 0 * * *" 
+  #schedule: "0 0 * * *"
 
   ## Deployment pod host aliases
   ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
@@ -32,7 +32,7 @@ crons: []
   ## Additional primary volume mounts
   ##
   #extraVolumeMounts: []
-  
+
   ## Additional primary volumes
   ##
   #extraVolumes: []

@@ -1,4 +1,4 @@
-datahub-ingestion
+datahub-ingestion-cron
 ================
 A Helm chart for datahub's metadata-ingestion framework with kerberos authentication.
 
@@ -7,7 +7,7 @@ A Helm chart for datahub's metadata-ingestion framework with kerberos authentica
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | image.pullPolicy | string | `"Always"` | Image pull policy |
-| image.repository | string | `"linkedin/datahub-crawler"` | DataHub Ingestion image repository |
+| image.repository | string | `"linkedin/datahub-ingestion"` | DataHub Ingestion image repository |
 | image.tag | string | `"latest"` | DataHub Ingestion image tag |
 | imagePullSecrets | array | `[]` (does not add image pull secrets to deployed pods) | Docker registry secret names as an array |
 | labels | string | `{}` | Metadata labels to be added to each crawling cron job |

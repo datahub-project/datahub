@@ -26,7 +26,7 @@ datahub-mce-consumer:
     repository: linkedin/datahub-mce-consumer
     tag: "latest"
 
-datahub-crawler:
+datahub-ingestion-cron:
   enabled: false
   image:
     repository: linkedin/datahub-ingestion

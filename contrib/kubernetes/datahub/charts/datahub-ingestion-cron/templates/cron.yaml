@@ -1,5 +1,5 @@
-{{- $baseName := include "datahub-ingestion.fullname" .}}
-{{- $labels := include "datahub-ingestion.labels" .}}
+{{- $baseName := include "datahub-ingestion-cron.fullname" .}}
+{{- $labels := include "datahub-ingestion-cron.labels" .}}
 {{- range $job, $val := .Values.crons }}
 apiVersion: batch/v1beta1
 kind: CronJob
@@ -53,7 +53,7 @@ spec:
               {{- end }}
           restartPolicy: OnFailure
           {{- if .extraVolumes }}
-          volumes:  
+          volumes:
             {{- toYaml .extraVolumes | nindent 12 }}
           {{- end }}
 ---
