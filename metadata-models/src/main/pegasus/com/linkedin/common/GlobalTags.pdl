@@ -8,5 +8,5 @@ record GlobalTags {
   /**
    * Tags associated with a given entity
    */
-  tags: optional array[TagAssociation]
+  tags: array[TagAssociation]
 }
