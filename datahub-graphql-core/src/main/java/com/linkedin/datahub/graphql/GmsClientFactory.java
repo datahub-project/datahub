@@ -11,6 +11,8 @@ import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
 import com.linkedin.tag.client.Tags;
 import com.linkedin.util.Configuration;
+import com.linkedin.datajob.client.DataFlows;
+
 
 /**
  * Provides access to clients for use in fetching data from downstream GMS services.
@@ -42,6 +44,7 @@ public class GmsClientFactory {
     private static MLModels _mlModels;
     private static Lineages _lineages;
     private static Tags _tags;
+    private static DataFlows _dataFlows;
 
 
     private GmsClientFactory() { }
@@ -110,6 +113,17 @@ public class GmsClientFactory {
             }
         }
         return _mlModels;
+    }
+
+    public static DataFlows getDataFlowsClient() {
+        if (_dataFlows == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_dataFlows == null) {
+                    _dataFlows = new DataFlows(REST_CLIENT);
+                }
+            }
+        }
+        return _dataFlows;
     }
 
     public static Lineages getLineagesClient() {

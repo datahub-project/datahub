@@ -53,6 +53,14 @@ enum EntityType {
     The MLModel Entity
     """
     MLMODEL
+    """
+    The DATAFLOW Entity
+    """
+    DATAFLOW
+    """
+    The DATAFLOW Entity
+    """
+    DATAJOB
 }
 
 type Query {
@@ -84,6 +92,11 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a DataFlow by primary key
+    """
+    dataFlow(urn: String!): DataFlow
 
     """
     Search DataHub entities
@@ -1938,4 +1951,58 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+}
+
+type DataFlow implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The chart tool name
+    """
+    orchestrator: String!
+
+    """
+    An id unique within the charting tool
+    """
+    flowId: String!
+
+    """
+    The chart tool name
+    """
+    cluster: String!
+
+    """
+    Info about the chart
+    """
+    info: DataFlowInfo
+
+    """
+    Ownership metadata of the chart
+    """
+    ownership: Ownership
+}
+
+type DataFlowInfo {
+    """
+    Name of the chart
+    """
+    name: String!
+
+    """
+    Description of the chart
+    """
+    description: String!
+
+    """
+    Description of the chart
+    """
+    project: String!
 }

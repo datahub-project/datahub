@@ -32,6 +32,7 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
+import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
@@ -67,6 +68,7 @@ public class GmsGraphQLEngine {
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(GmsClientFactory.getLineagesClient());
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
+    public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -79,7 +81,8 @@ public class GmsGraphQLEngine {
             CHART_TYPE,
             DASHBOARD_TYPE,
             TAG_TYPE,
-            ML_MODEL_TYPE
+            ML_MODEL_TYPE,
+            DATA_FLOW_TYPE
     );
 
     /**
@@ -134,6 +137,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureMlModelResolvers(builder);
+        configureDataFlowResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -184,9 +188,9 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                                 TAG_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("mlModel", new AuthenticatedResolver<>(
+                .dataFetcher("dataFlow", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
-                        ML_MODEL_TYPE,
+                        DATA_FLOW_TYPE,
                         (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -328,6 +332,19 @@ public class GmsGraphQLEngine {
             );
     }
 
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataFlow} type.
+     */
+    private static void configureDataFlowResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("Owner", typeWiring -> typeWiring
+                .dataFetcher("owner", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        CORP_USER_TYPE,
+                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
+                )
+            );
+    }
 
     private static <T> DataLoader<String, T> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
