@@ -30,7 +30,7 @@ datahub-crawler:
   enabled: false
   image:
     repository: linkedin/datahub-ingestion
-    tag: "latest
+    tag: "latest"
 
 global:
   elasticsearch:
