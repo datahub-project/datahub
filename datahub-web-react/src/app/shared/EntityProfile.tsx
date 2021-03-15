@@ -3,12 +3,10 @@ import { Col, Row, Divider, Layout, Space } from 'antd';
 import styled from 'styled-components';
 
 import { RoutedTabs } from './RoutedTabs';
-import { GlobalTags } from '../../types.generated';
-import TagGroup from './TagGroup';
 
 export interface EntityProfileProps {
     title: string;
-    tags?: GlobalTags;
+    tags?: React.ReactNode;
     header: React.ReactNode;
     tabs?: Array<{
         name: string;
@@ -39,9 +37,7 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
                 <Col span={24}>
                     <Space>
                         <h1>{title}</h1>
-                        <TagsContainer>
-                            <TagGroup globalTags={tags} />
-                        </TagsContainer>
+                        <TagsContainer>{tags}</TagsContainer>
                     </Space>
                 </Col>
             </Row>

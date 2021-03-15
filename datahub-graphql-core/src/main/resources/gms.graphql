@@ -1094,6 +1094,64 @@ input DatasetUpdateInput {
     Update to institutional memory, ie documentation
     """
     institutionalMemory: InstitutionalMemoryUpdate
+
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable schema metadata of the dataset
+    """
+    editableSchemaMetadata: EditableSchemaMetadataUpdate
+}
+
+input EditableSchemaMetadataUpdate {
+    editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
+}
+
+input EditableSchemaFieldInfoUpdate {
+    """
+    Flattened name of a field identifying the field the editable info is applied to
+    """
+    fieldPath: String
+
+    """
+    Edited description of the field
+    """
+    description: String
+
+    """
+    Tags associated with the field
+    """
+    globalTags: GlobalTagsUpdate
+}
+
+input GlobalTagsUpdate {
+    tags: [TagAssociationUpdate!]
+}
+
+input TagAssociationUpdate {
+    tag: TagUpdate!
+}
+
+input TagUpdate {
+    urn: String!
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+    name: String!
+
+    """
+    Description of the tag
+    """
+    description: String
+
+    """
+    Ownership metadata of the tag
+    """
+    ownership: OwnershipUpdate
 }
 
 input OwnershipUpdate {

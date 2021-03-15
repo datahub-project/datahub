@@ -1,6 +1,10 @@
 import React from 'react';
 import { Alert } from 'antd';
-import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
+import {
+    useGetDatasetQuery,
+    useUpdateDatasetMutation,
+    GetDatasetDocument,
+} from '../../../../graphql/dataset.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
@@ -10,6 +14,7 @@ import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
+import TagGroup from '../../../shared/TagGroup';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -27,7 +32,23 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
-    const [updateDataset] = useUpdateDatasetMutation();
+    const [updateDataset, updateDatasetStatus] = useUpdateDatasetMutation({
+        update(cache, { data: newDataset }) {
+            console.log({ newDataset });
+            cache.modify({
+                fields: {
+                    dataset() {
+                        cache.writeQuery({
+                            query: GetDatasetDocument,
+                            data: { dataset: newDataset?.updateDataset },
+                        });
+                    },
+                },
+            });
+        },
+    });
+
+    console.log({ updateDatasetStatus });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -94,7 +115,14 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {data && data.dataset && (
                 <EntityProfile
                     title={data.dataset.name}
-                    tags={data.dataset?.globalTags as GlobalTags}
+                    tags={
+                        <TagGroup
+                            globalTags={data.dataset?.globalTags as GlobalTags}
+                            canEdit
+                            updateTags={(globalTags) => updateDataset({ variables: { input: { urn, globalTags } } })}
+                            loading={updateDatasetStatus.loading}
+                        />
+                    }
                     tabs={getTabs(data.dataset as Dataset)}
                     header={getHeader(data.dataset as Dataset)}
                 />
