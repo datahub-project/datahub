@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 
