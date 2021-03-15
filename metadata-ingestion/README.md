@@ -76,7 +76,7 @@ pip install avro-python3
 
 </details>
 
-### Installing Plugins
+#### Installing Plugins
 
 We use a plugin architecture so that you can install only the dependencies you actually need.
 
@@ -110,7 +110,7 @@ datahub ingest-list-plugins
 
 [extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
 
-### Basic Usage
+#### Basic Usage
 
 ```sh
 pip install -e '.[datahub-rest]'  # install the required plugin
@@ -468,7 +468,7 @@ pytest tests/integration
 
 ```sh
 # Assumes: pip install -e '.[dev]'
-black --exclude 'datahub/metadata' -S -t py36 src tests
+black --exclude 'datahub/metadata' -t py36 src tests
 isort src tests
 flake8 src tests
 mypy -p datahub
