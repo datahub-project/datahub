@@ -2,10 +2,12 @@
 import pydruid # noqa: F401
 
 from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "druid"
+    schema_pattern: AllowDenyPattern = AllowDenyPattern(deny=["^(lookup|sys).*"])
 
     def get_sql_alchemy_url(self):
         return f"{BasicSQLAlchemyConfig.get_sql_alchemy_url(self)}/druid/v2/sql/"
