@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -33,6 +34,8 @@ import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolv
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
+import com.linkedin.datahub.graphql.types.datajob.DataJobType;
+
 
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
@@ -69,6 +72,7 @@ public class GmsGraphQLEngine {
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
+    public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -82,7 +86,8 @@ public class GmsGraphQLEngine {
             DASHBOARD_TYPE,
             TAG_TYPE,
             ML_MODEL_TYPE,
-            DATA_FLOW_TYPE
+            DATA_FLOW_TYPE,
+            DATA_JOB_TYPE
     );
 
     /**
@@ -138,6 +143,7 @@ public class GmsGraphQLEngine {
         configureTagAssociationResolver(builder);
         configureMlModelResolvers(builder);
         configureDataFlowResolvers(builder);
+        configureDataJobResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -189,9 +195,13 @@ public class GmsGraphQLEngine {
                                 TAG_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
                 .dataFetcher("dataFlow", new AuthenticatedResolver<>(
-                    new LoadableTypeResolver<>(
-                        DATA_FLOW_TYPE,
-                        (env) -> env.getArgument(URN_FIELD_NAME))))
+                        new LoadableTypeResolver<>(
+                                DATA_FLOW_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("dataJob", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                DATA_JOB_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
 
@@ -345,6 +355,44 @@ public class GmsGraphQLEngine {
                 )
             );
     }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataJob} type.
+     */
+    private static void configureDataJobResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("Owner", typeWiring -> typeWiring
+                .dataFetcher("owner", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        CORP_USER_TYPE,
+                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
+                )
+            )
+            .type("DataFlow", typeWiring -> typeWiring
+                .dataFetcher("dataFlow", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        DATA_FLOW_TYPE,
+                        (env) -> ((String) env.getSource())))
+                )
+            )
+            .type("DataJobInputOutput", typeWiring -> typeWiring
+                .dataFetcher("inputDatasets", new AuthenticatedResolver<>(
+                    new LoadableTypeBatchResolver<>(
+                        DATASET_TYPE,
+                        (env) -> ((DataJobInputOutput) env.getSource()).getInputDatasets().stream()
+                                .map(Dataset::getUrn)
+                                .collect(Collectors.toList())))
+                )
+                .dataFetcher("outputDatasets", new AuthenticatedResolver<>(
+                    new LoadableTypeBatchResolver<>(
+                        DATASET_TYPE,
+                        (env) -> ((DataJobInputOutput) env.getSource()).getOutputDatasets().stream()
+                                .map(Dataset::getUrn)
+                                .collect(Collectors.toList())))
+                )
+            );
+    }
+
 
     private static <T> DataLoader<String, T> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;

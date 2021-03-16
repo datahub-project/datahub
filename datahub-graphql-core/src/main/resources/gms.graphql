@@ -2006,3 +2006,105 @@ type DataFlowInfo {
     """
     project: String!
 }
+
+
+type DataJob implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The chart tool name
+    """
+    dataFlow: DataFlow!
+
+    """
+    An id unique within the charting tool
+    """
+    jobId: String!
+
+    """
+    Ownership metadata of the chart
+    """
+    ownership: Ownership
+
+    """
+    Info about the chart
+    """
+    inputOutput: DataJobInputOutput
+
+    """
+    Info about the chart
+    """
+    info: DataJobInfo
+}
+
+type DataJobInfo {
+    """
+    Name of the chart
+    """
+    name: String!
+
+    """
+    Description of the chart
+    """
+    description: String
+
+    """
+    Description of the chart
+    """
+    type: AzkabanJobType
+}
+
+type DataJobInputOutput {
+    """
+    Name of the chart
+    """
+    inputDatasets: [Dataset!]
+
+    """
+    Description of the chart
+    """
+    outputDatasets: [Dataset!]
+}
+
+enum AzkabanJobType {
+    """
+    The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.
+    Upon execution, Azkaban spawns off a process to run the command.
+    """
+    COMMAND
+
+    """
+    Runs a java program with ability to access Hadoop cluster.
+    https://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type
+    """
+    HADOOP_JAVA
+
+    """
+    In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster
+    securely, via Hadoop tokens.
+    """
+    HADOOP_SHELL
+
+    """
+    Hive type is for running Hive jobs.
+    """
+    HIVE
+
+    """
+    Pig type is for running Pig jobs.
+    """
+    PIG
+
+    """
+    SQL is for running Presto, mysql queries etc
+    """
+    SQL
+}
