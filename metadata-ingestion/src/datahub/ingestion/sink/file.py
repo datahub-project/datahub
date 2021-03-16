@@ -30,7 +30,7 @@ class FileSink(Sink):
         self.wrote_something = False
 
     @classmethod
-    def create(cls, config_dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext):
         config = FileSinkConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -44,7 +44,7 @@ class FileSink(Sink):
         self,
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
-    ):
+    ) -> None:
         mce = record_envelope.record
         obj = mce.to_obj()
 

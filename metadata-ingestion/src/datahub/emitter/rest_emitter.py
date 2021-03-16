@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Dict, Type
+from typing import Any, Dict, Type
 
 import requests
 from requests.exceptions import HTTPError
@@ -29,7 +29,7 @@ resource_locator: Dict[Type[object], str] = {
 }
 
 
-def _rest_li_ify(obj):
+def _rest_li_ify(obj: Any) -> Any:
     if isinstance(obj, (dict, OrderedDict)):
         if len(obj.keys()) == 1:
             key = list(obj.keys())[0]
@@ -40,7 +40,7 @@ def _rest_li_ify(obj):
             elif key == "string" or key == "array":
                 return value
 
-        new_obj = {}
+        new_obj: Any = {}
         for key, value in obj.items():
             if value is not None:
                 new_obj[key] = _rest_li_ify(value)

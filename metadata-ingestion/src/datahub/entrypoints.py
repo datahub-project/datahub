@@ -30,7 +30,7 @@ DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 @click.group()
-def datahub():
+def datahub() -> None:
     pass
 
 
@@ -42,7 +42,7 @@ def datahub():
     help="Config file in .toml or .yaml format",
     required=True,
 )
-def ingest(config: str):
+def ingest(config: str) -> None:
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
@@ -77,7 +77,7 @@ def ingest(config: str):
 
 
 @datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
-def ingest_list_plugins():
+def ingest_list_plugins() -> None:
     """List enabled ingestion plugins"""
 
     click.secho("Sources:", bold=True)
@@ -90,13 +90,13 @@ def ingest_list_plugins():
 
 
 @datahub.group()
-def check():
+def check() -> None:
     pass
 
 
 @check.command()
 @click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
-def mce_file(json_file: str):
+def mce_file(json_file: str) -> None:
     """Check the schema of a MCE JSON file"""
 
     report = check_mce_file(json_file)

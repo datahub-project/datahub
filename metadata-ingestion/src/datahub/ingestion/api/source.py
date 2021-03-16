@@ -15,7 +15,7 @@ class SourceReport(Report):
     warnings: Dict[str, List[str]] = field(default_factory=dict)
     failures: Dict[str, List[str]] = field(default_factory=dict)
 
-    def report_workunit(self, wu: WorkUnit):
+    def report_workunit(self, wu: WorkUnit) -> None:
         self.workunits_produced += 1
         self.workunit_ids.append(wu.id)
 
