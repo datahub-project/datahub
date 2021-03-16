@@ -35,15 +35,14 @@ class PipelineConfig(ConfigModel):
 
 class LoggingCallback(WriteCallback):
     def on_success(self, record_envelope: RecordEnvelope, success_meta):
-        breakpoint()
-        record_envelope.metadata
-        logger.debug("sink called success callback")
+        logger.info(
+            f"sink wrote record with workunit {record_envelope.metadata['workunit_id']}"
+        )
 
     def on_failure(self, record_envelope: RecordEnvelope, exception, failure_meta):
-        # breakpoint()
         logger.exception(
-            f"failed to write {record_envelope.record}"
-            " with {exception} and info {failure_meta}"
+            f"failed to write record with workunit {record_envelope.metadata['workunit_id']}"
+            f" with {exception} and info {failure_meta}"
         )
 
 

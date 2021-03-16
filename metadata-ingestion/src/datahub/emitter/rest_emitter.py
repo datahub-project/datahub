@@ -2,7 +2,7 @@ from collections import OrderedDict
 from typing import Any, Dict, Type
 
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 
 from datahub.configuration.common import OperationalError
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -75,11 +75,15 @@ class DatahubRestEmitter:
         mce_obj = _rest_li_ify(raw_mce_obj)
         snapshot = {"snapshot": mce_obj}
 
-        response = requests.post(url, headers=headers, json=snapshot)
         try:
+            response = requests.post(url, headers=headers, json=snapshot)
             response.raise_for_status()
         except HTTPError as e:
             info = response.json()
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", info
+            ) from e
+        except RequestException as e:
+            raise OperationalError(
+                "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e

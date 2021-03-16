@@ -15,10 +15,8 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
-# Set to debug on the root logger.
-logging.getLogger(None).setLevel(logging.DEBUG)
-logging.getLogger("urllib3").setLevel(logging.WARN)
-logging.getLogger("botocore").setLevel(logging.INFO)
+# Set to info on the root logger.
+logging.getLogger(None).setLevel(logging.INFO)
 
 # Configure logger.
 BASE_LOGGING_FORMAT = (
@@ -30,8 +28,10 @@ DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 @click.group()
-def datahub() -> None:
-    pass
+@click.option("--debug/--no-debug", default=False)
+def datahub(debug: bool) -> None:
+    if debug:
+        logging.getLogger("datahub").setLevel(logging.DEBUG)
 
 
 @datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
