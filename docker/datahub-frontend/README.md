@@ -9,6 +9,12 @@ responsibility of this service for the DataHub.
 
 After starting your Docker container, you can connect to it by typing below into your favorite web browser:
 
+If using React app:
+```
+http://localhost:9002
+```
+
+If using legacy Ember app:
 ```
 http://localhost:9001
 ```
