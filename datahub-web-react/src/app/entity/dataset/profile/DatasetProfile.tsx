@@ -32,9 +32,8 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
-    const [updateDataset, updateDatasetStatus] = useUpdateDatasetMutation({
+    const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
-            console.log({ newDataset });
             cache.modify({
                 fields: {
                     dataset() {
@@ -47,8 +46,6 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             });
         },
     });
-
-    console.log({ updateDatasetStatus });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -117,10 +114,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     title={data.dataset.name}
                     tags={
                         <TagGroup
-                            globalTags={data.dataset?.globalTags as GlobalTags}
+                            editableTags={data.dataset?.globalTags as GlobalTags}
                             canEdit
                             updateTags={(globalTags) => updateDataset({ variables: { input: { urn, globalTags } } })}
-                            loading={updateDatasetStatus.loading}
                         />
                     }
                     tabs={getTabs(data.dataset as Dataset)}

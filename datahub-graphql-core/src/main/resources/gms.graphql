@@ -108,6 +108,7 @@ type Query {
 
 type Mutation {
     updateDataset(input: DatasetUpdateInput!): Dataset
+    updateTag(input: TagUpdate!): Tag
 }
 
 type AuditStamp {

@@ -43,26 +43,17 @@ const defaultColumns = [
         dataIndex: 'description',
         key: 'description',
     },
+    {
+        title: 'Tags',
+        dataIndex: 'globalTags',
+        key: 'tag',
+        render: (tags: GlobalTags) => {
+            return <TagGroup editableTags={tags} />;
+        },
+    },
 ];
 
-const tagColumn = {
-    title: 'Tags',
-    dataIndex: 'globalTags',
-    key: 'tag',
-    render: (tags: GlobalTags) => {
-        return <TagGroup globalTags={tags} />;
-    },
-};
-
 export default function SchemaView({ schema, editableSchemaMetadata }: Props) {
-    const columns = useMemo(() => {
-        const hasTags =
-            editableSchemaMetadata?.editableSchemaFieldInfo?.some(
-                (field) => (field?.globalTags?.tags?.length || 0) > 0,
-            ) || schema?.fields?.some((field) => (field?.globalTags?.tags?.length || 0) > 0);
-        return [...defaultColumns, ...(hasTags ? [tagColumn] : [])];
-    }, [schema, editableSchemaMetadata]);
-
     const tableData = useMemo(() => {
         return schema?.fields.map((field) => {
             const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
@@ -96,7 +87,7 @@ export default function SchemaView({ schema, editableSchemaMetadata }: Props) {
                     </pre>
                 </Typography.Text>
             ) : (
-                <Table pagination={false} dataSource={tableData} columns={columns} rowKey="fieldPath" />
+                <Table pagination={false} dataSource={tableData} columns={defaultColumns} rowKey="fieldPath" />
             )}
         </>
     );
