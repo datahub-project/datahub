@@ -21,7 +21,7 @@ You can join with this link, or see the full invite below. https://linkedin.zoom
 DataHub is inviting you to a scheduled Zoom meeting.
 
 Topic: DataHub Town Hall
-Time: Dec 4, 2020 09:00 AM Pacific Time (US and Canada)
+Time: Mar 19, 2021 07:00 AM Pacific Time (US and Canada)
 
 Join Zoom Meeting
 https://linkedin.zoom.us/j/4698262890
@@ -72,7 +72,15 @@ https://linkedin.zoom.us/skype/4698262890
 
 ## Agenda
 
-* Coming Soon!
+* Welcome - 5 mins
+* Project Updates by [Shirshanka](https://www.linkedin.com/in/shirshankadas/) - 10 mins
+   * 0.7.0 Release
+   * Project Roadmap
+* Demo Time: Themes and Tags in the React App! by [Gabe Lyons](https://www.linkedin.com/in/gabe-lyons-9a574543/) - 10 mins
+* Use-Case: DataHub at [Wolt](https://www.linkedin.com/company/wolt-oy/) by [Fredrik](https://www.linkedin.com/in/fredriksannholm/?originalSubdomain=fi) and Matti - 15 mins
+* Poll Time: Observability Mocks! - 5 mins
+* General Q&A from sign up sheet, slack, and participants - 10 mins
+* Closing remarks - 5 mins
 
 ## Past Meetings
 
