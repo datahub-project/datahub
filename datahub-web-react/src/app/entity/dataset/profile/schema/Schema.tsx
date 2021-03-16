@@ -77,32 +77,30 @@ function convertEditableSchemaMetadataForUpdate(
 export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [hoveredIndex, setHoveredIndex] = useState<number | undefined>(undefined);
 
-    const updateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
-        const updatedFieldInfo: EditableSchemaFieldInfoUpdate = {
+    const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
+        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: record?.description,
             globalTags: update,
         };
 
-        let editableSchemaMetadataUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
+        let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
-        if (
-            editableSchemaMetadataUpdate.editableSchemaFieldInfo.some(
-                (fieldUpdate) => fieldUpdate.fieldPath === record?.fieldPath,
-            )
-        ) {
-            editableSchemaMetadataUpdate = {
-                editableSchemaFieldInfo: editableSchemaMetadataUpdate.editableSchemaFieldInfo.map((fieldUpdate) => {
+        if (existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) => field.fieldPath === record?.fieldPath)) {
+            // if we already have a record for this field, update the record
+            existingMetadataAsUpdate = {
+                editableSchemaFieldInfo: existingMetadataAsUpdate.editableSchemaFieldInfo.map((fieldUpdate) => {
                     if (fieldUpdate.fieldPath === record?.fieldPath) {
-                        return updatedFieldInfo;
+                        return newFieldInfo;
                     }
                     return fieldUpdate;
                 }),
             };
         } else {
-            editableSchemaMetadataUpdate.editableSchemaFieldInfo.push(updatedFieldInfo);
+            // otherwise add a new record
+            existingMetadataAsUpdate.editableSchemaFieldInfo.push(newFieldInfo);
         }
-        return updateEditableSchema(editableSchemaMetadataUpdate);
+        return updateEditableSchema(existingMetadataAsUpdate);
     };
 
     const tagGroupRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
@@ -117,7 +115,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 canAdd={hoveredIndex === rowIndex}
                 onOpenModal={() => setHoveredIndex(undefined)}
                 updateTags={(update) =>
-                    updateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
+                    onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
                 }
             />
         );
