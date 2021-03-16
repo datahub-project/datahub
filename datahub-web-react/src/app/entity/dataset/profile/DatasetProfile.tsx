@@ -45,6 +45,11 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     }: Dataset) => {
         return [
             {
+                name: TabType.Schema,
+                path: TabType.Schema.toLowerCase(),
+                content: <SchemaView schema={schema} />,
+            },
+            {
                 name: TabType.Ownership,
                 path: TabType.Ownership.toLowerCase(),
                 content: (
@@ -56,11 +61,6 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         }
                     />
                 ),
-            },
-            {
-                name: TabType.Schema,
-                path: TabType.Schema.toLowerCase(),
-                content: <SchemaView schema={schema} />,
             },
             {
                 name: TabType.Lineage,
