@@ -1,0 +1,42 @@
+# Default values for datahub-ingestion-cron.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: linkedin/datahub-ingestion
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+crons: []
+  #### Example data
+  ## Metadata ingestion name
+  ##
+  #name: "crawler"
+
+  ## Daily at midnight (we may want to offset this to not conflict with other processes)
+  #schedule: "0 0 * * *"
+
+  ## Deployment pod host aliases
+  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+  ##
+  #hostAliases: []
+
+  ## Environment variables.
+  #env: {}
+
+  ## Environment variables from Secret resources.
+  #envFromSecrets: {}
+
+  ## Additional primary volume mounts
+  ##
+  #extraVolumeMounts: []
+
+  ## Additional primary volumes
+  ##
+  #extraVolumes: []
+
+  ## Add your own init container or uncomment and modify the given example.
+  ##
+  #extraInitContainers: {}
