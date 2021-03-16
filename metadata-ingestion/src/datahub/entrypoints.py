@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import sys
 
@@ -15,26 +16,33 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
-# Set to info on the root logger.
-logging.getLogger(None).setLevel(logging.INFO)
+# Configure some loggers.
+logging.getLogger("urllib3").setLevel(logging.WARN)
+# logging.getLogger("botocore").setLevel(logging.INFO)
+# logging.getLogger("google").setLevel(logging.INFO)
 
 # Configure logger.
 BASE_LOGGING_FORMAT = (
     "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
 )
-logging.basicConfig(level=logging.DEBUG, format=BASE_LOGGING_FORMAT)
-
-DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
 def datahub(debug: bool) -> None:
-    if debug:
+    if debug or os.getenv("DATAHUB_DEBUG", False):
+        logging.getLogger().setLevel(logging.INFO)
         logging.getLogger("datahub").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
+        logging.getLogger("datahub").setLevel(logging.INFO)
+    # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    # print(loggers)
+    # breakpoint()
 
 
-@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
+@datahub.command()
 @click.option(
     "-c",
     "--config",
@@ -76,7 +84,7 @@ def ingest(config: str) -> None:
     sys.exit(ret)
 
 
-@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
+@datahub.command()
 def ingest_list_plugins() -> None:
     """List enabled ingestion plugins"""
 

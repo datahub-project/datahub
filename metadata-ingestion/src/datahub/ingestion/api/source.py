@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, TypeVar, Generic
+from typing import Dict, Generic, Iterable, List, TypeVar
 
 from .closeable import Closeable
 from .common import PipelineContext, RecordEnvelope, WorkUnit
