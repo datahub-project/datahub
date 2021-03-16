@@ -19,6 +19,7 @@ type Props = {
         update: GlobalTagsUpdate,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
     onOpenModal?: () => void;
+    maxShow?: number;
 };
 
 type AddTagModalProps = {
@@ -208,7 +209,15 @@ function AddTagModal({ updateTags, globalTags, visible, onClose }: AddTagModalPr
     );
 }
 
-export default function TagGroup({ uneditableTags, editableTags, canRemove, canAdd, updateTags, onOpenModal }: Props) {
+export default function TagGroup({
+    uneditableTags,
+    editableTags,
+    canRemove,
+    canAdd,
+    updateTags,
+    onOpenModal,
+    maxShow,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
 
@@ -229,29 +238,39 @@ export default function TagGroup({ uneditableTags, editableTags, canRemove, canA
         });
     };
 
+    let renderedTags = 0;
+
     return (
-        <div onMouseEnter={() => console.log('enter')}>
-            {uneditableTags?.tags?.map((tag) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                    <Tag color="blue" closable={false}>
-                        {tag.tag.name}
-                    </Tag>
-                </Link>
-            ))}
-            {editableTags?.tags?.map((tag) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                    <Tag
-                        color="blue"
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTag(tag.tag.urn);
-                        }}
-                    >
-                        {tag.tag.name}
-                    </Tag>
-                </Link>
-            ))}
+        <div>
+            {uneditableTags?.tags?.map((tag) => {
+                renderedTags += 1;
+                if (maxShow && renderedTags > maxShow) return null;
+                return (
+                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                        <Tag color="blue" closable={false}>
+                            {tag.tag.name}
+                        </Tag>
+                    </Link>
+                );
+            })}
+            {editableTags?.tags?.map((tag) => {
+                renderedTags += 1;
+                if (maxShow && renderedTags > maxShow) return null;
+                return (
+                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                        <Tag
+                            color="blue"
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTag(tag.tag.urn);
+                            }}
+                        >
+                            {tag.tag.name}
+                        </Tag>
+                    </Link>
+                );
+            })}
             {canAdd && (
                 <>
                     <AddNewTag color="success" onClick={() => setShowAddModal(true)}>
