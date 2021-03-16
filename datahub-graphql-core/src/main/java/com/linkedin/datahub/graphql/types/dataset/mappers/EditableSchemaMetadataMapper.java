@@ -1,5 +1,6 @@
-package com.linkedin.datahub.graphql.types.mappers;
+package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -18,21 +19,8 @@ public class EditableSchemaMetadataMapper implements ModelMapper<EditableSchemaM
     @Override
     public com.linkedin.datahub.graphql.generated.EditableSchemaMetadata apply(@Nonnull final EditableSchemaMetadata input) {
         final com.linkedin.datahub.graphql.generated.EditableSchemaMetadata result = new com.linkedin.datahub.graphql.generated.EditableSchemaMetadata();
-        result.setEditableSchemaFieldInfo(input.getEditableSchemaFieldInfo().stream().map(this::mapEditableSchemaFieldInfo).collect(Collectors.toList()));
+        result.setEditableSchemaFieldInfo(input.getEditableSchemaFieldInfo().stream().map(EditableSchemaFieldInfoMapper::map).collect(Collectors.toList()));
         return result;
     }
 
-    private com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo mapEditableSchemaFieldInfo(@Nonnull final EditableSchemaFieldInfo input) {
-        final com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo result = new com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo();
-        if (input.hasDescription()) {
-            result.setDescription((input.getDescription()));
-        }
-        if (input.hasFieldPath()) {
-            result.setFieldPath((input.getFieldPath()));
-        }
-        if (input.hasGlobalTags()) {
-            result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags()));
-        }
-        return result;
-    }
 }

@@ -11,7 +11,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
-import com.linkedin.datahub.graphql.types.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
