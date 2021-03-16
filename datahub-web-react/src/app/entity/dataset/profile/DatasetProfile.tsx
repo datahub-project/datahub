@@ -14,7 +14,7 @@ import PropertiesView from './Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/TagGroup';
+import TagGroup from '../../../shared/tags/TagGroup';
 
 export enum TabType {
     Ownership = 'Ownership',

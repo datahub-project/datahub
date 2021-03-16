@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { EntityType, GlobalTags } from '../../types.generated';
 import defaultAvatar from '../../images/default_avatar.png';
 import { useEntityRegistry } from '../useEntityRegistry';
-import TagGroup from '../shared/TagGroup';
+import TagGroup from '../shared/tags/TagGroup';
 
 interface Props {
     name: string;

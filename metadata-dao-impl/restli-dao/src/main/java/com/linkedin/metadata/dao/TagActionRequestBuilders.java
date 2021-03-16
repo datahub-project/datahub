@@ -1,4 +1,4 @@
-package com.linkedin.metadata.dao.internal;
+package com.linkedin.metadata.dao;
 
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.metadata.dao.BaseActionRequestBuilder;
