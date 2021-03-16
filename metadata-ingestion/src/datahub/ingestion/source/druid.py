@@ -1,7 +1,7 @@
 # This import verifies that the dependencies are available.
 import pydruid  # noqa: F401
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 
 from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
