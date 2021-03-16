@@ -12,6 +12,7 @@ Current chart version is `0.1.1`
 | file://./charts/datahub-gms | datahub-gms | 0.2.1 |
 | file://./charts/datahub-mae-consumer | datahub-mae-consumer | 0.2.1 |
 | file://./charts/datahub-mce-consumer | datahub-mce-consumer | 0.2.1 |
+| file://./charts/datahub-ingestion-cron | datahub-ingestion-cron | 0.2.1 |
 
 #### Chart Values
 
@@ -29,6 +30,7 @@ Current chart version is `0.1.1`
 | datahub-mce-consumer.enabled | bool | `true` |  |
 | datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` |  |
 | datahub-mce-consumer.image.tag | string | `"latest"` |  |
+| datahub-ingestion-cron.enabled | bool | `false` | |
 | global.datahub.appVersion | string | `"1.0"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
 | global.elasticsearch.host | string | `"elasticsearch"` |  |
