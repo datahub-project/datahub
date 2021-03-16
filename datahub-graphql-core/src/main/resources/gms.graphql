@@ -1955,7 +1955,7 @@ type Deprecation {
 
 type DataFlow implements Entity {
     """
-    The unique user URN
+    The unique flow URN
     """
     urn: String!
 
@@ -1965,52 +1965,52 @@ type DataFlow implements Entity {
     type: EntityType!
 
     """
-    The chart tool name
+    Workflow orchestrator ex: Azkaban, Airflow
     """
     orchestrator: String!
 
     """
-    An id unique within the charting tool
+    Id of the flow
     """
     flowId: String!
 
     """
-    The chart tool name
+    Cluster of the flow
     """
     cluster: String!
 
     """
-    Info about the chart
+    Information about a Data processing flow
     """
     info: DataFlowInfo
 
     """
-    Ownership metadata of the chart
+    Ownership metadata of the flow
     """
     ownership: Ownership
 }
 
 type DataFlowInfo {
     """
-    Name of the chart
+    Name of the flow
     """
     name: String!
 
     """
-    Description of the chart
+    Description of the flow
     """
-    description: String!
+    description: String
 
     """
-    Description of the chart
+    Optional project/namespace associated with the flow
     """
-    project: String!
+    project: String
 }
 
 
 type DataJob implements Entity {
     """
-    The unique user URN
+    The unique job URN
     """
     urn: String!
 
@@ -2020,56 +2020,56 @@ type DataJob implements Entity {
     type: EntityType!
 
     """
-    The chart tool name
+    The associated data flow
     """
     dataFlow: DataFlow!
 
     """
-    An id unique within the charting tool
+    Id of the job
     """
     jobId: String!
 
     """
-    Ownership metadata of the chart
+    Ownership metadata of the job
     """
     ownership: Ownership
 
     """
-    Info about the chart
+    Information about the inputs and outputs of a Data processing job
     """
     inputOutput: DataJobInputOutput
 
     """
-    Info about the chart
+    Information about a Data processing job
     """
     info: DataJobInfo
 }
 
 type DataJobInfo {
     """
-    Name of the chart
+    Job name
     """
     name: String!
 
     """
-    Description of the chart
+    Job description
     """
     description: String
 
     """
-    Description of the chart
+    Datajob type
     """
     type: AzkabanJobType
 }
 
 type DataJobInputOutput {
     """
-    Name of the chart
+    Input datasets produced by the data job during processing
     """
     inputDatasets: [Dataset!]
 
     """
-    Description of the chart
+    Output datasets produced by the data job during processing
     """
     outputDatasets: [Dataset!]
 }
