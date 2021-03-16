@@ -1,12 +1,10 @@
 package com.linkedin.tag.client;
 
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.dataset.Dataset;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
-import com.linkedin.metadata.dao.internal.TagActionRequestBuilders;
+import com.linkedin.metadata.dao.TagActionRequestBuilders;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;

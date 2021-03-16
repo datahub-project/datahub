@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -50,7 +51,7 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
 
         if (datasetUpdateInput.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(new TagAssociationArray(datasetUpdateInput.getGlobalTags().getTags().stream().map(element -> mapTag(element)).collect(Collectors.toList())));
+            globalTags.setTags(new TagAssociationArray(datasetUpdateInput.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
             result.setGlobalTags(globalTags);
         }
 
@@ -76,17 +77,11 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
         if (schemaFieldInfo.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
             globalTags.setTags(
-                    new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> mapTag(element)).collect(Collectors.toList()))
+                    new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList()))
             );
             output.setGlobalTags(globalTags);
         }
 
-        return output;
-    }
-
-    private TagAssociation mapTag(final com.linkedin.datahub.graphql.generated.TagAssociationUpdate tagAssociation) {
-        final TagAssociation output = new TagAssociation();
-        output.setTag(new TagUrn(tagAssociation.getTag().getName()));
         return output;
     }
 }

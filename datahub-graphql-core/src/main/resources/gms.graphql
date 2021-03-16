@@ -108,6 +108,8 @@ type Query {
 
 type Mutation {
     updateDataset(input: DatasetUpdateInput!): Dataset
+    updateChart(input: ChartUpdateInput!): Chart
+    updateDashboard(input: DashboardUpdateInput!): Dashboard
     updateTag(input: TagUpdate!): Tag
 }
 
@@ -1078,6 +1080,30 @@ type BrowsePath {
     The components of the browse path
     """
 	path: [String!]!
+}
+
+input ChartUpdateInput {
+   """
+   The chart urn
+   """
+   urn: String!
+
+   """
+   Update to global tags
+   """
+   globalTags: GlobalTagsUpdate
+}
+
+input DashboardUpdateInput {
+   """
+   The dashboard urn
+   """
+   urn: String!
+
+   """
+   Update to global tags
+   """
+   globalTags: GlobalTagsUpdate
 }
 
 input DatasetUpdateInput {

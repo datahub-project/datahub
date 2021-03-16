@@ -17,8 +17,9 @@ import {
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
 } from '../../../../../types.generated';
-import TagGroup, { convertTagsForUpdate } from '../../../../shared/TagGroup';
+import TagGroup from '../../../../shared/tags/TagGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
+import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;
