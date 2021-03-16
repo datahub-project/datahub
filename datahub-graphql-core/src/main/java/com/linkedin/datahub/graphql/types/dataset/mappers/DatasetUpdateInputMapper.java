@@ -76,9 +76,7 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
 
         if (schemaFieldInfo.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(
-                    new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList()))
-            );
+            globalTags.setTags(new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
             output.setGlobalTags(globalTags);
         }
 
