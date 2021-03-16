@@ -13,10 +13,12 @@ import { UpdateDatasetMutation } from '../../graphql/dataset.generated';
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
-    canEdit?: boolean;
+    canRemove?: boolean;
+    canAdd?: boolean;
     updateTags?: (
         update: GlobalTagsUpdate,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+    onOpenModal?: () => void;
 };
 
 type AddTagModalProps = {
@@ -39,7 +41,7 @@ type CreateTagModalProps = {
     tagName: string;
 };
 
-function convertTagsForUpdate(tags: TagAssociation[]): TagAssociationUpdate[] {
+export function convertTagsForUpdate(tags: TagAssociation[]): TagAssociationUpdate[] {
     return tags.map((tag) => ({
         tag: { urn: tag.tag.urn, name: tag.tag.name, description: tag.tag.description, type: EntityType.Tag },
     }));
@@ -206,11 +208,12 @@ function AddTagModal({ updateTags, globalTags, visible, onClose }: AddTagModalPr
     );
 }
 
-export default function TagGroup({ uneditableTags, editableTags, canEdit, updateTags }: Props) {
+export default function TagGroup({ uneditableTags, editableTags, canRemove, canAdd, updateTags, onOpenModal }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
 
     const removeTag = (urnToRemove: string) => {
+        onOpenModal?.();
         const tagToRemove = editableTags?.tags?.find((tag) => tag.tag.urn === urnToRemove);
         const newTags = editableTags?.tags?.filter((tag) => tag.tag.urn !== urnToRemove);
         Modal.confirm({
@@ -221,21 +224,16 @@ export default function TagGroup({ uneditableTags, editableTags, canEdit, update
             },
             onCancel() {},
             okText: 'Yes',
+            maskClosable: true,
+            closable: true,
         });
     };
 
     return (
-        <div>
+        <div onMouseEnter={() => console.log('enter')}>
             {uneditableTags?.tags?.map((tag) => (
                 <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                    <Tag
-                        color="blue"
-                        closable={false}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTag(tag.tag.urn);
-                        }}
-                    >
+                    <Tag color="blue" closable={false}>
                         {tag.tag.name}
                     </Tag>
                 </Link>
@@ -244,7 +242,7 @@ export default function TagGroup({ uneditableTags, editableTags, canEdit, update
                 <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
                     <Tag
                         color="blue"
-                        closable={canEdit}
+                        closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();
                             removeTag(tag.tag.urn);
@@ -254,7 +252,7 @@ export default function TagGroup({ uneditableTags, editableTags, canEdit, update
                     </Tag>
                 </Link>
             ))}
-            {canEdit && (
+            {canAdd && (
                 <>
                     <AddNewTag color="success" onClick={() => setShowAddModal(true)}>
                         + Add Tag
@@ -264,7 +262,10 @@ export default function TagGroup({ uneditableTags, editableTags, canEdit, update
                             globalTags={editableTags}
                             updateTags={updateTags}
                             visible={showAddModal}
-                            onClose={() => setShowAddModal(false)}
+                            onClose={() => {
+                                onOpenModal?.();
+                                setShowAddModal(false);
+                            }}
                         />
                     )}
                 </>

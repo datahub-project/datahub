@@ -67,14 +67,19 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
 
     private EditableSchemaFieldInfo mapSchemaFieldInfo(final com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfoUpdate schemaFieldInfo) {
         final EditableSchemaFieldInfo output = new EditableSchemaFieldInfo();
-        output.setDescription(schemaFieldInfo.getDescription());
+
+        if (schemaFieldInfo.getDescription() != null) {
+            output.setDescription(schemaFieldInfo.getDescription());
+        }
         output.setFieldPath(schemaFieldInfo.getFieldPath());
 
-        final GlobalTags globalTags = new GlobalTags();
-        globalTags.setTags(
-                new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> mapTag(element)).collect(Collectors.toList()))
-        );
-        output.setGlobalTags(globalTags);
+        if (schemaFieldInfo.getGlobalTags() != null) {
+            final GlobalTags globalTags = new GlobalTags();
+            globalTags.setTags(
+                    new TagAssociationArray(schemaFieldInfo.getGlobalTags().getTags().stream().map(element -> mapTag(element)).collect(Collectors.toList()))
+            );
+            output.setGlobalTags(globalTags);
+        }
 
         return output;
     }

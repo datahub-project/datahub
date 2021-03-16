@@ -66,7 +66,15 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
-                content: <SchemaView schema={schema} editableSchemaMetadata={editableSchemaMetadata} />,
+                content: (
+                    <SchemaView
+                        schema={schema}
+                        editableSchemaMetadata={editableSchemaMetadata}
+                        updateEditableSchema={(update) =>
+                            updateDataset({ variables: { input: { urn, editableSchemaMetadata: update } } })
+                        }
+                    />
+                ),
             },
             {
                 name: TabType.Ownership,
@@ -115,7 +123,8 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     tags={
                         <TagGroup
                             editableTags={data.dataset?.globalTags as GlobalTags}
-                            canEdit
+                            canAdd
+                            canRemove
                             updateTags={(globalTags) => updateDataset({ variables: { input: { urn, globalTags } } })}
                         />
                     }
