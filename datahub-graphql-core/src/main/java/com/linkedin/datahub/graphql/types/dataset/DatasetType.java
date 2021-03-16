@@ -167,6 +167,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);
         }
 
+        if (partialDataset.hasEditableSchemaMetadata()) {
+            partialDataset.getEditableSchemaMetadata().setLastModified(auditStamp);
+            if (!partialDataset.getEditableSchemaMetadata().hasCreated()) {
+                partialDataset.getEditableSchemaMetadata().setCreated(auditStamp);
+            }
+        }
+
         partialDataset.setLastModified(auditStamp);
 
         try {
