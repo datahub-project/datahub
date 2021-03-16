@@ -1,70 +1,32 @@
 # Metadata Ingestion Architecture
 
-## MCE Consumer Job
+DataHub supports an extremely flexible ingestion architecture that can support push, pull, asynchronous and synchronous models. 
+The figure below describes all the options possible for connecting your favorite system to DataHub. 
+![Ingestion Architecture](../imgs/ingestion-architecture.png)
 
-Metadata providers communicate changes in metadata by emitting [MCE]s, which are consumed by a Kafka Streams job, [mce-consumer-job]. The [Python ingestion framework](../../metadata-ingestion/README.md) makes it easy to emit these MCEs.
-The MCE consumer job converts the AVRO-based MCE into the equivalent [Pegasus Data Template] and saves it into the database by calling a special GMS ingest API.
+## MCE: The Center Piece 
 
-## MAE Consumer Job
+The center piece for ingestion is the [Metadata Change Event (MCE)] which represents a metadata change that is being communicated by an upstream system. 
+MCE-s can be sent over Kafka, for highly scalable async publishing from source systems. They can also be sent directly to the HTTP endpoint exposed by the DataHub service tier to get synchronous success / failure responses. 
 
-All the emitted [MAE] will be consumed by a Kafka Streams job, [mae-consumer-job], which updates the [graph] and [search index] accordingly. 
-The job itself is entity-agnostic and will execute corresponding graph & search index builders, which will be invoked by the job when a specific metadata aspect is changed. 
-The builder should instruct the job how to update the graph and search index based on the metadata change. 
-The builder can optionally use [Remote DAO] to fetch additional metadata from other sources to help compute the final update.
+## Pull-based Integration
 
-To ensure that metadata changes are processed in the correct chronological order, 
-MAEs are keyed by the entity [URN] — meaning all MAEs for a particular entity will be processed sequentially by a single Kafka streams thread. 
+DataHub ships with a Python based [metadata-ingestion system](../../metadata-ingestion/README.md) that can connect to different sources to pull metadata from them. This metadata is then pushed via Kafka or HTTP to the DataHub storage tier. Metadata ingestion pipelines can be [orchestrated by Airflow](../../metadata-ingestion/examples/airflow) to set up scheduled ingestion easily. If you don't find a source already supported, it is very easy to [write your own](../../metadata-ingestion/README.md#contributing).
 
-## Search and Graph Index Builders
+## Push-based Integration
 
-As described in [Metadata Modelling] section, [Entity], [Relationship], and [Search Document] models do not directly encode the logic of how each field should be derived from metadata. 
-Instead, this logic should be provided in the form of a graph or search index builder.
+As long as you can emit a [Metadata Change Event (MCE)] event to Kafka or make a REST call over HTTP, you can integrate any system with DataHub. For convenience, DataHub also provides simple [Python emitters] for you to integrate into your systems to emit metadata changes (MCE-s) at the point of origin.
 
-The builders register the metadata [aspect]s of their interest against [MAE Consumer Job](#mae-consumer-job) and will be invoked whenever a MAE involving the corresponding aspect is received. 
-If the MAE itself doesn’t contain all the metadata needed, builders can use Remote DAO to fetch from GMS directly.
+## Internal Components
 
-```java
-public abstract class BaseIndexBuilder<DOCUMENT extends RecordTemplate> {
+### Applying MCE-s to DataHub Service Tier (mce-consumer)
 
- BaseIndexBuilder(@Nonnull List<Class<? extends RecordTemplate>> snapshotsInterested);
+DataHub comes with a Kafka Streams based job, [mce-consumer-job], which consumes the MCE-s and converts them into the [equivalent Pegasus format] and sends it to the DataHub Service Tier (datahub-gms) using the `/ingest` endpoint. 
 
- @Nullable
- public abstract List<DOCUMENT> getDocumentsToUpdate(@Nonnull RecordTemplate snapshot);
-
- @Nonnull
- public abstract Class<DOCUMENT> getDocumentType();
-}
-```
-
-```java
-public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
- GraphUpdates build(SNAPSHOT snapshot);
-
- @Value
- class GraphUpdates {
-   List<? extends RecordTemplate> entities;
-   List<RelationshipUpdates> relationshipUpdates;
- }
-
- @Value
- class RelationshipUpdates {
-   List<? extends RecordTemplate> relationships;
-   BaseGraphWriterDAO.RemovalOption preUpdateOperation;
- }
-}
-```
-
-[MCE]: ../what/mxe.md#metadata-change-event-mce
+[Metadata Change Event (MCE)]: ../what/mxe.md#metadata-change-event-mce
+[Metadata Audit Event (MAE)]: ../what/mxe.md#metadata-audit-event-mae
 [MAE]: ../what/mxe.md#metadata-audit-event-mae
-[Pegasus Data Template]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
-[graph]: ../what/graph.md
-[search index]: ../what/search-index.md
+[equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
 [mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
-[mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
-[Remote DAO]: ../architecture/metadata-serving.md#remote-dao
-[URN]: ../what/urn.md
-[Metadata Modelling]: ../how/metadata-modelling.md
-[Entity]: ../what/entity.md
-[Relationship]: ../what/relationship.md
-[Search Document]: ../what/search-document.md
-[Aspect]: ../what/aspect.md
+[Python emitters]: ../../metadata-ingestion/README.md#using-as-a-library
+
