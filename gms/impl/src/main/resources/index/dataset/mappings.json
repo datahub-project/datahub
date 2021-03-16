@@ -115,6 +115,10 @@
     "upstreams": {
       "type": "keyword",
       "normalizer": "my_normalizer"
+    },
+    "tags": {
+      "type": "keyword",
+      "normalizer": "my_normalizer"
     }
   }
 }

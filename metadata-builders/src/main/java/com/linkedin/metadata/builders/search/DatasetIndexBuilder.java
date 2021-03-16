@@ -1,6 +1,7 @@
 package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.DatasetUrnArray;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
@@ -97,6 +98,16 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   }
 
   @Nonnull
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return new DatasetDocument().setUrn(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DatasetDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DatasetSnapshot datasetSnapshot) {
     final DatasetUrn urn = datasetSnapshot.getUrn();
     final List<DatasetDocument> documents = datasetSnapshot.getAspects().stream().map(aspect -> {
@@ -112,6 +123,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getStatus());
       } else if (aspect.isUpstreamLineage()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getUpstreamLineage());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
