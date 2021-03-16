@@ -24,7 +24,6 @@ class FileSink(Sink):
         self.report = SinkReport()
 
         fpath = pathlib.Path(self.config.filename)
-        logger.info(f"Will write to {fpath}")
         self.file = fpath.open("w")
         self.file.write("[\n")
         self.wrote_something = False

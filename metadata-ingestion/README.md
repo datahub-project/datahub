@@ -468,7 +468,7 @@ pytest tests/integration
 
 ```sh
 # Assumes: pip install -e '.[dev]'
-black --exclude 'datahub/metadata' -t py36 src tests
+black src tests
 isort src tests
 flake8 src tests
 mypy -p datahub

@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, TypeVar, Generic
 
 from .closeable import Closeable
 from .common import PipelineContext, RecordEnvelope, WorkUnit
@@ -30,13 +30,16 @@ class SourceReport(Report):
         self.failures[key].append(reason)
 
 
-class Extractor(Closeable, metaclass=ABCMeta):
+WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
+
+
+class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
     @abstractmethod
     def configure(self, config_dict: dict, ctx: PipelineContext):
         pass
 
     @abstractmethod
-    def get_records(self, workunit: WorkUnit) -> Iterable[RecordEnvelope]:
+    def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:
         pass
 
 
