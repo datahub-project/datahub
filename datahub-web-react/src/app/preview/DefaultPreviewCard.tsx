@@ -72,7 +72,7 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 {tags && tags.tags?.length && (
                     <Space>
-                        <TagGroup globalTags={tags} />
+                        <TagGroup editableTags={tags} />
                     </Space>
                 )}
                 <Space direction="vertical" size={12}>

@@ -81,7 +81,7 @@ public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput,
 
     private TagAssociation mapTag(final com.linkedin.datahub.graphql.generated.TagAssociationUpdate tagAssociation) {
         final TagAssociation output = new TagAssociation();
-        output.setTag(new TagUrn(tagAssociation.getTag().getUrn()));
+        output.setTag(new TagUrn(tagAssociation.getTag().getName()));
         return output;
     }
 }

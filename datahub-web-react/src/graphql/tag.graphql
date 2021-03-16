@@ -30,3 +30,36 @@ query getTag($urn: String!) {
         }
     }
 }
+
+mutation updateTag($input: TagUpdate!) {
+    updateTag(input: $input) {
+        urn
+        name
+        description
+        ownership {
+            owners {
+                owner {
+                    urn
+                    type
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+                type
+            }
+            lastModified {
+                time
+            }
+        }
+    }
+}
