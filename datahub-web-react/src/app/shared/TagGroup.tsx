@@ -162,12 +162,14 @@ function AddTagModal({ updateTags, globalTags, visible, onClose }: AddTagModalPr
     }
 
     const onOk = () => {
-        updateTags?.({
-            tags: [
-                ...convertTagsForUpdate(globalTags?.tags || []),
-                { tag: { urn: `urn:li:tag:${selectedTagValue}`, type: EntityType.Tag, name: selectedTagValue } },
-            ] as TagAssociationUpdate[],
-        });
+        if (!globalTags?.tags?.some((tag) => tag.tag.name === selectedTagValue)) {
+            updateTags?.({
+                tags: [
+                    ...convertTagsForUpdate(globalTags?.tags || []),
+                    { tag: { urn: `urn:li:tag:${selectedTagValue}`, type: EntityType.Tag, name: selectedTagValue } },
+                ] as TagAssociationUpdate[],
+            });
+        }
         onClose();
     };
 
