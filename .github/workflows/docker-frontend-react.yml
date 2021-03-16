@@ -78,6 +78,3 @@ jobs:
           file: ./docker/datahub-frontend/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
-          build-args: |
-            SERVER_PORT=9002
-            ENABLE_REACT=true

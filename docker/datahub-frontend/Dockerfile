@@ -1,6 +1,6 @@
 FROM openjdk:8 as builder
 
-ARG ENABLE_REACT="false"
+ARG ENABLE_REACT="true"
 
 RUN apt-get update && apt-get install -y wget \
     && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
@@ -21,7 +21,7 @@ COPY --from=builder /datahub-frontend /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 USER datahub
 
-ARG SERVER_PORT=9001
+ARG SERVER_PORT=9002
 RUN echo $SERVER_PORT
 
 EXPOSE $SERVER_PORT

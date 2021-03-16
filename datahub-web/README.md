@@ -1,8 +1,14 @@
-DataHub Web Client
+DataHub Ember Client (Legacy)
 ==============================================================================
 
+>**Notice**: As of March 2021, the React application will be the default frontend experience supported by the community. 
+> Going forward, major feature development will occur on the React application. Eventually, support for Ember will be 
+> deprecated altogether (tentatively mid-2021).
+> 
+> Please migrate to the React app, which resides under the `datahub-web-react` directory.
+
 ## About
-This repository is for the portal web-client and related packages for DataHub, LinkedIn's premier data search and
+This repository is for the legacy web-client and related packages for DataHub, LinkedIn's premier data search and
 discovery tool. It is written as an Ember application in a mono-repository. For more information about our code
 architecture choices and logic, please visit the `documentation` folder [here](documentation/MAIN.md).
 
@@ -59,8 +65,8 @@ ember g datahub-addon
 
 ### Quick Start
 
-First, follow the instructions on the DataHub Quickstart Guide, which will run an instance of the backend for DataHub
-and also serve the static docker image from `http://localhost:9001`. This is the best way to see the current latest
+First, follow the instructions on the DataHub Quickstart Guide for Ember (`quickstart-ember.sh`), which will 
+run an instance of the backend for DataHub and also serve the static docker image from `http://localhost:9001`. This is the best way to see the current latest
 frontend/UI in action as well. However, if you want to make changes and see them live without having to rebuild a
 docker image, you can, from this `datahub-web` folder run the following:
 
