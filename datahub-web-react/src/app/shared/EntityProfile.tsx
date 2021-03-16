@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
 import styled from 'styled-components';
+import { TagOutlined } from '@ant-design/icons';
 
 import { RoutedTabs } from './RoutedTabs';
 
@@ -31,6 +32,10 @@ const TagCard = styled(Card)`
     height: 100%;
 `;
 
+const TagIcon = styled(TagOutlined)`
+    padding-right: 6px;
+`;
+
 const defaultProps = {
     tags: [],
     tabs: [],
@@ -57,7 +62,7 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
                     </div>
                     <TagCard>
                         <TagsTitle type="secondary" level={4}>
-                            Tags
+                            <TagIcon /> Tags
                         </TagsTitle>
                         {tags}
                     </TagCard>
