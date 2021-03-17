@@ -10,7 +10,6 @@ import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
 
 const PageContainer = styled.div`
-    background-color: white;
     padding: 32px 100px;
 `;
 
