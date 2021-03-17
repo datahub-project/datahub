@@ -361,13 +361,6 @@ public class GmsGraphQLEngine {
      */
     private static void configureDataJobResolvers(final RuntimeWiring.Builder builder) {
         builder
-            .type("Owner", typeWiring -> typeWiring
-                .dataFetcher("owner", new AuthenticatedResolver<>(
-                    new LoadableTypeResolver<>(
-                        CORP_USER_TYPE,
-                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
-                )
-            )
             .type("DataFlow", typeWiring -> typeWiring
                 .dataFetcher("dataFlow", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
