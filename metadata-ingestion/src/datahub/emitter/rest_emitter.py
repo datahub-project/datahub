@@ -37,8 +37,6 @@ def _rest_li_ify(obj: Any) -> Any:
             if key.find("com.linkedin.pegasus2avro.") >= 0:
                 new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
                 return {new_key: _rest_li_ify(value)}
-            elif key == "string" or key == "array":
-                return value
 
         new_obj: Any = {}
         for key, value in obj.items():
@@ -77,6 +75,11 @@ class DatahubRestEmitter:
 
         try:
             response = requests.post(url, headers=headers, json=snapshot)
+
+            # import curlify
+            # print(curlify.to_curl(response.request))
+            # breakpoint()
+
             response.raise_for_status()
         except HTTPError as e:
             info = response.json()
