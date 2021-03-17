@@ -18,7 +18,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 <!-- You can run this ingestion framework by building from source or by running docker images. -->
 
-### Install
+### Install from Source
 
 #### Requirements
 
@@ -117,20 +117,21 @@ pip install -e '.[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
-<!--
-## Running Ingestion using Docker:
+### Install using Docker
 
-### Build the image
+[![Docker Hub](https://img.shields.io/docker/pulls/linkedin/datahub-ingestion?style=plastic)](https://hub.docker.com/r/linkedin/datahub-ingestion)
+[![datahub-ingestion docker](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml/badge.svg)](https://github.com/linkedin/datahub/actions/workflows/docker-ingestion.yml)
+
+If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
+We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
+
+*Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly.*
+
 ```sh
-source docker/docker_build.sh
+./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
-### Usage - with Docker
-We have a simple script provided that supports mounting a local directory for input recipes and an output directory for output data:
-```sh
-source docker/docker_run.sh examples/recipes/file_to_file.yml
-```
--->
+### Usage within Airflow
 
 We have also included a couple [sample DAGs](./examples/airflow) that can be used with [Airflow](https://airflow.apache.org/).
 
