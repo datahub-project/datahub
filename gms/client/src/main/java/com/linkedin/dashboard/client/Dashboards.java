@@ -1,8 +1,6 @@
 package com.linkedin.dashboard.client;
 
-import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.dashboard.Chart;
 import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardKey;
 import com.linkedin.dashboard.DashboardsDoAutocompleteRequestBuilder;
