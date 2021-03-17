@@ -2,13 +2,13 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import Schema from '../schema/Schema';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { sampleSchema } from '../stories/sampleSchema';
+import { sampleSchema, sampleSchemaWithTags } from '../stories/sampleSchema';
 
 describe('Schema', () => {
     it('renders', () => {
         const { getByText, queryAllByTestId } = render(
             <TestPageContainer>
-                <Schema schema={sampleSchema} />
+                <Schema schema={sampleSchema} updateEditableSchema={jest.fn()} />
             </TestPageContainer>,
         );
         expect(getByText('name')).toBeInTheDocument();
@@ -21,7 +21,7 @@ describe('Schema', () => {
     it('renders raw', () => {
         const { getByText, queryAllByTestId } = render(
             <TestPageContainer>
-                <Schema schema={sampleSchema} />
+                <Schema schema={sampleSchema} updateEditableSchema={jest.fn()} />
             </TestPageContainer>,
         );
 
@@ -39,5 +39,14 @@ describe('Schema', () => {
 
         expect(queryAllByTestId('icon-STRING')).toHaveLength(2);
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
+    });
+
+    it('renders tags', () => {
+        const { getByText } = render(
+            <TestPageContainer>
+                <Schema schema={sampleSchemaWithTags} updateEditableSchema={jest.fn()} />
+            </TestPageContainer>,
+        );
+        expect(getByText('Legacy')).toBeInTheDocument();
     });
 });

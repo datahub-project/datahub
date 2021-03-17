@@ -88,7 +88,7 @@ export default function TagProfile() {
         query: `tags:${data?.tag?.name}`,
         start: 0,
         count: 1,
-        filters: null,
+        filters: [],
     });
 
     const statsLoading = Object.keys(allSearchResultsByType).some((type) => {
@@ -98,7 +98,7 @@ export default function TagProfile() {
     const someStats =
         !statsLoading &&
         Object.keys(allSearchResultsByType).some((type) => {
-            return allSearchResultsByType[type].data.search.total > 0;
+            return allSearchResultsByType[type]?.data.search.total > 0;
         });
 
     if (error || (!loading && !error && !data)) {
@@ -157,7 +157,7 @@ export default function TagProfile() {
                                         return null;
                                     }
                                     return (
-                                        <div>
+                                        <div key={type}>
                                             <TagSearchButton
                                                 type="text"
                                                 key={type}
@@ -170,7 +170,7 @@ export default function TagProfile() {
                                                     })
                                                 }
                                             >
-                                                <StatText>
+                                                <StatText data-testid={`stats-${type}`}>
                                                     {allSearchResultsByType[type].data.search.total}{' '}
                                                     {entityRegistry.getCollectionName(type as EntityType)}
                                                 </StatText>
