@@ -233,6 +233,7 @@ const dataset3 = {
         ],
     },
     schema: null,
+    editableSchemaMetadata: null,
     deprecation: null,
 } as Dataset;
 
