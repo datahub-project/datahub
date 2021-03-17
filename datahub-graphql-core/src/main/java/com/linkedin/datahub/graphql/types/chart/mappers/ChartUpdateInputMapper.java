@@ -23,7 +23,13 @@ public class ChartUpdateInputMapper implements ModelMapper<ChartUpdateInput, Cha
 
         if (chartUpdateInput.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(new TagAssociationArray(chartUpdateInput.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
+            globalTags.setTags(
+                    new TagAssociationArray(
+                            chartUpdateInput.getGlobalTags().getTags().stream().map(
+                                    element -> TagAssociationUpdateMapper.map(element)
+                            ).collect(Collectors.toList())
+                    )
+            );
             result.setGlobalTags(globalTags);
         }
         return result;

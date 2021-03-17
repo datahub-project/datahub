@@ -23,7 +23,13 @@ public class DashboardUpdateInputMapper implements ModelMapper<DashboardUpdateIn
 
         if (dashboardUpdateInput.getGlobalTags() != null) {
             final GlobalTags globalTags = new GlobalTags();
-            globalTags.setTags(new TagAssociationArray(dashboardUpdateInput.getGlobalTags().getTags().stream().map(element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
+            globalTags.setTags(
+                    new TagAssociationArray(
+                            dashboardUpdateInput.getGlobalTags().getTags().stream().map(
+                                    element -> TagAssociationUpdateMapper.map(element)
+                            ).collect(Collectors.toList())
+                    )
+            );
             result.setGlobalTags(globalTags);
         }
         return result;
