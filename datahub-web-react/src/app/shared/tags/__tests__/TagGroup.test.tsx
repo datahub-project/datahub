@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, queryByLabelText, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import TagGroup from '../TagGroup';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
 import { EntityType } from '../../../../types.generated';

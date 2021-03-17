@@ -1,4 +1,3 @@
-import { volcano, lime, geekblue, purple, gold, yellow } from '@ant-design/colors';
 import { EntityType, Schema, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
 
 // Extending the schema type with an option for tags
