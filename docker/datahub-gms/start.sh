@@ -23,4 +23,7 @@ dockerize \
   -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT \
   -wait $NEO4J_HOST \
   -timeout 240s \
-  java -jar /jetty-runner.jar /datahub/datahub-gms/bin/war.war
+  java $JAVA_OPTS $JMX_OPTS \
+  --jar jetty-util.jar \
+  --jar jetty-jmx.jar \
+  -jar /jetty-runner.jar /datahub/datahub-gms/bin/war.war
