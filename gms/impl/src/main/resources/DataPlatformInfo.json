@@ -140,6 +140,7 @@
     "datasetNameDelimiter": ".",
     "name": "bigquery",
     "displayName": "BigQuery",
-    "type": "RELATIONAL_DB"
+    "type": "RELATIONAL_DB",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
   }
 }
