@@ -1,7 +1,6 @@
 package com.linkedin.metadata.dao;
 
 import com.linkedin.common.urn.TagUrn;
-import com.linkedin.metadata.dao.BaseActionRequestBuilder;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 
 /**
