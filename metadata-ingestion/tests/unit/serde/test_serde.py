@@ -42,6 +42,10 @@ def test_serde(pytestconfig, tmp_path, json_filename):
         "tests/unit/serde/test_serde_large.json",
         # Check for backwards compatability with specifying all union types.
         "tests/unit/serde/test_serde_backwards_compat.json",
+        # Ensure sample MCE files are valid.
+        "examples/mce_files/single_mce.json",
+        "examples/mce_files/mce_list.json",
+        "examples/mce_files/bootstrap_mce.json",
     ],
 )
 def test_check_mce_schema(pytestconfig, json_filename):
