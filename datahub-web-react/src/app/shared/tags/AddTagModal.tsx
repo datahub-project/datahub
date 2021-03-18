@@ -53,7 +53,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
             </Select.Option>
         )) || [];
 
-    if (!inputExistsInAutocomplete && inputValue.length > 2 && !loading) {
+    if (!inputExistsInAutocomplete && inputValue.length > 0 && !loading) {
         autocompleteOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
