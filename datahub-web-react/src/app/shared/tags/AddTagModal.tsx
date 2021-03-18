@@ -121,7 +121,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
                 onSelect={(selected) =>
                     selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedTagValue(String(selected))
                 }
-                notFoundContent={loading ? 'loading' : 'type at least 3 character to search'}
+                notFoundContent={loading ? 'loading' : 'type to search'}
             >
                 {autocompleteOptions}
             </TagSelect>
