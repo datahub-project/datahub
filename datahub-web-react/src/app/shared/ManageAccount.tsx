@@ -19,7 +19,6 @@ const defaultProps = {
 
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) => {
     const entityRegistry = useEntityRegistry();
-
     const handleLogout = () => {
         isLoggedInVar(false);
         Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
@@ -27,6 +26,25 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
 
     const menu = (
         <Menu>
+            <Menu.Item
+                onClick={() => {
+                    window.open('https://github.com/linkedin/datahub');
+                }}
+            >
+                <div tabIndex={0} role="button">
+                    Datahub Wiki
+                </div>
+            </Menu.Item>
+            <Menu.Item
+                onClick={() => {
+                    window.open('http://go/metadata/origins');
+                }}
+            >
+                <div tabIndex={0} role="button">
+                    See metadata origin
+                </div>
+            </Menu.Item>
+            <Menu.Divider />
             <Menu.Item danger>
                 <div tabIndex={0} role="button" onClick={handleLogout} onKeyDown={handleLogout}>
                     Log out
