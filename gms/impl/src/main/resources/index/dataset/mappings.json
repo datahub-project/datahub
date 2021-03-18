@@ -118,7 +118,13 @@
     },
     "tags": {
       "type": "keyword",
-      "normalizer": "my_normalizer"
+      "normalizer": "my_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      }
     }
   }
 }

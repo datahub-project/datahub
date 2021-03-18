@@ -56,6 +56,15 @@
               "default_field": "tags",
               "default_operator": "AND"
             }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.0625,
+              "default_field": "tags.ngram",
+              "default_operator": "AND"
+            }
           }
         ]
       }
