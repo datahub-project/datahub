@@ -20,7 +20,7 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
  - **Top users**: frequent users of a dataset [*coming soon*]
 
 ### Tags
- - **Single source of truth**: Tags provided a standardized set of labels that can be shared across all your entities
+ - **Globally defined**: Tags provided a standardized set of labels that can be shared across all your entities
  - **Supports entities and schemas**: Tags can be applied at the entity level or for datasets, attached to schema fields.
  - **Searchable** Entities can be searched and filtered by tag
  

@@ -1168,8 +1168,8 @@ input TagAssociationUpdate {
 
 input TagUpdate {
     urn: String!
-    """
-    GMS Entity Type
+
+    name: String!
 
     """
     Description of the tag
