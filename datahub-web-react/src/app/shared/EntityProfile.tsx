@@ -28,6 +28,7 @@ const TagsTitle = styled(Typography.Title)`
 const TagCard = styled(Card)`
     margin-top: 24px;
     font-size: 18px;
+    min-width: 450px;
     width: 450px;
     height: 100%;
 `;
