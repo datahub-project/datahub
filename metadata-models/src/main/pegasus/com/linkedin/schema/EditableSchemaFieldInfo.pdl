@@ -3,13 +3,13 @@ namespace com.linkedin.schema
 import com.linkedin.common.GlobalTags
 
 /**
- * SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema
+ * SchemaField to describe metadata related to dataset schema.
  */
 record EditableSchemaFieldInfo {
   /**
    * FieldPath uniquely identifying the SchemaField this metadata is associated with
    */
-  fieldPath: optional string
+  fieldPath: string
 
   /**
    * Description

@@ -101,6 +101,18 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     }
 
     @Override
+    public AutoCompleteResults autoComplete(@Nonnull String query,
+                                            @Nullable String field,
+                                            @Nullable List<FacetFilterInput> filters,
+                                            int limit,
+                                            @Nonnull QueryContext context) throws Exception {
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
+        final AutoCompleteResult result = _tagClient.autocomplete(query, field, facetFilters, limit);
+        return AutoCompleteResultsMapper.map(result);
+    }
+
+
+    @Override
     public Tag update(@Nonnull TagUpdate input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = new CorpuserUrn(context.getActor());
@@ -134,17 +146,6 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         }
 
         return load(input.getUrn(), context);
-    }
-
-    @Override
-    public AutoCompleteResults autoComplete(@Nonnull String query,
-                                            @Nullable String field,
-                                            @Nullable List<FacetFilterInput> filters,
-                                            int limit,
-                                            @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _tagClient.autocomplete(query, field, facetFilters, limit);
-        return AutoCompleteResultsMapper.map(result);
     }
 
     private TagUrn getTagUrn(final String urnStr) {

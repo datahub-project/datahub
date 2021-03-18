@@ -35,10 +35,10 @@ export default function DashboardProfile({ urn }: { urn: string }) {
         update(cache, { data: newDashboard }) {
             cache.modify({
                 fields: {
-                    chart() {
+                    dashboard() {
                         cache.writeQuery({
                             query: GetDashboardDocument,
-                            data: { chart: { ...newDashboard?.updateDashboard } },
+                            data: { dashboard: { ...newDashboard?.updateDashboard } },
                         });
                     },
                 },

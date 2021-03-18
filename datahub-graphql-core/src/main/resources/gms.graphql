@@ -494,7 +494,7 @@ type EditableSchemaFieldInfo {
     """
     Flattened name of a field identifying the field the editable info is applied to
     """
-    fieldPath: String
+    fieldPath: String!
 
     """
     Edited description of the field
@@ -1145,7 +1145,7 @@ input EditableSchemaFieldInfoUpdate {
     """
     Flattened name of a field identifying the field the editable info is applied to
     """
-    fieldPath: String
+    fieldPath: String!
 
     """
     Edited description of the field
@@ -1170,9 +1170,6 @@ input TagUpdate {
     urn: String!
     """
     GMS Entity Type
-    """
-    type: EntityType!
-    name: String!
 
     """
     Description of the tag
