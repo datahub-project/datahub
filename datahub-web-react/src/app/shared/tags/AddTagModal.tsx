@@ -53,7 +53,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
             </Select.Option>
         )) || [];
 
-    if (!inputExistsInAutocomplete && inputValue.length > 2 && !loading) {
+    if (!inputExistsInAutocomplete && inputValue.length > 0 && !loading) {
         autocompleteOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -121,7 +121,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
                 onSelect={(selected) =>
                     selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedTagValue(String(selected))
                 }
-                notFoundContent={loading ? 'loading' : 'type at least 3 character to search'}
+                notFoundContent={loading ? 'loading' : 'type to search'}
             >
                 {autocompleteOptions}
             </TagSelect>
