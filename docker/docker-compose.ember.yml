@@ -8,7 +8,7 @@ services:
       dockerfile: docker/datahub-frontend/Dockerfile
       args:
         SERVER_PORT: 9001
-        ENABLE_REACT: "false"
+        ENABLE_EMBER: "true"
     image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
     env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend
