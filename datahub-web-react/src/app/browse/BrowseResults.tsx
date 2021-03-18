@@ -1,13 +1,20 @@
 import React from 'react';
-import { Col, Divider, Pagination, Row } from 'antd';
+import styled from 'styled-components';
+import { Col, Divider, List, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { useEntityRegistry } from '../useEntityRegistry';
 
-const styles = {
-    browseCard: { marginTop: 20 },
-};
+const EntityList = styled(List)`
+    && {
+        width: 100%;
+        margin-top: 12px;
+        padding: 16px 32px;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
 
 interface Props {
     type: EntityType;
@@ -51,12 +58,19 @@ export const BrowseResults = ({
                             />
                         </Col>
                     ))}
-                    {entities.map((entity) => (
-                        <Col style={styles.browseCard} span={24}>
-                            {entityRegistry.renderBrowse(type, entity)}
-                            <Divider />
-                        </Col>
-                    ))}
+                    {entities.length > 0 && (
+                        <EntityList
+                            dataSource={entities}
+                            split={false}
+                            renderItem={(item, index) => (
+                                <>
+                                    <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
+                                    {index < entities.length - 1 && <Divider />}
+                                </>
+                            )}
+                            bordered
+                        />
+                    )}
                     <Col span={24}>
                         <Pagination
                             style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}

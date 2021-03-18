@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FilterOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import { Alert, Button, Card, Divider, List, Modal, Pagination, Row, Typography } from 'antd';
 import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
@@ -15,10 +16,19 @@ const styles = {
     resultSummary: { color: 'gray', marginTop: '36px' },
     resultHeaderCardBody: { padding: '16px 24px' },
     resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
-    resultList: { width: '100%', borderColor: '#f0f0f0', marginTop: '12px', padding: '16px 32px' },
     paginationRow: { padding: 40 },
     resultsContainer: { width: '100%', padding: '20px 132px' },
 };
+
+const ResultList = styled(List)`
+    &&& {
+        width: 100%;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        margin-top: 12px;
+        padding: 16px 32px;
+        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
 
 interface Props {
     type: EntityType;
@@ -114,13 +124,12 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>
-            <List
+            <ResultList
                 header={
                     <Card bodyStyle={styles.resultHeaderCardBody} style={styles.resultHeaderCard as any}>
                         {entityRegistry.getIcon(type, 36, IconStyleType.ACCENT)}
                     </Card>
                 }
-                style={styles.resultList}
                 dataSource={results}
                 split={false}
                 renderItem={(item, index) => (
