@@ -1,6 +1,9 @@
 # Defining environment
 ARG APP_ENV=prod
 
+FROM openjdk:8-jre-alpine as base
+RUN addgroup -S datahub && adduser -S datahub -G datahub
+USER datahub
 
 FROM openjdk:8 as prod-build
 ARG ENABLE_EMBER="false"
@@ -26,7 +29,7 @@ FROM ${APP_ENV}-install as final
 USER datahub
 
 ARG SERVER_PORT=9002
-RUN echo $SERVER_PORT && pwd && ls
+RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
 ENV JAVA_OPTS=" \

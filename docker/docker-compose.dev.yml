@@ -33,8 +33,8 @@ services:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
 
-  datahub-frontend:
-    image: linkedin/datahub-frontend:debug
+  datahub-frontend-react:
+    image: linkedin/datahub-frontend-react:debug
     build:
       context: datahub-frontend
       dockerfile: Dockerfile
