@@ -73,8 +73,7 @@ you to terminate and re-run `yarn start` to see updated styles.
 
 ### Package Organization
 
-As of today (2/11/2021), the `src` dir of the app is
-broken down into the following modules
+The `src` dir of the app is broken down into the following modules
 
 **conf** - Stores global configuration flags that can be referenced across the app. For example, the number of 
 search results shown per page, or the placeholder text in the search bar box. It serves as a location where levels
