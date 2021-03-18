@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 
 ./scripts/codegen.sh
 
-black --check --exclude 'datahub/metadata' -S -t py36 src tests
+black --check src tests
 isort --check-only src tests
 flake8 --count --statistics src tests
 mypy -p datahub

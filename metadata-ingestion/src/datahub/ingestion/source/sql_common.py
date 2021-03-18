@@ -10,7 +10,8 @@ from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport, WorkUnit
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -91,11 +92,8 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
 
 
 @dataclass
-class SqlWorkUnit(WorkUnit):
-    mce: MetadataChangeEvent
-
-    def get_metadata(self):
-        return {"mce": self.mce}
+class SqlWorkUnit(MetadataWorkUnit):
+    pass
 
 
 _field_type_mapping = {

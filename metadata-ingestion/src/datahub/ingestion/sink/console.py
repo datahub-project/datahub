@@ -24,7 +24,7 @@ class ConsoleSink(Sink):
     def write_record_async(
         self, record_envelope: RecordEnvelope, write_callback: WriteCallback
     ):
-        print(f'{self.ctx.run_id}:{record_envelope}')
+        print(f"{record_envelope}")
         if write_callback:
             self.report.report_record_written(record_envelope)
             write_callback.on_success(record_envelope, {})
