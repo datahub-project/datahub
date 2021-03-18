@@ -5,6 +5,8 @@ import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DashboardUrn;
+import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -59,4 +61,16 @@ public final class Urns {
   public static MLModelUrn makeMLModelUrn(@Nonnull String name) {
     return new MLModelUrn(new DataPlatformUrn("mysql"), name, FabricType.DEV);
   }
+
+  @Nonnull
+  public static DataFlowUrn makeDataFlowUrn(@Nonnull String name) {
+    return new DataFlowUrn("airflow", name, "production_cluster");
+  }
+
+
+  @Nonnull
+  public static DataJobUrn makeDataJobUrn(@Nonnull String jobId) {
+    return new DataJobUrn(new DataFlowUrn("airflow", "my_flow", "production_cluster"), jobId);
+  }
+
 }

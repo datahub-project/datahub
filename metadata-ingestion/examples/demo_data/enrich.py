@@ -23,6 +23,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     UpstreamClass,
     DatasetLineageTypeClass,
+    GlobalTagsClass,
+    EditableSchemaMetadataClass,
 )
 
 DEMO_DATA_DIR = pathlib.Path("./examples/demo_data")
@@ -107,7 +109,7 @@ def create_ownership_aspect_mce(directive: Directive) -> MetadataChangeEventClas
                     owners=[
                         OwnerClass(
                             owner=owner_name_to_urn(clean_owner_name(owner)),
-                            type=OwnershipTypeClass.DATAOWNER,  # type: ignore
+                            type=OwnershipTypeClass.DATAOWNER,
                         )
                         for owner in directive.owners
                     ],
@@ -130,7 +132,7 @@ def create_lineage_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
                     upstreams=[
                         UpstreamClass(
                             dataset=dataset_name_to_urn(upstream),
-                            type=DatasetLineageTypeClass.TRANSFORMED,  # type: ignore
+                            type=DatasetLineageTypeClass.TRANSFORMED,
                             auditStamp=AuditStampClass(
                                 time=int(time.time() * 1000),
                                 actor="urn:li:corpuser:datahub",
@@ -138,6 +140,30 @@ def create_lineage_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
                         )
                         for upstream in directive.depends_on
                     ]
+                )
+            ],
+        )
+    )
+
+def create_global_tags_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
+    return MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=dataset_name_to_urn(directive.table),
+            aspects=[
+                GlobalTagsClass(
+                    tags=[]
+                )
+            ],
+        )
+    )
+
+def create_editable_schema_info_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
+    return MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=dataset_name_to_urn(directive.table),
+            aspects=[
+                EditableSchemaMetadataClass(
+                    editableSchemaFieldInfo=[]
                 )
             ],
         )
@@ -180,10 +206,24 @@ if __name__ == "__main__":
         if directive.depends_on
     ]
 
+    global_tags_aspect_mces = [
+        create_global_tags_aspect_mce(directive)
+        for directive in directives
+        if not directive.drop
+    ]
+
+    editable_schema_info_aspect_mces = [
+        create_editable_schema_info_aspect_mce(directive)
+        for directive in directives
+        if not directive.drop
+    ]
+
     enriched_mces = (
         filtered_dataset_mces
         + owner_entity_mces
         + ownership_aspect_mces
         + lineage_aspect_mces
+        + global_tags_aspect_mces
+        + editable_schema_info_aspect_mces
     )
     write_mces(OUTPUT_ENRICHED, enriched_mces)

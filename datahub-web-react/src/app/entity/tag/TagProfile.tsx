@@ -1,13 +1,15 @@
 import { grey } from '@ant-design/colors';
-import { Alert, Avatar, Card, Space, Tooltip, Typography } from 'antd';
+import { Alert, Avatar, Button, Card, Tooltip, Typography } from 'antd';
 import React from 'react';
-import { useParams } from 'react-router';
+import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGetTagQuery } from '../../../graphql/tag.generated';
 import defaultAvatar from '../../../images/default_avatar.png';
 import { EntityType } from '../../../types.generated';
+import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { Message } from '../../shared/Message';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
@@ -22,7 +24,21 @@ const LoadingMessage = styled(Message)`
 const TitleLabel = styled(Typography.Text)`
     &&& {
         color: ${grey[2]};
-        font-size: 13;
+        font-size: 13px;
+    }
+`;
+
+const CreatedByLabel = styled(Typography.Text)`
+    &&& {
+        color: ${grey[2]};
+        font-size: 13px;
+    }
+`;
+
+const StatsLabel = styled(Typography.Text)`
+    &&& {
+        color: ${grey[2]};
+        font-size: 13px;
     }
 `;
 
@@ -30,6 +46,29 @@ const TitleText = styled(Typography.Title)`
     &&& {
         margin-top: 0px;
     }
+`;
+
+const HeaderLayout = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
+
+const StatsBox = styled.div`
+    width: 180px;
+    justify-content: left;
+`;
+
+const StatText = styled(Typography.Text)`
+    font-size: 15px;
+`;
+
+const EmptyStatsText = styled(Typography.Text)`
+    font-size: 15px;
+    font-style: italic;
+`;
+
+const TagSearchButton = styled(Button)`
+    margin-left: -16px;
 `;
 
 type TagPageParams = {
@@ -43,6 +82,24 @@ export default function TagProfile() {
     const { urn } = useParams<TagPageParams>();
     const { loading, error, data } = useGetTagQuery({ variables: { urn } });
     const entityRegistry = useEntityRegistry();
+    const history = useHistory();
+
+    const allSearchResultsByType = useGetAllEntitySearchResults({
+        query: `tags:${data?.tag?.name}`,
+        start: 0,
+        count: 1,
+        filters: [],
+    });
+
+    const statsLoading = Object.keys(allSearchResultsByType).some((type) => {
+        return allSearchResultsByType[type].loading;
+    });
+
+    const someStats =
+        !statsLoading &&
+        Object.keys(allSearchResultsByType).some((type) => {
+            return allSearchResultsByType[type]?.data.search.total > 0;
+        });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -53,30 +110,76 @@ export default function TagProfile() {
             {loading && <LoadingMessage type="loading" content="Loading..." />}
             <Card
                 title={
-                    <>
-                        <Space direction="vertical" size="middle">
+                    <HeaderLayout>
+                        <div>
                             <div>
                                 <TitleLabel>Tag</TitleLabel>
                                 <TitleText>{data?.tag?.name}</TitleText>
                             </div>
-                            <Avatar.Group maxCount={6} size="large">
-                                {data?.tag?.ownership?.owners?.map((owner) => (
-                                    <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
-                                        <Link
-                                            to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
-                                                owner.owner.urn
-                                            }`}
-                                        >
-                                            <Avatar
-                                                src={owner.owner?.editableInfo?.pictureLink || defaultAvatar}
-                                                data-testid={`avatar-tag-${owner.owner.urn}`}
-                                            />
-                                        </Link>
-                                    </Tooltip>
-                                ))}
-                            </Avatar.Group>
-                        </Space>
-                    </>
+                            <div>
+                                <div>
+                                    <CreatedByLabel>Created by</CreatedByLabel>
+                                </div>
+                                <Avatar.Group maxCount={6} size="large">
+                                    {data?.tag?.ownership?.owners?.map((owner) => (
+                                        <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
+                                            <Link
+                                                to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
+                                                    owner.owner.urn
+                                                }`}
+                                            >
+                                                <Avatar
+                                                    src={owner.owner?.editableInfo?.pictureLink || defaultAvatar}
+                                                    data-testid={`avatar-tag-${owner.owner.urn}`}
+                                                />
+                                            </Link>
+                                        </Tooltip>
+                                    ))}
+                                </Avatar.Group>
+                            </div>
+                        </div>
+                        <StatsBox>
+                            <StatsLabel>Applied to</StatsLabel>
+                            {statsLoading && (
+                                <div>
+                                    <EmptyStatsText>Loading...</EmptyStatsText>
+                                </div>
+                            )}
+                            {!statsLoading && !someStats && (
+                                <div>
+                                    <EmptyStatsText>No entities</EmptyStatsText>
+                                </div>
+                            )}
+                            {!statsLoading &&
+                                someStats &&
+                                Object.keys(allSearchResultsByType).map((type) => {
+                                    if (allSearchResultsByType[type].data.search.total === 0) {
+                                        return null;
+                                    }
+                                    return (
+                                        <div key={type}>
+                                            <TagSearchButton
+                                                type="text"
+                                                key={type}
+                                                onClick={() =>
+                                                    navigateToSearchUrl({
+                                                        type: type as EntityType,
+                                                        query: `tags:${data?.tag?.name}`,
+                                                        history,
+                                                        entityRegistry,
+                                                    })
+                                                }
+                                            >
+                                                <StatText data-testid={`stats-${type}`}>
+                                                    {allSearchResultsByType[type].data.search.total}{' '}
+                                                    {entityRegistry.getCollectionName(type as EntityType)}
+                                                </StatText>
+                                            </TagSearchButton>
+                                        </div>
+                                    );
+                                })}
+                        </StatsBox>
+                    </HeaderLayout>
                 }
             >
                 <Typography.Paragraph strong style={{ color: grey[2], fontSize: 13 }}>

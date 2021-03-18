@@ -1,0 +1,26 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.DataFlowUrn
+import com.linkedin.common.Ownership
+
+/**
+ * Metadata for DataFlow
+ */
+record DataFlow includes DataFlowKey, ChangeAuditStamps {
+  /**
+   * DataFlow urn
+   */
+  urn: DataFlowUrn
+
+  /**
+   * Ownership Info
+   */
+  ownership: optional Ownership
+
+  /**
+   * Optional additional metadata about the data flow
+   */
+   info: optional DataFlowInfo
+
+}

@@ -1,0 +1,33 @@
+namespace com.linkedin.datajob
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.DataJobUrn
+import com.linkedin.common.Ownership
+
+
+
+/**
+ * Metadata bout DataJob
+ */
+record DataJob includes DataJobKey, ChangeAuditStamps {
+  /**
+   * DataJob urn
+   */
+  urn: DataJobUrn
+
+  /**
+   * Ownership Info
+   */
+  ownership: optional Ownership
+
+  /**
+   * Input and output datasets of job
+   */
+   inputOutput: optional DataJobInputOutput
+
+  /**
+   * Optional additional metadata about the job
+   */
+   info: optional DataJobInfo
+
+}

@@ -7,8 +7,11 @@ source:
     password: example
     database: metagalaxy
     host_port: localhost:53306
+    schema_pattern:
+      allow:
+        - "^metagalaxy"
 
 sink:
   type: file
   config:
-    filename: './mysql_mces.json'
+    filename: "./mysql_mces.json"

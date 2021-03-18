@@ -2,24 +2,31 @@ package com.linkedin.tag.client;
 
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
+import com.linkedin.metadata.dao.TagActionRequestBuilders;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableClient;
+import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.tag.Tag;
 import com.linkedin.tag.TagKey;
+import com.linkedin.tag.TagProperties;
 import com.linkedin.tag.TagsDoAutocompleteRequestBuilder;
 import com.linkedin.tag.TagsFindBySearchRequestBuilder;
 import com.linkedin.tag.TagsRequestBuilders;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +39,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 public class Tags extends BaseSearchableClient<Tag>  {
 
     private static final TagsRequestBuilders TAGS_REQUEST_BUILDERS = new TagsRequestBuilders();
+    private static final TagActionRequestBuilders TAGS_ACTION_REQUEST_BUILDERS = new TagActionRequestBuilders();
     private static final TagSearchConfig TAGS_SEARCH_CONFIG = new TagSearchConfig();
 
     public Tags(@Nonnull Client restliClient) {
@@ -117,6 +125,28 @@ public class Tags extends BaseSearchableClient<Tag>  {
                 .limitParam(limit);
 
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Update an existing Tag
+     */
+    public void update(@Nonnull final TagUrn urn, @Nonnull final Tag tag) throws RemoteInvocationException {
+        Request request = TAGS_ACTION_REQUEST_BUILDERS.createRequest(urn, toSnapshot(tag, urn));
+        _client.sendRequest(request).getResponse();
+    }
+
+    static TagSnapshot toSnapshot(@Nonnull Tag tag, @Nonnull TagUrn tagUrn) {
+        final List<TagAspect> aspects = new ArrayList<>();
+        if (tag.hasDescription()) {
+            TagProperties tagProperties = new TagProperties();
+            tagProperties.setDescription((tag.getDescription()));
+            tagProperties.setName((tag.getName()));
+            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tagProperties));
+        }
+        if (tag.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tag.getOwnership()));
+        }
+        return ModelUtils.newSnapshot(TagSnapshot.class, tagUrn, aspects);
     }
 
     /**

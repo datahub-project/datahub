@@ -1,12 +1,9 @@
 import Cookies from 'js-cookie';
 import { makeVar } from '@apollo/client';
+import { GlobalCfg } from '../../conf';
 
 export const checkAuthStatus = (): boolean => {
-    // Check if we have a valid token.
-    // TODO: perhaps there's a more robust way to detect this?
-    // e.g. what happens if the PLAY_SESSION cookie is stuck but the session is
-    // invalid or expired?
-    return !!Cookies.get('IS_LOGGED_IN');
+    return !!Cookies.get(GlobalCfg.CLIENT_AUTH_COOKIE);
 };
 
 export const isLoggedInVar = makeVar(checkAuthStatus());

@@ -9,18 +9,26 @@ import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.dashboard.Chart;
 import com.linkedin.dashboard.ChartKey;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.ChartAspect;
 import com.linkedin.metadata.configs.ChartSearchConfig;
+import com.linkedin.metadata.dao.ChartActionRequestBuilder;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseBrowsableClient;
+import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,6 +41,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
 
     private static final ChartsRequestBuilders CHARTS_REQUEST_BUILDERS = new ChartsRequestBuilders();
+    private static final ChartActionRequestBuilder CHARTS_ACTION_REQUEST_BUILDERS = new ChartActionRequestBuilder();
     private static final ChartSearchConfig CHARTS_SEARCH_CONFIG = new ChartSearchConfig();
 
     public Charts(@Nonnull Client restliClient) {
@@ -142,6 +151,34 @@ public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
             requestBuilder.filterParam(newFilter(requestFilters));
         }
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Update an existing Chart
+     */
+    public void update(@Nonnull final ChartUrn urn, @Nonnull final Chart chart) throws RemoteInvocationException {
+        Request request = CHARTS_ACTION_REQUEST_BUILDERS.createRequest(urn, toSnapshot(chart, urn));
+        _client.sendRequest(request).getResponse();
+    }
+
+    static ChartSnapshot toSnapshot(@Nonnull Chart chart, @Nonnull ChartUrn urn) {
+        final List<ChartAspect> aspects = new ArrayList<>();
+        if (chart.hasInfo()) {
+            aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getInfo()));
+        }
+        if (chart.hasQuery()) {
+            aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getQuery()));
+        }
+        if (chart.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getOwnership()));
+        }
+        if (chart.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getStatus()));
+        }
+        if (chart.hasGlobalTags()) {
+            aspects.add(ModelUtils.newAspectUnion(ChartAspect.class, chart.getGlobalTags()));
+        }
+        return ModelUtils.newSnapshot(ChartSnapshot.class, urn, aspects);
     }
 
     @Nonnull

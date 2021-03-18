@@ -25,3 +25,7 @@ dependencies:
     version: 0.2.1
     repository: file://./charts/datahub-mce-consumer
     condition: datahub-mce-consumer.enabled
+  - name: datahub-ingestion-cron
+    version: 0.2.1
+    repository: file://./charts/datahub-ingestion-cron
+    condition: datahub-ingestion-cron.enabled

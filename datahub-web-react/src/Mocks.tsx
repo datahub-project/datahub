@@ -5,7 +5,6 @@ import {
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
-import { LoginDocument } from './graphql/auth.generated';
 import { GetUserDocument } from './graphql/user.generated';
 import { Dataset, EntityType, PlatformType } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
@@ -234,6 +233,7 @@ const dataset3 = {
         ],
     },
     schema: null,
+    editableSchemaMetadata: null,
     deprecation: null,
 } as Dataset;
 
@@ -266,22 +266,6 @@ const sampleTag = {
     Define mock data to be returned by Apollo MockProvider. 
 */
 export const mocks = [
-    {
-        request: {
-            query: LoginDocument,
-            variables: {
-                username: 'datahub',
-                password: 'datahub',
-            },
-        },
-        result: {
-            data: {
-                login: {
-                    ...user1,
-                },
-            },
-        },
-    },
     {
         request: {
             query: GetDatasetDocument,
@@ -692,6 +676,83 @@ export const mocks = [
                     },
                 },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'CORP_USER',
+                    query: 'tags:abc-sample-tag',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 0,
+                    total: 2,
+                    entities: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'tags:abc-sample-tag',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    entities: [
+                        {
+                            __typename: 'Dataset',
+                            ...dataset3,
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
         },
     },
     {

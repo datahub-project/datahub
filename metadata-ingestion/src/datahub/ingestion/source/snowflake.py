@@ -1,3 +1,6 @@
+# This import verifies that the dependencies are available.
+import snowflake.sqlalchemy  # noqa: F401
+
 from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 

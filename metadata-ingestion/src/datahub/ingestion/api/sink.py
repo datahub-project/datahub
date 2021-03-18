@@ -71,7 +71,7 @@ class Sink(Closeable, metaclass=ABCMeta):
     @abstractmethod
     def write_record_async(
         self, record_envelope: RecordEnvelope, callback: WriteCallback
-    ):
+    ) -> None:
         # must call callback when done.
         pass
 

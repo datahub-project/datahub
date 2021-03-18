@@ -42,12 +42,12 @@ module.exports = {
       // TODO "docs/how/data-source-onboarding",
     ],
     Architecture: [
-      // "docs/README",
       "docs/architecture/architecture",
       "docs/architecture/metadata-ingestion",
-      "docs/what/gma",
+      //"docs/what/gma",
       "docs/architecture/metadata-serving",
-      "docs/what/gms",
+      //"docs/what/gms",
+      "datahub-web-react/README",
     ],
     // },
     // developerGuideSidebar: {
@@ -69,6 +69,7 @@ module.exports = {
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",
+      "docs/how/build-metadata-service",
       "docs/how/customize-elasticsearch-query-template",
       "docs/how/entity-onboarding",
       "docs/how/graph-onboarding",
@@ -76,6 +77,9 @@ module.exports = {
       "docs/demo/graph-onboarding",
       "docs/how/search-onboarding",
       "docs/how/search-over-new-field",
+      "docs/how/configure-oidc-react",
+      "docs/how/sso/configure-oidc-react-google",
+      "docs/how/sso/configure-oidc-react-okta",
     ],
     Components: [
       "datahub-web-react/README",

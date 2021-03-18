@@ -2,7 +2,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, List, Space, Typography } from 'antd';
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
+import styled from 'styled-components';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -12,53 +12,43 @@ const styles = {
     header: { marginBottom: 20 },
     resultHeaderCardBody: { padding: '16px 24px' },
     resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
-    resultList: { width: '100%', borderColor: '#f0f0f0', marginTop: '12px', padding: '16px 32px' },
     seeAllButton: { fontSize: 18 },
     resultsContainer: { width: '100%', padding: '40px 132px' },
 };
 
+const ResultList = styled(List)`
+    &&& {
+        width: 100%;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        margin-top: 8px;
+        padding: 16px 48px;
+        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
+
 interface Props {
     type: EntityType;
     query: string;
+    entities: Array<any>;
 }
 
-const RESULTS_PER_GROUP = 3;
-
-export const EntityGroupSearchResults = ({ type, query }: Props) => {
+export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { data } = useGetSearchResultsQuery({
-        variables: {
-            input: {
-                type,
-                query,
-                start: 0,
-                count: RESULTS_PER_GROUP,
-                filters: null,
-            },
-        },
-    });
-
-    if (!data?.search?.entities.length) {
-        return null;
-    }
-
-    const results = data?.search?.entities || [];
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>
-            <List
+            <ResultList
                 header={
                     <span style={styles.header}>
-                        <Typography.Title level={3}>{entityRegistry.getCollectionName(type)}</Typography.Title>
+                        <Typography.Title level={2}>{entityRegistry.getCollectionName(type)}</Typography.Title>
                         <Card bodyStyle={styles.resultHeaderCardBody} style={styles.resultHeaderCard as any}>
                             {entityRegistry.getIcon(type, 36, IconStyleType.ACCENT)}
                         </Card>
                     </span>
                 }
                 footer={
-                    data?.search &&
-                    data?.search?.total > 0 && (
+                    entities.length > 0 && (
                         <Button
                             type="text"
                             style={styles.seeAllButton}
@@ -79,13 +69,12 @@ export const EntityGroupSearchResults = ({ type, query }: Props) => {
                         </Button>
                     )
                 }
-                style={styles.resultList}
-                dataSource={results}
+                dataSource={entities}
                 split={false}
                 renderItem={(item, index) => (
                     <>
                         <List.Item>{entityRegistry.renderSearchResult(type, item)}</List.Item>
-                        {index < results.length - 1 && <Divider />}
+                        {index < entities.length - 1 && <Divider />}
                     </>
                 )}
                 bordered

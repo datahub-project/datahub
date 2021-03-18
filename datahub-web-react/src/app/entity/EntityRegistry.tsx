@@ -27,6 +27,10 @@ export default class EntityRegistry {
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
     }
 
+    getEntity(type: EntityType): Entity<any> {
+        return validatedGet(type, this.entityTypeToEntity);
+    }
+
     getEntities(): Array<Entity<any>> {
         return this.entities;
     }

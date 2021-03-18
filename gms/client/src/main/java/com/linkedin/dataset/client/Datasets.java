@@ -309,6 +309,12 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
         if (dataset.hasRemoved()) {
             aspects.add(DatasetAspect.create(new Status().setRemoved(dataset.isRemoved())));
         }
+        if (dataset.getGlobalTags() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getGlobalTags()));
+        }
+        if (dataset.getEditableSchemaMetadata() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getEditableSchemaMetadata()));
+        }
         return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
     }
 

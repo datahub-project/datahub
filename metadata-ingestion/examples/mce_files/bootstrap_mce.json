@@ -119,6 +119,27 @@
                         }
                     },
                     {
+                        "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+                            "created": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "editableSchemaFieldInfo": [
+                                {
+                                    "fieldPath": "field_foo",
+                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                                }
+                            ]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "SampleKafkaSchema",
                             "platform": "urn:li:dataPlatform:kafka",
@@ -156,6 +177,7 @@
                                         }
                                     },
                                     "nativeDataType": "string",
+                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
                                     "recursive": false
                                 },
                                 {
@@ -475,7 +497,7 @@
         },
         "proposedDelta": null
     },
-    {
+		 {
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
@@ -627,8 +649,9 @@
                         "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
                             "description": "A sample model for predicting some outcome.",
                             "date": null,
-                            "tags": [],
-                            "version": null
+                            "tags": ["Sample"],
+                            "version": null,
+                            "type": "Naive Bayes classifier"
                         }
                     },
                     {
@@ -652,6 +675,71 @@
                                 }
                             ]
                         }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+                            "elements": [
+                                {
+                                    "url": "https://www.linkedin.com",
+                                    "description": "Sample doc",
+                                    "createStamp": {
+                                        "time": 1581407189000,
+                                        "actor": "urn:li:corpuser:jdoe",
+                                        "impersonator": null
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
+                            "primaryUses" : [
+                                "Sample Model",
+                                "Primary Use"
+                            ],
+                            "primaryUsers": [
+                               "ENTERPRISE"
+                            ],
+                            "outOfScopeUses": [
+                                "Production Deployment"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
+                            "performanceMeasures": ["performanceMeasures"],
+                            "decisionThreshold": ["decisionThreshold"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
+                            "data": ["data"],
+                            "humanLife": ["humanLife"],
+                            "mitigations": ["mitigations"],
+                            "risksAndHarms": ["risksAndHarms"],
+                            "useCases": ["useCases"]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
+                            "recommendations": "recommendations",
+                            "idealDatasetCharacteristics": [
+                                "idealDatasetCharacteristics"
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "boolean" : false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Cost": {
+                            "costType": "ORG_COST_TYPE",
+                            "cost": {
+                                "costCode": "costCode"
+                            }
+                        }
                     }
                 ]
             }
@@ -668,6 +756,39 @@
                         "com.linkedin.pegasus2avro.tag.TagProperties": {
                             "name": "Legacy",
                             "description": "Indicates the dataset is no longer supported"
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:jdoe",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+                "urn": "urn:li:tag:NeedsDocumentation",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.tag.TagProperties": {
+                            "name": "NeedsDocumentation",
+                            "description": "Indicates the data element needs documentation"
                         }
                     },
                     {

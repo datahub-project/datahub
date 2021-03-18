@@ -24,7 +24,7 @@ You can easily download and run all these images and their dependencies with our
 DataHub Docker Images:
 
 * [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
-* [linkedin/datahub-frontend](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend/)
+* [linkedin/datahub-frontend-react](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend-react/)
 * [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)
 * [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
@@ -61,31 +61,31 @@ COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub build
 This is because we're relying on builtkit for multistage builds. It does not hurt also set `DATAHUB_VERSION` to
 something unique.
 
-## React
-To serve the incubating React UI, follow the instructions below.
+## Ember
+To serve the legacy Ember UI, follow the instructions below.
 
 > **Before continuing**: If you've already run a deploy script, don't forget to clear containers using `docker container prune`
 
-### Serving React Only
+### Serving Ember Only
 
 #### All Containers 
 
-Use the `quickstart-react.sh` script to launch all containers in DataHub, including a frontend server that returns a React UI
+Use the `quickstart-ember.sh` script to launch all containers in DataHub, including a frontend server that serves the Ember UI
 ```
-./quickstart-react.sh
+./quickstart-ember.sh
 ```
 
 #### The Bare Minimum
-Run the following command to launch only the React server and its required dependencies
+Run the following command to launch only the Ember server and its required dependencies
 
 ```
-docker-compose -f docker-compose.react.yml -f docker-compose.yml -f docker-compose.override.yml up datahub-frontend-react
+docker-compose -f docker-compose.ember.yml -f docker-compose.yml -f docker-compose.override.yml up datahub-frontend-ember
 ```
 
-Once complete, navigate to `localhost:9002/` in your browser to see the React app.
+Once complete, navigate to `localhost:9001` in your browser to see the legacy Ember app.
 
 ### Serving React + Ember
-If you'd like to serve the React and Ember UIs side-by-side, you can deploy the `datahub-frontend-react` container manually.
+If you'd like to serve the React and Ember UIs side-by-side, you can deploy the `datahub-frontend-ember` service manually.
 
 #### All Containers
 
@@ -94,22 +94,22 @@ To deploy all DataHub containers, run the quickstart script:
 ./quickstart.sh
 ```
 
-Next, deploy the container that serves the React UI:
+Next, deploy the container that serves the Ember UI:
 
 ```
-docker-compose -f docker-compose.react.yml -f docker-compose.yml -f docker-compose.override.yml up --no-deps datahub-frontend-react
+docker-compose -f docker-compose.ember.yml -f docker-compose.yml -f docker-compose.override.yml up --no-deps datahub-frontend-ember
 ```
 
 #### The Bare Minimum
-First, start the Ember frontend server & its required dependencies:
+First, start the React frontend server & its required dependencies:
 
 ```
-docker-compose up datahub-frontend
+docker-compose up datahub-frontend-react
 ```
 
-Then, start the React frontend server & its required dependencies: 
+Then, start the Ember frontend server & its required dependencies: 
 ```
-docker-compose -f docker-compose.react.yml -f docker-compose.yml -f docker-compose.override.yml up datahub-frontend-react
+docker-compose -f docker-compose.ember.yml -f docker-compose.yml -f docker-compose.override.yml up datahub-frontend-ember
 ```
 
-Navigate to `localhost:9001/` to view the Ember app & `localhost:9002/` to view the React app. 
+Navigate to `localhost:9002/` to view the React app & `localhost:9001/` to view the legacy Ember app. 

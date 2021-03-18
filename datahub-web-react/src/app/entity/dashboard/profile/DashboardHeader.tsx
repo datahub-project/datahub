@@ -7,9 +7,6 @@ import defaultAvatar from '../../../../images/default_avatar.png';
 
 const styles = {
     content: { width: '100%' },
-    typeLabel: { color: 'rgba(0, 0, 0, 0.45)' },
-    platformLabel: { color: 'rgba(0, 0, 0, 0.45)' },
-    lastUpdatedLabel: { color: 'rgba(0, 0, 0, 0.45)' },
 };
 
 export type Props = {
@@ -26,8 +23,8 @@ export default function DashboardHeader({ platform, description, ownership, url,
         <Space direction="vertical" size={16} style={styles.content}>
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
-                    <Typography.Text style={styles.typeLabel}>Dashboard</Typography.Text>
-                    <Typography.Text strong style={styles.platformLabel}>
+                    <Typography.Text type="secondary">Dashboard</Typography.Text>
+                    <Typography.Text strong type="secondary">
                         {platform}
                     </Typography.Text>
                 </Space>
@@ -44,7 +41,7 @@ export default function DashboardHeader({ platform, description, ownership, url,
                 ))}
             </Avatar.Group>
             {lastModified && (
-                <Typography.Text style={styles.lastUpdatedLabel}>
+                <Typography.Text type="secondary">
                     Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
             )}

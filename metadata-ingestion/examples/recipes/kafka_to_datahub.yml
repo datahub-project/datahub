@@ -2,7 +2,8 @@
 source:
   type: "kafka"
   config:
-    connection.bootstrap: "localhost:9092"
+    connection:
+      bootstrap: "localhost:9092"
     topic_patterns:
       allow:
         - ".*"
@@ -12,4 +13,5 @@ source:
 sink:
   type: "datahub-kafka"
   config:
-    connection.bootstrap: "localhost:9092"
+    connection:
+      bootstrap: "localhost:9092"

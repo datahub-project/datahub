@@ -67,4 +67,9 @@ record DatasetDocument includes BaseDocument {
    * List of upstreams for this dataset
    */
   upstreams: optional array[DatasetUrn]
+
+  /**
+   * List of tags for this dataset
+   */
+  tags: optional array[string]
 }

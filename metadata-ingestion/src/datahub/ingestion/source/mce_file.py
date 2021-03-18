@@ -30,6 +30,8 @@ class MetadataFileSource(Source):
 
         for i, obj in enumerate(mce_obj_list):
             mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
+            if not mce.validate():
+                raise ValueError(f"failed to parse into valid MCE: {obj}")
             wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", mce)
             self.report.report_workunit(wu)
             yield wu
@@ -39,3 +41,10 @@ class MetadataFileSource(Source):
 
     def close(self):
         pass
+
+
+def check_mce_file(filepath: str) -> str:
+    mce_source = MetadataFileSource.create({"filename": filepath}, None)
+    for _ in mce_source.get_workunits():
+        pass
+    return f"{mce_source.get_report().workunits_produced} MCEs found - all valid"

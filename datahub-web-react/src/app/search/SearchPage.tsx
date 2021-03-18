@@ -11,7 +11,7 @@ import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
-import { EntityGroupSearchResults } from './EntityGroupSearchResults';
+import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
 
 const ALL_ENTITIES_TAB_NAME = 'All';
 
@@ -87,7 +87,7 @@ export const SearchPage = () => {
                         <Tabs.TabPane
                             tab={
                                 <>
-                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}{' '}
+                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(t)}</StyledTab>
                                 </>
                             }
@@ -106,9 +106,7 @@ export const SearchPage = () => {
                     onChangePage={onChangePage}
                 />
             ) : (
-                entityRegistry
-                    .getSearchEntityTypes()
-                    .map((entityType) => <EntityGroupSearchResults type={entityType} query={query} />)
+                <AllEntitiesSearchResults query={query} />
             )}
         </SearchablePage>
     );

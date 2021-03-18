@@ -6,7 +6,7 @@ You can list all Docker containers in your local by running `docker container ls
 ```
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
 979830a342ce        linkedin/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
-3abfc72e205d        linkedin/datahub-frontend:latest                    "datahub-frontend/bi…"   10 hours ago        Up 10 hours         0.0.0.0:9001->9001/tcp                                     datahub-frontend
+3abfc72e205d        linkedin/datahub-frontend-react:latest              "datahub-frontend…"   10 hours ago        Up 10 hours         0.0.0.0:9002->9002/tcp                                     datahub-frontend
 50b2308a8efd        linkedin/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
 4d6b03d77113        linkedin/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
 c267c287a235        landoop/schema-registry-ui:latest                     "/run.sh"                10 hours ago        Up 10 hours         0.0.0.0:8000->8000/tcp                                     schema-registry-ui
@@ -24,9 +24,9 @@ Also you can check individual Docker container logs by running `docker logs <<co
 2020-02-06 09:20:54.870:INFO:oejs.Server:main: Started @18807ms
 ```
 
-For `datahub-frontend`, you should see a log similar to this at the end of the initialization:
+For `datahub-frontend-react`, you should see a log similar to this at the end of the initialization:
 ```
-09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9001
+09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9002
 ```
 
 ## My elasticsearch or broker container exited with error or was stuck forever

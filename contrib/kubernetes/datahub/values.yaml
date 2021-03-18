@@ -26,6 +26,12 @@ datahub-mce-consumer:
     repository: linkedin/datahub-mce-consumer
     tag: "latest"
 
+datahub-ingestion-cron:
+  enabled: false
+  image:
+    repository: linkedin/datahub-ingestion
+    tag: "latest"
+
 global:
   elasticsearch:
     host: "elasticsearch"

@@ -1,0 +1,60 @@
+{{- $baseName := include "datahub-ingestion-cron.fullname" .}}
+{{- $labels := include "datahub-ingestion-cron.labels" .}}
+{{- range $job, $val := .Values.crons }}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: "{{ $baseName }}-{{ .name }}"
+  labels: {{- $labels | nindent 4 }}
+spec:
+  schedule: {{ default "0 0 * * *" .schedule | quote}}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+        {{- with $.Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- if .extraInitContainers }}
+          initContainers:
+          {{- toYaml .extraInitContainers | nindent 12 }}
+          {{- end }}
+        {{- if .hostAliases }}
+          hostAliases: {{- include "common.tplvalues.render" (dict "value" .hostAliases "context" $) | nindent 10 }}
+        {{- end }}
+          containers:
+          - name: {{ default "crawler" .name }}
+            image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+            imagePullPolicy: {{ $.Values.image.pullPolicy }}
+            {{- if .extraVolumeMounts }}
+            volumeMounts:
+              {{- toYaml .extraVolumeMounts | nindent 14 }}
+            {{- end }}
+            command:
+            - /bin/sh
+            - -c
+            - datahub ingest -c {{ required "Path to configuration file is required" .crawlerConfigPath }}
+            env:
+              {{- if .env }}
+              {{- range $key,$value := .env }}
+              - name: {{ $key | quote}}
+                value: {{ $value | quote}}
+              {{- end }}
+              {{- end }}
+              {{- if .envFromSecrets }}
+              {{- range $key,$value := .envFromSecrets }}
+              - name: {{ $key | quote}}
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ $value.secret | quote}}
+                    key: {{ $value.key | quote}}
+              {{- end }}
+              {{- end }}
+          restartPolicy: OnFailure
+          {{- if .extraVolumes }}
+          volumes:
+            {{- toYaml .extraVolumes | nindent 12 }}
+          {{- end }}
+---
+{{- end }}

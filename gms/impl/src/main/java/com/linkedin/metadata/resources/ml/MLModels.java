@@ -59,7 +59,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
-@RestLiCollection(name = "mlModels", namespace = "com.linkedin.ml", keyName = "model")
+@RestLiCollection(name = "mlModels", namespace = "com.linkedin.ml", keyName = "mlmodel")
 public class MLModels extends BaseSearchableEntityResource<
     // @formatter:off
     ComplexResourceKey<MLModelKey, EmptyRecord>,
@@ -120,56 +120,61 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     protected MLModel toValue(@Nonnull MLModelSnapshot snapshot) {
         final MLModel value = new MLModel()
+            .setUrn(snapshot.getUrn())
             .setPlatform(snapshot.getUrn().getPlatformEntity())
             .setName(snapshot.getUrn().getMlModelNameEntity())
             .setOrigin(snapshot.getUrn().getOriginEntity());
 
         ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
-            if (aspect instanceof CaveatsAndRecommendations) {
-                CaveatsAndRecommendations caveatsAndRecommendations = CaveatsAndRecommendations.class.cast(aspect);
-                value.setCaveatsAndRecommendations(caveatsAndRecommendations);
-            } else if (aspect instanceof Cost) {
-                Cost cost = Cost.class.cast(aspect);
-                value.setCost(cost);
-            } else if (aspect instanceof Deprecation) {
-                Deprecation deprecation = Deprecation.class.cast(aspect);
-                value.setDeprecation(deprecation);
-            } else if (aspect instanceof EthicalConsiderations) {
-                EthicalConsiderations ethicalConsiderations = EthicalConsiderations.class.cast(aspect);
-                value.setEthicalConsiderations(ethicalConsiderations);
-            } else if (aspect instanceof EvaluationData) {
-                EvaluationData evaluationData = EvaluationData.class.cast(aspect);
-                value.setEvaluationData(evaluationData);
-            } else if (aspect instanceof InstitutionalMemory) {
-                InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
-                value.setInstitutionalMemory(institutionalMemory);
-            } else if (aspect instanceof IntendedUse) {
-                IntendedUse intendedUse = IntendedUse.class.cast(aspect);
-                value.setIntendedUse(intendedUse);
-            } else if (aspect instanceof Metrics) {
-                Metrics metrics = Metrics.class.cast(aspect);
-                value.setMetrics(metrics);
-            } else if (aspect instanceof MLModelFactorPrompts) {
-                MLModelFactorPrompts mlModelFactorPrompts = MLModelFactorPrompts.class.cast(aspect);
-                value.setMlModelFactorPrompts(mlModelFactorPrompts);
+            if (aspect instanceof Ownership) {
+                Ownership ownership = Ownership.class.cast(aspect);
+                value.setOwnership(ownership);
             } else if (aspect instanceof MLModelProperties) {
                 MLModelProperties modelProperties = MLModelProperties.class.cast(aspect);
                 value.setMlModelProperties(modelProperties);
-            } else if (aspect instanceof Ownership) {
-                Ownership ownership = Ownership.class.cast(aspect);
-                value.setOwnership(ownership);
+                if (modelProperties.getDescription() != null) {
+                    value.setDescription(modelProperties.getDescription());
+                }
+                value.setTags(modelProperties.getTags());
+            } else if (aspect instanceof IntendedUse) {
+                IntendedUse intendedUse = IntendedUse.class.cast(aspect);
+                value.setIntendedUse(intendedUse);
+            } else if (aspect instanceof MLModelFactorPrompts) {
+                MLModelFactorPrompts mlModelFactorPrompts = MLModelFactorPrompts.class.cast(aspect);
+                value.setMlModelFactorPrompts(mlModelFactorPrompts);
+            } else if (aspect instanceof Metrics) {
+                Metrics metrics = Metrics.class.cast(aspect);
+                value.setMetrics(metrics);
+            } else if (aspect instanceof EvaluationData) {
+                EvaluationData evaluationData = EvaluationData.class.cast(aspect);
+                value.setEvaluationData(evaluationData);
+            } else if (aspect instanceof TrainingData) {
+                TrainingData trainingData = TrainingData.class.cast(aspect);
+                value.setTrainingData(trainingData);
             } else if (aspect instanceof QuantitativeAnalyses) {
                 QuantitativeAnalyses quantitativeAnalyses = QuantitativeAnalyses.class.cast(aspect);
                 value.setQuantitativeAnalyses(quantitativeAnalyses);
+            } else if (aspect instanceof EthicalConsiderations) {
+                EthicalConsiderations ethicalConsiderations = EthicalConsiderations.class.cast(aspect);
+                value.setEthicalConsiderations(ethicalConsiderations);
+            } else if (aspect instanceof CaveatsAndRecommendations) {
+                CaveatsAndRecommendations caveatsAndRecommendations = CaveatsAndRecommendations.class.cast(aspect);
+                value.setCaveatsAndRecommendations(caveatsAndRecommendations);
+            } else if (aspect instanceof InstitutionalMemory) {
+                InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
+                value.setInstitutionalMemory(institutionalMemory);
             } else if (aspect instanceof SourceCode) {
                 SourceCode sourceCode = SourceCode.class.cast(aspect);
                 value.setSourceCode(sourceCode);
             } else if (aspect instanceof Status) {
                 Status status = Status.class.cast(aspect);
                 value.setStatus(status);
-            } else if (aspect instanceof TrainingData) {
-                TrainingData trainingData = TrainingData.class.cast(aspect);
-                value.setTrainingData(trainingData);
+            } else if (aspect instanceof Cost) {
+                Cost cost = Cost.class.cast(aspect);
+                value.setCost(cost);
+            } else if (aspect instanceof Deprecation) {
+                Deprecation deprecation = Deprecation.class.cast(aspect);
+                value.setDeprecation(deprecation);
             }
         });
         return value;
@@ -231,7 +236,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<MLModel> get(@Nonnull ComplexResourceKey<MLModelKey, EmptyRecord> key,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.get(key, aspectNames);
     }
 
@@ -240,14 +245,14 @@ public class MLModels extends BaseSearchableEntityResource<
     @Nonnull
     public Task<Map<ComplexResourceKey<MLModelKey, EmptyRecord>, MLModel>> batchGet(
         @Nonnull Set<ComplexResourceKey<MLModelKey, EmptyRecord>> keys,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") String[] aspectNames) {
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.batchGet(keys, aspectNames);
     }
 
     @RestMethod.GetAll
     @Nonnull
     public Task<List<MLModel>> getAll(@PagingContextParam @Nonnull PagingContext pagingContext,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
         return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
@@ -257,7 +262,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<CollectionResult<MLModel, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-        @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames,
+        @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
         @PagingContextParam @Nonnull PagingContext pagingContext) {
@@ -284,7 +289,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<MLModelSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
-        @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+        @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.getSnapshot(urnString, aspectNames);
     }
 
@@ -292,7 +297,7 @@ public class MLModels extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     public Task<BackfillResult> backfill(@ActionParam(PARAM_URN) @Nonnull String urnString,
-        @ActionParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+        @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.backfill(urnString, aspectNames);
     }
 }

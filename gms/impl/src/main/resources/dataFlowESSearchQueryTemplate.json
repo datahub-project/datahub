@@ -1,0 +1,27 @@
+{
+  "function_score": {
+    "query": {
+      "query_string": {
+        "query": "$INPUT",
+        "fields": [
+          "flowId^4",
+          "orchestrator",
+          "cluster"
+        ],
+        "default_operator": "and",
+        "analyzer": "standard"
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "removed": false
+          }
+        },
+        "weight": 2
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

@@ -25,6 +25,7 @@ export function getTestEntityRegistry() {
 
 export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
+
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>

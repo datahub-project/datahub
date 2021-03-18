@@ -7,9 +7,6 @@ import defaultAvatar from '../../../../images/default_avatar.png';
 
 const styles = {
     content: { width: '100%' },
-    typeLabel: { color: 'rgba(0, 0, 0, 0.45)' },
-    platformLabel: { color: 'rgba(0, 0, 0, 0.45)' },
-    lastUpdatedLabel: { color: 'rgba(0, 0, 0, 0.45)' },
 };
 
 export type Props = {
@@ -27,8 +24,8 @@ export default function ChartHeader({ platform, description, ownership, url, las
         <Space direction="vertical" size={15} style={styles.content}>
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
-                    <Typography.Text style={styles.typeLabel}>Chart</Typography.Text>
-                    <Typography.Text strong style={styles.platformLabel}>
+                    <Typography.Text type="secondary">Chart</Typography.Text>
+                    <Typography.Text strong type="secondary">
                         {platform}
                     </Typography.Text>
                 </Space>
@@ -45,7 +42,7 @@ export default function ChartHeader({ platform, description, ownership, url, las
                 ))}
             </Avatar.Group>
             {lastModified && (
-                <Typography.Text style={styles.lastUpdatedLabel}>
+                <Typography.Text type="secondary">
                     Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
             )}

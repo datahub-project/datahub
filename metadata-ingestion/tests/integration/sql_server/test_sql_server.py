@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from datahub.entrypoints import datahub
 
 
-def test_mssql_ingest(sql_server, pytestconfig, tmp_path):
+def test_mssql_ingest(sql_server, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
 
     # Run the setup.sql file to populate the database.
@@ -29,6 +29,6 @@ def test_mssql_ingest(sql_server, pytestconfig, tmp_path):
 
     # Verify the output.
     golden = mce_helpers.load_json_file(
-        str(test_resources_dir / "mssql_mces_golden.json")
+        str(test_resources_dir / "mssql_mce_golden.json")
     )
     mce_helpers.assert_mces_equal(output, golden)

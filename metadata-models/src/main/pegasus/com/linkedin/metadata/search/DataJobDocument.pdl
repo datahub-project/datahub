@@ -1,0 +1,41 @@
+namespace com.linkedin.metadata.search
+
+import com.linkedin.common.AccessLevel
+import com.linkedin.common.DataJobUrn
+
+/**
+ * Data model for DataJob entity search
+ */
+record DataJobDocument includes BaseDocument {
+
+  /*
+   * Urn for the DataJob
+   */
+  urn: DataJobUrn
+
+  /**
+   * Optional description of the job
+   */
+  description: optional string
+
+  /**
+   * Optional name of the job
+   */
+  name: optional string
+
+  /**
+   * Name of the associated data flow
+   */
+  dataFlow: optional string
+
+  /**
+   * Id of the job
+   */
+  jobId: optional string
+
+  /**
+   * LDAP usernames of corp users who are the owners of this job
+   */
+  owners: optional array[string]
+
+}

@@ -55,6 +55,7 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion-examples\//,
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
+    /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
   ];
 
   const markdown_files = all_markdown_files.filter((filepath) => {
@@ -75,7 +76,6 @@ function get_id(filepath: string): string {
 
 const hardcoded_slugs = {
   "README.md": "/",
-  "docs/README.md": "docs/overview",
 };
 
 function get_slug(filepath: string): string {
@@ -100,13 +100,19 @@ const hardcoded_titles = {
   "docs/demo.md": "Demo",
 };
 
+const hardcoded_descriptions = {
+  // Only applied if title is also overridden.
+  "README.md":
+    "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
+};
+
 // FIXME: Eventually, we'd like to fix all of the broken links within these files.
 const allowed_broken_links = [
-  "docs/architecture/metadata-serving.md",
   "docs/developers.md",
   "docs/how/customize-elasticsearch-query-template.md",
   "docs/how/graph-onboarding.md",
   "docs/how/search-onboarding.md",
+  "docs/how/build-metadata-service.md",
 ];
 
 function markdown_guess_title(
@@ -120,6 +126,9 @@ function markdown_guess_title(
   let title: string;
   if (filepath in hardcoded_titles) {
     title = hardcoded_titles[filepath];
+    if (filepath in hardcoded_descriptions) {
+      contents.data.description = hardcoded_descriptions[filepath];
+    }
   } else {
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);

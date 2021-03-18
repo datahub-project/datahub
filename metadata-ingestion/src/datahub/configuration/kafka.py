@@ -1,6 +1,6 @@
 import re
 
-from pydantic import validator
+from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel
 
@@ -15,10 +15,10 @@ class _KafkaConnectionConfig(ConfigModel):
     # Extra schema registry config.
     # These options will be passed into Kafka's SchemaRegistryClient.
     # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html?highlight=schema%20registry#schemaregistryclient.
-    schema_registry_config: dict = {}
+    schema_registry_config: dict = Field(default_factory=dict)
 
     @validator("bootstrap")
-    def bootstrap_host_colon_port_comma(cls, val: str):
+    def bootstrap_host_colon_port_comma(cls, val: str) -> str:
         for entry in val.split(","):
             # The port can be provided but is not required.
             port = None
@@ -35,6 +35,7 @@ class _KafkaConnectionConfig(ConfigModel):
             ), f"host contains bad characters, found {host}"
             if port is not None:
                 assert port.isdigit(), f"port must be all digits, found {port}"
+        return val
 
 
 class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
@@ -44,7 +45,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
     # These options will be passed into Kafka's DeserializingConsumer.
     # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
     # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
-    consumer_config: dict = {}
+    consumer_config: dict = Field(default_factory=dict)
 
 
 class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
@@ -54,4 +55,4 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
     # These options will be passed into Kafka's SerializingProducer.
     # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
     # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
-    producer_config: dict = {}
+    producer_config: dict = Field(default_factory=dict)

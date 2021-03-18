@@ -2,9 +2,10 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/single_mce.json"
+    filename: ./examples/mce_files/single_mce.json
 
 sink:
   type: "datahub-kafka"
   config:
-    connection.bootstrap: "localhost:9092"
+    connection:
+      bootstrap: localhost:9092

@@ -1,0 +1,140 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.dbo.Products,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "DemoData.dbo.Products",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null
+                            },
+                            {
+                                "fieldPath": "ProductName",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "NVARCHAR()",
+                                "recursive": false,
+                                "globalTags": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Items,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "DemoData.Foo.Items",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:etl",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "globalTags": null
+                            },
+                            {
+                                "fieldPath": "ItemName",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "NVARCHAR()",
+                                "recursive": false,
+                                "globalTags": null
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+}
+]
