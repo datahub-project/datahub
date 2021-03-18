@@ -1,13 +1,15 @@
 import React from 'react';
 import { useHistory } from 'react-router';
-import { Typography, Image, Space, AutoComplete, Input, Row } from 'antd';
+import { Typography, Image, Space, AutoComplete, Input, Row, Button, Carousel } from 'antd';
 import styled, { useTheme } from 'styled-components';
 
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
-import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
+import { EntityType } from '../../types.generated';
 
 const Background = styled(Space)`
     width: 100%;
@@ -25,11 +27,46 @@ const WelcomeText = styled(Typography.Text)`
 
 const styles = {
     navBar: { padding: '24px' },
-    searchContainer: { width: '100%', marginTop: '40px', marginBottom: '160px' },
+    searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
     subHeaderText: { color: '#FFFFFF', fontSize: 20 },
+    subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
+
+const CarouselElement = styled.div`
+    height: 100px;
+    color: #fff;
+    line-height: 100px;
+    text-align: center;
+`;
+
+const HeaderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+`;
+
+function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] {
+    return (
+        (result.search?.entities
+            ?.map((entity) => {
+                switch (entity.__typename) {
+                    case 'Dataset':
+                        return entity.name;
+                    case 'CorpUser':
+                        return entity.username;
+                    case 'Chart':
+                        return entity.info?.name;
+                    case 'Dashboard':
+                        return entity.info?.name;
+                    default:
+                        return undefined;
+                }
+            })
+            .filter(Boolean) as string[]) || []
+    );
+}
 
 export const HomePageHeader = () => {
     const history = useHistory();
@@ -57,6 +94,30 @@ export const HomePageHeader = () => {
         });
     };
 
+    // fetch some results from each entity to display search suggestions
+    const allSearchResultsByType = useGetAllEntitySearchResults({
+        query: '*',
+        start: 0,
+        count: 3,
+        filters: [],
+    });
+
+    const suggestionsLoading = Object.keys(allSearchResultsByType).some((type) => {
+        return allSearchResultsByType[type].loading;
+    });
+
+    let suggestionsToShow: string[] = [];
+    if (!suggestionsLoading) {
+        [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
+            const suggestionsToShowForEntity = getSuggestionFieldsFromResult(allSearchResultsByType[type].data);
+            const suggestionToAddToFront = suggestionsToShowForEntity?.pop();
+            suggestionsToShow = [...suggestionsToShow, ...suggestionsToShowForEntity];
+            if (suggestionToAddToFront) {
+                suggestionsToShow.splice(0, 0, suggestionToAddToFront);
+            }
+        });
+    }
+
     return (
         <Background direction="vertical">
             <Row justify="space-between" style={styles.navBar}>
@@ -72,7 +133,7 @@ export const HomePageHeader = () => {
                     pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
                 />
             </Row>
-            <Space direction="vertical" align="center" style={styles.searchContainer}>
+            <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
                 <AutoComplete
                     style={styles.searchBox}
@@ -88,11 +149,25 @@ export const HomePageHeader = () => {
                         data-testid="search-input"
                     />
                 </AutoComplete>
-
-                <Typography.Text style={styles.subHeaderText}>
-                    {themeConfig.content.homepage.homepageMessage}
-                </Typography.Text>
-            </Space>
+                {suggestionsToShow.length === 0 && (
+                    <Typography.Text style={styles.subHeaderText}>
+                        {themeConfig.content.homepage.homepageMessage}
+                    </Typography.Text>
+                )}
+                <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
+            </HeaderContainer>
+            <div>
+                <Carousel autoplay>
+                    {suggestionsToShow.length > 0 &&
+                        suggestionsToShow.map((suggestion) => (
+                            <CarouselElement>
+                                <Button type="text" style={styles.subHeaderText}>
+                                    {suggestion}
+                                </Button>
+                            </CarouselElement>
+                        ))}
+                </Carousel>
+            </div>
         </Background>
     );
 };
