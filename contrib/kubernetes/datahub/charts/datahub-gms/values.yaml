@@ -89,7 +89,6 @@ tolerations: []
 affinity: {}
 
 env:
-  SERVERPORT: 9001
   JMXPORT: 1099
 
 exporters:
