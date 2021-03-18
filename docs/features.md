@@ -18,6 +18,11 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
  - **Social actions**: likes, follows, bookmarks [*coming soon*]
  - **Compliance management**: field level tag based compliance editing [*coming soon*]
  - **Top users**: frequent users of a dataset [*coming soon*]
+
+### Tags
+ - **Globally defined**: Tags provided a standardized set of labels that can be shared across all your entities
+ - **Supports entities and schemas**: Tags can be applied at the entity level or for datasets, attached to schema fields.
+ - **Searchable** Entities can be searched and filtered by tag
  
 ### Users
  - **Search**: full-text & advanced search, search ranking

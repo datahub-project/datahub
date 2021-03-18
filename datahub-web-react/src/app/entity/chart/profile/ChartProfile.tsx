@@ -5,9 +5,10 @@ import { Chart, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
-import { useGetChartQuery } from '../../../../graphql/chart.generated';
+import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
+import TagGroup from '../../../shared/tags/TagGroup';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
@@ -22,6 +23,20 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources];
 
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
+    const [updateChart] = useUpdateChartMutation({
+        update(cache, { data: newChart }) {
+            cache.modify({
+                fields: {
+                    chart() {
+                        cache.writeQuery({
+                            query: GetChartDocument,
+                            data: { chart: { ...newChart?.updateChart } },
+                        });
+                    },
+                },
+            });
+        },
+    });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -64,7 +79,14 @@ export default function ChartProfile({ urn }: { urn: string }) {
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {data && data.chart && (
                     <EntityProfile
-                        tags={data.chart?.globalTags as GlobalTags}
+                        tags={
+                            <TagGroup
+                                editableTags={data.chart?.globalTags as GlobalTags}
+                                canAdd
+                                canRemove
+                                updateTags={(globalTags) => updateChart({ variables: { input: { urn, globalTags } } })}
+                            />
+                        }
                         title={data.chart.info?.name || ''}
                         tabs={getTabs(data.chart as Chart)}
                         header={getHeader(data.chart as Chart)}

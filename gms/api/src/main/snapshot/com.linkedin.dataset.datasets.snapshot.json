@@ -868,6 +868,44 @@
       "doc" : "Schema metadata of the dataset",
       "optional" : true
     }, {
+      "name" : "editableSchemaMetadata",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableSchemaMetadata",
+        "namespace" : "com.linkedin.schema",
+        "doc" : "EditableSchemaMetadata stores editable changes made to schema metadata. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "editableSchemaFieldInfo",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "EditableSchemaFieldInfo",
+              "doc" : "SchemaField to describe metadata related to dataset schema.",
+              "fields" : [ {
+                "name" : "fieldPath",
+                "type" : "string",
+                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+              }, {
+                "name" : "description",
+                "type" : "string",
+                "doc" : "Description",
+                "optional" : true
+              }, {
+                "name" : "globalTags",
+                "type" : "com.linkedin.common.GlobalTags",
+                "doc" : "Tags associated with the field",
+                "optional" : true
+              } ]
+            }
+          },
+          "doc" : "Client provided a list of fields from document schema."
+        } ]
+      },
+      "doc" : "Editable schema metadata of the dataset",
+      "optional" : true
+    }, {
       "name" : "status",
       "type" : "com.linkedin.common.Status",
       "doc" : "Status metadata of the dataset",
@@ -1039,7 +1077,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
@@ -1345,7 +1383,7 @@
     "validate" : {
       "com.linkedin.restli.common.EmptyRecordValidator" : { }
     }
-  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
+  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
   "schema" : {
     "name" : "datasets",
     "namespace" : "com.linkedin.dataset",
