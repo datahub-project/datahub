@@ -115,7 +115,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     @Override
     public Tag update(@Nonnull TagUpdate input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = new CorpuserUrn(context.getActor());
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.tag.Tag partialTag = TagUpdateMapper.map(input);
 
         // Create Audit Stamp
