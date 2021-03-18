@@ -16,6 +16,8 @@ export type Theme = {
         'steps-nav-arrow-color': string;
         'homepage-background-upper-fade': string;
         'homepage-background-lower-fade': string;
+        'box-shadow': string;
+        'box-shadow-hover': string;
     };
     assets: {
         logoUrl: string;

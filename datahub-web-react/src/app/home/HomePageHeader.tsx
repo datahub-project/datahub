@@ -13,6 +13,7 @@ const Background = styled(Space)`
     width: 100%;
     background-image: linear-gradient(
         ${(props) => props.theme.styles['homepage-background-upper-fade']},
+        75%,
         ${(props) => props.theme.styles['homepage-background-lower-fade']}
     );
 `;

@@ -2,6 +2,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, List, Space, Typography } from 'antd';
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
+import styled from 'styled-components';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -11,10 +12,19 @@ const styles = {
     header: { marginBottom: 20 },
     resultHeaderCardBody: { padding: '16px 24px' },
     resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
-    resultList: { width: '100%', borderColor: '#f0f0f0', marginTop: '8px', padding: '16px 48px' },
     seeAllButton: { fontSize: 18 },
     resultsContainer: { width: '100%', padding: '40px 132px' },
 };
+
+const ResultList = styled(List)`
+    &&& {
+        width: 100%;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        margin-top: 8px;
+        padding: 16px 48px;
+        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
 
 interface Props {
     type: EntityType;
@@ -28,7 +38,7 @@ export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>
-            <List
+            <ResultList
                 header={
                     <span style={styles.header}>
                         <Typography.Title level={2}>{entityRegistry.getCollectionName(type)}</Typography.Title>
@@ -59,7 +69,6 @@ export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
                         </Button>
                     )
                 }
-                style={styles.resultList}
                 dataSource={entities}
                 split={false}
                 renderItem={(item, index) => (
