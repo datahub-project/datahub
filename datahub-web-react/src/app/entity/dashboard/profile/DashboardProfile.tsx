@@ -1,13 +1,18 @@
 import { Alert } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useGetDashboardQuery } from '../../../../graphql/dashboard.generated';
+import {
+    GetDashboardDocument,
+    useGetDashboardQuery,
+    useUpdateDashboardMutation,
+} from '../../../../graphql/dashboard.generated';
 import { Dashboard, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
+import TagGroup from '../../../shared/tags/TagGroup';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
@@ -25,6 +30,20 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts];
  */
 export default function DashboardProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
+    const [updateDashboard] = useUpdateDashboardMutation({
+        update(cache, { data: newDashboard }) {
+            cache.modify({
+                fields: {
+                    dashboard() {
+                        cache.writeQuery({
+                            query: GetDashboardDocument,
+                            data: { dashboard: { ...newDashboard?.updateDashboard } },
+                        });
+                    },
+                },
+            });
+        },
+    });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -68,7 +87,16 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                 {data && data.dashboard && (
                     <EntityProfile
                         title={data.dashboard.info?.name || ''}
-                        tags={data.dashboard?.globalTags as GlobalTags}
+                        tags={
+                            <TagGroup
+                                editableTags={data.dashboard?.globalTags as GlobalTags}
+                                canAdd
+                                canRemove
+                                updateTags={(globalTags) =>
+                                    updateDashboard({ variables: { input: { urn, globalTags } } })
+                                }
+                            />
+                        }
                         tabs={getTabs(data.dashboard as Dashboard)}
                         header={getHeader(data.dashboard as Dashboard)}
                     />

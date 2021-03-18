@@ -9,18 +9,26 @@ import com.linkedin.dashboard.DashboardsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.dashboard.DashboardsFindBySearchRequestBuilder;
 import com.linkedin.dashboard.DashboardsRequestBuilders;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.DashboardAspect;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
+import com.linkedin.metadata.dao.DashboardActionRequestBuilder;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseBrowsableClient;
+import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,6 +41,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
 
     private static final DashboardsRequestBuilders DASHBOARDS_REQUEST_BUILDERS = new DashboardsRequestBuilders();
+    private static final DashboardActionRequestBuilder DASHBOARDS_ACTION_REQUEST_BUILDERS = new DashboardActionRequestBuilder();
     private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();
 
     public Dashboards(@Nonnull Client restliClient) {
@@ -142,6 +151,31 @@ public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
             requestBuilder.filterParam(newFilter(requestFilters));
         }
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Update an existing Dashboard
+     */
+    public void update(@Nonnull final DashboardUrn urn, @Nonnull final Dashboard dashboard) throws RemoteInvocationException {
+        Request request = DASHBOARDS_ACTION_REQUEST_BUILDERS.createRequest(urn, toSnapshot(dashboard, urn));
+        _client.sendRequest(request).getResponse();
+    }
+
+    static DashboardSnapshot toSnapshot(@Nonnull Dashboard dashboard, @Nonnull DashboardUrn urn) {
+        final List<DashboardAspect> aspects = new ArrayList<>();
+        if (dashboard.hasInfo()) {
+            aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getInfo()));
+        }
+        if (dashboard.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getOwnership()));
+        }
+        if (dashboard.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getStatus()));
+        }
+        if (dashboard.hasGlobalTags()) {
+            aspects.add(ModelUtils.newAspectUnion(DashboardAspect.class, dashboard.getGlobalTags()));
+        }
+        return ModelUtils.newSnapshot(DashboardSnapshot.class, urn, aspects);
     }
 
     @Nonnull

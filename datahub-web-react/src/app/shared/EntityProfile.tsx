@@ -1,14 +1,13 @@
 import * as React from 'react';
-import { Col, Row, Divider, Layout, Space } from 'antd';
+import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
 import styled from 'styled-components';
+import { TagOutlined } from '@ant-design/icons';
 
 import { RoutedTabs } from './RoutedTabs';
-import { GlobalTags } from '../../types.generated';
-import TagGroup from './TagGroup';
 
 export interface EntityProfileProps {
     title: string;
-    tags?: GlobalTags;
+    tags?: React.ReactNode;
     header: React.ReactNode;
     tabs?: Array<{
         name: string;
@@ -17,8 +16,24 @@ export interface EntityProfileProps {
     }>;
 }
 
-const TagsContainer = styled.div`
-    margin-top: -8px;
+const FlexSpace = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
+
+const TagsTitle = styled(Typography.Title)`
+    font-size: 18px;
+`;
+
+const TagCard = styled(Card)`
+    margin-top: 24px;
+    font-size: 18px;
+    width: 450px;
+    height: 100%;
+`;
+
+const TagIcon = styled(TagOutlined)`
+    padding-right: 6px;
 `;
 
 const defaultProps = {
@@ -35,23 +50,30 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
     /* eslint-disable spaced-comment */
     return (
         <Layout.Content style={{ padding: '0px 100px' }}>
-            <Row style={{ padding: '20px 0px 10px 0px' }}>
-                <Col span={24}>
-                    <Space>
-                        <h1>{title}</h1>
-                        <TagsContainer>
-                            <TagGroup globalTags={tags} />
-                        </TagsContainer>
-                    </Space>
-                </Col>
-            </Row>
-            {header}
-            <Divider style={{ marginBottom: '0px' }} />
-            <Row style={{ padding: '0px 0px 10px 0px' }}>
-                <Col span={24}>
-                    <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
-                </Col>
-            </Row>
+            <div>
+                <FlexSpace>
+                    <div>
+                        <Row style={{ padding: '20px 0px 10px 0px' }}>
+                            <Col span={24}>
+                                <h1>{title}</h1>
+                            </Col>
+                        </Row>
+                        {header}
+                    </div>
+                    <TagCard>
+                        <TagsTitle type="secondary" level={4}>
+                            <TagIcon /> Tags
+                        </TagsTitle>
+                        {tags}
+                    </TagCard>
+                </FlexSpace>
+                <Divider style={{ marginBottom: '0px' }} />
+                <Row style={{ padding: '0px 0px 10px 0px' }}>
+                    <Col span={24}>
+                        <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                    </Col>
+                </Row>
+            </div>
         </Layout.Content>
     );
 };

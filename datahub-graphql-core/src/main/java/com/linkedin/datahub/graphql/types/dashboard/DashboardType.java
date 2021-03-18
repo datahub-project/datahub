@@ -8,12 +8,15 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dashboard;
+import com.linkedin.datahub.graphql.generated.DashboardUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
@@ -22,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
@@ -35,13 +39,18 @@ import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
-public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard> {
+public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>, MutableType<DashboardUpdateInput> {
 
     private final Dashboards _dashboardsClient;
     private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();
 
     public DashboardType(final Dashboards dashboardsClient) {
         _dashboardsClient = dashboardsClient;
+    }
+
+    @Override
+    public Class<DashboardUpdateInput> inputClass() {
+        return DashboardUpdateInput.class;
     }
 
     @Override
@@ -139,4 +148,16 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
         }
     }
 
+    @Override
+    public Dashboard update(@Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        final com.linkedin.dashboard.Dashboard partialDashboard = DashboardUpdateInputMapper.map(input);
+
+        try {
+            _dashboardsClient.update(DashboardUrn.createFromString(input.getUrn()), partialDashboard);
+        } catch (RemoteInvocationException e) {
+            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+        }
+
+        return load(input.getUrn(), context);
+    }
 }

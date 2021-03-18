@@ -88,6 +88,21 @@ fragment nonRecursiveDatasetFields on Dataset {
         }
         primaryKeys
     }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        description
+                    }
+                }
+            }
+        }
+    }
     deprecation {
         actor
         deprecated
@@ -198,6 +213,21 @@ query getDataset($urn: String!) {
                 }
             }
             primaryKeys
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
+            }
         }
         deprecation {
             actor
