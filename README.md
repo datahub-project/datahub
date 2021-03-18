@@ -109,7 +109,7 @@ Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
 We welcome contributions from the community. Please refer to our [Contributing Guidelines](docs/CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubating experimental features.
 
 ## Community
-Join our [slack workspace](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
+Join our [slack workspace](http://slack.datahubproject.io) for discussions and important announcements. You can also find out more about our upcoming [town hall meetings](docs/townhalls.md) and view past recordings.
 
 ## Adoption
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
