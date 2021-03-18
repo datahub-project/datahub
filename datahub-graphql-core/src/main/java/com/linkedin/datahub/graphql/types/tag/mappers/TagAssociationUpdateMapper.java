@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.TagAssociationUpdate;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
+import java.net.URISyntaxException;
 
 public class TagAssociationUpdateMapper implements ModelMapper<TagAssociationUpdate, TagAssociation>  {
 
@@ -17,7 +18,12 @@ public class TagAssociationUpdateMapper implements ModelMapper<TagAssociationUpd
 
     public TagAssociation apply(final TagAssociationUpdate tagAssociationUpdate) {
         final TagAssociation output = new TagAssociation();
-        output.setTag(new TagUrn(tagAssociationUpdate.getTag().getName()));
+        try {
+            output.setTag(TagUrn.createFromString(tagAssociationUpdate.getTag().getUrn()));
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(String.format("Failed to update tag with urn %s, invalid urn",
+                    tagAssociationUpdate.getTag().getUrn()));
+        }
         return output;
     }
 

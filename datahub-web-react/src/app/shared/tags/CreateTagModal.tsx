@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
-import { GlobalTags, GlobalTagsUpdate, EntityType, TagAssociationUpdate } from '../../../types.generated';
+import { GlobalTags, GlobalTagsUpdate, TagAssociationUpdate } from '../../../types.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
 
 type CreateTagModalProps = {
@@ -42,7 +42,6 @@ export default function CreateTagModal({
         updateTagMutation({
             variables: {
                 input: {
-                    type: EntityType.Tag,
                     urn: `urn:li:tag:${tagName}`,
                     name: tagName,
                     description: stagedDescription,
@@ -53,7 +52,7 @@ export default function CreateTagModal({
             updateTags?.({
                 tags: [
                     ...convertTagsForUpdate(globalTags?.tags || []),
-                    { tag: { urn: `urn:li:tag:${tagName}`, type: EntityType.Tag, name: tagName } },
+                    { tag: { urn: `urn:li:tag:${tagName}`, name: tagName } },
                 ] as TagAssociationUpdate[],
             }).finally(() => {
                 // and finally close the modal

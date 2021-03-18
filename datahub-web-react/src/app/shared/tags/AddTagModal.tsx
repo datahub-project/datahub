@@ -67,7 +67,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
             updateTags?.({
                 tags: [
                     ...convertTagsForUpdate(globalTags?.tags || []),
-                    { tag: { urn: `urn:li:tag:${selectedTagValue}`, type: EntityType.Tag, name: selectedTagValue } },
+                    { tag: { urn: `urn:li:tag:${selectedTagValue}`, name: selectedTagValue } },
                 ] as TagAssociationUpdate[],
             }).finally(() => {
                 setDisableAdd(false);

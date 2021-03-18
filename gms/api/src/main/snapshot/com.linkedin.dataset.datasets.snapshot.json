@@ -882,12 +882,11 @@
             "items" : {
               "type" : "record",
               "name" : "EditableSchemaFieldInfo",
-              "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+              "doc" : "SchemaField to describe metadata related to dataset schema.",
               "fields" : [ {
                 "name" : "fieldPath",
                 "type" : "string",
-                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with",
-                "optional" : true
+                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
               }, {
                 "name" : "description",
                 "type" : "string",

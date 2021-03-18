@@ -78,6 +78,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
     const [hoveredIndex, setHoveredIndex] = useState<number | undefined>(undefined);
 
     const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
+        if (!record) return Promise.resolve();
         const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: record?.description,

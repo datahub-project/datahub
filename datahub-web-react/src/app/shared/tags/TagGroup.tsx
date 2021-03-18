@@ -2,11 +2,9 @@ import { Modal, Tag } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { FetchResult } from '@apollo/client';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType, GlobalTags, GlobalTagsUpdate } from '../../../types.generated';
-import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
 import AddTagModal from './AddTagModal';
 
@@ -15,9 +13,7 @@ type Props = {
     editableTags?: GlobalTags | null;
     canRemove?: boolean;
     canAdd?: boolean;
-    updateTags?: (
-        update: GlobalTagsUpdate,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+    updateTags?: (update: GlobalTagsUpdate) => Promise<any>;
     onOpenModal?: () => void;
     maxShow?: number;
 };
