@@ -18,11 +18,11 @@ However, if you only want to build `DataHub Frontend` specifically:
 ./gradlew :datahub-frontend:build
 ```
 
-### Building React App
-To build datahub-frontend to serve the React app, build with the additional "enableReact" property:
+### Building Ember App
+To build datahub-frontend to serve the legacy React app, build with the additional "enableEmber" property:
 
 ```
-./gradlew :datahub-frontend:build -PenableReact=true
+./gradlew :datahub-frontend:build -PenableEmber=true
 ```
 
 ## Dependencies
