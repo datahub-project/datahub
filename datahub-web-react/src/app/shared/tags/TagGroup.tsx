@@ -86,7 +86,7 @@ export default function TagGroup({
                     </Link>
                 );
             })}
-            {canAdd && (
+            {canAdd && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
                 <>
                     <AddNewTag color="success" onClick={() => setShowAddModal(true)}>
                         + Add Tag
