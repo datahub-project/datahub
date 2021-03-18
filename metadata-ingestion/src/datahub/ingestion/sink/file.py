@@ -24,13 +24,12 @@ class FileSink(Sink):
         self.report = SinkReport()
 
         fpath = pathlib.Path(self.config.filename)
-        logger.info(f"Will write to {fpath}")
         self.file = fpath.open("w")
         self.file.write("[\n")
         self.wrote_something = False
 
     @classmethod
-    def create(cls, config_dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext):
         config = FileSinkConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -44,7 +43,7 @@ class FileSink(Sink):
         self,
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
-    ):
+    ) -> None:
         mce = record_envelope.record
         obj = mce.to_obj()
 

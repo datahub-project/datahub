@@ -47,7 +47,7 @@ class Registry(Generic[T]):
         tp = self._mapping[key]
         if isinstance(tp, Exception):
             raise ConfigurationError(
-                f"{key} is disabled; try running: pip install \".[{key}]\""
+                f'{key} is disabled; try running: pip install ".[{key}]"'
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
@@ -55,7 +55,7 @@ class Registry(Generic[T]):
 
     def __str__(self):
         col_width = 15
-        return '\n'.join(
+        return "\n".join(
             f"{key}{'' if self.is_enabled(key) else (' ' * (col_width - len(key))) + '(disabled)'}"
             for key in sorted(self._mapping.keys())
         )

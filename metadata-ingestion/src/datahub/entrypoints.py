@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import sys
 
@@ -15,26 +16,33 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
-# Set to debug on the root logger.
-logging.getLogger(None).setLevel(logging.DEBUG)
+# Configure some loggers.
 logging.getLogger("urllib3").setLevel(logging.WARN)
-logging.getLogger("botocore").setLevel(logging.INFO)
+# logging.getLogger("botocore").setLevel(logging.INFO)
+# logging.getLogger("google").setLevel(logging.INFO)
 
 # Configure logger.
 BASE_LOGGING_FORMAT = (
     "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
 )
-logging.basicConfig(level=logging.DEBUG, format=BASE_LOGGING_FORMAT)
-
-DEFAULT_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 
 @click.group()
-def datahub():
-    pass
+@click.option("--debug/--no-debug", default=False)
+def datahub(debug: bool) -> None:
+    if debug or os.getenv("DATAHUB_DEBUG", False):
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger("datahub").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.WARNING)
+        logging.getLogger("datahub").setLevel(logging.INFO)
+    # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    # print(loggers)
+    # breakpoint()
 
 
-@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
+@datahub.command()
 @click.option(
     "-c",
     "--config",
@@ -42,7 +50,7 @@ def datahub():
     help="Config file in .toml or .yaml format",
     required=True,
 )
-def ingest(config: str):
+def ingest(config: str) -> None:
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
@@ -65,7 +73,7 @@ def ingest(config: str):
         pipeline_config = config_mech.load_config(fp)
 
     try:
-        logger.debug(f"Using config: {pipeline_config}")
+        logger.info(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config)
     except ValidationError as e:
         click.echo(e, err=True)
@@ -76,8 +84,8 @@ def ingest(config: str):
     sys.exit(ret)
 
 
-@datahub.command(context_settings=DEFAULT_CONTEXT_SETTINGS)
-def ingest_list_plugins():
+@datahub.command()
+def ingest_list_plugins() -> None:
     """List enabled ingestion plugins"""
 
     click.secho("Sources:", bold=True)
@@ -90,13 +98,13 @@ def ingest_list_plugins():
 
 
 @datahub.group()
-def check():
+def check() -> None:
     pass
 
 
 @check.command()
 @click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
-def mce_file(json_file: str):
+def mce_file(json_file: str) -> None:
     """Check the schema of a MCE JSON file"""
 
     report = check_mce_file(json_file)

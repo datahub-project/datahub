@@ -1,8 +1,8 @@
 from collections import OrderedDict
-from typing import Dict, Type
+from typing import Any, Dict, Type
 
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 
 from datahub.configuration.common import OperationalError
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -29,7 +29,7 @@ resource_locator: Dict[Type[object], str] = {
 }
 
 
-def _rest_li_ify(obj):
+def _rest_li_ify(obj: Any) -> Any:
     if isinstance(obj, (dict, OrderedDict)):
         if len(obj.keys()) == 1:
             key = list(obj.keys())[0]
@@ -37,10 +37,8 @@ def _rest_li_ify(obj):
             if key.find("com.linkedin.pegasus2avro.") >= 0:
                 new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
                 return {new_key: _rest_li_ify(value)}
-            elif key == "string" or key == "array":
-                return value
 
-        new_obj = {}
+        new_obj: Any = {}
         for key, value in obj.items():
             if value is not None:
                 new_obj[key] = _rest_li_ify(value)
@@ -75,11 +73,20 @@ class DatahubRestEmitter:
         mce_obj = _rest_li_ify(raw_mce_obj)
         snapshot = {"snapshot": mce_obj}
 
-        response = requests.post(url, headers=headers, json=snapshot)
         try:
+            response = requests.post(url, headers=headers, json=snapshot)
+
+            # import curlify
+            # print(curlify.to_curl(response.request))
+            # breakpoint()
+
             response.raise_for_status()
         except HTTPError as e:
             info = response.json()
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", info
+            ) from e
+        except RequestException as e:
+            raise OperationalError(
+                "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
