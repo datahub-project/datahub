@@ -1,22 +1,24 @@
 # DataHub React App
 
 ## About
-This module contains a React version of the DataHub UI, which is currently under incubation. Notice that this
-is a completely separate frontend experience from Ember and will remain so as it evolves. 
+This module contains a React version of the DataHub UI. This is now the production version of the DataHub client experience. 
+Notice that this is a completely separate frontend experience from the legacy Ember app and will remain so as it evolves. 
 
-Feel free to take a look around, deploy, and make contributions. 
+Feel free to take a look around, deploy, and contribute. 
 
 For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
-The initial milestone for the app is to achieve functional parity with the existing Ember app. This means supporting
+The initial milestone for the app was to achieve functional parity with the existing Ember app. This meant supporting
 
 - Dataset Profiles, Search, Browse Experience
 - User Profiles, Search
 - LDAP Authentication Flow
 
+This has since been achieved. The new set of functional goals are reflected in the latest version of the [DataHub Roadmap](../docs/roadmap.md). 
+
 ## Design Goals
-In building out a new client experience, we intend to build on learnings from the Ember app and incorporate feedback gathered
+In building out the client experience, we intend to leverage learnings from the Ember app and incorporate feedback gathered
 from organizations operating DataHub. Two themes have emerged to serve as guideposts: 
 
 1. **Configurability**: The client experience should be configurable, such that deploying organizations can tailor certain 
@@ -33,7 +35,7 @@ from organizations operating DataHub. Two themes have emerged to serve as guidep
 
 Navigate to the `docker` directory and run the following to spin up the react app:
 ```
-./quickstart-react.sh
+./quickstart.sh
 ```
 at `http://localhost:9002`.
 
@@ -71,14 +73,13 @@ you to terminate and re-run `yarn start` to see updated styles.
 
 ### Package Organization
 
-The organization is yet subject to change as the app incubates. As of today (2/11/2021), the `src` dir of the app is
-broken down into the following modules
+The `src` dir of the app is broken down into the following modules
 
 **conf** - Stores global configuration flags that can be referenced across the app. For example, the number of 
 search results shown per page, or the placeholder text in the search bar box. It serves as a location where levels
 for functional configurability should reside. 
 
-**components** - Contains all important components of the app. It has a few sub-modules:
+**app** - Contains all important components of the app. It has a few sub-modules:
 
 - `auth`: Components used to render the user authentication experience. 
 - `browse`: Shared components used to render the 'browse-by-path' experience. The experience is akin to navigating a filesystem hierarchy.

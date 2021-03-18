@@ -18,11 +18,11 @@ However, if you only want to build `DataHub Frontend` specifically:
 ./gradlew :datahub-frontend:build
 ```
 
-### Building React App
-To build datahub-frontend to serve the React app, build with the additional "enableReact" property:
+### Building Ember App
+To build datahub-frontend to serve the legacy Ember app, build with the additional "enableEmber" property:
 
 ```
-./gradlew :datahub-frontend:build -PenableReact=true
+./gradlew :datahub-frontend:build -PenableEmber=true
 ```
 
 ## Dependencies
@@ -57,9 +57,6 @@ the application directly from command line after a successful [build](#build):
 ```
 cd datahub-frontend/run && ./run-local-frontend
 ```
-
-### Serving React App
-If you are running the React app locally via `yarn start`, it will be forwarding graphql requests to port `9002`. In order to use `./run-local-frontend` with the React app, change the PORT value in [./run/frontend.env](./run/frontend.env) to `9002` and restart `./run-local-frontend`
 
 ## Checking out DataHub UI
 After starting your application in one of the two ways mentioned above, you can connect to it by typing below 
