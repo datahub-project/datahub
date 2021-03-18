@@ -14,27 +14,27 @@ Of course, you always have access to our community through [Slack](http://slack.
 
 ### React UI
 - [x] Build a new UI based on React
-- [ ] Deprecate open-source support for Ember UI
+- [x] Deprecate open-source support for Ember UI
 
 ### Python-based Metadata Integration
 - [x] Build a Python-based Ingestion Framework
 - [x] Support common people repositories (LDAP)
 - [x] Support common data repositories (Kafka, SQL databases, AWS Glue, Hive)
 - [ ] Support common transformation sources (dbt, Looker)
-- [ ] Support for push-based metadata emission from Python (e.g. Airflow DAGs)
+- [x] Support for push-based metadata emission from Python (e.g. Airflow DAGs)
 
 ### Dashboards and Charts
 - [x] Support for dashboard and chart entity page
-- [ ] Support browse, search and discovery
+- [x] Support browse, search and discovery
 
 ### SSO for Authentication
-- [ ] Support for Authentication (login) using OIDC providers (Okta, Google etc)
+- [x] Support for Authentication (login) using OIDC providers (Okta, Google etc)
 
 ### Tags 
 Use-Case: Support for free-form global tags for social collaboration and aiding discovery
-- [ ] Edit / Create new tags
-- [ ] Attach tags to relevant constructs (e.g. datasets, dashboards, users, schema\_fields)
-- [ ] Search using tags (e.g. find all datasets with this tag, find all entities with this tag)
+- [x] Edit / Create new tags
+- [x] Attach tags to relevant constructs (e.g. datasets, dashboards, users, schema\_fields)
+- [x] Search using tags (e.g. find all datasets with this tag, find all entities with this tag)
 
 ### Business Glossary
 - [ ] Support for business glossary model (definition + storage)
@@ -43,7 +43,7 @@ Use-Case: Support for free-form global tags for social collaboration and aiding 
 
 ### Jobs, Flows / Pipelines
 Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand lineage with datasets
-- [ ] Support for Metadata Models + Backend Implementation
+- [x] Support for Metadata Models + Backend Implementation
 - [ ] Metadata Integrations with systems like Airflow.
 
 ### Data Profiling and Dataset Previews
