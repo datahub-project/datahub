@@ -167,7 +167,7 @@ function Home() {
                     'button button--secondary button--outline button--lg',
                     styles.hero_button
                   )}
-                  to='https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA'>
+                  to='http://slack.datahubproject.io'>
                   Join our Slack
             </Link>
               </div>

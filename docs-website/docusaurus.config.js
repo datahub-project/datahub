@@ -24,8 +24,7 @@ module.exports = {
           position: "right",
         },
         {
-          to:
-            "https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA",
+          href: "http://slack.datahubproject.io",
           label: "Slack",
           position: "right",
         },
@@ -70,8 +69,7 @@ module.exports = {
           items: [
             {
               label: "Slack",
-              href:
-                "https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA",
+              href: "http://slack.datahubproject.io",
             },
             {
               label: "YouTube",

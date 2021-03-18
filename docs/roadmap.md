@@ -8,7 +8,7 @@ We publish only a short roadmap, because we are evolving very fast and want to a
 
 If you would like to suggest new items or request timeline changes to the existing items, please submit your request through this [form](https://docs.google.com/forms/d/1znDv7_CXXvUDcUsqzq92PgGqPSh_1yeYC3cl2xgizSE/) or submit a GitHub [feature request](https://github.com/linkedin/datahub/issues/new?assignees=&labels=feature-request&template=--feature-request.md&title=A+short+description+of+the+feature+request).
 
-Of course, you always have access to our community through [Slack](https://join.slack.com/t/datahubspace/shared_invite/zt-dkzbxfck-dzNl96vBzB06pJpbRwP6RA) or our [town halls](townhalls.md) to chat with us live!
+Of course, you always have access to our community through [Slack](http://slack.datahubproject.io) or our [town halls](townhalls.md) to chat with us live!
 
 ## Q1 2021 [Jan - Mar 2021]
 
