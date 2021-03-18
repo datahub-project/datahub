@@ -143,16 +143,16 @@ services:
       - mysql
       - neo4j
 
-  datahub-frontend:
+  datahub-frontend-react:
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-latest}
     env_file: datahub-frontend/env/docker.env
-    hostname: datahub-frontend
-    container_name: datahub-frontend
+    hostname: datahub-frontend-react
+    container_name: datahub-frontend-react
     ports:
-      - "9001:9001"
+      - "9002:9002"
     depends_on:
       - datahub-gms
 
