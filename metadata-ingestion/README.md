@@ -93,6 +93,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | snowflake     | `pip install -e '.[snowflake]'`                   | Snowflake source           |
 | ldap          | `pip install -e '.[ldap]'` ([extra requirements]) | LDAP source                |
 | kakfa         | `pip install -e '.[kafka]'`                       | Kafka source               |
+| druid         | `pip install -e '.[druid]'`                       | Druid Source               |
 | datahub-rest  | `pip install -e '.[datahub-rest]'`                | DataHub sink over REST API |
 | datahub-kafka | `pip install -e '.[datahub-kafka]'`               | DataHub sink over Kafka    |
 
@@ -341,6 +342,29 @@ source:
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
     # table_pattern/schema_pattern is same as above
+```
+
+### Druid `druid`
+
+Extracts:
+
+- List of databases, schema, and tables
+- Column types associated with each table
+
+**Note** It is important to define a explicitly define deny schema pattern for internal druid databases (lookup & sys) 
+if adding a schema pattern otherwise the crawler may crash before processing relevant databases.
+This deny pattern is defined by default but is overriden by user-submitted configurations
+
+```yml
+source:
+  type: druid
+  config:
+    # Point to broker address
+    host_port: localhost:8082
+    schema_pattern:
+      deny:
+        - "^(lookup|sys).*"
+    # options is same as above
 ```
 
 ### LDAP `ldap`

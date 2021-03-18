@@ -64,10 +64,16 @@ try:
 except ImportError as e:
     source_registry.register_disabled("kafka", e)
 
-
 try:
     from .ldap import LDAPSource
 
     source_registry.register("ldap", LDAPSource)
 except ImportError as e:
     source_registry.register_disabled("ldap", e)
+
+try:
+    from .druid import DruidSource
+
+    source_registry.register("druid", DruidSource)
+except ImportError as e:
+    source_registry.register_disabled("druid", e)
