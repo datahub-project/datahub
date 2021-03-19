@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.events.metadata.ChangeType;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -9,12 +10,9 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
-
-import javax.annotation.Nonnull;
 
 @Slf4j
 public class ElasticsearchConnector {
@@ -39,7 +37,7 @@ public class ElasticsearchConnector {
       @Override
       public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
         log.info("Successfully feeded bulk request. Number of events: " + response.getItems().length + " Took time ms: "
-            + response.getTookInMillis());
+            + response.getIngestTookInMillis());
       }
 
       @Override
@@ -48,13 +46,13 @@ public class ElasticsearchConnector {
       }
     };
 
-    ThreadPool threadPool = new ThreadPool(Settings.builder().put(Settings.EMPTY).build());
-    _bulkProcessor =
-        new BulkProcessor.Builder(elasticSearchRestClient::bulkAsync, listener, threadPool).setBulkActions(bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-            .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
-                DEFAULT_NUMBER_OF_RETRIES))
-            .build();
+    _bulkProcessor = BulkProcessor.builder(
+        (request, bulkListener) -> elasticSearchRestClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener), listener)
+        .setBulkActions(bulkRequestsLimit)
+        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
+        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
+            DEFAULT_NUMBER_OF_RETRIES))
+        .build();
   }
 
   public void feedElasticEvent(@Nonnull ElasticEvent event) {
@@ -69,18 +67,20 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private static IndexRequest createIndexRequest(@Nonnull ElasticEvent event) {
-    return new IndexRequest(event.getIndex(), event.getType(), event.getId()).source(event.buildJson());
+    return new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
   }
 
   @Nonnull
   private static DeleteRequest createDeleteRequest(@Nonnull ElasticEvent event) {
-    return new DeleteRequest(event.getIndex(), event.getType(), event.getId());
+    return new DeleteRequest(event.getIndex()).id(event.getId());
   }
 
   @Nonnull
   private static UpdateRequest createUpsertRequest(@Nonnull ElasticEvent event) {
-    IndexRequest indexRequest = new IndexRequest(event.getIndex(), event.getType(), event.getId()).source(event.buildJson());
-    return new UpdateRequest(event.getIndex(), event.getType(),
-        event.getId()).doc(event.buildJson()).detectNoop(false).upsert(indexRequest).retryOnConflict(3);
+    final IndexRequest indexRequest = new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
+    return new UpdateRequest(event.getIndex(), event.getId()).doc(event.buildJson())
+        .detectNoop(false)
+        .upsert(indexRequest);
   }
 }
+

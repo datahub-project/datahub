@@ -1,200 +1,199 @@
 {
-  "from" : 0,
-  "size" : 10,
-  "query" : {
-    "wrapper" : {
-      "query" : "$ENCODED_QUERY"
+  "from": 0,
+  "size": 10,
+  "query": {
+    "wrapper": {
+      "query": "$ENCODED_QUERY"
     }
   },
-  "post_filter" : {
-    "bool" : {
-      "must" : [
+  "post_filter": {
+    "bool": {
+      "must": [
         {
-          "bool" : {
-            "should" : [
+          "bool": {
+            "should": [
               {
-                "match" : {
-                  "tool" : {
-                    "query" : "Looker",
-                    "operator" : "OR",
-                    "prefix_length" : 0,
-                    "max_expansions" : 50,
-                    "fuzzy_transpositions" : true,
-                    "lenient" : false,
-                    "zero_terms_query" : "NONE",
-                    "boost" : 1.0
+                "match": {
+                  "tool": {
+                    "query": "Looker",
+                    "operator": "OR",
+                    "prefix_length": 0,
+                    "max_expansions": 50,
+                    "fuzzy_transpositions": true,
+                    "lenient": false,
+                    "zero_terms_query": "NONE",
+                    "auto_generate_synonyms_phrase_query": true,
+                    "boost": 1.0
                   }
                 }
               }
             ],
-            "disable_coord" : false,
-            "adjust_pure_negative" : true,
-            "boost" : 1.0
+            "adjust_pure_negative": true,
+            "boost": 1.0
           }
         }
       ],
-      "disable_coord" : false,
-      "adjust_pure_negative" : true,
-      "boost" : 1.0
+      "adjust_pure_negative": true,
+      "boost": 1.0
     }
   },
-  "sort" : [
+  "sort": [
     {
-      "_score" : {
-        "order" : "desc"
+      "_score": {
+        "order": "desc"
       }
     },
     {
-      "urn" : {
-        "order" : "asc"
+      "urn": {
+        "order": "asc"
       }
     }
   ],
-  "aggregations" : {
-    "access" : {
-      "terms" : {
-        "field" : "access",
-        "size" : 100,
-        "min_doc_count" : 1,
-        "shard_min_doc_count" : 0,
-        "show_term_doc_count_error" : false,
-        "order" : [
+  "aggregations": {
+    "access": {
+      "terms": {
+        "field": "access",
+        "size": 100,
+        "min_doc_count": 1,
+        "shard_min_doc_count": 0,
+        "show_term_doc_count_error": false,
+        "order": [
           {
-            "_count" : "desc"
+            "_count": "desc"
           },
           {
-            "_term" : "asc"
+            "_key": "asc"
           }
         ]
       },
-      "aggregations" : {
-        "tool" : {
-          "filter" : {
-            "bool" : {
-              "should" : [
+      "aggregations": {
+        "tool": {
+          "filter": {
+            "bool": {
+              "should": [
                 {
-                  "match" : {
-                    "tool" : {
-                      "query" : "Looker",
-                      "operator" : "OR",
-                      "prefix_length" : 0,
-                      "max_expansions" : 50,
-                      "fuzzy_transpositions" : true,
-                      "lenient" : false,
-                      "zero_terms_query" : "NONE",
-                      "boost" : 1.0
+                  "match": {
+                    "tool": {
+                      "query": "Looker",
+                      "operator": "OR",
+                      "prefix_length": 0,
+                      "max_expansions": 50,
+                      "fuzzy_transpositions": true,
+                      "lenient": false,
+                      "zero_terms_query": "NONE",
+                      "auto_generate_synonyms_phrase_query": true,
+                      "boost": 1.0
                     }
                   }
                 }
               ],
-              "disable_coord" : false,
-              "adjust_pure_negative" : true,
-              "boost" : 1.0
+              "adjust_pure_negative": true,
+              "boost": 1.0
             }
           }
         }
       }
     },
-    "type" : {
-      "terms" : {
-        "field" : "type",
-        "size" : 100,
-        "min_doc_count" : 1,
-        "shard_min_doc_count" : 0,
-        "show_term_doc_count_error" : false,
-        "order" : [
+    "type": {
+      "terms": {
+        "field": "type",
+        "size": 100,
+        "min_doc_count": 1,
+        "shard_min_doc_count": 0,
+        "show_term_doc_count_error": false,
+        "order": [
           {
-            "_count" : "desc"
+            "_count": "desc"
           },
           {
-            "_term" : "asc"
+            "_key": "asc"
           }
         ]
       },
-      "aggregations" : {
-        "tool" : {
-          "filter" : {
-            "bool" : {
-              "should" : [
+      "aggregations": {
+        "tool": {
+          "filter": {
+            "bool": {
+              "should": [
                 {
-                  "match" : {
-                    "tool" : {
-                      "query" : "Looker",
-                      "operator" : "OR",
-                      "prefix_length" : 0,
-                      "max_expansions" : 50,
-                      "fuzzy_transpositions" : true,
-                      "lenient" : false,
-                      "zero_terms_query" : "NONE",
-                      "boost" : 1.0
+                  "match": {
+                    "tool": {
+                      "query": "Looker",
+                      "operator": "OR",
+                      "prefix_length": 0,
+                      "max_expansions": 50,
+                      "fuzzy_transpositions": true,
+                      "lenient": false,
+                      "zero_terms_query": "NONE",
+                      "auto_generate_synonyms_phrase_query": true,
+                      "boost": 1.0
                     }
                   }
                 }
               ],
-              "disable_coord" : false,
-              "adjust_pure_negative" : true,
-              "boost" : 1.0
+              "adjust_pure_negative": true,
+              "boost": 1.0
             }
           }
         }
       }
     },
-    "tool" : {
-      "terms" : {
-        "field" : "tool",
-        "size" : 100,
-        "min_doc_count" : 1,
-        "shard_min_doc_count" : 0,
-        "show_term_doc_count_error" : false,
-        "order" : [
+    "tool": {
+      "terms": {
+        "field": "tool",
+        "size": 100,
+        "min_doc_count": 1,
+        "shard_min_doc_count": 0,
+        "show_term_doc_count_error": false,
+        "order": [
           {
-            "_count" : "desc"
+            "_count": "desc"
           },
           {
-            "_term" : "asc"
+            "_key": "asc"
           }
         ]
       }
     },
-    "queryType" : {
-      "terms" : {
-        "field" : "queryType",
-        "size" : 100,
-        "min_doc_count" : 1,
-        "shard_min_doc_count" : 0,
-        "show_term_doc_count_error" : false,
-        "order" : [
+    "queryType": {
+      "terms": {
+        "field": "queryType",
+        "size": 100,
+        "min_doc_count": 1,
+        "shard_min_doc_count": 0,
+        "show_term_doc_count_error": false,
+        "order": [
           {
-            "_count" : "desc"
+            "_count": "desc"
           },
           {
-            "_term" : "asc"
+            "_key": "asc"
           }
         ]
       },
-      "aggregations" : {
-        "tool" : {
-          "filter" : {
-            "bool" : {
-              "should" : [
+      "aggregations": {
+        "tool": {
+          "filter": {
+            "bool": {
+              "should": [
                 {
-                  "match" : {
-                    "tool" : {
-                      "query" : "Looker",
-                      "operator" : "OR",
-                      "prefix_length" : 0,
-                      "max_expansions" : 50,
-                      "fuzzy_transpositions" : true,
-                      "lenient" : false,
-                      "zero_terms_query" : "NONE",
-                      "boost" : 1.0
+                  "match": {
+                    "tool": {
+                      "query": "Looker",
+                      "operator": "OR",
+                      "prefix_length": 0,
+                      "max_expansions": 50,
+                      "fuzzy_transpositions": true,
+                      "lenient": false,
+                      "zero_terms_query": "NONE",
+                      "auto_generate_synonyms_phrase_query": true,
+                      "boost": 1.0
                     }
                   }
                 }
               ],
-              "disable_coord" : false,
-              "adjust_pure_negative" : true,
-              "boost" : 1.0
+              "adjust_pure_negative": true,
+              "boost": 1.0
             }
           }
         }
