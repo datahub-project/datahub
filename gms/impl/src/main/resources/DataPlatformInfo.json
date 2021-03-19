@@ -142,5 +142,12 @@
     "displayName": "BigQuery",
     "type": "RELATIONAL_DB",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
+  },
+  "urn:li:dataPlatform:druid": {
+    "datasetNameDelimiter": ".",
+    "name": "druid",
+    "displayName": "Druid",
+    "type": "OLAP_DATASTORE",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
   }
 }
