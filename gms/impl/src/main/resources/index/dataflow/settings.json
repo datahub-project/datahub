@@ -1,5 +1,6 @@
 {
   "index": {
+    "max_ngram_diff": 17,
     "analysis": {
       "filter": {
         "autocomplete_filter": {

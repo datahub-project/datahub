@@ -1,5 +1,6 @@
 {
   "index": {
+    "max_ngram_diff": 47,
     "analysis": {
       "filter": {
         "autocomplete_filter": {
@@ -128,7 +129,6 @@
           "pattern": "[:\\s(),]"
         }
       }
-    },
-    "max_ngram_diff": 47
+    }
   }
 }
