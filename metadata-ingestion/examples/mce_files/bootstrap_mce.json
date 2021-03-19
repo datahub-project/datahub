@@ -119,6 +119,27 @@
                         }
                     },
                     {
+                        "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+                            "created": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "editableSchemaFieldInfo": [
+                                {
+                                    "fieldPath": "field_foo",
+                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                                }
+                            ]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                             "schemaName": "SampleKafkaSchema",
                             "platform": "urn:li:dataPlatform:kafka",
@@ -156,6 +177,7 @@
                                         }
                                     },
                                     "nativeDataType": "string",
+                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
                                     "recursive": false
                                 },
                                 {
@@ -475,7 +497,7 @@
         },
         "proposedDelta": null
     },
-    {
+		 {
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
@@ -734,6 +756,39 @@
                         "com.linkedin.pegasus2avro.tag.TagProperties": {
                             "name": "Legacy",
                             "description": "Indicates the dataset is no longer supported"
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:jdoe",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+                "urn": "urn:li:tag:NeedsDocumentation",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.tag.TagProperties": {
+                            "name": "NeedsDocumentation",
+                            "description": "Indicates the data element needs documentation"
                         }
                     },
                     {

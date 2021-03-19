@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import time
@@ -8,6 +9,10 @@ import pytest
 sys.path.append(os.path.join(os.path.dirname(__file__), "test_helpers"))
 
 pytest_plugins = ["tests.integration.fixtures.sql_fixtures"]
+
+# Enable debug logging.
+logging.getLogger().setLevel(logging.DEBUG)
+os.putenv("DATAHUB_DEBUG", "1")
 
 
 @pytest.fixture

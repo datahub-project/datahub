@@ -28,7 +28,13 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
         );
     });
 
-    const noResultsView = <List style={{ margin: '28px 160px' }} bordered dataSource={[]} />;
+    const noResultsView = (
+        <List
+            style={{ margin: '28px 160px', boxShadow: '0px 0px 30px 0px rgb(234 234 234)' }}
+            bordered
+            dataSource={[]}
+        />
+    );
 
     return (
         <>

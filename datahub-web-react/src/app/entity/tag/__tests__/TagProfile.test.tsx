@@ -44,4 +44,23 @@ describe('TagProfile', () => {
             'http://localhost/user/urn:li:corpuser:3',
         );
     });
+
+    it('renders stats', async () => {
+        const { getByTestId, queryByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer initialEntries={['/tag/urn:li:tag:abc-sample-tag']}>
+                    <Route path="/tag/:urn" render={() => <TagProfile />} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
+
+        await waitFor(() => expect(queryByText('Loading')).not.toBeInTheDocument());
+
+        expect(getByTestId('stats-DATASET')).toBeInTheDocument();
+        expect(getByTestId('stats-CORP_USER')).toBeInTheDocument();
+        expect(queryByText('1 Datasets')).toBeInTheDocument();
+        expect(queryByText('2 Users')).toBeInTheDocument();
+    });
 });

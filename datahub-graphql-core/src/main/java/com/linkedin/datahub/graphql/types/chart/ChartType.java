@@ -8,12 +8,15 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.ChartUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
@@ -22,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
@@ -35,13 +39,18 @@ import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
-public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart> {
+public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
 
     private final Charts _chartsClient;
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
 
     public ChartType(final Charts chartsClient) {
         _chartsClient = chartsClient;
+    }
+
+    @Override
+    public Class<ChartUpdateInput> inputClass() {
+        return ChartUpdateInput.class;
     }
 
     @Override
@@ -138,5 +147,18 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         } catch (URISyntaxException e) {
             throw new RuntimeException(String.format("Failed to retrieve chart with urn %s, invalid urn", urnStr));
         }
+    }
+
+    @Override
+    public Chart update(@Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        final com.linkedin.dashboard.Chart partialChart = ChartUpdateInputMapper.map(input);
+
+        try {
+            _chartsClient.update(ChartUrn.createFromString(input.getUrn()), partialChart);
+        } catch (RemoteInvocationException e) {
+            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+        }
+
+        return load(input.getUrn(), context);
     }
 }

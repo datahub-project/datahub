@@ -8,6 +8,7 @@ import com.linkedin.dataset.DatasetProperties
 import com.linkedin.dataset.DatasetUpstreamLineage
 import com.linkedin.dataset.UpstreamLineage
 import com.linkedin.schema.SchemaMetadata
+import com.linkedin.schema.EditableSchemaMetadata
 import com.linkedin.common.GlobalTags
 
 /**
@@ -22,5 +23,6 @@ typeref DatasetAspect = union[
   Ownership,
   Status,
   SchemaMetadata,
+  EditableSchemaMetadata,
   GlobalTags
 ]

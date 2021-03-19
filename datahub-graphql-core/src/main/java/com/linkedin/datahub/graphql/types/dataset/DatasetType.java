@@ -151,7 +151,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     @Override
     public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = new CorpuserUrn(context.getActor());
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input);
 
         // Create Audit Stamp
@@ -165,6 +165,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
 
         if (partialDataset.hasDeprecation()) {
             partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);
+        }
+
+        if (partialDataset.hasEditableSchemaMetadata()) {
+            partialDataset.getEditableSchemaMetadata().setLastModified(auditStamp);
+            if (!partialDataset.getEditableSchemaMetadata().hasCreated()) {
+                partialDataset.getEditableSchemaMetadata().setCreated(auditStamp);
+            }
         }
 
         partialDataset.setLastModified(auditStamp);

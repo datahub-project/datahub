@@ -9,4 +9,4 @@ class MetadataWorkUnit(WorkUnit):
     mce: MetadataChangeEvent
 
     def get_metadata(self):
-        return {'mce': self.mce}
+        return {"mce": self.mce}

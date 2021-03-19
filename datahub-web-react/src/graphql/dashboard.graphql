@@ -87,3 +87,93 @@ query getDashboard($urn: String!) {
         }
     }
 }
+
+mutation updateDashboard($input: DashboardUpdateInput!) {
+    updateDashboard(input: $input) {
+        urn
+        type
+        tool
+        dashboardId
+        info {
+            name
+            description
+            charts {
+                urn
+                tool
+                type
+                info {
+                    name
+                    description
+                }
+                ownership {
+                    owners {
+                        owner {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                email
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableInfo {
+                                pictureLink
+                            }
+                        }
+                        type
+                    }
+                    lastModified {
+                        time
+                    }
+                }
+            }
+            url
+            access
+            lastRefreshed
+            created {
+                time
+            }
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            owners {
+                owner {
+                    urn
+                    type
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                    }
+                }
+                type
+            }
+            lastModified {
+                time
+            }
+        }
+        globalTags {
+            tags {
+                tag {
+                    urn
+                    name
+                    description
+                }
+            }
+        }
+    }
+}

@@ -16,7 +16,7 @@ DataHub can be right for you if you want an open source unbundled solution (fron
 Currently LinkedIn engineers. However, we’re receiving more and more PRs from individuals working at various companies.
 
 ## How big is the community?
-We had couple of meetings/discussions with external parties who are interested in DataHub, for example:
+External parties who deploy / are actively evaluating DataHub:
 - [City of New York, DoITT](https://www1.nyc.gov/site/doitt/index.page)
 - [Experian](https://www.experian.com/)
 - [Geotab](https://www.geotab.com/)

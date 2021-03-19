@@ -1,5 +1,5 @@
 import logging
-import time
+import uuid
 
 import click
 from pydantic import Field
@@ -9,7 +9,7 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     PipelineExecutionError,
 )
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
@@ -28,20 +28,19 @@ class PipelineConfig(ConfigModel):
     # simplify this configuration and validation.
     # See https://github.com/samuelcolvin/pydantic/pull/2336.
 
-    run_id: str = Field(default_factory=lambda: str(int(time.time() * 1000)))
+    run_id: str = Field(default_factory=lambda: str(uuid.uuid1()))
     source: SourceConfig
     sink: DynamicTypedConfig
 
 
 class LoggingCallback(WriteCallback):
-    def on_success(self, record_envelope, success_meta):
-        logger.debug("sink called success callback")
+    def on_success(self, record_envelope: RecordEnvelope, success_meta):
+        logger.info(f"sink wrote workunit {record_envelope.metadata['workunit_id']}")
 
-    def on_failure(self, record_envelope, exception, failure_meta):
-        # breakpoint()
-        logger.exception(
-            f"failed to write {record_envelope.record}"
-            " with {exception} and info {failure_meta}"
+    def on_failure(self, record_envelope: RecordEnvelope, exception, failure_meta):
+        logger.error(
+            f"failed to write record with workunit {record_envelope.metadata['workunit_id']}"
+            f" with {exception} and info {failure_meta}"
         )
 
 
