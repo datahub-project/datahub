@@ -13,7 +13,9 @@ public final class TestUtils {
 
   @Nonnull
   public static String loadJsonFromResource(@Nonnull String resourceName) throws IOException {
-    return IOUtils.toString(ClassLoader.getSystemResourceAsStream(resourceName), Charset.defaultCharset());
+    final String jsonStr =
+        IOUtils.toString(ClassLoader.getSystemResourceAsStream(resourceName), Charset.defaultCharset());
+    return jsonStr.replaceAll("\\s+", "");
   }
 }
 
