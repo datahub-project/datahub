@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHistory } from 'react-router';
-import { Typography, Image, Space, AutoComplete, Input, Row, Button, Carousel } from 'antd';
+import { Typography, Image, AutoComplete, Input, Row, Button, Carousel } from 'antd';
 import styled, { useTheme } from 'styled-components';
 
 import { ManageAccount } from '../shared/ManageAccount';
@@ -11,7 +11,7 @@ import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../..
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 
-const Background = styled(Space)`
+const Background = styled.div`
     width: 100%;
     background-image: linear-gradient(
         ${(props) => props.theme.styles['homepage-background-upper-fade']},
@@ -35,10 +35,15 @@ const styles = {
 };
 
 const CarouselElement = styled.div`
-    height: 100px;
+    height: 120px;
     color: #fff;
-    line-height: 100px;
+    line-height: 120px;
     text-align: center;
+`;
+
+const CarouselContainer = styled.div`
+    margin-top: -24px;
+    padding-bottom: 40px;
 `;
 
 const HeaderContainer = styled.div`
@@ -119,7 +124,7 @@ export const HomePageHeader = () => {
     }
 
     return (
-        <Background direction="vertical">
+        <Background>
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
                     {data && (
@@ -156,18 +161,29 @@ export const HomePageHeader = () => {
                 )}
                 <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
             </HeaderContainer>
-            <div>
+            <CarouselContainer>
                 <Carousel autoplay>
                     {suggestionsToShow.length > 0 &&
-                        suggestionsToShow.map((suggestion) => (
+                        suggestionsToShow.slice(0, 3).map((suggestion) => (
                             <CarouselElement>
-                                <Button type="text" style={styles.subHeaderText}>
+                                <Button
+                                    type="text"
+                                    style={styles.subHeaderText}
+                                    onClick={() =>
+                                        navigateToSearchUrl({
+                                            type: undefined,
+                                            query: suggestion,
+                                            history,
+                                            entityRegistry,
+                                        })
+                                    }
+                                >
                                     {suggestion}
                                 </Button>
                             </CarouselElement>
                         ))}
                 </Carousel>
-            </div>
+            </CarouselContainer>
         </Background>
     );
 };
