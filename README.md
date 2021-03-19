@@ -29,7 +29,7 @@ HOSTED_DOCS_ONLY-->
 
 # DataHub: A Generalized Metadata Search & Discovery Tool
 
-[![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases)
+[![Version](https://img.shields.io/github/v/release/linkedin/datahub?include_prereleases)](https://github.com/linkedin/datahub/releases/latest)
 [![build & test](https://github.com/linkedin/datahub/workflows/build%20&%20test/badge.svg?branch=master&event=push)](https://github.com/linkedin/datahub/actions?query=workflow%3A%22build+%26+test%22+branch%3Amaster+event%3Apush)
 [![Docker Pulls](https://img.shields.io/docker/pulls/linkedin/datahub-gms.svg)](https://hub.docker.com/r/linkedin/datahub-gms)
 [![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](http://slack.datahubproject.io)
@@ -60,7 +60,7 @@ HOSTED_DOCS_ONLY-->
 > ✨ Latest Update: 
 > - Monthly project update: [Feb 2021 Edition](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog. 
-> - We've released v0.6.1. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.6.1)
+> - We've released v0.7.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.7.0)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 
