@@ -161,6 +161,7 @@ const dataset2 = {
 };
 
 const dataset3 = {
+    __typename: 'Dataset',
     urn: 'urn:li:dataset:3',
     type: EntityType.Dataset,
     platform: {
@@ -236,6 +237,11 @@ const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
 } as Dataset;
+
+const dataset4 = {
+    ...dataset3,
+    name: 'Fourth Test Dataset',
+};
 
 const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
@@ -730,6 +736,60 @@ export const mocks = [
                         {
                             __typename: 'Dataset',
                             ...dataset3,
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    entities: [
+                        {
+                            __typename: 'Dataset',
+                            ...dataset3,
+                        },
+                        {
+                            __typename: 'Dataset',
+                            ...dataset4,
                         },
                     ],
                     facets: [
