@@ -94,6 +94,7 @@ module.exports = {
     ],
     "Advanced Guides": [
       "docs/advanced/aspect-versioning",
+      "docs/advanced/es-7-upgrade",
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
       // WIP "docs/advanced/backfilling",
