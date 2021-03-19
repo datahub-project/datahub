@@ -2,11 +2,12 @@ import React from 'react';
 import Cookies from 'js-cookie';
 import { Menu, Avatar, Dropdown } from 'antd';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 import defaultAvatar from '../../images/default_avatar.png';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { GlobalCfg } from '../../conf';
+import { isLoggedInVar } from '../auth/checkAuthStatus';
 
 interface Props {
     urn: string;
@@ -19,32 +20,24 @@ const defaultProps = {
 
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const themeConfig = useTheme();
     const handleLogout = () => {
         isLoggedInVar(false);
         Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
     };
-
     const menu = (
         <Menu>
-            <Menu.Item
-                onClick={() => {
-                    window.open('https://github.com/linkedin/datahub');
-                }}
-            >
-                <div tabIndex={0} role="button">
-                    Datahub Wiki
-                </div>
-            </Menu.Item>
-            <Menu.Item
-                onClick={() => {
-                    window.open('http://go/metadata/origins');
-                }}
-            >
-                <div tabIndex={0} role="button">
-                    See metadata origin
-                </div>
-            </Menu.Item>
-            <Menu.Divider />
+            {themeConfig.content.menu.map((value) => {
+                return (
+                    <Menu.Item>
+                        <a href={value.path || ''} target={value.shouldOpenInNewTab ? '_blank' : ''} rel="noreferrer">
+                            <div tabIndex={0} role="button">
+                                {value.label}
+                            </div>
+                        </a>
+                    </Menu.Item>
+                );
+            })}
             <Menu.Item danger>
                 <div tabIndex={0} role="button" onClick={handleLogout} onKeyDown={handleLogout}>
                     Log out
