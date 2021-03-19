@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, AutoComplete, Input, Row, Button, Carousel } from 'antd';
 import styled, { useTheme } from 'styled-components';
@@ -54,11 +54,11 @@ const HeaderContainer = styled.div`
 
 function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] {
     return (
-        (result.search?.entities
+        (result?.search?.entities
             ?.map((entity) => {
                 switch (entity.__typename) {
                     case 'Dataset':
-                        return entity.name;
+                        return entity.name.split('.').slice(-1)[0];
                     case 'CorpUser':
                         return entity.username;
                     case 'Chart':
@@ -71,6 +71,17 @@ function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] 
             })
             .filter(Boolean) as string[]) || []
     );
+}
+
+function truncate(input, length) {
+    if (input.length > length) {
+        return `${input.substring(0, length)}...`;
+    }
+    return input;
+}
+
+function sortRandom() {
+    return 0.5 - Math.random();
 }
 
 export const HomePageHeader = () => {
@@ -103,7 +114,7 @@ export const HomePageHeader = () => {
     const allSearchResultsByType = useGetAllEntitySearchResults({
         query: '*',
         start: 0,
-        count: 3,
+        count: 20,
         filters: [],
     });
 
@@ -111,17 +122,22 @@ export const HomePageHeader = () => {
         return allSearchResultsByType[type].loading;
     });
 
-    let suggestionsToShow: string[] = [];
-    if (!suggestionsLoading) {
-        [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
-            const suggestionsToShowForEntity = getSuggestionFieldsFromResult(allSearchResultsByType[type].data);
-            const suggestionToAddToFront = suggestionsToShowForEntity?.pop();
-            suggestionsToShow = [...suggestionsToShow, ...suggestionsToShowForEntity];
-            if (suggestionToAddToFront) {
-                suggestionsToShow.splice(0, 0, suggestionToAddToFront);
-            }
-        });
-    }
+    const suggestionsToShow = useMemo(() => {
+        let result: string[] = [];
+        if (!suggestionsLoading) {
+            [EntityType.Dashboard, EntityType.Chart, EntityType.Dataset].forEach((type) => {
+                const suggestionsToShowForEntity = getSuggestionFieldsFromResult(
+                    allSearchResultsByType[type]?.data,
+                ).sort(sortRandom);
+                const suggestionToAddToFront = suggestionsToShowForEntity?.pop();
+                result = [...result, ...suggestionsToShowForEntity];
+                if (suggestionToAddToFront) {
+                    result.splice(0, 0, suggestionToAddToFront);
+                }
+            });
+        }
+        return result;
+    }, [suggestionsLoading, allSearchResultsByType]);
 
     return (
         <Background>
@@ -154,7 +170,7 @@ export const HomePageHeader = () => {
                         data-testid="search-input"
                     />
                 </AutoComplete>
-                {suggestionsToShow.length === 0 && (
+                {suggestionsToShow.length === 0 && !suggestionsLoading && (
                     <Typography.Text style={styles.subHeaderText}>
                         {themeConfig.content.homepage.homepageMessage}
                     </Typography.Text>
@@ -178,7 +194,7 @@ export const HomePageHeader = () => {
                                         })
                                     }
                                 >
-                                    {suggestion}
+                                    {truncate(suggestion, 40)}
                                 </Button>
                             </CarouselElement>
                         ))}
