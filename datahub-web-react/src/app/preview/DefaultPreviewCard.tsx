@@ -70,7 +70,6 @@ export default function DefaultPreviewCard({
                 )}
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
-                {tags && tags.tags?.length && <TagGroup editableTags={tags} maxShow={3} />}
                 <Space direction="vertical" size={12}>
                     <Typography.Text strong>Owned By</Typography.Text>
                     <Avatar.Group maxCount={4}>
@@ -83,6 +82,7 @@ export default function DefaultPreviewCard({
                         ))}
                     </Avatar.Group>
                 </Space>
+                <TagGroup editableTags={tags} maxShow={3} />
             </Space>
         </Row>
     );
