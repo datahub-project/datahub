@@ -10,9 +10,7 @@ import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
 
-const PageContainer = styled.div`
-    padding: 32px 100px;
-`;
+const PageContainer = styled.div``;
 
 export enum TabType {
     Ownership = 'Ownership',
