@@ -29,6 +29,15 @@
         },
         "search": {
             "searchbarMessage": "Search Datasets, People, & more..."
+        },
+        "menu": {
+            "items": [
+                {
+                    "label": "Datahub Wiki",
+                    "path": "https://github.com/linkedin/datahub",
+                    "shouldOpenInNewTab": true
+                }
+            ]
         }
     }
 }
