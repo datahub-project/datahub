@@ -178,7 +178,7 @@ export const HomePageHeader = () => {
                 <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
             </HeaderContainer>
             <CarouselContainer>
-                <Carousel autoplay>
+                <Carousel autoplay effect="fade">
                     {suggestionsToShow.length > 0 &&
                         suggestionsToShow.slice(0, 3).map((suggestion) => (
                             <CarouselElement>
