@@ -137,7 +137,8 @@ export const HomePageHeader = () => {
             });
         }
         return result;
-    }, [suggestionsLoading, allSearchResultsByType]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [suggestionsLoading]);
 
     return (
         <Background>
