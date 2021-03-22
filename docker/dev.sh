@@ -14,4 +14,4 @@ cd $DIR && \
     -f docker-compose.yml \
     -f docker-compose.override.yml \
     -f docker-compose.dev.yml \
-    up
+    up --build $@

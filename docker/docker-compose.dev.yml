@@ -8,7 +8,6 @@
 # To make a JVM app debuggable via IntelliJ, go to its env file and add JVM debug flags, and then add the JVM debug
 # port to this file.
 ---
-# TODO mount + debug docker file for frontend
 version: '3.8'
 services:
   # Pre-creates the search indices using local mapping/settings.json
@@ -33,6 +32,17 @@ services:
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
+
+  datahub-frontend-react:
+    image: linkedin/datahub-frontend-react:debug
+    build:
+      context: datahub-frontend
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+        ENABLE_REACT: "true"
+    volumes:
+      - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
 
   datahub-mae-consumer:
     image: linkedin/datahub-mae-consumer:debug
