@@ -1,5 +1,5 @@
 import { Divider, Alert } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import UserHeader from './UserHeader';
@@ -33,19 +33,22 @@ export default function UserProfile() {
             return ownershipResult[type].loading;
         }) || loading;
 
+    const ownershipForDetails = useMemo(() => {
+        Object.keys(ownershipResult).forEach((type) => {
+            const entities = ownershipResult[type].data?.search?.entities;
+
+            if (!entities || entities.length === 0) {
+                delete ownershipResult[type];
+            } else {
+                ownershipResult[type] = ownershipResult[type].data?.search?.entities;
+            }
+        });
+        return ownershipResult;
+    }, [ownershipResult]);
+
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
-
-    Object.keys(ownershipResult).forEach((type) => {
-        const entities = ownershipResult[type].data?.search?.entities;
-
-        if (!entities || entities.length === 0) {
-            delete ownershipResult[type];
-        } else {
-            ownershipResult[type] = ownershipResult[type].data?.search?.entities;
-        }
-    });
 
     return (
         <PageContainer>
@@ -59,7 +62,7 @@ export default function UserProfile() {
                 teams={data?.corpUser?.editableInfo?.teams}
             />
             <Divider />
-            <UserDetails urn={urn} subview={subview} item={item} ownerships={ownershipResult} />
+            <UserDetails urn={urn} subview={subview} item={item} ownerships={ownershipForDetails} />
         </PageContainer>
     );
 }

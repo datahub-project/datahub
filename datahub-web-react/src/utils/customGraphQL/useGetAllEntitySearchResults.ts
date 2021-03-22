@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { EntityType, SearchInput } from '../../types.generated';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { useEntityRegistry } from '../../app/useEntityRegistry';
@@ -24,5 +25,9 @@ export function useGetAllEntitySearchResults(input: AllEntityInput<SearchInput, 
         });
     }
 
-    return result;
+    return useMemo(
+        () => result,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        Object.keys(result).map((key) => result[key]),
+    );
 }
