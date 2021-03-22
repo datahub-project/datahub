@@ -31,9 +31,11 @@ export type Theme = {
             searchbarMessage: string;
         };
         menu: {
-            label: string;
-            path: string;
-            shouldOpenInNewTab: boolean;
-        }[];
+            items : {
+                label: string;
+                path: string;
+                shouldOpenInNewTab: boolean
+            }[];
+        };
     };
 };

@@ -27,9 +27,9 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
     };
     const menu = (
         <Menu>
-            {themeConfig.content.menu.map((value) => {
+            {themeConfig.content.menu.items.map((value) => {
                 return (
-                    <Menu.Item>
+                    <Menu.Item key={value.label}>
                         <a href={value.path || ''} target={value.shouldOpenInNewTab ? '_blank' : ''} rel="noreferrer">
                             <div tabIndex={0} role="button">
                                 {value.label}

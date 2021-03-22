@@ -28,17 +28,19 @@
         "search": {
             "searchbarMessage": "Search Datasets, People, & more..."
         },
-        "menu": [
-            {
-                "label" : "Datahub Wiki",
-                "path" : "https://github.com/linkedin/datahub",
-                "shouldOpenInNewTab" : true
-            },
-            {
-                "label" : "See metadata origin",
-                "path" : "http://go/metadata/origins",
-                "shouldOpenInNewTab" : true
-            }
-        ]        
+        "menu": {
+            "items": [
+                {
+                    "label": "Datahub Wiki",
+                    "path": "https://github.com/linkedin/datahub",
+                    "shouldOpenInNewTab": true
+                },
+                {
+                    "label": "See metadata origin",
+                    "path": "http://go/metadata/origins",
+                    "shouldOpenInNewTab": true
+                }
+            ]
+        }     
     }
 }
