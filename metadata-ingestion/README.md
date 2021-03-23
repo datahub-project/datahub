@@ -1,5 +1,7 @@
 # Metadata Ingestion
 
+![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
+
 This module hosts an extensible Python-based metadata ingestion system for DataHub.
 This supports sending data to DataHub using Kafka or through the REST api.
 It can be used through our CLI tool or as a library e.g. with an orchestrator like Airflow.
@@ -30,6 +32,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
    This is needed to generate `MetadataChangeEvent.avsc` which is the schema for the `MetadataChangeEvent_v4` Kafka topic.
 3. On MacOS: `brew install librdkafka`
 4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 #### Set up your Python environment
 
@@ -127,7 +130,7 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linkedin/datahub-ingestion). All plugins will be installed and enabled automatically.
 
-*Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly.*
+_Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
 ```sh
 ./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
@@ -353,7 +356,7 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
-**Note** It is important to define a explicitly define deny schema pattern for internal druid databases (lookup & sys) 
+**Note** It is important to define a explicitly define deny schema pattern for internal druid databases (lookup & sys)
 if adding a schema pattern otherwise the crawler may crash before processing relevant databases.
 This deny pattern is defined by default but is overriden by user-submitted configurations
 
