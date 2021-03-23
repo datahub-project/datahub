@@ -94,6 +94,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | ldap          | `pip install -e '.[ldap]'` ([extra requirements]) | LDAP source                |
 | kakfa         | `pip install -e '.[kafka]'`                       | Kafka source               |
 | druid         | `pip install -e '.[druid]'`                       | Druid Source               |
+| dbt           | no additional dependencies                        | DBT source                 |
 | datahub-rest  | `pip install -e '.[datahub-rest]'`                | DataHub sink over REST API |
 | datahub-kafka | `pip install -e '.[datahub-kafka]'`               | DataHub sink over Kafka    |
 
@@ -396,6 +397,24 @@ can produce such files, and a number of samples are included in the
 source:
   type: file
   filename: ./path/to/mce/file.json
+```
+
+### DBT `dbt`
+
+Pull metadata from DBT output files:
+* [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
+  * This file contains model, source and lineage data.
+* [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
+  * This file contains schema data.
+  * DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+
+```yml
+source:
+  type: "dbt"
+  config:
+    manifest_path: "./path/dbt/manifest_file.json"
+    catalog_path: "./path/dbt/catalog_file.json"
+
 ```
 
 ## Sinks
