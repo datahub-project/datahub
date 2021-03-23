@@ -16,11 +16,6 @@ export interface EntityProfileProps {
     }>;
 }
 
-const FlexSpace = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
 const TagsTitle = styled(Typography.Title)`
     font-size: 18px;
 `;
@@ -28,9 +23,8 @@ const TagsTitle = styled(Typography.Title)`
 const TagCard = styled(Card)`
     margin-top: 24px;
     font-size: 18px;
-    min-width: 450px;
-    width: 450px;
-    height: 100%;
+    min-width: 100%;
+    width: 100%;
 `;
 
 const TagIcon = styled(TagOutlined)`
@@ -52,22 +46,26 @@ export const EntityProfile = ({ title, tags, header, tabs }: EntityProfileProps)
     return (
         <Layout.Content style={{ padding: '0px 100px' }}>
             <div>
-                <FlexSpace>
-                    <div>
-                        <Row style={{ padding: '20px 0px 10px 0px' }}>
-                            <Col span={24}>
-                                <h1>{title}</h1>
-                            </Col>
-                        </Row>
-                        {header}
-                    </div>
-                    <TagCard>
-                        <TagsTitle type="secondary" level={4}>
-                            <TagIcon /> Tags
-                        </TagsTitle>
-                        {tags}
-                    </TagCard>
-                </FlexSpace>
+                <Row>
+                    <Col span={16} md={16} sm={24} xs={24}>
+                        <div>
+                            <Row style={{ padding: '20px 0px 10px 0px' }}>
+                                <Col span={24}>
+                                    <h1>{title}</h1>
+                                </Col>
+                            </Row>
+                            {header}
+                        </div>
+                    </Col>
+                    <Col span={8} xs={24} sm={24} md={8}>
+                        <TagCard>
+                            <TagsTitle type="secondary" level={4}>
+                                <TagIcon /> Tags
+                            </TagsTitle>
+                            {tags}
+                        </TagCard>
+                    </Col>
+                </Row>
                 <Divider style={{ marginBottom: '0px' }} />
                 <Row style={{ padding: '0px 0px 10px 0px' }}>
                     <Col span={24}>

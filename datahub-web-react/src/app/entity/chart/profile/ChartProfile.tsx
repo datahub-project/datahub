@@ -1,6 +1,5 @@
 import { Alert } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import { Chart, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
@@ -9,10 +8,6 @@ import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../.
 import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
-
-const PageContainer = styled.div`
-    padding: 32px 100px;
-`;
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -74,25 +69,23 @@ export default function ChartProfile({ urn }: { urn: string }) {
     };
 
     return (
-        <PageContainer>
-            <>
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-                {data && data.chart && (
-                    <EntityProfile
-                        tags={
-                            <TagGroup
-                                editableTags={data.chart?.globalTags as GlobalTags}
-                                canAdd
-                                canRemove
-                                updateTags={(globalTags) => updateChart({ variables: { input: { urn, globalTags } } })}
-                            />
-                        }
-                        title={data.chart.info?.name || ''}
-                        tabs={getTabs(data.chart as Chart)}
-                        header={getHeader(data.chart as Chart)}
-                    />
-                )}
-            </>
-        </PageContainer>
+        <>
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+            {data && data.chart && (
+                <EntityProfile
+                    tags={
+                        <TagGroup
+                            editableTags={data.chart?.globalTags as GlobalTags}
+                            canAdd
+                            canRemove
+                            updateTags={(globalTags) => updateChart({ variables: { input: { urn, globalTags } } })}
+                        />
+                    }
+                    title={data.chart.info?.name || ''}
+                    tabs={getTabs(data.chart as Chart)}
+                    header={getHeader(data.chart as Chart)}
+                />
+            )}
+        </>
     );
 }
