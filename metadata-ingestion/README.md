@@ -212,19 +212,20 @@ source:
     database: dbname
     host_port: localhost:3306
     table_pattern:
+      deny:
+        # Note that the deny patterns take precedence over the allow patterns.
+        - "performance_schema"
       allow:
         - "schema1.table2"
-      deny:
-        - "performance_schema"
       # Although the 'table_pattern' enables you to skip everything from certain schemas,
       # having another option to allow/deny on schema level is an optimization for the case when there is a large number
       # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
       # them out afterwards via the table_pattern.
     schema_pattern:
-      allow:
-        - "schema1"
       deny:
         - "garbage_schema"
+      allow:
+        - "schema1"
 ```
 
 ### Microsoft SQL Server Metadata `mssql`
@@ -243,11 +244,11 @@ source:
     host_port: localhost:1433
     database: DemoDatabase
     table_pattern:
+      deny:
+        - "^.*\\.sys_.*" # deny all tables that start with sys_
       allow:
         - "schema1.table1"
         - "schema1.table2"
-      deny:
-        - "^.*\\.sys_.*" # deny all tables that start with sys_
     options:
       # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
       # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
