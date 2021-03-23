@@ -3,7 +3,6 @@ ARG APP_ENV=prod
 
 FROM openjdk:8-jre-alpine as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
-USER datahub
 
 FROM openjdk:8 as prod-build
 ARG ENABLE_EMBER="false"
