@@ -141,8 +141,6 @@ public class GmsGraphQLEngine {
         configureTypeResolvers(builder);
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
-        configureMlModelResolvers(builder);
-        configureDataFlowResolvers(builder);
         configureDataJobResolvers(builder);
     }
 
@@ -326,34 +324,6 @@ public class GmsGraphQLEngine {
      */
     private static void configureTypeExtensions(final RuntimeWiring.Builder builder) {
         builder.scalar(GraphQLLong);
-    }
-
-    /**
-     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLModel} type.
-     */
-    private static void configureMlModelResolvers(final RuntimeWiring.Builder builder) {
-        builder
-            .type("Owner", typeWiring -> typeWiring
-                .dataFetcher("owner", new AuthenticatedResolver<>(
-                    new LoadableTypeResolver<>(
-                        CORP_USER_TYPE,
-                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
-                )
-            );
-    }
-
-    /**
-     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.DataFlow} type.
-     */
-    private static void configureDataFlowResolvers(final RuntimeWiring.Builder builder) {
-        builder
-            .type("Owner", typeWiring -> typeWiring
-                .dataFetcher("owner", new AuthenticatedResolver<>(
-                    new LoadableTypeResolver<>(
-                        CORP_USER_TYPE,
-                        (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
-                )
-            );
     }
 
     /**
