@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 import pymongo
 
@@ -23,11 +23,13 @@ class MongoDBConfig(ConfigModel):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: str = "mongodb://localhost"
-    # TODO expand out the common config options
+    username: Optional[str] = None
+    password: Optional[str] = None
+    authMechanism: Optional[str] = None
     options: dict = {}
 
-    database_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    collection_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 @dataclass
@@ -48,9 +50,19 @@ class MongoDBSource(Source):
         self.config = config
         self.report = MongoDBSourceReport()
 
-        self.mongo_client = pymongo.MongoClient(
-            self.config.connect_uri, **self.config.options
-        )
+        options = {}
+        if self.config.username is not None:
+            options["username"] = self.config.username
+        if self.config.password is not None:
+            options["password"] = self.config.password
+        if self.config.authMechanism is not None:
+            options["authMechanism"] = self.config.authMechanism
+        options = {
+            **options,
+            **self.config.options,
+        }
+
+        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -69,7 +81,7 @@ class MongoDBSource(Source):
         for database_name in database_names:
             if database_name in DENY_DATABASE_LIST:
                 continue
-            if not self.config.database_patterns.allowed(database_name):
+            if not self.config.database_pattern.allowed(database_name):
                 self.report.report_dropped(database_name)
                 continue
 
@@ -77,23 +89,29 @@ class MongoDBSource(Source):
             collection_names: List[str] = database.list_collection_names()
             for collection_name in collection_names:
                 dataset_name = f"{database_name}.{collection_name}"
-                if not self.config.collection_patterns.allowed(dataset_name):
+                if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
 
                 mce = MetadataChangeEvent()
-
                 dataset_snapshot = DatasetSnapshot()
                 dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+
                 dataset_properties = DatasetPropertiesClass(
                     tags=[],
                     customProperties={},
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
+
+                # TODO: maybe guess the schema via sampling?
                 # schema_metadata = get_schema_metadata(
                 #     self.report, dataset_name, platform, columns
                 # )
                 # dataset_snapshot.aspects.append(schema_metadata)
+
+                # TODO: use list_indexes() or index_information() to get index information
+                # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html?highlight=collection#pymongo.collection.Collection.list_indexes.
+
                 mce.proposedSnapshot = dataset_snapshot
 
                 wu = MetadataWorkUnit(id=dataset_name, mce=mce)
