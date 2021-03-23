@@ -1,6 +1,7 @@
 import { Avatar, Divider, Image, Row, Space, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { EntityType, GlobalTags } from '../../types.generated';
 import defaultAvatar from '../../images/default_avatar.png';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -16,10 +17,18 @@ interface Props {
     qualifier?: string | null;
     tags?: GlobalTags;
     owners?: Array<{ urn: string; name?: string; photoUrl?: string }>;
+    snippet?: React.ReactNode;
 }
 
+const DescriptionParagraph = styled(Typography.Paragraph)`
+    &&& {
+        margin-bottom: 0px;
+        padding-left: 8px;
+    }
+`;
+
 const styles = {
-    row: { width: '100%' },
+    row: { width: '100%', marginBottom: '0px' },
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
     logoImage: { width: '48px' },
@@ -27,8 +36,6 @@ const styles = {
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
     ownedBy: { color: '#585858' },
-    description: { paddingLeft: 8, margin: 0 },
-    noDescription: { color: '#d8d8d8' },
 };
 
 export default function DefaultPreviewCard({
@@ -41,6 +48,7 @@ export default function DefaultPreviewCard({
     qualifier,
     tags,
     owners,
+    snippet,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     return (
@@ -61,13 +69,14 @@ export default function DefaultPreviewCard({
                         </Space>
                     </Space>
                 </Link>
-                {description.length === 0 ? (
-                    <Typography.Paragraph style={{ ...styles.description, ...styles.noDescription }}>
-                        No description
-                    </Typography.Paragraph>
-                ) : (
-                    <Typography.Paragraph style={styles.description}>{description}</Typography.Paragraph>
-                )}
+                <div>
+                    {description.length === 0 ? (
+                        <DescriptionParagraph type="secondary">No description</DescriptionParagraph>
+                    ) : (
+                        <DescriptionParagraph>{description}</DescriptionParagraph>
+                    )}
+                    {snippet}
+                </div>
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space direction="vertical" size={12}>

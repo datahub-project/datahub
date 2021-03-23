@@ -1,4 +1,4 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchResult } from '../../types.generated';
 import { Entity, IconStyleType, PreviewType } from './Entity';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
@@ -88,9 +88,9 @@ export default class EntityRegistry {
         return entity.renderPreview(type, data);
     }
 
-    renderSearchResult<T>(type: EntityType, data: T): JSX.Element {
+    renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.renderPreview(PreviewType.SEARCH, data);
+        return entity.renderSearch(searchResult);
     }
 
     renderBrowse<T>(type: EntityType, data: T): JSX.Element {

@@ -1,9 +1,10 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, List, Space, Typography } from 'antd';
+import { ListProps } from 'antd/lib/list';
 import * as React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchResult } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
@@ -29,16 +30,16 @@ const ResultList = styled(List)`
 interface Props {
     type: EntityType;
     query: string;
-    entities: Array<any>;
+    searchResults: Array<SearchResult>;
 }
 
-export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
+export const EntityGroupSearchResults = ({ type, query, searchResults }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>
-            <ResultList
+            <ResultList<React.FC<ListProps<SearchResult>>>
                 header={
                     <span style={styles.header}>
                         <Typography.Title level={2}>{entityRegistry.getCollectionName(type)}</Typography.Title>
@@ -48,7 +49,7 @@ export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
                     </span>
                 }
                 footer={
-                    entities.length > 0 && (
+                    searchResults.length > 0 && (
                         <Button
                             type="text"
                             style={styles.seeAllButton}
@@ -69,12 +70,12 @@ export const EntityGroupSearchResults = ({ type, query, entities }: Props) => {
                         </Button>
                     )
                 }
-                dataSource={entities}
+                dataSource={searchResults as SearchResult[]}
                 split={false}
-                renderItem={(item, index) => (
+                renderItem={(searchResult, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, item)}</List.Item>
-                        {index < entities.length - 1 && <Divider />}
+                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
+                        {index < searchResults.length - 1 && <Divider />}
                     </>
                 )}
                 bordered

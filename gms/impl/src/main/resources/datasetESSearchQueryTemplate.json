@@ -65,6 +65,23 @@
               "default_field": "tags.ngram",
               "default_operator": "AND"
             }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.2,
+              "default_field": "fieldPaths.delimited",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "custom_keyword",
+              "default_field": "fieldPaths",
+              "default_operator": "AND"
+            }
           }
         ]
       }

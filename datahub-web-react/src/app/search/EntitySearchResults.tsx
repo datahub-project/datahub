@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Alert, Button, Card, Divider, List, Modal, Pagination, Row, Typography } from 'antd';
+import { ListProps } from 'antd/lib/list';
 import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
-import { EntityType, FacetFilterInput } from '../../types.generated';
+import { EntityType, FacetFilterInput, SearchResult } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -59,7 +60,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
         },
     });
 
-    const results = data?.search?.entities || [];
+    const results = data?.search?.searchResults || [];
     const pageStart = data?.search?.start || 0;
     const pageSize = data?.search?.count || 0;
     const totalResults = data?.search?.total || 0;
@@ -124,7 +125,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>
-            <ResultList
+            <ResultList<React.FC<ListProps<SearchResult>>>
                 header={
                     <Card bodyStyle={styles.resultHeaderCardBody} style={styles.resultHeaderCard as any}>
                         {entityRegistry.getIcon(type, 36, IconStyleType.ACCENT)}
@@ -132,9 +133,9 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 }
                 dataSource={results}
                 split={false}
-                renderItem={(item, index) => (
+                renderItem={(searchResult, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, item)}</List.Item>
+                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
                         {index < results.length - 1 && <Divider />}
                     </>
                 )}
