@@ -3,7 +3,7 @@ import mce_helpers
 from datahub.ingestion.run.pipeline import Pipeline
 
 
-def test_dbt_ingest(mysql, pytestconfig, tmp_path, mock_time):
+def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
     pipeline = Pipeline.create(

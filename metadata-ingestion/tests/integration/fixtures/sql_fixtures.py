@@ -40,5 +40,10 @@ def mysql(docker_ip, docker_services):
 
 
 @pytest.fixture(scope="session")
+def mongodb(docker_ip, docker_services):
+    return wait_for_db(docker_services, "testmongodb", 27017)
+
+
+@pytest.fixture(scope="session")
 def ldap(docker_ip, docker_services):
     return wait_for_db(docker_services, "openldap", 3306)

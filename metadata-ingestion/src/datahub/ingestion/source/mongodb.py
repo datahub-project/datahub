@@ -10,13 +10,13 @@ from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 
 
-# We do not ever want to enumerate these databases.
+# These are MongoDB-internal databases, which we want to skip.
 # See https://docs.mongodb.com/manual/reference/local-database/ and
+# https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "local"])
+DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
 
 class MongoDBConfig(ConfigModel):
@@ -110,7 +110,7 @@ class MongoDBSource(Source):
                 # dataset_snapshot.aspects.append(schema_metadata)
 
                 # TODO: use list_indexes() or index_information() to get index information
-                # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html?highlight=collection#pymongo.collection.Collection.list_indexes.
+                # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
                 mce.proposedSnapshot = dataset_snapshot
 
