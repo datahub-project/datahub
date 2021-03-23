@@ -65,6 +65,13 @@ except ImportError as e:
     source_registry.register_disabled("kafka", e)
 
 try:
+    from .dbt import DBTSource
+
+    source_registry.register("dbt", DBTSource)
+except ImportError as e:
+    source_registry.register_disabled("dbt", e)
+
+try:
     from .ldap import LDAPSource
 
     source_registry.register("ldap", LDAPSource)
