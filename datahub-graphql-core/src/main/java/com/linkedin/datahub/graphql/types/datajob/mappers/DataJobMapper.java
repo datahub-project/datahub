@@ -24,7 +24,7 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
     public DataJob apply(@Nonnull final com.linkedin.datajob.DataJob dataJob) {
         final DataJob result = new DataJob();
         result.setUrn(dataJob.getUrn().toString());
-        result.setType(EntityType.DATAJOB);
+        result.setType(EntityType.DATA_JOB);
         result.setDataFlow(new DataFlow.Builder().setUrn(dataJob.getDataFlow().toString()).build());
         result.setJobId(dataJob.getJobId());
         if (dataJob.hasInfo()) {

@@ -41,7 +41,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow> {
 
     @Override
     public EntityType type() {
-        return EntityType.DATAFLOW;
+        return EntityType.DATA_FLOW;
     }
 
     @Override

@@ -41,7 +41,7 @@ public class DataJobType implements SearchableEntityType<DataJob> {
 
     @Override
     public EntityType type() {
-        return EntityType.DATAJOB;
+        return EntityType.DATA_JOB;
     }
 
     @Override

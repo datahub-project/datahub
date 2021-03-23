@@ -54,13 +54,13 @@ enum EntityType {
     """
     MLMODEL
     """
-    The DATAFLOW Entity
+    The DATA_FLOW Entity
     """
-    DATAFLOW
+    DATA_FLOW
     """
-    The DATAFLOW Entity
+    The DATA_JOB Entity
     """
-    DATAJOB
+    DATA_JOB
 }
 
 type Query {

@@ -20,7 +20,7 @@ public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow
     public DataFlow apply(@Nonnull final com.linkedin.datajob.DataFlow dataflow) {
         final DataFlow result = new DataFlow();
         result.setUrn(dataflow.getUrn().toString());
-        result.setType(EntityType.DATAFLOW);
+        result.setType(EntityType.DATA_FLOW);
         result.setOrchestrator(dataflow.getOrchestrator());
         result.setFlowId(dataflow.getFlowId());
         result.setCluster(dataflow.getCluster());
