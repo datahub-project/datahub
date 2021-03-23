@@ -156,7 +156,7 @@ source:
   type: mssql
   config:
     username: sa
-    password: test!Password
+    password: ${MSSQL_PASSWORD}
     database: DemoData
 
 sink:
@@ -164,6 +164,10 @@ sink:
   config:
     server: "http://localhost:8080"
 ```
+
+We automatically expand environment variables in the config,
+similar to variable substitution in GNU bash or in docker-compose files. For details, see
+https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitution.
 
 Running a recipe is quite easy.
 

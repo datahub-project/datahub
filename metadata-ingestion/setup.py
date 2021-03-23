@@ -38,6 +38,7 @@ framework_common = {
     "pyyaml>=5.4.1",
     "toml>=0.10.0",
     "docker>=4.4",
+    "expandvars>=0.6.5",
     "avro-gen3==0.3.8",
     "avro-python3>=1.8.2",
 }
