@@ -18,7 +18,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
     The pydruid library already formats the table name correctly, so we do not
     need to use the schema name when constructing the URN. Without this override,
     every URN would incorrectly start with "druid.
-    
+
     For more information, see https://druid.apache.org/docs/latest/querying/sql.html#schemata-table
 
     """
