@@ -12,6 +12,7 @@ export const Preview = ({
     platformLogo,
     owners,
     globalTags,
+    snippet,
 }: {
     urn: string;
     name: string;
@@ -21,6 +22,7 @@ export const Preview = ({
     platformLogo?: string | null;
     owners?: Array<Owner> | null;
     globalTags?: GlobalTags | null;
+    snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -42,6 +44,7 @@ export const Preview = ({
                     };
                 }) || []
             }
+            snippet={snippet}
         />
     );
 };

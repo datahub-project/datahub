@@ -1,6 +1,6 @@
 import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpUser, EntityType } from '../../../types.generated';
+import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import UserProfile from './UserProfile';
@@ -50,4 +50,8 @@ export class UserEntity implements Entity<CorpUser> {
             photoUrl={data.editableInfo?.pictureLink || undefined}
         />
     );
+
+    renderSearch = (result: SearchResult) => {
+        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser);
+    };
 }

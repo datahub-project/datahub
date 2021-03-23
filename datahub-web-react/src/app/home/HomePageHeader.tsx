@@ -54,7 +54,8 @@ const HeaderContainer = styled.div`
 
 function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] {
     return (
-        (result?.search?.entities
+        (result?.search?.searchResults
+            ?.map((searchResult) => searchResult.entity)
             ?.map((entity) => {
                 switch (entity.__typename) {
                     case 'Dataset':
