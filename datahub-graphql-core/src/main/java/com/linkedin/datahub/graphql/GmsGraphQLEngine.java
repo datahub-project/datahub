@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
@@ -331,11 +332,11 @@ public class GmsGraphQLEngine {
      */
     private static void configureDataJobResolvers(final RuntimeWiring.Builder builder) {
         builder
-            .type("DataFlow", typeWiring -> typeWiring
+            .type("DataJob", typeWiring -> typeWiring
                 .dataFetcher("dataFlow", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                         DATA_FLOW_TYPE,
-                        (env) -> ((String) env.getSource())))
+                        (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
                 )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
