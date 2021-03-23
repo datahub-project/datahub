@@ -12,30 +12,29 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
 
-
 public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, DataJob> {
 
     public static final DataJobMapper INSTANCE = new DataJobMapper();
 
-    public static DataJob map(@Nonnull final com.linkedin.datajob.DataJob datajob) {
-        return INSTANCE.apply(datajob);
+    public static DataJob map(@Nonnull final com.linkedin.datajob.DataJob dataJob) {
+        return INSTANCE.apply(dataJob);
     }
 
     @Override
-    public DataJob apply(@Nonnull final com.linkedin.datajob.DataJob datajob) {
+    public DataJob apply(@Nonnull final com.linkedin.datajob.DataJob dataJob) {
         final DataJob result = new DataJob();
-        result.setUrn(datajob.getUrn().toString());
+        result.setUrn(dataJob.getUrn().toString());
         result.setType(EntityType.DATAJOB);
-        result.setDataFlow(new DataFlow.Builder().setUrn(datajob.getDataFlow().toString()).build());
-        result.setJobId(datajob.getJobId());
-        if (datajob.hasInfo()) {
-            result.setInfo(mapDataJobInfo(datajob.getInfo()));
+        result.setDataFlow(new DataFlow.Builder().setUrn(dataJob.getDataFlow().toString()).build());
+        result.setJobId(dataJob.getJobId());
+        if (dataJob.hasInfo()) {
+            result.setInfo(mapDataJobInfo(dataJob.getInfo()));
         }
-        if (datajob.hasInputOutput()) {
-            result.setInputOutput(mapDataJobInputOutput(datajob.getInputOutput()));
+        if (dataJob.hasInputOutput()) {
+            result.setInputOutput(mapDataJobInputOutput(dataJob.getInputOutput()));
         }
-        if (datajob.hasOwnership()) {
-            result.setOwnership(OwnershipMapper.map(datajob.getOwnership()));
+        if (dataJob.hasOwnership()) {
+            result.setOwnership(OwnershipMapper.map(dataJob.getOwnership()));
         }
         return result;
     }
