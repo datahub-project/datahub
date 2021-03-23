@@ -36,12 +36,8 @@ public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow
     private DataFlowInfo mapDataFlowInfo(final com.linkedin.datajob.DataFlowInfo info) {
         final DataFlowInfo result = new DataFlowInfo();
         result.setName(info.getName());
-        if (info.hasDescription()) {
-            result.setDescription(info.getDescription());
-        }
-        if (info.hasProject()) {
-            result.setProject(info.getProject());
-        }
+        result.setDescription(info.getDescription());
+        result.setProject(info.getProject());
 
         return result;
     }

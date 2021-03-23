@@ -42,9 +42,8 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
     private DataJobInfo mapDataJobInfo(final com.linkedin.datajob.DataJobInfo info) {
         final DataJobInfo result = new DataJobInfo();
         result.setName(info.getName());
-        if (info.hasDescription()) {
-            result.setDescription(info.getDescription());
-        }
+        result.setDescription(info.getDescription());
+
         return result;
     }
 
@@ -64,5 +63,3 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
         return result;
     }
 }
-
-
