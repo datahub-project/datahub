@@ -10,6 +10,7 @@ import { useEntityRegistry } from './useEntityRegistry';
 import { HomePage } from './home/HomePage';
 import { SearchPage } from './search/SearchPage';
 import { isLoggedInVar } from './auth/checkAuthStatus';
+import LineageExplorer from './lineage/LineageExplorer';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -55,6 +56,7 @@ export const Routes = (): JSX.Element => {
                     path={PageRoutes.BROWSE_RESULTS}
                     render={() => <BrowseResultsPage />}
                 />
+                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.LINEAGE} render={() => <LineageExplorer />} />
                 {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
                 <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
                 <Route component={NoPageFound} />
