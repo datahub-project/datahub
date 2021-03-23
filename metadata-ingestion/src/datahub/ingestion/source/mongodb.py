@@ -103,11 +103,8 @@ class MongoDBSource(Source):
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
 
-                # TODO: maybe guess the schema via sampling?
-                # schema_metadata = get_schema_metadata(
-                #     self.report, dataset_name, platform, columns
-                # )
-                # dataset_snapshot.aspects.append(schema_metadata)
+                # TODO: Guess the schema via sampling
+                # State of the art seems to be https://github.com/variety/variety.
 
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
