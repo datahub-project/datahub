@@ -891,6 +891,30 @@ input FacetFilterInput {
 	value: String!
 }
 
+type MatchedField {
+    """
+    Name of the field that matched
+    """
+    name: String!
+
+    """
+    Value of the field that matched
+    """
+    value: String!
+}
+
+type SearchResult {
+    """
+    Searched entity
+    """
+    entity: Entity!
+
+    """
+    Matched field names and their values
+    """
+    matchedFields: [MatchedField!]!
+}
+
 type SearchResults {
     """
     The starting point of paginated results
@@ -910,7 +934,7 @@ type SearchResults {
     """
     The search results
     """
-    entities: [Entity!]!
+    searchResults: [SearchResult!]!
 
     """
     Field aggregations used for faceted search

@@ -1,6 +1,6 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Dashboard, EntityType } from '../../../types.generated';
+import { Dashboard, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';
@@ -54,5 +54,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
             />
         );
+    };
+
+    renderSearch = (result: SearchResult) => {
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
     };
 }

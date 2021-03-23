@@ -1,4 +1,4 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchResult } from '../../types.generated';
 
 export enum PreviewType {
     /**
@@ -76,4 +76,9 @@ export interface Entity<T> {
      * Renders a preview of the entity across different use cases like search, browse, etc.
      */
     renderPreview: (type: PreviewType, data: T) => JSX.Element;
+
+    /**
+     * Renders a search result
+     */
+    renderSearch: (result: SearchResult) => JSX.Element;
 }

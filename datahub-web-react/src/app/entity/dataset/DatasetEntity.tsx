@@ -1,9 +1,20 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-import { Dataset, EntityType } from '../../../types.generated';
+import { Tag, Typography } from 'antd';
+import styled from 'styled-components';
+import { Dataset, EntityType, SearchResult } from '../../../types.generated';
 import { DatasetProfile } from './profile/DatasetProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
+import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
+
+const MatchTag = styled(Tag)`
+    &&& {
+        margin-bottom: 0px;
+        margin-top: 10px;
+        display: block;
+    }
+`;
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -53,6 +64,34 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
+            />
+        );
+    };
+
+    renderSearch = (result: SearchResult) => {
+        const data = result.entity as Dataset;
+        return (
+            <Preview
+                urn={data.urn}
+                name={data.name}
+                origin={data.origin}
+                description={data.description}
+                platformName={data.platform.name}
+                platformLogo={data.platform.info?.logoUrl}
+                owners={data.ownership?.owners}
+                globalTags={data.globalTags}
+                snippet={
+                    // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
+                    result.matchedFields.length > 0 &&
+                    result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
+                        <MatchTag>
+                            <Typography.Text>
+                                Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
+                                <b>{result.matchedFields[0].value}</b>
+                            </Typography.Text>
+                        </MatchTag>
+                    )
+                }
             />
         );
     };

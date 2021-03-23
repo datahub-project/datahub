@@ -477,18 +477,30 @@ export const mocks = [
                     start: 0,
                     count: 3,
                     total: 3,
-                    entities: [
+                    searchResults: [
                         {
-                            __typename: 'Dataset',
-                            ...dataset1,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset1,
+                            },
+                            matchedFields: [
+                                {
+                                    name: 'fieldName',
+                                    value: 'fieldValue',
+                                },
+                            ],
                         },
                         {
-                            __typename: 'Dataset',
-                            ...dataset2,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset2,
+                            },
                         },
                         {
-                            __typename: 'Dataset',
-                            ...dataset3,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
                         },
                     ],
                     facets: [
@@ -535,10 +547,13 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-                    entities: [
+                    searchResults: [
                         {
-                            __typename: 'Dataset',
-                            ...dataset3,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
                         },
                     ],
                     facets: [
@@ -590,10 +605,13 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-                    entities: [
+                    searchResults: [
                         {
-                            __typename: 'Dataset',
-                            ...dataset3,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
                         },
                     ],
                     facets: [
@@ -637,9 +655,12 @@ export const mocks = [
                     start: 0,
                     count: 2,
                     total: 2,
-                    entities: [
+                    searchResult: [
                         {
-                            ...user1,
+                            entity: {
+                                ...user1,
+                            },
+                            matchedFields: [],
                         },
                     ],
                 },
@@ -705,7 +726,7 @@ export const mocks = [
                     start: 0,
                     count: 0,
                     total: 2,
-                    entities: [],
+                    searchResults: [],
                     facets: [],
                 },
             },
@@ -732,10 +753,13 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-                    entities: [
+                    searchResults: [
                         {
-                            __typename: 'Dataset',
-                            ...dataset3,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
                         },
                     ],
                     facets: [
@@ -782,14 +806,20 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-                    entities: [
+                    searchResults: [
                         {
-                            __typename: 'Dataset',
-                            ...dataset3,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
                         },
                         {
-                            __typename: 'Dataset',
-                            ...dataset4,
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
                         },
                     ],
                     facets: [

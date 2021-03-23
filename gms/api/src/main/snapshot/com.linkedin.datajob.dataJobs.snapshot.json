@@ -496,6 +496,30 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "MatchMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "matchedFields",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "MatchedField",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Matched field name"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "Matched field value"
+          } ]
+        }
+      },
+      "doc" : "Matched field name and values"
+    } ]
+  }, "com.linkedin.metadata.query.MatchedField", {
+    "type" : "record",
     "name" : "SearchResultMetadata",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The model for the search result",
@@ -513,6 +537,14 @@
         "items" : "com.linkedin.common.Urn"
       },
       "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
+    }, {
+      "name" : "matches",
+      "type" : {
+        "type" : "array",
+        "items" : "MatchMetadata"
+      },
+      "doc" : "A list of match metadata for each search result, containing the list of fields in the search document that matched the query",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

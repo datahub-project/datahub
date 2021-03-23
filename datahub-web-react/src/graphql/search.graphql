@@ -10,152 +10,158 @@ query getSearchResults($input: SearchInput!) {
         start
         count
         total
-        entities {
-            urn
-            type
-            ... on Dataset {
-                name
-                origin
-                description
-                uri
-                platform {
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
                     name
+                    origin
+                    description
+                    uri
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                    platformNativeType
+                    tags
+                    properties {
+                        key
+                        value
+                    }
+                    ownership {
+                        owners {
+                            owner {
+                                urn
+                                type
+                                username
+                                info {
+                                    active
+                                    displayName
+                                    title
+                                    firstName
+                                    lastName
+                                    fullName
+                                }
+                                editableInfo {
+                                    pictureLink
+                                }
+                            }
+                            type
+                        }
+                        lastModified {
+                            time
+                        }
+                    }
+                    globalTags {
+                        tags {
+                            tag {
+                                urn
+                                name
+                                description
+                            }
+                        }
+                    }
+                }
+                ... on CorpUser {
+                    username
                     info {
-                        logoUrl
+                        active
+                        displayName
+                        title
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
                     }
                 }
-                platformNativeType
-                tags
-                properties {
-                    key
-                    value
-                }
-                ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
-                }
-                globalTags {
-                    tags {
-                        tag {
-                            urn
-                            name
-                            description
-                        }
-                    }
-                }
-            }
-            ... on CorpUser {
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableInfo {
-                    pictureLink
-                }
-            }
-            ... on Dashboard {
-                urn
-                type
-                tool
-                dashboardId
-                info {
-                    name
-                    description
-                    url
-                    access
-                    lastModified {
-                        time
-                    }
-                }
-                ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
-                }
-            }
-            ... on Chart {
-                urn
-                type
-                tool
-                chartId
-                info {
-                    name
-                    description
-                    url
+                ... on Dashboard {
+                    urn
                     type
-                    access
-                    lastModified {
-                        time
-                    }
-                }
-                ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
+                    tool
+                    dashboardId
+                    info {
+                        name
+                        description
+                        url
+                        access
+                        lastModified {
+                            time
                         }
-                        type
                     }
-                    lastModified {
-                        time
+                    ownership {
+                        owners {
+                            owner {
+                                urn
+                                type
+                                username
+                                info {
+                                    active
+                                    displayName
+                                    title
+                                    firstName
+                                    lastName
+                                    fullName
+                                }
+                                editableInfo {
+                                    pictureLink
+                                }
+                            }
+                            type
+                        }
+                        lastModified {
+                            time
+                        }
                     }
                 }
+                ... on Chart {
+                    urn
+                    type
+                    tool
+                    chartId
+                    info {
+                        name
+                        description
+                        url
+                        type
+                        access
+                        lastModified {
+                            time
+                        }
+                    }
+                    ownership {
+                        owners {
+                            owner {
+                                urn
+                                type
+                                username
+                                info {
+                                    active
+                                    displayName
+                                    title
+                                    firstName
+                                    lastName
+                                    fullName
+                                }
+                                editableInfo {
+                                    pictureLink
+                                }
+                            }
+                            type
+                        }
+                        lastModified {
+                            time
+                        }
+                    }
+                }
+            }
+            matchedFields {
+                name
+                value
             }
         }
         facets {

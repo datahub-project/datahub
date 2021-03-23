@@ -1,6 +1,6 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Chart, EntityType } from '../../../types.generated';
+import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
@@ -54,5 +54,9 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
             />
         );
+    };
+
+    renderSearch = (result: SearchResult) => {
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Chart);
     };
 }

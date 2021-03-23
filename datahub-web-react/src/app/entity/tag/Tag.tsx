@@ -1,6 +1,6 @@
 import { TagOutlined, TagFilled } from '@ant-design/icons';
 import * as React from 'react';
-import { Tag, EntityType } from '../../../types.generated';
+import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import TagProfile from './TagProfile';
@@ -49,4 +49,8 @@ export class TagEntity implements Entity<Tag> {
             url={`/${this.getPathName()}/${data.urn}`}
         />
     );
+
+    renderSearch = (result: SearchResult) => {
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
+    };
 }
