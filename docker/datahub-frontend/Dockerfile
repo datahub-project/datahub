@@ -3,6 +3,7 @@ ARG APP_ENV=prod
 
 FROM openjdk:8-jre-alpine as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN apk --no-cache add curl
 
 FROM openjdk:8 as prod-build
 ARG ENABLE_EMBER="false"
@@ -28,8 +29,11 @@ FROM ${APP_ENV}-install as final
 USER datahub
 
 ARG SERVER_PORT=9002
+ENV SERVER_PORT=$SERVER_PORT
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
+
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
 
 ENV JAVA_OPTS=" \
    -Xms512m \
