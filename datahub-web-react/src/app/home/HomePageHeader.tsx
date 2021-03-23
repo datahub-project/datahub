@@ -25,12 +25,22 @@ const WelcomeText = styled(Typography.Text)`
     color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
 `;
 
+const SubHeaderText = styled(Typography.Text)`
+    font-size: 20px;
+    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+`;
+
+const SubHeaderTextNoResults = styled(Typography.Text)`
+    font-size: 20px;
+    color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
+    margin-bottom: 108px;
+`;
+
 const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
-    subHeaderText: { color: '#FFFFFF', fontSize: 20 },
     subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -172,35 +182,36 @@ export const HomePageHeader = () => {
                     />
                 </AutoComplete>
                 {suggestionsToShow.length === 0 && !suggestionsLoading && (
-                    <Typography.Text style={styles.subHeaderText}>
-                        {themeConfig.content.homepage.homepageMessage}
-                    </Typography.Text>
+                    <SubHeaderTextNoResults>{themeConfig.content.homepage.homepageMessage}</SubHeaderTextNoResults>
                 )}
-                <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
+                {suggestionsToShow.length > 0 && !suggestionsLoading && (
+                    <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
+                )}
             </HeaderContainer>
-            <CarouselContainer>
-                <Carousel autoplay effect="fade">
-                    {suggestionsToShow.length > 0 &&
-                        suggestionsToShow.slice(0, 3).map((suggestion) => (
-                            <CarouselElement>
-                                <Button
-                                    type="text"
-                                    style={styles.subHeaderText}
-                                    onClick={() =>
-                                        navigateToSearchUrl({
-                                            type: undefined,
-                                            query: suggestion,
-                                            history,
-                                            entityRegistry,
-                                        })
-                                    }
-                                >
-                                    {truncate(suggestion, 40)}
-                                </Button>
-                            </CarouselElement>
-                        ))}
-                </Carousel>
-            </CarouselContainer>
+            {suggestionsToShow.length > 0 && !suggestionsLoading && (
+                <CarouselContainer>
+                    <Carousel autoplay effect="fade">
+                        {suggestionsToShow.length > 0 &&
+                            suggestionsToShow.slice(0, 3).map((suggestion) => (
+                                <CarouselElement>
+                                    <Button
+                                        type="text"
+                                        onClick={() =>
+                                            navigateToSearchUrl({
+                                                type: undefined,
+                                                query: suggestion,
+                                                history,
+                                                entityRegistry,
+                                            })
+                                        }
+                                    >
+                                        <SubHeaderText>{truncate(suggestion, 40)}</SubHeaderText>
+                                    </Button>
+                                </CarouselElement>
+                            ))}
+                    </Carousel>
+                </CarouselContainer>
+            )}
         </Background>
     );
 };
