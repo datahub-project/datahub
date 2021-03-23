@@ -56,7 +56,7 @@ function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] 
     return (
         (result?.search?.searchResults
             ?.map((searchResult) => searchResult.entity)
-            .map((entity) => {
+            ?.map((entity) => {
                 switch (entity.__typename) {
                     case 'Dataset':
                         return entity.name.split('.').slice(-1)[0];
