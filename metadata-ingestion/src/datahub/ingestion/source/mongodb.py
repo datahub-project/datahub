@@ -119,5 +119,4 @@ class MongoDBSource(Source):
         return self.report
 
     def close(self):
-        # TODO: this
-        pass
+        self.mongo_client.close()

@@ -75,7 +75,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "ldap": {"python-ldap>=2.4"},
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "mongodb": {"pymongo>=3"},
+    "mongodb": {"pymongo>=3.11"},
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
