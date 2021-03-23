@@ -99,6 +99,11 @@ type Query {
     dataFlow(urn: String!): DataFlow
 
     """
+    Fetch a DataJob by primary key
+    """
+    dataJob(urn: String!): DataJob
+
+    """
     Search DataHub entities
     """
     search(input: SearchInput!): SearchResults
