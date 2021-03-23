@@ -14,6 +14,9 @@ class DruidConfig(BasicSQLAlchemyConfig):
     def get_sql_alchemy_url(self):
         return f"{BasicSQLAlchemyConfig.get_sql_alchemy_url(self)}/druid/v2/sql/"
 
+    def get_identifier(self, schema: str, table: str) -> str:
+        return f"{table}"
+
 
 class DruidSource(SQLAlchemySource):
     def __init__(self, config, ctx):
