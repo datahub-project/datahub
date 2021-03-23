@@ -22,6 +22,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
     For more information, see https://druid.apache.org/docs/latest/querying/sql.html#schemata-table
 
     """
+
     def get_identifier(self, schema: str, table: str) -> str:
         return f"{table}"
 
