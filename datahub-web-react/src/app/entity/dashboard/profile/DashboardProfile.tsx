@@ -1,6 +1,5 @@
 import { Alert } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import {
     GetDashboardDocument,
     useGetDashboardQuery,
@@ -13,10 +12,6 @@ import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
-
-const PageContainer = styled.div`
-    padding: 32px 100px;
-`;
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -81,27 +76,23 @@ export default function DashboardProfile({ urn }: { urn: string }) {
     };
 
     return (
-        <PageContainer>
-            <>
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-                {data && data.dashboard && (
-                    <EntityProfile
-                        title={data.dashboard.info?.name || ''}
-                        tags={
-                            <TagGroup
-                                editableTags={data.dashboard?.globalTags as GlobalTags}
-                                canAdd
-                                canRemove
-                                updateTags={(globalTags) =>
-                                    updateDashboard({ variables: { input: { urn, globalTags } } })
-                                }
-                            />
-                        }
-                        tabs={getTabs(data.dashboard as Dashboard)}
-                        header={getHeader(data.dashboard as Dashboard)}
-                    />
-                )}
-            </>
-        </PageContainer>
+        <>
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+            {data && data.dashboard && (
+                <EntityProfile
+                    title={data.dashboard.info?.name || ''}
+                    tags={
+                        <TagGroup
+                            editableTags={data.dashboard?.globalTags as GlobalTags}
+                            canAdd
+                            canRemove
+                            updateTags={(globalTags) => updateDashboard({ variables: { input: { urn, globalTags } } })}
+                        />
+                    }
+                    tabs={getTabs(data.dashboard as Dashboard)}
+                    header={getHeader(data.dashboard as Dashboard)}
+                />
+            )}
+        </>
     );
 }
