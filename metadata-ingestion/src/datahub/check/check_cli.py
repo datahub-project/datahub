@@ -25,9 +25,9 @@ def local_docker() -> None:
 
     issues = check_local_docker_containers()
     if not issues:
-        click.secho("All containers are healthy", fg="green", bold=True)
+        click.secho("✔ No issues detected", fg="green")
     else:
-        click.secho("The following issues were detected:", fg="bright_red", bold=True)
+        click.secho("The following issues were detected:", fg="bright_red")
         for issue in issues:
             click.echo(f"- {issue}")
         sys.exit(1)
