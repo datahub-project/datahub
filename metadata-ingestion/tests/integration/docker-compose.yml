@@ -23,6 +23,19 @@ services:
             - ./mysql/setup:/setup
             - ./mysql/setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
 
+    testmongodb:
+        image: mongo
+        container_name: "testmongodb"
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: mongoadmin
+            MONGO_INITDB_ROOT_PASSWORD: examplepass
+            MONGO_INITDB_DATABASE: mngdb
+        ports:
+            - 57017:27017
+        volumes:
+            - ./mongodb/setup/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js:ro
+            - ./mongodb/setup:/setup
+
     openldap:
         image: osixia/openldap:latest
         command: --copy-service --loglevel debug
