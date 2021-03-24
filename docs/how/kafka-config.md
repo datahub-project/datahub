@@ -47,7 +47,16 @@ We've included environment variables to customize the name each of these topics,
 
 Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
 
-**How to apply configuration?**
+## Configuring Consumer Group Id
+
+Kafka Consumers in Spring are configured using Kafka listeners. By default, consumer group id is same as listener id.
+
+We've included an environment variable to customize the consumer group id, if your company or organization has specific naming rules.
+
+### datahub-mce-consumer and datahub-mae-consumer
+- `KAFKA_CONSUMER_GROUP_ID`: The name of the kafka consumer's group id.
+
+## How to apply configuration?
 - For quickstart, add these environment variables to the corresponding application's docker.env
 - For helm charts, add these environment variables as extraEnvs to the corresponding application's chart.
 For example, 
@@ -59,6 +68,8 @@ extraEnvs:
     value: "MetadataAuditEvent"
   - name: FAILED_METADATA_CHANGE_EVENT_NAME
     value: "FailedMetadataChangeEvent"
+  - name: KAFKA_CONSUMER_GROUP_ID
+    value: "my-apps-mae-consumer"
 ```
 
 ## SSL
