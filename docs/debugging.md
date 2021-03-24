@@ -1,6 +1,12 @@
 # Debugging Guide
 
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
+
+If you set up the `datahub` CLI tool (see [here](../metadata-ingestion/README.md)), you can use the built-in check utility:
+```sh
+datahub check local-docker
+```
+
 You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log similar to the below:
 
 ```
