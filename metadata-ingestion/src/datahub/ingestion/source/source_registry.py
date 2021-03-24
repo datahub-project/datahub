@@ -58,6 +58,13 @@ except ImportError as e:
     source_registry.register_disabled("snowflake", e)
 
 try:
+    from .druid import DruidSource
+
+    source_registry.register("druid", DruidSource)
+except ImportError as e:
+    source_registry.register_disabled("druid", e)
+
+try:
     from .kafka import KafkaSource
 
     source_registry.register("kafka", KafkaSource)
@@ -78,9 +85,10 @@ try:
 except ImportError as e:
     source_registry.register_disabled("ldap", e)
 
-try:
-    from .druid import DruidSource
 
-    source_registry.register("druid", DruidSource)
+try:
+    from .mongodb import MongoDBSource
+
+    source_registry.register("mongodb", MongoDBSource)
 except ImportError as e:
-    source_registry.register_disabled("druid", e)
+    source_registry.register_disabled("mongodb", e)

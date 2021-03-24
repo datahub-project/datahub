@@ -94,6 +94,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | mysql         | `pip install -e '.[mysql]'`                       | MySQL source               |
 | postgres      | `pip install -e '.[postgres]'`                    | Postgres source            |
 | snowflake     | `pip install -e '.[snowflake]'`                   | Snowflake source           |
+| mongodb       | `pip install -e '.[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install -e '.[ldap]'` ([extra requirements]) | LDAP source                |
 | kakfa         | `pip install -e '.[kafka]'`                       | Kafka source               |
 | druid         | `pip install -e '.[druid]'`                       | Druid Source               |
@@ -372,6 +373,29 @@ source:
     # options is same as above
 ```
 
+### MongoDB `mongodb`
+
+Extracts:
+
+- List of databases
+- List of collections in each database
+
+```yml
+source:
+  type: "mongodb"
+  config:
+    # For advanced configurations, see the MongoDB docs.
+    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
+    connect_uri: "mongodb://localhost"
+    username: admin
+    password: password
+    authMechanism: "DEFAULT"
+    options: {}
+    database_pattern: {}
+    collection_pattern: {}
+    # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
+```
+
 ### LDAP `ldap`
 
 Extracts:
@@ -405,11 +429,12 @@ source:
 ### DBT `dbt`
 
 Pull metadata from DBT output files:
-* [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-  * This file contains model, source and lineage data.
-* [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-  * This file contains schema data.
-  * DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+
+- [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
+  - This file contains model, source and lineage data.
+- [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
+  - This file contains schema data.
+  - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
 
 ```yml
 source:
@@ -417,7 +442,6 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
-
 ```
 
 ## Sinks

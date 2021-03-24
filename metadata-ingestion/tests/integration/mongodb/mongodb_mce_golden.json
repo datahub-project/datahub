@@ -1,0 +1,21 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,mngdb.mycollection,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "description": null,
+                        "uri": null,
+                        "tags": [],
+                        "customProperties": {}
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+}
+]
