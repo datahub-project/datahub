@@ -2,6 +2,30 @@ from typing import List
 
 import docker
 
+REQUIRED_CONTAINERS = [
+    "elasticsearch-setup",
+    "elasticsearch",
+    "datahub-gms",
+    "datahub-mce-consumer",
+    "datahub-frontend-react",
+    "datahub-mae-consumer",
+    "kafka-topics-ui",
+    "kafka-rest-proxy",
+    "kafka-setup",
+    "schema-registry-ui",
+    "schema-registry",
+    "broker",
+    "kibana",
+    "mysql",
+    "neo4j",
+    "zookeeper",
+]
+
+ALLOW_STOPPED = [
+    "kafka-setup",
+    "elasticsearch-setup",
+]
+
 
 def check_local_docker_containers() -> List[str]:
     issues: List[str] = []
@@ -15,24 +39,6 @@ def check_local_docker_containers() -> List[str]:
     )
 
     # Check number of containers.
-    REQUIRED_CONTAINERS = [
-        "elasticsearch-setup",
-        "elasticsearch",
-        "datahub-gms",
-        "datahub-mce-consumer",
-        "datahub-frontend-react",
-        "datahub-mae-consumer",
-        "kafka-topics-ui",
-        "kafka-rest-proxy",
-        "kafka-setup",
-        "schema-registry-ui",
-        "schema-registry",
-        "broker",
-        "kibana",
-        "mysql",
-        "neo4j",
-        "zookeeper",
-    ]
     if len(containers) == 0:
         issues.append("quickstart.sh or dev.sh is not running")
     else:
@@ -42,10 +48,6 @@ def check_local_docker_containers() -> List[str]:
             issues.append(f"{missing} container is not present")
 
     # Check that the containers are running and healthy.
-    ALLOW_STOPPED = [
-        "kafka-setup",
-        "elasticsearch-setup",
-    ]
     for container in containers:
         if container.name in ALLOW_STOPPED:
             continue
