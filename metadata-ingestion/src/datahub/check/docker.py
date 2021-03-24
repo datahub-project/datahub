@@ -15,10 +15,31 @@ def check_local_docker_containers() -> List[str]:
     )
 
     # Check number of containers.
+    REQUIRED_CONTAINERS = [
+        "elasticsearch-setup",
+        "elasticsearch",
+        "datahub-gms",
+        "datahub-mce-consumer",
+        "datahub-frontend-react",
+        "datahub-mae-consumer",
+        "kafka-topics-ui",
+        "kafka-rest-proxy",
+        "kafka-setup",
+        "schema-registry-ui",
+        "schema-registry",
+        "broker",
+        "kibana",
+        "mysql",
+        "neo4j",
+        "zookeeper",
+    ]
     if len(containers) == 0:
         issues.append("quickstart.sh or dev.sh is not running")
-    elif len(containers) < 15:
-        issues.append("not enough containers are running")
+    else:
+        existing_containers = set(container.name for container in containers)
+        missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
+        for missing in missing_containers:
+            issues.append(f"{missing} container is not present")
 
     # Check that the containers are running and healthy.
     ALLOW_STOPPED = [
