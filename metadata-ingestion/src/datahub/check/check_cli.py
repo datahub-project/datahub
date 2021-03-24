@@ -1,8 +1,9 @@
 import sys
+
 import click
 
-from datahub.check.json_file import check_mce_file
 from datahub.check.docker import check_local_docker_containers
+from datahub.check.json_file import check_mce_file
 
 
 @click.group()
