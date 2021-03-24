@@ -3,6 +3,7 @@ import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.check.docker import check_local_docker_containers
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -14,11 +15,24 @@ restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
 kafka_post_ingestion_wait_sec = 10
+healthcheck_wait_retries = 2
+healthcheck_wait_interval_sec = 3
 
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    pass
+    tries = 0
+    while tries < healthcheck_wait_retries:
+        if tries > 0:
+            time.sleep(healthcheck_wait_interval_sec)
+        tries += 1
+        
+        issues = check_local_docker_containers()
+        if not issues:
+            yield
+            return
+    
+    raise RuntimeError("retry limit exceeded while waiting for docker healthchecks")
 
 
 @pytest.mark.dependency()
@@ -27,7 +41,7 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-@pytest.mark.dependency()
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     pipeline = Pipeline.create(
         {
@@ -45,7 +59,7 @@ def test_ingestion_via_rest(wait_for_healthchecks):
     pipeline.raise_from_status()
 
 
-@pytest.mark.dependency()
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_kafka(wait_for_healthchecks):
     pipeline = Pipeline.create(
         {
