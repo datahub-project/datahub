@@ -18,4 +18,4 @@ FROM base AS dev-install
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install AS final
-CMD dockerize -wait http://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -timeout 120s /create-indices.sh
+CMD dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -timeout 120s /create-indices.sh

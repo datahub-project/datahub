@@ -9,7 +9,7 @@ function create_index {
     --slurpfile mappings index/$3 \
     '.settings=$settings[0] | .mappings=$mappings[0]' > /tmp/data
 
-  curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/$1 -H 'Content-Type: application/json' --data @/tmp/data
+  curl -XPUT $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/$1 -H 'Content-Type: application/json' --data @/tmp/data
 }
 
 create_index chartdocument chart/settings.json chart/mappings.json
