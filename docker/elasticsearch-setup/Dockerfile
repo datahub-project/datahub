@@ -18,4 +18,6 @@ FROM base AS dev-install
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install AS final
-CMD dockerize -wait http://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -timeout 120s /create-indices.sh
+CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https; else ELASTICSEARCH_PROTOCOL=http; fi \
+    && if [[ -n "$ELASTICSEARCH_USERNAME" ]]; then ELASTICSEARCH_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST; else ELASTICSEARCH_URL=$ELASTICSEARCH_HOST; fi \
+    && dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_URL:$ELASTICSEARCH_PORT -timeout 120s /create-indices.sh
