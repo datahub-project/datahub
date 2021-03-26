@@ -51,8 +51,8 @@ def check_local_docker_containers() -> List[str]:
     for container in containers:
         if container.name not in REQUIRED_CONTAINERS:
             # Ignores things like "datahub-frontend" which are no longer used.
-            # This way, we only check "datahub-frontend-react" even if they have
-            # some old containers lying around.
+            # This way, we only check required containers like "datahub-frontend-react"
+            # even if there are some old containers lying around.
             continue
         if container.name in ALLOW_STOPPED:
             continue
