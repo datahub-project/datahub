@@ -6,12 +6,12 @@ import sys
 import click
 from pydantic import ValidationError
 
+from datahub.check.check_cli import check
 from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
 from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
-from datahub.ingestion.source.mce_file import check_mce_file
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -97,15 +97,4 @@ def ingest_list_plugins() -> None:
     click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')
 
 
-@datahub.group()
-def check() -> None:
-    pass
-
-
-@check.command()
-@click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
-def mce_file(json_file: str) -> None:
-    """Check the schema of a MCE JSON file"""
-
-    report = check_mce_file(json_file)
-    click.echo(report)
+datahub.add_command(check)
