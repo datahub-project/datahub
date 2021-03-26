@@ -94,6 +94,10 @@ services:
       - "9200:9200"
     volumes:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+        test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
+        start_period: 2m
+        retries: 4
 
   kibana:
     image: kibana:7.9.3
