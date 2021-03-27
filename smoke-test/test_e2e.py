@@ -32,7 +32,8 @@ def wait_for_healthchecks():
             yield
             return
     
-    raise RuntimeError("retry limit exceeded while waiting for docker healthchecks")
+    issues_str = '\n'.join(f"- {issue}" for issue in issues)
+    raise RuntimeError(f"retry limit exceeded while waiting for docker healthchecks\n{issues_str}")
 
 
 @pytest.mark.dependency()

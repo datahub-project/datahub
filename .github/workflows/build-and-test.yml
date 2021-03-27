@@ -4,14 +4,14 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   pull_request:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   release:
     types: [published, edited]
 
@@ -26,11 +26,13 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.6'
+          python-version: "3.6"
       - name: Gradle build (and test)
         run: ./gradlew build
       - name: Python ingest framework tests
         run: cd metadata-ingestion && ./scripts/ci.sh
+      - name: Smoke test
+        run: ./docker/dev.sh -d && ./smoke-test/smoke.sh
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
