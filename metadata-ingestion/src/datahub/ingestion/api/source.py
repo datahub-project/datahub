@@ -35,7 +35,7 @@ WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
 
 class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
     @abstractmethod
-    def configure(self, config_dict: dict, ctx: PipelineContext):
+    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
         pass
 
     @abstractmethod

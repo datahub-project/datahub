@@ -2,7 +2,7 @@ from typing import Iterable, cast
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Extractor
+from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
@@ -10,10 +10,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 class WorkUnitMCEExtractor(Extractor):
     """An extractor that simply returns MCE-s inside workunits back as records"""
 
-    def configure(self, config_dict: dict, ctx: PipelineContext):
+    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
         pass
 
-    def get_records(self, workunit) -> Iterable[RecordEnvelope[MetadataChangeEvent]]:
+    def get_records(
+        self, workunit: WorkUnit
+    ) -> Iterable[RecordEnvelope[MetadataChangeEvent]]:
         workunit = cast(MetadataWorkUnit, workunit)
         if len(workunit.mce.proposedSnapshot.aspects) == 0:
             raise AttributeError("every mce must have at least one aspect")

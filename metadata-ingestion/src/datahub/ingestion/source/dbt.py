@@ -65,7 +65,7 @@ class DBTNode:
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
 
-def get_columns(catalog_node) -> List[DBTColumn]:
+def get_columns(catalog_node: dict) -> List[DBTColumn]:
     columns = []
 
     raw_columns = catalog_node["columns"]
@@ -83,7 +83,7 @@ def get_columns(catalog_node) -> List[DBTColumn]:
 
 
 def extract_dbt_entities(
-    nodes, catalog, platform: str, environment: str
+    nodes: Dict[str, dict], catalog: Dict[str, dict], platform: str, environment: str
 ) -> List[DBTNode]:
     dbt_entities = []
 
@@ -169,7 +169,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
 
 def get_upstreams(
-    upstreams: List[str], all_nodes, platform: str, environment: str
+    upstreams: List[str], all_nodes: Dict[str, dict], platform: str, environment: str
 ) -> List[str]:
     upstream_urns = []
 

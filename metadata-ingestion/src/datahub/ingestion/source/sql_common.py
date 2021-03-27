@@ -150,7 +150,7 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns
+    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns: List[dict]
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:

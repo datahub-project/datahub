@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List
+from typing import Any, List, Union
 
 import avro.schema
 
@@ -39,10 +39,10 @@ _field_type_mapping = {
 }
 
 
-def _get_column_type(field_type) -> SchemaFieldDataType:
+def _get_column_type(field_type: Union[str, dict]) -> SchemaFieldDataType:
     tp = field_type
     if hasattr(tp, "type"):
-        tp = tp.type
+        tp = tp.type  # type: ignore
     tp = str(tp)
     TypeClass: Any = _field_type_mapping.get(tp)
     # Note: we could populate the nestedTypes field for unions and similar fields

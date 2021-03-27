@@ -70,7 +70,7 @@ class MongoDBSource(Source):
         self.mongo_client.admin.command("ismaster")
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
