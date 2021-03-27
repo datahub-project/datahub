@@ -7,9 +7,7 @@ import click
 from pydantic import ValidationError
 
 from datahub.check.check_cli import check
-from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
-from datahub.configuration.toml import TomlConfigurationMechanism
-from datahub.configuration.yaml import YamlConfigurationMechanism
+from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -54,23 +52,7 @@ def ingest(config: str) -> None:
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
-    if not config_file.is_file():
-        raise ConfigurationError(f"Cannot open config file {config}")
-
-    config_mech: ConfigurationMechanism
-    if config_file.suffix in [".yaml", ".yml"]:
-        config_mech = YamlConfigurationMechanism()
-    elif config_file.suffix == ".toml":
-        config_mech = TomlConfigurationMechanism()
-    else:
-        raise ConfigurationError(
-            "Only .toml and .yml are supported. Cannot process file type {}".format(
-                config_file.suffix
-            )
-        )
-
-    with config_file.open() as fp:
-        pipeline_config = config_mech.load_config(fp)
+    pipeline_config = load_config_file(config_file)
 
     try:
         logger.info(f"Using config: {pipeline_config}")

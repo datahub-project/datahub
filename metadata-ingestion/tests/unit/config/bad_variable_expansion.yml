@@ -1,0 +1,2 @@
+stuff:
+  filename: ${THIS_IS_UNSET?with an error message}
