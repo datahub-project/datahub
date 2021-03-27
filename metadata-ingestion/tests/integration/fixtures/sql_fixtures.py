@@ -4,19 +4,19 @@ import time
 import pytest
 
 
-def is_responsive(container: str, port: int):
+def is_responsive(container: str, port: int) -> bool:
     ret = os.system(f"docker exec {container} /setup/wait-for-it.sh localhost:{port}")
     return ret == 0
 
 
 @pytest.fixture(scope="session")
-def docker_compose_file(pytestconfig):
+def docker_compose_file(pytestconfig) -> str:
     return os.path.join(
         str(pytestconfig.rootdir), "tests/integration/", "docker-compose.yml"
     )
 
 
-def wait_for_db(docker_services, container_name, container_port):
+def wait_for_db(docker_services, container_name: str, container_port: int):
     port = docker_services.port_for(container_name, container_port)
     docker_services.wait_until_responsive(
         timeout=30.0,

@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from datahub.entrypoints import datahub
 
 
-def test_mssql_ingest(sql_server, pytestconfig, tmp_path, mock_time):
+def test_mssql_ingest(sql_server, pytestconfig, tmp_path, mock_time) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
 
     # Run the setup.sql file to populate the database.

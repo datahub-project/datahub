@@ -5,7 +5,7 @@ from click.testing import CliRunner
 from datahub.entrypoints import datahub
 
 
-def test_mysql_ingest(mysql, pytestconfig, tmp_path, mock_time):
+def test_mysql_ingest(mysql, pytestconfig, tmp_path, mock_time) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mysql"
     config_file = (test_resources_dir / "mysql_to_file.yml").resolve()
 

@@ -12,7 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserSnapshotClass
 
 
-def create_controls(pagesize):
+def create_controls(pagesize) -> SimplePagedResultsControl:
     """
     Create an LDAP control with a page size of "pagesize".
     """

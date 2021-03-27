@@ -9,7 +9,7 @@ from .report import Report
 
 @dataclass
 class SourceReport(Report):
-    workunits_produced = 0
+    workunits_produced: int = 0
     workunit_ids: List[str] = field(default_factory=list)
 
     warnings: Dict[str, List[str]] = field(default_factory=dict)

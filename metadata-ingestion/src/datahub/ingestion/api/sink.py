@@ -9,7 +9,7 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    records_written = 0
+    records_written: int = 0
     warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
 

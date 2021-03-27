@@ -15,7 +15,7 @@ from datahub.ingestion.run.pipeline import Pipeline
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
-def test_serde(pytestconfig, tmp_path, json_filename):
+def test_serde(pytestconfig, tmp_path, json_filename) -> None:
     golden_file = pytestconfig.rootpath / json_filename
 
     output_filename = "output.json"
@@ -48,7 +48,7 @@ def test_serde(pytestconfig, tmp_path, json_filename):
         "examples/mce_files/bootstrap_mce.json",
     ],
 )
-def test_check_mce_schema(pytestconfig, json_filename):
+def test_check_mce_schema(pytestconfig, json_filename) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
     runner = CliRunner()
