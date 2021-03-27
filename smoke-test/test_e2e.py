@@ -15,8 +15,8 @@ restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
 kafka_post_ingestion_wait_sec = 10
-healthcheck_wait_retries = 24
-healthcheck_wait_interval_sec = 15
+healthcheck_wait_retries = 30
+healthcheck_wait_interval_sec = 30
 
 
 @pytest.fixture(scope="session")
