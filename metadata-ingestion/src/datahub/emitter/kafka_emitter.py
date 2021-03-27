@@ -36,7 +36,9 @@ class DatahubKafkaEmitter:
             return tuple_encoding
 
         avro_serializer = AvroSerializer(
-            SCHEMA_JSON_STR, schema_registry_client, to_dict=convert_mce_to_dict
+            schema_str=SCHEMA_JSON_STR,
+            schema_registry_client=schema_registry_client,
+            to_dict=convert_mce_to_dict,
         )
 
         producer_config = {
