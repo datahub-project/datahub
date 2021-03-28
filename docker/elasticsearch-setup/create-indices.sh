@@ -2,6 +2,18 @@
 
 set -e
 
+if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
+    ELASTICSEARCH_PROTOCOL=https
+else
+    ELASTICSEARCH_PROTOCOL=http
+fi
+
+if [[ -z $ELASTICSEARCH_USERNAME ]]; then
+    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_HOST
+else
+    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST
+fi
+
 function create_index {
 	echo -e '\ncreating' $1
   jq -n \
@@ -9,7 +21,7 @@ function create_index {
     --slurpfile mappings index/$3 \
     '.settings=$settings[0] | .mappings=$mappings[0]' > /tmp/data
 
-  curl -XPUT $ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/$1 -H 'Content-Type: application/json' --data @/tmp/data
+  curl -XPUT $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1 -H 'Content-Type: application/json' --data @/tmp/data
 }
 
 create_index chartdocument chart/settings.json chart/mappings.json
