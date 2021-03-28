@@ -15,11 +15,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.auth.AuthScope;
 
 @Slf4j
 @Configuration
-@Import({ElasticsearchSSLContextFactory.class})
+@Import({ ElasticsearchSSLContextFactory.class })
 public class RestHighLevelClientFactory {
 
   @Value("${ELASTICSEARCH_HOST:localhost}")
@@ -27,6 +31,12 @@ public class RestHighLevelClientFactory {
 
   @Value("${ELASTICSEARCH_PORT:9200}")
   private Integer port;
+
+  @Value("${ELASTICSEARCH_USERNAME:#{null}}")
+  private String username;
+
+  @Value("${ELASTICSEARCH_PASSWORD:#{null}}")
+  private String password;
 
   @Value("${ELASTICSEARCH_THREAD_COUNT:1}")
   private Integer threadCount;
@@ -47,7 +57,8 @@ public class RestHighLevelClientFactory {
     RestClientBuilder restClientBuilder;
 
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext);
+      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext, username,
+          password);
     } else {
       restClientBuilder = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
     }
@@ -59,26 +70,39 @@ public class RestHighLevelClientFactory {
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
       int connectionRequestTimeout) {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultIOReactorConfig(
-            IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
+            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
 
-    builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-        setConnectionRequestTimeout(connectionRequestTimeout));
+    builder.setRequestConfigCallback(
+        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
 
     return builder;
   }
 
   @Nonnull
   private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
-      int connectionRequestTimeout, @Nonnull SSLContext sslContext) {
-    final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setSSLContext(sslContext)
-            .setSSLHostnameVerifier(new NoopHostnameVerifier())
-            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+      int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
 
-    builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
-        setConnectionRequestTimeout(connectionRequestTimeout));
+    final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
+    builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+      public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
+        httpAsyncClientBuilder.setSSLContext(sslContext).setSSLHostnameVerifier(new NoopHostnameVerifier())
+            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
+
+        if (username != null && password != null) {
+          final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+          credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+          httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+        }
+
+        return httpAsyncClientBuilder;
+      }
+    });
+
+    builder.setRequestConfigCallback(
+        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
 
     return builder;
   }
+
 }
