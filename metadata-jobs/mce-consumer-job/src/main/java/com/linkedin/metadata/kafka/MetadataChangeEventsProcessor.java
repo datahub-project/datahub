@@ -41,7 +41,7 @@ public class MetadataChangeEventsProcessor {
     this.kafkaTemplate = kafkaTemplate;
   }
 
-  @KafkaListener(id = "mce-consumer-job-client",
+  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}",
       topics = "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
