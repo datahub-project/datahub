@@ -32,6 +32,12 @@ datahub-ingestion-cron:
     repository: linkedin/datahub-ingestion
     tag: "latest"
 
+elasticsearchInitJob:
+  enabled: true
+  image:
+    repository: linkedin/datahub-elasticsearch-setup
+    tag: "latest"
+
 global:
   elasticsearch:
     host: "elasticsearch"
