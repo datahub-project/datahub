@@ -81,6 +81,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
+    "glue": {"boto3"}
 }
 
 dev_requirements = {

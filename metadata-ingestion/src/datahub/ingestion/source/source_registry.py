@@ -92,3 +92,10 @@ try:
     source_registry.register("mongodb", MongoDBSource)
 except ImportError as e:
     source_registry.register_disabled("mongodb", e)
+
+try:
+    from .glue import GlueSource
+
+    source_registry.register("glue", GlueSource)
+except ImportError as e:
+    source_registry.register_disabled("glue", e)

@@ -1,0 +1,11 @@
+source:
+  type: athena
+  config:
+    aws_region: "us-east-1"
+    database: "datalake-raw"
+    s3_staging_dir: "s3://aws-athena-query-results-183284569534-us-east-1/temp/"
+    work_group: "primary"
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
