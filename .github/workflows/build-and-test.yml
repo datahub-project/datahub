@@ -34,11 +34,18 @@ jobs:
       - name: Smoke test
         run: |
           ./docker/dev.sh -d
+          sleep 30
           docker ps -a
-          sleep 60
           ./docker/dev.sh -d
+          sleep 30
           docker ps -a
-          ./smoke-test/smoke.sh
+          ./docker/dev.sh -d
+          sleep 30
+          docker ps -a
+          ./docker/dev.sh -d
+          sleep 30
+          docker ps -a
+          ./smoke-test/smoke.sh || true
           docker ps -a
           docker-compose logs
       - name: Slack failure notification
