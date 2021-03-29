@@ -34,9 +34,13 @@ jobs:
       - name: Smoke test
         run: |
           ./docker/dev.sh -d
+          docker ps -a
           sleep 60
           ./docker/dev.sh -d
+          docker ps -a
           ./smoke-test/smoke.sh
+          docker ps -a
+          docker-compose logs
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
