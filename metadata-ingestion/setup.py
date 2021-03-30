@@ -4,13 +4,6 @@ import os
 import setuptools
 
 
-def get_version():
-    root = os.path.dirname(__file__)
-    changelog = os.path.join(root, "CHANGELOG")
-    with open(changelog) as f:
-        return f.readline().strip()
-
-
 def get_long_description():
     root = os.path.dirname(__file__)
     with open(os.path.join(root, "README.md")) as f:
@@ -82,6 +75,8 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
+    # Integrations.
+    "airflow": {"apache-airflow"},
 }
 
 dev_requirements = {
@@ -108,6 +103,7 @@ dev_requirements = {
             "ldap",
             "datahub-kafka",
             "datahub-rest",
+            "airflow",
         ]
         for dependency in plugins[plugin]
     ),
@@ -116,7 +112,7 @@ dev_requirements = {
 
 setuptools.setup(
     name="datahub",
-    version=get_version(),
+    # version is set by setup.cfg
     url="https://github.com/linkedin/datahub",
     author="DataHub Committers",
     license="Apache License 2.0",
@@ -173,6 +169,9 @@ setuptools.setup(
             "console = datahub.ingestion.sink.console:ConsoleSink",
             "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
             "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+        ],
+        "apache_airflow_provider": [
+            "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
         ],
     },
     install_requires=list(base_requirements | framework_common),
