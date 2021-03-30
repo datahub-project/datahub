@@ -32,7 +32,7 @@ datahub-ingestion-cron:
     repository: linkedin/datahub-ingestion
     tag: "latest"
 
-elasticsearchInitJob:
+elasticsearchSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-elasticsearch-setup
