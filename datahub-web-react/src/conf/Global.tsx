@@ -13,7 +13,7 @@ export enum PageRoutes {
     BROWSE_RESULTS = '/browse/:type',
     DATASETS = '/datasets',
     ASSETS = '/assets',
-    LINEAGE = '/lineage/:entityType/:urn',
+    LINEAGE = '/lineage/:type/:urn',
 }
 
 /**

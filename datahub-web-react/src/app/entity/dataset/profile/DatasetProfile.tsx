@@ -92,7 +92,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Lineage,
                 path: TabType.Lineage.toLowerCase(),
-                content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
+                content: (
+                    <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} urn={urn} />
+                ),
             },
             {
                 name: TabType.Properties,

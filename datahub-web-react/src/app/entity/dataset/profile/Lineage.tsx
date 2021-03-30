@@ -1,5 +1,6 @@
 import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { DownstreamLineage, EntityType, UpstreamLineage } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -8,6 +9,7 @@ import { PreviewType } from '../../Entity';
 export type Props = {
     upstreamLineage?: UpstreamLineage | null;
     downstreamLineage?: DownstreamLineage | null;
+    urn: string;
 };
 
 const ViewRawButtonContainer = styled.div`
@@ -15,7 +17,7 @@ const ViewRawButtonContainer = styled.div`
     justify-content: flex-end;
 `;
 
-export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
+export default function Lineage({ upstreamLineage, downstreamLineage, urn }: Props) {
     const entityRegistry = useEntityRegistry();
     const upstreamEntities = upstreamLineage?.upstreams.map((upstream) => upstream.dataset);
     const downstreamEntities = downstreamLineage?.downstreams.map((downstream) => downstream.dataset);
@@ -24,7 +26,9 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
         <>
             <div>
                 <ViewRawButtonContainer>
-                    <Button>Tree View</Button>
+                    <Link to={`/lineage/dataset/${urn}`}>
+                        <Button>Tree View</Button>
+                    </Link>
                 </ViewRawButtonContainer>
             </div>
             <Space direction="vertical" style={{ width: '100%' }} size="large">

@@ -10,20 +10,21 @@ interface RouteParams {
 }
 
 interface Props {
+    overrideUrn?: string;
     entityType: EntityType;
 }
 
 /**
  * Responsible for rendering an Entity Profile
  */
-export const EntityPage = ({ entityType }: Props) => {
+export const EntityPage = ({ overrideUrn, entityType }: Props) => {
     const { urn } = useParams<RouteParams>();
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
     const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
     return (
-        <ContainerPage urn={urn} type={entityType}>
-            {entityRegistry.renderProfile(entityType, urn)}
+        <ContainerPage urn={overrideUrn || urn} type={entityType}>
+            {entityRegistry.renderProfile(entityType, overrideUrn || urn)}
         </ContainerPage>
     );
 };
