@@ -1,0 +1,18 @@
+---
+source:
+  type: postgres
+  config:
+    username: airflow_svc
+    password:
+    host_port:
+    database: depop
+    schema_pattern:
+      allow:
+        - "etl"
+        - "external"
+        - "public"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

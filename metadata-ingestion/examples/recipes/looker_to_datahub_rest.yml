@@ -1,0 +1,10 @@
+---
+source:
+  type: "file"
+  config:
+    filename: "./examples/mce_files/looker_mce.json"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

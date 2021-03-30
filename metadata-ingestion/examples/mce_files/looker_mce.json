@@ -1,0 +1,227 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:datahub",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "Data Hub"
+              },
+              "email": "datahub@linkedin.com",
+              "title": {
+                "string": "CEO"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "Data Hub"
+              },
+              "countryCode": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:jdoe",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "John Doe"
+              },
+              "email": "jdoe@linkedin.com",
+              "title": {
+                "string": "Software Engineer"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "John Doe"
+              },
+              "countryCode": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:fabuzeid",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "Farah Abuzeid"
+              },
+              "email": "farah.abuzeid@depop.com",
+              "title": {
+                "string": "Director of Insights"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": "Insights - Growth, Markets & Insights",
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "Farah Abuzeid"
+              },
+              "countryCode": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+        "urn": "urn:li:dashboard:(looker,HQHuddle)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+              "title": "HQ Huddle",
+              "description": "HQ Huddle Dashboard - Dashboard only looks at complete days and will exclude data from today",
+              "charts": [
+                "urn:li:chart:(looker,GlobalItemsSold(last30d))",
+                "urn:li:chart:(looker,GlobalSignupsbyMotivator(last 30d))"
+              ],
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:fabuzeid",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "dashboardUrl": "https://depopplatform.looker.com/dashboards/209",
+              "access": null,
+              "lastRefreshed": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,GlobalItemsSold(last30d))",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Global Items Sold (last 30d)",
+              "description": "Global Items Sold in the last 30 days",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:fabuzeid",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": "https://depopplatform.looker.com/explore/depop_commercial/sellers?qid=PZMiAqlEDhXE5x0u6puzdS&origin_space=169&toggle=vis",
+              "inputs": {
+                "array": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:postgresql,external.confirm_signups,PROD)"
+                  }
+                ]
+              },
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:Marketing" }]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,GlobalSignupsbyMotivator(last 30d))",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Global Signups by Motivator (last 30d)",
+              "description": "Global Signups by Motivator in the last 30d",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:fabuzeid",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": "https://depopplatform.looker.com/explore/depop_commercial/sellers?qid=PZMiAqlEDhXE5x0u6puzdS&origin_space=169&toggle=vis",
+              "inputs": {
+                "array": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:postgresql,external.confirm_signups,PROD)"
+                  }
+                ]
+              },
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:Legacy" }]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]
