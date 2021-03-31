@@ -16,6 +16,6 @@ pip install -e ".[dev]"
 black --check src tests
 isort --check-only src tests
 flake8 --count --statistics src tests
-mypy -p datahub
+mypy src tests
 
 pytest

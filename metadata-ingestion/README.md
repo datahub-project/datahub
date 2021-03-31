@@ -548,6 +548,6 @@ pytest tests/integration
 black src tests
 isort src tests
 flake8 src tests
-mypy -p datahub
+mypy src tests
 pytest
 ```
