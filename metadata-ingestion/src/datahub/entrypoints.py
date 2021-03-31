@@ -6,6 +6,7 @@ import sys
 import click
 from pydantic import ValidationError
 
+import datahub as datahub_package
 from datahub.check.check_cli import check
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
@@ -38,6 +39,12 @@ def datahub(debug: bool) -> None:
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
     # breakpoint()
+
+
+@datahub.command()
+def version() -> None:
+    """Print version number and exit"""
+    click.echo(datahub_package.__version__)
 
 
 @datahub.command()

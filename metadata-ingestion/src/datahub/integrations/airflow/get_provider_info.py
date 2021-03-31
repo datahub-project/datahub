@@ -1,4 +1,4 @@
-from datahub import __version__
+import datahub
 
 
 def get_provider_info():
@@ -8,6 +8,6 @@ def get_provider_info():
         "hook-class-names": [
             "datahub.integrations.airflow.hooks.DatahubRestHook",
         ],
-        "package-name": "datahub",
-        "versions": [__version__],
+        "package-name": datahub.__package_name__,
+        "versions": [datahub.__version__],
     }

@@ -1,6 +1,7 @@
 from typing import Dict, Set
 import os
 
+import src.datahub as datahub
 import setuptools
 
 
@@ -111,8 +112,9 @@ dev_requirements = {
 
 
 setuptools.setup(
-    name="datahub",
-    # version is set by setup.cfg
+    # See https://packaging.python.org/guides/single-sourcing-package-version/.
+    name=datahub.__package_name__,
+    version=datahub.__version__,
     url="https://github.com/linkedin/datahub",
     author="DataHub Committers",
     license="Apache License 2.0",
