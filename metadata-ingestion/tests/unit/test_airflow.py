@@ -1,4 +1,8 @@
+from typing import ContextManager
 from unittest import mock
+from contextlib import contextmanager
+
+from airflow.models import DagBag
 
 from airflow.models import Connection
 
@@ -34,13 +38,27 @@ datahub_rest_connection_config = Connection(
 )
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter")
-def test_datahub_rest_emit(mock_emitter):
+def test_dags_load_with_no_errors(pytestconfig):
+    airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
+
+    dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
+    assert len(dag_bag.import_errors) == 0
+    assert len(dag_bag.dag_ids) > 0
+
+
+@contextmanager
+def patch_airflow_connection(conn: Connection) -> ContextManager[Connection]:
     with mock.patch(
         "airflow.hooks.base.BaseHook.get_connection",
-        return_value=datahub_rest_connection_config,
+        return_value=conn,
     ):
-        hook = DatahubRestHook(datahub_rest_connection_config.conn_id)
+        yield conn
+
+
+@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter")
+def test_datahub_rest_emit(mock_emitter):
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([person])
-        assert mock_emitter.called_with(datahub_rest_connection_config.host)
+        assert mock_emitter.called_with(config.host)
         assert mock_emitter.emit_mce.called_with(person)
