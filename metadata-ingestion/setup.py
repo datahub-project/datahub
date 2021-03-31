@@ -115,7 +115,12 @@ setuptools.setup(
     # See https://packaging.python.org/guides/single-sourcing-package-version/.
     name=datahub.__package_name__,
     version=datahub.__version__,
-    url="https://github.com/linkedin/datahub",
+    url="https://datahubproject.io/",
+    project_urls={
+        "Documentation": "https://datahubproject.io/docs/",
+        "Source": "https://github.com/linkedin/datahub",
+        "Changelog": "https://github.com/linkedin/datahub/releases",
+    },
     author="DataHub Committers",
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

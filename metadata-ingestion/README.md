@@ -40,6 +40,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip==20.2.4 wheel setuptools
+pip uninstall datahub || true
 pip install -e .
 ./scripts/codegen.sh
 ```
