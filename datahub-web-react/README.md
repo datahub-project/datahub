@@ -51,7 +51,7 @@ need to be deployed, still at `http://localhost:9002`, to service GraphQL API re
 
 #### Selecting a theme
 
-Theme configuraions are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
+Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
 To change the selected theme, update the `.env` file and re-run `yarn start` from `datahub/datahub-web-react`.
 
 #### Editing a theme
@@ -75,7 +75,11 @@ you to terminate and re-run `yarn start` to see updated styles.
 
 The `src` dir of the app is broken down into the following modules
 
-**conf** - Stores global configuration flags that can be referenced across the app. For example, the number of 
+**conf** - Stores global 
+
+
+
+guration flags that can be referenced across the app. For example, the number of 
 search results shown per page, or the placeholder text in the search bar box. It serves as a location where levels
 for functional configurability should reside. 
 
