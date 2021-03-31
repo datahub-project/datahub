@@ -32,8 +32,8 @@ class Registry(Generic[T]):
         tp = self._mapping[key]
         return not isinstance(tp, Exception)
 
-    def load(self, entry_point: str, cls: type) -> None:
-        for entry_point in pkg_resources.iter_entry_points(entry_point):
+    def load(self, path: str, cls: type) -> None:
+        for entry_point in pkg_resources.iter_entry_points(path):
             name = entry_point.name
             module = None
 
@@ -50,7 +50,8 @@ class Registry(Generic[T]):
                 and not inspect.isabstract(member),
             )
             if plugin_classes:
-                self.register(name, plugin_classes[0])
+                plugin_class = plugin_classes[0][1]
+                self.register(name, plugin_class)
 
     @property
     def mapping(self):
