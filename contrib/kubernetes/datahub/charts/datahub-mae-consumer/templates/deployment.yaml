@@ -36,6 +36,11 @@ spec:
             defaultMode: 256
             secretName: {{ .Values.global.credentialsAndCertsSecrets.name }}
         {{- end }}
+        {{- if .Values.exporters.jmx.enabled }}
+        - name: config-jmx-exporter
+          configMap:
+            name: {{ include "datahub-mae-consumer.fullname" . }}-config-jmx-exporter
+        {{- end }}
       {{- if .Values.extraVolumes }}
         {{ toYaml .Values.extraVolumes | nindent 8 }}
       {{- end }}
@@ -97,6 +102,9 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
+        {{- include "datahub-jmxexporter.container" . }}
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

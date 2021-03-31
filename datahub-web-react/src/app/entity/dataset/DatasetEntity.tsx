@@ -12,7 +12,6 @@ const MatchTag = styled(Tag)`
     &&& {
         margin-bottom: 0px;
         margin-top: 10px;
-        display: block;
     }
 `;
 
