@@ -40,10 +40,10 @@ External parties who deploy / are actively evaluating DataHub:
 We welcome contributions from everyone in the community. Please read our [contributing guidelines](CONTRIBUTING.md). In general, we will review PRs with the same rigor as our internal code review process to maintain overall quality.
 
 ## How does LinkedIn plan to engage with the community?
-We plan to organize public town hall meetings at a monthly cadence, which may change depending on the interest from the community. Also we recently deprecated Gitter and start using [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) as one of the main ways to support the community.
+We plan to organize public town hall meetings at a monthly cadence, which may change depending on the interest from the community. Also we recently deprecated Gitter and start using [Slack](https://slack.datahubproject.io) as one of the main ways to support the community.
 
 ## Should this be the platform we decide upon, we’d like to fully engage and work with LinkedIn and the community. What’s the best way and what level of engagement/involvement should we expect?
-The best way to engage is through the [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA). You’ll get to interact with the developers and the community. We are fairly response on Slack and plan to setup proper oncall support during normal business hours (Pacific Time). Sometimes we also create working groups with dedicated POC from the LinkedIn team to tackle specific use cases the community has.
+The best way to engage is through the [Slack channel](https://slack.datahubproject.io). You’ll get to interact with the developers and the community. We are fairly response on Slack and plan to setup proper oncall support during normal business hours (Pacific Time). Sometimes we also create working groups with dedicated POC from the LinkedIn team to tackle specific use cases the community has.
 
 For reproducible technical issues, bugs and code contributions, Github [issues](https://github.com/linkedin/datahub/issues) and [PRs](https://github.com/linkedin/datahub/pulls) are the preferred channel.
 
