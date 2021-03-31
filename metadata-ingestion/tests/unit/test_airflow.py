@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
+import json
 
 from airflow.models import Connection, DagBag
 
@@ -36,7 +37,14 @@ datahub_kafka_connection_config = Connection(
     conn_id="datahub_kafka_test",
     conn_type="datahub_kafka",
     host="test_broker:9092",
-    extra=None,
+    extra=json.dumps(
+        {
+            "connection": {
+                "producer_config": {},
+                "schema_registry_url": "http://localhost:8081",
+            }
+        }
+    ),
 )
 
 
@@ -55,6 +63,7 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     with mock.patch(
         "airflow.hooks.base.BaseHook.get_connection",
         return_value=conn,
+        autospec=True,
     ):
         yield conn
 
