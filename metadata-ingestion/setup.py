@@ -76,7 +76,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
     # Integrations.
-    "airflow": {"apache-airflow"},
+    "airflow": {"apache-airflow >= 1.10.3"},
 }
 
 dev_requirements = {
