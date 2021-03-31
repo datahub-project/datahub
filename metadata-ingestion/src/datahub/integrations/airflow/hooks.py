@@ -12,10 +12,7 @@ class DatahubRestHook(BaseHook):
     conn_type = "datahub_rest"
     hook_name = "DataHub REST Server"
 
-    def __init__(
-        self,
-        datahub_rest_conn_id: str = default_conn_name,
-    ) -> None:
+    def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
         super().__init__()
         self.datahub_rest_conn_id = datahub_rest_conn_id
 
@@ -26,7 +23,6 @@ class DatahubRestHook(BaseHook):
     @staticmethod
     def get_ui_field_behaviour() -> Dict:
         """Returns custom field behavior"""
-        # TODO: see customized_form_field_behaviors (https://apache.googlesource.com/airflow/+/refs/tags/2.0.0rc3/airflow/customized_form_field_behaviours.schema.json)
         return {
             "hidden_fields": ["port", "schema", "login"],
             "relabeling": {
