@@ -31,9 +31,9 @@ Current chart version is `0.1.1`
 | datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` |  |
 | datahub-mce-consumer.image.tag | string | `"latest"` |  |
 | datahub-ingestion-cron.enabled | bool | `false` | |
-| elasticsearchInitJob.enabled | bool | `true` | |
-| elasticsearchInitJob.image.repository | string | `"linkedin/datahub-elasticsearch-setup"` |  |
-| elasticsearchInitJob.image.tag | string | `"latest"` |  |
+| elasticsearchSetupJob.enabled | bool | `true` | |
+| elasticsearchSetupJob.image.repository | string | `"linkedin/datahub-elasticsearch-setup"` |  |
+| elasticsearchSetupJob.image.tag | string | `"latest"` |  |
 | global.datahub.appVersion | string | `"1.0"` |  |
 | global.datahub.gms.port | string | `"8080"` |  |
 | global.elasticsearch.host | string | `"elasticsearch"` |  |

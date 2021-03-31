@@ -1,8 +1,8 @@
-{{- if .Values.elasticsearchInitJob.enabled -}}
+{{- if .Values.elasticsearchSetupJob.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-elasticsearch-init-job
+  name: {{ .Release.Name }}-elasticsearch-setup-job
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -26,8 +26,8 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: elasticsearch-init-job
-          image: "{{ .Values.elasticsearchInitJob.image.repository }}:{{ .Values.elasticsearchInitJob.image.tag }}"
+        - name: elasticsearch-setup-job
+          image: "{{ .Values.elasticsearchSetupJob.image.repository }}:{{ .Values.elasticsearchSetupJob.image.tag }}"
           env:
             - name: ELASTICSEARCH_HOST
               value: {{ .Values.global.elasticsearch.host | quote }}
