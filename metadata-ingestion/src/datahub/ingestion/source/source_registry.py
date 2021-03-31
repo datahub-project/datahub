@@ -1,94 +1,28 @@
+import importlib
+import pkgutil
+import inspect
+import os
+
 from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.source import Source
 
-from .mce_file import MetadataFileSource
-
 source_registry = Registry[Source]()
 
-# This source is always enabled.
-source_registry.register("file", MetadataFileSource)
+source_module = os.path.dirname(__file__)
+for plugin in pkgutil.iter_modules([source_module]):
+    try:
+        # Try to import plugin module
+        module = importlib.import_module('..' + plugin.name, __loader__.name)
 
-try:
-    from .athena import AthenaSource
+        # Get all non-abstract Source classes from module
+        source_classes = [
+            class_ for _, class_ in inspect.getmembers(module, inspect.isclass)
+            if issubclass(class_, Source) and not inspect.isabstract(class_)
+        ]
 
-    source_registry.register("athena", AthenaSource)
-except ImportError as e:
-    source_registry.register_disabled("athena", e)
+        # Register plugin with first discovered class
+        if source_classes:
+            source_registry.register(plugin.name, source_classes[0])
 
-try:
-    from .bigquery import BigQuerySource
-
-    source_registry.register("bigquery", BigQuerySource)
-except ImportError as e:
-    source_registry.register_disabled("bigquery", e)
-
-try:
-    from .hive import HiveSource
-
-    source_registry.register("hive", HiveSource)
-except ImportError as e:
-    source_registry.register_disabled("hive", e)
-
-try:
-    from .mssql import SQLServerSource
-
-    source_registry.register("mssql", SQLServerSource)
-except ImportError as e:
-    source_registry.register_disabled("mssql", e)
-
-try:
-    from .mysql import MySQLSource
-
-    source_registry.register("mysql", MySQLSource)
-except ImportError as e:
-    source_registry.register_disabled("mysql", e)
-
-try:
-    from .postgres import PostgresSource
-
-    source_registry.register("postgres", PostgresSource)
-except ImportError as e:
-    source_registry.register_disabled("postgres", e)
-
-try:
-    from .snowflake import SnowflakeSource
-
-    source_registry.register("snowflake", SnowflakeSource)
-except ImportError as e:
-    source_registry.register_disabled("snowflake", e)
-
-try:
-    from .druid import DruidSource
-
-    source_registry.register("druid", DruidSource)
-except ImportError as e:
-    source_registry.register_disabled("druid", e)
-
-try:
-    from .kafka import KafkaSource
-
-    source_registry.register("kafka", KafkaSource)
-except ImportError as e:
-    source_registry.register_disabled("kafka", e)
-
-try:
-    from .dbt import DBTSource
-
-    source_registry.register("dbt", DBTSource)
-except ImportError as e:
-    source_registry.register_disabled("dbt", e)
-
-try:
-    from .ldap import LDAPSource
-
-    source_registry.register("ldap", LDAPSource)
-except ImportError as e:
-    source_registry.register_disabled("ldap", e)
-
-
-try:
-    from .mongodb import MongoDBSource
-
-    source_registry.register("mongodb", MongoDBSource)
-except ImportError as e:
-    source_registry.register_disabled("mongodb", e)
+    except ImportError as e:
+        source_registry.register_disabled(plugin.name, e)
