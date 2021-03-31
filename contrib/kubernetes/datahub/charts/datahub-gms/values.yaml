@@ -88,6 +88,51 @@ tolerations: []
 
 affinity: {}
 
+env:
+  JMXPORT: 1099
+
+exporters:
+  jmx:
+    enabled: false
+#    image:
+#      repository: bitnami/jmx-exporter
+#      tag: 0.15.0
+#      pullPolicy: IfNotPresent
+#    config:
+#      lowercaseOutputName: true
+#      rules:
+#        - pattern: ".*"
+#      startDelaySeconds: 30
+#    env: {}
+#    resources: {}
+#    path: /metrics
+#    ports:
+#      jmxxp:
+#        containerPort: 5556
+#        protocol: TCP
+#    livenessProbe:
+#      httpGet:
+#        path: /metrics
+#        port: jmxxp
+#      initialDelaySeconds: 30
+#      periodSeconds: 15
+#      timeoutSeconds: 60
+#      failureThreshold: 8
+#      successThreshold: 1
+#    readinessProbe:
+#      httpGet:
+#        path: /metrics
+#        port: jmxxp
+#      initialDelaySeconds: 30
+#      periodSeconds: 15
+#      timeoutSeconds: 60
+#      failureThreshold: 8
+#      successThreshold: 1
+#    serviceMonitor:
+#      interval: 30s
+#      scrapeTimeout: 30s
+#      scheme: http
+
 #This section is useful if we are installing this chart separately for testing
 # helm install datahub-gms datahub-gms/
 global:

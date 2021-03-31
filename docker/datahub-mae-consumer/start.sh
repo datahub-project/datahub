@@ -22,4 +22,4 @@ dockerize \
   -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT \
   -wait $NEO4J_HOST \
   -timeout 240s \
-  java -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
+  java $JAVA_OPTS $JMX_OPTS -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
