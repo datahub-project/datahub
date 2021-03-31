@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -7,6 +7,7 @@ from confluent_kafka.serialization import StringSerializer
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.emitter import Emitter
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import SCHEMA_JSON_STR
@@ -21,7 +22,7 @@ class KafkaEmitterConfig(ConfigModel):
     topic: str = DEFAULT_KAFKA_TOPIC
 
 
-class DatahubKafkaEmitter:
+class DatahubKafkaEmitter(Emitter):
     def __init__(self, config: KafkaEmitterConfig):
         self.config = config
 
@@ -53,7 +54,7 @@ class DatahubKafkaEmitter:
     def emit_mce_async(
         self,
         mce: MetadataChangeEvent,
-        callback: Callable[[Exception, str], None],
+        callback: Callable[[Optional[Exception], str], None],
     ):
         # Call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
@@ -65,3 +66,6 @@ class DatahubKafkaEmitter:
 
     def flush(self) -> None:
         self.producer.flush()
+
+    def close(self) -> None:
+        self.flush()
