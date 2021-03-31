@@ -4,7 +4,7 @@ from unittest import mock
 
 from airflow.models import Connection, DagBag
 
-from datahub.integrations.airflow.hooks import DatahubRestHook
+from datahub.integrations.airflow.hooks import DatahubRestHook, DatahubKafkaHook
 from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     CorpUserSnapshotClass,
@@ -32,6 +32,12 @@ datahub_rest_connection_config = Connection(
     host="http://test_host:8080/",
     extra=None,
 )
+datahub_kafka_connection_config = Connection(
+    conn_id="datahub_kafka_test",
+    conn_type="datahub_kafka",
+    host="test_broker:9092",
+    extra=None,
+)
 
 
 def test_dags_load_with_no_errors(pytestconfig):
@@ -53,10 +59,24 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
         yield conn
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter")
-def test_datahub_rest_emit(mock_emitter):
+@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter", autospec=True)
+def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([person])
-        assert mock_emitter.called_with(config.host)
-        assert mock_emitter.emit_mce.called_with(person)
+
+        mock_emitter.assert_called_once_with(config.host)
+        instance = mock_emitter.return_value
+        instance.emit_mce.assert_called_with(person)
+
+
+@mock.patch("datahub.integrations.airflow.hooks.DatahubKafkaEmitter", autospec=True)
+def test_datahub_kafka_hook(mock_emitter):
+    with patch_airflow_connection(datahub_kafka_connection_config) as config:
+        hook = DatahubKafkaHook(config.conn_id)
+        hook.emit_mces([person])
+
+        mock_emitter.assert_called_once()
+        instance = mock_emitter.return_value
+        instance.emit_mce_async.assert_called()
+        instance.flush.assert_called_once()
