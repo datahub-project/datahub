@@ -16,39 +16,21 @@ DataHub can be right for you if you want an open source unbundled solution (fron
 Currently LinkedIn engineers. However, we’re receiving more and more PRs from individuals working at various companies.
 
 ## How big is the community?
-External parties who deploy / are actively evaluating DataHub:
-- [City of New York, DoITT](https://www1.nyc.gov/site/doitt/index.page)
-- [Experian](https://www.experian.com/)
-- [Geotab](https://www.geotab.com/)
-- [Instructure](https://www.instructure.com/)
-- [Intuit](https://www.intuit.com/)
-- [Itaú Unibanco](https://www.itau.com/)
-- [LavaMap](https://lavamap.com/)
-- [Microsoft](https://www.microsoft.com/)
-- [Morgan Stanley](https://www.morganstanley.com/)
-- [Paypal](https://www.paypal.com/)
-- [Prophecy.io](https://prophecy.io/)
-- [SAXO Bank](https://www.home.saxo/)
-- [Sysco AS](https://sysco.no/)
-- [Tenable](https://www.tenable.com/)
-- [Thoughtworks](https://www.thoughtworks.com/)
-- [TypeForm](https://www.typeform.com/)
-- [Valassis](https://www.valassis.com/)
-- [Vrbo (Expedia Group)](https://www.vrbo.com/)
+Check out our adoption [here](https://datahubproject.io/docs/#adoption)
 
 ## Is there a contributor selection criteria?
 We welcome contributions from everyone in the community. Please read our [contributing guidelines](CONTRIBUTING.md). In general, we will review PRs with the same rigor as our internal code review process to maintain overall quality.
 
-## How does LinkedIn plan to engage with the community?
-We plan to organize public town hall meetings at a monthly cadence, which may change depending on the interest from the community. Also we recently deprecated Gitter and start using [Slack](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA) as one of the main ways to support the community.
+## How does the project engage with the community?
+We organize public town hall meetings at a monthly cadence. We use [Slack](https://slack.datahubproject.io) as one of the main ways to support the community.
 
 ## Should this be the platform we decide upon, we’d like to fully engage and work with LinkedIn and the community. What’s the best way and what level of engagement/involvement should we expect?
-The best way to engage is through the [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-cl60ng6o-6odCh_I~ejZKE~a9GG30PA). You’ll get to interact with the developers and the community. We are fairly response on Slack and plan to setup proper oncall support during normal business hours (Pacific Time). Sometimes we also create working groups with dedicated POC from the LinkedIn team to tackle specific use cases the community has.
+The best way to engage is through the [Slack channel](https://slack.datahubproject.io). You’ll get to interact with the developers and the community. It is a vibrant community and most questions are answered within a few hours by the community. 
 
 For reproducible technical issues, bugs and code contributions, Github [issues](https://github.com/linkedin/datahub/issues) and [PRs](https://github.com/linkedin/datahub/pulls) are the preferred channel.
 
 ## What’s the best way to ramp up the product knowledge to properly test and evaluate DataHub?
-[Github](https://github.com/linkedin/datahub) is the best resource. We have documented the steps to install and test DataHub thoroughly there. There is also copious of document on [overall architecture](./architecture), [definitions](./what), and [onboarding guides](./how).
+[The docs](https://datahubproject.io/docs) are the best resource. We have documented the steps to install and test DataHub thoroughly there.
 
 The [DataHub Introduction](https://engineering.linkedin.com/blog/2019/data-hub) and [Open Sourcing Datahub](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p) blog posts are also useful resources for getting a high level understanding of the system.
 
