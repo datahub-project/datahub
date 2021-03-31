@@ -152,6 +152,27 @@ setuptools.setup(
     },
     entry_points={
         "console_scripts": ["datahub = datahub.entrypoints:datahub"],
+        "datahub.ingestion.source": [
+            "file = datahub.ingestion.source.mce_file", 
+            "athena = datahub.ingestion.source.athena",
+            "bigquery = datahub.ingestion.source.bigquery",
+            "dbt = datahub.ingestion.source.dbt",
+            "druid = datahub.ingestion.source.druid",
+            "hive = datahub.ingestion.source.hive",
+            "kafka = datahub.ingestion.source.kafka",
+            "ldap = datahub.ingestion.source.ldap",
+            "mongodb = datahub.ingestion.source.mongodb",
+            "mssql = datahub.ingestion.source.mssql",
+            "mysql = datahub.ingestion.source.mysql",
+            "postgres = datahub.ingestion.source.postgres",
+            "snowflake = datahub.ingestion.source.snowflake",
+        ],
+        "datahub.ingestion.sink": [
+            "file = datahub.ingestion.sink.file", 
+            "console = datahub.ingestion.sink.console",
+            "datahub-kafka = datahub.ingestion.sink.datahub_kafka",
+            "datahub-rest = datahub.ingestion.sink.datahub_rest",
+        ],
     },
     install_requires=list(base_requirements | framework_common),
     extras_require={

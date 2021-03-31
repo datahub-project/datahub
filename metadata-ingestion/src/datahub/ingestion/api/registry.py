@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import pkg_resources
 from typing import Dict, Generic, Type, TypeVar, Union
 
 from datahub.configuration.common import ConfigurationError
@@ -29,6 +30,27 @@ class Registry(Generic[T]):
     def is_enabled(self, key: str) -> bool:
         tp = self._mapping[key]
         return not isinstance(tp, Exception)
+
+    def load(self, entry_point, class_) -> None:
+        for entry_point in pkg_resources.iter_entry_points(entry_point):
+            name = entry_point.name
+            module = None
+
+            try:
+                module = entry_point.load()
+            except ImportError as e:
+                self.register_disabled(name, e)
+
+            # Get all non-abstract classes from module
+            plugin_classes = inspect.getmembers(
+                module,
+                lambda member: 
+                    inspect.isclass(member)
+                    and issubclass(member, class_)
+                    and not inspect.isabstract(member),
+            )
+            if plugin_classes:
+                self.register(name, plugin_classes[0])
 
     @property
     def mapping(self):
