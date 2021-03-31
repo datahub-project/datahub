@@ -1,10 +1,29 @@
 # Town Hall History
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
+## 3/19/2021
+ [YouTube video](https://www.youtube.com/watch?v=xE8Uc27VTG4) 
+ 
+ [Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-697f0faddd10?source=friends_link&sk=9888633c5c7219b875125e87a703ec4d)
+
+### Agenda
+
+* Welcome - 5 mins
+* Project Updates ([slides](https://drive.google.com/file/d/1c3BTP3oDAzJr07l6pY6CkDZi5nT0cLRs/view?usp=sharing)) by [Shirshanka](https://www.linkedin.com/in/shirshankadas/) - 10 mins
+   * 0.7.0 Release
+   * Project Roadmap
+* Demo Time: Themes and Tags in the React App! by [Gabe Lyons](https://www.linkedin.com/in/gabe-lyons-9a574543/) - 10 mins
+* Use-Case: DataHub at [Wolt](https://www.linkedin.com/company/wolt-oy/) ([slides](https://drive.google.com/file/d/1za7NKbnXpFV2bBDblP35CbQEIDwc9tog/view?usp=sharing)) by [Fredrik](https://www.linkedin.com/in/fredriksannholm/?originalSubdomain=fi) and Matti - 15 mins
+* Poll Time: Observability Mocks! ([slides](https://drive.google.com/file/d/1Ih2EGf-76jhbNAjr2EsBLb7n8bra2WIz/view?usp=sharing)) - 5 mins
+* General Q&A from sign up sheet, slack, and participants - 10 mins
+* Closing remarks - 5 mins
+
 
 ## 2/19/2021
-[Full Recording](https://www.youtube.com/watch?v=Z9ImbcsAVl0)
-[Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0)
+ [YouTube video](https://www.youtube.com/watch?v=Z9ImbcsAVl0) 
+ 
+ [Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0)
+### Agenda
 
 * Welcome - 5 mins
 * Latest React App Demo! ([video](https://www.youtube.com/watch?v=RQBEJhcen5E)) by John Joyce and Gabe Lyons - 5 mins
