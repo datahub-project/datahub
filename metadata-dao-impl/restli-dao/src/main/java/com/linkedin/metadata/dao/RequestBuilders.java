@@ -28,6 +28,7 @@ public class RequestBuilders {
           add(new DataProcessActionRequestBuilder());
           add(new DatasetActionRequestBuilder());
           add(new MLModelActionRequestBuilder());
+          add(new TagActionRequestBuilder());
         }
       });
 
