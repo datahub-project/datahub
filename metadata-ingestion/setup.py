@@ -112,7 +112,7 @@ dev_requirements = {
 
 
 setuptools.setup(
-    # See https://packaging.python.org/guides/single-sourcing-package-version/.
+    # Package metadata.
     name=datahub.__package_name__,
     version=datahub.__version__,
     url="https://datahubproject.io/",
@@ -146,6 +146,8 @@ setuptools.setup(
         "Environment :: MacOS X",
         "Topic :: Software Development",
     ],
+    # Package info.
+    zip_safe=False,
     python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
@@ -181,6 +183,7 @@ setuptools.setup(
             "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
         ],
     },
+    # Dependencies.
     install_requires=list(base_requirements | framework_common),
     extras_require={
         "base": list(framework_common),
