@@ -161,7 +161,7 @@ setuptools.setup(
             "hive = datahub.ingestion.source.hive:HiveSource",
             "kafka = datahub.ingestion.source.kafka:KafkaSource",
             "ldap = datahub.ingestion.source.ldap:LDAPSource",
-            "mongodb = datahub.ingestion.source.mongodb:MongoDBConfig",
+            "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
             "mssql = datahub.ingestion.source.mssql:SQLServerSource",
             "mysql = datahub.ingestion.source.mysql:MySQLSource",
             "postgres = datahub.ingestion.source.postgres:PostgresSource",
