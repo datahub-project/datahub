@@ -1,11 +1,10 @@
 from collections import OrderedDict
-from typing import Any, Dict, Type, Callable, Optional
+from typing import Any, Dict, Type
 
 import requests
 from requests.exceptions import HTTPError, RequestException
 
 from datahub.configuration.common import OperationalError
-from datahub.emitter.emitter import Emitter
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
     ChartSnapshotClass,
@@ -50,7 +49,7 @@ def _rest_li_ify(obj: Any) -> Any:
     return obj
 
 
-class DatahubRestEmitter(Emitter):
+class DatahubRestEmitter:
     _gms_server: str
 
     def __init__(self, gms_server: str):
@@ -91,17 +90,3 @@ class DatahubRestEmitter(Emitter):
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
-
-    def emit_mce_async(
-        self,
-        mce: MetadataChangeEvent,
-        callback: Callable[[Optional[Exception], str], None],
-    ):
-        try:
-            self.emit_mce(mce)
-            callback(None, "")
-        except Exception as e:
-            callback(e, str(e))
-
-    def close(self):
-        pass
