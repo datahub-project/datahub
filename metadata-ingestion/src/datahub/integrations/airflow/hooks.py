@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from airflow.hooks.base import BaseHook
+from airflow.exceptions import AirflowException
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -31,11 +32,21 @@ class DatahubRestHook(BaseHook):
         }
 
     def _gms_endpoint(self) -> str:
-        conn = self.get_connection()
-        return conn.host
+        conn = self.get_connection(self.datahub_rest_conn_id)
+        host = conn.host
+        if host is None:
+            raise AirflowException("host parameter is required")
+        return host
+
+    def make_emitter(self) -> DatahubRestEmitter:
+        return DatahubRestEmitter(self._gms_endpoint())
+
+    def make_sink(self):
+        TODO
+        pass
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
-        emitter = DatahubRestEmitter(self._gms_endpoint())
+        emitter = self.make_emitter()
 
         for mce in mces:
             emitter.emit_mce(mce)

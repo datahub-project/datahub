@@ -1,20 +1,16 @@
-from typing import ContextManager
-from unittest import mock
 from contextlib import contextmanager
+from typing import Iterator
+from unittest import mock
 
-from airflow.models import DagBag
-
-from airflow.models import Connection
+from airflow.models import Connection, DagBag
 
 from datahub.integrations.airflow.hooks import DatahubRestHook
-
 from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    CorpUserSnapshotClass,
     CorpUserInfoClass,
+    CorpUserSnapshotClass,
+    MetadataChangeEventClass,
 )
 
-# TODO test using DagBag
 person = MetadataChangeEventClass(
     proposedSnapshot=CorpUserSnapshotClass(
         urn="urn:li:corpuser:jane_ds",
@@ -47,7 +43,9 @@ def test_dags_load_with_no_errors(pytestconfig):
 
 
 @contextmanager
-def patch_airflow_connection(conn: Connection) -> ContextManager[Connection]:
+def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
+    # The return type should really by ContextManager, but mypy doesn't like that
+    # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
     with mock.patch(
         "airflow.hooks.base.BaseHook.get_connection",
         return_value=conn,
