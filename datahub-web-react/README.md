@@ -75,11 +75,7 @@ you to terminate and re-run `yarn start` to see updated styles.
 
 The `src` dir of the app is broken down into the following modules
 
-**conf** - Stores global 
-
-
-
-guration flags that can be referenced across the app. For example, the number of 
+**conf** - Stores global configuration flags that can be referenced across the app. For example, the number of 
 search results shown per page, or the placeholder text in the search bar box. It serves as a location where levels
 for functional configurability should reside. 
 
