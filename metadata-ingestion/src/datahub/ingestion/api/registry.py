@@ -1,7 +1,8 @@
 import importlib
 import inspect
-import pkg_resources
 from typing import Dict, Generic, Type, TypeVar, Union
+
+import pkg_resources
 
 from datahub.configuration.common import ConfigurationError
 
@@ -31,7 +32,7 @@ class Registry(Generic[T]):
         tp = self._mapping[key]
         return not isinstance(tp, Exception)
 
-    def load(self, entry_point, class_) -> None:
+    def load(self, entry_point: str, cls: type) -> None:
         for entry_point in pkg_resources.iter_entry_points(entry_point):
             name = entry_point.name
             module = None
@@ -45,7 +46,7 @@ class Registry(Generic[T]):
             plugin_classes = inspect.getmembers(
                 module,
                 lambda member: inspect.isclass(member)
-                and issubclass(member, class_)
+                and issubclass(member, cls)
                 and not inspect.isabstract(member),
             )
             if plugin_classes:
