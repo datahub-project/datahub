@@ -24,7 +24,7 @@ module.exports = {
           position: "right",
         },
         {
-          href: "http://slack.datahubproject.io",
+          href: "https://slack.datahubproject.io",
           label: "Slack",
           position: "right",
         },
@@ -69,7 +69,7 @@ module.exports = {
           items: [
             {
               label: "Slack",
-              href: "http://slack.datahubproject.io",
+              href: "https://slack.datahubproject.io",
             },
             {
               label: "YouTube",
