@@ -24,6 +24,7 @@ dockerize \
   -wait $NEO4J_HOST \
   -timeout 240s \
   java $JAVA_OPTS $JMX_OPTS \
-  -jar jetty-util.jar \
-  -jar jetty-jmx.jar \
-  -jar /jetty-runner.jar /datahub/datahub-gms/bin/war.war
+  -jar /jetty-runner.jar \
+  --jar jetty-util.jar \
+  --jar jetty-jmx.jar \
+  /datahub/datahub-gms/bin/war.war
