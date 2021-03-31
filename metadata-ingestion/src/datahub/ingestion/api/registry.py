@@ -44,10 +44,9 @@ class Registry(Generic[T]):
             # Get all non-abstract classes from module
             plugin_classes = inspect.getmembers(
                 module,
-                lambda member: 
-                    inspect.isclass(member)
-                    and issubclass(member, class_)
-                    and not inspect.isabstract(member),
+                lambda member: inspect.isclass(member)
+                and issubclass(member, class_)
+                and not inspect.isabstract(member),
             )
             if plugin_classes:
                 self.register(name, plugin_classes[0])

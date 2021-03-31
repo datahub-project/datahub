@@ -153,7 +153,7 @@ setuptools.setup(
     entry_points={
         "console_scripts": ["datahub = datahub.entrypoints:datahub"],
         "datahub.ingestion.source": [
-            "file = datahub.ingestion.source.mce_file", 
+            "file = datahub.ingestion.source.mce_file",
             "athena = datahub.ingestion.source.athena",
             "bigquery = datahub.ingestion.source.bigquery",
             "dbt = datahub.ingestion.source.dbt",
@@ -168,7 +168,7 @@ setuptools.setup(
             "snowflake = datahub.ingestion.source.snowflake",
         ],
         "datahub.ingestion.sink": [
-            "file = datahub.ingestion.sink.file", 
+            "file = datahub.ingestion.sink.file",
             "console = datahub.ingestion.sink.console",
             "datahub-kafka = datahub.ingestion.sink.datahub_kafka",
             "datahub-rest = datahub.ingestion.sink.datahub_rest",
