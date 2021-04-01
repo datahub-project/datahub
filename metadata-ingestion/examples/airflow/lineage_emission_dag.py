@@ -66,3 +66,5 @@ with DAG(
             )
         ],
     )
+
+    transformation_task >> emit_lineage_task
