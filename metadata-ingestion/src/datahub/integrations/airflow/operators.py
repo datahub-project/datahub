@@ -16,12 +16,12 @@ class DatahubBaseOperator(BaseOperator):
     @apply_defaults
     def __init__(
         self,
-        datahub_rest_conn_id: Optional[str],
-        datahub_kafka_conn_id: Optional[str],
-        *args,
-        **kwargs
+        *,
+        datahub_rest_conn_id: Optional[str] = None,
+        datahub_kafka_conn_id: Optional[str] = None,
+        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
         if datahub_rest_conn_id and datahub_kafka_conn_id:
             raise AirflowException(
@@ -40,12 +40,15 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     def __init__(
         self,
         mces: List[MetadataChangeEvent],
-        datahub_rest_conn_id: Optional[str],
-        datahub_kafka_conn_id: Optional[str],
-        *args,
-        **kwargs
+        datahub_rest_conn_id: Optional[str] = None,
+        datahub_kafka_conn_id: Optional[str] = None,
+        **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            datahub_rest_conn_id=datahub_rest_conn_id,
+            datahub_kafka_conn_id=datahub_kafka_conn_id,
+            **kwargs,
+        )
         self.mces = mces
 
     def execute(self, context):

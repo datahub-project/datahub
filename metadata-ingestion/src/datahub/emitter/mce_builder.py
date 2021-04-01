@@ -22,37 +22,32 @@ def make_user_urn(username: str):
 
 def make_lineage_mce(
     upstream_urns: Union[str, List[str]],
-    downstream_urns: Union[str, List[str]],
+    downstream_urn: str,
     actor: str = make_user_urn("datahub"),
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
-):
+) -> MetadataChangeEventClass:
     sys_time = int(time.time() * 1000)
     if not isinstance(upstream_urns, list):
         upstream_urns = [upstream_urns]
-    if not isinstance(downstream_urns, list):
-        downstream_urns = [downstream_urns]
 
-    mces = [
-        MetadataChangeEventClass(
-            proposedSnapshot=DatasetSnapshotClass(
-                urn=downstream_urn,
-                aspects=[
-                    UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                auditStamp=AuditStampClass(
-                                    time=sys_time,
-                                    actor=actor,
-                                ),
-                                dataset=upstream_urn,
-                                type=lineage_type,
-                            )
-                            for upstream_urn in upstream_urns
-                        ]
-                    )
-                ],
-            )
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=downstream_urn,
+            aspects=[
+                UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            auditStamp=AuditStampClass(
+                                time=sys_time,
+                                actor=actor,
+                            ),
+                            dataset=upstream_urn,
+                            type=lineage_type,
+                        )
+                        for upstream_urn in upstream_urns
+                    ]
+                )
+            ],
         )
-        for downstream_urn in downstream_urns
-    ]
-    return mces
+    )
+    return mce
