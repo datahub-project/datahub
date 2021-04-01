@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from airflow import DAG
 from airflow.utils.dates import days_ago
-from airflow.operators.dummy import DummyOperator
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
@@ -34,8 +34,23 @@ with DAG(
     tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
-    run_transformation_task = DummyOperator(
-        task_id="run_a_transformation",
+    # This example shows a SnowflakeOperator followed by a lineage emission. However, the
+    # same DatahubEmitterOperator can be used to emit lineage in any context.
+
+    sql = """CREATE OR REPLACE TABLE `mydb.schema.tableC` AS
+            WITH some_table AS (
+              SELECT * FROM `mydb.schema.tableA`
+            ),
+            some_other_table AS (
+              SELECT id, some_column FROM `mydb.schema.tableB`
+            )
+            SELECT * FROM some_table
+            LEFT JOIN some_other_table ON some_table.unique_id=some_other_table.id"""
+    transformation_task = SnowflakeOperator(
+        task_id="snowflake_transformation",
+        dag=dag,
+        snowflake_conn_id="snowflake_default",
+        sql=sql,
     )
 
     emit_lineage_task = DatahubEmitterOperator(
@@ -44,10 +59,10 @@ with DAG(
         mces=[
             builder.make_lineage_mce(
                 [
-                    builder.make_dataset_urn("bigquery", "proj.schema.tableA"),
-                    builder.make_dataset_urn("bigquery", "proj.schema.tableB"),
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
                 ],
-                builder.make_dataset_urn("bigquery", "proj.schema.tableC"),
+                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
             )
         ],
     )

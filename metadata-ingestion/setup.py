@@ -108,6 +108,7 @@ dev_requirements = {
         ]
         for dependency in plugins[plugin]
     ),
+    "apache-airflow-providers-snowflake",  # Used in the example DAGs.
 }
 
 
