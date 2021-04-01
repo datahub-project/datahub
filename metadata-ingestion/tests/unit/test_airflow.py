@@ -6,12 +6,9 @@ import json
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
+from datahub.integrations.airflow.get_provider_info import get_provider_info
 from datahub.integrations.airflow.hooks import DatahubRestHook, DatahubKafkaHook
-from datahub.metadata.schema_classes import (
-    CorpUserInfoClass,
-    CorpUserSnapshotClass,
-    MetadataChangeEventClass,
-)
+from datahub.integrations.airflow.operators import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -42,11 +39,15 @@ datahub_kafka_connection_config = Connection(
 )
 
 
+def test_airflow_provider_info():
+    assert get_provider_info()
+
+
 def test_dags_load_with_no_errors(pytestconfig):
     airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
-    assert len(dag_bag.import_errors) == 0
+    assert dag_bag.import_errors == {}
     assert len(dag_bag.dag_ids) > 0
 
 
@@ -83,3 +84,24 @@ def test_datahub_kafka_hook(mock_emitter):
         instance = mock_emitter.return_value
         instance.emit_mce_async.assert_called()
         instance.flush.assert_called_once()
+
+
+@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook", autospec=True)
+def test_datahub_lineage_operator(mock_hook):
+    task = DatahubEmitterOperator(
+        task_id="emit_lineage",
+        datahub_rest_conn_id=datahub_rest_connection_config.conn_id,
+        mces=[
+            builder.make_lineage_mce(
+                [
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
+                ],
+                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
+            )
+        ],
+    )
+    task.execute(None)
+
+    mock_hook.assert_called()
+    mock_hook.return_value.emit_mces.assert_called_once()
