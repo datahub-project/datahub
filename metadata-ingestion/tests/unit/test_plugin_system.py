@@ -1,15 +1,14 @@
-from click.testing import CliRunner
 import pytest
-
+from click.testing import CliRunner
 
 from datahub.configuration.common import ConfigurationError
 from datahub.entrypoints import datahub
 from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.sink import Sink
+from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.extractor.extractor_registry import extractor_registry
 
 
 @pytest.mark.parametrize(

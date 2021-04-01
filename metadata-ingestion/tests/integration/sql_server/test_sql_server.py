@@ -2,8 +2,8 @@ import subprocess
 
 import fs_helpers
 import mce_helpers
-from click.testing import CliRunner
 import pytest
+from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
 
