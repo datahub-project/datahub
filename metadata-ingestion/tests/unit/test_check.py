@@ -2,6 +2,12 @@ from click.testing import CliRunner
 from datahub.entrypoints import datahub
 
 
+def test_cli_help():
+    runner = CliRunner()
+    result = runner.invoke(datahub, ["--help"])
+    assert result.output
+
+
 def test_check_local_docker():
     # This just verifies that it runs without error.
     # We don't actually know what environment this will be run in, so
