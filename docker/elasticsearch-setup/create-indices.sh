@@ -65,10 +65,10 @@ function reindex() {
     curl -XPOST "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_aliases" -H 'Content-Type: application/json' \
       -d "{\"actions\":[{\"remove\":{\"index\":\"*\",\"alias\":\"$source_index\"}},{\"add\":{\"index\":\"$target_index\",\"alias\":\"$source_index\"}}]}"
 
-    echo -e "\nReindexing to $target_index is complete"
+    echo -e "\nReindexing to $target_index succeded"
     return 0
   else
-    echo -e "\nReindexing to $target_index is failure"
+    echo -e "\nReindexing to $target_index failed"
     return 1
   fi
 }
@@ -94,7 +94,7 @@ function create_index() {
 
     if diff <(jq -S . /tmp/existing) <(jq -S . /tmp/data)
     then
-      echo -e "\nexisting version of index $1 is latest"
+      echo -e "\nno changes to index $1 mappings and settings"
       return 0
     else
       echo -e "\nupdating index" "$1"
