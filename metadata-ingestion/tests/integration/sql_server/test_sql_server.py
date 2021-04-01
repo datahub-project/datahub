@@ -3,10 +3,12 @@ import subprocess
 import fs_helpers
 import mce_helpers
 from click.testing import CliRunner
+import pytest
 
 from datahub.entrypoints import datahub
 
 
+@pytest.mark.slow
 def test_mssql_ingest(sql_server, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
 

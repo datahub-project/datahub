@@ -1,10 +1,12 @@
 import fs_helpers
 import mce_helpers
 from click.testing import CliRunner
+import pytest
 
 from datahub.entrypoints import datahub
 
 
+@pytest.mark.slow
 def test_mysql_ingest(mysql, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mysql"
     config_file = (test_resources_dir / "mysql_to_file.yml").resolve()

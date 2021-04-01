@@ -1,8 +1,10 @@
 import mce_helpers
+import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
 
 
+@pytest.mark.slow
 def test_ldap_ingest(mysql, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
