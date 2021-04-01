@@ -86,9 +86,15 @@ function create_index() {
   else
     echo -e '\ncomparing with existing version of index' "$1"
 
-    curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1/_settings" | jq '.. | .settings? | select(. != null)' | \
-      jq '. | {"index":{"max_ngram_diff": .index.max_ngram_diff, "analysis": .index.analysis}}' > /tmp/existing_setting
-    curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1/_mapping" | jq '.. | .mappings? | select(. != null)' > /tmp/existing_mapping
+    setting_keys_regex=$(jq '.index | keys[]' "index/$2" | xargs | sed 's/ /|/g')
+    curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1/_settings" | \
+      jq '.. | .settings? | select(. != null)' | \
+      jq --arg KEYS_REGEX "$setting_keys_regex" '.index | with_entries(select(.key | match($KEYS_REGEX))) | {"index":.}' \
+      > /tmp/existing_setting
+
+    curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1/_mapping" | \
+      jq '.. | .mappings? | select(. != null)' \
+      > /tmp/existing_mapping
 
     generate_index_file /tmp/existing_setting /tmp/existing_mapping /tmp/existing
 
