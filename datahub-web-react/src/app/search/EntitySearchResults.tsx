@@ -19,7 +19,6 @@ const styles = {
     resultHeaderCard: { right: '52px', top: '-40px', position: 'absolute' },
     paginationRow: { padding: 40 },
     resultsContainer: { width: '100%', padding: '20px 132px' },
-    applyBtn: { margin: '20px 25px 0 25px' },
 };
 
 const ResultList = styled(List)`
@@ -29,6 +28,12 @@ const ResultList = styled(List)`
         margin-top: 12px;
         padding: 16px 32px;
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
+
+const ApplyButton = styled(Button)`
+    && {
+        margin: 20px 25px 0 25px;
     }
 `;
 
@@ -112,9 +117,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                     selectedFilters={selectedFilters}
                     onFilterSelect={onFilterSelect}
                 />
-                <Button onClick={onApplyFilters} style={styles.applyBtn}>
-                    Apply
-                </Button>
+                <ApplyButton onClick={onApplyFilters}>Apply</ApplyButton>
             </Drawer>
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
