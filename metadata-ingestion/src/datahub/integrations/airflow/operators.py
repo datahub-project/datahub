@@ -4,13 +4,13 @@ from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.exceptions import AirflowException
 
-from datahub.integrations.airflow.hooks import DatahubRestHook
+from datahub.integrations.airflow.hooks import DatahubRestHook, DatahubKafkaHook
 
 
 class DatahubBaseOperator(BaseOperator):
     ui_color = "#4398c8"
 
-    hook: Union[DatahubRestHook]
+    hook: Union[DatahubRestHook, DatahubKafkaHook]
 
     @apply_defaults
     def __init__(
@@ -29,6 +29,6 @@ class DatahubBaseOperator(BaseOperator):
         elif datahub_rest_conn_id:
             self.hook = DatahubRestHook(datahub_rest_conn_id)
         elif datahub_kafka_conn_id:
-            self.hook = TODO
+            self.hook = DatahubKafkaHook(datahub_kafka_conn_id)
         else:
             raise AirflowException("no hook conn id provided")

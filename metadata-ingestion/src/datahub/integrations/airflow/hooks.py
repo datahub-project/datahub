@@ -43,10 +43,6 @@ class DatahubRestHook(BaseHook):
     def make_emitter(self) -> DatahubRestEmitter:
         return DatahubRestEmitter(self._gms_endpoint())
 
-    def make_sink(self):
-        TODO
-        pass
-
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
         emitter = self.make_emitter()
 
@@ -72,7 +68,7 @@ class DatahubKafkaHook(BaseHook):
     def get_ui_field_behaviour() -> Dict:
         """Returns custom field behavior"""
         return {
-            "hidden_fields": ["port", "schema", "login"],
+            "hidden_fields": ["port", "schema", "login", "password"],
             "relabeling": {
                 "host": "Kafka Broker",
             },
@@ -81,8 +77,7 @@ class DatahubKafkaHook(BaseHook):
     def _get_config(self) -> KafkaSinkConfig:
         conn = self.get_connection(self.datahub_kafka_conn_id)
         obj = conn.extra_dejson
-        if "connection" not in obj:
-            obj["connection"] = {}
+        obj.setdefault("connection", {})
         if conn.host is not None:
             if "bootstrap" in obj["connection"]:
                 raise AirflowException(
@@ -95,10 +90,6 @@ class DatahubKafkaHook(BaseHook):
     def make_emitter(self) -> DatahubKafkaEmitter:
         sink_config = self._get_config()
         return DatahubKafkaEmitter(sink_config)
-
-    def make_sink(self):
-        TODO
-        pass
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
         emitter = self.make_emitter()
