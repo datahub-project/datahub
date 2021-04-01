@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -98,7 +98,9 @@ function create_index() {
 
     generate_index_file /tmp/existing_setting /tmp/existing_mapping /tmp/existing
 
-    if diff <(jq -S . /tmp/existing) <(jq -S . /tmp/data)
+    jq -S . /tmp/existing > /tmp/existing_sorted
+    jq -S . /tmp/data > /tmp/data_sorted
+    if diff /tmp/existing_sorted /tmp/data_sorted
     then
       echo -e "\nno changes to index $1 mappings and settings"
       return 0
