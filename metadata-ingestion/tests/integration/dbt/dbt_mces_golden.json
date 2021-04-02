@@ -44,6 +44,15 @@
                                     "actor": "urn:li:corpuser:dbt_executor",
                                     "impersonator": null
                                 },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 1615443388000,
+                                    "actor": "urn:li:corpuser:dbt_executor",
+                                    "impersonator": null
+                                },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
                             },
@@ -352,15 +361,6 @@
                                     "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 1615443388000,
-                                    "actor": "urn:li:corpuser:dbt_executor",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]

@@ -1,7 +1,7 @@
 source:
   type: "file"
   config:
-    filename: "./tests/integration/dbt/dbt_mces_golden.json"
+    filename: "./examples/mce_files/bootstrap_mce.json"
 
 sink:
   type: "datahub-rest"

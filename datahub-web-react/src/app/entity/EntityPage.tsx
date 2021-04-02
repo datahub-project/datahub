@@ -12,14 +12,13 @@ interface RouteParams {
 }
 
 interface Props {
-    overrideUrn?: string;
     entityType: EntityType;
 }
 
 /**
  * Responsible for rendering an Entity Profile
  */
-export const EntityPage = ({ overrideUrn, entityType }: Props) => {
+export const EntityPage = ({ entityType }: Props) => {
     const { urn } = useParams<RouteParams>();
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
@@ -30,12 +29,8 @@ export const EntityPage = ({ overrideUrn, entityType }: Props) => {
     const isLineageSupported = entityType === EntityType.Dataset;
 
     return (
-        <ContainerPage urn={overrideUrn || urn} type={entityType} lineageSupported={isLineageSupported}>
-            {isLineageMode && isLineageSupported ? (
-                <LineageExplorer />
-            ) : (
-                entityRegistry.renderProfile(entityType, overrideUrn || urn)
-            )}
+        <ContainerPage urn={urn} type={entityType} lineageSupported={isLineageSupported}>
+            {isLineageMode && isLineageSupported ? <LineageExplorer /> : entityRegistry.renderProfile(entityType, urn)}
         </ContainerPage>
     );
 };

@@ -40,7 +40,6 @@ export default function LineageExplorer() {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         ({ entity, direction, isRoot }: { entity?: Dataset; direction: Direction | null; isRoot: boolean }) => {
-            console.log(direction, isRoot);
             if (entity?.urn && !asyncEntities[entity?.urn]?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entity, true);
@@ -59,21 +58,6 @@ export default function LineageExplorer() {
     );
 
     useEffect(() => {
-        // currently we don't fetch all entity information we need in each async call, so when the urn we're focused on changes we need to clear our cache
-        console.log({
-            data,
-            downstreamDatasetData,
-            upstreamDatasetData,
-            asyncEntities,
-            setAsyncEntities,
-            maybeAddAsyncLoadedEntity,
-            urn,
-            previousUrn,
-        });
-        if (urn !== previousUrn) {
-            // setAsyncEntities({});
-            // return;
-        }
         maybeAddAsyncLoadedEntity({ entity: data?.dataset as Dataset, direction: null, isRoot: true });
         maybeAddAsyncLoadedEntity({
             entity: downstreamDatasetData?.dataset as Dataset,
