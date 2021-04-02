@@ -31,15 +31,14 @@ export default function LineageExplorer() {
     const previousUrn = usePrevious(urn);
 
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
-    const [getUpstreamDataset, { data: upstreamDatasetData }] = useGetDatasetLazyQuery();
-    const [getDownstreamDataset, { data: downstreamDatasetData }] = useGetDatasetLazyQuery();
+    const [getAsyncDataset, { data: asyncDatasetData }] = useGetDatasetLazyQuery();
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const entityRegistry = useEntityRegistry();
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
 
     const maybeAddAsyncLoadedEntity = useCallback(
-        ({ entity, direction, isRoot }: { entity?: Dataset; direction: Direction | null; isRoot: boolean }) => {
+        ({ entity }: { entity?: Dataset }) => {
             if (entity?.urn && !asyncEntities[entity?.urn]?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entity, true);
@@ -58,27 +57,11 @@ export default function LineageExplorer() {
     );
 
     useEffect(() => {
-        maybeAddAsyncLoadedEntity({ entity: data?.dataset as Dataset, direction: null, isRoot: true });
+        maybeAddAsyncLoadedEntity({ entity: data?.dataset as Dataset });
         maybeAddAsyncLoadedEntity({
-            entity: downstreamDatasetData?.dataset as Dataset,
-            direction: Direction.Downstream,
-            isRoot: false,
+            entity: asyncDatasetData?.dataset as Dataset,
         });
-        maybeAddAsyncLoadedEntity({
-            entity: upstreamDatasetData?.dataset as Dataset,
-            direction: Direction.Upstream,
-            isRoot: false,
-        });
-    }, [
-        data,
-        downstreamDatasetData,
-        upstreamDatasetData,
-        asyncEntities,
-        setAsyncEntities,
-        maybeAddAsyncLoadedEntity,
-        urn,
-        previousUrn,
-    ]);
+    }, [data, asyncDatasetData, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -98,11 +81,7 @@ export default function LineageExplorer() {
                             setSelectedEntity(params);
                         }}
                         onLineageExpand={(params: LineageExpandParams) => {
-                            if (params.direction === Direction.Upstream) {
-                                getUpstreamDataset({ variables: { urn: params.urn } });
-                            } else {
-                                getDownstreamDataset({ variables: { urn: params.urn } });
-                            }
+                            getAsyncDataset({ variables: { urn: params.urn } });
                         }}
                     />
                 </div>
