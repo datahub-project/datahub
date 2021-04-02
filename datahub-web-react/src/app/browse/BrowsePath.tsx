@@ -1,17 +1,43 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Breadcrumb, Row } from 'antd';
 import styled from 'styled-components';
+import { VscRepoForked, VscPreview } from 'react-icons/vsc';
+import { blue, grey } from '@ant-design/colors';
 
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
+import { navigateToLineageUrl } from '../lineage/utils/navigateToLineageUrl';
+import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 
 interface Props {
     type: EntityType;
     path: Array<string>;
-    lineageEnabled?: boolean;
+    lineageSupported?: boolean;
 }
+
+const LineageIconGroup = styled.div`
+    width: 60px;
+    display: flex;
+    justify-content: space-between;
+`;
+
+const HoverableVscPreview = styled(VscPreview)<{ isSelected: boolean }>`
+    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    &:hover {
+        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        cursor: pointer;
+    }
+`;
+
+const HoverableVscRepoForked = styled(VscRepoForked)<{ isSelected: boolean }>`
+    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    &:hover {
+        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        cursor: pointer;
+    }
+`;
 
 const BrowseRow = styled(Row)`
     padding: 10px 100px;
@@ -24,9 +50,11 @@ const BrowseRow = styled(Row)`
 /**
  * Responsible for rendering a clickable browse path view.
  */
-export const BrowsePath = ({ type, path, lineageEnabled }: Props) => {
+export const BrowsePath = ({ type, path, lineageSupported }: Props) => {
     const entityRegistry = useEntityRegistry();
-    console.log(lineageEnabled);
+    const history = useHistory();
+    const location = useLocation();
+    const isLineageMode = useIsLineageMode();
 
     const createPartialPath = (parts: Array<string>) => {
         return parts.join('/');
@@ -48,7 +76,20 @@ export const BrowsePath = ({ type, path, lineageEnabled }: Props) => {
                 </Breadcrumb.Item>
                 {pathCrumbs}
             </Breadcrumb>
-            {lineageEnabled && 'Hello!'}
+            {lineageSupported && (
+                <LineageIconGroup>
+                    <HoverableVscPreview
+                        isSelected={!isLineageMode}
+                        size={26}
+                        onClick={() => navigateToLineageUrl({ location, history, isLineageMode: false })}
+                    />
+                    <HoverableVscRepoForked
+                        size={26}
+                        isSelected={isLineageMode}
+                        onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}
+                    />
+                </LineageIconGroup>
+            )}
         </BrowseRow>
     );
 };

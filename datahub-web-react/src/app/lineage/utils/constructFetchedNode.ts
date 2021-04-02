@@ -17,14 +17,17 @@ export default function constructFetchedNode(
             name: fetchedNode.name,
             urn: fetchedNode.urn,
             type: fetchedNode.type,
-            unexploredChildren: fetchedNode?.children?.filter((childUrn) => !(childUrn in fetchedEntities)).length || 0,
+            unexploredChildren:
+                fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
+                    (childUrn) => !(childUrn in fetchedEntities),
+                ).length || 0,
             children: [],
         };
 
         // eslint-disable-next-line no-param-reassign
         constructedNodes[urn] = node;
 
-        node.children = fetchedNode?.children
+        node.children = fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']
             ?.map((childUrn) => {
                 return constructFetchedNode(childUrn, fetchedEntities, direction, constructedNodes);
             })

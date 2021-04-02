@@ -248,6 +248,14 @@ query getDataset($urn: String!) {
             upstreams {
                 dataset {
                     ...nonRecursiveDatasetFields
+                    downstreamLineage {
+                        downstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
                     upstreamLineage {
                         upstreams {
                             type
@@ -269,6 +277,14 @@ query getDataset($urn: String!) {
                     ...nonRecursiveDatasetFields
                     downstreamLineage {
                         downstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
+                    upstreamLineage {
+                        upstreams {
                             type
                             dataset {
                                 urn

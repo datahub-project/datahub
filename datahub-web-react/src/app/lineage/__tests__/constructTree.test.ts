@@ -5,12 +5,11 @@ import {
     dataset4WithLineage,
     dataset5,
     dataset5WithLineage,
-    dataset6,
     dataset6WithLineage,
 } from '../../../Mocks';
 import { EntityType } from '../../../types.generated';
 import { Direction, FetchedEntities } from '../types';
-import constructTree from '../utils/contructTree';
+import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 
 describe('constructTree', () => {
@@ -31,7 +30,7 @@ describe('constructTree', () => {
             { entity: dataset5, direction: Direction.Upstream, fullyFetched: false },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 
@@ -58,7 +57,7 @@ describe('constructTree', () => {
             { entity: dataset5, direction: Direction.Upstream, fullyFetched: false },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 
@@ -86,7 +85,7 @@ describe('constructTree', () => {
             { entity: dataset6WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 
@@ -137,7 +136,7 @@ describe('constructTree', () => {
             { entity: dataset6WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 
@@ -154,7 +153,7 @@ describe('constructTree', () => {
     it('handles partially fetched graph with layers of lineage', () => {
         const fetchedEntities = [{ entity: dataset4WithLineage, direction: Direction.Upstream, fullyFetched: false }];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 

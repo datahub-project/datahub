@@ -1,6 +1,6 @@
-import { HierarchyPointNode } from '@vx/hierarchy/lib/types';
 import React from 'react';
 import { Group } from '@vx/group';
+import styled from 'styled-components';
 
 import { EntityType } from '../../types.generated';
 import { NodeData, Direction } from './types';
@@ -18,6 +18,10 @@ const height = 80;
 const centerX = -width / 2;
 const centerY = -height / 2;
 
+const PointerGroup = styled(Group)`
+    cursor: pointer;
+`;
+
 export default function LineageEntityNode({
     node,
     isSelected,
@@ -27,7 +31,7 @@ export default function LineageEntityNode({
     onExpandClick,
     direction,
 }: {
-    node: HierarchyPointNode<NodeData>;
+    node: { x: number; y: number; data: Omit<NodeData, 'children'> };
     isSelected: boolean;
     isHovered: boolean;
     onEntityClick: (EntitySelectParams) => void;
@@ -36,15 +40,9 @@ export default function LineageEntityNode({
     direction: Direction;
 }) {
     return (
-        <Group
-            data-testid={`node-${node.data.urn}-${direction}`}
-            top={node.x}
-            left={node.y}
-            style={{ cursor: 'pointer' }}
-        >
+        <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
             {node.data.unexploredChildren && (
-                <g
-                    style={{ cursor: 'pointer' }}
+                <Group
                     onClick={() => {
                         onExpandClick({ urn: node.data.urn, type: EntityType.Dataset, direction });
                     }}
@@ -63,19 +61,9 @@ export default function LineageEntityNode({
                     >
                         <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
                     </g>
-                </g>
+                </Group>
             )}
-            <rect
-                height={height}
-                width={width}
-                y={centerY}
-                x={centerX}
-                fill="white"
-                // eslint-disable-next-line no-nested-ternary
-                stroke={isSelected ? 'blue' : isHovered ? 'lightblue' : 'black'}
-                strokeWidth={2}
-                strokeOpacity={1}
-                rx={10}
+            <Group
                 onClick={() => {
                     onEntityClick({ urn: node.data.urn, type: EntityType.Dataset });
                 }}
@@ -85,17 +73,23 @@ export default function LineageEntityNode({
                 onMouseOut={() => {
                     onHover(undefined);
                 }}
-            />
-            <text
-                dy=".33em"
-                fontSize={14}
-                fontFamily="Arial"
-                textAnchor="middle"
-                fill="black"
-                style={{ pointerEvents: 'none' }}
             >
-                {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
-            </text>
-        </Group>
+                <rect
+                    height={height}
+                    width={width}
+                    y={centerY}
+                    x={centerX}
+                    fill="white"
+                    // eslint-disable-next-line no-nested-ternary
+                    stroke={isSelected ? 'blue' : isHovered ? 'lightblue' : 'black'}
+                    strokeWidth={2}
+                    strokeOpacity={1}
+                    rx={10}
+                />
+                <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
+                    {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                </text>
+            </Group>
+        </PointerGroup>
     );
 }

@@ -1,29 +1,35 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 
-import { Alert, Button, Card, Drawer } from 'antd';
+import { Alert, Drawer } from 'antd';
 import styled from 'styled-components';
 
 import { useGetDatasetLazyQuery, useGetDatasetQuery } from '../../graphql/dataset.generated';
 import { Message } from '../shared/Message';
-import { Dataset, EntityType } from '../../types.generated';
+import { Dataset } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
-import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import { Direction, EntitySelectParams, FetchedEntities, LineageExpandParams, LineageExplorerParams } from './types';
 import getChildren from './utils/getChildren';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
 
-const ControlCard = styled(Card)`
-    position: absolute;
-    box-shadow: 4px 4px 4px -1px grey;
-    bottom: 20px;
-    right: 20px;
+const LoadingMessage = styled(Message)`
+    margin-top: 10%;
 `;
 
+function usePrevious(value) {
+    const ref = useRef();
+    useEffect(() => {
+        ref.current = value;
+    });
+    return ref.current;
+}
+
 export default function LineageExplorer() {
-    const { type, urn } = useParams<LineageExplorerParams>();
+    const { urn } = useParams<LineageExplorerParams>();
+    const previousUrn = usePrevious(urn);
+
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const [getUpstreamDataset, { data: upstreamDatasetData }] = useGetDatasetLazyQuery();
     const [getDownstreamDataset, { data: downstreamDatasetData }] = useGetDatasetLazyQuery();
@@ -34,31 +40,18 @@ export default function LineageExplorer() {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         ({ entity, direction, isRoot }: { entity?: Dataset; direction: Direction | null; isRoot: boolean }) => {
+            console.log(direction, isRoot);
             if (entity?.urn && !asyncEntities[entity?.urn]?.fullyFetched) {
                 // record that we have added this entity
-                let newAsyncEntities = extendAsyncEntities(asyncEntities, entity, direction, true);
+                let newAsyncEntities = extendAsyncEntities(asyncEntities, entity, true);
 
                 // add the partially fetched downstream & upstream datasets
-                if (isRoot || direction === Direction.Downstream) {
-                    getChildren(entity, Direction.Downstream).forEach((downstream) => {
-                        newAsyncEntities = extendAsyncEntities(
-                            newAsyncEntities,
-                            downstream.dataset,
-                            Direction.Downstream,
-                            false,
-                        );
-                    });
-                }
-                if (isRoot || direction === Direction.Upstream) {
-                    getChildren(entity, Direction.Upstream).forEach((upstream) => {
-                        newAsyncEntities = extendAsyncEntities(
-                            newAsyncEntities,
-                            upstream.dataset,
-                            Direction.Upstream,
-                            false,
-                        );
-                    });
-                }
+                getChildren(entity, Direction.Downstream).forEach((downstream) => {
+                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, downstream.dataset, false);
+                });
+                getChildren(entity, Direction.Upstream).forEach((upstream) => {
+                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, upstream.dataset, false);
+                });
                 setAsyncEntities(newAsyncEntities);
             }
         },
@@ -66,6 +59,21 @@ export default function LineageExplorer() {
     );
 
     useEffect(() => {
+        // currently we don't fetch all entity information we need in each async call, so when the urn we're focused on changes we need to clear our cache
+        console.log({
+            data,
+            downstreamDatasetData,
+            upstreamDatasetData,
+            asyncEntities,
+            setAsyncEntities,
+            maybeAddAsyncLoadedEntity,
+            urn,
+            previousUrn,
+        });
+        if (urn !== previousUrn) {
+            // setAsyncEntities({});
+            // return;
+        }
         maybeAddAsyncLoadedEntity({ entity: data?.dataset as Dataset, direction: null, isRoot: true });
         maybeAddAsyncLoadedEntity({
             entity: downstreamDatasetData?.dataset as Dataset,
@@ -77,15 +85,24 @@ export default function LineageExplorer() {
             direction: Direction.Upstream,
             isRoot: false,
         });
-    }, [data, downstreamDatasetData, upstreamDatasetData, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity]);
+    }, [
+        data,
+        downstreamDatasetData,
+        upstreamDatasetData,
+        asyncEntities,
+        setAsyncEntities,
+        maybeAddAsyncLoadedEntity,
+        urn,
+        previousUrn,
+    ]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
     return (
-        <BrowsableEntityPage urn={urn} type={data?.dataset?.type as EntityType}>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+        <>
+            {loading && <LoadingMessage type="loading" content="Loading..." />}
             {data?.dataset && (
                 <div>
                     <LineageViz
@@ -106,11 +123,6 @@ export default function LineageExplorer() {
                     />
                 </div>
             )}
-            <ControlCard size="small">
-                <Button href={`/${type}/${urn}`} type="link">
-                    Return to {type}
-                </Button>
-            </ControlCard>
             <Drawer
                 title="Entity Overview"
                 placement="left"
@@ -127,6 +139,6 @@ export default function LineageExplorer() {
                     {selectedEntity && entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
                 </CompactContext.Provider>
             </Drawer>
-        </BrowsableEntityPage>
+        </>
     );
 }

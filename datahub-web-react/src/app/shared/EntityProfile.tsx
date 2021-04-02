@@ -3,7 +3,6 @@ import * as React from 'react';
 import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
 import styled from 'styled-components';
 import { TagOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 
 import { RoutedTabs } from './RoutedTabs';
 import CompactContext from './CompactContext';
@@ -33,6 +32,10 @@ const TagCard = styled(Card)`
 
 const TagIcon = styled(TagOutlined)`
     padding-right: 6px;
+`;
+
+const ClickableTitle = styled.h1`
+    cursor: pointer;
 `;
 
 type LayoutProps = {
@@ -65,9 +68,14 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
                             <Row style={{ padding: '20px 0px 10px 0px' }}>
                                 <Col span={24}>
                                     {titleLink ? (
-                                        <Link to={titleLink}>
-                                            <h1>{title}</h1>
-                                        </Link>
+                                        /* eslint-disable-next-line */
+                                        <ClickableTitle
+                                            onClick={() => {
+                                                window.location.replace(titleLink);
+                                            }}
+                                        >
+                                            {title}
+                                        </ClickableTitle>
                                     ) : (
                                         <h1>{title}</h1>
                                     )}

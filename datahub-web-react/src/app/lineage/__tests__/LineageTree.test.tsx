@@ -1,16 +1,15 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
-
-import { dataset3WithLineage, dataset4WithLineage, dataset5WithLineage, dataset6WithLineage } from '../../../Mocks';
-import { EntityType } from '../../../types.generated';
-import { Direction, FetchedEntities } from '../types';
-import constructTree from '../utils/contructTree';
-import LineageTree from '../LineageTree';
+import { render } from '@testing-library/react';
 import { hierarchy } from '@vx/hierarchy';
-import extendAsyncEntities from '../utils/extendAsyncEntities';
 import { Zoom } from '@vx/zoom';
 
-export const margin = { top: 10, left: 280, right: 280, bottom: 10 };
+import { dataset3WithLineage, dataset4WithLineage, dataset5WithLineage, dataset6WithLineage } from '../../../Mocks';
+import { Direction, FetchedEntities } from '../types';
+import constructTree from '../utils/constructTree';
+import LineageTree from '../LineageTree';
+import extendAsyncEntities from '../utils/extendAsyncEntities';
+
+const margin = { top: 10, left: 280, right: 280, bottom: 10 };
 const [windowWidth, windowHeight] = [1000, 500];
 
 const height = windowHeight - 125;
@@ -34,7 +33,7 @@ describe('LineageTree', () => {
             { entity: dataset6WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.direction, entry.fullyFetched),
+            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
             {} as FetchedEntities,
         );
 
@@ -67,14 +66,14 @@ describe('LineageTree', () => {
             </Zoom>,
         );
 
-        expect(getByTestId('edge-urn:li:dataset:6-urn:li:dataset:5-Upstream'));
-        expect(getByTestId('edge-urn:li:dataset:4-urn:li:dataset:6-Upstream'));
-        expect(getByTestId('edge-urn:li:dataset:4-urn:li:dataset:5-Upstream'));
-        expect(getByTestId('edge-urn:li:dataset:3-urn:li:dataset:4-Upstream'));
+        expect(getByTestId('edge-urn:li:dataset:6-urn:li:dataset:5-Upstream')).toBeInTheDocument();
+        expect(getByTestId('edge-urn:li:dataset:4-urn:li:dataset:6-Upstream')).toBeInTheDocument();
+        expect(getByTestId('edge-urn:li:dataset:4-urn:li:dataset:5-Upstream')).toBeInTheDocument();
+        expect(getByTestId('edge-urn:li:dataset:3-urn:li:dataset:4-Upstream')).toBeInTheDocument();
 
-        expect(getByTestId('node-urn:li:dataset:6-Upstream'));
-        expect(getByTestId('node-urn:li:dataset:5-Upstream'));
-        expect(getByTestId('node-urn:li:dataset:4-Upstream'));
-        expect(getByTestId('node-urn:li:dataset:3-Upstream'));
+        expect(getByTestId('node-urn:li:dataset:6-Upstream')).toBeInTheDocument();
+        expect(getByTestId('node-urn:li:dataset:5-Upstream')).toBeInTheDocument();
+        expect(getByTestId('node-urn:li:dataset:4-Upstream')).toBeInTheDocument();
+        expect(getByTestId('node-urn:li:dataset:3-Upstream')).toBeInTheDocument();
     });
 });

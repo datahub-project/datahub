@@ -16,7 +16,9 @@ export type FetchedEntity = {
     urn: string;
     name: string;
     type: EntityType;
-    children?: Array<string>;
+    // children?: Array<string>;
+    upstreamChildren?: Array<string>;
+    downstreamChildren?: Array<string>;
     fullyFetched: boolean;
 };
 

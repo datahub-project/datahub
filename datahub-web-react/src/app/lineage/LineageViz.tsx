@@ -1,5 +1,5 @@
 import { hierarchy } from '@vx/hierarchy';
-import React, { useMemo } from 'react';
+import React, { SVGProps, useMemo } from 'react';
 import { useWindowSize } from '@react-hook/window-size';
 import { Zoom } from '@vx/zoom';
 import styled from 'styled-components';
@@ -7,7 +7,7 @@ import { Button, Card } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 
 import { Direction, TreeProps } from './types';
-import constructTree from './utils/contructTree';
+import constructTree from './utils/constructTree';
 import LineageTree from './LineageTree';
 
 export const defaultMargin = { top: 10, left: 280, right: 280, bottom: 10 };
@@ -22,6 +22,10 @@ const ZoomCard = styled(Card)`
 const ZoomButton = styled(Button)`
     display: block;
     margin-bottom: 12px;
+`;
+
+const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
+    cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
 `;
 
 export default function LineageViz({
@@ -40,9 +44,10 @@ export default function LineageViz({
         dataset,
         fetchedEntities,
     ]);
+
     const [windowWidth, windowHeight] = useWindowSize();
 
-    const height = windowHeight - 125;
+    const height = windowHeight - 133;
     const width = windowWidth;
     const yMax = height - margin.top - margin.bottom;
     const xMax = (width - margin.left - margin.right) / 2;
@@ -74,7 +79,7 @@ export default function LineageViz({
                             <MinusOutlined />
                         </Button>
                     </ZoomCard>
-                    <svg
+                    <RootSvg
                         width={width}
                         height={height}
                         onMouseDown={zoom.dragStart}
@@ -83,7 +88,7 @@ export default function LineageViz({
                         onTouchStart={zoom.dragStart}
                         onTouchMove={zoom.dragMove}
                         onTouchEnd={zoom.dragEnd}
-                        style={{ cursor: zoom.isDragging ? 'grabbing' : 'grab' }}
+                        isDragging={zoom.isDragging}
                     >
                         <defs>
                             <marker
@@ -122,7 +127,7 @@ export default function LineageViz({
                             selectedEntity={selectedEntity}
                             direction={Direction.Downstream}
                         />
-                    </svg>
+                    </RootSvg>
                 </>
             )}
         </Zoom>

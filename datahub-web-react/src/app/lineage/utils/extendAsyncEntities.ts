@@ -5,16 +5,19 @@ import getChildren from './getChildren';
 export default function extendAsyncEntities(
     fetchedEntities: FetchedEntities,
     entity: Dataset,
-    direction: Direction | null,
     fullyFetched = false,
 ): FetchedEntities {
+    if (fetchedEntities[entity.urn]?.fullyFetched) {
+        return fetchedEntities;
+    }
     return {
         ...fetchedEntities,
         [entity.urn]: {
             urn: entity.urn,
             name: entity.name,
             type: entity.type,
-            children: getChildren(entity, direction).map((child) => child.dataset.urn),
+            upstreamChildren: getChildren(entity, Direction.Upstream).map((child) => child.dataset.urn),
+            downstreamChildren: getChildren(entity, Direction.Downstream).map((child) => child.dataset.urn),
             fullyFetched,
         },
     };

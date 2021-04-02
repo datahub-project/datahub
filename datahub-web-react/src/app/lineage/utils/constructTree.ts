@@ -1,7 +1,7 @@
 import { GetDatasetQuery } from '../../../graphql/dataset.generated';
 import { Dataset } from '../../../types.generated';
 import { Direction, FetchedEntities, NodeData } from '../types';
-import constructFetchedNode from './contructFetchedNode';
+import constructFetchedNode from './constructFetchedNode';
 import getChildren from './getChildren';
 
 export default function constructTree(
