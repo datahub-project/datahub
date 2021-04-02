@@ -1,14 +1,15 @@
 """Convenience functions for creating MCEs"""
 
-from typing import List, Union
 import time
+from typing import List, Union
+
 from datahub.metadata import (
-    MetadataChangeEventClass,
-    DatasetSnapshotClass,
     AuditStampClass,
-    UpstreamLineageClass,
-    UpstreamClass,
     DatasetLineageTypeClass,
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 
 

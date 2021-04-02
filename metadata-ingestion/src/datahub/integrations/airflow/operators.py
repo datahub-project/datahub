@@ -1,10 +1,10 @@
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
+from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
-from airflow.exceptions import AirflowException
 
-from datahub.integrations.airflow.hooks import DatahubRestHook, DatahubKafkaHook
+from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 

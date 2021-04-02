@@ -1,13 +1,13 @@
+import json
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
-import json
 
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
 from datahub.integrations.airflow.get_provider_info import get_provider_info
-from datahub.integrations.airflow.hooks import DatahubRestHook, DatahubKafkaHook
+from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(

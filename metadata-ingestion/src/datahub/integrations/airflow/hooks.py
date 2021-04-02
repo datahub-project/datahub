@@ -1,10 +1,10 @@
 from typing import Any, Dict, List
 
-from airflow.hooks.base import BaseHook
 from airflow.exceptions import AirflowException
+from airflow.hooks.base import BaseHook
 
-from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 

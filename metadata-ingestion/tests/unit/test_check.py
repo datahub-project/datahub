@@ -9,6 +9,12 @@ def test_cli_help():
     assert result.output
 
 
+def test_cli_version():
+    runner = CliRunner()
+    result = runner.invoke(datahub, ["--debug", "version"])
+    assert result.output
+
+
 def test_check_local_docker():
     # This just verifies that it runs without error.
     # We don't actually know what environment this will be run in, so
