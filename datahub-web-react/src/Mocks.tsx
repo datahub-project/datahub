@@ -6,7 +6,7 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, EntityType, PlatformType } from './types.generated';
+import { Dataset, DatasetLineageType, EntityType, PlatformType, RelatedDataset } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
@@ -160,7 +160,7 @@ const dataset2 = {
     },
 };
 
-const dataset3 = {
+export const dataset3 = {
     __typename: 'Dataset',
     urn: 'urn:li:dataset:3',
     type: EntityType.Dataset,
@@ -238,9 +238,148 @@ const dataset3 = {
     deprecation: null,
 } as Dataset;
 
-const dataset4 = {
+export const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
+    urn: 'urn:li:dataset:4',
+};
+
+export const dataset5 = {
+    ...dataset3,
+    name: 'Fifth Test Dataset',
+    urn: 'urn:li:dataset:5',
+};
+
+export const dataset6 = {
+    ...dataset3,
+    name: 'Sixth Test Dataset',
+    urn: 'urn:li:dataset:6',
+};
+
+export const dataset3WithLineage = {
+    ...dataset3,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset4,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [],
+    },
+};
+
+export const dataset4WithLineage = {
+    ...dataset4,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset6,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset5,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset3,
+            },
+        ],
+    },
+};
+
+export const dataset5WithLineage = {
+    ...dataset5,
+    upstreamLineage: {
+        upstreams: [] as RelatedDataset[],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset6,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset4,
+            },
+        ],
+    },
+};
+
+export const dataset6WithLineage = {
+    ...dataset6,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset5,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset4,
+            },
+        ],
+    },
 };
 
 const sampleTag = {

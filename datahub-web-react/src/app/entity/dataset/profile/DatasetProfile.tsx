@@ -121,6 +121,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
                 <EntityProfile
+                    titleLink={data.dataset.urn && `/dataset/${data.dataset.urn}`}
                     title={data.dataset.name}
                     tags={
                         <TagGroup

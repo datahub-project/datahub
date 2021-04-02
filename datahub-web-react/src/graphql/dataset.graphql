@@ -251,6 +251,9 @@ query getDataset($urn: String!) {
                     upstreamLineage {
                         upstreams {
                             type
+                            dataset {
+                                urn
+                            }
                         }
                     }
                 }
@@ -267,6 +270,9 @@ query getDataset($urn: String!) {
                     downstreamLineage {
                         downstreams {
                             type
+                            dataset {
+                                urn
+                            }
                         }
                     }
                 }

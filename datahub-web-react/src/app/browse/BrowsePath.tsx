@@ -10,19 +10,23 @@ import { EntityType } from '../../types.generated';
 interface Props {
     type: EntityType;
     path: Array<string>;
+    lineageEnabled?: boolean;
 }
 
 const BrowseRow = styled(Row)`
     padding: 10px 100px;
     border-bottom: 1px solid #dcdcdc;
     background-color: ${(props) => props.theme.styles['body-background']};
+    display: flex;
+    justify-content: space-between;
 `;
 
 /**
  * Responsible for rendering a clickable browse path view.
  */
-export const BrowsePath = ({ type, path }: Props) => {
+export const BrowsePath = ({ type, path, lineageEnabled }: Props) => {
     const entityRegistry = useEntityRegistry();
+    console.log(lineageEnabled);
 
     const createPartialPath = (parts: Array<string>) => {
         return parts.join('/');
@@ -44,6 +48,7 @@ export const BrowsePath = ({ type, path }: Props) => {
                 </Breadcrumb.Item>
                 {pathCrumbs}
             </Breadcrumb>
+            {lineageEnabled && 'Hello!'}
         </BrowseRow>
     );
 };

@@ -23,7 +23,7 @@ export const EntityPage = ({ overrideUrn, entityType }: Props) => {
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
     const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
     return (
-        <ContainerPage urn={overrideUrn || urn} type={entityType}>
+        <ContainerPage urn={overrideUrn || urn} type={entityType} lineageEnabled={entityType === EntityType.Dataset}>
             {entityRegistry.renderProfile(entityType, overrideUrn || urn)}
         </ContainerPage>
     );

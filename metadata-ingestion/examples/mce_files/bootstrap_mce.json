@@ -751,6 +751,15 @@
                                     },
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
                                     "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1581407189000,
+                                        "actor": "urn:li:corpuser:jdoe",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+                                    "type": "TRANSFORMED"
                                 }
                             ]
                         }
