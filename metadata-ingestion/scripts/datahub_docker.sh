@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-DOCKER_IMAGE=linkedin/datahub-ingestion:latest
+DOCKER_IMAGE=linkedin/datahub-ingestion:${DATAHUB_VERSION:-latest}
 
 docker pull --quiet $DOCKER_IMAGE
 

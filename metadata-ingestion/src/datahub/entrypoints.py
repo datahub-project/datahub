@@ -44,7 +44,8 @@ def datahub(debug: bool) -> None:
 @datahub.command()
 def version() -> None:
     """Print version number and exit"""
-    click.echo(datahub_package.__version__)
+    click.echo(f"DataHub CLI version: {datahub_package.__version__}")
+    click.echo(f"Python version: {sys.version}")
 
 
 @datahub.command()
