@@ -13,9 +13,8 @@ pip install -e ".[dev]"
 
 ./scripts/codegen.sh
 
-black --check src tests
-isort --check-only src tests
-flake8 --count --statistics src tests
-mypy src tests
-
+black --check .
+isort --check-only .
+flake8 --count --statistics .
+mypy .
 pytest

@@ -6,12 +6,11 @@ This example demonstrates how to emit lineage to DataHub within an Airflow DAG.
 from datetime import timedelta
 
 from airflow import DAG
-from airflow.utils.dates import days_ago
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from airflow.utils.dates import days_ago
 
 import datahub.emitter.mce_builder as builder
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
-
 
 default_args = {
     "owner": "airflow",

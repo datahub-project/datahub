@@ -1,8 +1,7 @@
-from typing import Dict, Set
 import os
+from typing import Dict, Set
 
 import setuptools
-
 
 package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:

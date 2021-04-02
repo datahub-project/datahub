@@ -545,9 +545,9 @@ pytest tests/integration
 
 ```sh
 # Assumes: pip install -e '.[dev]'
-black src tests
-isort src tests
-flake8 src tests
-mypy src tests
+black .
+isort .
+flake8 .
+mypy .
 pytest
 ```
