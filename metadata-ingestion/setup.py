@@ -1,8 +1,12 @@
 from typing import Dict, Set
 import os
 
-import src.datahub as datahub
 import setuptools
+
+
+package_metadata: dict = {}
+with open("./src/datahub/__init__.py") as fp:
+    exec(fp.read(), package_metadata)
 
 
 def get_long_description():
@@ -114,8 +118,8 @@ dev_requirements = {
 
 setuptools.setup(
     # Package metadata.
-    name=datahub.__package_name__,
-    version=datahub.__version__,
+    name=package_metadata["__package_name__"],
+    version=package_metadata["__version__"],
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
