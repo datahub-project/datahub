@@ -23,7 +23,8 @@ function generate_index_file() {
 
 function check_reindex() {
     initial_documents=$(curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$1/_count" -H 'Content-Type: application/json' | jq '.count')
-    for i in {1..30}; do
+    for i in $(seq 30); do
+      echo $i
       reindexed_documents=$(curl -XGET "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$2/_count" -H 'Content-Type: application/json' | jq '.count')
       if [[ $reindexed_documents == "$initial_documents" ]]; then
         echo -e "\nPost-reindex document reconcialiation completed. doc_source_index_count: $initial_documents; doc_target_index_count: $reindexed_documents"
