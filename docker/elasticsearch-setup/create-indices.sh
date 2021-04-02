@@ -69,6 +69,7 @@ function reindex() {
     echo -e "\nReindexing to $target_index succeded"
     return 0
   else
+    curl -XDELETE "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/$target_index"
     echo -e "\nReindexing to $target_index failed"
     return 1
   fi
