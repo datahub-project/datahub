@@ -2,8 +2,8 @@
     "metadata": {
         "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v1.json",
         "dbt_version": "0.19.0",
-        "generated_at": "2021-03-01T05:53:11.885106Z",
-        "invocation_id": "fe75344a-1627-432f-a18c-01c00f50e5cc",
+        "generated_at": "2021-04-02T17:14:20.511467Z",
+        "invocation_id": "fc43f644-d50b-41bd-8252-2d1d45cd891e",
         "env": {},
         "project_id": "d7ed27e3f02ff95ca753dd76aed208ee",
         "user_id": "3e781a9c-6838-4db1-95b7-54625ba7a601",
@@ -12,7 +12,7 @@
     },
     "nodes": {
         "model.sample_dbt.payments_base": {
-            "raw_sql": "{{ config(\n    materialized=\"view\",\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
+            "raw_sql": "{{ config(\n    materialized=\"view\",\n) }}\n\nwith payments as (\n\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_01')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_02')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_03')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_04')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_05')}}\n    UNION ALL\n    select \n        *\n    from \n        {{ source('pagila', 'payment_p2020_06')}}\n)\n\nselect *\nfrom payments",
             "compiled": true,
             "database": "pagila",
             "schema": "pagila_dev",
@@ -31,7 +31,7 @@
             "alias": "payments_base",
             "checksum": {
                 "name": "sha256",
-                "checksum": "697370dca0dcbac9bb193630534ee3a54c9503488607b564a6390924bf4baa70"
+                "checksum": "1ad81ef75603c79e0fe3672cf4fdda70d39f39bbf52aa7f1085ed808afdaeb3d"
             },
             "config": {
                 "enabled": true,
@@ -54,10 +54,6 @@
                 [
                     "pagila",
                     "payment_p2020_01"
-                ],
-                [
-                    "pagila",
-                    "payment_p2020_02"
                 ],
                 [
                     "pagila",
@@ -90,7 +86,6 @@
                 "nodes": [
                     "source.sample_dbt.pagila.payment_p2020_01",
                     "source.sample_dbt.pagila.payment_p2020_02",
-                    "source.sample_dbt.pagila.payment_p2020_02",
                     "source.sample_dbt.pagila.payment_p2020_03",
                     "source.sample_dbt.pagila.payment_p2020_04",
                     "source.sample_dbt.pagila.payment_p2020_05",
@@ -109,7 +104,7 @@
             "unrendered_config": {
                 "materialized": "view"
             },
-            "compiled_sql": "\n\nwith payments as (\n\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_01\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_03\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_04\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_05\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_06\"\n)\n\nselect *\nfrom payments",
+            "compiled_sql": "\n\nwith payments as (\n\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_01\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_02\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_03\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_04\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_05\"\n    UNION ALL\n    select \n        *\n    from \n        \"pagila\".\"public\".\"payment_p2020_06\"\n)\n\nselect *\nfrom payments",
             "extra_ctes_injected": true,
             "extra_ctes": [],
             "relation_name": "\"pagila\".\"pagila_dev\".\"payments_base\""
@@ -2375,7 +2370,9 @@
             "resource_type": "macro",
             "tags": [],
             "depends_on": {
-                "macros": []
+                "macros": [
+                    "macro.dbt_postgres.postgres__create_schema"
+                ]
             },
             "description": "",
             "meta": {},
@@ -3674,7 +3671,6 @@
         "model.sample_dbt.payments_base": [
             "source.sample_dbt.pagila.payment_p2020_01",
             "source.sample_dbt.pagila.payment_p2020_02",
-            "source.sample_dbt.pagila.payment_p2020_02",
             "source.sample_dbt.pagila.payment_p2020_03",
             "source.sample_dbt.pagila.payment_p2020_04",
             "source.sample_dbt.pagila.payment_p2020_05",
@@ -3717,7 +3713,6 @@
             "model.sample_dbt.payments_base"
         ],
         "source.sample_dbt.pagila.payment_p2020_02": [
-            "model.sample_dbt.payments_base",
             "model.sample_dbt.payments_base"
         ],
         "source.sample_dbt.pagila.payment_p2020_03": [
