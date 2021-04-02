@@ -13,11 +13,6 @@ def get_long_description():
     with open(os.path.join(root, "README.md")) as f:
         description = f.read()
 
-    description += "\n\nChangelog\n=========\n\n"
-
-    with open(os.path.join(root, "CHANGELOG")) as f:
-        description += f.read()
-
     return description
 
 
@@ -66,7 +61,8 @@ plugins: Dict[str, Set[str]] = {
         # This will change to a normal reference to pybigquery once a new version is released to PyPI.
         # We need to use this custom version in order to correctly get table descriptions.
         # See this PR by hsheth2 for details: https://github.com/tswast/pybigquery/pull/82.
-        "pybigquery @ git+https://github.com/tswast/pybigquery@3250fa796b28225cb1c89d7afea3c2e2a2bf2305#egg=pybigquery"
+        # "pybigquery @ git+https://github.com/tswast/pybigquery@3250fa796b28225cb1c89d7afea3c2e2a2bf2305#egg=pybigquery"
+        "pybigquery"
     },
     "hive": sql_common | {"pyhive[hive]"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
@@ -96,6 +92,8 @@ dev_requirements = {
     "pytest-docker",
     "sqlalchemy-stubs",
     "deepdiff",
+    "build",
+    "twine",
     # Also add the plugins which are used for tests.
     *list(
         dependency

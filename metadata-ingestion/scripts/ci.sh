@@ -8,7 +8,7 @@ sudo apt-get update && sudo apt-get install -y \
     libsasl2-dev \
     ldap-utils
 
-python -m pip install --upgrade pip wheel setuptools
+python -m pip install --upgrade pip==20.2.4 wheel setuptools
 pip install -e ".[dev]"
 
 ./scripts/codegen.sh
