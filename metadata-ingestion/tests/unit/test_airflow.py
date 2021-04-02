@@ -55,11 +55,7 @@ def test_dags_load_with_no_errors(pytestconfig):
 def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
-    with mock.patch(
-        "airflow.hooks.base.BaseHook.get_connection",
-        return_value=conn,
-        autospec=True,
-    ):
+    with mock.patch("airflow.hooks.base.BaseHook.get_connection", return_value=conn):
         yield conn
 
 
