@@ -37,6 +37,7 @@ const HoverableVscRepoForked = styled(VscRepoForked)<{ isSelected: boolean }>`
         color: ${(props) => (props.isSelected ? 'black' : blue[4])};
         cursor: pointer;
     }
+    transform: rotate(90deg);
 `;
 
 const BrowseRow = styled(Row)`

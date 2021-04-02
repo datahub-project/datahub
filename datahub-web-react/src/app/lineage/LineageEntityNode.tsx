@@ -30,10 +30,12 @@ export default function LineageEntityNode({
     onHover,
     onExpandClick,
     direction,
+    isCenterNode,
 }: {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
     isSelected: boolean;
     isHovered: boolean;
+    isCenterNode: boolean;
     onEntityClick: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
@@ -82,7 +84,7 @@ export default function LineageEntityNode({
                     fill="white"
                     // eslint-disable-next-line no-nested-ternary
                     stroke={isSelected ? 'blue' : isHovered ? 'lightblue' : 'black'}
-                    strokeWidth={2}
+                    strokeWidth={isCenterNode ? 4 : 2}
                     strokeOpacity={1}
                     rx={10}
                 />

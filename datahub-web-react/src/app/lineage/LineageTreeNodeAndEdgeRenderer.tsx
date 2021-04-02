@@ -139,6 +139,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         onEntityClick={onEntityClick}
                         onExpandClick={onLineageExpand}
                         direction={direction}
+                        isCenterNode={tree.data.urn === node.data.urn}
                     />
                 );
             })}
