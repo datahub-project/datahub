@@ -18,6 +18,7 @@ import LogoGeotab from './logos/geotab.jpg';
 import LogoThoughtworks from './logos/Thoughtworks.png';
 import LogoViasat from './logos/viasat.png';
 import LogoKlarna from './logos/klarna.svg';
+import LogoWolt from './logos/wolt.svg';
 
 const features = [
   {
@@ -106,6 +107,10 @@ const logos = [
   {
     name: 'Klarna',
     image: svgFormatter(LogoKlarna),
+  },
+  {
+    name: 'Wolt',
+    image: svgFormatter(LogoWolt, clsx(styles.logo_image_large)),
   },
 ];
 
