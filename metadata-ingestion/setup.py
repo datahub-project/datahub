@@ -82,6 +82,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
+    "glue": {"boto3"},
 }
 
 dev_requirements = {
@@ -97,6 +98,8 @@ dev_requirements = {
     "pytest-docker",
     "sqlalchemy-stubs",
     "deepdiff",
+    "freezegun",
+    "botocore",
     # Also add the plugins which are used for tests.
     *list(
         dependency
@@ -108,6 +111,7 @@ dev_requirements = {
             "ldap",
             "datahub-kafka",
             "datahub-rest",
+            "glue",
         ]
         for dependency in plugins[plugin]
     ),
@@ -159,6 +163,7 @@ setuptools.setup(
             "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
             "dbt = datahub.ingestion.source.dbt:DBTSource",
             "druid = datahub.ingestion.source.druid:DruidSource",
+            "glue = datahub.ingestion.source.glue:GlueSource",
             "hive = datahub.ingestion.source.hive:HiveSource",
             "kafka = datahub.ingestion.source.kafka:KafkaSource",
             "ldap = datahub.ingestion.source.ldap:LDAPSource",

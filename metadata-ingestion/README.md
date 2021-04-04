@@ -89,6 +89,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                             | Console sink               |
 | athena        | `pip install -e '.[athena]'`                      | AWS Athena source          |
 | bigquery      | `pip install -e '.[bigquery]'`                    | BigQuery source            |
+| glue          | `pip install -e '.[glue]'`                        | AWS Glue source            |
 | hive          | `pip install -e '.[hive]'`                        | Hive source                |
 | mssql         | `pip install -e '.[mssql]'`                       | SQL Server source          |
 | mysql         | `pip install -e '.[mysql]'`                       | MySQL source               |
@@ -353,6 +354,24 @@ source:
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
     # table_pattern/schema_pattern is same as above
+```
+
+### AWS Glue `glue`
+Extracts:
+- List of tables
+- Column types associated with each table
+- Table metadata, such as owner, description and parameters
+```yml
+source:
+  type: glue
+  config:
+    aws_region: aws_region_name # i.e. "eu-west-1"
+    env: environment used for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". # Optional, defaults to "PROD".
+    databases: list of databases to process. # Optional, if not specified then all databases will be processed.
+    aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
+    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
+    aws_secret_access_key # Optional.
+    aws_session_token # Optional.
 ```
 
 ### Druid `druid`
