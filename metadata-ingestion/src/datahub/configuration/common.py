@@ -1,5 +1,6 @@
 import re
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import IO, Any, List, Optional
 
 from pydantic import BaseModel
@@ -52,8 +53,17 @@ class ConfigurationMechanism(ABC):
 class AllowDenyPattern(ConfigModel):
     """ A class to store allow deny regexes"""
 
+    class Config:
+        # extending to arbitrary types so we can hold an re.Pattern
+        arbitrary_types_allowed = True
+
     allow: List[str] = [".*"]
     deny: List[str] = []
+    alphabet: str = "[A-Za-z0-9 _.-]"
+
+    @cached_property
+    def alphabet_pattern(self):
+        return re.compile(f"^{self.alphabet}+$")
 
     @classmethod
     def allow_all(cls):
@@ -69,3 +79,20 @@ class AllowDenyPattern(ConfigModel):
                 return True
 
         return False
+
+    def is_fully_specified_allow_list(self) -> bool:
+        """
+        If the allow patterns are literals and not full regexes, then it is considered
+        fully specified. This is useful if you want to convert a 'list + filter'
+        pattern into a 'search for the ones that are allowed' pattern, which can be
+        much more efficient in some cases.
+        """
+        for allow_pattern in self.allow:
+            if not self.alphabet_pattern.match(allow_pattern):
+                return False
+        return True
+
+    def get_allowed_list(self):
+        """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
+        assert self.is_fully_specified_allow_list()
+        return [a for a in self.allow if self.allowed(a)]
