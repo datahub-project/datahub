@@ -57,7 +57,14 @@ export default function LineageEntityNode({
                                 y: direction === Direction.Upstream ? 150 : -150,
                             },
                         };
-                        return <LinkHorizontal data={link} stroke="url(#Gradient2)" strokeWidth="1" fill="none" />;
+                        return (
+                            <LinkHorizontal
+                                data={link}
+                                stroke={`url(#gradient-${direction})`}
+                                strokeWidth="1"
+                                fill="none"
+                            />
+                        );
                     })}
                 </Group>
             )}
@@ -108,7 +115,6 @@ export default function LineageEntityNode({
                 />
                 <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
-                    {node.data.unexploredHiddenChildren}
                 </text>
             </Group>
         </PointerGroup>
