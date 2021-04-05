@@ -32,6 +32,7 @@ export default function LineageEntityNode({
     onExpandClick,
     direction,
     isCenterNode,
+    nodesToRenderByUrn,
 }: {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
     isSelected: boolean;
@@ -41,12 +42,16 @@ export default function LineageEntityNode({
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
+    nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
 }) {
+    const unexploredHiddenChildren =
+        node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
+
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
-            {node.data.unexploredHiddenChildren && (
+            {unexploredHiddenChildren && (
                 <Group>
-                    {new Array(node.data.unexploredHiddenChildren).fill('').map((_, index) => {
+                    {[...Array(unexploredHiddenChildren)].map((_, index) => {
                         const link = {
                             source: {
                                 x: 0,
@@ -116,6 +121,12 @@ export default function LineageEntityNode({
                 <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
                 </text>
+                {unexploredHiddenChildren && isHovered && (
+                    <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black" y={centerY - 20}>
+                        {unexploredHiddenChildren} hidden {direction.toLowerCase()}{' '}
+                        {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
+                    </text>
+                )}
             </Group>
         </PointerGroup>
     );

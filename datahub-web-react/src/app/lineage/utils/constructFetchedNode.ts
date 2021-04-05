@@ -13,6 +13,8 @@ export default function constructFetchedNode(
     }
 
     if (fetchedNode && !constructedNodes[urn]) {
+        console.log(fetchedNode);
+        console.log(fetchedEntities);
         const node: NodeData = {
             name: fetchedNode.name,
             urn: fetchedNode.urn,
@@ -21,10 +23,8 @@ export default function constructFetchedNode(
                 fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
                     (childUrn) => !(childUrn in fetchedEntities),
                 ).length || 0,
-            unexploredHiddenChildren:
-                fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
-                    (childUrn) => !(childUrn in fetchedEntities),
-                ).length || 0,
+            countercurrentChildrenUrns:
+                fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren'],
             children: [],
         };
 
