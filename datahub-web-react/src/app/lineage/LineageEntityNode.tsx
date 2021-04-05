@@ -123,7 +123,7 @@ export default function LineageEntityNode({
                 </text>
                 {unexploredHiddenChildren && isHovered && (
                     <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black" y={centerY - 20}>
-                        {unexploredHiddenChildren} hidden {direction.toLowerCase()}{' '}
+                        {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </text>
                 )}
