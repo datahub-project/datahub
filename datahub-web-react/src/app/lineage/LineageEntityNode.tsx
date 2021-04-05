@@ -13,8 +13,8 @@ function truncate(input, length) {
     return input;
 }
 
-const width = 140;
-const height = 80;
+export const width = 140;
+export const height = 80;
 const centerX = -width / 2;
 const centerY = -height / 2;
 
