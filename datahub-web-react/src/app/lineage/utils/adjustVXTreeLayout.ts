@@ -1,5 +1,7 @@
 import { HierarchyPointNode } from '@vx/hierarchy/lib/types';
 import { NodeData, Direction } from '../types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { width as nodeWidth } from '../LineageEntityNode';
 
 export default function adjustVXTreeLayout({
     tree,
@@ -50,12 +52,12 @@ export default function adjustVXTreeLayout({
     const edgesToReturn = tree.links().map((linkToCopy) => ({
         target: {
             x: linkToCopy.target.x,
-            y: linkToCopy.target.y,
+            y: linkToCopy.target.y + (direction === Direction.Upstream ? 0 : -(nodeWidth / 2)),
             data: { ...linkToCopy.target.data },
         },
         source: {
             x: linkToCopy.source.x,
-            y: linkToCopy.source.y,
+            y: linkToCopy.source.y + (direction === Direction.Upstream ? -(nodeWidth / 2) : 0),
             data: { ...linkToCopy.source.data },
         },
     }));

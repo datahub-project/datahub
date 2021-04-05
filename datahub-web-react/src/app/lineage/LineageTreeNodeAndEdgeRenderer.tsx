@@ -119,6 +119,8 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         fill="none"
                         key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
                         data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
+                        markerEnd="url(#triangle-downstream)"
+                        markerStart="url(#triangle-upstream)"
                     />
                 );
             })}
