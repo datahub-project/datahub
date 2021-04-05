@@ -13,8 +13,6 @@ export default function constructFetchedNode(
     }
 
     if (fetchedNode && !constructedNodes[urn]) {
-        console.log(fetchedNode);
-        console.log(fetchedEntities);
         const node: NodeData = {
             name: fetchedNode.name,
             urn: fetchedNode.urn,
