@@ -1,6 +1,5 @@
 import re
 from abc import ABC, abstractmethod
-from functools import cached_property
 from typing import IO, Any, List, Optional
 
 from pydantic import BaseModel
@@ -57,7 +56,7 @@ class AllowDenyPattern(ConfigModel):
     deny: List[str] = []
     alphabet: str = "[A-Za-z0-9 _.-]"
 
-    @cached_property
+    @property
     def alphabet_pattern(self):
         return re.compile(f"^{self.alphabet}+$")
 
