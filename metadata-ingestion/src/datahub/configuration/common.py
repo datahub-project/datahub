@@ -53,10 +53,6 @@ class ConfigurationMechanism(ABC):
 class AllowDenyPattern(ConfigModel):
     """ A class to store allow deny regexes"""
 
-    class Config:
-        # extending to arbitrary types so we can hold an re.Pattern
-        arbitrary_types_allowed = True
-
     allow: List[str] = [".*"]
     deny: List[str] = []
     alphabet: str = "[A-Za-z0-9 _.-]"
