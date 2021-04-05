@@ -93,13 +93,9 @@ dev_requirements = {
     "pytest-docker",
     "sqlalchemy-stubs",
     "deepdiff",
-<<<<<<< HEAD
+    "freezegun",
     "build",
     "twine",
-=======
-    "freezegun",
-    "botocore",
->>>>>>> master
     # Also add the plugins which are used for tests.
     *list(
         dependency
@@ -109,13 +105,10 @@ dev_requirements = {
             "mssql",
             "mongodb",
             "ldap",
+            "glue",
             "datahub-kafka",
             "datahub-rest",
-<<<<<<< HEAD
             "airflow",
-=======
-            "glue",
->>>>>>> master
         ]
         for dependency in plugins[plugin]
     ),
