@@ -126,11 +126,10 @@ class GlueSource(Source):
                 return tables
 
             if self.source_config.database_pattern.is_fully_specified_allow_list():
+                all_tables: List = []
                 database_names = self.source_config.database_pattern.get_allowed_list()
-                if database_names:
-                    all_tables: List = []
-                    for database in database_names:
-                        all_tables += get_tables_from_database(database, all_tables)
+                for database in database_names:
+                    all_tables += get_tables_from_database(database, all_tables)
             else:
                 all_tables = get_tables_from_all_databases()
             return all_tables
