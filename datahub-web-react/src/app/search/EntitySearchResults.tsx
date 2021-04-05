@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Alert, Button, Card, Divider, List, Modal, Pagination, Row, Typography } from 'antd';
+import { Alert, Button, Card, Divider, Drawer, List, Pagination, Row, Typography } from 'antd';
 import { ListProps } from 'antd/lib/list';
 import { SearchCfg } from '../../conf';
 import { useGetSearchResultsQuery } from '../../graphql/search.generated';
@@ -28,6 +28,12 @@ const ResultList = styled(List)`
         margin-top: 12px;
         padding: 16px 32px;
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
+`;
+
+const ApplyButton = styled(Button)`
+    && {
+        margin: 20px 25px 0 25px;
     }
 `;
 
@@ -105,19 +111,14 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                     </>
                 )}
             </Button>
-            <Modal
-                title="Filters"
-                footer={<Button onClick={onApplyFilters}>Apply</Button>}
-                visible={isEditingFilters}
-                destroyOnClose
-                onCancel={onCloseEditFilters}
-            >
+            <Drawer title="Filters" placement="left" closable visible={isEditingFilters} onClose={onCloseEditFilters}>
                 <SearchFilters
                     facets={data?.search?.facets || []}
                     selectedFilters={selectedFilters}
                     onFilterSelect={onFilterSelect}
                 />
-            </Modal>
+                <ApplyButton onClick={onApplyFilters}>Apply</ApplyButton>
+            </Drawer>
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
