@@ -21,6 +21,10 @@ export default function constructFetchedNode(
                 fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
                     (childUrn) => !(childUrn in fetchedEntities),
                 ).length || 0,
+            unexploredHiddenChildren:
+                fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
+                    (childUrn) => !(childUrn in fetchedEntities),
+                ).length || 0,
             children: [],
         };
 

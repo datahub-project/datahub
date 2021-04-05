@@ -1,5 +1,6 @@
 import React from 'react';
 import { Group } from '@vx/group';
+import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { EntityType } from '../../types.generated';
@@ -43,6 +44,23 @@ export default function LineageEntityNode({
 }) {
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
+            {node.data.unexploredHiddenChildren && (
+                <Group>
+                    {new Array(node.data.unexploredHiddenChildren).fill('').map((_, index) => {
+                        const link = {
+                            source: {
+                                x: 0,
+                                y: direction === Direction.Upstream ? 70 : -70,
+                            },
+                            target: {
+                                x: (0.5 / (index + 1)) * 80 * (index % 2 === 0 ? 1 : -1),
+                                y: direction === Direction.Upstream ? 150 : -150,
+                            },
+                        };
+                        return <LinkHorizontal data={link} stroke="url(#Gradient2)" strokeWidth="1" fill="none" />;
+                    })}
+                </Group>
+            )}
             {node.data.unexploredChildren && (
                 <Group
                     onClick={() => {
@@ -90,6 +108,7 @@ export default function LineageEntityNode({
                 />
                 <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                    {node.data.unexploredHiddenChildren}
                 </text>
             </Group>
         </PointerGroup>
