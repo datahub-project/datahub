@@ -1,4 +1,4 @@
-import { Typography, Modal, Button, Input, message } from 'antd';
+import { Typography, Modal, Button, Input, Form, message } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -9,21 +9,17 @@ import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated'
 const { TextArea } = Input;
 
 const DescriptionText = styled(Typography.Text)`
-    padding-right: 7px;
+    padding-right: 8px;
 `;
 
 const DescriptionTextInModal = styled(Typography.Text)`
-    padding: 4px 11px;
+    padding: 4px 10px;
 `;
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     position: absolute;
-    margin-top: 5px;
-`;
-
-const EditTextArea = styled(TextArea)`
-    margin-top: 15px;
+    margin-top: 4px;
 `;
 
 const MessageKey = 'UpdateSchemaDescription';
@@ -77,15 +73,21 @@ export default function DescriptionField({ description, updatedDescription, onHo
                         </>
                     }
                 >
-                    {(updatedDescription || description) && (
-                        <DescriptionTextInModal>{updatedDescription || description}</DescriptionTextInModal>
-                    )}
-                    <EditTextArea
-                        value={updatedDesc}
-                        onChange={(e) => setDesc(e.target.value)}
-                        placeholder="Description"
-                        autoSize={{ minRows: 2, maxRows: 6 }}
-                    />
+                    <Form layout="horizontal" labelCol={{ span: 4 }}>
+                        {(updatedDescription || description) && (
+                            <Form.Item label="Original">
+                                <DescriptionTextInModal>{updatedDescription || description}</DescriptionTextInModal>
+                            </Form.Item>
+                        )}
+                        <Form.Item label="Updated">
+                            <TextArea
+                                value={updatedDesc}
+                                onChange={(e) => setDesc(e.target.value)}
+                                placeholder="Description"
+                                autoSize={{ minRows: 2, maxRows: 6 }}
+                            />
+                        </Form.Item>
+                    </Form>
                 </Modal>
             )}
         </>
