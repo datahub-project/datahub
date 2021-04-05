@@ -103,18 +103,14 @@ export default function LineageViz({
                             >
                                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
                             </marker>
-                            <marker
-                                id="triangle-upstream"
-                                viewBox="0 0 10 10"
-                                refX="0"
-                                refY="5"
-                                markerUnits="strokeWidth"
-                                markerWidth="10"
-                                markerHeight="10"
-                                orient="auto"
-                            >
-                                <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#000" />
-                            </marker>
+                            <linearGradient id="gradient-Downstream" x1="1" x2="0" y1="0" y2="0">
+                                <stop offset="0%" stopColor="black" />
+                                <stop offset="100%" stopColor="black" stopOpacity="0" />
+                            </linearGradient>
+                            <linearGradient id="gradient-Upstream" x1="0" x2="1" y1="0" y2="0">
+                                <stop offset="0%" stopColor="black" />
+                                <stop offset="100%" stopColor="black" stopOpacity="0" />
+                            </linearGradient>
                         </defs>
                         <rect width={width} height={height} fill="#f6f8fa" />
                         <LineageTree
