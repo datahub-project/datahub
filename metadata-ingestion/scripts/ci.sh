@@ -18,4 +18,4 @@ isort --check-only src tests
 flake8 --count --statistics src tests
 mypy -p datahub
 
-pytest
+pytest -vv
