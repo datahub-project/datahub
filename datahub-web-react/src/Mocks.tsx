@@ -256,10 +256,26 @@ export const dataset6 = {
     urn: 'urn:li:dataset:6',
 };
 
+export const dataset7 = {
+    ...dataset3,
+    name: 'Seventh Test Dataset',
+    urn: 'urn:li:dataset:7',
+};
+
 export const dataset3WithLineage = {
     ...dataset3,
     upstreamLineage: {
         upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset7,
+            },
             {
                 created: {
                     time: 0,
@@ -334,6 +350,16 @@ export const dataset5WithLineage = {
                     time: 0,
                 },
                 type: DatasetLineageType.Transformed,
+                dataset: dataset7,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
                 dataset: dataset6,
             },
             {
@@ -377,6 +403,38 @@ export const dataset6WithLineage = {
                 },
                 type: DatasetLineageType.Transformed,
                 dataset: dataset4,
+            },
+        ],
+    },
+};
+
+export const dataset7WithLineage = {
+    ...dataset7,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset5,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset3,
             },
         ],
     },
