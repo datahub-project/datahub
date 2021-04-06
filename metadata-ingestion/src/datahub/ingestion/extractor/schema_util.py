@@ -71,7 +71,7 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
             type=_get_column_type(parsed_field.type),
             description=parsed_field.props.get("doc", None),
             recursive=False,
-            nullable=(parsed_field.type == "null"),
+            nullable=parsed_field.has_default,
         )
 
         fields.append(field)
