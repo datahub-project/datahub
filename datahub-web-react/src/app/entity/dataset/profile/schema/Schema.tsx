@@ -20,6 +20,7 @@ import {
 import TagGroup from '../../../../shared/tags/TagGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
+import DescriptionField from './SchemaDescriptionField';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;
@@ -54,11 +55,6 @@ const defaultColumns = [
             return <Typography.Text strong>{fieldPath}</Typography.Text>;
         },
     },
-    {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-    },
 ];
 
 function convertEditableSchemaMetadataForUpdate(
@@ -75,16 +71,11 @@ function convertEditableSchemaMetadataForUpdate(
 }
 
 export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
-    const [hoveredIndex, setHoveredIndex] = useState<number | undefined>(undefined);
+    const [tagHoveredIndex, setTagHoveredIndex] = useState<number | undefined>(undefined);
+    const [descHoveredIndex, setDescHoveredIndex] = useState<number | undefined>(undefined);
+    const [showRaw, setShowRaw] = useState(false);
 
-    const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
-        if (!record) return Promise.resolve();
-        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
-            fieldPath: record?.fieldPath,
-            description: record?.description,
-            globalTags: update,
-        };
-
+    const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
         if (existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) => field.fieldPath === record?.fieldPath)) {
@@ -104,6 +95,41 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         return updateEditableSchema(existingMetadataAsUpdate);
     };
 
+    const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
+        if (!record) return Promise.resolve();
+        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
+            fieldPath: record?.fieldPath,
+            description: record?.description,
+            globalTags: update,
+        };
+
+        return updateSchema(newFieldInfo, record);
+    };
+
+    const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
+        if (!record) return Promise.resolve();
+        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
+            fieldPath: record?.fieldPath,
+            description: updatedDescription,
+            globalTags: { tags: convertTagsForUpdate(record?.globalTags?.tags || []) },
+        };
+        return updateSchema(newFieldInfo, record);
+    };
+
+    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+        ) || { fieldPath: record.fieldPath };
+        return (
+            <DescriptionField
+                description={description}
+                updatedDescription={relevantEditableFieldInfo.description}
+                onHover={descHoveredIndex !== undefined && rowIndex === descHoveredIndex}
+                onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
+            />
+        );
+    };
+
     const tagGroupRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
@@ -113,13 +139,28 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
                 canRemove
-                canAdd={hoveredIndex === rowIndex}
-                onOpenModal={() => setHoveredIndex(undefined)}
+                canAdd={tagHoveredIndex === rowIndex}
+                onOpenModal={() => setTagHoveredIndex(undefined)}
                 updateTags={(update) =>
                     onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
                 }
             />
         );
+    };
+
+    const descriptionColumn = {
+        title: 'Description',
+        dataIndex: 'description',
+        key: 'description',
+        render: descriptionRender,
+        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
+            onMouseEnter: () => {
+                setDescHoveredIndex(rowIndex);
+            },
+            onMouseLeave: () => {
+                setDescHoveredIndex(undefined);
+            },
+        }),
     };
 
     const tagColumn = {
@@ -130,15 +171,13 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         render: tagGroupRender,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
-                setHoveredIndex(rowIndex);
+                setTagHoveredIndex(rowIndex);
             },
             onMouseLeave: () => {
-                setHoveredIndex(undefined);
+                setTagHoveredIndex(undefined);
             },
         }),
     };
-
-    const [showRaw, setShowRaw] = useState(false);
 
     return (
         <>
@@ -160,7 +199,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 <Table
                     pagination={false}
                     dataSource={schema?.fields}
-                    columns={[...defaultColumns, tagColumn]}
+                    columns={[...defaultColumns, descriptionColumn, tagColumn]}
                     rowKey="fieldPath"
                 />
             )}
