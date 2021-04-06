@@ -1,25 +1,17 @@
-from typing import Dict, Set
 import os
+from typing import Dict, Set
 
 import setuptools
 
-
-def get_version():
-    root = os.path.dirname(__file__)
-    changelog = os.path.join(root, "CHANGELOG")
-    with open(changelog) as f:
-        return f.readline().strip()
+package_metadata: dict = {}
+with open("./src/datahub/__init__.py") as fp:
+    exec(fp.read(), package_metadata)
 
 
 def get_long_description():
     root = os.path.dirname(__file__)
     with open(os.path.join(root, "README.md")) as f:
         description = f.read()
-
-    description += "\n\nChangelog\n=========\n\n"
-
-    with open(os.path.join(root, "CHANGELOG")) as f:
-        description += f.read()
 
     return description
 
@@ -61,6 +53,11 @@ sql_common = {
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
+    # Sink plugins.
+    "datahub-kafka": kafka_common,
+    "datahub-rest": {"requests>=2.25.1"},
+    # Integrations.
+    "airflow": {"apache-airflow >= 1.10.3"},
     # Source plugins
     "kafka": kafka_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
@@ -69,7 +66,8 @@ plugins: Dict[str, Set[str]] = {
         # This will change to a normal reference to pybigquery once a new version is released to PyPI.
         # We need to use this custom version in order to correctly get table descriptions.
         # See this PR by hsheth2 for details: https://github.com/tswast/pybigquery/pull/82.
-        "pybigquery @ git+https://github.com/tswast/pybigquery@3250fa796b28225cb1c89d7afea3c2e2a2bf2305#egg=pybigquery"
+        # "pybigquery @ git+https://github.com/tswast/pybigquery@3250fa796b28225cb1c89d7afea3c2e2a2bf2305#egg=pybigquery"
+        "pybigquery"
     },
     "hive": sql_common | {"pyhive[hive]"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
@@ -80,9 +78,6 @@ plugins: Dict[str, Set[str]] = {
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
     "glue": {"boto3"},
-    # Sink plugins.
-    "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests>=2.25.1"},
 }
 
 dev_requirements = {
@@ -99,7 +94,8 @@ dev_requirements = {
     "sqlalchemy-stubs",
     "deepdiff",
     "freezegun",
-    "botocore",
+    "build",
+    "twine",
     # Also add the plugins which are used for tests.
     *list(
         dependency
@@ -109,19 +105,27 @@ dev_requirements = {
             "mssql",
             "mongodb",
             "ldap",
+            "glue",
             "datahub-kafka",
             "datahub-rest",
-            "glue",
+            "airflow",
         ]
         for dependency in plugins[plugin]
     ),
+    "apache-airflow-providers-snowflake",  # Used in the example DAGs.
 }
 
 
 setuptools.setup(
-    name="datahub",
-    version=get_version(),
-    url="https://github.com/linkedin/datahub",
+    # Package metadata.
+    name=package_metadata["__package_name__"],
+    version=package_metadata["__version__"],
+    url="https://datahubproject.io/",
+    project_urls={
+        "Documentation": "https://datahubproject.io/docs/",
+        "Source": "https://github.com/linkedin/datahub",
+        "Changelog": "https://github.com/linkedin/datahub/releases",
+    },
     author="DataHub Committers",
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
@@ -147,6 +151,8 @@ setuptools.setup(
         "Environment :: MacOS X",
         "Topic :: Software Development",
     ],
+    # Package info.
+    zip_safe=False,
     python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
@@ -179,7 +185,11 @@ setuptools.setup(
             "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
             "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         ],
+        "apache_airflow_provider": [
+            "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
+        ],
     },
+    # Dependencies.
     install_requires=list(base_requirements | framework_common),
     extras_require={
         "base": list(framework_common),

@@ -232,6 +232,9 @@ class GlueSource(Source):
     def get_report(self):
         return self.report
 
+    def close(self):
+        pass
+
 
 def get_column_type(
     glue_source: GlueSource, field_type: str, table_name: str, field_name: str

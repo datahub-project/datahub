@@ -28,6 +28,7 @@ def test_list_all():
     runner = CliRunner()
     result = runner.invoke(datahub, ["ingest-list-plugins"])
     assert result.exit_code == 0
+    assert len(result.output.splitlines()) > 3
 
 
 def test_registry():

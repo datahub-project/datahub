@@ -7,8 +7,8 @@ from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink, _KafkaCallbac
 
 
 class KafkaSinkTest(unittest.TestCase):
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext")
-    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_config(self, mock_producer, mock_context):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
@@ -22,9 +22,9 @@ class KafkaSinkTest(unittest.TestCase):
         assert constructor_args[1] == record_envelope
         assert constructor_args[2] == write_callback
 
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext")
-    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
-    @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback")
+    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
     def test_kafka_sink_write(self, mock_k_callback, mock_producer, mock_context):
         mock_producer_instance = mock_producer.return_value
         mock_k_callback_instance = mock_k_callback.return_value
@@ -46,16 +46,16 @@ class KafkaSinkTest(unittest.TestCase):
 
     # TODO: Test that kafka producer is configured correctly
 
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext")
-    @patch("datahub.emitter.kafka_emitter.SerializingProducer")
+    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_close(self, mock_producer, mock_context):
         mock_producer_instance = mock_producer.return_value
         kafka_sink = DatahubKafkaSink.create({}, mock_context)
         kafka_sink.close()
         mock_producer_instance.flush.assert_called_once()
 
-    @patch("datahub.ingestion.sink.datahub_kafka.RecordEnvelope")
-    @patch("datahub.ingestion.sink.datahub_kafka.WriteCallback")
+    @patch("datahub.ingestion.sink.datahub_kafka.RecordEnvelope", autospec=True)
+    @patch("datahub.ingestion.sink.datahub_kafka.WriteCallback", autospec=True)
     def test_kafka_callback_class(self, mock_w_callback, mock_re):
         callback = _KafkaCallback(
             SinkReport(), record_envelope=mock_re, write_callback=mock_w_callback
@@ -63,7 +63,9 @@ class KafkaSinkTest(unittest.TestCase):
         mock_error = MagicMock()
         mock_message = MagicMock()
         callback.kafka_callback(mock_error, mock_message)
-        assert mock_w_callback.on_failure.call_count == 1
-        mock_w_callback.on_failure.called_with(mock_re, None, {"error", mock_error})
+        mock_w_callback.on_failure.assert_called_once()
+        assert mock_w_callback.on_failure.call_args[0][0] == mock_re
+        assert mock_w_callback.on_failure.call_args[0][1] == mock_error
         callback.kafka_callback(None, mock_message)
-        mock_w_callback.on_success.called_once_with(mock_re, {"msg", mock_message})
+        mock_w_callback.on_success.assert_called_once()
+        assert mock_w_callback.on_success.call_args[0][0] == mock_re
