@@ -7,13 +7,11 @@ DataHub ingestion pipeline within an Airflow DAG.
 from datetime import timedelta
 
 import yaml
-
 from airflow import DAG
-from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
 
 from datahub.ingestion.run.pipeline import Pipeline
-
 
 default_args = {
     "owner": "airflow",

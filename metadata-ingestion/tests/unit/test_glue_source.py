@@ -4,6 +4,7 @@ from datetime import datetime
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.glue import GlueSource, GlueSourceConfig, get_column_type
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
@@ -31,7 +32,10 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 class GlueSourceTest(unittest.TestCase):
-    glue_source = GlueSource(ctx=None, config=GlueSourceConfig(aws_region="us-east-1"))
+    glue_source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1"),
+    )
 
     def test_get_column_type_contains_key(self):
 
@@ -120,7 +124,7 @@ class GlueSourceTest(unittest.TestCase):
 
         with Stubber(self.glue_source.glue_client) as stubber:
             stubber.add_response("search_tables", response, {})
-            actual_work_unit = next(self.glue_source.get_workunits())
+            actual_work_unit = list(self.glue_source.get_workunits())[0]
 
         expected_metadata_work_unit = create_metadata_work_unit(timestamp)
 
@@ -168,6 +172,7 @@ def create_metadata_work_unit(timestamp):
             type=SchemaFieldDataType(type=NumberTypeClass()),
             description="Maximum attendees permitted",
             nullable=True,
+            recursive=False,
         )
     ]
 

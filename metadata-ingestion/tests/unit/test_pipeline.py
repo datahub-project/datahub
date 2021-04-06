@@ -5,8 +5,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 
 
 class PipelineTest(unittest.TestCase):
-    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits")
-    @patch("datahub.ingestion.sink.console.ConsoleSink.close")
+    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
             {
