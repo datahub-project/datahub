@@ -2,6 +2,7 @@ import { HierarchyNode } from '@vx/hierarchy/lib/types';
 import React, { useCallback, useEffect, useState } from 'react';
 import debounce from 'lodash.debounce';
 import { Tree } from '@vx/hierarchy';
+import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
@@ -9,14 +10,7 @@ import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 type LineageTreeProps = {
     data: HierarchyNode<NodeData>;
     zoom: {
-        transformMatrix: {
-            scaleX: number;
-            scaleY: number;
-            translateX: number;
-            translateY: number;
-            skewX: number;
-            skewY: number;
-        };
+        transformMatrix: TransformMatrix;
     };
     canvasHeight: number;
     canvasWidth: number;
@@ -40,6 +34,11 @@ export default function LineageTree({
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
     const [yCanvasScale, setYCanvasScale] = useState(1);
+
+    useEffect(() => {
+        setXCanvasScale(1);
+        setYCanvasScale(1);
+    }, [data.data.urn]);
 
     // Need to disable exhaustive-deps because react has trouble introspecting the debounce call's dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
