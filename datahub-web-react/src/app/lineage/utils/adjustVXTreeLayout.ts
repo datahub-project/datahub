@@ -62,5 +62,5 @@ export default function adjustVXTreeLayout({
         },
     }));
 
-    return { nodesToRender: nodesToReturn, edgesToRender: edgesToReturn };
+    return { nodesToRender: nodesToReturn, edgesToRender: edgesToReturn, nodesByUrn };
 }
