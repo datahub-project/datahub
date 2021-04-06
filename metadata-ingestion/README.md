@@ -41,6 +41,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source          |
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
+| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
@@ -260,6 +261,28 @@ source:
     username: user
     password: pass
     host_port: account_name
+    # table_pattern/schema_pattern is same as above
+    # options is same as above
+```
+
+### Oracle `oracle`
+
+Extracts:
+
+- List of databases, schema, and tables
+- Column types associated with each table
+
+```yml
+source:
+  type: oracle
+  config:
+    # For more details on authentication, see the documentation:
+    # https://docs.sqlalchemy.org/en/14/dialects/oracle.html#dialect-oracle-cx_oracle-connect and
+    # https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#connection-strings.
+    username: user
+    password: pass
+    host_port: localhost:5432
+    database: dbname
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
