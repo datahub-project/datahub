@@ -78,7 +78,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
 }: Props) {
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
 
-    const { nodesToRender, edgesToRender } = useMemo(() => {
+    const { nodesToRender, edgesToRender, nodesByUrn } = useMemo(() => {
         return adjustVXTreeLayout({ tree, direction });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tree, direction, xCanvasScale, yCanvasScale]);
@@ -142,6 +142,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         onExpandClick={onLineageExpand}
                         direction={direction}
                         isCenterNode={tree.data.urn === node.data.urn}
+                        nodesToRenderByUrn={nodesByUrn}
                     />
                 );
             })}

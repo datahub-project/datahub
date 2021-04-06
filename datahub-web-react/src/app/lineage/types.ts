@@ -28,6 +28,9 @@ export type NodeData = {
     type?: EntityType;
     children?: Array<NodeData>;
     unexploredChildren?: number;
+    // Hidden children are unexplored but in the opposite direction of the flow of the graph.
+    // Currently our visualization does not support expanding in two directions
+    countercurrentChildrenUrns?: string[];
 };
 
 export type FetchedEntities = { [x: string]: FetchedEntity };

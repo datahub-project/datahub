@@ -1,5 +1,6 @@
 import React from 'react';
 import { Group } from '@vx/group';
+import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { EntityType } from '../../types.generated';
@@ -31,6 +32,7 @@ export default function LineageEntityNode({
     onExpandClick,
     direction,
     isCenterNode,
+    nodesToRenderByUrn,
 }: {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
     isSelected: boolean;
@@ -40,9 +42,37 @@ export default function LineageEntityNode({
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
+    nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
 }) {
+    const unexploredHiddenChildren =
+        node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
+
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
+            {unexploredHiddenChildren && (
+                <Group>
+                    {[...Array(unexploredHiddenChildren)].map((_, index) => {
+                        const link = {
+                            source: {
+                                x: 0,
+                                y: direction === Direction.Upstream ? 70 : -70,
+                            },
+                            target: {
+                                x: (0.5 / (index + 1)) * 80 * (index % 2 === 0 ? 1 : -1),
+                                y: direction === Direction.Upstream ? 150 : -150,
+                            },
+                        };
+                        return (
+                            <LinkHorizontal
+                                data={link}
+                                stroke={`url(#gradient-${direction})`}
+                                strokeWidth="1"
+                                fill="none"
+                            />
+                        );
+                    })}
+                </Group>
+            )}
             {node.data.unexploredChildren && (
                 <Group
                     onClick={() => {
@@ -91,6 +121,12 @@ export default function LineageEntityNode({
                 <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
                 </text>
+                {unexploredHiddenChildren && isHovered && (
+                    <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black" y={centerY - 20}>
+                        {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
+                        {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
+                    </text>
+                )}
             </Group>
         </PointerGroup>
     );
