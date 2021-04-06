@@ -26,9 +26,9 @@ def test_registry_nonempty(registry):
 def test_list_all():
     # This just verifies that it runs without error.
     runner = CliRunner()
-    result = runner.invoke(datahub, ["ingest-list-plugins"])
+    result = runner.invoke(datahub, ["check", "plugins", "--verbose"])
     assert result.exit_code == 0
-    assert len(result.output.splitlines()) > 3
+    assert len(result.output.splitlines()) > 20
 
 
 def test_registry():

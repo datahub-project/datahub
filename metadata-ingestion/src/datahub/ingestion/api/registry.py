@@ -5,6 +5,7 @@ from typing import Dict, Generic, Type, TypeVar, Union
 import pkg_resources
 import typing_inspect
 
+from datahub import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 T = TypeVar("T")
@@ -76,15 +77,33 @@ class Registry(Generic[T]):
         tp = self._mapping[key]
         if isinstance(tp, Exception):
             raise ConfigurationError(
-                f'{key} is disabled; try running: pip install ".[{key}]"'
+                f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
             return tp
 
-    def __str__(self):
+    def summary(self, verbose=True):
         col_width = 15
-        return "\n".join(
-            f"{key}{'' if self.is_enabled(key) else (' ' * (col_width - len(key))) + '(disabled)'}"
-            for key in sorted(self._mapping.keys())
-        )
+        verbose_col_width = 20
+
+        lines = []
+        for key in sorted(self._mapping.keys()):
+            line = f"{key}"
+            if not self.is_enabled(key):
+                # Plugin is disabled.
+                line += " " * (col_width - len(key))
+
+                details = "(disabled)"
+                if verbose:
+                    details += " " * (verbose_col_width - len(details))
+                    details += repr(self._mapping[key])
+                line += details
+            elif verbose:
+                # Plugin is enabled.
+                line += " " * (col_width - len(key))
+                line += self.get(key).__name__
+
+            lines.append(line)
+
+        return "\n".join(lines)
