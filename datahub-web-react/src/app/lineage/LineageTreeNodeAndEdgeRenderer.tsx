@@ -2,6 +2,7 @@ import { HierarchyPointNode } from '@vx/hierarchy/lib/types';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
+import { TransformMatrix } from '@vx/zoom/lib/types';
 
 import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
 import LineageEntityNode from './LineageEntityNode';
@@ -10,14 +11,7 @@ import adjustVXTreeLayout from './utils/adjustVXTreeLayout';
 type Props = {
     tree: HierarchyPointNode<NodeData>;
     zoom: {
-        transformMatrix: {
-            scaleX: number;
-            scaleY: number;
-            translateX: number;
-            translateY: number;
-            skewX: number;
-            skewY: number;
-        };
+        transformMatrix: TransformMatrix;
     };
     canvasHeight: number;
     onEntityClick: (EntitySelectParams) => void;
