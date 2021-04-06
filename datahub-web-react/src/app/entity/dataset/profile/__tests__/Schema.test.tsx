@@ -49,4 +49,22 @@ describe('Schema', () => {
         );
         expect(getByText('Legacy')).toBeInTheDocument();
     });
+
+    it('renders description', () => {
+        const { getByText } = render(
+            <TestPageContainer>
+                <Schema schema={sampleSchemaWithTags} updateEditableSchema={jest.fn()} />
+            </TestPageContainer>,
+        );
+        expect(getByText('order id')).toBeInTheDocument();
+    });
+
+    it('renders field', () => {
+        const { getByText } = render(
+            <TestPageContainer>
+                <Schema schema={sampleSchemaWithTags} updateEditableSchema={jest.fn()} />
+            </TestPageContainer>,
+        );
+        expect(getByText('shipping_address')).toBeInTheDocument();
+    });
 });
