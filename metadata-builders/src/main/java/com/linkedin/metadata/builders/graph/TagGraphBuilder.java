@@ -33,8 +33,6 @@ public class TagGraphBuilder extends BaseGraphBuilder<TagSnapshot> {
         final TagUrn urn = snapshot.getUrn();
         final TagEntity entity = new TagEntity().setUrn(urn).setName(urn.getName());
 
-        setRemovedProperty(snapshot, entity);
-
         return Collections.singletonList(entity);
     }
 }
