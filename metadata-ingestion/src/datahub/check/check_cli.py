@@ -55,7 +55,7 @@ def plugins(verbose) -> None:
     click.echo(sink_registry.summary(verbose=verbose))
     click.echo()
     if not verbose:
-        click.echo("For details on why a plugin is disabled, rerun with '-v'")
+        click.echo("For details on why a plugin is disabled, rerun with '--verbose'")
     click.echo(
         f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
     )
