@@ -11,6 +11,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.MLModelUrn;
+import com.linkedin.common.urn.TagUrn;
 
 import javax.annotation.Nonnull;
 
@@ -71,6 +72,11 @@ public final class Urns {
   @Nonnull
   public static DataJobUrn makeDataJobUrn(@Nonnull String jobId) {
     return new DataJobUrn(new DataFlowUrn("airflow", "my_flow", "production_cluster"), jobId);
+  }
+
+  @Nonnull
+  public static TagUrn makeTagUrn(@Nonnull String tagName) {
+    return new TagUrn(tagName);
   }
 
 }
