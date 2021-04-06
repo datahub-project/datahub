@@ -79,10 +79,10 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "glue": {"boto3"},
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
-    "glue": {"boto3"},
 }
 
 dev_requirements = {
