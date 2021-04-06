@@ -21,4 +21,4 @@ black --check .
 isort --check-only .
 flake8 --count --statistics .
 mypy .
-pytest
+pytest -vv

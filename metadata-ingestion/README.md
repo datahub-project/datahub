@@ -85,6 +85,10 @@ _Limitation: the datahub_docker.sh convenience script assumes that the recipe an
 ./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
+### Install from source
+
+If you'd like to install from source, see the [developer guide](./developing.md).
+
 ### Usage within Airflow
 
 We have also included a couple [sample DAGs](./examples/airflow) that can be used with [Airflow](https://airflow.apache.org/).
