@@ -45,6 +45,7 @@ describe('constructTree', () => {
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
+                    countercurrentChildrenUrns: [],
                     children: [],
                 },
             ],
@@ -68,6 +69,7 @@ describe('constructTree', () => {
             unexploredChildren: 0,
             children: [
                 {
+                    countercurrentChildrenUrns: [],
                     name: 'Fifth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
@@ -100,12 +102,14 @@ describe('constructTree', () => {
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
+                    countercurrentChildrenUrns: ['urn:li:dataset:3'],
                     children: [
                         {
                             name: 'Sixth Test Dataset',
                             type: 'DATASET',
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:6',
+                            countercurrentChildrenUrns: ['urn:li:dataset:4'],
                             children: [
                                 {
                                     name: 'Fifth Test Dataset',
@@ -113,6 +117,11 @@ describe('constructTree', () => {
                                     unexploredChildren: 0,
                                     urn: 'urn:li:dataset:5',
                                     children: [],
+                                    countercurrentChildrenUrns: [
+                                        'urn:li:dataset:7',
+                                        'urn:li:dataset:6',
+                                        'urn:li:dataset:4',
+                                    ],
                                 },
                             ],
                         },
@@ -122,6 +131,7 @@ describe('constructTree', () => {
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:5',
                             children: [],
+                            countercurrentChildrenUrns: ['urn:li:dataset:7', 'urn:li:dataset:6', 'urn:li:dataset:4'],
                         },
                     ],
                 },
@@ -169,6 +179,7 @@ describe('constructTree', () => {
                     unexploredChildren: 2,
                     urn: 'urn:li:dataset:4',
                     children: [],
+                    countercurrentChildrenUrns: ['urn:li:dataset:3'],
                 },
             ],
         });
