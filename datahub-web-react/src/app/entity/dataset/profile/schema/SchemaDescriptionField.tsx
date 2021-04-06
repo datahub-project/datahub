@@ -16,6 +16,11 @@ const DescriptionTextInModal = styled(Typography.Text)`
     padding: 4px 10px;
 `;
 
+const FormLabel = styled(Typography.Text)`
+    font-size: 10px;
+    font-weight: bold;
+`;
+
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     position: absolute;
@@ -73,13 +78,13 @@ export default function DescriptionField({ description, updatedDescription, onHo
                         </>
                     }
                 >
-                    <Form layout="horizontal" labelCol={{ span: 4 }}>
+                    <Form layout="vertical">
                         {(updatedDescription || description) && (
-                            <Form.Item label="Original">
+                            <Form.Item label={<FormLabel>Original:</FormLabel>}>
                                 <DescriptionTextInModal>{updatedDescription || description}</DescriptionTextInModal>
                             </Form.Item>
                         )}
-                        <Form.Item label="Updated">
+                        <Form.Item label={<FormLabel>Updated:</FormLabel>}>
                             <TextArea
                                 value={updatedDesc}
                                 onChange={(e) => setDesc(e.target.value)}
