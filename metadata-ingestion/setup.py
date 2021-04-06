@@ -53,6 +53,11 @@ sql_common = {
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
+    # Sink plugins.
+    "datahub-kafka": kafka_common,
+    "datahub-rest": {"requests>=2.25.1"},
+    # Integrations.
+    "airflow": {"apache-airflow >= 1.10.3"},
     # Source plugins
     "kafka": kafka_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
@@ -72,12 +77,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
-    # Sink plugins.
-    "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests>=2.25.1"},
     "glue": {"boto3"},
-    # Integrations.
-    "airflow": {"apache-airflow >= 1.10.3"},
 }
 
 dev_requirements = {

@@ -92,9 +92,9 @@ export default function LineageViz({
                     >
                         <defs>
                             <marker
-                                id="triangle"
+                                id="triangle-downstream"
                                 viewBox="0 0 10 10"
-                                refX="80"
+                                refX="10"
                                 refY="5"
                                 markerUnits="strokeWidth"
                                 markerWidth="10"
@@ -102,6 +102,18 @@ export default function LineageViz({
                                 orient="auto"
                             >
                                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+                            </marker>
+                            <marker
+                                id="triangle-upstream"
+                                viewBox="0 0 10 10"
+                                refX="0"
+                                refY="5"
+                                markerUnits="strokeWidth"
+                                markerWidth="10"
+                                markerHeight="10"
+                                orient="auto"
+                            >
+                                <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#000" />
                             </marker>
                         </defs>
                         <rect width={width} height={height} fill="#f6f8fa" />

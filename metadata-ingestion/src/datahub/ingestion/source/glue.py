@@ -1,10 +1,12 @@
 import time
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import Dict, Iterable, List, Optional
 
 import boto3
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -38,7 +40,8 @@ from datahub.metadata.schema_classes import (
 
 class GlueSourceConfig(ConfigModel):
     env: str = "PROD"
-    databases: Optional[List[str]] = None
+    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
@@ -72,9 +75,13 @@ class GlueSourceConfig(ConfigModel):
 @dataclass
 class GlueSourceReport(SourceReport):
     tables_scanned = 0
+    filtered: List[str] = dataclass_field(default_factory=list)
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
+
+    def report_table_dropped(self, table: str) -> None:
+        self.filtered.append(table)
 
 
 class GlueSource(Source):
@@ -87,7 +94,6 @@ class GlueSource(Source):
         self.report = GlueSourceReport()
         self.glue_client = config.glue_client
         self.env = config.env
-        self.databases = config.databases
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -95,7 +101,7 @@ class GlueSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        def get_all_tables(database_names: Optional[List[str]]):
+        def get_all_tables():
             def get_tables_from_database(database_name: str, tables: List):
                 kwargs = {"DatabaseName": database_name}
                 while True:
@@ -119,22 +125,28 @@ class GlueSource(Source):
                         break
                 return tables
 
-            if database_names:
+            if self.source_config.database_pattern.is_fully_specified_allow_list():
                 all_tables: List = []
+                database_names = self.source_config.database_pattern.get_allowed_list()
                 for database in database_names:
                     all_tables += get_tables_from_database(database, all_tables)
             else:
                 all_tables = get_tables_from_all_databases()
             return all_tables
 
-        tables = get_all_tables(self.databases)
+        tables = get_all_tables()
 
         for table in tables:
-            table_name = table["Name"]
             database_name = table["DatabaseName"]
+            table_name = table["Name"]
             full_table_name = f"{database_name}.{table_name}"
-
             self.report.report_table_scanned()
+            if not self.source_config.database_pattern.allowed(
+                database_name
+            ) or not self.source_config.table_pattern.allowed(full_table_name):
+                self.report.report_table_dropped(full_table_name)
+                continue
+
             mce = self._extract_record(table, full_table_name)
             workunit = MetadataWorkUnit(id=f"glue-{full_table_name}", mce=mce)
             self.report.report_workunit(workunit)
