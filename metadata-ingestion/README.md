@@ -60,7 +60,7 @@ pip install 'acryl-datahub[bigquery,datahub-rest]'
 You can check the active plugins:
 
 ```sh
-datahub ingest-list-plugins
+datahub check plugins
 ```
 
 [extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
