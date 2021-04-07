@@ -48,6 +48,10 @@
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
+    },
+    "email": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer"
     }
   }
 }
