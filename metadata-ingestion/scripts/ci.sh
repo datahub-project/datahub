@@ -12,7 +12,7 @@ else
         ldap-utils
 fi
 
-python -m pip install --upgrade pip==20.2.4 wheel setuptools
+python -m pip install --upgrade pip wheel setuptools
 pip install -e ".[dev]"
 
 ./scripts/codegen.sh

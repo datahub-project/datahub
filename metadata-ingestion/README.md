@@ -18,9 +18,9 @@ The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for Dat
 
 ```sh
 # Requires Python 3.6+
-python3 -m pip install --upgrade pip==20.2.4 wheel setuptools
+python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
-python3 -m pip install acryl-datahub
+python3 -m pip install --upgrade acryl-datahub
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
 ```
