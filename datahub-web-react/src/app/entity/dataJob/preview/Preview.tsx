@@ -19,10 +19,10 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
+            url={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
             name={name || ''}
             description={description || ''}
-            type="DataFlow"
+            type="DataJob"
             qualifier={origin}
             owners={
                 owners?.map((owner) => {
