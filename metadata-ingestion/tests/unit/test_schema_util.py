@@ -17,6 +17,21 @@ EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_UNION_TYPE = """
 }
 """
 
+EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION = """
+{
+  "type": "record",
+  "name": "some.event.name",
+  "namespace": "some.event.namespace",
+  "fields": [
+    {
+      "name": "my.field",
+      "type": ["string", "null"],
+      "doc": "some.doc"
+    }
+  ]
+}
+"""
+
 EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
 {
   "type": "record",
@@ -38,6 +53,7 @@ class SchemaUtilTest(unittest.TestCase):
 
         events = [
             EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_UNION_TYPE,
+            EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION,
             EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE,
         ]
 

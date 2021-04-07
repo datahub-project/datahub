@@ -54,7 +54,10 @@ def _get_column_type(field_type) -> SchemaFieldDataType:
 
 def _is_nullable(field):
     if isinstance(field.type, avro.schema.UnionSchema):
-        return field.type.schemas[0].name == "null"
+        if any(schema.name == "null" for schema in field.type.schemas):
+            return True
+        else:
+            return False
     elif isinstance(field.type, avro.schema.PrimitiveSchema):
         return field.type.name == "null"
     else:
