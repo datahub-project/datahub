@@ -1,7 +1,11 @@
 from typing import Any, Dict, List
 
 from airflow.exceptions import AirflowException
-from airflow.hooks.base import BaseHook
+
+try:
+    from airflow.hooks.base import BaseHook
+except ImportError:
+    from airflow.hooks.base_hook import BaseHook
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -16,7 +20,7 @@ class DatahubRestHook(BaseHook):
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
-        super().__init__()
+        super().__init__(None)
         self.datahub_rest_conn_id = datahub_rest_conn_id
 
     @staticmethod

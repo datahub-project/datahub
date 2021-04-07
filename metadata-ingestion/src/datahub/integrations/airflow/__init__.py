@@ -1,0 +1,1 @@
+from datahub.integrations.airflow.lineage_backend import DatahubAirflowLineageBackend

@@ -8,7 +8,11 @@ from datetime import timedelta
 
 import yaml
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+
+try:
+    from airflow.operators.python import PythonOperator
+except ImportError:
+    from airflow.operators.python_operator import PythonOperator
 from airflow.utils.dates import days_ago
 
 from datahub.ingestion.run.pipeline import Pipeline
