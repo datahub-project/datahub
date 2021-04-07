@@ -50,7 +50,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const isLineageMode = useIsLineageMode();
 
     if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+        return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
     const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
