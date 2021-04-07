@@ -27,6 +27,10 @@ logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
+@click.version_option(
+    version=datahub_package.__version__,
+    prog_name=datahub_package.__package_name__,
+)
 def datahub(debug: bool) -> None:
     if debug or os.getenv("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
