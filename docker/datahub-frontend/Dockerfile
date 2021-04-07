@@ -6,12 +6,13 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
 FROM openjdk:8 as prod-build
+ARG ENABLE_EMBER="false"
 RUN apt-get update && apt-get install -y wget \
     && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get -y install ./google-chrome-stable_current_amd64.deb
 ENV CI=true
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist \
+RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
