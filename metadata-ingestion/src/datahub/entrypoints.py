@@ -6,11 +6,10 @@ import sys
 import click
 from pydantic import ValidationError
 
+import datahub as datahub_package
 from datahub.check.check_cli import check
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.sink.sink_registry import sink_registry
-from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +40,13 @@ def datahub(debug: bool) -> None:
 
 
 @datahub.command()
+def version() -> None:
+    """Print version number and exit"""
+    click.echo(f"DataHub CLI version: {datahub_package.__version__}")
+    click.echo(f"Python version: {sys.version}")
+
+
+@datahub.command()
 @click.option(
     "-c",
     "--config",
@@ -64,19 +70,6 @@ def ingest(config: str) -> None:
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
-
-
-@datahub.command()
-def ingest_list_plugins() -> None:
-    """List enabled ingestion plugins"""
-
-    click.secho("Sources:", bold=True)
-    click.echo(str(source_registry))
-    click.echo()
-    click.secho("Sinks:", bold=True)
-    click.echo(str(sink_registry))
-    click.echo()
-    click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')
 
 
 datahub.add_command(check)
