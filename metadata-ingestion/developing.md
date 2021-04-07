@@ -38,6 +38,20 @@ pip install -e .
 Common issues (click to expand):
 
 <details>
+  <summary>datahub command not found with PyPI install</summary>
+
+If you've already run the pip install, but running `datahub` in your command line doesn't work, then there is likely an issue with your PATH setup and Python.
+
+The easiest way to circumvent this is to install and run via Python, and use `python3 -m datahub` in place of `datahub`.
+
+```sh
+python3 -m pip install acryl-datahub
+python3 -m datahub --help
+```
+
+</details>
+
+<details>
   <summary>Wheel issues e.g. "Failed building wheel for avro-python3" or "error: invalid command 'bdist_wheel'"</summary>
 
 This means Python's `wheel` is not installed. Try running the following commands and then retry.
