@@ -1,7 +1,5 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-// import { Tag, Typography } from 'antd';
-// import styled from 'styled-components';
 import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { DataFlowProfile } from './profile/DataFlowProfile';
@@ -13,6 +11,7 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
+    // TODO: add flow specific icons
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <DatabaseOutlined style={{ fontSize }} />;
@@ -38,7 +37,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'dataFlow';
+    getPathName = () => 'dataflow';
 
     getCollectionName = () => 'DataFlows';
 

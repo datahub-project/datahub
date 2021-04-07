@@ -1,7 +1,5 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
-// import { Tag, Typography } from 'antd';
-// import styled from 'styled-components';
 import { DataJob, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { DataJobProfile } from './profile/DataJobProfile';
@@ -13,6 +11,7 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
+    // TODO: add job specific icons
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <DatabaseOutlined style={{ fontSize }} />;
@@ -38,7 +37,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'dataJob';
+    getPathName = () => 'datajob';
 
     getCollectionName = () => 'DataJobs';
 
