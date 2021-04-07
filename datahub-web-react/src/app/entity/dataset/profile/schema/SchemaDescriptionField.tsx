@@ -81,7 +81,7 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     <Form layout="vertical">
                         {(updatedDescription || description) && (
                             <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                                <DescriptionTextInModal>{updatedDescription || description}</DescriptionTextInModal>
+                                <DescriptionTextInModal>{description}</DescriptionTextInModal>
                             </Form.Item>
                         )}
                         <Form.Item label={<FormLabel>Updated:</FormLabel>}>
