@@ -1,0 +1,3 @@
+lkml==0.2.2
+avro-python3==1.8.2
+confluent-kafka[avro]==1.4.0

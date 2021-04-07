@@ -4,27 +4,27 @@ This script reads that JSON file, adds to it using the directives pull from a Go
 produces a new JSON file called demo_data.json.
 """
 
-from typing import List
-
-import pathlib
-import json
 import csv
 import dataclasses
+import json
+import pathlib
 import time
+from typing import List
+
 from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    DatasetSnapshotClass,
-    OwnershipClass,
-    OwnerClass,
-    OwnershipTypeClass,
-    CorpUserSnapshotClass,
-    CorpUserInfoClass,
     AuditStampClass,
-    UpstreamLineageClass,
-    UpstreamClass,
+    CorpUserInfoClass,
+    CorpUserSnapshotClass,
     DatasetLineageTypeClass,
-    GlobalTagsClass,
+    DatasetSnapshotClass,
     EditableSchemaMetadataClass,
+    GlobalTagsClass,
+    MetadataChangeEventClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 
 DEMO_DATA_DIR = pathlib.Path("./examples/demo_data")
@@ -145,25 +145,33 @@ def create_lineage_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
         )
     )
 
+
 def create_global_tags_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=dataset_name_to_urn(directive.table),
-            aspects=[
-                GlobalTagsClass(
-                    tags=[]
-                )
-            ],
+            aspects=[GlobalTagsClass(tags=[])],
         )
     )
 
-def create_editable_schema_info_aspect_mce(directive: Directive) -> MetadataChangeEventClass:
+
+def create_editable_schema_info_aspect_mce(
+    directive: Directive,
+) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=dataset_name_to_urn(directive.table),
             aspects=[
                 EditableSchemaMetadataClass(
-                    editableSchemaFieldInfo=[]
+                    created=AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor="urn:li:corpuser:datahub",
+                    ),
+                    lastModified=AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor="urn:li:corpuser:datahub",
+                    ),
+                    editableSchemaFieldInfo=[],
                 )
             ],
         )

@@ -15,6 +15,7 @@ import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
+import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -46,6 +47,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             });
         },
     });
+    const isLineageMode = useIsLineageMode();
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -119,6 +121,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
                 <EntityProfile
+                    titleLink={data.dataset.urn && `/dataset/${data.dataset.urn}?is_lineage_mode=${isLineageMode}`}
                     title={data.dataset.name}
                     tags={
                         <TagGroup

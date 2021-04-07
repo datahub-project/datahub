@@ -39,6 +39,7 @@ module.exports = {
       // Serves as user guides.
       "docs/quickstart",
       "docs/debugging",
+      "metadata-ingestion/README",
       // TODO "docs/how/data-source-onboarding",
     ],
     Architecture: [
@@ -90,7 +91,7 @@ module.exports = {
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/README",
+      "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
       "docs/advanced/aspect-versioning",

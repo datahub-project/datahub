@@ -3,7 +3,9 @@ import inspect
 from typing import Dict, Generic, Type, TypeVar, Union
 
 import pkg_resources
+import typing_inspect
 
+from datahub import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 T = TypeVar("T")
@@ -13,6 +15,20 @@ class Registry(Generic[T]):
     def __init__(self):
         self._mapping: Dict[str, Union[Type[T], Exception]] = {}
 
+    def _get_registered_type(self) -> Type[T]:
+        cls = typing_inspect.get_generic_type(self)
+        tp = typing_inspect.get_args(cls)[0]
+        return tp
+
+    def _check_cls(self, cls: Type[T]):
+        if inspect.isabstract(cls):
+            raise ValueError(
+                f"cannot register an abstract type in the registry; got {cls}"
+            )
+        super_cls = self._get_registered_type()
+        if not issubclass(cls, super_cls):
+            raise ValueError(f"must be derived from {super_cls}; got {cls}")
+
     def _register(self, key: str, tp: Union[Type[T], Exception]) -> None:
         if key in self._mapping:
             raise KeyError(f"key already in use - {key}")
@@ -21,8 +37,7 @@ class Registry(Generic[T]):
         self._mapping[key] = tp
 
     def register(self, key: str, cls: Type[T]) -> None:
-        if inspect.isabstract(cls):
-            raise ValueError("cannot register an abstract type in the registry")
+        self._check_cls(cls)
         self._register(key, cls)
 
     def register_disabled(self, key: str, reason: Exception) -> None:
@@ -35,7 +50,6 @@ class Registry(Generic[T]):
     def load(self, entry_point_key: str) -> None:
         for entry_point in pkg_resources.iter_entry_points(entry_point_key):
             name = entry_point.name
-            plugin_class = None
 
             try:
                 plugin_class = entry_point.load()
@@ -55,6 +69,7 @@ class Registry(Generic[T]):
             # to load it dynamically.
             module_name, class_name = key.rsplit(".", 1)
             MyClass = getattr(importlib.import_module(module_name), class_name)
+            self._check_cls(MyClass)
             return MyClass
 
         if key not in self._mapping:
@@ -62,15 +77,33 @@ class Registry(Generic[T]):
         tp = self._mapping[key]
         if isinstance(tp, Exception):
             raise ConfigurationError(
-                f'{key} is disabled; try running: pip install ".[{key}]"'
+                f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
             return tp
 
-    def __str__(self):
+    def summary(self, verbose=True):
         col_width = 15
-        return "\n".join(
-            f"{key}{'' if self.is_enabled(key) else (' ' * (col_width - len(key))) + '(disabled)'}"
-            for key in sorted(self._mapping.keys())
-        )
+        verbose_col_width = 20
+
+        lines = []
+        for key in sorted(self._mapping.keys()):
+            line = f"{key}"
+            if not self.is_enabled(key):
+                # Plugin is disabled.
+                line += " " * (col_width - len(key))
+
+                details = "(disabled)"
+                if verbose:
+                    details += " " * (verbose_col_width - len(details))
+                    details += repr(self._mapping[key])
+                line += details
+            elif verbose:
+                # Plugin is enabled.
+                line += " " * (col_width - len(key))
+                line += self.get(key).__name__
+
+            lines.append(line)
+
+        return "\n".join(lines)
