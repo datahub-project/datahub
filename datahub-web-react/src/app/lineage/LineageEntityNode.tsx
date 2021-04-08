@@ -14,14 +14,15 @@ function truncate(input, length) {
     return input;
 }
 
-export const width = 160;
+export const width = 212;
 export const height = 80;
-const iconWidth = 20;
-const iconHeight = 20;
-const iconX = -width / 2 + 2;
+const iconWidth = 42;
+const iconHeight = 42;
+const iconX = -width / 2 + 8;
 const iconY = -iconHeight / 2;
 const centerX = -width / 2;
 const centerY = -height / 2;
+const textX = iconX + iconWidth + 8;
 
 const PointerGroup = styled(Group)`
     cursor: pointer;
@@ -92,7 +93,7 @@ export default function LineageEntityNode({
                     <g
                         fill="grey"
                         transform={`translate(${
-                            direction === Direction.Upstream ? -1 * width + 37 : width / 2 - 10
+                            direction === Direction.Upstream ? centerX - 32 : width / 2 - 10
                         } -21.5) scale(0.04 0.04)`}
                     >
                         <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
@@ -125,14 +126,14 @@ export default function LineageEntityNode({
                 {node.data.icon ? (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
                 ) : null}
-                <text dy=".33em" dx="10" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
+                <text dy=".33em" x={textX} fontSize={16} fontFamily="Arial" textAnchor="start" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
                 </text>
                 {unexploredHiddenChildren && isHovered ? (
                     <text
                         dy=".33em"
-                        dx="10"
-                        fontSize={14}
+                        dx={textX}
+                        fontSize={16}
                         fontFamily="Arial"
                         textAnchor="middle"
                         fill="black"
