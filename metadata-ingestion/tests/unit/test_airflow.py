@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
 
+import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
@@ -113,6 +114,21 @@ def test_datahub_lineage_operator(mock_emit):
         task.execute(None)
 
         mock_emit.assert_called()
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        DatahubRestHook,
+        DatahubKafkaHook,
+    ],
+)
+def test_hook_airflow_ui(hook):
+    # Simply ensure that these run without issue. These will also show up
+    # in the Airflow UI, where it will be even more clear if something
+    # is wrong.
+    hook.get_connection_form_widgets()
+    hook.get_ui_field_behaviour()
 
 
 @mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
