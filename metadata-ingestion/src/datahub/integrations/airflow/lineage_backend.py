@@ -1,8 +1,8 @@
 import json
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from airflow.lineage.backend import LineageBackend
 import dateutil.parser
+from airflow.lineage.backend import LineageBackend
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata as models
