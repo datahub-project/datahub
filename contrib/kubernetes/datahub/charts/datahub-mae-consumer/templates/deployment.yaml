@@ -60,14 +60,14 @@ spec:
               port: 9091
             initialDelaySeconds: 60
             periodSeconds: 30
-            failureThreshold: 4
+            failureThreshold: 8
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 9091
             initialDelaySeconds: 60
             periodSeconds: 30
-            failureThreshold: 4
+            failureThreshold: 8
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
               value: "{{ .Values.global.kafka.bootstrap.server }}"
