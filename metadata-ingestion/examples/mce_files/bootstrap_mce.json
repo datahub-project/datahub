@@ -1201,7 +1201,5 @@
             }
         },
         "proposedDelta": null
-    },
-    {"auditHeader": null, "proposedSnapshot": {"com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {"urn": "urn:li:dataFlow:(airflow,datahub_lineage_backend_demo_remove,prod)", "aspects": [{"com.linkedin.pegasus2avro.datajob.DataFlowInfo": {"name": "datahub_lineage_backend_demo_remove", "description": "An example DAG demonstrating the usage of DataHub's Airflow lineage backend.\n\nNone", "project": null}}, {"com.linkedin.pegasus2avro.common.Ownership": {"owners": [{"owner": "airflow", "type": "DEVELOPER", "source": {"type": "SERVICE", "url": "lineage_backend_demo_remove.py"}}], "lastModified": {"time": 1617861043979, "actor": "urn:li:corpuser:airflow", "impersonator": null}}}]}}, "proposedDelta": null},
-    {"auditHeader": null, "proposedSnapshot": {"com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {"urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,datahub_lineage_backend_demo_remove,prod),transform)", "aspects": [{"com.linkedin.pegasus2avro.datajob.DataJobInfo": {"name": "transform", "description": "TODO", "type": "COMMAND"}}, {"com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {"inputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)", "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,PROD)"], "outputDatasets": ["urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"]}}, {"com.linkedin.pegasus2avro.common.Ownership": {"owners": [{"owner": "airflow", "type": "DEVELOPER", "source": {"type": "SERVICE", "url": "lineage_backend_demo_remove.py"}}], "lastModified": {"time": 1617861043979, "actor": "urn:li:corpuser:airflow", "impersonator": null}}}]}}, "proposedDelta": null}
+    }
 ]
