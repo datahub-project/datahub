@@ -129,7 +129,7 @@ class DatahubGenericHook(BaseHook):
         conn = self.get_connection(self.datahub_conn_id)
         if conn.conn_type == DatahubRestHook.conn_type:
             return DatahubRestHook(self.datahub_conn_id)
-        elif conn.conn_type == DatahubRestHook.conn_type:
+        elif conn.conn_type == DatahubKafkaHook.conn_type:
             return DatahubKafkaHook(self.datahub_conn_id)
         else:
             raise AirflowException(

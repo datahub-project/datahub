@@ -1,14 +1,24 @@
 import json
+import os
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
 
 from airflow.models import Connection, DagBag
+from airflow.models import DAG, TaskInstance as TI
+from airflow.lineage import apply_lineage, prepare_lineage
+from airflow.utils.dates import days_ago
+
+try:
+    from airflow.operators.dummy import DummyOperator
+except ImportError:
+    from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub.integrations.airflow.get_provider_info import get_provider_info
 from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
+from datahub.integrations.airflow.entities import Dataset
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -101,5 +111,48 @@ def test_datahub_lineage_operator(mock_emit):
             ],
         )
         task.execute(None)
+
+        mock_emit.assert_called()
+
+
+@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+def test_lineage_backend(mock_emit):
+    DEFAULT_DATE = days_ago(2)
+
+    with mock.patch.dict(
+        os.environ,
+        {
+            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
+        },
+    ), patch_airflow_connection(datahub_rest_connection_config):
+        func = mock.Mock()
+        func.__name__ = "foo"
+
+        dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
+
+        with dag:
+            op1 = DummyOperator(task_id="task1")
+
+        upstream = Dataset("snowflake", "mydb.schema.tableConsumed")
+        downstream = Dataset("snowflake", "mydb.schema.tableProduced")
+
+        op1.inlets.append(upstream)
+        op1.outlets.append(downstream)
+
+        ti = TI(task=op1, execution_date=DEFAULT_DATE)
+        ctx1 = {
+            "dag": dag,
+            "task": op1,
+            "ti": ti,
+            "task_instance": ti,
+            "execution_date": DEFAULT_DATE,
+            "ts": "2021-04-08T00:54:25.771575+00:00",
+        }
+
+        prep = prepare_lineage(func)
+        prep(op1, ctx1)
+        post = apply_lineage(func)
+        post(op1, ctx1)
 
         mock_emit.assert_called()

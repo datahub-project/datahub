@@ -6,7 +6,7 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 from datetime import timedelta
 
 from airflow import DAG
-from airflow.lineage import DataSet
+from datahub.integrations.airflow.entities import Dataset
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.utils.dates import days_ago
 
@@ -47,9 +47,9 @@ with DAG(
         sql=sql,
         inlets={
             "datasets": [
-                DataSet("snowflake.mydb.schema.tableA"),
-                DataSet("snowflake.mydb.schema.tableB"),
+                Dataset("snowflake", "mydb2.schema.tableA"),
+                Dataset("snowflake", "mydb2.schema.tableB"),
             ],
         },
-        outlets={"datasets": [DataSet("snowflake.mydb.schema.tableC")]},
+        outlets={"datasets": [Dataset("snowflake", "mydb2.schema.tableC")]},
     )

@@ -17,18 +17,17 @@ if TYPE_CHECKING:
 
 from airflow.configuration import conf
 
-_datahub_conn_id = conf.get("lineage", "datahub_conn_id")
-
 
 def _entities_to_urn_list(iolets: List):
     return [let.urn for let in iolets]
 
 
-def _make_emitter_hook(datahub_conn_id):
+def make_emitter_hook():
     # This is necessary to avoid issues with circular imports.
     from datahub.integrations.airflow.hooks import DatahubGenericHook
 
-    return DatahubGenericHook(datahub_conn_id)
+    _datahub_conn_id = conf.get("lineage", "datahub_conn_id")
+    return DatahubGenericHook(_datahub_conn_id)
 
 
 class DatahubAirflowLineageBackend(LineageBackend):
@@ -112,7 +111,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
             for outlet in _entities_to_urn_list(outlets or [])
         ]
 
-        hook = _make_emitter_hook(_datahub_conn_id)
+        hook = make_emitter_hook()
 
         mces = [
             flow_mce,
