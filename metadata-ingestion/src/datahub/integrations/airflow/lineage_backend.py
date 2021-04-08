@@ -1,6 +1,6 @@
+import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional
-import json
 
 from airflow.lineage.backend import LineageBackend
 

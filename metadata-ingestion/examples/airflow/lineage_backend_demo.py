@@ -6,9 +6,10 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 from datetime import timedelta
 
 from airflow import DAG
-from datahub.integrations.airflow.entities import Dataset
 from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.utils.dates import days_ago
+
+from datahub.integrations.airflow.entities import Dataset
 
 default_args = {
     "owner": "airflow",

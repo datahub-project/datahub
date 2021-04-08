@@ -4,9 +4,9 @@ from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
 
-from airflow.models import Connection, DagBag
-from airflow.models import DAG, TaskInstance as TI
 from airflow.lineage import apply_lineage, prepare_lineage
+from airflow.models import DAG, Connection, DagBag
+from airflow.models import TaskInstance as TI
 from airflow.utils.dates import days_ago
 
 try:
@@ -15,10 +15,10 @@ except ImportError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
+from datahub.integrations.airflow.entities import Dataset
 from datahub.integrations.airflow.get_provider_info import get_provider_info
 from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
-from datahub.integrations.airflow.entities import Dataset
 
 lineage_mce = builder.make_lineage_mce(
     [
