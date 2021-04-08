@@ -6,8 +6,12 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 from datetime import timedelta
 
 from airflow import DAG
-from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.utils.dates import days_ago
+
+try:
+    from airflow.operators.bash import BashOperator
+except ImportError:
+    from airflow.operators.bash_operator import BashOperator
 
 from datahub.integrations.airflow.entities import Dataset
 
@@ -16,10 +20,7 @@ default_args = {
     "depends_on_past": False,
     "email": ["jdoe@example.com"],
     "email_on_failure": False,
-    "email_on_retry": False,
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
-    "execution_timeout": timedelta(minutes=120),
+    "execution_timeout": timedelta(minutes=5),
 }
 
 
@@ -32,25 +33,15 @@ with DAG(
     tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
-    sql = """CREATE OR REPLACE TABLE `mydb.schema.tableC` AS
-            WITH some_table AS (
-              SELECT * FROM `mydb.schema.tableA`
-            ),
-            some_other_table AS (
-              SELECT id, some_column FROM `mydb.schema.tableB`
-            )
-            SELECT * FROM some_table
-            LEFT JOIN some_other_table ON some_table.unique_id=some_other_table.id"""
-    transformation_task = SnowflakeOperator(
-        task_id="snowflake_transformation",
+    task1 = BashOperator(
+        task_id="run_data_task",
         dag=dag,
-        snowflake_conn_id="snowflake_default",
-        sql=sql,
+        bash_command="echo 'This is where you might run your data tooling.'",
         inlets={
             "datasets": [
-                Dataset("snowflake", "mydb2.schema.tableA"),
-                Dataset("snowflake", "mydb2.schema.tableB"),
+                Dataset("snowflake", "mydb.schema.tableA"),
+                Dataset("snowflake", "mydb.schema.tableB"),
             ],
         },
-        outlets={"datasets": [Dataset("snowflake", "mydb2.schema.tableC")]},
+        outlets={"datasets": [Dataset("snowflake", "mydb.schema.tableC")]},
     )
