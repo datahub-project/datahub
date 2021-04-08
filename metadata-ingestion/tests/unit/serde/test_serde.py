@@ -1,9 +1,15 @@
+import io
+import json
+
+import fastavro
 import mce_helpers
 import pytest
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.mce_file import iterate_mce_file
+from datahub.metadata.schema_classes import SCHEMA_JSON_STR, MetadataChangeEventClass
 
 
 @pytest.mark.parametrize(
@@ -15,7 +21,7 @@ from datahub.ingestion.run.pipeline import Pipeline
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
-def test_serde(pytestconfig, tmp_path, json_filename):
+def test_serde_to_json(pytestconfig, tmp_path, json_filename):
     golden_file = pytestconfig.rootpath / json_filename
 
     output_filename = "output.json"
@@ -33,6 +39,40 @@ def test_serde(pytestconfig, tmp_path, json_filename):
     output = mce_helpers.load_json_file(tmp_path / output_filename)
     golden = mce_helpers.load_json_file(golden_file)
     assert golden == output
+
+
+@pytest.mark.parametrize(
+    "json_filename",
+    [
+        "tests/unit/serde/test_serde_large.json",
+        "tests/unit/serde/test_serde_chart_snapshot.json",
+    ],
+)
+def test_serde_to_avro(pytestconfig, json_filename):
+    # In this test, we want to read in from JSON -> MCE object.
+    # Next we serialize from MCE to Avro and then deserialize back to MCE.
+    # Finally, we want to compare the two MCE objects.
+
+    json_path = pytestconfig.rootpath / json_filename
+    mces = list(iterate_mce_file(str(json_path)))
+
+    # Serialize to Avro.
+    parsed_schema = fastavro.parse_schema(json.loads(SCHEMA_JSON_STR))
+    fo = io.BytesIO()
+    out_records = [mce.to_obj(tuples=True) for mce in mces]
+    fastavro.writer(fo, parsed_schema, out_records)
+
+    # Deserialized from Avro.
+    fo.seek(0)
+    in_records = list(fastavro.reader(fo))
+    in_mces = [
+        MetadataChangeEventClass.from_obj(record, tuples=True) for record in in_records
+    ]
+
+    # Check diff
+    assert len(mces) == len(in_mces)
+    for i in range(len(mces)):
+        assert str(mces[i]) == str(in_mces[i])
 
 
 @pytest.mark.parametrize(
