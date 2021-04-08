@@ -58,18 +58,20 @@ export const BrowseResults = ({
                             />
                         </Col>
                     ))}
-                    <EntityList
-                        dataSource={entities}
-                        split={false}
-                        renderItem={(item, index) => (
-                            <>
-                                <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
-                                {index < entities.length - 1 && <Divider />}
-                            </>
-                        )}
-                        bordered
-                        locale={{ emptyText: <Empty description="No Entities" /> }}
-                    />
+                    {(!(groups && groups.length > 0) || (entities && entities.length > 0)) && (
+                        <EntityList
+                            dataSource={entities}
+                            split={false}
+                            renderItem={(item, index) => (
+                                <>
+                                    <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
+                                    {index < entities.length - 1 && <Divider />}
+                                </>
+                            )}
+                            bordered
+                            locale={{ emptyText: <Empty description="No Entities" /> }}
+                        />
+                    )}
                     <Col span={24}>
                         <Pagination
                             style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
