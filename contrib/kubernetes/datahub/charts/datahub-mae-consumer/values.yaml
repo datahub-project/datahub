@@ -134,6 +134,21 @@ exporters:
 #      scrapeTimeout: 30s
 #      scheme: http
 
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 9091
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 8
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: 9091
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 8
 global:
   elasticsearch:
     host: "elasticsearch"

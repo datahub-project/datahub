@@ -26,7 +26,7 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: kafka-setup-job
+        - name: mysql-setup-job
           image: "{{ .Values.mysqlSetupJob.image.repository }}:{{ .Values.mysqlSetupJob.image.tag }}"
           env:
             - name: MYSQL_USERNAME
