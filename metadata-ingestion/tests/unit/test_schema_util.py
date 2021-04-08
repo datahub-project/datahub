@@ -64,6 +64,7 @@ SCHEMA_WITH_MAP_TYPE_FIELD = """
 }
 """
 
+
 class SchemaUtilTest(unittest.TestCase):
     def test_avro_schema_to_mce_fields_events_with_nullable_fields(self):
 
@@ -80,8 +81,8 @@ class SchemaUtilTest(unittest.TestCase):
 
     def test_avro_schema_to_mce_fields_sample_events_with_different_field_types(self):
 
-      EXAMPLES = [SCHEMA_WITH_MAP_TYPE_FIELD]
+        EXAMPLES = [SCHEMA_WITH_MAP_TYPE_FIELD]
 
-      for schema in EXAMPLES:
-        fields = avro_schema_to_mce_fields(schema)
-        self.assertEqual(1, len(fields))
+        for schema in EXAMPLES:
+            fields = avro_schema_to_mce_fields(schema)
+            self.assertEqual(1, len(fields))
