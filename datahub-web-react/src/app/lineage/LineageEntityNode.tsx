@@ -14,8 +14,12 @@ function truncate(input, length) {
     return input;
 }
 
-export const width = 140;
+export const width = 160;
 export const height = 80;
+const iconWidth = 20;
+const iconHeight = 20;
+const iconX = -width / 2 + 2;
+const iconY = -iconHeight / 2;
 const centerX = -width / 2;
 const centerY = -height / 2;
 
@@ -49,7 +53,7 @@ export default function LineageEntityNode({
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
-            {unexploredHiddenChildren && (
+            {unexploredHiddenChildren ? (
                 <Group>
                     {[...Array(unexploredHiddenChildren)].map((_, index) => {
                         const link = {
@@ -72,8 +76,8 @@ export default function LineageEntityNode({
                         );
                     })}
                 </Group>
-            )}
-            {node.data.unexploredChildren && (
+            ) : null}
+            {node.data.unexploredChildren ? (
                 <Group
                     onClick={() => {
                         onExpandClick({ urn: node.data.urn, type: EntityType.Dataset, direction });
@@ -94,7 +98,7 @@ export default function LineageEntityNode({
                         <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm192 472c0 4.4-3.6 8-8 8H544v152c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V544H328c-4.4 0-8-3.6-8-8v-48c0-4.4 3.6-8 8-8h152V328c0-4.4 3.6-8 8-8h48c4.4 0 8 3.6 8 8v152h152c4.4 0 8 3.6 8 8v48z" />
                     </g>
                 </Group>
-            )}
+            ) : null}
             <Group
                 onClick={() => {
                     onEntityClick({ urn: node.data.urn, type: EntityType.Dataset });
@@ -118,15 +122,26 @@ export default function LineageEntityNode({
                     strokeOpacity={1}
                     rx={10}
                 />
-                <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
+                {node.data.icon ? (
+                    <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
+                ) : null}
+                <text dy=".33em" dx="10" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
                 </text>
-                {unexploredHiddenChildren && isHovered && (
-                    <text dy=".33em" fontSize={14} fontFamily="Arial" textAnchor="middle" fill="black" y={centerY - 20}>
+                {unexploredHiddenChildren && isHovered ? (
+                    <text
+                        dy=".33em"
+                        dx="10"
+                        fontSize={14}
+                        fontFamily="Arial"
+                        textAnchor="middle"
+                        fill="black"
+                        y={centerY - 20}
+                    >
                         {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </text>
-                )}
+                ) : null}
             </Group>
         </PointerGroup>
     );

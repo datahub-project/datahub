@@ -16,6 +16,7 @@ export default function extendAsyncEntities(
             urn: entity.urn,
             name: entity.name,
             type: entity.type,
+            icon: entity.platform.info?.logoUrl || undefined,
             upstreamChildren: getChildren(entity, Direction.Upstream).map((child) => child.dataset.urn),
             downstreamChildren: getChildren(entity, Direction.Downstream).map((child) => child.dataset.urn),
             fullyFetched,
