@@ -1,8 +1,8 @@
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from airflow.lineage.backend import LineageBackend
+import dateutil.parser
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata as models
@@ -40,8 +40,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
         outlets: Optional[List] = None,
         context: Dict = None,
     ):
-        if not context:
-            context = {}
+        context = context or {}  # ensure not None to satisfy mypy
 
         dag: "DAG" = context["dag"]
         task = context["task"]
@@ -58,7 +57,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
         flow_urn = builder.make_data_flow_urn("airflow", dag.dag_id)
         job_urn = builder.make_data_job_urn_with_flow(flow_urn, task.task_id)
 
-        timestamp = int(datetime.fromisoformat(context["ts"]).timestamp() * 1000)
+        timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
         ownership = models.OwnershipClass(
             owners=[
                 models.OwnerClass(

@@ -57,7 +57,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests>=2.25.1"},
     # Integrations.
-    "airflow": {"apache-airflow >= 1.10.3"},
+    "airflow": {"apache-airflow >= 1.10.2", "python-dateutil"},
     # Source plugins
     "kafka": kafka_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
