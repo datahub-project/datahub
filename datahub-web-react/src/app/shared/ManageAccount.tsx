@@ -1,6 +1,7 @@
 import React from 'react';
 import Cookies from 'js-cookie';
 import { Menu, Avatar, Dropdown } from 'antd';
+import { CaretDownOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 import defaultAvatar from '../../images/default_avatar.png';
@@ -20,6 +21,16 @@ const MenuItem = styled(Menu.Item)`
         border: none;
         outline: 0;
     }
+`;
+const AvatarCircle = styled(Avatar)`
+    color: #f56a00;
+    margin-right: 5px;
+    background-color: #fde3cf;
+`;
+
+const DownArrow = styled(CaretDownOutlined)`
+    font-size: 18px;
+    color: #fff;
 `;
 
 interface Props {
@@ -64,14 +75,8 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
     return (
         <Dropdown overlay={menu}>
             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
-                <Avatar
-                    style={{
-                        marginRight: '15px',
-                        color: '#f56a00',
-                        backgroundColor: '#fde3cf',
-                    }}
-                    src={_pictureLink || defaultAvatar}
-                />
+                <AvatarCircle src={_pictureLink || defaultAvatar} />
+                <DownArrow />
             </Link>
         </Dropdown>
     );
