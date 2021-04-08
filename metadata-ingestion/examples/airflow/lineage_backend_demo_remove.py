@@ -16,7 +16,6 @@ except ImportError:
 
 from datahub.integrations.airflow.entities import Dataset
 
-
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
@@ -46,9 +45,9 @@ with DAG(
         python_callable=fn,
         inlets={
             "datasets": [
-                Dataset("snowflake", "mydb.schema.tableA"),
-                Dataset("snowflake", "mydb.schema.tableB"),
+                Dataset("snowflake", "mydb2.schema.tableA"),
+                Dataset("snowflake", "mydb2.schema.tableB"),
             ],
         },
-        outlets={"datasets": [Dataset("snowflake", "mydb.schema.tableC")]},
+        outlets={"datasets": [Dataset("snowflake", "mydb2.schema.tableC")]},
     )

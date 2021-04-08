@@ -12,7 +12,6 @@ from datahub.metadata import (
     UpstreamLineageClass,
 )
 
-
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 

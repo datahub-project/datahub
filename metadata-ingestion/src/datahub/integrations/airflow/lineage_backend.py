@@ -1,9 +1,11 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
+import json
+
 from airflow.lineage.backend import LineageBackend
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata as models
-
 
 if TYPE_CHECKING:
     from airflow import DAG
@@ -39,13 +41,6 @@ class DatahubAirflowLineageBackend(LineageBackend):
         outlets: Optional[List] = None,
         context: Dict = None,
     ):
-        with open(
-            "/Users/hsheth/projects/datahub/metadata-ingestion/lineage_calls.txt", "a"
-        ) as f:
-            f.write(
-                f"{datetime.now()}: {operator} (in = {inlets}, out = {outlets}) ctx {context}\n"
-            )
-            self.log.info("wrote lineage info to file")
         if not context:
             context = {}
 
@@ -59,6 +54,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
         # TODO: save DAG tags
         # TODO: save context.get("dag_run")
         # TODO: save all the data from task_instance
+        # TODO: capture raw sql from db operators
 
         flow_urn = builder.make_data_flow_urn("airflow", dag.dag_id)
         job_urn = builder.make_data_job_urn_with_flow(flow_urn, task.task_id)
@@ -92,7 +88,6 @@ class DatahubAirflowLineageBackend(LineageBackend):
                 ],
             )
         )
-        self.log.info("parsed flow mce: %s", flow_mce)
 
         job_mce = models.MetadataChangeEventClass(
             proposedSnapshot=models.DataJobSnapshotClass(
@@ -101,7 +96,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
                     models.DataJobInfoClass(
                         name=task.task_id,
                         type=models.AzkabanJobTypeClass.COMMAND,
-                        description="TODO",
+                        description=None,  # TODO: add datajob description
                     ),
                     models.DataJobInputOutputClass(
                         inputDatasets=_entities_to_urn_list(inlets or []),
@@ -111,14 +106,21 @@ class DatahubAirflowLineageBackend(LineageBackend):
                 ],
             )
         )
-        self.log.info("parsed job mce: %s", job_mce)
+
+        lineage_mces = [
+            builder.make_lineage_mce(_entities_to_urn_list(inlets or []), outlet)
+            for outlet in _entities_to_urn_list(outlets or [])
+        ]
 
         hook = _make_emitter_hook(_datahub_conn_id)
-        self.log.info("created emitter hook %s", hook)
-        hook.emit_mces(
-            [
-                flow_mce,
-                job_mce,
-            ]
+
+        mces = [
+            flow_mce,
+            job_mce,
+            *lineage_mces,
+        ]
+        operator.log.info(
+            "DataHub lineage backend - emitting metadata:\n"
+            + "\n".join(json.dumps(mce.to_obj()) for mce in mces)
         )
-        self.log.info("emitted metadata")
+        hook.emit_mces(mces)

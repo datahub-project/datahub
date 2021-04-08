@@ -11,12 +11,12 @@ from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
     CorpGroupSnapshotClass,
     CorpUserSnapshotClass,
     DashboardSnapshotClass,
+    DataFlowSnapshotClass,
+    DataJobSnapshotClass,
     DataProcessSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
     TagSnapshotClass,
-    DataJobSnapshotClass,
-    DataFlowSnapshotClass,
 )
 
 resource_locator: Dict[Type[object], str] = {

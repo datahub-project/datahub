@@ -1,12 +1,12 @@
-from typing import List, Optional, Union
+from typing import List, Union
 
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
 from datahub.integrations.airflow.hooks import (
+    DatahubGenericHook,
     DatahubKafkaHook,
     DatahubRestHook,
-    DatahubGenericHook,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 

@@ -1,4 +1,5 @@
 from airflow.plugins_manager import AirflowPlugin
+
 import datahub
 from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 
