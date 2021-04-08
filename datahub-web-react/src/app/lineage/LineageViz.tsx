@@ -9,7 +9,7 @@ export const defaultMargin = { top: 10, left: 280, right: 280, bottom: 10 };
 
 export default function LineageViz({
     margin = defaultMargin,
-    dataset,
+    entityAndType,
     fetchedEntities,
     onEntityClick,
     onLineageExpand,
@@ -39,7 +39,7 @@ export default function LineageViz({
         >
             {(zoom) => (
                 <LineageVizInsideZoom
-                    dataset={dataset}
+                    entityAndType={entityAndType}
                     width={width}
                     height={height}
                     margin={margin}

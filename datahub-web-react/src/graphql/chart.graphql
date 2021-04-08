@@ -44,6 +44,22 @@ query getChart($urn: String!) {
                         time
                     }
                 }
+                downstreamLineage {
+                    downstreams {
+                        type
+                        dataset {
+                            urn
+                        }
+                    }
+                }
+                upstreamLineage {
+                    upstreams {
+                        type
+                        dataset {
+                            urn
+                        }
+                    }
+                }
             }
             url
             type

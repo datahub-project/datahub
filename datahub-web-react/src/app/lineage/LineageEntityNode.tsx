@@ -3,7 +3,6 @@ import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
-import { EntityType } from '../../types.generated';
 import { NodeData, Direction } from './types';
 
 function truncate(input, length) {
@@ -76,7 +75,7 @@ export default function LineageEntityNode({
             {node.data.unexploredChildren && (
                 <Group
                     onClick={() => {
-                        onExpandClick({ urn: node.data.urn, type: EntityType.Dataset, direction });
+                        onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
                     }}
                 >
                     <circle
@@ -97,10 +96,10 @@ export default function LineageEntityNode({
             )}
             <Group
                 onClick={() => {
-                    onEntityClick({ urn: node.data.urn, type: EntityType.Dataset });
+                    onEntityClick({ urn: node.data.urn, type: node.data.type });
                 }}
                 onMouseOver={() => {
-                    onHover({ urn: node.data.urn, type: EntityType.Dataset });
+                    onHover({ urn: node.data.urn, type: node.data.type });
                 }}
                 onMouseOut={() => {
                     onHover(undefined);

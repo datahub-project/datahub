@@ -34,7 +34,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
     });
 
     if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
+        return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
     const getHeader = (chart: Chart) => (

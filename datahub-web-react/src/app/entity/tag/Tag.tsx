@@ -34,6 +34,8 @@ export class TagEntity implements Entity<Tag> {
 
     isBrowseEnabled = () => false;
 
+    isLineageEnabled = () => false;
+
     getAutoCompleteFieldName = () => 'name';
 
     getPathName: () => string = () => 'tag';

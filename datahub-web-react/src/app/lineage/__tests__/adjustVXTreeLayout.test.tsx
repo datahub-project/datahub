@@ -13,6 +13,10 @@ import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 import adjustVXTreeLayout from '../utils/adjustVXTreeLayout';
 import { NodeData, Direction, FetchedEntities } from '../types';
+import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
+import { EntityType } from '../../../types.generated';
+
+const testEntityRegistry = getTestEntityRegistry();
 
 describe('adjustVXTreeLayout', () => {
     it('adjusts nodes with layers of lineage to make sure identical nodes are given the same coordinates', () => {
@@ -22,11 +26,24 @@ describe('adjustVXTreeLayout', () => {
             { entity: dataset6WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
+            (acc, entry) =>
+                extendAsyncEntities(
+                    acc,
+                    testEntityRegistry,
+                    { entity: entry.entity, type: EntityType.Dataset },
+                    entry.fullyFetched,
+                ),
             {} as FetchedEntities,
         );
 
-        const downstreamData = hierarchy(constructTree(dataset3WithLineage, mockFetchedEntities, Direction.Upstream));
+        const downstreamData = hierarchy(
+            constructTree(
+                { entity: dataset3WithLineage, type: EntityType.Dataset },
+                mockFetchedEntities,
+                Direction.Upstream,
+                testEntityRegistry,
+            ),
+        );
 
         render(
             <Tree<NodeData> root={downstreamData} size={[1000, 1000]}>
@@ -57,11 +74,24 @@ describe('adjustVXTreeLayout', () => {
             { entity: dataset7WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
+            (acc, entry) =>
+                extendAsyncEntities(
+                    acc,
+                    testEntityRegistry,
+                    { entity: entry.entity, type: EntityType.Dataset },
+                    entry.fullyFetched,
+                ),
             {} as FetchedEntities,
         );
 
-        const upstreamData = hierarchy(constructTree(dataset3WithLineage, mockFetchedEntities, Direction.Upstream));
+        const upstreamData = hierarchy(
+            constructTree(
+                { entity: dataset3WithLineage, type: EntityType.Dataset },
+                mockFetchedEntities,
+                Direction.Upstream,
+                testEntityRegistry,
+            ),
+        );
 
         render(
             <Tree<NodeData> root={upstreamData} size={[1000, 1000]}>
