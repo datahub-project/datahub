@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Col, Divider, List, Pagination, Row } from 'antd';
+import { Col, Divider, List, Pagination, Row, Empty } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
@@ -58,19 +58,18 @@ export const BrowseResults = ({
                             />
                         </Col>
                     ))}
-                    {entities.length > 0 && (
-                        <EntityList
-                            dataSource={entities}
-                            split={false}
-                            renderItem={(item, index) => (
-                                <>
-                                    <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
-                                    {index < entities.length - 1 && <Divider />}
-                                </>
-                            )}
-                            bordered
-                        />
-                    )}
+                    <EntityList
+                        dataSource={entities}
+                        split={false}
+                        renderItem={(item, index) => (
+                            <>
+                                <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
+                                {index < entities.length - 1 && <Divider />}
+                            </>
+                        )}
+                        bordered
+                        locale={{ emptyText: <Empty description="No Entities" /> }}
+                    />
                     <Col span={24}>
                         <Pagination
                             style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
