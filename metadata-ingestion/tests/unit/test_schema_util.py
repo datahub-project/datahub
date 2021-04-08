@@ -47,6 +47,23 @@ EXAMPLE_EVENT_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
 }
 """
 
+SCHEMA_WITH_MAP_TYPE_FIELD = """
+{
+  "type": "record",
+  "name": "some.event.name",
+  "namespace": "some.namespace",
+  "fields": [
+    {
+      "name": "some.field.name",
+      "type": {
+        "type": "map",
+        "values": "long"
+      }
+    }
+  ]
+}
+"""
+
 
 class SchemaUtilTest(unittest.TestCase):
     def test_avro_schema_to_mce_fields_events_with_nullable_fields(self):
@@ -61,3 +78,11 @@ class SchemaUtilTest(unittest.TestCase):
             fields = avro_schema_to_mce_fields(event)
             self.assertEqual(1, len(fields))
             self.assertTrue(fields[0].nullable)
+
+    def test_avro_schema_to_mce_fields_sample_events_with_different_field_types(self):
+
+        EXAMPLES = [SCHEMA_WITH_MAP_TYPE_FIELD]
+
+        for schema in EXAMPLES:
+            fields = avro_schema_to_mce_fields(schema)
+            self.assertEqual(1, len(fields))

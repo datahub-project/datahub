@@ -9,6 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     EnumTypeClass,
     FixedTypeClass,
+    MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 _field_type_mapping = {
     "null": NullTypeClass,
     "bool": BooleanTypeClass,
+    "boolean": BooleanTypeClass,
     "int": NumberTypeClass,
     "long": NumberTypeClass,
     "float": NumberTypeClass,
@@ -32,6 +34,7 @@ _field_type_mapping = {
     "bytes": BytesTypeClass,
     "string": StringTypeClass,
     "record": RecordTypeClass,
+    "map": MapTypeClass,
     "enum": EnumTypeClass,
     "array": ArrayTypeClass,
     "union": UnionTypeClass,
