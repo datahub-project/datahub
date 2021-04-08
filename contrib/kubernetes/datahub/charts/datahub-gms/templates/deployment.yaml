@@ -58,6 +58,20 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 4
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 4
           env:
             - name: EBEAN_DATASOURCE_USERNAME
               value: "{{ .Values.global.sql.datasource.username }}"
