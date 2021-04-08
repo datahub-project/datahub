@@ -1,24 +1,24 @@
-import { Dataset } from '../../../types.generated';
-import { Direction, FetchedEntities } from '../types';
-import getChildren from './getChildren';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { EntityAndType, FetchedEntities } from '../types';
 
 export default function extendAsyncEntities(
     fetchedEntities: FetchedEntities,
-    entity: Dataset,
+    entityRegistry: EntityRegistry,
+    entityAndType: EntityAndType,
     fullyFetched = false,
 ): FetchedEntities {
-    if (fetchedEntities[entity.urn]?.fullyFetched) {
+    if (fetchedEntities[entityAndType.entity.urn]?.fullyFetched) {
         return fetchedEntities;
     }
+
+    const lineageVizConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+
+    if (!lineageVizConfig) return fetchedEntities;
+
     return {
         ...fetchedEntities,
-        [entity.urn]: {
-            urn: entity.urn,
-            name: entity.name,
-            type: entity.type,
-            icon: entity.platform.info?.logoUrl || undefined,
-            upstreamChildren: getChildren(entity, Direction.Upstream).map((child) => child.dataset.urn),
-            downstreamChildren: getChildren(entity, Direction.Downstream).map((child) => child.dataset.urn),
+        [entityAndType.entity.urn]: {
+            ...lineageVizConfig,
             fullyFetched,
         },
     };
