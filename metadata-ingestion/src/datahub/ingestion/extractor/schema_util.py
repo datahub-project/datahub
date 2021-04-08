@@ -52,6 +52,18 @@ def _get_column_type(field_type) -> SchemaFieldDataType:
     return dt
 
 
+def _is_nullable(field):
+    if isinstance(field.type, avro.schema.UnionSchema):
+        if any(schema.name == "null" for schema in field.type.schemas):
+            return True
+        else:
+            return False
+    elif isinstance(field.type, avro.schema.PrimitiveSchema):
+        return field.type.name == "null"
+    else:
+        return False
+
+
 def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
 
@@ -71,7 +83,7 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
             type=_get_column_type(parsed_field.type),
             description=parsed_field.props.get("doc", None),
             recursive=False,
-            nullable=(parsed_field.type == "null"),
+            nullable=_is_nullable(parsed_field),
         )
 
         fields.append(field)
