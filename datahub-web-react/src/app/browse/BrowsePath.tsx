@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Breadcrumb, Row } from 'antd';
 import styled from 'styled-components';
+import { IconBaseProps } from 'react-icons/lib';
 import { VscRepoForked, VscPreview } from 'react-icons/vsc';
 import { blue, grey } from '@ant-design/colors';
 
@@ -23,7 +24,9 @@ const LineageIconGroup = styled.div`
     justify-content: space-between;
 `;
 
-const HoverableVscPreview = styled(VscPreview)<{ isSelected: boolean }>`
+const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
+    <VscPreview {...props} />
+))`
     color: ${(props) => (props.isSelected ? 'black' : grey[2])};
     &:hover {
         color: ${(props) => (props.isSelected ? 'black' : blue[4])};
@@ -31,7 +34,9 @@ const HoverableVscPreview = styled(VscPreview)<{ isSelected: boolean }>`
     }
 `;
 
-const HoverableVscRepoForked = styled(VscRepoForked)<{ isSelected: boolean }>`
+const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
+    <VscRepoForked {...props} />
+))`
     color: ${(props) => (props.isSelected ? 'black' : grey[2])};
     &:hover {
         color: ${(props) => (props.isSelected ? 'black' : blue[4])};
@@ -64,7 +69,7 @@ export const BrowsePath = ({ type, path, lineageSupported }: Props) => {
     const baseBrowsePath = `${PageRoutes.BROWSE}/${entityRegistry.getPathName(type)}`;
 
     const pathCrumbs = path.map((part, index) => (
-        <Breadcrumb.Item>
+        <Breadcrumb.Item key={`${part || index}`}>
             <Link to={`${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`}>{part}</Link>
         </Breadcrumb.Item>
     ));

@@ -16,6 +16,7 @@ export default function constructTree(
         name: dataset?.name,
         urn: dataset?.urn,
         type: dataset?.type,
+        icon: dataset?.platform?.info?.logoUrl || undefined,
         unexploredChildren: 0,
     };
     root.children = getChildren(dataset as Dataset, direction)
