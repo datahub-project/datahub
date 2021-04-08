@@ -12,6 +12,8 @@ export default function extendAsyncEntities(
     }
 
     const lineageVizConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+    console.log('extend async entity', entityAndType.entity);
+    console.log('extend async', lineageVizConfig);
 
     if (!lineageVizConfig) return fetchedEntities;
 

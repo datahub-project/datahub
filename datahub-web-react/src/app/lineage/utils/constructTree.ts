@@ -13,12 +13,14 @@ export default function constructTree(
     const constructedNodes = {};
 
     const fetchedEntity = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+    console.log('---');
+    console.log(fetchedEntity);
 
     const root: NodeData = {
         name: fetchedEntity?.name || '',
         urn: fetchedEntity?.urn,
         type: fetchedEntity?.type,
-        icon: fetchedEntity?.platform?.info?.logoUrl || undefined,
+        icon: fetchedEntity?.icon,
         unexploredChildren: 0,
     };
     root.children = getChildren(entityAndType, direction)

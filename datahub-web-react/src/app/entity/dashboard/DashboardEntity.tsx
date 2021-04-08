@@ -2,6 +2,7 @@ import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Dashboard, EntityType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
+import { getLogoFromPlatform } from '../chart/getLogoFromPlatform';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';
@@ -82,6 +83,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             type: EntityType.Dashboard,
             upstreamChildren: getChildren(entity, Direction.Upstream),
             downstreamChildren: getChildren(entity, Direction.Downstream),
+            icon: getLogoFromPlatform(entity.tool),
         };
     };
 }
