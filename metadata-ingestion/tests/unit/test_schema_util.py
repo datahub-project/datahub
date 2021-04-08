@@ -61,7 +61,7 @@ SCHEMA_WITH_MAP_TYPE_FIELD = """
       }
     }
   ]
-}        
+}
 """
 
 class SchemaUtilTest(unittest.TestCase):
