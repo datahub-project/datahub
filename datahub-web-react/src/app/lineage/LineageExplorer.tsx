@@ -43,8 +43,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
 
-    console.log(asyncData);
-
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {

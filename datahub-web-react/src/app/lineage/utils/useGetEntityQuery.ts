@@ -6,7 +6,6 @@ import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
 export default function useGetEntityQuery(urn: string, entityType?: EntityType) {
-    console.log({ urn, entityType });
     const allResults = {
         [EntityType.Dataset]: useGetDatasetQuery({
             variables: { urn },
