@@ -18,6 +18,7 @@ export default function constructTree(
         name: fetchedEntity?.name || '',
         urn: fetchedEntity?.urn,
         type: fetchedEntity?.type,
+        icon: fetchedEntity?.icon,
         unexploredChildren: 0,
     };
     root.children = getChildren(entityAndType, direction)

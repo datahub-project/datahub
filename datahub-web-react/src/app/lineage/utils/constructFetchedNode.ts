@@ -17,6 +17,7 @@ export default function constructFetchedNode(
             name: fetchedNode.name,
             urn: fetchedNode.urn,
             type: fetchedNode.type,
+            icon: fetchedNode.icon,
             unexploredChildren:
                 fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
                     (childUrn) => !(childUrn in fetchedEntities),

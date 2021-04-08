@@ -37,11 +37,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const { loading, error, data } = useGetEntityQuery(urn, type);
-    console.log({
-        loading,
-        data,
-        error,
-    });
     const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
@@ -52,9 +47,7 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
-            console.log('checking', entityAndType?.entity.urn, asyncEntities);
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
-                console.log('setting async data');
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
 

@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getLogoFromPlatform } from './getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
 
@@ -82,6 +83,7 @@ export class ChartEntity implements Entity<Chart> {
             type: EntityType.Chart,
             upstreamChildren: getChildren(entity, Direction.Upstream),
             downstreamChildren: getChildren(entity, Direction.Downstream),
+            icon: getLogoFromPlatform(entity.tool),
         };
     };
 }

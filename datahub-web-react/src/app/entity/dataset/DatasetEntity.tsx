@@ -117,6 +117,7 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             upstreamChildren: getChildren(entity, Direction.Upstream).map((child) => child.dataset.urn),
             downstreamChildren: getChildren(entity, Direction.Downstream).map((child) => child.dataset.urn),
+            icon: entity.platform.info?.logoUrl || undefined,
         };
     };
 }

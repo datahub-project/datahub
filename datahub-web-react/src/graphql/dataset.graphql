@@ -136,6 +136,9 @@ query getDataset($urn: String!) {
         uri
         platform {
             name
+            info {
+                logoUrl
+            }
         }
         platformNativeType
         tags

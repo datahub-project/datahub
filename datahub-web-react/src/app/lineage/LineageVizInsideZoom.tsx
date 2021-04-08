@@ -65,11 +65,6 @@ export default function LineageVizInsideZoom({
         [entityAndType, fetchedEntities, entityRegistry],
     );
 
-    console.log({
-        downstreamData,
-        upstreamData,
-    });
-
     useEffect(() => {
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });
         // eslint-disable-next-line react-hooks/exhaustive-deps
