@@ -44,18 +44,19 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink }: Props) =
             {themeConfig.content.menu.items.map((value) => {
                 return (
                     <MenuItem key={value.label}>
-                        <a href={value.path || ''} target={value.shouldOpenInNewTab ? '_blank' : ''} rel="noreferrer">
-                            <div tabIndex={0} role="button">
-                                {value.label}
-                            </div>
+                        <a
+                            href={value.path || ''}
+                            target={value.shouldOpenInNewTab ? '_blank' : ''}
+                            rel="noopener noreferrer"
+                            tabIndex={0}
+                        >
+                            {value.label}
                         </a>
                     </MenuItem>
                 );
             })}
-            <MenuItem danger>
-                <div tabIndex={0} role="button" onClick={handleLogout} onKeyDown={handleLogout}>
-                    Log out
-                </div>
+            <MenuItem danger key="logout" onClick={handleLogout} tabIndex={0}>
+                Log out
             </MenuItem>
         </Menu>
     );
