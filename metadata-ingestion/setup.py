@@ -183,6 +183,9 @@ setuptools.setup(
         "apache_airflow_provider": [
             "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
         ],
+        "airflow.plugins": [
+            "datahub = datahub.integrations.airflow.get_provider_info:DatahubAirflowPlugin"
+        ],
     },
     # Dependencies.
     install_requires=list(base_requirements | framework_common),

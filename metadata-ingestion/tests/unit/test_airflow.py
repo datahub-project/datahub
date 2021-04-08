@@ -55,7 +55,9 @@ def test_dags_load_with_no_errors(pytestconfig):
 def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
-    with mock.patch("airflow.hooks.base.BaseHook.get_connection", return_value=conn):
+    with mock.patch(
+        "datahub.integrations.airflow.hooks.BaseHook.get_connection", return_value=conn
+    ):
         yield conn
 
 
@@ -82,22 +84,22 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook", autospec=True)
-def test_datahub_lineage_operator(mock_hook):
-    task = DatahubEmitterOperator(
-        task_id="emit_lineage",
-        datahub_rest_conn_id=datahub_rest_connection_config.conn_id,
-        mces=[
-            builder.make_lineage_mce(
-                [
-                    builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
-                    builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
-                ],
-                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
-            )
-        ],
-    )
-    task.execute(None)
+@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+def test_datahub_lineage_operator(mock_emit):
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        task = DatahubEmitterOperator(
+            task_id="emit_lineage",
+            datahub_conn_id=config.conn_id,
+            mces=[
+                builder.make_lineage_mce(
+                    [
+                        builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
+                        builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
+                    ],
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
+                )
+            ],
+        )
+        task.execute(None)
 
-    mock_hook.assert_called()
-    mock_hook.return_value.emit_mces.assert_called_once()
+        mock_emit.assert_called()

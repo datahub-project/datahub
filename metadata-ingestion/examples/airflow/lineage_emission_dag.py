@@ -54,7 +54,7 @@ with DAG(
 
     emit_lineage_task = DatahubEmitterOperator(
         task_id="emit_lineage",
-        datahub_rest_conn_id="datahub_rest_default",
+        datahub_conn_id="datahub_rest_default",
         mces=[
             builder.make_lineage_mce(
                 [

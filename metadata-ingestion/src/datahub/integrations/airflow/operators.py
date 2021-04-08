@@ -1,10 +1,13 @@
 from typing import List, Optional, Union
 
-from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
-from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
+from datahub.integrations.airflow.hooks import (
+    DatahubKafkaHook,
+    DatahubRestHook,
+    DatahubGenericHook,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
@@ -17,22 +20,13 @@ class DatahubBaseOperator(BaseOperator):
     def __init__(
         self,
         *,
-        datahub_rest_conn_id: Optional[str] = None,
-        datahub_kafka_conn_id: Optional[str] = None,
+        datahub_conn_id: str,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        if datahub_rest_conn_id and datahub_kafka_conn_id:
-            raise AirflowException(
-                "two hook conn id given when only exactly one required"
-            )
-        elif datahub_rest_conn_id:
-            self.hook = DatahubRestHook(datahub_rest_conn_id)
-        elif datahub_kafka_conn_id:
-            self.hook = DatahubKafkaHook(datahub_kafka_conn_id)
-        else:
-            raise AirflowException("no hook conn id provided")
+        self.datahub_conn_id = datahub_conn_id
+        self.hook = DatahubGenericHook(datahub_conn_id).get_underlying_hook()
 
 
 class DatahubEmitterOperator(DatahubBaseOperator):
@@ -40,13 +34,11 @@ class DatahubEmitterOperator(DatahubBaseOperator):
     def __init__(
         self,
         mces: List[MetadataChangeEvent],
-        datahub_rest_conn_id: Optional[str] = None,
-        datahub_kafka_conn_id: Optional[str] = None,
+        datahub_conn_id: str,
         **kwargs,
     ):
         super().__init__(
-            datahub_rest_conn_id=datahub_rest_conn_id,
-            datahub_kafka_conn_id=datahub_kafka_conn_id,
+            datahub_conn_id=datahub_conn_id,
             **kwargs,
         )
         self.mces = mces
