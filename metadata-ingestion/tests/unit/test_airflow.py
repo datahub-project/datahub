@@ -4,8 +4,8 @@ from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
 
-import pytest
 import airflow.configuration
+import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
