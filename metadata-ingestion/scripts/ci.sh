@@ -13,7 +13,7 @@ else
 fi
 
 python -m pip install --upgrade pip wheel setuptools
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 
 ./scripts/codegen.sh
 
