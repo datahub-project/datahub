@@ -5,6 +5,7 @@ from typing import Iterator
 from unittest import mock
 
 import pytest
+import airflow.configuration
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
@@ -48,6 +49,10 @@ datahub_kafka_connection_config = Connection(
         }
     ),
 )
+
+
+def setup_module(module):
+    airflow.configuration.load_test_config()
 
 
 def test_airflow_provider_info():
