@@ -53,6 +53,14 @@ enum EntityType {
     The MLModel Entity
     """
     MLMODEL
+    """
+    The DATA_FLOW Entity
+    """
+    DATA_FLOW
+    """
+    The DATA_JOB Entity
+    """
+    DATA_JOB
 }
 
 type Query {
@@ -84,6 +92,16 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a DataFlow by primary key
+    """
+    dataFlow(urn: String!): DataFlow
+
+    """
+    Fetch a DataJob by primary key
+    """
+    dataJob(urn: String!): DataJob
 
     """
     Search DataHub entities
@@ -1938,4 +1956,120 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+}
+
+type DataFlow implements Entity {
+    """
+    The unique flow URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Workflow orchestrator ex: Azkaban, Airflow
+    """
+    orchestrator: String!
+
+    """
+    Id of the flow
+    """
+    flowId: String!
+
+    """
+    Cluster of the flow
+    """
+    cluster: String!
+
+    """
+    Information about a Data processing flow
+    """
+    info: DataFlowInfo
+
+    """
+    Ownership metadata of the flow
+    """
+    ownership: Ownership
+}
+
+type DataFlowInfo {
+    """
+    Name of the flow
+    """
+    name: String!
+
+    """
+    Description of the flow
+    """
+    description: String
+
+    """
+    Optional project/namespace associated with the flow
+    """
+    project: String
+}
+
+
+type DataJob implements Entity {
+    """
+    The unique job URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The associated data flow
+    """
+    dataFlow: DataFlow!
+
+    """
+    Id of the job
+    """
+    jobId: String!
+
+    """
+    Ownership metadata of the job
+    """
+    ownership: Ownership
+
+    """
+    Information about the inputs and outputs of a Data processing job
+    """
+    inputOutput: DataJobInputOutput
+
+    """
+    Information about a Data processing job
+    """
+    info: DataJobInfo
+}
+
+type DataJobInfo {
+    """
+    Job name
+    """
+    name: String!
+
+    """
+    Job description
+    """
+    description: String
+}
+
+type DataJobInputOutput {
+    """
+    Input datasets produced by the data job during processing
+    """
+    inputDatasets: [Dataset!]
+
+    """
+    Output datasets produced by the data job during processing
+    """
+    outputDatasets: [Dataset!]
 }

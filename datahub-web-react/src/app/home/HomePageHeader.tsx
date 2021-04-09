@@ -193,7 +193,7 @@ export const HomePageHeader = () => {
                     <Carousel autoplay effect="fade">
                         {suggestionsToShow.length > 0 &&
                             suggestionsToShow.slice(0, 3).map((suggestion) => (
-                                <CarouselElement>
+                                <CarouselElement key={suggestion}>
                                     <Button
                                         type="text"
                                         onClick={() =>
