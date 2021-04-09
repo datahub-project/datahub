@@ -26,7 +26,7 @@ class DatahubBaseOperator(BaseOperator):
         super().__init__(**kwargs)
 
         self.datahub_conn_id = datahub_conn_id
-        self.hook = DatahubGenericHook(datahub_conn_id).get_underlying_hook()
+        self.generic_hook = DatahubGenericHook(datahub_conn_id)
 
 
 class DatahubEmitterOperator(DatahubBaseOperator):
@@ -44,4 +44,4 @@ class DatahubEmitterOperator(DatahubBaseOperator):
         self.mces = mces
 
     def execute(self, context):
-        self.hook.emit_mces(self.mces)
+        self.generic_hook.get_underlying_hook().emit_mces(self.mces)
