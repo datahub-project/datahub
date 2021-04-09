@@ -78,7 +78,7 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
                 {ownershipMenuOptions && ownershipMenuOptions.length > 0 ? (
                     subview === Subview.Ownership && <UserOwnership ownerships={ownerships} entityPath={item} />
                 ) : (
-                    <Empty description="Looks like you don't own any datasets" />
+                    <Empty description="Looks like you don't own any datasets" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 )}
             </Content>
         </DetailWrapper>

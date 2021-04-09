@@ -69,7 +69,9 @@ export const BrowseResults = ({
                                 </>
                             )}
                             bordered
-                            locale={{ emptyText: <Empty description="No Entities" /> }}
+                            locale={{
+                                emptyText: <Empty description="No Entities" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                            }}
                         />
                     )}
                     <Col span={24}>
