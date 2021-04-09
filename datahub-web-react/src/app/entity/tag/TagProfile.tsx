@@ -1,16 +1,15 @@
 import { grey } from '@ant-design/colors';
-import { Alert, Avatar, Button, Card, Tooltip, Typography } from 'antd';
+import { Alert, Avatar, Button, Card, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useParams } from 'react-router';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGetTagQuery } from '../../../graphql/tag.generated';
-import defaultAvatar from '../../../images/default_avatar.png';
 import { EntityType } from '../../../types.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { Message } from '../../shared/Message';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const PageContainer = styled.div`
@@ -122,18 +121,15 @@ export default function TagProfile() {
                                 </div>
                                 <Avatar.Group maxCount={6} size="large">
                                     {data?.tag?.ownership?.owners?.map((owner) => (
-                                        <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
-                                            <Link
-                                                to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
+                                        <div data-testid={`avatar-tag-${owner.owner.urn}`} key={owner.owner.urn}>
+                                            <CustomAvatar
+                                                name={owner.owner.info?.fullName || undefined}
+                                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
                                                     owner.owner.urn
                                                 }`}
-                                            >
-                                                <Avatar
-                                                    src={owner.owner?.editableInfo?.pictureLink || defaultAvatar}
-                                                    data-testid={`avatar-tag-${owner.owner.urn}`}
-                                                />
-                                            </Link>
-                                        </Tooltip>
+                                                photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
+                                            />
+                                        </div>
                                     ))}
                                 </Avatar.Group>
                             </div>

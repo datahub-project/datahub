@@ -163,6 +163,7 @@ export const HomePageHeader = () => {
                 <ManageAccount
                     urn={data?.corpUser?.urn || ''}
                     pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
+                    name={data?.corpUser?.info?.firstName || data?.corpUser?.username || undefined}
                 />
             </Row>
             <HeaderContainer>
