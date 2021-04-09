@@ -34,6 +34,8 @@ export class UserEntity implements Entity<CorpUser> {
 
     isBrowseEnabled = () => false;
 
+    isLineageEnabled = () => false;
+
     getAutoCompleteFieldName = () => 'username';
 
     getPathName: () => string = () => 'user';

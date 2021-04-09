@@ -1,27 +1,29 @@
-import { GetDatasetQuery } from '../../../graphql/dataset.generated';
-import { Dataset } from '../../../types.generated';
-import { Direction, FetchedEntities, NodeData } from '../types';
+import EntityRegistry from '../../entity/EntityRegistry';
+import { Direction, EntityAndType, FetchedEntities, NodeData } from '../types';
 import constructFetchedNode from './constructFetchedNode';
 import getChildren from './getChildren';
 
 export default function constructTree(
-    dataset: GetDatasetQuery['dataset'],
+    entityAndType: EntityAndType | null | undefined,
     fetchedEntities: FetchedEntities,
     direction: Direction,
+    entityRegistry: EntityRegistry,
 ): NodeData {
-    if (!dataset) return { name: 'loading...', children: [] };
+    if (!entityAndType?.entity) return { name: 'loading...', children: [] };
     const constructedNodes = {};
 
+    const fetchedEntity = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+
     const root: NodeData = {
-        name: dataset?.name,
-        urn: dataset?.urn,
-        type: dataset?.type,
-        icon: dataset?.platform?.info?.logoUrl || undefined,
+        name: fetchedEntity?.name || '',
+        urn: fetchedEntity?.urn,
+        type: fetchedEntity?.type,
+        icon: fetchedEntity?.icon,
         unexploredChildren: 0,
     };
-    root.children = getChildren(dataset as Dataset, direction)
+    root.children = getChildren(entityAndType, direction)
         .map((child) => {
-            return constructFetchedNode(child.dataset.urn, fetchedEntities, direction, constructedNodes);
+            return constructFetchedNode(child.entity.urn, fetchedEntities, direction, constructedNodes);
         })
         ?.filter(Boolean) as Array<NodeData>;
     return root;

@@ -1,4 +1,5 @@
 import { EntityType, SearchResult } from '../../types.generated';
+import { FetchedEntity } from '../lineage/types';
 import { Entity, IconStyleType, PreviewType } from './Entity';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
@@ -44,6 +45,10 @@ export default class EntityRegistry {
     }
 
     getBrowseEntityTypes(): Array<EntityType> {
+        return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
+    }
+
+    getLineageEntityTypes(): Array<EntityType> {
         return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
     }
 
@@ -96,5 +101,10 @@ export default class EntityRegistry {
     renderBrowse<T>(type: EntityType, data: T): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.renderPreview(PreviewType.BROWSE, data);
+    }
+
+    getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getLineageVizConfig?.(data) || undefined;
     }
 }

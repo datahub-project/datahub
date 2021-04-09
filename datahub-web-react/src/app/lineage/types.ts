@@ -1,5 +1,4 @@
-import { GetDatasetQuery } from '../../graphql/dataset.generated';
-import { EntityType } from '../../types.generated';
+import { Chart, Dashboard, Dataset, EntityType } from '../../types.generated';
 
 export type EntitySelectParams = {
     type: EntityType;
@@ -20,7 +19,7 @@ export type FetchedEntity = {
     // children?: Array<string>;
     upstreamChildren?: Array<string>;
     downstreamChildren?: Array<string>;
-    fullyFetched: boolean;
+    fullyFetched?: boolean;
 };
 
 export type NodeData = {
@@ -49,10 +48,24 @@ export type LineageExplorerParams = {
 
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
-    dataset: GetDatasetQuery['dataset'];
+    entityAndType?: EntityAndType | null;
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
 };
+
+export type EntityAndType =
+    | {
+          type: EntityType.Dataset;
+          entity: Dataset;
+      }
+    | {
+          type: EntityType.Chart;
+          entity: Chart;
+      }
+    | {
+          type: EntityType.Dashboard;
+          entity: Dashboard;
+      };
