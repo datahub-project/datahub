@@ -59,9 +59,9 @@ spec:
             httpGet:
               path: /admin
               port: http
-            initialDelaySeconds: { { .Values.readinessProbe.initialDelaySeconds } }
-            periodSeconds: { { .Values.readinessProbe.periodSeconds } }
-            failureThreshold: { { .Values.readinessProbe.failureThreshold } }
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
