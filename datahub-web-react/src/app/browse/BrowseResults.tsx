@@ -49,7 +49,7 @@ export const BrowseResults = ({
                 <h1 className="ant-typography">{title}</h1>
                 <Row gutter={[4, 8]}>
                     {groups.map((group) => (
-                        <Col span={24}>
+                        <Col span={24} key={`${group.name}_key`}>
                             <BrowseResultCard
                                 name={group.name}
                                 count={group.count}

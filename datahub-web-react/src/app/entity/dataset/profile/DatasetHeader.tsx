@@ -1,9 +1,8 @@
-import { Avatar, Badge, Divider, Popover, Space, Tooltip, Typography } from 'antd';
+import { Avatar, Badge, Divider, Popover, Space, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import defaultAvatar from '../../../../images/default_avatar.png';
+import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 
 export type Props = {
     dataset: Dataset;
@@ -22,20 +21,12 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                 <Typography.Paragraph>{description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">
                     {ownership?.owners?.map((owner) => (
-                        <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
-                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                                <Avatar
-                                    style={{
-                                        color: '#f56a00',
-                                        backgroundColor: '#fde3cf',
-                                    }}
-                                    src={
-                                        (owner.owner.editableInfo && owner.owner.editableInfo.pictureLink) ||
-                                        defaultAvatar
-                                    }
-                                />
-                            </Link>
-                        </Tooltip>
+                        <CustomAvatar
+                            key={owner.owner.urn}
+                            name={owner.owner.info?.fullName || undefined}
+                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
+                            photoUrl={owner.owner.editableInfo?.pictureLink || undefined}
+                        />
                     ))}
                 </Avatar.Group>
                 <div>
