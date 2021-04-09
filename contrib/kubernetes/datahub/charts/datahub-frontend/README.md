@@ -27,10 +27,16 @@ Current chart version is `0.2.0`
 | ingress.hosts[0].paths | list | `[]` |  |
 | ingress.hosts[0].redirectPaths | list | `[]` |  |
 | ingress.tls | list | `[]` |  |
+| livenessProbe.initialDelaySeconds | int | `60` |  |
+| livenessProbe.periodSeconds | int | `30` |  |
+| livenessProbe.failureThreshold | int | `4` |  |
 | nameOverride | string | `""` |  |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
 | podSecurityContext | object | `{}` |  |
+| readinessProbe.initialDelaySeconds | int | `60` |  |
+| readinessProbe.periodSeconds | int | `30` |  |
+| readinessProbe.failureThreshold | int | `4` |  |
 | replicaCount | int | `1` |  |
 | resources | object | `{}` |  |
 | securityContext | object | `{}` |  |

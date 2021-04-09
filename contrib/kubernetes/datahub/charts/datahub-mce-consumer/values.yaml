@@ -135,17 +135,11 @@ exporters:
 #      scheme: http
 
 livenessProbe:
-  httpGet:
-    path: /actuator/health
-    port: 9090
   initialDelaySeconds: 60
   periodSeconds: 30
   failureThreshold: 4
 
 readinessProbe:
-  httpGet:
-    path: /actuator/health
-    port: 9090
   initialDelaySeconds: 60
   periodSeconds: 30
   failureThreshold: 4

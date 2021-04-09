@@ -137,17 +137,11 @@ exporters:
 #      scheme: http
 
 livenessProbe:
-  httpGet:
-    path: /admin
-    port: http
   initialDelaySeconds: 60
   periodSeconds: 30
   failureThreshold: 4
 
 readinessProbe:
-  httpGet:
-    path: /admin
-    port: http
   initialDelaySeconds: 60
   periodSeconds: 30
   failureThreshold: 4

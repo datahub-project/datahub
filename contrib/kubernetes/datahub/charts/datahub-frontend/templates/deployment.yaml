@@ -49,9 +49,19 @@ spec:
               containerPort: 9002
               protocol: TCP
           livenessProbe:
-{{ toYaml .Values.livenessProbe | indent 12 }}
+            httpGet:
+              path: /admin
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
-{{ toYaml .Values.readinessProbe | indent 12 }}
+            httpGet:
+              path: /admin
+              port: http
+            initialDelaySeconds: { { .Values.readinessProbe.initialDelaySeconds } }
+            periodSeconds: { { .Values.readinessProbe.periodSeconds } }
+            failureThreshold: { { .Values.readinessProbe.failureThreshold } }
           env:
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}

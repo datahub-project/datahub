@@ -2,7 +2,7 @@ datahub
 =======
 A Helm chart for LinkedIn DataHub
 
-Current chart version is `0.1.1`
+Current chart version is `0.1.2`
 
 #### Chart Values
 

@@ -59,9 +59,19 @@ spec:
               containerPort: 8080
               protocol: TCP
           livenessProbe:
-{{ toYaml .Values.livenessProbe | indent 12 }}
+            httpGet:
+              path: /admin
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
-{{ toYaml .Values.readinessProbe | indent 12 }}
+            httpGet:
+              path: /admin
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
             - name: EBEAN_DATASOURCE_USERNAME
               value: "{{ .Values.global.sql.datasource.username }}"
