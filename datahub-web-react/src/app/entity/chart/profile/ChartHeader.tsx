@@ -1,9 +1,8 @@
-import { Avatar, Button, Divider, Row, Space, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import defaultAvatar from '../../../../images/default_avatar.png';
+import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 
 const styles = {
     content: { width: '100%' },
@@ -34,11 +33,12 @@ export default function ChartHeader({ platform, description, ownership, url, las
             <Typography.Paragraph>{description}</Typography.Paragraph>
             <Avatar.Group maxCount={6} size="large">
                 {ownership?.owners?.map((owner: any) => (
-                    <Tooltip title={owner.owner.info?.fullName}>
-                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                            <Avatar src={owner.owner.editableInfo.pictureLink || defaultAvatar} />
-                        </Link>
-                    </Tooltip>
+                    <CustomAvatar
+                        key={owner.owner.urn}
+                        name={owner.owner.info?.fullName}
+                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
+                        photoUrl={owner.owner.editableInfo.pictureLink}
+                    />
                 ))}
             </Avatar.Group>
             {lastModified && (
