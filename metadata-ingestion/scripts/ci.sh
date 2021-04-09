@@ -14,6 +14,7 @@ fi
 
 python -m pip install --upgrade pip wheel setuptools
 pip install --upgrade apache-airflow==1.10.15 -c https://raw.githubusercontent.com/apache/airflow/constraints-1.10.15/constraints-3.6.txt
+airflow db init
 python -m pip install -e ".[dev]"
 
 ./scripts/codegen.sh
