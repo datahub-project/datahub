@@ -44,12 +44,12 @@ kafka_common = {
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
     "confluent_kafka>=1.5.0",
-    "fastavro>=1.3.0",
+    "fastavro>=1.2.0",
 }
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.23",
+    "sqlalchemy>=1.3.20",
 }
 
 # Note: for all of these, framework_common will be added.
