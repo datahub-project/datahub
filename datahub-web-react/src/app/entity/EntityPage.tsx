@@ -26,11 +26,15 @@ export const EntityPage = ({ entityType }: Props) => {
     const isLineageMode = useIsLineageMode();
 
     // TODO(gabe-lyons): pull this logic into the entity registry
-    const isLineageSupported = entityType === EntityType.Dataset;
+    const isLineageSupported = entityRegistry.getLineageEntityTypes().indexOf(entityType) > -1;
 
     return (
         <ContainerPage urn={urn} type={entityType} lineageSupported={isLineageSupported}>
-            {isLineageMode && isLineageSupported ? <LineageExplorer /> : entityRegistry.renderProfile(entityType, urn)}
+            {isLineageMode && isLineageSupported ? (
+                <LineageExplorer type={entityType} urn={urn} />
+            ) : (
+                entityRegistry.renderProfile(entityType, urn)
+            )}
         </ContainerPage>
     );
 };

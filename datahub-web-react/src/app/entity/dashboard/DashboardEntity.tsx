@@ -1,9 +1,23 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Dashboard, EntityType, SearchResult } from '../../../types.generated';
+import { Direction } from '../../lineage/types';
+import { getLogoFromPlatform } from '../chart/getLogoFromPlatform';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';
+
+export default function getChildren(entity: Dashboard, direction: Direction | null): Array<string> {
+    if (direction === Direction.Upstream) {
+        return entity.info?.charts.map((chart) => chart.urn) || [];
+    }
+
+    if (direction === Direction.Downstream) {
+        return [];
+    }
+
+    return [];
+}
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -34,6 +48,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     isBrowseEnabled = () => true;
 
+    isLineageEnabled = () => true;
+
     getAutoCompleteFieldName = () => 'title';
 
     getPathName = () => 'dashboard';
@@ -58,5 +74,16 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Dashboard);
+    };
+
+    getLineageVizConfig = (entity: Dashboard) => {
+        return {
+            urn: entity.urn,
+            name: entity.info?.name || '',
+            type: EntityType.Dashboard,
+            upstreamChildren: getChildren(entity, Direction.Upstream),
+            downstreamChildren: getChildren(entity, Direction.Downstream),
+            icon: getLogoFromPlatform(entity.tool),
+        };
     };
 }

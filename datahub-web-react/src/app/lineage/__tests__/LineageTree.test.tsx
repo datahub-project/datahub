@@ -8,6 +8,8 @@ import { Direction, FetchedEntities } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
+import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
+import { EntityType } from '../../../types.generated';
 
 const margin = { top: 10, left: 280, right: 280, bottom: 10 };
 const [windowWidth, windowHeight] = [1000, 500];
@@ -25,6 +27,8 @@ const initialTransform = {
     skewY: 0,
 };
 
+const testEntityRegistry = getTestEntityRegistry();
+
 describe('LineageTree', () => {
     it('renders a tree with many layers', () => {
         const fetchedEntities = [
@@ -33,11 +37,24 @@ describe('LineageTree', () => {
             { entity: dataset6WithLineage, direction: Direction.Upstream, fullyFetched: true },
         ];
         const mockFetchedEntities = fetchedEntities.reduce(
-            (acc, entry) => extendAsyncEntities(acc, entry.entity, entry.fullyFetched),
+            (acc, entry) =>
+                extendAsyncEntities(
+                    acc,
+                    testEntityRegistry,
+                    { entity: entry.entity, type: EntityType.Dataset },
+                    entry.fullyFetched,
+                ),
             {} as FetchedEntities,
         );
 
-        const downstreamData = hierarchy(constructTree(dataset3WithLineage, mockFetchedEntities, Direction.Upstream));
+        const downstreamData = hierarchy(
+            constructTree(
+                { entity: dataset3WithLineage, type: EntityType.Dataset },
+                mockFetchedEntities,
+                Direction.Upstream,
+                testEntityRegistry,
+            ),
+        );
 
         const { getByTestId } = render(
             <Zoom

@@ -2,11 +2,12 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { Dataset, EntityType, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, RelatedDataset, SearchResult } from '../../../types.generated';
 import { DatasetProfile } from './profile/DatasetProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
+import { Direction } from '../../lineage/types';
 
 const MatchTag = styled(Tag)`
     &&& {
@@ -14,6 +15,18 @@ const MatchTag = styled(Tag)`
         margin-top: 10px;
     }
 `;
+
+export default function getChildren(entity: Dataset, direction: Direction | null): Array<RelatedDataset> {
+    if (direction === Direction.Upstream) {
+        return entity.upstreamLineage?.upstreams || [];
+    }
+
+    if (direction === Direction.Downstream) {
+        return entity.downstreamLineage?.downstreams || [];
+    }
+
+    return [];
+}
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -43,6 +56,8 @@ export class DatasetEntity implements Entity<Dataset> {
     isSearchEnabled = () => true;
 
     isBrowseEnabled = () => true;
+
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
@@ -93,5 +108,16 @@ export class DatasetEntity implements Entity<Dataset> {
                 }
             />
         );
+    };
+
+    getLineageVizConfig = (entity: Dataset) => {
+        return {
+            urn: entity.urn,
+            name: entity.name,
+            type: EntityType.Dataset,
+            upstreamChildren: getChildren(entity, Direction.Upstream).map((child) => child.dataset.urn),
+            downstreamChildren: getChildren(entity, Direction.Downstream).map((child) => child.dataset.urn),
+            icon: entity.platform.info?.logoUrl || undefined,
+        };
     };
 }

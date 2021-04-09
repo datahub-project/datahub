@@ -7,8 +7,8 @@ import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
 
 import LineageTree from './LineageTree';
 import constructTree from './utils/constructTree';
-import { Direction, EntitySelectParams, FetchedEntity } from './types';
-import { GetDatasetQuery } from '../../graphql/dataset.generated';
+import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const ZoomCard = styled(Card)`
     position: absolute;
@@ -28,7 +28,7 @@ const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
 
 type Props = {
     margin: { top: number; right: number; bottom: number; left: number };
-    dataset: GetDatasetQuery['dataset'];
+    entityAndType?: EntityAndType | null;
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
@@ -44,7 +44,7 @@ type Props = {
 export default function LineageVizInsideZoom({
     zoom,
     margin,
-    dataset,
+    entityAndType,
     fetchedEntities,
     onEntityClick,
     onLineageExpand,
@@ -52,22 +52,23 @@ export default function LineageVizInsideZoom({
     width,
     height,
 }: Props) {
+    const entityRegistry = useEntityRegistry();
     const yMax = height - margin?.top - margin?.bottom;
     const xMax = (width - margin?.left - margin?.right) / 2;
 
-    const downstreamData = useMemo(() => hierarchy(constructTree(dataset, fetchedEntities, Direction.Downstream)), [
-        dataset,
-        fetchedEntities,
-    ]);
-    const upstreamData = useMemo(() => hierarchy(constructTree(dataset, fetchedEntities, Direction.Upstream)), [
-        dataset,
-        fetchedEntities,
-    ]);
+    const downstreamData = useMemo(
+        () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry)),
+        [entityAndType, fetchedEntities, entityRegistry],
+    );
+    const upstreamData = useMemo(
+        () => hierarchy(constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry)),
+        [entityAndType, fetchedEntities, entityRegistry],
+    );
 
     useEffect(() => {
         zoom.setTransformMatrix({ ...zoom.transformMatrix, translateY: 0, translateX: width / 2 });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataset?.urn]);
+    }, [entityAndType?.entity?.urn]);
     return (
         <>
             <ZoomCard size="small">
