@@ -8,24 +8,28 @@ import { Subview } from '../Subview';
 const ownerships = {
     [EntityType.Dataset]: [
         {
-            name: 'HiveDataset',
-            origin: 'PROD',
-            description: 'this is a dataset',
-            platformNativeType: PlatformNativeType.Table,
-            platform: {
-                name: 'hive',
+            entity: {
+                name: 'HiveDataset',
+                origin: 'PROD',
+                description: 'this is a dataset',
+                platformNativeType: PlatformNativeType.Table,
+                platform: {
+                    name: 'hive',
+                },
+                tags: [],
             },
-            tags: [],
         },
         {
-            name: 'KafkaDataset',
-            origin: 'PROD',
-            description: 'this is also a dataset',
-            platformNativeType: PlatformNativeType.Table,
-            platform: {
-                name: 'kafka',
+            entity: {
+                name: 'KafkaDataset',
+                origin: 'PROD',
+                description: 'this is also a dataset',
+                platformNativeType: PlatformNativeType.Table,
+                platform: {
+                    name: 'kafka',
+                },
+                tags: [],
             },
-            tags: [],
         },
     ],
 };
