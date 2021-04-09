@@ -121,15 +121,15 @@ export default function TagProfile() {
                                 </div>
                                 <Avatar.Group maxCount={6} size="large">
                                     {data?.tag?.ownership?.owners?.map((owner) => (
-                                        <CustomAvatar
-                                            key={owner.owner.urn}
-                                            name={owner.owner.info?.fullName || undefined}
-                                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
-                                                owner.owner.urn
-                                            }`}
-                                            photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
-                                            data-testid={`avatar-tag-${owner.owner.urn}`}
-                                        />
+                                        <div data-testid={`avatar-tag-${owner.owner.urn}`} key={owner.owner.urn}>
+                                            <CustomAvatar
+                                                name={owner.owner.info?.fullName || undefined}
+                                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
+                                                    owner.owner.urn
+                                                }`}
+                                                photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
+                                            />
+                                        </div>
                                     ))}
                                 </Avatar.Group>
                             </div>
