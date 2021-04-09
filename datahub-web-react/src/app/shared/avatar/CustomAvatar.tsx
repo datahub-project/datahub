@@ -6,10 +6,14 @@ import styled from 'styled-components';
 
 import defaultAvatar from '../../../images/default_avatar.png';
 
-const AvatarStyled = styled(Avatar)`
+const AvatarStyled = styled(Avatar)<{ size?: number }>`
     color: #fff;
     background-color: #ccc;
-    font-size: 18px;
+    text-align: center;
+    font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 14)}px` : '14px')} !important;
+    && > span {
+        transform: scale(1) translateX(-45%) !important;
+    }
 `;
 
 type Props = {
@@ -19,18 +23,29 @@ type Props = {
     name?: string;
     style?: React.CSSProperties;
     placement?: TooltipPlacement;
+    size?: number;
 };
 
-export default function CustomAvatar({ url, photoUrl, useDefaultAvatar, name, style, placement }: Props) {
+export default function CustomAvatar({ url, photoUrl, useDefaultAvatar, name, style, placement, size }: Props) {
     const avatarWithInitial = name ? (
-        <AvatarStyled style={style}>{name.charAt(0).toUpperCase()}</AvatarStyled>
+        <AvatarStyled style={style} size={size}>
+            {name.charAt(0).toUpperCase()}
+        </AvatarStyled>
     ) : (
-        <AvatarStyled src={defaultAvatar} style={style} />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} />
     );
-    const avatarWithDefault = useDefaultAvatar ? <AvatarStyled src={defaultAvatar} style={style} /> : avatarWithInitial;
+    const avatarWithDefault = useDefaultAvatar ? (
+        <AvatarStyled src={defaultAvatar} style={style} size={size} />
+    ) : (
+        avatarWithInitial
+    );
+    const avatar = photoUrl ? <AvatarStyled src={photoUrl} style={style} size={size} /> : avatarWithDefault;
+    if (!name) {
+        return url ? <Link to={url}>{avatar}</Link> : avatar;
+    }
     return (
         <Tooltip title={name} placement={placement}>
-            <Link to={url}>{photoUrl ? <AvatarStyled src={photoUrl} style={style} /> : avatarWithDefault}</Link>
+            {url ? <Link to={url}>{avatar}</Link> : avatar}
         </Tooltip>
     );
 }
