@@ -38,6 +38,15 @@ elasticsearchSetupJob:
     repository: linkedin/datahub-elasticsearch-setup
     tag: "latest"
 
+kafkaSetupJob:
+  enabled: true
+  image:
+    repository: linkedin/datahub-kafka-setup
+    tag: "latest"
+
+mysqlSetupJob:
+  enabled: false
+
 global:
   elasticsearch:
     host: "elasticsearch"
@@ -46,6 +55,8 @@ global:
   kafka:
     bootstrap:
       server: "broker:29092"
+    zookeeper:
+      server: "zookeeper:2181"
     schemaregistry:
       url: "http://schema-registry:8081"
 
@@ -60,6 +71,7 @@ global:
   sql:
     datasource:
       host: "mysql:3306"
+      hostForMysqlClient: "mysql"
       url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
       driver: "com.mysql.jdbc.Driver"
       username: "datahub"

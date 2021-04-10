@@ -134,6 +134,16 @@ exporters:
 #      scrapeTimeout: 30s
 #      scheme: http
 
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 4
+
+readinessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 4
+
 global:
   kafka:
     bootstrap:
