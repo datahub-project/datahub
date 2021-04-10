@@ -80,7 +80,7 @@ export default function DefaultPreviewCard({
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space direction="vertical" size={12}>
-                    <Typography.Text strong>Owned By</Typography.Text>
+                    <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
                     <Avatar.Group maxCount={4}>
                         {owners?.map((owner) => (
                             <CustomAvatar
