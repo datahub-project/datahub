@@ -46,16 +46,22 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 9001
+              containerPort: 9002
               protocol: TCP
           livenessProbe:
             httpGet:
               path: /admin
               port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /admin
               port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
@@ -63,9 +69,15 @@ spec:
               value: "{{ .Values.global.datahub.gms.port }}"
             - name: DATAHUB_SECRET
               valueFrom:
+                {{- if .Values.existingGmsSecret }}
+                secretKeyRef:
+                  name: "{{ .Values.existingGmsSecret.name }}"
+                  key: "{{ .Values.existingGmsSecret.key }}"
+                {{- else }}
                 secretKeyRef:
                   name: {{ printf "%s-gms-secret" .Release.Name }}
                   key: datahub.gms.secret
+                {{- end }}
             - name: DATAHUB_APP_VERSION
               value: "{{ .Values.global.datahub.appVersion }}"
             - name: DATAHUB_PLAY_MEM_BUFFER_SIZE

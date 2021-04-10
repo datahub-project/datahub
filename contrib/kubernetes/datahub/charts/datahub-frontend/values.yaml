@@ -38,7 +38,7 @@ securityContext: {}
 
 service:
   type: LoadBalancer
-  port: 9001
+  port: 9002
 
 ingress:
   enabled: false
@@ -48,6 +48,7 @@ ingress:
   hosts:
     - host: chart-example.local
       paths: []
+      redirectPaths: []
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
@@ -134,6 +135,16 @@ exporters:
 #      interval: 30s
 #      scrapeTimeout: 30s
 #      scheme: http
+
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 4
+
+readinessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  failureThreshold: 4
 
 datahub:
   play:
