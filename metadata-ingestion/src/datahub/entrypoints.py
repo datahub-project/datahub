@@ -28,7 +28,7 @@ logging.basicConfig(format=BASE_LOGGING_FORMAT)
 @click.group()
 @click.option("--debug/--no-debug", default=False)
 @click.version_option(
-    version=datahub_package.__version__,
+    version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
 )
 def datahub(debug: bool) -> None:
@@ -46,7 +46,7 @@ def datahub(debug: bool) -> None:
 @datahub.command()
 def version() -> None:
     """Print version number and exit"""
-    click.echo(f"DataHub CLI version: {datahub_package.__version__}")
+    click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 
