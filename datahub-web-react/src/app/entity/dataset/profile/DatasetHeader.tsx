@@ -1,8 +1,16 @@
 import { Avatar, Badge, Divider, Popover, Space, Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+
+const DescriptionText = styled(Typography.Paragraph)`
+    max-width: 377px;
+    display: block;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+`;
 
 export type Props = {
     dataset: Dataset;
@@ -18,7 +26,7 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                     <Typography.Text>Dataset</Typography.Text>
                     <Typography.Text strong>{platform?.name}</Typography.Text>
                 </Space>
-                <Typography.Paragraph>{description}</Typography.Paragraph>
+                <DescriptionText>{description}</DescriptionText>
                 <Avatar.Group maxCount={6} size="large">
                     {ownership?.owners?.map((owner) => (
                         <CustomAvatar
