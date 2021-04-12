@@ -6,7 +6,6 @@ from unittest import mock
 
 import airflow.configuration
 import pytest
-from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
 from airflow.utils.dates import days_ago
@@ -17,7 +16,6 @@ except ImportError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.entities import Dataset
 from datahub.integrations.airflow.get_provider_info import get_provider_info
 from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
 from datahub.integrations.airflow.operators import DatahubEmitterOperator
@@ -138,6 +136,11 @@ def test_hook_airflow_ui(hook):
 
 @mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
 def test_lineage_backend(mock_emit):
+    # Airflow 2.x does not have lineage backend support merged back in yet.
+    # As such, we must protect these imports.
+    from airflow.lineage import apply_lineage, prepare_lineage
+    from datahub.integrations.airflow.entities import Dataset
+
     DEFAULT_DATE = days_ago(2)
 
     with mock.patch.dict(
