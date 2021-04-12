@@ -1,9 +1,11 @@
 package com.linkedin.dataset.client;
 
 import com.linkedin.common.client.DatasetsClient;
+import com.linkedin.common.lineage.GenericLineage;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.DownstreamLineage;
 import com.linkedin.dataset.DownstreamLineageRequestBuilders;
+import com.linkedin.dataset.GenericDownstreamLineageRequestBuilders;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.dataset.UpstreamLineageDelta;
 import com.linkedin.dataset.UpstreamLineageRequestBuilders;
@@ -23,6 +25,8 @@ public class Lineages extends DatasetsClient {
         new UpstreamLineageRequestBuilders();
     private static final DownstreamLineageRequestBuilders DOWNSTREAM_LINEAGE_REQUEST_BUILDERS =
         new DownstreamLineageRequestBuilders();
+    private static final GenericDownstreamLineageRequestBuilders GENERIC_DOWNSTREAM_LINEAGE_REQUEST_BUILDERS =
+            new GenericDownstreamLineageRequestBuilders();
 
     public Lineages(@Nonnull Client restliClient) {
         super(restliClient);
@@ -52,6 +56,19 @@ public class Lineages extends DatasetsClient {
         final GetRequest<DownstreamLineage> request = DOWNSTREAM_LINEAGE_REQUEST_BUILDERS.get()
             .datasetKey(new ComplexResourceKey<>(toDatasetKey(datasetUrn), new EmptyRecord()))
             .build();
+        return _client.sendRequest(request).getResponseEntity();
+    }
+
+    /**
+     * Gets a specific version of downstream {@link com.linkedin.common.lineage.GenericLineage} for the given dataset.
+     */
+    @Nonnull
+    public GenericLineage getGenericDownstreamLineage(@Nonnull DatasetUrn datasetUrn)
+            throws RemoteInvocationException {
+
+        final GetRequest<GenericLineage> request = GENERIC_DOWNSTREAM_LINEAGE_REQUEST_BUILDERS.get()
+                .datasetKey(new ComplexResourceKey<>(toDatasetKey(datasetUrn), new EmptyRecord()))
+                .build();
         return _client.sendRequest(request).getResponseEntity();
     }
 

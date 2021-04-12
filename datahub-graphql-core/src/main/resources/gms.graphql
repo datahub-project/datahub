@@ -230,9 +230,14 @@ type Dataset implements Entity {
     upstreamLineage: UpstreamLineage
 
     """
-    Downstream Lineage metadata of the dataset
+    Dataset-specific Downstream Lineage - this will not include downstream charts for example
     """
-    downstreamLineage: DownstreamLineage
+    downstreamLineage: DownstreamLineage @deprecated(reason: "Use `genericDownstreamLineage`.")
+
+    """
+    Generic downstream lineage that includes downstream lineage of all entity types
+    """
+    genericDownstreamLineage: GenericLineage
 
     """
     The structured tags associated with the dataset
@@ -539,6 +544,28 @@ enum SchemaFieldDataType {
     ARRAY
     UNION
     STRUCT
+}
+
+union LineageEntity =
+
+type LineageEntities = {
+    type: EntityTypeDataset | Chart | Dashboard
+}
+
+type GenericLineageRelationship {
+    """
+    An AuditStamp corresponding to the last modification of this relationship
+    """
+    auditStamp: AuditStamp
+
+    """
+    Entity that is related via lineage
+    """
+    entity: LineageEntity
+}
+
+type GenericLineage {
+    entities: [GenericLineageRelationship]
 }
 
 type UpstreamLineage {
@@ -1435,6 +1462,11 @@ type Chart implements Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags
+
+    """
+    Generic downstream lineage that includes downstream lineage of all entity types
+    """
+    genericDownstreamLineage: GenericLineage
 }
 
 type ChartInfo {
