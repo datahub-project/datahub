@@ -139,6 +139,7 @@ def test_lineage_backend(mock_emit):
     # Airflow 2.x does not have lineage backend support merged back in yet.
     # As such, we must protect these imports.
     from airflow.lineage import apply_lineage, prepare_lineage
+
     from datahub.integrations.airflow.entities import Dataset
 
     DEFAULT_DATE = days_ago(2)

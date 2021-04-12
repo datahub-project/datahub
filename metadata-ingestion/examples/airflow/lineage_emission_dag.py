@@ -57,11 +57,13 @@ with DAG(
         datahub_conn_id="datahub_rest_default",
         mces=[
             builder.make_lineage_mce(
-                [
+                upstream_urns=[
                     builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
                     builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
                 ],
-                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
+                downstream_urn=builder.make_dataset_urn(
+                    "snowflake", "mydb.schema.tableC"
+                ),
             )
         ],
     )
