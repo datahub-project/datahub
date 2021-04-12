@@ -1,11 +1,13 @@
 package com.linkedin.gms.factory.tag;
 
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.dao.EbeanLocalDAO;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
 
 import com.linkedin.metadata.snapshot.TagSnapshot;
+import com.linkedin.mxe.TopicConvention;
 import io.ebean.config.ServerConfig;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,19 +18,19 @@ import org.springframework.context.annotation.DependsOn;
 
 import javax.annotation.Nonnull;
 
+
 @Configuration
 public class TagDaoFactory {
-    @Autowired
-    ApplicationContext applicationContext;
+  @Autowired
+  ApplicationContext applicationContext;
 
-    @Bean(name = "tagDAO")
-    @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
-    @Nonnull
-    protected EbeanLocalDAO createInstance() {
-        KafkaMetadataEventProducer<TagSnapshot, TagAspect, TagUrn> producer =
-                new KafkaMetadataEventProducer(TagSnapshot.class, TagAspect.class,
-                        applicationContext.getBean(Producer.class));
-        return new EbeanLocalDAO<>(TagAspect.class, producer, applicationContext.getBean(ServerConfig.class),
-                TagUrn.class);
-    }
+  @Bean(name = "tagDAO")
+  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
+  @Nonnull
+  protected EbeanLocalDAO createInstance() {
+    KafkaMetadataEventProducer<TagSnapshot, TagAspect, TagUrn> producer =
+        new KafkaMetadataEventProducer(TagSnapshot.class, TagAspect.class, applicationContext.getBean(Producer.class),
+            applicationContext.getBean(TopicConvention.class));
+    return new EbeanLocalDAO<>(TagAspect.class, producer, applicationContext.getBean(ServerConfig.class), TagUrn.class);
+  }
 }
