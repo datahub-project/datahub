@@ -1,41 +1,48 @@
 package com.linkedin.metadata.configs;
 
-import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.search.MLModelDocument;
-
-import javax.annotation.Nonnull;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Collections;
 import java.util.Set;
+import javax.annotation.Nonnull;
 
-public class MLModelSearchConfig extends BaseSearchConfig<MLModelDocument> {
-    @Override
-    @Nonnull
-    public Set<String> getFacetFields() {
-        return Collections.emptySet();
-    }
 
-    @Override
-    @Nonnull
-    public Class<MLModelDocument> getSearchDocument() {
-        return MLModelDocument.class;
-    }
+public class MLModelSearchConfig extends BaseSearchConfigWithConvention<MLModelDocument> {
+  public MLModelSearchConfig() {
+  }
 
-    @Override
-    @Nonnull
-    public String getDefaultAutocompleteField() {
-        return "name";
-    }
+  public MLModelSearchConfig(IndexConvention indexConvention) {
+    super(indexConvention);
+  }
 
-    @Override
-    @Nonnull
-    public String getSearchQueryTemplate() {
-        return SearchUtils.readResourceFile(getClass(), "mlModelESSearchQueryTemplate.json");
-    }
+  @Override
+  @Nonnull
+  public Set<String> getFacetFields() {
+    return Collections.emptySet();
+  }
 
-    @Override
-    @Nonnull
-    public String getAutocompleteQueryTemplate() {
-        return SearchUtils.readResourceFile(getClass(), "mlModelESAutocompleteQueryTemplate.json");
-    }
+  @Override
+  @Nonnull
+  public Class<MLModelDocument> getSearchDocument() {
+    return MLModelDocument.class;
+  }
+
+  @Override
+  @Nonnull
+  public String getDefaultAutocompleteField() {
+    return "name";
+  }
+
+  @Override
+  @Nonnull
+  public String getSearchQueryTemplate() {
+    return SearchUtils.readResourceFile(getClass(), "mlModelESSearchQueryTemplate.json");
+  }
+
+  @Override
+  @Nonnull
+  public String getAutocompleteQueryTemplate() {
+    return SearchUtils.readResourceFile(getClass(), "mlModelESAutocompleteQueryTemplate.json");
+  }
 }
