@@ -1,0 +1,12 @@
+namespace com.linkedin.common.lineage
+
+/**
+ * Downstream lineage of a dataset
+ */
+record GenericLineage {
+
+  /**
+   * List of related entities
+   */
+  entities: array[GenericLineageRelationship]
+}

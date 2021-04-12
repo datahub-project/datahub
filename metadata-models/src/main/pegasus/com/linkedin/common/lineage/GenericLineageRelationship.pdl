@@ -1,0 +1,20 @@
+namespace com.linkedin.common.lineage
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Downstream lineage information about a dataset including the source reporting the lineage
+ */
+record GenericLineageRelationship {
+
+  /**
+   * Audit stamp containing who reported the lineage and when
+   */
+  auditStamp: optional AuditStamp
+
+  /**
+   * The downstream dataset the lineage points to
+   */
+  entity: Urn
+}
