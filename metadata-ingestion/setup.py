@@ -49,7 +49,7 @@ kafka_common = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.20",
+    "sqlalchemy>=1.3.24",
 }
 
 # Note: for all of these, framework_common will be added.

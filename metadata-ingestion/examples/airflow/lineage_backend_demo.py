@@ -30,7 +30,6 @@ with DAG(
     description="An example DAG demonstrating the usage of DataHub's Airflow lineage backend.",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     task1 = BashOperator(

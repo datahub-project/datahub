@@ -44,7 +44,6 @@ with DAG(
     description="An example DAG which runs a DataHub ingestion recipe",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     ingest_task = PythonOperator(

@@ -30,7 +30,6 @@ with DAG(
     description="An example DAG demonstrating lineage emission within an Airflow DAG.",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     # This example shows a SnowflakeOperator followed by a lineage emission. However, the
