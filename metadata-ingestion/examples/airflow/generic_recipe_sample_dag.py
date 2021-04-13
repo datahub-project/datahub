@@ -8,7 +8,11 @@ from datetime import timedelta
 
 import yaml
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+
+try:
+    from airflow.operators.python import PythonOperator
+except ImportError:
+    from airflow.operators.python_operator import PythonOperator
 from airflow.utils.dates import days_ago
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -40,7 +44,6 @@ with DAG(
     description="An example DAG which runs a DataHub ingestion recipe",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     ingest_task = PythonOperator(

@@ -27,13 +27,14 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=7.1.1",
-    "pyyaml>=5.4.1",
+    "click>=6.0.0",
+    "PyYAML",
     "toml>=0.10.0",
-    "docker>=4.4",
+    "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.3.8",
+    "avro-gen3==0.3.9",
     "avro-python3>=1.8.2",
+    "python-dateutil",
 }
 
 kafka_common = {
@@ -43,21 +44,21 @@ kafka_common = {
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
     "confluent_kafka>=1.5.0",
-    "fastavro>=1.3.0",
+    "fastavro>=1.2.0",
 }
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.23",
+    "sqlalchemy>=1.3.24",
 }
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests>=2.25.1"},
+    "datahub-rest": {"requests"},
     # Integrations.
-    "airflow": {"apache-airflow >= 1.10.3"},
+    "airflow": {"apache-airflow >= 1.10.2"},
     # Source plugins
     "kafka": kafka_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
@@ -91,6 +92,8 @@ dev_requirements = {
     "build",
     "twine",
     # Also add the plugins which are used for tests.
+    "apache-airflow==1.10.15",  # Airflow 2.x does not have LineageBackend packaged yet.
+    "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
     *list(
         dependency
         for plugin in [
@@ -106,7 +109,6 @@ dev_requirements = {
         ]
         for dependency in plugins[plugin]
     ),
-    "apache-airflow-providers-snowflake",  # Used in the example DAGs.
 }
 
 
@@ -182,6 +184,9 @@ setuptools.setup(
         ],
         "apache_airflow_provider": [
             "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
+        ],
+        "airflow.plugins": [
+            "datahub = datahub.integrations.airflow.get_provider_info:DatahubAirflowPlugin"
         ],
     },
     # Dependencies.

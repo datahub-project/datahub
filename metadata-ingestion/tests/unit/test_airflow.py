@@ -1,9 +1,19 @@
 import json
+import os
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
 
-from airflow.models import Connection, DagBag
+import airflow.configuration
+import pytest
+from airflow.models import DAG, Connection, DagBag
+from airflow.models import TaskInstance as TI
+from airflow.utils.dates import days_ago
+
+try:
+    from airflow.operators.dummy import DummyOperator
+except ImportError:
+    from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub.integrations.airflow.get_provider_info import get_provider_info
@@ -39,6 +49,10 @@ datahub_kafka_connection_config = Connection(
 )
 
 
+def setup_module(module):
+    airflow.configuration.load_test_config()
+
+
 def test_airflow_provider_info():
     assert get_provider_info()
 
@@ -55,7 +69,9 @@ def test_dags_load_with_no_errors(pytestconfig):
 def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
-    with mock.patch("airflow.hooks.base.BaseHook.get_connection", return_value=conn):
+    with mock.patch(
+        "datahub.integrations.airflow.hooks.BaseHook.get_connection", return_value=conn
+    ):
         yield conn
 
 
@@ -82,22 +98,86 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook", autospec=True)
-def test_datahub_lineage_operator(mock_hook):
-    task = DatahubEmitterOperator(
-        task_id="emit_lineage",
-        datahub_rest_conn_id=datahub_rest_connection_config.conn_id,
-        mces=[
-            builder.make_lineage_mce(
-                [
-                    builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
-                    builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
-                ],
-                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
-            )
-        ],
-    )
-    task.execute(None)
+@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+def test_datahub_lineage_operator(mock_emit):
+    with patch_airflow_connection(datahub_rest_connection_config) as config:
+        task = DatahubEmitterOperator(
+            task_id="emit_lineage",
+            datahub_conn_id=config.conn_id,
+            mces=[
+                builder.make_lineage_mce(
+                    [
+                        builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
+                        builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
+                    ],
+                    builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
+                )
+            ],
+        )
+        task.execute(None)
 
-    mock_hook.assert_called()
-    mock_hook.return_value.emit_mces.assert_called_once()
+        mock_emit.assert_called()
+
+
+@pytest.mark.parametrize(
+    "hook",
+    [
+        DatahubRestHook,
+        DatahubKafkaHook,
+    ],
+)
+def test_hook_airflow_ui(hook):
+    # Simply ensure that these run without issue. These will also show up
+    # in the Airflow UI, where it will be even more clear if something
+    # is wrong.
+    hook.get_connection_form_widgets()
+    hook.get_ui_field_behaviour()
+
+
+@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+def test_lineage_backend(mock_emit):
+    # Airflow 2.x does not have lineage backend support merged back in yet.
+    # As such, we must protect these imports.
+    from airflow.lineage import apply_lineage, prepare_lineage
+
+    from datahub.integrations.airflow.entities import Dataset
+
+    DEFAULT_DATE = days_ago(2)
+
+    with mock.patch.dict(
+        os.environ,
+        {
+            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
+        },
+    ), patch_airflow_connection(datahub_rest_connection_config):
+        func = mock.Mock()
+        func.__name__ = "foo"
+
+        dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
+
+        with dag:
+            op1 = DummyOperator(task_id="task1")
+
+        upstream = Dataset("snowflake", "mydb.schema.tableConsumed")
+        downstream = Dataset("snowflake", "mydb.schema.tableProduced")
+
+        op1.inlets.append(upstream)
+        op1.outlets.append(downstream)
+
+        ti = TI(task=op1, execution_date=DEFAULT_DATE)
+        ctx1 = {
+            "dag": dag,
+            "task": op1,
+            "ti": ti,
+            "task_instance": ti,
+            "execution_date": DEFAULT_DATE,
+            "ts": "2021-04-08T00:54:25.771575+00:00",
+        }
+
+        prep = prepare_lineage(func)
+        prep(op1, ctx1)
+        post = apply_lineage(func)
+        post(op1, ctx1)
+
+        mock_emit.assert_called()
