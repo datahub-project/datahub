@@ -27,7 +27,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 ```sh
 python3 -m venv venv
 source venv/bin/activate
-pip install --upgrade pip==20.2.4 wheel setuptools
+pip install --upgrade pip wheel setuptools
 pip uninstall datahub || true ; rm -r src/*.egg-info || true
 pip install -e .
 ./scripts/codegen.sh
@@ -45,7 +45,7 @@ If you've already run the pip install, but running `datahub` in your command lin
 The easiest way to circumvent this is to install and run via Python, and use `python3 -m datahub` in place of `datahub`.
 
 ```sh
-python3 -m pip install acryl-datahub
+python3 -m pip install --upgrade acryl-datahub
 python3 -m datahub --help
 ```
 
@@ -57,7 +57,7 @@ python3 -m datahub --help
 This means Python's `wheel` is not installed. Try running the following commands and then retry.
 
 ```sh
-pip install --upgrade pip==20.2.4 wheel setuptools
+pip install --upgrade pip wheel setuptools
 pip cache purge
 ```
 

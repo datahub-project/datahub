@@ -1,12 +1,24 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from airflow.exceptions import AirflowException
-from airflow.hooks.base import BaseHook
+
+try:
+    from airflow.hooks.base import BaseHook
+
+    AIRFLOW_1 = False
+except ImportError:
+    from airflow.hooks.base_hook import BaseHook
+
+    AIRFLOW_1 = True
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+
+_default_hook_args = []
+if AIRFLOW_1:
+    _default_hook_args = [None]
 
 
 class DatahubRestHook(BaseHook):
@@ -16,7 +28,7 @@ class DatahubRestHook(BaseHook):
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
-        super().__init__()
+        super().__init__(*_default_hook_args)
         self.datahub_rest_conn_id = datahub_rest_conn_id
 
     @staticmethod
@@ -57,7 +69,7 @@ class DatahubKafkaHook(BaseHook):
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
-        super().__init__()
+        super().__init__(*_default_hook_args)
         self.datahub_kafka_conn_id = datahub_kafka_conn_id
 
     @staticmethod
@@ -106,3 +118,26 @@ class DatahubKafkaHook(BaseHook):
 
         if errors:
             raise AirflowException(f"failed to push some MCEs: {errors}")
+
+
+class DatahubGenericHook(BaseHook):
+    def __init__(self, datahub_conn_id: str) -> None:
+        super().__init__(*_default_hook_args)
+        self.datahub_conn_id = datahub_conn_id
+
+    def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
+        conn = self.get_connection(self.datahub_conn_id)
+        if conn.conn_type == DatahubRestHook.conn_type:
+            return DatahubRestHook(self.datahub_conn_id)
+        elif conn.conn_type == DatahubKafkaHook.conn_type:
+            return DatahubKafkaHook(self.datahub_conn_id)
+        else:
+            raise AirflowException(
+                f"DataHub cannot handle conn_type {conn.conn_type} in {conn}"
+            )
+
+    def make_emitter(self) -> Union[DatahubRestEmitter, DatahubKafkaEmitter]:
+        return self.get_underlying_hook().make_emitter()
+
+    def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
+        return self.get_underlying_hook().emit_mces(mces)

@@ -30,7 +30,6 @@ with DAG(
     description="An example DAG demonstrating lineage emission within an Airflow DAG.",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     # This example shows a SnowflakeOperator followed by a lineage emission. However, the
@@ -54,14 +53,16 @@ with DAG(
 
     emit_lineage_task = DatahubEmitterOperator(
         task_id="emit_lineage",
-        datahub_rest_conn_id="datahub_rest_default",
+        datahub_conn_id="datahub_rest_default",
         mces=[
             builder.make_lineage_mce(
-                [
+                upstream_urns=[
                     builder.make_dataset_urn("snowflake", "mydb.schema.tableA"),
                     builder.make_dataset_urn("snowflake", "mydb.schema.tableB"),
                 ],
-                builder.make_dataset_urn("snowflake", "mydb.schema.tableC"),
+                downstream_urn=builder.make_dataset_urn(
+                    "snowflake", "mydb.schema.tableC"
+                ),
             )
         ],
     )
