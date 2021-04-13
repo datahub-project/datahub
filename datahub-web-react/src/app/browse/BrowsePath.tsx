@@ -70,7 +70,15 @@ export const BrowsePath = ({ type, path, lineageSupported }: Props) => {
 
     const pathCrumbs = path.map((part, index) => (
         <Breadcrumb.Item key={`${part || index}`}>
-            <Link to={`${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`}>{part}</Link>
+            <Link
+                to={
+                    lineageSupported !== undefined && index === path.length - 1
+                        ? '#'
+                        : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
+                }
+            >
+                {part}
+            </Link>
         </Breadcrumb.Item>
     ));
 
