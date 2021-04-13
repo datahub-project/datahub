@@ -21,6 +21,9 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+    {{- with .Values.elasticsearchSetupJob.serviceAccount }}
+      serviceAccountName: {{ . }}
+    {{- end }}
       restartPolicy: Never
       securityContext:
         runAsUser: 1000
