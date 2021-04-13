@@ -1,7 +1,21 @@
-import mce_helpers
 import pytest
+import pytest_docker.plugin
+from tests.test_helpers import mce_helpers
+from tests.test_helpers.docker_helpers import wait_for_db
 
 from datahub.ingestion.run.pipeline import Pipeline
+
+
+@pytest.fixture
+def mongodb(pytestconfig, docker_compose_project_name, docker_cleanup):
+    test_docker_compose = (
+        pytestconfig.rootpath / "tests/integration/mongodb/docker-compose.yml"
+    )
+    with pytest_docker.plugin.get_docker_services(
+        test_docker_compose, f"{docker_compose_project_name}-mongo", docker_cleanup
+    ) as docker_services:
+        breakpoint()
+        yield wait_for_db(docker_services, "testmongodb", 27017)
 
 
 @pytest.mark.slow
