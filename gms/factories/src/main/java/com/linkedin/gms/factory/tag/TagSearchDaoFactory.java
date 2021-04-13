@@ -1,10 +1,9 @@
-package com.linkedin.gms.factory.datajob;
+package com.linkedin.gms.factory.tag;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.metadata.configs.DataFlowSearchConfig;
+import com.linkedin.metadata.configs.TagSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
-import com.linkedin.metadata.search.DataFlowDocument;
-
+import com.linkedin.metadata.search.TagDocument;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,16 +16,15 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
-public class DataFlowSearchDAOFactory {
-
+public class TagSearchDaoFactory {
   @Autowired
   ApplicationContext applicationContext;
 
-  @Bean(name = "dataFlowSearchDAO")
+  @Bean(name = "tagSearchDAO")
   @DependsOn({"elasticSearchRestHighLevelClient", IndexConventionFactory.INDEX_CONVENTION_BEAN})
   @Nonnull
   protected ESSearchDAO createInstance() {
-    return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), DataFlowDocument.class,
-        new DataFlowSearchConfig(applicationContext.getBean(IndexConvention.class)));
+    return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), TagDocument.class,
+        new TagSearchConfig(applicationContext.getBean(IndexConvention.class)));
   }
 }
