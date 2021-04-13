@@ -1,5 +1,4 @@
-import fs_helpers
-import mce_helpers
+from tests.test_helpers import mce_helpers, fs_helpers
 import pytest
 from click.testing import CliRunner
 

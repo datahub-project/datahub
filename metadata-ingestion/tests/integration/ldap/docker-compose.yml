@@ -36,23 +36,26 @@ services:
     tty: true
     stdin_open: true
     volumes:
+      - /var/lib/ldap
+      - /etc/ldap/slapd.d
+      - /container/service/slapd/assets/certs/
       # Populates the LDAP server with sample data.
       - ./setup/custom:/container/service/slapd/assets/config/bootstrap/ldif/custom
     ports:
       - "389:389"
       - "636:636"
   # phpldapadmin:
-  #     # This LDAP web interface is disabled for the integration tests, but can be
-  #     # useful for debugging purposes.
-  #     image: osixia/phpldapadmin:latest
-  #     container_name: phpldapadmin
-  #     environment:
-  #         PHPLDAPADMIN_LDAP_HOSTS: "openldap"
-  #         PHPLDAPADMIN_HTTPS: "false"
-  #     ports:
-  #         # To login, navigate to http://localhost:7080 and click login. Credentials:
-  #         # Username: cn=admin,dc=example,dc=org
-  #         # Password: admin
-  #         - "7080:80"
-  #     depends_on:
-  #         - openldap
+  #   # This LDAP web interface is disabled for the integration tests, but can be
+  #   # useful for debugging purposes.
+  #   image: osixia/phpldapadmin:latest
+  #   container_name: phpldapadmin
+  #   environment:
+  #     PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+  #     PHPLDAPADMIN_HTTPS: "false"
+  #   ports:
+  #     # To login, navigate to http://localhost:7080 and click login. Credentials:
+  #     # Username: cn=admin,dc=example,dc=org
+  #     # Password: admin
+  #     - "7080:80"
+  #   depends_on:
+  #     - openldap

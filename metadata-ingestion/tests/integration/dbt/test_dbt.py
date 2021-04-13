@@ -1,4 +1,4 @@
-import mce_helpers
+from tests.test_helpers import mce_helpers
 
 from datahub.ingestion.run.pipeline import Pipeline
 

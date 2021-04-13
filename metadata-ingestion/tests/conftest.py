@@ -1,14 +1,10 @@
 import logging
 import os
-import sys
 import time
 
 import pytest
 
 from tests.test_helpers.docker_helpers import docker_compose_runner  # noqa: F401
-
-# See https://stackoverflow.com/a/33515264.
-sys.path.append(os.path.join(os.path.dirname(__file__), "test_helpers"))
 
 # Enable debug logging.
 logging.getLogger().setLevel(logging.DEBUG)

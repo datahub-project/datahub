@@ -2,7 +2,7 @@ import io
 import json
 
 import fastavro
-import mce_helpers
+from tests.test_helpers import mce_helpers
 import pytest
 from click.testing import CliRunner
 
