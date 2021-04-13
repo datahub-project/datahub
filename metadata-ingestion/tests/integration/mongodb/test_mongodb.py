@@ -14,6 +14,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
     ) as docker_services:
         wait_for_port(docker_services, "testmongodb", 27017)
 
+        # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(
             {
                 "run_id": "mongodb-test",
@@ -36,6 +37,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         pipeline.run()
         pipeline.raise_from_status()
 
+        # Verify the output.
         output = mce_helpers.load_json_file(str(tmp_path / "mongodb_mces.json"))
         golden = mce_helpers.load_json_file(
             str(test_resources_dir / "mongodb_mce_golden.json")

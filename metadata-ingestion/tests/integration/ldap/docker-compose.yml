@@ -1,17 +1,5 @@
 version: "2"
 services:
-  testmysql:
-    image: mysql
-    container_name: "testmysql"
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: example
-    ports:
-      - 53306:3306
-    volumes:
-      - ./mysql/setup:/setup
-      - ./mysql/setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
-
   openldap:
     image: osixia/openldap:latest
     command: --copy-service --loglevel debug
@@ -48,11 +36,8 @@ services:
     tty: true
     stdin_open: true
     volumes:
-      - /var/lib/ldap
-      - /etc/ldap/slapd.d
-      - /container/service/slapd/assets/certs/
       # Populates the LDAP server with sample data.
-      - ./ldap/setup/custom:/container/service/slapd/assets/config/bootstrap/ldif/custom
+      - ./setup/custom:/container/service/slapd/assets/config/bootstrap/ldif/custom
     ports:
       - "389:389"
       - "636:636"
