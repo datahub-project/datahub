@@ -14,6 +14,8 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "ldap"
     ) as docker_services:
+        # The openldap container loads the sample data after exposing the port publicly. As such,
+        # we must wait a little bit extra to ensure that the sample data is loaded.
         wait_for_port(docker_services, "openldap", 389)
         time.sleep(5)
 
