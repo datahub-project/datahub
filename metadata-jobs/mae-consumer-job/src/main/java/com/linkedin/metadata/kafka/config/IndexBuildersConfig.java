@@ -11,11 +11,12 @@ import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
 import com.linkedin.metadata.builders.search.MLModelIndexBuilder;
 import com.linkedin.metadata.builders.search.TagIndexBuilder;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.restli.client.Client;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -27,13 +28,14 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@RequiredArgsConstructor
 public class IndexBuildersConfig {
 
   @Value("${GMS_HOST:localhost}")
   private String gmsHost;
   @Value("${GMS_PORT:8080}")
   private int gmsPort;
+  @Value("${INDEX_PREFIX:}")
+  private String indexPrefix;
 
   /**
    * Registered index builders powering GMA search
@@ -61,5 +63,13 @@ public class IndexBuildersConfig {
   @Bean
   public Client restliClient() {
     return DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
+  }
+
+  /**
+   * Convention for naming search indices
+   */
+  @Bean
+  public IndexConvention indexConvention() {
+    return new IndexConventionImpl(indexPrefix);
   }
 }

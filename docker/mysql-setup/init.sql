@@ -1,6 +1,6 @@
 -- create datahub database
-CREATE DATABASE IF NOT EXISTS datahub;
-USE datahub;
+CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
+USE DATAHUB_DB_NAME;
 
 -- create metadata aspect table
 create table if not exists metadata_aspect (
