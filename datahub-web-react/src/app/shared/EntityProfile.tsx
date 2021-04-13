@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
+import { Button, Col, Row, Divider, Layout, Card, Typography } from 'antd';
 import styled from 'styled-components';
 import { TagOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
@@ -33,6 +33,10 @@ const TagCard = styled(Card)`
 
 const TagIcon = styled(TagOutlined)`
     padding-right: 6px;
+`;
+
+const FooterButtonGroup = styled(Row)`
+    margin-top: 48px;
 `;
 
 type LayoutProps = {
@@ -94,6 +98,20 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
                             </Col>
                         </Row>
                     </>
+                )}
+                {isCompact && (
+                    <FooterButtonGroup gutter={24}>
+                        <Col span={7} offset={4}>
+                            <Button type="primary" href={titleLink?.split('?is_lineage_mode=')[0]}>
+                                View Profile
+                            </Button>
+                        </Col>
+                        <Col span={7} offset={1}>
+                            <Button type="default" href={titleLink}>
+                                View Lineage
+                            </Button>
+                        </Col>
+                    </FooterButtonGroup>
                 )}
             </div>
         </LayoutContent>
