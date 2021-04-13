@@ -161,6 +161,7 @@ setuptools.setup(
         "console_scripts": ["datahub = datahub.entrypoints:datahub"],
         "datahub.ingestion.source.plugins": [
             "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+            "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
             "athena = datahub.ingestion.source.athena:AthenaSource",
             "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
             "dbt = datahub.ingestion.source.dbt:DBTSource",
