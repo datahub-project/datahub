@@ -1,10 +1,9 @@
-from tests.test_helpers import mce_helpers
-
-import pytest
 import time
 
-from datahub.ingestion.run.pipeline import Pipeline
+import pytest
 
+from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 

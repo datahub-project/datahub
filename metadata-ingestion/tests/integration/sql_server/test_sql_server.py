@@ -1,11 +1,11 @@
 import subprocess
 import time
 
-from tests.test_helpers import mce_helpers, fs_helpers
 import pytest
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
+from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
