@@ -1,8 +1,8 @@
 package com.linkedin.metadata.configs;
 
-import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.search.ChartDocument;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -10,7 +10,14 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 
-public class ChartSearchConfig extends BaseSearchConfig<ChartDocument> {
+public class ChartSearchConfig extends BaseSearchConfigWithConvention<ChartDocument> {
+  public ChartSearchConfig() {
+  }
+
+  public ChartSearchConfig(IndexConvention indexConvention) {
+    super(indexConvention);
+  }
+
   @Nonnull
   @Override
   public Set<String> getFacetFields() {

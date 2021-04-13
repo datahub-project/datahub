@@ -14,6 +14,14 @@ else
     ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST
 fi
 
+function get_index_name() {
+  if [[ -z "$INDEX_PREFIX" ]]; then
+    echo $1
+  else
+    echo "${INDEX_PREFIX}_$1"
+  fi
+}
+
 function generate_index_file() {
   jq -n \
     --slurpfile settings "$1" \
@@ -114,12 +122,12 @@ function create_index() {
   fi
 }
 
-create_index chartdocument chart/settings.json chart/mappings.json || exit 1
-create_index corpuserinfodocument corp-user/settings.json corp-user/mappings.json  || exit 1
-create_index dashboarddocument dashboard/settings.json dashboard/mappings.json  || exit 1
-create_index datajobdocument datajob/settings.json datajob/mappings.json || exit 1
-create_index dataflowdocument dataflow/settings.json dataflow/mappings.json || exit 1
-create_index dataprocessdocument data-process/settings.json data-process/mappings.json || exit 1
-create_index datasetdocument dataset/settings.json dataset/mappings.json || exit 1
-create_index mlmodeldocument ml-model/settings.json ml-model/mappings.json || exit 1
-create_index tagdocument tags/settings.json tags/mappings.json || exit 1
+create_index $(get_index_name chartdocument) chart/settings.json chart/mappings.json || exit 1
+create_index $(get_index_name corpuserinfodocument) corp-user/settings.json corp-user/mappings.json  || exit 1
+create_index $(get_index_name dashboarddocument) dashboard/settings.json dashboard/mappings.json  || exit 1
+create_index $(get_index_name datajobdocument) datajob/settings.json datajob/mappings.json || exit 1
+create_index $(get_index_name dataflowdocument) dataflow/settings.json dataflow/mappings.json || exit 1
+create_index $(get_index_name dataprocessdocument) data-process/settings.json data-process/mappings.json || exit 1
+create_index $(get_index_name datasetdocument) dataset/settings.json dataset/mappings.json || exit 1
+create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/mappings.json || exit 1
+create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
