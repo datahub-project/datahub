@@ -1,20 +1,32 @@
-import os
-import time
+import contextlib
+import subprocess
+import pytest
+import pytest_docker.plugin
 
 
-def is_responsive(container: str, port: int):
-    ret = os.system(f"docker exec {container} nc -z localhost {port}")
-    return ret == 0
+def is_responsive(port: int):
+    ret = subprocess.run(["nc", "-z", "localhost", f"{port}"])
+    return ret.returncode == 0
 
 
-def wait_for_db(docker_services, container_name, container_port):
+def wait_for_port(docker_services, container_name, container_port):
     port = docker_services.port_for(container_name, container_port)
     docker_services.wait_until_responsive(
         timeout=30.0,
         pause=0.5,
-        check=lambda: is_responsive(container_name, container_port),
+        check=lambda: is_responsive(port),
     )
 
-    # TODO: this is an ugly hack.
-    time.sleep(5)
-    return port
+
+@pytest.fixture
+def docker_compose_runner(docker_compose_project_name, docker_cleanup):
+    @contextlib.contextmanager
+    def run(compose_file_path, key):
+        with pytest_docker.plugin.get_docker_services(
+            str(compose_file_path),
+            f"{docker_compose_project_name}-{key}",
+            docker_cleanup,
+        ) as docker_services:
+            yield docker_services
+
+    return run

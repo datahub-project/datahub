@@ -1,7 +1,9 @@
 import os
 import pytest
 
-from tests.test_helpers.docker_helpers import wait_for_db
+from tests.test_helpers.docker_helpers import wait_for_port
+
+wait_for_db = wait_for_port
 
 
 @pytest.fixture(scope="session")
