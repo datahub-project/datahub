@@ -30,7 +30,7 @@ public class GenericDownstreamLineageType implements LoadableType<GenericLineage
         try {
             return keys.stream().map(urn -> {
                 try {
-                    com.linkedin.common.lineage.GenericLineage genericLineage = _lineageClient.getGenericDownstreamLineage(urn);
+                    com.linkedin.common.relationships.GenericLineage genericLineage = _lineageClient.getGenericDownstreamLineage(urn);
                     return GenericLineageMapper.map(genericLineage);
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for dataset %s", urn), e);
