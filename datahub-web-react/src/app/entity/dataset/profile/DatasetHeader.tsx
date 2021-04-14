@@ -1,8 +1,24 @@
 import { Avatar, Badge, Divider, Popover, Space, Typography } from 'antd';
+import { ParagraphProps } from 'antd/lib/typography/Paragraph';
 import React from 'react';
+import styled from 'styled-components';
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import CompactContext from '../../../shared/CompactContext';
+
+type DescriptionTextProps = ParagraphProps & {
+    isCompact: boolean;
+};
+
+const DescriptionText = styled(({ isCompact: _, ...props }: DescriptionTextProps) => (
+    <Typography.Paragraph {...props} />
+))`
+    ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
+    display: block;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+`;
 
 export type Props = {
     dataset: Dataset;
@@ -10,6 +26,7 @@ export type Props = {
 
 export default function DatasetHeader({ dataset: { description, ownership, deprecation, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isCompact = React.useContext(CompactContext);
 
     return (
         <>
@@ -18,7 +35,7 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                     <Typography.Text>Dataset</Typography.Text>
                     <Typography.Text strong>{platform?.name}</Typography.Text>
                 </Space>
-                <Typography.Paragraph>{description}</Typography.Paragraph>
+                <DescriptionText isCompact={isCompact}>{description}</DescriptionText>
                 <Avatar.Group maxCount={6} size="large">
                     {ownership?.owners?.map((owner) => (
                         <CustomAvatar
