@@ -6,6 +6,7 @@ import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.dataset.client.Lineages;
 import com.linkedin.identity.client.CorpUsers;
+import com.linkedin.lineage.client.GenericDownstreamLineages;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
@@ -44,6 +45,7 @@ public class GmsClientFactory {
     private static DataPlatforms _dataPlatforms;
     private static MLModels _mlModels;
     private static Lineages _lineages;
+    private static GenericDownstreamLineages _genericDownstreamLineages;
     private static Tags _tags;
     private static DataFlows _dataFlows;
     private static DataJobs _dataJobs;
@@ -159,5 +161,16 @@ public class GmsClientFactory {
             }
         }
         return _tags;
+    }
+
+    public static GenericDownstreamLineages getGenericDownstreamLineagesClient() {
+        if (_genericDownstreamLineages == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_genericDownstreamLineages == null) {
+                    _genericDownstreamLineages = new GenericDownstreamLineages(REST_CLIENT);
+                }
+            }
+        }
+        return _genericDownstreamLineages;
     }
 }

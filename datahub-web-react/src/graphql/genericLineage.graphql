@@ -1,0 +1,71 @@
+fragment genericLineage on GenericLineage {
+    entities {
+        entity {
+            urn
+            type
+            ... on Dashboard {
+                tool
+                dashboardId
+                info {
+                    name
+                    description
+                    charts {
+                        urn
+                        tool
+                        type
+                        info {
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+            ... on Chart {
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    inputs {
+                        urn
+                    }
+                }
+                genericDownstreamLineage {
+                    entities {
+                        entity {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+            ... on Dataset {
+                urn
+                name
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+                upstreamLineage {
+                    upstreams {
+                        type
+                        dataset {
+                            urn
+                        }
+                    }
+                }
+                genericDownstreamLineage {
+                    entities {
+                        entity {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

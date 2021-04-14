@@ -30,12 +30,15 @@ export default function getChildren(entityAndType: EntityAndType, direction: Dir
     }
 
     if (direction === Direction.Downstream) {
-        if (entityAndType.type === EntityType.Dataset) {
+        if ('genericDownstreamLineage' in entityAndType.entity) {
             return (
-                entityAndType.entity.downstreamLineage?.downstreams.map((downstreams) => ({
-                    type: EntityType.Dataset,
-                    entity: downstreams.dataset,
-                })) || []
+                entityAndType.entity.genericDownstreamLineage?.entities?.map(
+                    (downstream) =>
+                        ({
+                            type: downstream?.entity?.type,
+                            entity: downstream?.entity,
+                        } as EntityAndType),
+                ) || []
             );
         }
     }
