@@ -1,16 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.Iterables;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import org.dataloader.DataLoader;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;

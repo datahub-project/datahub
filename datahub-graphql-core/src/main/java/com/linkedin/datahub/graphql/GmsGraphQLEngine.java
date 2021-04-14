@@ -7,8 +7,7 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.GenericLineageRelationship;
+import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -51,7 +50,6 @@ import org.dataloader.DataLoaderOptions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -275,7 +273,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entity", new AuthenticatedResolver<>(
                         new EntityTypeResolver(
                                 ENTITY_TYPES.stream().collect(Collectors.toList()),
-                                (env) -> ((GenericLineageRelationship) env.getSource()).getEntity())
+                                (env) -> ((EntityRelationship) env.getSource()).getEntity())
                     )
                 )
             );
