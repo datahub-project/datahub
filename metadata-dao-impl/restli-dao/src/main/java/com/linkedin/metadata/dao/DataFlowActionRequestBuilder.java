@@ -9,7 +9,7 @@ import com.linkedin.metadata.snapshot.DataFlowSnapshot;
  */
 public class DataFlowActionRequestBuilder extends BaseActionRequestBuilder<DataFlowSnapshot, DataFlowUrn> {
 
-  private static final String BASE_URI_TEMPLATE = "dataflows";
+  private static final String BASE_URI_TEMPLATE = "dataFlows";
 
   public DataFlowActionRequestBuilder() {
     super(DataFlowSnapshot.class, DataFlowUrn.class, BASE_URI_TEMPLATE);

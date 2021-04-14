@@ -9,10 +9,13 @@ from datetime import timedelta
 
 from airflow import DAG
 from airflow.utils.dates import days_ago
-from airflow.operators.python import PythonOperator
+
+try:
+    from airflow.operators.python import PythonOperator
+except ImportError:
+    from airflow.operators.python_operator import PythonOperator
 
 from datahub.ingestion.run.pipeline import Pipeline
-
 
 default_args = {
     "owner": "airflow",
@@ -54,7 +57,6 @@ with DAG(
     description="An example DAG which ingests metadata from MySQL to DataHub",
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
-    tags=["datahub-ingest"],
     catchup=False,
 ) as dag:
     ingest_task = PythonOperator(

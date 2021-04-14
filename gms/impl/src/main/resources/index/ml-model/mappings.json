@@ -49,6 +49,14 @@
       },
       "normalizer": "my_normalizer"
     },
+    "description": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        }
+      }
+    },
     "owners": {
       "type": "keyword",
       "normalizer": "my_normalizer"

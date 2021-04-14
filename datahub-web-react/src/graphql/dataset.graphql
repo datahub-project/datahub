@@ -136,6 +136,9 @@ query getDataset($urn: String!) {
         uri
         platform {
             name
+            info {
+                logoUrl
+            }
         }
         platformNativeType
         tags
@@ -248,6 +251,22 @@ query getDataset($urn: String!) {
             upstreams {
                 dataset {
                     ...nonRecursiveDatasetFields
+                    downstreamLineage {
+                        downstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
+                    upstreamLineage {
+                        upstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
                 }
                 type
                 created {
@@ -259,6 +278,22 @@ query getDataset($urn: String!) {
             downstreams {
                 dataset {
                     ...nonRecursiveDatasetFields
+                    downstreamLineage {
+                        downstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
+                    upstreamLineage {
+                        upstreams {
+                            type
+                            dataset {
+                                urn
+                            }
+                        }
+                    }
                 }
                 type
                 created {

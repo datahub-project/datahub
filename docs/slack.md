@@ -2,8 +2,8 @@
 
 The DataHub team has an open source slack workspace to discuss development and support.
 
-[Sign up](http://slack.datahubproject.io) or [log in with an
-existing account](https://datahubspace.slack.com/) to `datahubspace` on Slack.
+[Sign up](https://slack.datahubproject.io) or [log in with an
+existing account](https://slack.datahubproject.io) to `datahubspace` on Slack.
 
 Here are some notable channels and their purposes
 

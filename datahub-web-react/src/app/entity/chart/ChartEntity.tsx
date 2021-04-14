@@ -1,9 +1,23 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
+import { Direction } from '../../lineage/types';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getLogoFromPlatform } from './getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
+
+export default function getChildren(entity: Chart, direction: Direction | null): Array<string> {
+    if (direction === Direction.Upstream) {
+        return entity.info?.inputs?.map((input) => input.urn) || [];
+    }
+
+    if (direction === Direction.Downstream) {
+        return [];
+    }
+
+    return [];
+}
 
 /**
  * Definition of the DataHub Chart entity.
@@ -34,6 +48,8 @@ export class ChartEntity implements Entity<Chart> {
 
     isBrowseEnabled = () => true;
 
+    isLineageEnabled = () => true;
+
     getAutoCompleteFieldName = () => 'title';
 
     getPathName = () => 'chart';
@@ -58,5 +74,16 @@ export class ChartEntity implements Entity<Chart> {
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Chart);
+    };
+
+    getLineageVizConfig = (entity: Chart) => {
+        return {
+            urn: entity.urn,
+            name: entity.info?.name || '',
+            type: EntityType.Chart,
+            upstreamChildren: getChildren(entity, Direction.Upstream),
+            downstreamChildren: getChildren(entity, Direction.Downstream),
+            icon: getLogoFromPlatform(entity.tool),
+        };
     };
 }

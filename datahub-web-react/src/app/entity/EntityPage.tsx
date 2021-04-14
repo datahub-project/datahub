@@ -2,6 +2,8 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
+import LineageExplorer from '../lineage/LineageExplorer';
+import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 import { SearchablePage } from '../search/SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 
@@ -21,9 +23,18 @@ export const EntityPage = ({ entityType }: Props) => {
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
     const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
+    const isLineageMode = useIsLineageMode();
+
+    // TODO(gabe-lyons): pull this logic into the entity registry
+    const isLineageSupported = entityRegistry.getLineageEntityTypes().indexOf(entityType) > -1;
+
     return (
-        <ContainerPage urn={urn} type={entityType}>
-            {entityRegistry.renderProfile(entityType, urn)}
+        <ContainerPage urn={urn} type={entityType} lineageSupported={isLineageSupported}>
+            {isLineageMode && isLineageSupported ? (
+                <LineageExplorer type={entityType} urn={urn} />
+            ) : (
+                entityRegistry.renderProfile(entityType, urn)
+            )}
         </ContainerPage>
     );
 };

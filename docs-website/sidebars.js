@@ -39,7 +39,7 @@ module.exports = {
       // Serves as user guides.
       "docs/quickstart",
       "docs/debugging",
-      // TODO "docs/how/data-source-onboarding",
+      "metadata-ingestion/README",
     ],
     Architecture: [
       "docs/architecture/architecture",
@@ -49,8 +49,6 @@ module.exports = {
       //"docs/what/gms",
       "datahub-web-react/README",
     ],
-    // },
-    // developerGuideSidebar: {
     "Metadata Modeling": [
       // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
       "docs/what/entity",
@@ -66,6 +64,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      "metadata-ingestion/README",
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",
@@ -90,7 +89,7 @@ module.exports = {
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/README",
+      "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
       "docs/advanced/aspect-versioning",
@@ -103,8 +102,6 @@ module.exports = {
       // WIP "docs/advanced/partial-update",
       // WIP "docs/advanced/pdl-best-practices",
     ],
-    // },
-    // operatorGuideSidebar: {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
@@ -124,7 +121,6 @@ module.exports = {
       // - "docker/neo4j/README",
       // - "docker/postgres/README",
     ],
-    // },
     Community: [
       "docs/slack",
       "docs/links",

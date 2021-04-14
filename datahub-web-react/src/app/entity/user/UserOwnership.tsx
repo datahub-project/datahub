@@ -44,7 +44,7 @@ export default ({ ownerships, entityPath }: Props) => {
                 renderItem={(item) => {
                     return (
                         <ListItem>
-                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item)}
+                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item.entity)}
                             <Divider />
                         </ListItem>
                     );

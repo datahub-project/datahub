@@ -163,6 +163,7 @@ export const HomePageHeader = () => {
                 <ManageAccount
                     urn={data?.corpUser?.urn || ''}
                     pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
+                    name={data?.corpUser?.info?.firstName || data?.corpUser?.username || undefined}
                 />
             </Row>
             <HeaderContainer>
@@ -193,7 +194,7 @@ export const HomePageHeader = () => {
                     <Carousel autoplay effect="fade">
                         {suggestionsToShow.length > 0 &&
                             suggestionsToShow.slice(0, 3).map((suggestion) => (
-                                <CarouselElement>
+                                <CarouselElement key={suggestion}>
                                     <Button
                                         type="text"
                                         onClick={() =>

@@ -427,3 +427,142 @@ Sample Response:
   }
 }
 ```
+
+### Query DataFlow
+
+Request:
+
+```
+{
+  dataFlow(urn: "urn:li:dataFlow:(airflow,flow1,foo)") {
+    urn
+    type
+    orchestrator
+    flowId
+    info {
+      name
+      description
+      project
+    }
+    ownership {
+      owners {
+        owner {
+          username
+          urn
+          info {
+            displayName
+            email
+            fullName
+            manager {
+              urn
+            }
+          }
+          editableInfo {
+            aboutMe
+            skills
+          }
+        }
+        type
+        source {
+          url
+        }
+      }
+      lastModified {
+        actor
+      }
+    }
+	}
+}
+```
+
+Sample response:
+
+```
+{
+  "data": {
+    "dataFlow": {
+      "urn": "urn:li:dataFlow:(airflow,flow1,foo)",
+      "type": "DATA_FLOW",
+      "orchestrator": "airflow",
+      "flowId": "flow1",
+      "info": {
+        "name": "flow1",
+        "description": "My own workflow",
+        "project": "X"
+      },
+      "ownership": {
+        "owners": [
+          {
+            "owner": {
+              "username": "test-user",
+              "urn": "urn:li:corpuser:test-user",
+              "info": null,
+              "editableInfo": null
+            },
+            "type": "DEVELOPER",
+            "source": null
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  }
+}
+```
+
+### Query DataJob
+
+Request:
+
+```
+{
+  dataJob(urn: "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow1,foo),task1)") {
+    urn
+    type
+    jobId
+    dataFlow {
+      urn
+      flowId
+    }
+    inputOutput {
+      inputDatasets {
+        urn
+        name
+      }
+      outputDatasets {
+        urn
+        name
+      }
+    }
+  }
+}
+```
+
+Sample response
+
+```
+{
+  "data": {
+    "dataJob": {
+      "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow1,foo),task1)",
+      "type": "DATA_JOB",
+      "jobId": "task1",
+      "dataFlow": {
+        "urn": "urn:li:dataFlow:(airflow,flow1,foo)",
+        "flowId": "flow1"
+      },
+      "inputOutput": {
+        "inputDatasets": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:redis,stuff,PROD)",
+            "name": "stuff"
+          }
+        ],
+        "outputDatasets": []
+      }
+    }
+  }
+}
+```

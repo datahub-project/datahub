@@ -18,6 +18,7 @@ import LogoGeotab from './logos/geotab.jpg';
 import LogoThoughtworks from './logos/Thoughtworks.png';
 import LogoViasat from './logos/viasat.png';
 import LogoKlarna from './logos/klarna.svg';
+import LogoWolt from './logos/wolt.svg';
 
 const features = [
   {
@@ -107,6 +108,10 @@ const logos = [
     name: 'Klarna',
     image: svgFormatter(LogoKlarna),
   },
+  {
+    name: 'Wolt',
+    image: svgFormatter(LogoWolt, clsx(styles.logo_image_large)),
+  },
 ];
 
 const example_recipe = `
@@ -167,7 +172,7 @@ function Home() {
                     'button button--secondary button--outline button--lg',
                     styles.hero_button
                   )}
-                  to='http://slack.datahubproject.io'>
+                  to='https://slack.datahubproject.io'>
                   Join our Slack
             </Link>
               </div>

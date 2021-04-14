@@ -9,7 +9,7 @@ import com.linkedin.metadata.snapshot.DataJobSnapshot;
  */
 public class DataJobActionRequestBuilder extends BaseActionRequestBuilder<DataJobSnapshot, DataJobUrn> {
 
-  private static final String BASE_URI_TEMPLATE = "datajobs";
+  private static final String BASE_URI_TEMPLATE = "dataJobs";
 
   public DataJobActionRequestBuilder() {
     super(DataJobSnapshot.class, DataJobUrn.class, BASE_URI_TEMPLATE);

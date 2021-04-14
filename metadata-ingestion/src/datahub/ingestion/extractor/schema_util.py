@@ -9,6 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     EnumTypeClass,
     FixedTypeClass,
+    MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 _field_type_mapping = {
     "null": NullTypeClass,
     "bool": BooleanTypeClass,
+    "boolean": BooleanTypeClass,
     "int": NumberTypeClass,
     "long": NumberTypeClass,
     "float": NumberTypeClass,
@@ -32,6 +34,7 @@ _field_type_mapping = {
     "bytes": BytesTypeClass,
     "string": StringTypeClass,
     "record": RecordTypeClass,
+    "map": MapTypeClass,
     "enum": EnumTypeClass,
     "array": ArrayTypeClass,
     "union": UnionTypeClass,
@@ -52,6 +55,52 @@ def _get_column_type(field_type: Union[str, dict]) -> SchemaFieldDataType:
     return dt
 
 
+def _is_nullable(schema: avro.schema.Schema):
+    if isinstance(schema, avro.schema.UnionSchema):
+        return any(_is_nullable(sub_schema) for sub_schema in schema.schemas)
+    elif isinstance(schema, avro.schema.PrimitiveSchema):
+        return schema.name == "null"
+    else:
+        return False
+
+
+def _recordschema_to_mce_fields(schema: avro.schema.RecordSchema) -> List[SchemaField]:
+    fields: List[SchemaField] = []
+
+    for parsed_field in schema.fields:
+        field = SchemaField(
+            fieldPath=parsed_field.name,
+            nativeDataType=str(parsed_field.type),
+            type=_get_column_type(parsed_field.type),
+            description=parsed_field.props.get("doc", None),
+            recursive=False,
+            nullable=_is_nullable(parsed_field.type),
+        )
+
+        fields.append(field)
+
+    return fields
+
+
+def _genericschema_to_mce_fields(schema: avro.schema.Schema) -> List[SchemaField]:
+    fields: List[SchemaField] = []
+
+    # In the generic (non-RecordSchema) case, only a single SchemaField will be returned
+    # and the fieldPath will be set to empty to signal that the type refers to the
+    # the whole object.
+    field = SchemaField(
+        fieldPath="",
+        nativeDataType=str(schema.type),
+        type=_get_column_type(schema.type),
+        description=schema.props.get("doc", None),
+        recursive=False,
+        nullable=_is_nullable(schema),
+    )
+    fields.append(field)
+
+    return fields
+
+
 def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
 
@@ -61,19 +110,13 @@ def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     else:
         schema_parse_fn = avro.schema.Parse
 
-    parsed_schema: avro.schema.RecordSchema = schema_parse_fn(avro_schema_string)
+    parsed_schema: avro.schema.Schema = schema_parse_fn(avro_schema_string)
 
-    fields: List[SchemaField] = []
-    for parsed_field in parsed_schema.fields:
-        field = SchemaField(
-            fieldPath=parsed_field.name,
-            nativeDataType=str(parsed_field.type),
-            type=_get_column_type(parsed_field.type),
-            description=parsed_field.props.get("doc", None),
-            recursive=False,
-            nullable=(parsed_field.type == "null"),
-        )
+    if isinstance(parsed_schema, avro.schema.RecordSchema):
+        schema_convert_fn = _recordschema_to_mce_fields
+    else:
+        schema_convert_fn = _genericschema_to_mce_fields
 
-        fields.append(field)
+    fields = schema_convert_fn(parsed_schema)
 
     return fields
