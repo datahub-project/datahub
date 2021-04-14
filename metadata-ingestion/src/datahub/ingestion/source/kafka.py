@@ -33,7 +33,7 @@ class KafkaSourceConfig(ConfigModel):
 
 @dataclass
 class KafkaSourceReport(SourceReport):
-    topics_scanned = 0
+    topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:

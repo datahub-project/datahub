@@ -34,13 +34,20 @@ class PipelineConfig(ConfigModel):
 
 
 class LoggingCallback(WriteCallback):
-    def on_success(self, record_envelope: RecordEnvelope, success_meta):
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
         logger.info(f"sink wrote workunit {record_envelope.metadata['workunit_id']}")
 
-    def on_failure(self, record_envelope: RecordEnvelope, exception, failure_meta):
+    def on_failure(
+        self,
+        record_envelope: RecordEnvelope,
+        failure_exception: Exception,
+        failure_metadata: dict,
+    ) -> None:
         logger.error(
             f"failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {exception} and info {failure_meta}"
+            f" with {failure_exception} and info {failure_metadata}"
         )
 
 

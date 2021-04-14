@@ -32,12 +32,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
 class SQLSourceReport(SourceReport):
-    tables_scanned = 0
+    tables_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_table_scanned(self, table_name: str) -> None:
@@ -150,7 +150,7 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns
+    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns: List[dict]
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:

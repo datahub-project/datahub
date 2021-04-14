@@ -29,7 +29,7 @@ class DatahubRestSink(Sink):
         self.emitter = DatahubRestEmitter(self.config.server)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":
         config = DatahubRestSinkConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -43,7 +43,7 @@ class DatahubRestSink(Sink):
         self,
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
-    ):
+    ) -> None:
         mce = record_envelope.record
 
         try:
