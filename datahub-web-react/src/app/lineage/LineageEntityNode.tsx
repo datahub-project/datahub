@@ -128,7 +128,20 @@ export default function LineageEntityNode({
                 {node.data.icon ? (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
                 ) : (
-                    node.data.type && entityRegistry.getIcon(node.data.type, 42, IconStyleType.TAB_VIEW)
+                    node.data.type && (
+                        <svg
+                            viewBox="64 64 896 896"
+                            focusable="false"
+                            x={iconX}
+                            y={iconY}
+                            height={iconHeight}
+                            width={iconWidth}
+                            fill="currentColor"
+                            aria-hidden="true"
+                        >
+                            {entityRegistry.getIcon(node.data.type, 0, IconStyleType.LINEAGE_DEFAULT)}
+                        </svg>
+                    )
                 )}
                 <text dy=".33em" x={textX} fontSize={16} fontFamily="Arial" textAnchor="start" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
