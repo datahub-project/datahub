@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Button, Col, Row, Divider, Layout, Card, Typography } from 'antd';
+import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
 import styled from 'styled-components';
 import { TagOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
@@ -35,10 +35,6 @@ const TagIcon = styled(TagOutlined)`
     padding-right: 6px;
 `;
 
-const FooterButtonGroup = styled(Row)`
-    margin-top: 48px;
-`;
-
 type LayoutProps = {
     isCompact: boolean;
 };
@@ -62,58 +58,42 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
     /* eslint-disable spaced-comment */
     return (
         <LayoutContent isCompact={isCompact}>
-            <div>
-                <Row>
-                    <Col md={isCompact ? 24 : 16} sm={24} xs={24}>
-                        <div>
-                            <Row style={{ padding: '20px 0px 10px 0px' }}>
-                                <Col span={24}>
-                                    {titleLink ? (
-                                        <Link to={titleLink}>
-                                            <h1>{title}</h1>
-                                        </Link>
-                                    ) : (
-                                        <h1>{title}</h1>
-                                    )}
-                                </Col>
-                            </Row>
-                            {header}
-                        </div>
-                    </Col>
-                    <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
-                        <TagCard>
-                            <TagsTitle type="secondary" level={4}>
-                                <TagIcon /> Tags
-                            </TagsTitle>
-                            {tags}
-                        </TagCard>
-                    </Col>
-                </Row>
-                {!isCompact && (
-                    <>
-                        <Divider style={{ marginBottom: '0px' }} />
-                        <Row style={{ padding: '0px 0px 10px 0px' }}>
+            <Row>
+                <Col md={isCompact ? 24 : 16} sm={24} xs={24}>
+                    <div>
+                        <Row style={{ padding: '20px 0px 10px 0px' }}>
                             <Col span={24}>
-                                <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                                {titleLink ? (
+                                    <Link to={titleLink}>
+                                        <h1>{title}</h1>
+                                    </Link>
+                                ) : (
+                                    <h1>{title}</h1>
+                                )}
                             </Col>
                         </Row>
-                    </>
-                )}
-                {isCompact && (
-                    <FooterButtonGroup gutter={24}>
-                        <Col span={7} offset={4}>
-                            <Button type="primary" href={titleLink?.split('?is_lineage_mode=')[0]}>
-                                View Profile
-                            </Button>
+                        {header}
+                    </div>
+                </Col>
+                <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
+                    <TagCard>
+                        <TagsTitle type="secondary" level={4}>
+                            <TagIcon /> Tags
+                        </TagsTitle>
+                        {tags}
+                    </TagCard>
+                </Col>
+            </Row>
+            {!isCompact && (
+                <>
+                    <Divider style={{ marginBottom: '0px' }} />
+                    <Row style={{ padding: '0px 0px 10px 0px' }}>
+                        <Col span={24}>
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
                         </Col>
-                        <Col span={7} offset={1}>
-                            <Button type="default" href={titleLink}>
-                                View Lineage
-                            </Button>
-                        </Col>
-                    </FooterButtonGroup>
-                )}
-            </div>
+                    </Row>
+                </>
+            )}
         </LayoutContent>
     );
 };
