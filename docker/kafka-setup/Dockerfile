@@ -8,4 +8,3 @@ ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"
 COPY ./kafka-setup.sh ./kafka-setup.sh
 
 CMD ./kafka-setup.sh
-    
