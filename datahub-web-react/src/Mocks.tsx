@@ -230,6 +230,7 @@ export const dataset3 = {
     },
     upstreamLineage: null,
     downstreamLineage: null,
+    genericDownstreamLineage: null,
     institutionalMemory: {
         elements: [
             {
@@ -298,8 +299,8 @@ export const dataset3WithLineage = {
             },
         ],
     },
-    downstreamLineage: {
-        downstreams: [],
+    genericDownstreamLineage: {
+        entities: [],
     },
 };
 
@@ -329,17 +330,10 @@ export const dataset4WithLineage = {
             },
         ],
     },
-    downstreamLineage: {
-        downstreams: [
+    genericDownstreamLineage: {
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
         ],
     },
@@ -402,37 +396,16 @@ export const dataset5WithLineage = {
     upstreamLineage: {
         upstreams: [] as RelatedDataset[],
     },
-    downstreamLineage: {
-        downstreams: [
+    genericDownstreamLineage: {
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset6,
+                entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
     },
@@ -454,17 +427,10 @@ export const dataset6WithLineage = {
             },
         ],
     },
-    downstreamLineage: {
-        downstreams: [
+    genericDownstreamLineage: {
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
     },
@@ -486,17 +452,10 @@ export const dataset7WithLineage = {
             },
         ],
     },
-    downstreamLineage: {
-        downstreams: [
+    genericDownstreamLineage: {
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
         ],
     },

@@ -1,22 +1,21 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.DownstreamLineage;
 import com.linkedin.datahub.graphql.generated.GenericLineage;
 import com.linkedin.datahub.graphql.types.LoadableType;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DownstreamLineageMapper;
-import com.linkedin.dataset.client.Lineages;
+import com.linkedin.datahub.graphql.types.lineage.mappers.GenericLineageMapper;
+import com.linkedin.lineage.client.GenericDownstreamLineages;
 import com.linkedin.r2.RemoteInvocationException;
 
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class GenericDownstreamLineageType implements LoadableType<GenericLineage> {
 
-    private final Lineages _lineageClient;
+    private final GenericDownstreamLineages _lineageClient;
 
-    public GenericDownstreamLineageType(final Lineages lineageClient) {
+    public GenericDownstreamLineageType(final GenericDownstreamLineages lineageClient) {
         _lineageClient = lineageClient;
     }
 
@@ -28,16 +27,12 @@ public class GenericDownstreamLineageType implements LoadableType<GenericLineage
     @Override
     public List<GenericLineage> batchLoad(final List<String> keys, final QueryContext context) {
 
-        final List<DatasetUrn> datasetUrns = keys.stream()
-                .map(DatasetUtils::getDatasetUrn)
-                .collect(Collectors.toList());
-
         try {
-            return datasetUrns.stream().map(urn -> {
+            return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.lineage.GenericLineage genericLineage = _lineageClient.getGenericDownstreamLineage(urn);
                     return GenericLineageMapper.map(genericLineage);
-                } catch (RemoteInvocationException e) {
+                } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for dataset %s", urn), e);
                 }
             }).collect(Collectors.toList());

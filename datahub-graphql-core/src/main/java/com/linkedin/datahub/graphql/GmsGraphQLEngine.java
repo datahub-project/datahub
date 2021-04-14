@@ -7,7 +7,10 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.GenericLineageRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -32,6 +35,7 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+import com.linkedin.datahub.graphql.types.dataset.GenericDownstreamLineageType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
@@ -47,12 +51,14 @@ import org.dataloader.DataLoaderOptions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static graphql.Scalars.GraphQLLong;
@@ -74,15 +80,16 @@ public class GmsGraphQLEngine {
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
+    public static final GenericDownstreamLineageType GENERIC_DOWNSTREAM_LINEAGE_TYPE =
+            new GenericDownstreamLineageType(GmsClientFactory.getGenericDownstreamLineagesClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
      */
-    public static final List<LoadableType<?>> LOADABLE_TYPES = ImmutableList.of(
+    public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
             DATASET_TYPE,
             CORP_USER_TYPE,
             DATA_PLATFORM_TYPE,
-            DOWNSTREAM_LINEAGE_TYPE,
             CHART_TYPE,
             DASHBOARD_TYPE,
             TAG_TYPE,
@@ -90,6 +97,21 @@ public class GmsGraphQLEngine {
             DATA_FLOW_TYPE,
             DATA_JOB_TYPE
     );
+
+    /**
+     * Configures the graph objects that cannot be fetched by primary key
+     */
+    public static final List<LoadableType<?>> PROPERTY_TYPES = ImmutableList.of(
+            DOWNSTREAM_LINEAGE_TYPE,
+            GENERIC_DOWNSTREAM_LINEAGE_TYPE
+    );
+
+    /**
+     * Configures all graph objects
+     */
+    public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(ENTITY_TYPES.stream(), PROPERTY_TYPES.stream()).collect(Collectors.toList());
+
+
 
     /**
      * Configures the graph objects that can be searched.
@@ -229,6 +251,11 @@ public class GmsGraphQLEngine {
                                     DOWNSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Dataset) env.getSource()).getUrn()))
                     )
+                    .dataFetcher("genericDownstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                    GENERIC_DOWNSTREAM_LINEAGE_TYPE,
+                                    (env) -> ((Dataset) env.getSource()).getUrn()))
+                    )
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
@@ -243,6 +270,14 @@ public class GmsGraphQLEngine {
                                     DATASET_TYPE,
                                     (env) -> ((RelatedDataset) env.getSource()).getDataset().getUrn()))
                     )
+            )
+            .type("GenericLineageRelationship", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                        new EntityTypeResolver(
+                                ENTITY_TYPES.stream().collect(Collectors.toList()),
+                                (env) -> ((GenericLineageRelationship) env.getSource()).getEntity())
+                    )
+                )
             );
     }
 
@@ -288,6 +323,13 @@ public class GmsGraphQLEngine {
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Chart} type.
      */
     private static void configureChartResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Chart", typeWiring -> typeWiring
+                .dataFetcher("genericDownstreamLineage", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                GENERIC_DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Chart) env.getSource()).getUrn()))
+                )
+        );
         builder.type("ChartInfo", typeWiring -> typeWiring
                 .dataFetcher("inputs", new AuthenticatedResolver<>(
                         new LoadableTypeBatchResolver<>(

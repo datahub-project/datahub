@@ -546,12 +546,6 @@ enum SchemaFieldDataType {
     STRUCT
 }
 
-union LineageEntity =
-
-type LineageEntities = {
-    type: EntityTypeDataset | Chart | Dashboard
-}
-
 type GenericLineageRelationship {
     """
     An AuditStamp corresponding to the last modification of this relationship
@@ -561,7 +555,7 @@ type GenericLineageRelationship {
     """
     Entity that is related via lineage
     """
-    entity: LineageEntity
+    entity: Entity
 }
 
 type GenericLineage {

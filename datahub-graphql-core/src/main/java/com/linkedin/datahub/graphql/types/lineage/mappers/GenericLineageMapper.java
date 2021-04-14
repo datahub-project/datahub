@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.lineage.mappers;
 
 import com.linkedin.datahub.graphql.generated.GenericLineage;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DownstreamMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
@@ -18,7 +17,7 @@ public class GenericLineageMapper implements ModelMapper<com.linkedin.common.lin
     @Override
     public GenericLineage apply(@Nonnull final com.linkedin.common.lineage.GenericLineage input) {
         final GenericLineage result = new GenericLineage();
-        result.setEntities(input.getEntities().stream().map(DownstreamMapper::map).collect(Collectors.toList()));
+        result.setEntities(input.getEntities().stream().map(GenericLineageRelationshipMapper::map).collect(Collectors.toList()));
         return result;
     }
 }
