@@ -55,7 +55,7 @@ def _get_column_type(field_type: Union[str, dict]) -> SchemaFieldDataType:
     return dt
 
 
-def _is_nullable(schema: avro.schema.Schema):
+def _is_nullable(schema: avro.schema.Schema) -> bool:
     if isinstance(schema, avro.schema.UnionSchema):
         return any(_is_nullable(sub_schema) for sub_schema in schema.schemas)
     elif isinstance(schema, avro.schema.PrimitiveSchema):

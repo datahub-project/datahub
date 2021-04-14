@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, sentinel
 
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
@@ -32,7 +32,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink = DatahubKafkaSink.create(
             {"connection": {"bootstrap": "foobar:9092"}}, mock_context
         )
-        re = RecordEnvelope(record="test", metadata={})
+        re = RecordEnvelope(record=sentinel, metadata={})
         kafka_sink.write_record_async(re, callback)
         assert mock_producer_instance.poll.call_count == 1  # poll() called once
         self.validate_kafka_callback(

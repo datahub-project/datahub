@@ -1,5 +1,6 @@
 import io
 import json
+import pathlib
 
 import fastavro
 import pytest
@@ -21,7 +22,7 @@ from tests.test_helpers import mce_helpers
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
-def test_serde_to_json(pytestconfig, tmp_path, json_filename):
+def test_serde_to_json(pytestconfig, tmp_path: pathlib.Path, json_filename: str):
     golden_file = pytestconfig.rootpath / json_filename
 
     output_filename = "output.json"
@@ -48,7 +49,7 @@ def test_serde_to_json(pytestconfig, tmp_path, json_filename):
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
-def test_serde_to_avro(pytestconfig, json_filename):
+def test_serde_to_avro(pytestconfig, json_filename: str) -> None:
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
     # Finally, we want to compare the two MCE objects.
@@ -88,7 +89,7 @@ def test_serde_to_avro(pytestconfig, json_filename):
         "examples/mce_files/bootstrap_mce.json",
     ],
 )
-def test_check_mce_schema(pytestconfig, json_filename) -> None:
+def test_check_mce_schema(pytestconfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
     runner = CliRunner()

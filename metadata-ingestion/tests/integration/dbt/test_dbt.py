@@ -2,7 +2,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 
-def test_dbt_ingest(pytestconfig, tmp_path, mock_time) -> None:
+def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
     pipeline = Pipeline.create(
