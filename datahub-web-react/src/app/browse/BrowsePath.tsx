@@ -16,6 +16,7 @@ interface Props {
     type: EntityType;
     path: Array<string>;
     lineageSupported?: boolean;
+    isProfilePage?: boolean;
 }
 
 const LineageIconGroup = styled.div`
@@ -56,7 +57,7 @@ const BrowseRow = styled(Row)`
 /**
  * Responsible for rendering a clickable browse path view.
  */
-export const BrowsePath = ({ type, path, lineageSupported }: Props) => {
+export const BrowsePath = ({ type, path, lineageSupported, isProfilePage }: Props) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
@@ -70,7 +71,15 @@ export const BrowsePath = ({ type, path, lineageSupported }: Props) => {
 
     const pathCrumbs = path.map((part, index) => (
         <Breadcrumb.Item key={`${part || index}`}>
-            <Link to={`${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`}>{part}</Link>
+            <Link
+                to={
+                    isProfilePage && index === path.length - 1
+                        ? '#'
+                        : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
+                }
+            >
+                {part}
+            </Link>
         </Breadcrumb.Item>
     ));
 

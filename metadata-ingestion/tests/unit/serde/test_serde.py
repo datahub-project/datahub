@@ -2,7 +2,6 @@ import io
 import json
 
 import fastavro
-import mce_helpers
 import pytest
 from click.testing import CliRunner
 
@@ -10,6 +9,7 @@ from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.mce_file import iterate_mce_file
 from datahub.metadata.schema_classes import SCHEMA_JSON_STR, MetadataChangeEventClass
+from tests.test_helpers import mce_helpers
 
 
 @pytest.mark.parametrize(

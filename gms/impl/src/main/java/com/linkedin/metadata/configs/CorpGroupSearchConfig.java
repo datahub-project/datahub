@@ -1,14 +1,21 @@
 package com.linkedin.metadata.configs;
 
-import com.linkedin.metadata.dao.search.BaseSearchConfig;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.search.CorpGroupDocument;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Collections;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
 
-public class CorpGroupSearchConfig extends BaseSearchConfig<CorpGroupDocument> {
+public class CorpGroupSearchConfig extends BaseSearchConfigWithConvention<CorpGroupDocument> {
+  public CorpGroupSearchConfig() {
+  }
+
+  public CorpGroupSearchConfig(IndexConvention indexConvention) {
+    super(indexConvention);
+  }
+
   @Override
   @Nonnull
   public Set<String> getFacetFields() {

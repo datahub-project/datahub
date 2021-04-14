@@ -41,8 +41,9 @@ We use a plugin architecture so that you can install only the dependencies you a
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source          |
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
 | oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
+| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
+| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
@@ -367,6 +368,28 @@ source:
       deny:
         - "^(lookup|sys).*"
     # options is same as above
+```
+
+### Other databases using SQLAlchemy `sqlalchemy`
+
+The `sqlalchemy` source is useful if we don't have a pre-built source for your chosen
+database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)
+defined elsewhere. In order to use this, you must `pip install` the required dialect packages yourself.
+
+Extracts:
+
+- List of schemas and tables
+- Column types associated with each table
+
+```yml
+source:
+  type: sqlalchemy
+  config:
+    # See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls
+    connect_uri: "dialect+driver://username:password@host:port/database"
+    options: {} # same as above
+    schema_pattern: {} # same as above
+    table_pattern: {} # same as above
 ```
 
 ### MongoDB `mongodb`
