@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
 import pymongo
+from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -43,6 +44,7 @@ class MongoDBSourceReport(SourceReport):
 class MongoDBSource(Source):
     config: MongoDBConfig
     report: MongoDBSourceReport
+    mongo_client: MongoClient
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(ctx)
@@ -68,7 +70,7 @@ class MongoDBSource(Source):
         self.mongo_client.admin.command("ismaster")
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
         config = MongoDBConfig.parse_obj(config_dict)
         return cls(ctx, config)
 

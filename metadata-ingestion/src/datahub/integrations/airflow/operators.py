@@ -16,8 +16,11 @@ class DatahubBaseOperator(BaseOperator):
 
     hook: Union[DatahubRestHook, DatahubKafkaHook]
 
-    @apply_defaults
-    def __init__(
+    # mypy is not a fan of this. Newer versions of Airflow support proper typing for the decorator
+    # using PEP 612. However, there is not yet a good way to inherit the types of the kwargs from
+    # the superclass.
+    @apply_defaults  # type: ignore[misc]
+    def __init__(  # type: ignore[no-untyped-def]
         self,
         *,
         datahub_conn_id: str,
@@ -30,8 +33,9 @@ class DatahubBaseOperator(BaseOperator):
 
 
 class DatahubEmitterOperator(DatahubBaseOperator):
-    @apply_defaults
-    def __init__(
+    # See above for why these mypy type issues are ignored here.
+    @apply_defaults  # type: ignore[misc]
+    def __init__(  # type: ignore[no-untyped-def]
         self,
         mces: List[MetadataChangeEvent],
         datahub_conn_id: str,

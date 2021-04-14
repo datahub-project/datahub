@@ -7,9 +7,10 @@ produces a new JSON file called demo_data.json.
 import csv
 import dataclasses
 import json
+import os
 import pathlib
 import time
-from typing import List
+from typing import Dict, List
 
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -41,20 +42,20 @@ class Directive:
     depends_on: List[str]
 
 
-def read_mces(path) -> List[MetadataChangeEventClass]:
+def read_mces(path: os.PathLike) -> List[MetadataChangeEventClass]:
     with open(path) as f:
         objs = json.load(f)
         mces = [MetadataChangeEventClass.from_obj(obj) for obj in objs]
     return mces
 
 
-def write_mces(path, mces: List[MetadataChangeEventClass]) -> None:
+def write_mces(path: os.PathLike, mces: List[MetadataChangeEventClass]) -> None:
     objs = [mce.to_obj() for mce in mces]
     with open(path, "w") as f:
         json.dump(objs, f, indent=4)
 
 
-def parse_directive(row) -> Directive:
+def parse_directive(row: Dict) -> Directive:
     return Directive(
         table=row["table"],
         drop=bool(row["drop"]),

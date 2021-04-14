@@ -101,8 +101,10 @@ class GlueSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        def get_all_tables():
-            def get_tables_from_database(database_name: str, tables: List):
+        def get_all_tables() -> List[dict]:
+            def get_tables_from_database(
+                database_name: str, tables: List
+            ) -> List[dict]:
                 kwargs = {"DatabaseName": database_name}
                 while True:
                     data = self.glue_client.get_tables(**kwargs)
@@ -113,7 +115,7 @@ class GlueSource(Source):
                         break
                 return tables
 
-            def get_tables_from_all_databases():
+            def get_tables_from_all_databases() -> List[dict]:
                 tables = []
                 kwargs: Dict = {}
                 while True:
@@ -126,7 +128,7 @@ class GlueSource(Source):
                 return tables
 
             if self.source_config.database_pattern.is_fully_specified_allow_list():
-                all_tables: List = []
+                all_tables: List[dict] = []
                 database_names = self.source_config.database_pattern.get_allowed_list()
                 for database in database_names:
                     all_tables += get_tables_from_database(database, all_tables)
@@ -153,7 +155,7 @@ class GlueSource(Source):
             yield workunit
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
-        def get_owner(time) -> OwnershipClass:
+        def get_owner(time: int) -> OwnershipClass:
             owner = table.get("Owner")
             if owner:
                 owners = [
@@ -187,7 +189,7 @@ class GlueSource(Source):
                 tags=[],
             )
 
-        def get_schema_metadata(glue_source: GlueSource):
+        def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:

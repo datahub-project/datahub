@@ -20,7 +20,7 @@ def suppress_checks_in_file(filepath: str) -> None:
 @click.command()
 @click.argument("schema_file", type=click.Path(exists=True))
 @click.argument("outdir", type=click.Path())
-def generate(schema_file: str, outdir: str):
+def generate(schema_file: str, outdir: str) -> None:
     # print(f'using {schema_file}')
     with open(schema_file) as f:
         raw_schema_text = f.read()
