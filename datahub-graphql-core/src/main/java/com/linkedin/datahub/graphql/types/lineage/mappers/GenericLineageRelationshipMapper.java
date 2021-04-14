@@ -10,16 +10,16 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 
-public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedin.common.relationships.EntityRelationship, EntityRelationship> {
+public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedin.common.lineage.EntityRelationship, EntityRelationship> {
 
     public static final GenericLineageRelationshipMapper INSTANCE = new GenericLineageRelationshipMapper();
 
-    public static EntityRelationship map(@Nonnull final com.linkedin.common.relationships.EntityRelationship relationship) {
+    public static EntityRelationship map(@Nonnull final com.linkedin.common.lineage.EntityRelationship relationship) {
         return INSTANCE.apply(relationship);
     }
 
     @Override
-    public EntityRelationship apply(@Nonnull final com.linkedin.common.relationships.EntityRelationship relationship) {
+    public EntityRelationship apply(@Nonnull final com.linkedin.common.lineage.EntityRelationship relationship) {
         final EntityRelationship result = new EntityRelationship();
 
         Entity partialLineageEntity = null;

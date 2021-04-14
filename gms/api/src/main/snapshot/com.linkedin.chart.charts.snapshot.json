@@ -362,7 +362,7 @@
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "EntityRelationship",
-    "namespace" : "com.linkedin.common.relationships",
+    "namespace" : "com.linkedin.common.lineage",
     "doc" : "Downstream lineage information about a dataset including the source reporting the lineage",
     "fields" : [ {
       "name" : "created",
@@ -377,7 +377,7 @@
   }, {
     "type" : "record",
     "name" : "GenericLineage",
-    "namespace" : "com.linkedin.common.relationships",
+    "namespace" : "com.linkedin.common.lineage",
     "doc" : "Downstream lineage of a dataset",
     "fields" : [ {
       "name" : "entities",
@@ -883,7 +883,7 @@
           "name" : "genericDownstreamLineage",
           "namespace" : "com.linkedin.chart",
           "path" : "/charts/{key}/genericDownstreamLineage",
-          "schema" : "com.linkedin.common.relationships.GenericLineage",
+          "schema" : "com.linkedin.common.lineage.GenericLineage",
           "doc" : "Rest.li entry point: /chart/{chartKey}/genericDownstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dashboard.GenericChartDownstreamLineageResource",
           "simple" : {
             "supports" : [ "get" ],

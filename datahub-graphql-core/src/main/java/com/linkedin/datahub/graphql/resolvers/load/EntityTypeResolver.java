@@ -27,7 +27,10 @@ public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>
     private final List<com.linkedin.datahub.graphql.types.EntityType<?>> _entityTypes;
     private final Function<DataFetchingEnvironment, Entity> _entityProvider;
 
-    public EntityTypeResolver(final List<com.linkedin.datahub.graphql.types.EntityType<?>> entityTypes, final Function<DataFetchingEnvironment, Entity> entity) {
+    public EntityTypeResolver(
+        final List<com.linkedin.datahub.graphql.types.EntityType<?>> entityTypes,
+        final Function<DataFetchingEnvironment, Entity> entity
+    ) {
         _entityTypes = entityTypes;
         _entityProvider = entity;
     }

@@ -1,7 +1,7 @@
 package com.linkedin.lineage.client;
 
 import com.linkedin.common.client.BaseClient;
-import com.linkedin.common.relationships.GenericLineage;
+import com.linkedin.common.lineage.GenericLineage;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -41,7 +41,7 @@ public class GenericDownstreamLineages extends BaseClient {
     }
 
     /**
-     * Gets a specific version of downstream {@link com.linkedin.common.relationships.GenericLineage} for the given dataset.
+     * Gets a specific version of downstream {@link com.linkedin.common.lineage.GenericLineage} for the given dataset.
      */
     @Nonnull
     public GenericLineage getGenericDownstreamLineage(@Nonnull String rawUrn)

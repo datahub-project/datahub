@@ -1,4 +1,4 @@
-namespace com.linkedin.common.relationships
+namespace com.linkedin.common.lineage
 
 /**
  * Downstream lineage of a dataset
