@@ -1,4 +1,5 @@
 from datahub.ingestion.api.common import PipelineContext
+
 from .sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
