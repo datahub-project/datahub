@@ -1,4 +1,4 @@
-namespace com.linkedin.common.lineage
+namespace com.linkedin.common.relationships
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.Urn
@@ -6,12 +6,12 @@ import com.linkedin.common.Urn
 /**
  * Downstream lineage information about a dataset including the source reporting the lineage
  */
-record GenericLineageRelationship {
+record EntityRelationship {
 
   /**
    * Audit stamp containing who reported the lineage and when
    */
-  auditStamp: optional AuditStamp
+  created: optional AuditStamp
 
   /**
    * The downstream dataset the lineage points to

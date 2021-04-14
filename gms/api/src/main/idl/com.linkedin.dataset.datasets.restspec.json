@@ -180,7 +180,7 @@
         "name" : "genericDownstreamLineage",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/genericDownstreamLineage",
-        "schema" : "com.linkedin.common.lineage.GenericLineage",
+        "schema" : "com.linkedin.common.relationships.GenericLineage",
         "doc" : "Rest.li entry point: /datasets/{datasetKey}/genericDownstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.GenericDownstreamLineageResource",
         "simple" : {
           "supports" : [ "get" ],

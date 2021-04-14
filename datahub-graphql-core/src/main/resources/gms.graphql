@@ -546,11 +546,11 @@ enum SchemaFieldDataType {
     STRUCT
 }
 
-type GenericLineageRelationship {
+type EntityRelationship {
     """
     An AuditStamp corresponding to the last modification of this relationship
     """
-    auditStamp: AuditStamp
+    created: AuditStamp
 
     """
     Entity that is related via lineage
@@ -559,7 +559,7 @@ type GenericLineageRelationship {
 }
 
 type GenericLineage {
-    entities: [GenericLineageRelationship]
+    entities: [EntityRelationship]
 }
 
 type UpstreamLineage {

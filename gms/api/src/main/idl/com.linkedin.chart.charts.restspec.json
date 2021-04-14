@@ -140,7 +140,7 @@
         "name" : "genericDownstreamLineage",
         "namespace" : "com.linkedin.chart",
         "path" : "/charts/{key}/genericDownstreamLineage",
-        "schema" : "com.linkedin.common.lineage.GenericLineage",
+        "schema" : "com.linkedin.common.relationships.GenericLineage",
         "doc" : "Rest.li entry point: /chart/{chartKey}/genericDownstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dashboard.GenericChartDownstreamLineageResource",
         "simple" : {
           "supports" : [ "get" ],

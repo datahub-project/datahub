@@ -4,23 +4,23 @@ import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.GenericLineageRelationship;
+import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 
-public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedin.common.lineage.GenericLineageRelationship, GenericLineageRelationship> {
+public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedin.common.relationships.EntityRelationship, EntityRelationship> {
 
     public static final GenericLineageRelationshipMapper INSTANCE = new GenericLineageRelationshipMapper();
 
-    public static GenericLineageRelationship map(@Nonnull final com.linkedin.common.lineage.GenericLineageRelationship relationship) {
+    public static EntityRelationship map(@Nonnull final com.linkedin.common.relationships.EntityRelationship relationship) {
         return INSTANCE.apply(relationship);
     }
 
     @Override
-    public GenericLineageRelationship apply(@Nonnull final com.linkedin.common.lineage.GenericLineageRelationship relationship) {
-        final GenericLineageRelationship result = new GenericLineageRelationship();
+    public EntityRelationship apply(@Nonnull final com.linkedin.common.relationships.EntityRelationship relationship) {
+        final EntityRelationship result = new EntityRelationship();
 
         Entity partialLineageEntity = null;
         if (relationship.getEntity().getEntityType().equals("dataset")) {
@@ -38,8 +38,8 @@ public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedi
         if (partialLineageEntity != null) {
             result.setEntity(partialLineageEntity);
         }
-        if (relationship.hasAuditStamp()) {
-            result.setAuditStamp(AuditStampMapper.map(relationship.getAuditStamp()));
+        if (relationship.hasCreated()) {
+            result.setCreated(AuditStampMapper.map(relationship.getCreated()));
         }
         return result;
     }

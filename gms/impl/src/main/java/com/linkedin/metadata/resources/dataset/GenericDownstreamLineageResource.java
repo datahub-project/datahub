@@ -1,9 +1,9 @@
 package com.linkedin.metadata.resources.dataset;
 
 import com.linkedin.chart.ChartInfo;
-import com.linkedin.common.lineage.GenericLineage;
-import com.linkedin.common.lineage.GenericLineageRelationship;
-import com.linkedin.common.lineage.GenericLineageRelationshipArray;
+import com.linkedin.common.relationships.EntityRelationship;
+import com.linkedin.common.relationships.EntityRelationshipArray;
+import com.linkedin.common.relationships.GenericLineage;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.dataset.DatasetKey;
@@ -87,7 +87,7 @@ public final class GenericDownstreamLineageResource extends SimpleResourceTempla
                       0, MAX_DOWNSTREAM_CNT)
               .stream().map(entity -> ((ChartEntity) entity).getUrn()).collect(Collectors.toList());
 
-      final GenericLineageRelationshipArray downstreamArray = new GenericLineageRelationshipArray(downstreamDatasets.stream()
+      final EntityRelationshipArray downstreamArray = new EntityRelationshipArray(downstreamDatasets.stream()
           .map(ds -> {
             final UpstreamLineage upstreamLineage = (UpstreamLineage) _localDAO.get(UpstreamLineage.class, ds).get();
             final List<Upstream> upstreams = upstreamLineage.getUpstreams().stream()
@@ -96,18 +96,18 @@ public final class GenericDownstreamLineageResource extends SimpleResourceTempla
             if (upstreams.size() != 1) {
               throw new RuntimeException(String.format("There is no relation or more than 1 relation between the datasets!"));
             }
-            return new GenericLineageRelationship()
+            return new EntityRelationship()
                 .setEntity(ds)
-                .setAuditStamp(upstreams.get(0).getAuditStamp());
+                .setCreated(upstreams.get(0).getAuditStamp());
           })
           .collect(Collectors.toList())
       );
 
-      final GenericLineageRelationshipArray downstreamChartArray = new GenericLineageRelationshipArray(downstreamCharts.stream()
+      final EntityRelationshipArray downstreamChartArray = new EntityRelationshipArray(downstreamCharts.stream()
               .map(ds -> {
                 final ChartInfo chartInfo = (ChartInfo) _chartDAO.get(ChartInfo.class, ds).get();
 
-                return new GenericLineageRelationship().setEntity(ds);
+                return new EntityRelationship().setEntity(ds);
               })
               .collect(Collectors.toList())
       );

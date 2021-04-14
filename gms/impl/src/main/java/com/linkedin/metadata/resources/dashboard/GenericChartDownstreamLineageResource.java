@@ -1,8 +1,8 @@
 package com.linkedin.metadata.resources.dashboard;
 
-import com.linkedin.common.lineage.GenericLineage;
-import com.linkedin.common.lineage.GenericLineageRelationship;
-import com.linkedin.common.lineage.GenericLineageRelationshipArray;
+import com.linkedin.common.relationships.EntityRelationship;
+import com.linkedin.common.relationships.EntityRelationshipArray;
+import com.linkedin.common.relationships.GenericLineage;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.dashboard.ChartKey;
@@ -70,9 +70,9 @@ public final class GenericChartDownstreamLineageResource extends SimpleResourceT
               0, MAX_DOWNSTREAM_CNT)
           .stream().map(entity -> ((DashboardEntity) entity).getUrn()).collect(Collectors.toList());
 
-      final GenericLineageRelationshipArray downstreamArray = new GenericLineageRelationshipArray(downstreamDashboards.stream()
+      final EntityRelationshipArray downstreamArray = new EntityRelationshipArray(downstreamDashboards.stream()
           .map(ds -> {
-            return new GenericLineageRelationship()
+            return new EntityRelationship()
                 .setEntity(ds);
           })
           .collect(Collectors.toList())
