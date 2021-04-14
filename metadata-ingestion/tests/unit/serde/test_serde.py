@@ -72,7 +72,7 @@ def test_serde_to_avro(pytestconfig, json_filename):
     # Check diff
     assert len(mces) == len(in_mces)
     for i in range(len(mces)):
-        assert str(mces[i]) == str(in_mces[i])
+        assert mces[i] == in_mces[i]
 
 
 @pytest.mark.parametrize(

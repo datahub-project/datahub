@@ -221,10 +221,10 @@ class SQLAlchemySource(Source):
                 # TODO: capture inspector.get_pk_constraint
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
 
-                mce = MetadataChangeEvent()
-
-                dataset_snapshot = DatasetSnapshot()
-                dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                dataset_snapshot = DatasetSnapshot(
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+                    aspects=[],
+                )
                 if description is not None:
                     dataset_properties = DatasetPropertiesClass(
                         description=description,
@@ -237,8 +237,8 @@ class SQLAlchemySource(Source):
                     self.report, dataset_name, platform, columns
                 )
                 dataset_snapshot.aspects.append(schema_metadata)
-                mce.proposedSnapshot = dataset_snapshot
 
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 wu = SqlWorkUnit(id=dataset_name, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu

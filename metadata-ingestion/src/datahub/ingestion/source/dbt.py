@@ -252,11 +252,14 @@ def get_schema_metadata(
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in node.columns:
-        field = SchemaField()
-        field.fieldPath = column.name
-        field.nativeDataType = column.data_type
-        field.type = get_column_type(report, node.dbt_name, column.data_type)
-        field.description = column.comment
+        field = SchemaField(
+            fieldPath=column.name,
+            nativeDataType=column.data_type,
+            type=get_column_type(report, node.dbt_name, column.data_type),
+            description=column.comment,
+            nullable=False,  # TODO: actually autodetect this
+            recursive=False,
+        )
 
         canonical_schema.append(field)
 
@@ -296,16 +299,18 @@ class DBTSource(Source):
         )
 
         for node in nodes:
-            mce = MetadataChangeEvent()
 
-            dataset_snapshot = DatasetSnapshot()
-            dataset_snapshot.urn = node.datahub_urn
+            dataset_snapshot = DatasetSnapshot(
+                urn=node.datahub_urn,
+                aspects=[],
+            )
             custom_properties = get_custom_properties(node)
 
-            dbt_properties = DatasetPropertiesClass()
-            dbt_properties.description = node.dbt_name
-            dbt_properties.customProperties = custom_properties
-
+            dbt_properties = DatasetPropertiesClass(
+                description=node.dbt_name,
+                customProperties=custom_properties,
+                tags=[],
+            )
             dataset_snapshot.aspects.append(dbt_properties)
 
             upstreams = get_upstream_lineage(node.upstream_urns)
@@ -315,7 +320,7 @@ class DBTSource(Source):
             schema_metadata = get_schema_metadata(self.report, node, platform)
             dataset_snapshot.aspects.append(schema_metadata)
 
-            mce.proposedSnapshot = dataset_snapshot
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             self.report.report_workunit(wu)
 
