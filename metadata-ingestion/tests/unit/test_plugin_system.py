@@ -23,7 +23,7 @@ def test_registry_nonempty(registry):
     assert len(registry.mapping) > 0
 
 
-def test_list_all():
+def test_list_all() -> None:
     # This just verifies that it runs without error.
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "plugins", "--verbose"])

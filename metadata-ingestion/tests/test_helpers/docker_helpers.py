@@ -17,8 +17,8 @@ def wait_for_port(
     docker_services: pytest_docker.plugin.Services,
     container_name: str,
     container_port: int,
-    timeout=15.0,
-):
+    timeout: float = 15.0,
+) -> None:
     # port = docker_services.port_for(container_name, container_port)
     docker_services.wait_until_responsive(
         timeout=timeout,
