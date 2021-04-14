@@ -1,8 +1,8 @@
 package com.linkedin.metadata.resources.dashboard;
 
-import com.linkedin.common.relationships.EntityRelationship;
-import com.linkedin.common.relationships.EntityRelationshipArray;
-import com.linkedin.common.relationships.GenericLineage;
+import com.linkedin.common.lineage.EntityRelationship;
+import com.linkedin.common.lineage.EntityRelationshipArray;
+import com.linkedin.common.lineage.GenericLineage;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.dashboard.ChartKey;

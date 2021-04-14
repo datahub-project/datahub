@@ -1,9 +1,9 @@
 package com.linkedin.metadata.resources.dataset;
 
 import com.linkedin.chart.ChartInfo;
-import com.linkedin.common.relationships.EntityRelationship;
-import com.linkedin.common.relationships.EntityRelationshipArray;
-import com.linkedin.common.relationships.GenericLineage;
+import com.linkedin.common.lineage.EntityRelationship;
+import com.linkedin.common.lineage.EntityRelationshipArray;
+import com.linkedin.common.lineage.GenericLineage;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.dataset.DatasetKey;
