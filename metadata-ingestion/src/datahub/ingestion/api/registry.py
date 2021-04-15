@@ -20,7 +20,7 @@ class Registry(Generic[T]):
         tp = typing_inspect.get_args(cls)[0]
         return tp
 
-    def _check_cls(self, cls: Type[T]):
+    def _check_cls(self, cls: Type[T]) -> None:
         if inspect.isabstract(cls):
             raise ValueError(
                 f"cannot register an abstract type in the registry; got {cls}"

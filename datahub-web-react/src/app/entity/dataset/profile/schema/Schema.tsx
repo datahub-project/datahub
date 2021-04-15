@@ -51,6 +51,7 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
+        width: 192,
         render: (fieldPath: string) => {
             return <Typography.Text strong>{fieldPath}</Typography.Text>;
         },
@@ -153,6 +154,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
+        width: 900,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
                 setDescHoveredIndex(rowIndex);

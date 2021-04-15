@@ -36,14 +36,14 @@ class DatahubKafkaSink(Sink):
     report: SinkReport
     emitter: DatahubKafkaEmitter
 
-    def __init__(self, config: KafkaSinkConfig, ctx):
+    def __init__(self, config: KafkaSinkConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
         self.report = SinkReport()
         self.emitter = DatahubKafkaEmitter(self.config)
 
     @classmethod
-    def create(cls, config_dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubKafkaSink":
         config = KafkaSinkConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
@@ -57,7 +57,7 @@ class DatahubKafkaSink(Sink):
         self,
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
-    ):
+    ) -> None:
         mce = record_envelope.record
         self.emitter.emit_mce_async(
             mce,

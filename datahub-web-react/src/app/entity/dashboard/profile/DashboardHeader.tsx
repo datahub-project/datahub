@@ -36,7 +36,7 @@ export default function DashboardHeader({ platform, description, ownership, url,
                         key={owner.owner.urn}
                         name={owner.owner.info?.fullName}
                         url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
-                        photoUrl={owner.owner.editableInfo.pictureLink}
+                        photoUrl={owner.owner.editableInfo?.pictureLink}
                     />
                 ))}
             </Avatar.Group>
