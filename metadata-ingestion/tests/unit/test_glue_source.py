@@ -109,37 +109,23 @@ class GlueSourceTest(unittest.TestCase):
             ]
         }
 
-        def flatten(d):
-            out = {}
-            for key, val in d.items():
-                if isinstance(val, dict):
-                    val = [val]
-                if isinstance(val, list):
-                    for subdict in val:
-                        deeper = flatten(subdict).items()
-                        out.update({key + "_" + key2: val2 for key2, val2 in deeper})
-                else:
-                    out[key] = val
-            return out
-
         with Stubber(self.glue_source.glue_client) as stubber:
             stubber.add_response("search_tables", response, {})
             actual_work_unit = list(self.glue_source.get_workunits())[0]
 
         expected_metadata_work_unit = create_metadata_work_unit(timestamp)
 
-        self.assertTrue(
-            sorted(flatten(vars(expected_metadata_work_unit)))
-            == sorted(flatten(vars(actual_work_unit)))
-        )
+        self.assertEqual(expected_metadata_work_unit, actual_work_unit)
 
 
 def create_metadata_work_unit(timestamp):
-    mce = MetadataChangeEvent()
     dataset_snapshot = DatasetSnapshot(
         urn="urn:li:dataset:(urn:li:dataPlatform:glue,datalake_grilled.Barbeque,PROD)",
         aspects=[],
     )
+
+    dataset_snapshot.aspects.append(Status(removed=False))
+
     dataset_snapshot.aspects.append(
         OwnershipClass(
             owners=[
@@ -161,9 +147,6 @@ def create_metadata_work_unit(timestamp):
             tags=[],
         )
     )
-    dataset_snapshot.aspects.append(Status(removed=False))
-
-    mce.proposedSnapshot = dataset_snapshot
 
     fields = [
         SchemaField(
@@ -187,4 +170,6 @@ def create_metadata_work_unit(timestamp):
         platformSchema=MySqlDDL(tableSchema=""),
     )
     dataset_snapshot.aspects.append(schema_metadata)
+
+    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
     return MetadataWorkUnit(id="glue-datalake_grilled.Barbeque", mce=mce)

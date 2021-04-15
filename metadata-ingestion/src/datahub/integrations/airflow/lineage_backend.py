@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from airflow.configuration import conf
 
 
-def _entities_to_urn_list(iolets: List):
+def _entities_to_urn_list(iolets: List) -> List[str]:
     return [let.urn for let in iolets]
 
 
@@ -39,7 +39,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
         inlets: Optional[List] = None,
         outlets: Optional[List] = None,
         context: Dict = None,
-    ):
+    ) -> None:
         context = context or {}  # ensure not None to satisfy mypy
 
         dag: "DAG" = context["dag"]
