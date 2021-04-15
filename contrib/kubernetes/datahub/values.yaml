@@ -1,6 +1,8 @@
 # Default values for datahub.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+acryl-api-gateway:
+  enabled: true
 
 datahub-gms:
   enabled: true
@@ -82,6 +84,8 @@ global:
   datahub:
     gms:
       port: "8080"
+    frontend:
+      port: "9002"
     appVersion: "1.0"
 
   hostAliases:

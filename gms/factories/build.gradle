@@ -4,6 +4,8 @@ dependencies {
   compile project(':gms:impl')
   compile project(':metadata-dao-impl:kafka-producer')
 
+  compile externalDependency.awsJavaSdkCore
+  compile externalDependency.awsJavaSdkSts
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.gson

@@ -1,17 +1,17 @@
-name: datahub-kafka-setup docker
+name: datahub-mysql-setup docker
 on:
   push:
     branches:
       - acryl-main
     paths:
-      - 'docker/kafka-setup/**'
-      - '.github/workflows/docker-kafka-setup.yml'
+      - 'docker/mysql-setup/**'
+      - '.github/workflows/docker-mysql-setup.yml'
   pull_request:
     branches:
       - acryl-main
     paths:
-      - 'docker/kafka-setup/**'
-      - '.github/workflows/docker-kafka-setup.yml'
+      - 'docker/mysql-setup/**'
+      - '.github/workflows/docker-mysql-setup.yml'
   release:
     types: [published, edited]
 
@@ -53,7 +53,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup
+            795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -66,6 +66,6 @@ jobs:
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
-          file: ./docker/kafka-setup/Dockerfile
+          file: ./docker/mysql-setup/Dockerfile
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}

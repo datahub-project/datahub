@@ -2,13 +2,13 @@ name: datahub-mce-consumer docker
 on:
   push:
     branches:
-      - master
+      - acryl-main
     paths-ignore:
       - 'docs/**'
       - '**.md'
   pull_request:
     branches:
-      - master
+      - acryl-main
     paths:
       - 'docker/**'
       - '.github/workflows/docker-mce-consumer.yml'
@@ -32,13 +32,13 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,latest\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,latest\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
+          ENABLE_PUBLISH: true
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
@@ -56,22 +56,16 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            linkedin/datahub-mce-consumer
-            docker.pkg.github.com/linkedin/datahub/datahub-mce-consumer
+            795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Login to DockerHub
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Login to GitHub
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:

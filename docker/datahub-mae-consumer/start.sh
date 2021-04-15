@@ -18,8 +18,6 @@ else
 fi
 
 dockerize \
-  -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
-  -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT \
   -wait $NEO4J_HOST \
   -timeout 240s \
   java $JAVA_OPTS $JMX_OPTS -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
