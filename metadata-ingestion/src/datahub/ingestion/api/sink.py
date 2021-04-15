@@ -9,11 +9,11 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    records_written = 0
+    records_written: int = 0
     warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
 
-    def report_record_written(self, record_envelope: RecordEnvelope):
+    def report_record_written(self, record_envelope: RecordEnvelope) -> None:
         self.records_written += 1
 
     def report_warning(self, info: Any) -> None:
@@ -25,7 +25,9 @@ class SinkReport(Report):
 
 class WriteCallback(metaclass=ABCMeta):
     @abstractmethod
-    def on_success(self, record_envelope: RecordEnvelope, success_metadata: dict):
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
         pass
 
     @abstractmethod
@@ -34,7 +36,7 @@ class WriteCallback(metaclass=ABCMeta):
         record_envelope: RecordEnvelope,
         failure_exception: Exception,
         failure_metadata: dict,
-    ):
+    ) -> None:
         pass
 
 

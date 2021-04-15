@@ -8,8 +8,18 @@ import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated'
 
 const { TextArea } = Input;
 
+const DescriptionContainer = styled.div`
+    position: relative;
+    display: flex;
+    flex-direction: row;
+`;
+
 const DescriptionText = styled(Typography.Text)`
     padding-right: 8px;
+    max-width: 600px;
+    display: block;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
 `;
 
 const DescriptionTextInModal = styled(Typography.Text)`
@@ -23,7 +33,6 @@ const FormLabel = styled(Typography.Text)`
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
-    position: absolute;
     margin-top: 4px;
 `;
 
@@ -52,7 +61,7 @@ export default function DescriptionField({ description, updatedDescription, onHo
     };
 
     return (
-        <>
+        <DescriptionContainer>
             <DescriptionText>{updatedDescription || description}</DescriptionText>
             {onHover && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
             {showAddModal && (
@@ -95,6 +104,6 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     </Form>
                 </Modal>
             )}
-        </>
+        </DescriptionContainer>
     );
 }

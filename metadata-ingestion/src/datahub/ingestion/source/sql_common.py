@@ -32,12 +32,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
 class SQLSourceReport(SourceReport):
-    tables_scanned = 0
+    tables_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_table_scanned(self, table_name: str) -> None:
@@ -150,7 +150,7 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns
+    sql_report: SQLSourceReport, dataset_name: str, platform: str, columns: List[dict]
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:
@@ -221,10 +221,10 @@ class SQLAlchemySource(Source):
                 # TODO: capture inspector.get_pk_constraint
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
 
-                mce = MetadataChangeEvent()
-
-                dataset_snapshot = DatasetSnapshot()
-                dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                dataset_snapshot = DatasetSnapshot(
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+                    aspects=[],
+                )
                 if description is not None:
                     dataset_properties = DatasetPropertiesClass(
                         description=description,
@@ -237,8 +237,8 @@ class SQLAlchemySource(Source):
                     self.report, dataset_name, platform, columns
                 )
                 dataset_snapshot.aspects.append(schema_metadata)
-                mce.proposedSnapshot = dataset_snapshot
 
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 wu = SqlWorkUnit(id=dataset_name, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu

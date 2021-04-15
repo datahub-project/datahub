@@ -12,7 +12,7 @@ const AvatarStyled = styled(Avatar)<{ size?: number }>`
     text-align: center;
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 14)}px` : '14px')} !important;
     && > span {
-        transform: scale(1) translateX(-45%) !important;
+        transform: scale(1) translateX(-46%) translateY(-3%) !important;
     }
 `;
 

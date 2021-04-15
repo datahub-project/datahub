@@ -12,7 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import CorpUserInfoClass, CorpUserSnapshotClass
 
 
-def create_controls(pagesize):
+def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
     Create an LDAP control with a page size of "pagesize".
     """
@@ -37,7 +37,7 @@ def set_cookie(lc_object, pctrls, pagesize):
     return cookie
 
 
-def guess_person_ldap(dn, attrs) -> Optional[str]:
+def guess_person_ldap(dn: str, attrs: dict) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
     if "sAMAccountName" in attrs:
         return attrs["sAMAccountName"][0].decode()
@@ -124,7 +124,7 @@ class LDAPSource(Source):
 
             cookie = set_cookie(self.lc, pctrls, self.config.page_size)
 
-    def handle_user(self, dn, attrs) -> Iterable[MetadataWorkUnit]:
+    def handle_user(self, dn: str, attrs: dict) -> Iterable[MetadataWorkUnit]:
         """
         Handle a DN and attributes by adding manager info and constructing a
         work unit based on the information.
@@ -154,7 +154,7 @@ class LDAPSource(Source):
         yield from []
 
     def build_corp_user_mce(
-        self, dn, attrs, manager_ldap
+        self, dn: str, attrs: dict, manager_ldap: Optional[str]
     ) -> Optional[MetadataChangeEvent]:
         """
         Create the MetadataChangeEvent via DN and attributes.
@@ -163,7 +163,7 @@ class LDAPSource(Source):
         full_name = attrs["cn"][0].decode()
         first_name = attrs["givenName"][0].decode()
         last_name = attrs["sn"][0].decode()
-        email = (attrs["mail"][0]).decode() if "mail" in attrs else None
+        email = (attrs["mail"][0]).decode() if "mail" in attrs else ldap
         display_name = (
             (attrs["displayName"][0]).decode() if "displayName" in attrs else full_name
         )

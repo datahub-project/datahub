@@ -45,7 +45,7 @@ def get_client_with_error():
             docker_cli.close()
 
 
-def memory_in_gb(mem_bytes: int):
+def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
 
