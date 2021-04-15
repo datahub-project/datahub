@@ -94,9 +94,10 @@ class MongoDBSource(Source):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                mce = MetadataChangeEvent()
-                dataset_snapshot = DatasetSnapshot()
-                dataset_snapshot.urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})"
+                dataset_snapshot = DatasetSnapshot(
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+                    aspects=[],
+                )
 
                 dataset_properties = DatasetPropertiesClass(
                     tags=[],
@@ -110,8 +111,7 @@ class MongoDBSource(Source):
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
-                mce.proposedSnapshot = dataset_snapshot
-
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 wu = MetadataWorkUnit(id=dataset_name, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
