@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
+    env: str = "PROD"
 
 
 class DBTColumn:
@@ -292,10 +293,12 @@ class DBTSource(Source):
         self.report = SourceReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        env: str = "PROD"
         platform = self.platform
         nodes = loadManifestAndCatalog(
-            self.config.manifest_path, self.config.catalog_path, platform, env
+            self.config.manifest_path,
+            self.config.catalog_path,
+            platform,
+            self.config.env,
         )
 
         for node in nodes:
