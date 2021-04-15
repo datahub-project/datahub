@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Alert, Drawer } from 'antd';
+import { Alert, Button, Col, Row, Drawer } from 'antd';
 import styled from 'styled-components';
 
 import { Message } from '../shared/Message';
@@ -16,6 +16,9 @@ import { EntityType } from '../../types.generated';
 
 const LoadingMessage = styled(Message)`
     margin-top: 10%;
+`;
+const FooterButtonGroup = styled(Row)`
+    margin: 12px 0;
 `;
 
 function usePrevious(value) {
@@ -105,6 +108,30 @@ export default function LineageExplorer({ urn, type }: Props) {
                 visible={isDrawerVisible}
                 width={425}
                 mask={false}
+                footer={
+                    data && (
+                        <FooterButtonGroup gutter={24}>
+                            <Col span={7} offset={4}>
+                                <Button
+                                    type="primary"
+                                    href={`/${entityRegistry.getPathName(data.type)}/${data.entity.urn}/`}
+                                >
+                                    View Profile
+                                </Button>
+                            </Col>
+                            <Col span={7} offset={1}>
+                                <Button
+                                    type="default"
+                                    href={`/${entityRegistry.getPathName(data.type)}/${
+                                        data.entity.urn
+                                    }/?is_lineage_mode=true`}
+                                >
+                                    View Lineage
+                                </Button>
+                            </Col>
+                        </FooterButtonGroup>
+                    )
+                }
             >
                 <CompactContext.Provider value>
                     {selectedEntity && entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}

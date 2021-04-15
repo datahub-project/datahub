@@ -68,6 +68,7 @@ export default function LineageEntityNode({
                         };
                         return (
                             <LinkHorizontal
+                                key={`node-${_}-${direction}`}
                                 data={link}
                                 stroke={`url(#gradient-${direction})`}
                                 strokeWidth="1"
