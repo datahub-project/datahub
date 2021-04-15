@@ -109,21 +109,28 @@ export default function LineageExplorer({ urn, type }: Props) {
                 width={425}
                 mask={false}
                 footer={
-                    <FooterButtonGroup gutter={24}>
-                        <Col span={7} offset={4}>
-                            <Button type="primary" href={`/${data?.type.toLowerCase()}/${data?.entity.urn}/`}>
-                                View Profile
-                            </Button>
-                        </Col>
-                        <Col span={7} offset={1}>
-                            <Button
-                                type="default"
-                                href={`/${data?.type.toLowerCase()}/${data?.entity.urn}/?is_lineage_mode=true`}
-                            >
-                                View Lineage
-                            </Button>
-                        </Col>
-                    </FooterButtonGroup>
+                    data && (
+                        <FooterButtonGroup gutter={24}>
+                            <Col span={7} offset={4}>
+                                <Button
+                                    type="primary"
+                                    href={`/${entityRegistry.getPathName(data.type)}/${data.entity.urn}/`}
+                                >
+                                    View Profile
+                                </Button>
+                            </Col>
+                            <Col span={7} offset={1}>
+                                <Button
+                                    type="default"
+                                    href={`/${entityRegistry.getPathName(data.type)}/${
+                                        data.entity.urn
+                                    }/?is_lineage_mode=true`}
+                                >
+                                    View Lineage
+                                </Button>
+                            </Col>
+                        </FooterButtonGroup>
+                    )
                 }
             >
                 <CompactContext.Provider value>
