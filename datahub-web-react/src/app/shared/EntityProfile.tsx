@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { Col, Row, Divider, Layout, Card, Typography } from 'antd';
+import { LayoutProps } from 'antd/lib/layout';
 import styled from 'styled-components';
 import { TagOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
@@ -35,12 +36,20 @@ const TagIcon = styled(TagOutlined)`
     padding-right: 6px;
 `;
 
-type LayoutProps = {
+type LayoutPropsExtended = {
     isCompact: boolean;
 };
 
-const LayoutContent = styled(Layout.Content)<LayoutProps>`
+const LayoutContent = styled(({ isCompact: _, ...props }: LayoutProps & LayoutPropsExtended) => (
+    <Layout.Content {...props} />
+))`
     padding: 0px ${(props) => (props.isCompact ? '0px' : '100px')};
+`;
+
+const LayoutDiv = styled(({ isCompact: _, ...props }: LayoutProps & LayoutPropsExtended) => (
+    <Layout.Content {...props} />
+))`
+    padding-right: ${(props) => (props.isCompact ? '0px' : '24px')};
 `;
 
 const defaultProps = {
@@ -58,44 +67,42 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
     /* eslint-disable spaced-comment */
     return (
         <LayoutContent isCompact={isCompact}>
-            <div>
-                <Row>
-                    <Col md={isCompact ? 24 : 16} sm={24} xs={24}>
-                        <div>
-                            <Row style={{ padding: '20px 0px 10px 0px' }}>
-                                <Col span={24}>
-                                    {titleLink ? (
-                                        <Link to={titleLink}>
-                                            <h1>{title}</h1>
-                                        </Link>
-                                    ) : (
-                                        <h1>{title}</h1>
-                                    )}
-                                </Col>
-                            </Row>
-                            {header}
-                        </div>
-                    </Col>
-                    <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
-                        <TagCard>
-                            <TagsTitle type="secondary" level={4}>
-                                <TagIcon /> Tags
-                            </TagsTitle>
-                            {tags}
-                        </TagCard>
-                    </Col>
-                </Row>
-                {!isCompact && (
-                    <>
-                        <Divider style={{ marginBottom: '0px' }} />
-                        <Row style={{ padding: '0px 0px 10px 0px' }}>
+            <Row>
+                <Col md={isCompact ? 24 : 16} sm={24} xs={24}>
+                    <LayoutDiv isCompact={isCompact}>
+                        <Row style={{ padding: '20px 0px 10px 0px' }}>
                             <Col span={24}>
-                                <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                                {titleLink ? (
+                                    <Link to={titleLink}>
+                                        <h1>{title}</h1>
+                                    </Link>
+                                ) : (
+                                    <h1>{title}</h1>
+                                )}
                             </Col>
                         </Row>
-                    </>
-                )}
-            </div>
+                        {header}
+                    </LayoutDiv>
+                </Col>
+                <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
+                    <TagCard>
+                        <TagsTitle type="secondary" level={4}>
+                            <TagIcon /> Tags
+                        </TagsTitle>
+                        {tags}
+                    </TagCard>
+                </Col>
+            </Row>
+            {!isCompact && (
+                <>
+                    <Divider style={{ marginBottom: '0px' }} />
+                    <Row style={{ padding: '0px 0px 10px 0px' }}>
+                        <Col span={24}>
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                        </Col>
+                    </Row>
+                </>
+            )}
         </LayoutContent>
     );
 };
