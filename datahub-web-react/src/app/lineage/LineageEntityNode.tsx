@@ -139,7 +139,7 @@ export default function LineageEntityNode({
                             fill="currentColor"
                             aria-hidden="true"
                         >
-                            {entityRegistry.getIcon(node.data.type, 0, IconStyleType.LINEAGE_DEFAULT)}
+                            {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                         </svg>
                     )
                 )}

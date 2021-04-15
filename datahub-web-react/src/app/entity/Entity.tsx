@@ -32,7 +32,7 @@ export enum IconStyleType {
     /**
      * Rendered in Lineage as default
      */
-    LINEAGE_DEFAULT,
+    SVG,
 }
 
 /**
