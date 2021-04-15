@@ -9,7 +9,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
                         "displayName": "Bart Simpson",
-                        "email": "",
+                        "email": "bsimpson",
                         "title": "Mr. Boss",
                         "managerUrn": null,
                         "departmentId": null,
@@ -61,7 +61,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
                         "displayName": "Lisa Simpson",
-                        "email": "",
+                        "email": "lsimpson",
                         "title": null,
                         "managerUrn": null,
                         "departmentId": null,
@@ -87,7 +87,7 @@
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
                         "displayName": "Maggie Simpson",
-                        "email": "",
+                        "email": "msimpson",
                         "title": null,
                         "managerUrn": null,
                         "departmentId": null,
