@@ -1,0 +1,35 @@
+namespace com.linkedin.glossary
+
+import com.linkedin.common.Uri
+import com.linkedin.common.GlossaryNodeUrn
+
+/**
+ * Properties associated with a GlossaryTerm
+ */
+record GlossaryTermInfo {
+
+  /**
+   * Definition of business term
+   */
+  definition: string
+
+  /**
+   * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
+   */
+  termSource: string
+
+  /**
+   * External Reference to the business-term (URL)
+   */
+  sourceRef: optional string
+
+  /**
+   * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
+   */
+  sourceURI: optional Uri
+
+  /**
+   * A key-value map to capture any other non-standardized properties for the glossary term
+   */
+  customProperties: map[string, string] = { }
+}

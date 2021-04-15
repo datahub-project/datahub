@@ -255,6 +255,34 @@ curl 'http://localhost:8080/dashboards/($params:(),tool:looker,dashboardId:foo)'
 }
 ```
 
+### Get business-term
+```
+curl 'http://localhost:8080/glossaryTerms/($params:(),domain:market,name:bidTime)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "name": "bidTime",
+  "ownership": {
+    "owners": [
+      {
+        "owner": "urn:li:corpuser:jdoe",
+        "type": "DATAOWNER"
+      }
+    ],
+    "lastModified": {
+      "actor": "urn:li:corpuser:jdoe",
+      "time": 1581407189000
+    }
+  },
+  "glossaryTermInfo": {
+    "definition": "business term definition",
+    "sourceRef": "EXTERNAL",
+    "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+    "termSource": "FIBO"
+  },
+  "domain": "market"
+}
+```
+
 ### Get all users
 ```
 curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://localhost:8080/corpUsers' | jq
@@ -298,6 +326,43 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://
         "fullName": "Data Hub",
         "email": "datahub@linkedin.com"
       }
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "links": []
+  }
+}
+```
+
+### Get all business terms
+```
+curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "elements": [
+    {
+      "name": "bidTime",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+          "definition": "business term definition",
+          "sourceRef": "EXTERNAL",
+          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "FIBO"
+       },
+      "domain": "market"
     }
   ],
   "paging": {
@@ -459,6 +524,94 @@ curl "http://localhost:8080/dashboards?q=search&input=looker" -X GET -H 'X-RestL
 }
 ```
 
+### Search business term
+```
+curl "http://localhost:8080/glossaryTerms?q=search&input=name&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+
+{
+  "metadata": {
+    "urns": [
+      "urn:li:glossaryTerm:(market,bidTime)"
+    ],
+    "searchResultMetadatas": []
+  },
+  "elements": [
+    {
+      "name": "bidTime",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+          "definition": "business term definition",
+          "sourceRef": "EXTERNAL",
+          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "FIBO"
+       },
+      "domain": "market"
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "total": 1,
+    "links": []
+  }
+}
+```
+
+### Search business terms owned by a user
+```
+curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+
+{
+  "metadata": {
+    "urns": [
+      "urn:li:glossaryTerm:(market,bidTime)"
+    ],
+    "searchResultMetadatas": []
+  },
+  "elements": [
+    {
+      "name": "bidTime",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+          "definition": "business term definition",
+          "sourceRef": "EXTERNAL",
+          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "FIBO"
+        },
+      "domain": "market"
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "total": 1,
+    "links": []
+  }
+}
+```
+
 ### Typeahead for datasets
 ```
 curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "field": "name", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
@@ -469,6 +622,21 @@ curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "
     "suggestions": [
       "bar"
     ]
+  }
+}
+```
+
+ 
+### Typeahead for business term
+```
+curl "http://localhost:8080/glossaryTerms?action=autocomplete" -d '{"query": "defin", "field": "definition", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+
+{
+  "value": {
+    "suggestions": [
+      "business term definition"
+    ],
+    "query": "defin"
   }
 }
 ```
@@ -563,6 +731,37 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://loca
         "time": 0
       },
       "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+    }
+  ]
+}
+```
+
+### Get linked business term for a dataset
+```
+curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/glossaryTerm/0' | jq
+
+{
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1581407189000
+  },
+  "glossaryTermUrn": "urn:li:glossaryTerm:(market,bidTime)"
+}
+```
+
+### Get business term to field mapping for a dataset
+```
+curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/fieldGlossaryTerm/0' | jq
+
+{
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1581407189000
+  },
+  "fieldMappings": [
+    {
+      "sourceField": "urn:li:datasetField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD),field_foo)",
+      "glossaryTermUrn": "urn:li:glossaryTerm:(market,bidTime)"
     }
   ]
 }

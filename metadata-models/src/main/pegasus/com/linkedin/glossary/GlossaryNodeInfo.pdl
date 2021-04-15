@@ -1,0 +1,15 @@
+namespace com.linkedin.glossary
+
+import com.linkedin.common.GlossaryNodeUrn
+
+/**
+ * Properties associated with a GlossaryNode
+ */
+record GlossaryNodeInfo {
+
+  /**
+   * Definition of business node
+   */
+  definition: string
+
+}

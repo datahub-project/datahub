@@ -177,6 +177,27 @@
           }
         }
       }, {
+        "name" : "glossaryTerms",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/glossaryTerms",
+        "schema" : "com.linkedin.common.GlobalGlossaryTerms",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/glossaryTerms\n\ngenerated from: com.linkedin.metadata.resources.dataset.GlobalGlossaryTermsResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "glossaryTermsId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/glossaryTerms/{glossaryTermsId}"
+          }
+        }
+      }, {
         "name" : "institutionalMemory",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/institutionalMemory",
