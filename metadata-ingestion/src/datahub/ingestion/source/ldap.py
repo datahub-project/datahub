@@ -163,7 +163,7 @@ class LDAPSource(Source):
         full_name = attrs["cn"][0].decode()
         first_name = attrs["givenName"][0].decode()
         last_name = attrs["sn"][0].decode()
-        email = (attrs["mail"][0]).decode() if "mail" in attrs else None
+        email = (attrs["mail"][0]).decode() if "mail" in attrs else ldap
         display_name = (
             (attrs["displayName"][0]).decode() if "displayName" in attrs else full_name
         )

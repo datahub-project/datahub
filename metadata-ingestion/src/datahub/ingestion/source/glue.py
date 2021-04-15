@@ -216,7 +216,6 @@ class GlueSource(Source):
             )
 
         sys_time = int(time.time() * 1000)
-        metadata_record = MetadataChangeEvent()
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
             aspects=[],
@@ -227,8 +226,7 @@ class GlueSource(Source):
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
 
-        metadata_record.proposedSnapshot = dataset_snapshot
-
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
 
     def get_report(self):
