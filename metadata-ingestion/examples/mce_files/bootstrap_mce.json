@@ -1249,6 +1249,7 @@
                         "com.linkedin.pegasus2avro.common.Cost": {
                             "costType": "ORG_COST_TYPE",
                             "cost": {
+                                "fieldDiscriminator": "costCode",
                                 "costCode": "sampleCostCode"
                             }
                         }

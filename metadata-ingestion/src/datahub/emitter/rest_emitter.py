@@ -42,6 +42,11 @@ def _rest_li_ify(obj: Any) -> Any:
                 new_key = key.replace("com.linkedin.pegasus2avro.", "com.linkedin.")
                 return {new_key: _rest_li_ify(value)}
 
+        if "fieldDiscriminator" in obj:
+            # Field discriminators are used for unions between primitive types.
+            field = obj["fieldDiscriminator"]
+            return {field: _rest_li_ify(obj[field])}
+
         new_obj: Any = {}
         for key, value in obj.items():
             if value is not None:
