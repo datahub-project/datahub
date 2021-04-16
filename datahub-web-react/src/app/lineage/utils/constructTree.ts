@@ -26,7 +26,9 @@ export default function constructTree(
             if (child.entity.urn === root.urn) {
                 return null;
             }
-            return constructFetchedNode(child.entity.urn, fetchedEntities, direction, constructedNodes);
+            return constructFetchedNode(child.entity.urn, fetchedEntities, direction, constructedNodes, [
+                root.urn || '',
+            ]);
         })
         ?.filter(Boolean) as Array<NodeData>;
     return root;
