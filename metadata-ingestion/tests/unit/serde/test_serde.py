@@ -7,6 +7,7 @@ import pytest
 from _pytest.config import Config as PytestConfig
 from click.testing import CliRunner
 
+import datahub.metadata as models
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.mce_file import iterate_mce_file
@@ -104,3 +105,15 @@ def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> Non
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
     assert result.exit_code == 0
+
+
+def test_field_discriminator() -> None:
+    cost_object = models.CostClass(
+        costType=models.CostTypeClass.ORG_COST_TYPE,
+        cost=models.CostCostClass(
+            fieldDiscriminator=models.CostCostDiscriminatorClass.costCode,
+            costCode="sampleCostCode",
+        ),
+    )
+
+    assert cost_object.validate()

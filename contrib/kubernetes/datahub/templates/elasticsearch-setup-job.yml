@@ -36,6 +36,9 @@ spec:
               value: {{ .Values.global.elasticsearch.host | quote }}
             - name: ELASTICSEARCH_PORT
               value: {{ .Values.global.elasticsearch.port | quote }}
+          {{- with .Values.elasticsearchSetupJob.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             limits:
               cpu: 500m
