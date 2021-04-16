@@ -43,6 +43,9 @@ spec:
               value: {{ .Values.global.sql.datasource.hostForMysqlClient | quote }}
             - name: MYSQL_PORT
               value: {{ .Values.global.sql.datasource.port | quote }}
+          {{- with .Values.mysqlSetupJob.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             limits:
               cpu: 500m

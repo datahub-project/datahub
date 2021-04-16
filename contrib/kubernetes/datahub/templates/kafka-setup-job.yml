@@ -36,6 +36,9 @@ spec:
               value: {{ .Values.global.kafka.zookeeper.server | quote }}
             - name: KAFKA_BOOTSTRAP_SERVER
               value: {{ .Values.global.kafka.bootstrap.server | quote }}
+          {{- with .Values.kafkaSetupJob.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             limits:
               cpu: 500m
