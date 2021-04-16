@@ -32,6 +32,9 @@ export default function constructFetchedNode(
 
         node.children = fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']
             ?.map((childUrn) => {
+                if (childUrn === node.urn) {
+                    return null;
+                }
                 return constructFetchedNode(childUrn, fetchedEntities, direction, constructedNodes);
             })
             .filter(Boolean) as Array<NodeData>;
