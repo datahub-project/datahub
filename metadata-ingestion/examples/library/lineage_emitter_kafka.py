@@ -1,5 +1,5 @@
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.kafka_emitter import KafkaEmitterConfig, DatahubKafkaEmitter
+from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 
 # Construct a lineage object.
 lineage_mce = builder.make_lineage_mce(
