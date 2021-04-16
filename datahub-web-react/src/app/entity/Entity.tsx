@@ -29,6 +29,10 @@ export enum IconStyleType {
      * Rendered in a Tab pane header
      */
     TAB_VIEW,
+    /**
+     * Rendered in Lineage as default
+     */
+    SVG,
 }
 
 /**
