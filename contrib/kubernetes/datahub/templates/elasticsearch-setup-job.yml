@@ -44,7 +44,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- with .Values.mysqlSetupJob.extraVolumeMounts }}
+          {{- with .Values.elasticsearchSetupJob.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
