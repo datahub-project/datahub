@@ -61,6 +61,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {"apache-airflow >= 1.10.2"},
     # Source plugins
     "kafka": kafka_common,
+    "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "hive": sql_common | {"pyhive[hive]"},
