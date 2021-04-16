@@ -241,6 +241,8 @@ type CorpUser {
 enum EntityType {
     DATASET
     USER
+    DATA_FLOW
+    DATA_JOB
 }
 
 # Search Input

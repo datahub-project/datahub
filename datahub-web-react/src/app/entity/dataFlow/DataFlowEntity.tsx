@@ -35,7 +35,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => true;
+    isLineageEnabled = () => false;
 
     getAutoCompleteFieldName = () => 'name';
 

@@ -35,7 +35,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => true;
+    isLineageEnabled = () => false;
 
     getAutoCompleteFieldName = () => 'name';
 

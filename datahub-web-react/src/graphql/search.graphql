@@ -158,6 +158,86 @@ query getSearchResults($input: SearchInput!) {
                         }
                     }
                 }
+                ... on DataFlow {
+                    urn
+                    type
+                    orchestrator
+                    flowId
+                    cluster
+                    info {
+                        name
+                        project
+                    }
+                    ownership {
+                        owners {
+                            owner {
+                                urn
+                                type
+                                username
+                                info {
+                                    active
+                                    displayName
+                                    title
+                                    email
+                                    firstName
+                                    lastName
+                                    fullName
+                                }
+                                editableInfo {
+                                    pictureLink
+                                }
+                            }
+                            type
+                        }
+                        lastModified {
+                            time
+                        }
+                    }
+                }
+                ... on DataJob {
+                    urn
+                    type
+                    dataFlow {
+                        ...nonRecursiveDataFlowFields
+                    }
+                    jobId
+                    ownership {
+                        owners {
+                            owner {
+                                urn
+                                type
+                                username
+                                info {
+                                    active
+                                    displayName
+                                    title
+                                    email
+                                    firstName
+                                    lastName
+                                    fullName
+                                }
+                                editableInfo {
+                                    pictureLink
+                                }
+                            }
+                            type
+                        }
+                        lastModified {
+                            time
+                        }
+                    }
+                    inputOutput {
+                        inputDatasets {
+                            ...nonRecursiveDatasetFields
+                        }
+                        outputDatasets {
+                            ...nonRecursiveDatasetFields
+                        }
+                    }
+                    info {
+                        name
+                    }
+                }
             }
             matchedFields {
                 name
