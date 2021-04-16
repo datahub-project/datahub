@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
+    env: str = "PROD"
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -86,11 +87,10 @@ class KafkaSource(Source):
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
-        env = "PROD"  # TODO: configure!
         actor, sys_time = "urn:li:corpuser:etl", int(time.time() * 1000)
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))

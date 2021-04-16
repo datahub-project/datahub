@@ -32,7 +32,7 @@ framework_common = {
     "toml>=0.10.0",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.4.0",
+    "avro-gen3==0.4.1",
     "avro-python3>=1.8.2",
     "python-dateutil",
 }
@@ -61,6 +61,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {"apache-airflow >= 1.10.2"},
     # Source plugins
     "kafka": kafka_common,
+    "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "hive": sql_common | {"pyhive[hive]"},
