@@ -91,7 +91,14 @@ const App: React.VFC = () => {
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     {/* Temporary: For local testing during development. */}
                     {MOCK_MODE ? (
-                        <MockedProvider mocks={mocks} addTypename={false}>
+                        <MockedProvider
+                            mocks={mocks}
+                            addTypename={false}
+                            defaultOptions={{
+                                watchQuery: { fetchPolicy: 'no-cache' },
+                                query: { fetchPolicy: 'no-cache' },
+                            }}
+                        >
                             <Routes />
                         </MockedProvider>
                     ) : (

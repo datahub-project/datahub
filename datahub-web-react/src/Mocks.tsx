@@ -620,6 +620,7 @@ export const dataJob1 = {
     dataFlow: dataFlow1,
     jobId: 'jobId1',
     ownership: {
+        __typename: 'Ownership',
         owners: [
             {
                 owner: {

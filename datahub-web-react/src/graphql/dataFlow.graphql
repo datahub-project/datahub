@@ -11,29 +11,7 @@ query getDataFlow($urn: String!) {
             project
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
     }
 }

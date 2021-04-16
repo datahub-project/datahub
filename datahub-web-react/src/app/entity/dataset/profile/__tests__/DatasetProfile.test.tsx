@@ -19,7 +19,14 @@ describe('DatasetProfile', () => {
 
     it('renders tags', async () => {
         const { getByText, queryByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <DatasetProfile urn="urn:li:dataset:3" />
                 </TestPageContainer>

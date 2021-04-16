@@ -31,9 +31,9 @@ export class DataJobEntity implements Entity<DataJob> {
         );
     };
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => false;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     isLineageEnabled = () => false;
 
