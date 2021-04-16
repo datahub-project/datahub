@@ -8,7 +8,7 @@ import { Direction, FetchedEntities } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
-import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
+import TestPageContainer, { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
 import { EntityType } from '../../../types.generated';
 
 const margin = { top: 10, left: 280, right: 280, bottom: 10 };
@@ -57,30 +57,32 @@ describe('LineageTree', () => {
         );
 
         const { getByTestId } = render(
-            <Zoom
-                width={width}
-                height={height}
-                scaleXMin={1 / 8}
-                scaleXMax={2}
-                scaleYMin={1 / 8}
-                scaleYMax={2}
-                transformMatrix={initialTransform}
-            >
-                {(zoom) => (
-                    <svg>
-                        <LineageTree
-                            data={downstreamData}
-                            zoom={zoom}
-                            onEntityClick={jest.fn()}
-                            onLineageExpand={jest.fn()}
-                            canvasHeight={yMax}
-                            canvasWidth={xMax}
-                            margin={margin}
-                            direction={Direction.Upstream}
-                        />
-                    </svg>
-                )}
-            </Zoom>,
+            <TestPageContainer>
+                <Zoom
+                    width={width}
+                    height={height}
+                    scaleXMin={1 / 8}
+                    scaleXMax={2}
+                    scaleYMin={1 / 8}
+                    scaleYMax={2}
+                    transformMatrix={initialTransform}
+                >
+                    {(zoom) => (
+                        <svg>
+                            <LineageTree
+                                data={downstreamData}
+                                zoom={zoom}
+                                onEntityClick={jest.fn()}
+                                onLineageExpand={jest.fn()}
+                                canvasHeight={yMax}
+                                canvasWidth={xMax}
+                                margin={margin}
+                                direction={Direction.Upstream}
+                            />
+                        </svg>
+                    )}
+                </Zoom>
+            </TestPageContainer>,
         );
 
         expect(getByTestId('edge-urn:li:dataset:6-urn:li:dataset:5-Upstream')).toBeInTheDocument();

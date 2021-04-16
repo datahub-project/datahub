@@ -3,6 +3,8 @@ import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
+import { useEntityRegistry } from '../useEntityRegistry';
+import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction } from './types';
 
 function truncate(input, length) {
@@ -48,6 +50,7 @@ export default function LineageEntityNode({
     direction: Direction;
     nodesToRenderByUrn: { [key: string]: { x: number; y: number; data: Omit<NodeData, 'children'> }[] };
 }) {
+    const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
         node?.data?.countercurrentChildrenUrns?.filter((urn) => !(urn in nodesToRenderByUrn))?.length || 0;
 
@@ -125,7 +128,22 @@ export default function LineageEntityNode({
                 />
                 {node.data.icon ? (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
-                ) : null}
+                ) : (
+                    node.data.type && (
+                        <svg
+                            viewBox="64 64 896 896"
+                            focusable="false"
+                            x={iconX}
+                            y={iconY}
+                            height={iconHeight}
+                            width={iconWidth}
+                            fill="currentColor"
+                            aria-hidden="true"
+                        >
+                            {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
+                        </svg>
+                    )
+                )}
                 <text dy=".33em" x={textX} fontSize={16} fontFamily="Arial" textAnchor="start" fill="black">
                     {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
                 </text>
