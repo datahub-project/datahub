@@ -48,6 +48,7 @@ class SQLSourceReport(SourceReport):
 
 
 class SQLAlchemyConfig(ConfigModel):
+    env: str = "PROD"
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
@@ -189,7 +190,6 @@ class SQLAlchemySource(Source):
         self.report = SQLSourceReport()
 
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
-        env: str = "PROD"
         sql_config = self.config
         platform = self.platform
         url = sql_config.get_sql_alchemy_url()
@@ -222,7 +222,7 @@ class SQLAlchemySource(Source):
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
 
                 dataset_snapshot = DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})",
                     aspects=[],
                 )
                 if description is not None:
