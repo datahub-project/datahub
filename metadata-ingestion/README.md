@@ -107,6 +107,11 @@ source:
     password: ${MSSQL_PASSWORD}
     database: DemoData
 
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
+
 sink:
   type: "datahub-rest"
   config:
@@ -124,36 +129,6 @@ datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
 A number of recipes are included in the examples/recipes directory.
-
-### Transformations
-
-Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
-Example use cases could be to add ownership information, add extra tags etc.
-
-In such a scenario, it is possible to configure a recipe with a list of transformers like this
-
-```yaml
-# A sample recipe demonstrates how a transformation can be configured
-source:
-  type: mssql
-  config:
-    username: sa
-    password: ${MSSQL_PASSWORD}
-    database: DemoData
-
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
-      
-sink:
-  type: "datahub-rest"
-  config:
-    server: "http://localhost:8080"
-```
-
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
-At the moment there are no built-in transformers.
 
 ## Sources
 
@@ -543,6 +518,23 @@ sink:
   config:
     filename: ./path/to/mce/file.json
 ```
+
+## Transformations
+
+Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
+Example use cases could be to add ownership information, add extra tags etc.
+
+In such a scenario, it is possible to configure a recipe with a list of transformers.
+
+```yml
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
+```
+
+A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
+At the moment there are no built-in transformers.
 
 ## Using as a library
 
