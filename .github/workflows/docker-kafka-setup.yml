@@ -73,5 +73,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: ./docker/kafka-setup/Dockerfile
+          context: ./docker/kafka-setup
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
