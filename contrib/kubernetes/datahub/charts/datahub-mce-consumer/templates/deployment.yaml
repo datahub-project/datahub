@@ -77,8 +77,8 @@ spec:
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
-            {{- if .Values.global.kafkaConfigurationOverrides }}
-            {{- range $configName, $configValue := .Values.global.kafkaConfigurationOverrides }}
+            {{- if .Values.global.springKafkaConfigurationOverrides }}
+            {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
             - name: SPRING_KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}
               value: {{ $configValue }}
             {{- end }}
