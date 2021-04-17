@@ -335,6 +335,58 @@ export const dataset4WithLineage = {
     },
 };
 
+export const dataset5WithCyclicalLineage = {
+    ...dataset5,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset3,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset7,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset6,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset4,
+            },
+        ],
+    },
+};
+
 export const dataset5WithLineage = {
     ...dataset5,
     upstreamLineage: {
@@ -435,6 +487,58 @@ export const dataset7WithLineage = {
                 },
                 type: DatasetLineageType.Transformed,
                 dataset: dataset3,
+            },
+        ],
+    },
+};
+
+export const dataset7WithSelfReferentialLineage = {
+    ...dataset7,
+    upstreamLineage: {
+        upstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset5,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset7,
+            },
+        ],
+    },
+    downstreamLineage: {
+        downstreams: [
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset3,
+            },
+            {
+                created: {
+                    time: 0,
+                },
+                lastModified: {
+                    time: 0,
+                },
+                type: DatasetLineageType.Transformed,
+                dataset: dataset7,
             },
         ],
     },
