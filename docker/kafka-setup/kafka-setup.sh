@@ -21,4 +21,7 @@ fi
 cub kafka-ready -c $CONNECTION_PROPERTIES_PATH -b $KAFKA_BOOTSTRAP_SERVER 1 60 && \
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_AUDIT_EVENT_NAME && \
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_EVENT_NAME && \
-kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME
+kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME && \
+kafka-acls --authorizer-properties zookeeper.connect=$KAFKA_ZOOKEEPER_CONNECT --add --allow-principal "User:CN=$KAFKA_PRINCIPAL" --operation READ --operation Write --topic $METADATA_AUDIT_EVENT_NAME & \
+kafka-acls --authorizer-properties zookeeper.connect=$KAFKA_ZOOKEEPER_CONNECT --add --allow-principal "User:CN=$KAFKA_PRINCIPAL" --operation READ --operation Write --topic $METADATA_CHANGE_EVENT_NAME & \
+kafka-acls --authorizer-properties zookeeper.connect=$KAFKA_ZOOKEEPER_CONNECT --add --allow-principal "User:CN=$KAFKA_PRINCIPAL" --operation READ --operation Write --topic $FAILED_METADATA_CHANGE_EVENT_NAME
