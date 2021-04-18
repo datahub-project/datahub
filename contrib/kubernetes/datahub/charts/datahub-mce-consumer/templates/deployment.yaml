@@ -41,12 +41,12 @@ spec:
           configMap:
             name: {{ include "datahub-mce-consumer.fullname" . }}-config-jmx-exporter
         {{- end }}
-      {{- if .Values.extraVolumes }}
-        {{ toYaml .Values.extraVolumes | nindent 8 }}
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
-      {{- if .Values.extraInitContainers }}
-      {{- .Values.extraInitContainers | toYaml | nindent 6 }}
+      {{- with .Values.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -92,16 +92,16 @@ spec:
                   key: {{ $envVarValue }}
             {{- end }}
             {{- end }}
-          {{- if .Values.extraEnvs }}
-            {{ toYaml .Values.extraEnvs | nindent 12 }}
+          {{- with .Values.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- if .Values.global.credentialsAndCertsSecrets }}
+          {{- with .Values.global.credentialsAndCertsSecrets }}
             - name: datahub-certs-dir
-              mountPath: {{ .Values.global.credentialsAndCertsSecretPath | default "/mnt/certs" }}
+              mountPath: {{ .path | default "/mnt/certs" }}
           {{- end }}
-          {{- if .Values.extraVolumeMounts }}
-            {{ toYaml .Values.extraVolumeMounts | nindent 10 }}
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
