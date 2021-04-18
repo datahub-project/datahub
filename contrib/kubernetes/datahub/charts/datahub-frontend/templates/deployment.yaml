@@ -26,8 +26,8 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
-      {{- if .Values.extraVolumes }}
-        {{ toYaml .Values.extraVolumes | nindent 8 }}
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if .Values.exporters.jmx.enabled }}
       - name: config-jmx-exporter
@@ -35,8 +35,8 @@ spec:
           name: {{ include "datahub-frontend.fullname" . }}-config-jmx-exporter
       {{- end }}
       initContainers:
-      {{- if .Values.extraInitContainers }}
-      {{- .Values.extraInitContainers | toYaml | nindent 6 }}
+      {{- with .Values.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -82,12 +82,12 @@ spec:
               value: "{{ .Values.global.datahub.appVersion }}"
             - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
               value: "{{ .Values.datahub.play.mem.buffer.size }}"
-          {{- if .Values.extraEnvs }}
-            {{ toYaml .Values.extraEnvs | nindent 12 }}
+          {{- with .Values.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- if .Values.extraVolumeMounts }}
-            {{ toYaml .Values.extraVolumeMounts | nindent 10 }}
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

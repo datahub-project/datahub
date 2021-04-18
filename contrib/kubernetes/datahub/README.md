@@ -57,7 +57,9 @@ Current chart version is `0.1.2`
 
 #### Optional Chart Values
 
-| global.credentialsAndCertsSecretPath | string | `"/mnt/certs"` |  |
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| global.credentialsAndCertsSecrets.path | string | `"/mnt/certs"` |  |
 | global.credentialsAndCertsSecrets.name | string | `""` |  |
-| global.credentialsAndCertsSecrets.secureEnv | string | `""` |  |
-| global.springKafkaConfigurationOverrides | string | `""` |  |
+| global.credentialsAndCertsSecrets.secureEnv | map | `{}` |  |
+| global.springKafkaConfigurationOverrides | map | `{}` |  |
