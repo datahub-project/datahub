@@ -63,3 +63,6 @@ Current chart version is `0.1.2`
 | global.credentialsAndCertsSecrets.name | string | `""` |  |
 | global.credentialsAndCertsSecrets.secureEnv | map | `{}` |  |
 | global.springKafkaConfigurationOverrides | map | `{}` |  |
+| global.kafka.topics.metadata_change_event_name | string | `""` |  |
+| global.kafka.topics.failed_metadata_change_event_name | string | `""` |  |
+| global.kafka.topics.metadata_audit_event_name | string | `""` |  |
