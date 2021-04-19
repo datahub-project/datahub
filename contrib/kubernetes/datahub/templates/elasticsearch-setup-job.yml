@@ -24,6 +24,10 @@ spec:
     {{- with .Values.elasticsearchSetupJob.serviceAccount }}
       serviceAccountName: {{ . }}
     {{- end }}
+      volumes:
+      {{- with .Values.elasticsearchSetupJob.extraVolumes }}
+        {{- toYaml . | nindent 8}}
+      {{- end }}
       restartPolicy: Never
       securityContext:
         runAsUser: 1000
@@ -37,6 +41,10 @@ spec:
             - name: ELASTICSEARCH_PORT
               value: {{ .Values.global.elasticsearch.port | quote }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+          {{- with .Values.elasticsearchSetupJob.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:

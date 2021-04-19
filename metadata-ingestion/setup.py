@@ -32,7 +32,7 @@ framework_common = {
     "toml>=0.10.0",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.4.0",
+    "avro-gen3==0.4.1",
     "avro-python3>=1.8.2",
     "python-dateutil",
 }
