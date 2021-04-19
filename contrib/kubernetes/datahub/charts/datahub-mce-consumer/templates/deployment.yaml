@@ -92,6 +92,12 @@ spec:
                   key: {{ $envVarValue }}
             {{- end }}
             {{- end }}
+            {{- with .Values.global.kafka.topics }}
+            - name: KAFKA_MCE_TOPIC_NAME
+              value: {{ .metadata_change_event_name }}
+            - name: KAFKA_FMCE_TOPIC_NAME
+              value: {{ .failed_metadata_change_event_name }}
+            {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
