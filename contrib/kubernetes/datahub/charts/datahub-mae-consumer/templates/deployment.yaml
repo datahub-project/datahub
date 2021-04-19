@@ -77,6 +77,10 @@ spec:
               value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
               value: "{{ .Values.global.elasticsearch.port }}"
+            {{- with .Values.global.elasticsearch.indexPrefix }}
+            - name: INDEX_PREFIX
+              value: {{ . }}
+            {{- end }}
             - name: NEO4J_HOST
               value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
