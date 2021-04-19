@@ -7,4 +7,6 @@ source:
     connect_uri: http://localhost:8088/
 
 sink:
-  type: "console"
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'
