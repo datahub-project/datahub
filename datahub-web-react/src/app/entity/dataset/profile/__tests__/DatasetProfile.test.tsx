@@ -7,14 +7,16 @@ import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer
 import { mocks } from '../../../../../Mocks';
 
 describe('DatasetProfile', () => {
-    it('renders', () => {
-        render(
+    it('renders', async () => {
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <DatasetProfile urn="urn:li:dataset:3" />
                 </TestPageContainer>
             </MockedProvider>,
         );
+
+        await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
     });
 
     it('renders tags', async () => {
@@ -36,6 +38,8 @@ describe('DatasetProfile', () => {
         await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
 
         expect(getByText('abc-sample-tag')).toBeInTheDocument();
-        expect(getByText('abc-sample-tag').closest('a').href).toEqual('http://localhost/tag/urn:li:tag:abc-sample-tag');
+        expect(getByText('abc-sample-tag').closest('a')?.href).toEqual(
+            'http://localhost/tag/urn:li:tag:abc-sample-tag',
+        );
     });
 });
