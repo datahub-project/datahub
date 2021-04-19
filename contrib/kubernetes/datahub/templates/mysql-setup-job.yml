@@ -36,6 +36,8 @@ spec:
         - name: mysql-setup-job
           image: "{{ .Values.mysqlSetupJob.image.repository }}:{{ .Values.mysqlSetupJob.image.tag }}"
           env:
+            - name: DATAHUB_DB_NAME
+              value: {{ .Values.global.sql.datasource.db | quote }}
             - name: MYSQL_USERNAME
               value: {{ .Values.global.sql.datasource.username | quote }}
             - name: MYSQL_PASSWORD
