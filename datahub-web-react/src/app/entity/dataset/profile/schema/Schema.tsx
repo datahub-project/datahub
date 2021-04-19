@@ -75,7 +75,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
     const [tagHoveredIndex, setTagHoveredIndex] = useState<number | undefined>(undefined);
     const [descHoveredIndex, setDescHoveredIndex] = useState<number | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
-
+    console.log('schema---', schema);
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
@@ -202,6 +202,9 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                     pagination={false}
                     dataSource={schema?.fields}
                     columns={[...defaultColumns, descriptionColumn, tagColumn]}
+                    expandable={{
+                        rowExpandable: (record) => record.type === 'STRUCT',
+                    }}
                     rowKey="fieldPath"
                 />
             )}
