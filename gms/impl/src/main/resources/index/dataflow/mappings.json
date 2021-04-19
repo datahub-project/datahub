@@ -11,15 +11,6 @@
       "analyzer": "custom_browse_slash",
       "fielddata": true
     },
-    "access": {
-      "type": "keyword",
-      "fields": {
-        "ngram": {
-          "type": "text",
-          "analyzer": "delimit_edgengram"
-        }
-      }
-    },
     "description": {
       "type": "text",
       "fields": {
@@ -41,7 +32,7 @@
     "queryType": {
       "type": "keyword"
     },
-    "title": {
+    "name": {
       "type": "keyword",
       "fields": {
         "delimited": {
@@ -55,7 +46,25 @@
       },
       "normalizer": "custom_normalizer"
     },
-    "tool": {
+    "project": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
+    },
+    "cluster": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
+    },
+    "flowId": {
       "type": "keyword",
       "fields": {
         "ngram": {
