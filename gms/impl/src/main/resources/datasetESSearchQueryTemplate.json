@@ -69,6 +69,24 @@
           {
             "query_string": {
               "query": "$INPUT",
+              "analyzer": "custom_keyword",
+              "boost": 1,
+              "default_field": "glossaryTerms",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.0625,
+              "default_field": "glossaryTerms.ngram",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
               "analyzer": "whitespace_lowercase",
               "boost": 0.2,
               "default_field": "fieldPaths.delimited",

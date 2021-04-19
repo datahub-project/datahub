@@ -10,7 +10,7 @@ import com.linkedin.common.VersionTag
 import com.linkedin.schema.SchemaMetadata
 import com.linkedin.schema.EditableSchemaMetadata
 import com.linkedin.common.GlobalTags
-import com.linkedin.common.GlobalGlossaryTerms
+import com.linkedin.common.GlossaryTerms
 
 /**
  * Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent
@@ -127,5 +127,5 @@ record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
   /**
    * Related business terms of the dataset
    */
-  globalGlossaryTerms: optional GlobalGlossaryTerms
+  glossaryTerms: optional GlossaryTerms
 }

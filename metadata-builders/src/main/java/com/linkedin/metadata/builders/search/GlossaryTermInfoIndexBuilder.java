@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.GlossaryTermInfoDocument;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -36,9 +37,19 @@ public class GlossaryTermInfoIndexBuilder extends BaseIndexBuilder<GlossaryTermI
   }
 
   @Nonnull
+  private static String getTermName(@Nonnull GlossaryTermUrn urn) {
+    final String name = urn.getNameEntity() == null ? "" : urn.getNameEntity();
+    if (name.contains(".")) {
+      String[] nodes = name.split(Pattern.quote("."));
+      return nodes[nodes.length - 1];
+    }
+    return name;
+  }
+
+  @Nonnull
   private static GlossaryTermInfoDocument setUrnDerivedFields(@Nonnull GlossaryTermUrn urn) {
     return new GlossaryTermInfoDocument()
-            .setName(urn.getNameEntity())
+            .setName(getTermName(urn))
             .setUrn(urn)
             .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
@@ -46,13 +57,12 @@ public class GlossaryTermInfoIndexBuilder extends BaseIndexBuilder<GlossaryTermI
   @Nonnull
   private GlossaryTermInfoDocument getDocumentToUpdateFromAspect(@Nonnull GlossaryTermUrn urn,
       @Nonnull GlossaryTermInfo glossaryTermInfo) {
-    final String name = urn.getNameEntity() == null ? "" : urn.getNameEntity();
     final String definition = glossaryTermInfo.getDefinition() == null ? "" : glossaryTermInfo.getDefinition();
     final String termSource = glossaryTermInfo.getTermSource() == null ? "" : glossaryTermInfo.getTermSource();
     return new GlossaryTermInfoDocument().setUrn(urn)
         .setDefinition(definition)
         .setTermSource(termSource)
-        .setName(name);
+        .setName(getTermName(urn));
   }
 
   @Nonnull

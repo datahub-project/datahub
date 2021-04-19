@@ -257,10 +257,10 @@ curl 'http://localhost:8080/dashboards/($params:(),tool:looker,dashboardId:foo)'
 
 ### Get business-term
 ```
-curl 'http://localhost:8080/glossaryTerms/($params:(),domain:market,name:bidTime)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+curl 'http://localhost:8080/glossaryTerms/($params:(),name:instruments.FinancialInstrument_v1)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
 
 {
-  "name": "bidTime",
+  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
   "ownership": {
     "owners": [
       {
@@ -274,12 +274,14 @@ curl 'http://localhost:8080/glossaryTerms/($params:(),domain:market,name:bidTime
     }
   },
   "glossaryTermInfo": {
-    "definition": "business term definition",
-    "sourceRef": "EXTERNAL",
-    "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+    "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+    "customProperties": {
+      "FQDN": "full"
+    },
+    "sourceRef": "sourceRef",
+    "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
     "termSource": "FIBO"
-  },
-  "domain": "market"
+  }
 }
 ```
 
@@ -343,7 +345,7 @@ curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0'
 {
   "elements": [
     {
-      "name": "bidTime",
+      "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
       "ownership": {
         "owners": [
           {
@@ -357,12 +359,14 @@ curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0'
         }
       },
       "glossaryTermInfo": {
-          "definition": "business term definition",
-          "sourceRef": "EXTERNAL",
-          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
-          "termSource": "FIBO"
-       },
-      "domain": "market"
+        "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+        "customProperties": {
+          "FQDN": "full"
+        },
+        "sourceRef": "sourceRef",
+        "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+        "termSource": "FIBO"
+      }
     }
   ],
   "paging": {
@@ -526,12 +530,12 @@ curl "http://localhost:8080/dashboards?q=search&input=looker" -X GET -H 'X-RestL
 
 ### Search business term
 ```
-curl "http://localhost:8080/glossaryTerms?q=search&input=name&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+curl "http://localhost:8080/glossaryTerms?q=search&input=FinancialInstrument_v1&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
 
 {
   "metadata": {
     "urns": [
-      "urn:li:glossaryTerm:(market,bidTime)"
+      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
     ],
     "searchResultMetadatas": []
   },
@@ -555,8 +559,7 @@ curl "http://localhost:8080/glossaryTerms?q=search&input=name&start=0&count=10" 
           "sourceRef": "EXTERNAL",
           "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
           "termSource": "FIBO"
-       },
-      "domain": "market"
+       }
     }
   ],
   "paging": {
@@ -575,7 +578,7 @@ curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=
 {
   "metadata": {
     "urns": [
-      "urn:li:glossaryTerm:(market,bidTime)"
+      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
     ],
     "searchResultMetadatas": []
   },
@@ -599,8 +602,7 @@ curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=
           "sourceRef": "EXTERNAL",
           "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
           "termSource": "FIBO"
-        },
-      "domain": "market"
+        }
     }
   ],
   "paging": {
@@ -738,31 +740,13 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://loca
 
 ### Get linked business term for a dataset
 ```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/glossaryTerm/0' | jq
+curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/glossaryTerms/0' | jq
 
 {
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
     "time": 1581407189000
   },
-  "glossaryTermUrn": "urn:li:glossaryTerm:(market,bidTime)"
-}
-```
-
-### Get business term to field mapping for a dataset
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/fieldGlossaryTerm/0' | jq
-
-{
-  "auditStamp": {
-    "actor": "urn:li:corpuser:jdoe",
-    "time": 1581407189000
-  },
-  "fieldMappings": [
-    {
-      "sourceField": "urn:li:datasetField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD),field_foo)",
-      "glossaryTermUrn": "urn:li:glossaryTerm:(market,bidTime)"
-    }
-  ]
+  "glossaryTermUrn": "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
 }
 ```

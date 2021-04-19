@@ -7,5 +7,5 @@ record GlossaryTermAssociation {
    /**
     * Urn of the applied glossary term
     */
-    glossaryTerm: GlossaryTermUrn
+    urn: GlossaryTermUrn
 }

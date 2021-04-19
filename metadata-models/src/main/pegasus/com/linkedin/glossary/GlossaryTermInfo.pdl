@@ -19,7 +19,7 @@ record GlossaryTermInfo {
   termSource: string
 
   /**
-   * External Reference to the business-term (URL)
+   * External Reference to the business-term
    */
   sourceRef: optional string
 

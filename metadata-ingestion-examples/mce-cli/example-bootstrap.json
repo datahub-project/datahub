@@ -102,9 +102,9 @@
                         "com.linkedin.schema.StringType": {}
                       }
                     },
-                    "globalGlossaryTerms": {
-                      "glossaryTerms": [{
-                        "glossaryTerm": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+                    "glossaryTerms": {
+                      "terms": [{
+                        "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
                       }],
                       "auditStamp": {
                         "time": 1581407189000,
@@ -126,9 +126,9 @@
               }
             },
             {
-              "com.linkedin.common.GlobalGlossaryTerms": {
-                "glossaryTerms": [{
-                  "glossaryTerm": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
+              "com.linkedin.common.GlossaryTerms": {
+                "terms": [{
+                  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1"
                 }],
                 "auditStamp": {
                   "time": 1581407189000,

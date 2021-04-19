@@ -193,58 +193,6 @@
     }
   }, {
     "type" : "record",
-    "name" : "GlobalGlossaryTerms",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Related business terms information",
-    "fields" : [ {
-      "name" : "glossaryTerms",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "GlossaryTermAssociation",
-          "doc" : "Properties of an applied glossary term.",
-          "fields" : [ {
-            "name" : "glossaryTerm",
-            "type" : {
-              "type" : "typeref",
-              "name" : "GlossaryTermUrn",
-              "doc" : "Business Term",
-              "ref" : "string",
-              "java" : {
-                "class" : "com.linkedin.common.urn.GlossaryTermUrn"
-              },
-              "validate" : {
-                "com.linkedin.common.validator.TypedUrnValidator" : {
-                  "accessible" : true,
-                  "constructable" : true,
-                  "doc" : "business term",
-                  "entityType" : "glossaryTerm",
-                  "fields" : [ {
-                    "doc" : "The name of business term with hierarchy.",
-                    "name" : "name",
-                    "type" : "string"
-                  } ],
-                  "maxLength" : 56,
-                  "name" : "GlossaryTerm",
-                  "namespace" : "li",
-                  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-                  "owningTeam" : "urn:li:internalTeam:datahub"
-                }
-              }
-            },
-            "doc" : "Urn of the applied glossary term"
-          } ]
-        }
-      },
-      "doc" : "The related business terms"
-    }, {
-      "name" : "auditStamp",
-      "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who reported the related business term"
-    } ]
-  }, {
-    "type" : "record",
     "name" : "GlobalTags",
     "namespace" : "com.linkedin.common",
     "doc" : "Tag aspect used for applying tags to an entity",
@@ -292,7 +240,60 @@
       },
       "doc" : "Tags associated with a given entity"
     } ]
-  }, "com.linkedin.common.GlossaryTermAssociation", "com.linkedin.common.GlossaryTermUrn", {
+  }, {
+    "type" : "record",
+    "name" : "GlossaryTermAssociation",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Properties of an applied glossary term.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : {
+        "type" : "typeref",
+        "name" : "GlossaryTermUrn",
+        "doc" : "Business Term",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.GlossaryTermUrn"
+        },
+        "validate" : {
+          "com.linkedin.common.validator.TypedUrnValidator" : {
+            "accessible" : true,
+            "constructable" : true,
+            "doc" : "business term",
+            "entityType" : "glossaryTerm",
+            "fields" : [ {
+              "doc" : "The name of business term with hierarchy.",
+              "name" : "name",
+              "type" : "string"
+            } ],
+            "maxLength" : 56,
+            "name" : "GlossaryTerm",
+            "namespace" : "li",
+            "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+            "owningTeam" : "urn:li:internalTeam:datahub"
+          }
+        }
+      },
+      "doc" : "Urn of the applied glossary term"
+    } ]
+  }, "com.linkedin.common.GlossaryTermUrn", {
+    "type" : "record",
+    "name" : "GlossaryTerms",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Related business terms information",
+    "fields" : [ {
+      "name" : "terms",
+      "type" : {
+        "type" : "array",
+        "items" : "GlossaryTermAssociation"
+      },
+      "doc" : "The related business terms"
+    }, {
+      "name" : "auditStamp",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the related business term"
+    } ]
+  }, {
     "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
@@ -858,8 +859,8 @@
                 "doc" : "Tags associated with the field",
                 "optional" : true
               }, {
-                "name" : "globalGlossaryTerms",
-                "type" : "com.linkedin.common.GlobalGlossaryTerms",
+                "name" : "glossaryTerms",
+                "type" : "com.linkedin.common.GlossaryTerms",
                 "doc" : "Glossary terms associated with the field",
                 "optional" : true
               } ]
@@ -1017,8 +1018,8 @@
       "doc" : "List of global tags applied to the dataset",
       "optional" : true
     }, {
-      "name" : "globalGlossaryTerms",
-      "type" : "com.linkedin.common.GlobalGlossaryTerms",
+      "name" : "glossaryTerms",
+      "type" : "com.linkedin.common.GlossaryTerms",
       "doc" : "Related business terms of the dataset",
       "optional" : true
     } ]
@@ -1139,7 +1140,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlobalGlossaryTerms" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
@@ -1660,8 +1661,8 @@
           "name" : "glossaryTerms",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/glossaryTerms",
-          "schema" : "com.linkedin.common.GlobalGlossaryTerms",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/glossaryTerms\n\ngenerated from: com.linkedin.metadata.resources.dataset.GlobalGlossaryTermsResource",
+          "schema" : "com.linkedin.common.GlossaryTerms",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/glossaryTerms\n\ngenerated from: com.linkedin.metadata.resources.dataset.GlossaryTermsResource",
           "collection" : {
             "identifier" : {
               "name" : "glossaryTermsId",

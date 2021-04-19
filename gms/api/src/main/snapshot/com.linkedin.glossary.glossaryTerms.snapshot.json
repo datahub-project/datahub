@@ -168,7 +168,7 @@
         }, {
           "name" : "sourceRef",
           "type" : "string",
-          "doc" : "External Reference to the business-term (URL)",
+          "doc" : "External Reference to the business-term",
           "optional" : true
         }, {
           "name" : "sourceURI",

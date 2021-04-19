@@ -3,12 +3,12 @@ namespace com.linkedin.common
 /**
  * Related business terms information
  */
-record GlobalGlossaryTerms {
+record GlossaryTerms {
 
   /**
    * The related business terms
    */
-  glossaryTerms: array[GlossaryTermAssociation]
+  terms: array[GlossaryTermAssociation]
 
   /**
    * Audit stamp containing who reported the related business term
