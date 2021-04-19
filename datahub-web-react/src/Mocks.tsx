@@ -1063,6 +1063,9 @@ export const mocks = [
                                 type: 'DATAOWNER',
                             },
                         ],
+                        lastModified: {
+                            time: 0,
+                        },
                     },
                 },
             },
