@@ -47,7 +47,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
-| kakfa         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
+| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
 | druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source               |
 | dbt           | _no additional dependencies_                               | DBT source                 |
 | datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API |
@@ -106,6 +106,11 @@ source:
     username: sa
     password: ${MSSQL_PASSWORD}
     database: DemoData
+
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
 
 sink:
   type: "datahub-rest"
@@ -514,14 +519,29 @@ sink:
     filename: ./path/to/mce/file.json
 ```
 
+## Transformations
+
+Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
+Example use cases could be to add ownership information, add extra tags etc.
+
+In such a scenario, it is possible to configure a recipe with a list of transformers.
+
+```yml
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
+```
+
+A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
+At the moment there are no built-in transformers.
+
 ## Using as a library
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
 
-- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`)
-- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`)
-
-For a basic usage example, see the [lineage_emitter.py](./examples/library/lineage_emitter.py) example.
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
 
 ## Usage with Airflow
 

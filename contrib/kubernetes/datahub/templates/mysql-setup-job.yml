@@ -24,6 +24,10 @@ spec:
     {{- with .Values.mysqlSetupJob.serviceAccount }}
       serviceAccountName: {{ . }}
     {{- end }}
+      volumes:
+      {{- with .Values.mysqlSetupJob.extraVolumes }}
+        {{- toYaml . | nindent 8}}
+      {{- end }}
       restartPolicy: Never
       securityContext:
         runAsUser: 1000
@@ -44,6 +48,10 @@ spec:
             - name: MYSQL_PORT
               value: {{ .Values.global.sql.datasource.port | quote }}
           {{- with .Values.mysqlSetupJob.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+          {{- with .Values.mysqlSetupJob.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
