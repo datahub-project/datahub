@@ -55,23 +55,6 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str):
     return 'external'
 
 
-chart_type_from_viz_type = {
-    'line': ChartTypeClass.LINE,
-    'big_number': ChartTypeClass.LINE,
-    'table': ChartTypeClass.TABLE,
-    'dist_bar': ChartTypeClass.BAR,
-    'area': ChartTypeClass.AREA,
-    'bar': ChartTypeClass.BAR,
-    'pie': ChartTypeClass.PIE,
-    'histogram': ChartTypeClass.HISTOGRAM,
-    'big_number_total': ChartTypeClass.LINE,
-    'dual_line': ChartTypeClass.LINE,
-    'line_multi': ChartTypeClass.LINE,
-    'treemap': ChartTypeClass.AREA,
-    'box_plot': ChartTypeClass.BAR,
-}
-
-
 @dataclass
 class SupersetSource(Source):
     config: SupersetConfig
@@ -160,7 +143,6 @@ class SupersetSource(Source):
             current_dashboard_page += 1
 
             payload = dashboard_response.json()
-            print(payload)
             for dashboard_data in payload['result']:
                 dashboard_urn = f"urn:li:dashboard:({platform},{dashboard_data['id']})"
                 dashboard_snapshot = DashboardSnapshot(
@@ -232,14 +214,10 @@ class SupersetSource(Source):
 
                 datasource_id = chart_data.get('datasource_id')
                 datasource_urn = self.get_datasource_urn_from_id(datasource_id, env)
-                chart_type = chart_type_from_viz_type.get(
-                    chart_data.get('viz_type')
-                )
 
                 chart_info = ChartInfoClass(
                     description='',
                     title=title, lastModified=last_modified, chartUrl=chart_url,
-                    type=ChartTypeClass.TEXT,
                     inputs=[datasource_urn] if datasource_urn else None
                 )
                 chart_snapshot.aspects.append(chart_info)
