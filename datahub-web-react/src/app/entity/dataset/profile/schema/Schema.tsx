@@ -22,6 +22,7 @@ import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated'
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
 
+const MAX_FIELDPATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
@@ -57,7 +58,21 @@ const defaultColumns = [
         key: 'fieldPath',
         width: 192,
         render: (fieldPath: string) => {
-            const [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
+            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
+            const isOverflow = fieldPath.length > MAX_FIELDPATH_LENGTH;
+            if (isOverflow) {
+                if (lastPath.length >= MAX_FIELDPATH_LENGTH) {
+                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELDPATH_LENGTH)}`;
+                    firstPath = '';
+                } else {
+                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELDPATH_LENGTH);
+                    if (firstPath.includes('.')) {
+                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
+                    } else {
+                        firstPath = '..';
+                    }
+                }
+            }
             return (
                 <>
                     <Typography.Text>{`${firstPath}${lastPath ? '.' : ''}`}</Typography.Text>
@@ -82,8 +97,8 @@ function convertEditableSchemaMetadataForUpdate(
 }
 
 export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
-    const [tagHoveredIndex, setTagHoveredIndex] = useState<number | undefined>(undefined);
-    const [descHoveredIndex, setDescHoveredIndex] = useState<number | undefined>(undefined);
+    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
 
@@ -102,6 +117,13 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                             fields[parentFieldIndex].children?.unshift(field);
                         } else {
                             fields[parentFieldIndex] = { ...fields[parentFieldIndex], children: [field] };
+                        }
+                        fields.splice(rowIndex, 1);
+                    } else if (rowIndex > 0 && fieldPaths[0].includes(fields[rowIndex - 1].fieldPath)) {
+                        if ('children' in fields[rowIndex - 1]) {
+                            fields[rowIndex - 1].children?.unshift(field);
+                        } else {
+                            fields[rowIndex - 1] = { ...fields[rowIndex - 1], children: [field] };
                         }
                         fields.splice(rowIndex, 1);
                     }
@@ -160,7 +182,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
             <DescriptionField
                 description={description}
                 updatedDescription={relevantEditableFieldInfo.description}
-                onHover={descHoveredIndex !== undefined && rowIndex === descHoveredIndex}
+                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
             />
         );
@@ -175,7 +197,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
                 canRemove
-                canAdd={tagHoveredIndex === rowIndex}
+                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onOpenModal={() => setTagHoveredIndex(undefined)}
                 updateTags={(update) =>
                     onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
@@ -192,7 +214,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         width: 700,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
-                setDescHoveredIndex(rowIndex);
+                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
             },
             onMouseLeave: () => {
                 setDescHoveredIndex(undefined);
@@ -208,7 +230,7 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         render: tagGroupRender,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
-                setTagHoveredIndex(rowIndex);
+                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
             },
             onMouseLeave: () => {
                 setTagHoveredIndex(undefined);

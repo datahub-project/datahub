@@ -496,6 +496,111 @@
                                     },
                                     "nativeDataType": "boolean",
                                     "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e.f",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
+                                },
+                                {
+                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e.f.g.h.j.k.l",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": {
+                                        "string": "Bar field geo_info boolean description"
+                                    },
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false
                                 }
                             ],
                             "primaryKeys": null,
