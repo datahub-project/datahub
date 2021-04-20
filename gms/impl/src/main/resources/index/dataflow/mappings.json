@@ -29,8 +29,15 @@
       },
       "analyzer": "comma_pattern"
     },
-    "queryType": {
-      "type": "keyword"
+    "orchestrator": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      },
+      "normalizer": "custom_normalizerz"
     },
     "name": {
       "type": "keyword",
@@ -73,8 +80,8 @@
         }
       }
     },
-    "type": {
-      "type": "keyword"
+    "hasOwners": {
+      "type": "boolean"
     },
     "urn": {
       "type": "keyword",

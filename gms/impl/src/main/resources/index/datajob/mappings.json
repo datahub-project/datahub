@@ -29,9 +29,6 @@
       },
       "analyzer": "comma_pattern"
     },
-    "queryType": {
-      "type": "keyword"
-    },
     "name": {
       "type": "keyword",
       "fields": {
@@ -45,6 +42,15 @@
         }
       },
       "normalizer": "custom_normalizer"
+    },
+    "hasOwners": {
+      "type": "boolean"
+    },
+    "numInputDatasets": {
+      "type": "long"
+    },
+    "numOutputDatasets": {
+      "type": "long"
     },
     "jobId": {
       "type": "keyword",
@@ -64,12 +70,17 @@
         }
       }
     },
-    "type": {
-      "type": "keyword"
-    },
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
+    },
+    "inputs": {
+      "type": "keyword",
+      "normalizer": "my_normalizer"
+    },
+    "outputs": {
+      "type": "keyword",
+      "normalizer": "my_normalizer"
     }
   }
 }
