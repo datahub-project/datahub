@@ -59,6 +59,8 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str):
 class SupersetSource(Source):
     config: SupersetConfig
     report: SourceReport
+    env = "PROD"
+    platform = "superset"
 
     def __hash__(self):
         return 0
@@ -97,7 +99,7 @@ class SupersetSource(Source):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
-    def get_platform_from_database_id(self, database_id, env):
+    def get_platform_from_database_id(self, database_id):
         database_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
          ).json()
@@ -105,7 +107,7 @@ class SupersetSource(Source):
         return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
-    def get_datasource_urn_from_id(self, datasource_id, env):
+    def get_datasource_urn_from_id(self, datasource_id):
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
             ).json()
@@ -115,19 +117,49 @@ class SupersetSource(Source):
         database_name = dataset_response.get('result', {}).get('database', {}).get('database_name')
 
         if database_id and table_name:
-            platform = self.get_platform_from_database_id(database_id, env)
+            platform = self.get_platform_from_database_id(database_id)
             platform_urn = f"urn:li:dataPlatform:{platform}"
             dataset_urn = f"urn:li:dataset:(" \
                           f"{platform_urn},{database_name + '.' if database_name else ''}" \
                           f"{schema_name + '.' if schema_name else ''}" \
-                          f"{table_name},PROD)"
+                          f"{table_name},{self.env})"
             return dataset_urn
         return None
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        env = "PROD"
-        platform = "superset"
+    def construct_dashboard_from_api_data(self, dashboard_data):
+        dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_data['id']})"
+        dashboard_snapshot = DashboardSnapshot(
+            urn=dashboard_urn,
+            aspects=[],
+        )
 
+        modified_actor = \
+            f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_ts = int(dp.parse(dashboard_data.get('changed_on_utc', 'now')).timestamp())
+        title = dashboard_data.get('dashboard_title', '')
+        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
+        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
+        # modified actor urn
+        last_modified = ChangeAuditStamps(created=AuditStamp(time=modified_ts, actor=modified_actor),
+                                          lastModified=AuditStamp(time=modified_ts, actor=modified_actor))
+        dashboard_url = f"{self.config.connect_uri[:-1]}{dashboard_data.get('url', '')}"
+
+        chart_urns = []
+        raw_position_data = dashboard_data.get('position_json', '{}')
+        position_data = json.loads(raw_position_data)
+        for key, value in position_data.items():
+            if not key.startswith('CHART-'):
+                continue
+            chart_urns.append(f"urn:li:chart:({self.platform},{value.get('meta', {}).get('chartId', 'unknown')})")
+
+        dashboard_info = DashboardInfoClass(
+            description='',
+            title=title, charts=chart_urns, lastModified=last_modified, dashboardUrl=dashboard_url
+        )
+        dashboard_snapshot.aspects.append(dashboard_info)
+        return dashboard_snapshot
+
+    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         current_dashboard_page = 0
         # we will set total dashboards to the actual number after we get the response
         total_dashboards = PAGE_SIZE
@@ -144,43 +176,43 @@ class SupersetSource(Source):
 
             payload = dashboard_response.json()
             for dashboard_data in payload['result']:
-                dashboard_urn = f"urn:li:dashboard:({platform},{dashboard_data['id']})"
-                dashboard_snapshot = DashboardSnapshot(
-                    urn=dashboard_urn,
-                    aspects=[],
-                )
-
-                modified_actor = \
-                    f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
-                modified_ts = int(dp.parse(dashboard_data.get('changed_on_utc', 'now')).timestamp())
-                title = dashboard_data.get('dashboard_title', '')
-                # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-                # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-                # modified actor urn
-                last_modified = ChangeAuditStamps(created=AuditStamp(time=modified_ts, actor=modified_actor),
-                                                  lastModified=AuditStamp(time=modified_ts, actor=modified_actor))
-                dashboard_url = f"{self.config.connect_uri[:-1]}{dashboard_data.get('url', '')}"
-
-                chart_urns = []
-                raw_position_data = dashboard_data.get('position_json', '{}')
-                position_data = json.loads(raw_position_data)
-                for key, value in position_data.items():
-                    if not key.startswith('CHART-'):
-                        continue
-                    chart_urns.append(f"urn:li:chart:({platform},{value.get('meta', {}).get('chartId', 'unknown')})")
-
-                dashboard_info = DashboardInfoClass(
-                    description='',
-                    title=title, charts=chart_urns, lastModified=last_modified, dashboardUrl=dashboard_url
-                )
-                dashboard_snapshot.aspects.append(dashboard_info)
-
+                dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
                 self.report.report_workunit(wu)
 
                 yield wu
 
+    def construct_chart_from_chart_data(self, chart_data):
+        chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
+        chart_snapshot = ChartSnapshot(
+            urn=chart_urn,
+            aspects=[],
+        )
+
+        modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_ts = int(dp.parse(chart_data.get('changed_on_utc', 'now')).timestamp())
+        title = chart_data.get('slice_name', '')
+
+        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
+        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
+        # modified actor urn
+        last_modified = ChangeAuditStamps(created=AuditStamp(time=modified_ts, actor=modified_actor),
+                                          lastModified=AuditStamp(time=modified_ts, actor=modified_actor))
+        chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
+
+        datasource_id = chart_data.get('datasource_id')
+        datasource_urn = self.get_datasource_urn_from_id(datasource_id)
+
+        chart_info = ChartInfoClass(
+            description='',
+            title=title, lastModified=last_modified, chartUrl=chart_url,
+            inputs=[datasource_urn] if datasource_urn else None
+        )
+        chart_snapshot.aspects.append(chart_info)
+        return chart_snapshot
+
+    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         current_chart_page = 0
         # we will set total charts to the actual number after we get the response
         total_charts = PAGE_SIZE
@@ -189,44 +221,24 @@ class SupersetSource(Source):
             chart_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/chart",
                 params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})"
-                )
+            )
             current_chart_page += 1
 
             payload = chart_response.json()
             total_charts = payload['count']
             for chart_data in payload['result']:
-                chart_urn = f"urn:li:chart:({platform},{chart_data['id']})"
-                chart_snapshot = ChartSnapshot(
-                    urn=chart_urn,
-                    aspects=[],
-                )
-
-                modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
-                modified_ts = int(dp.parse(chart_data.get('changed_on_utc', 'now')).timestamp())
-                title = chart_data.get('slice_name', '')
-
-                # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-                # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-                # modified actor urn
-                last_modified = ChangeAuditStamps(created=AuditStamp(time=modified_ts, actor=modified_actor),
-                                                  lastModified=AuditStamp(time=modified_ts, actor=modified_actor))
-                chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
-
-                datasource_id = chart_data.get('datasource_id')
-                datasource_urn = self.get_datasource_urn_from_id(datasource_id, env)
-
-                chart_info = ChartInfoClass(
-                    description='',
-                    title=title, lastModified=last_modified, chartUrl=chart_url,
-                    inputs=[datasource_urn] if datasource_urn else None
-                )
-                chart_snapshot.aspects.append(chart_info)
+                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
                 wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
                 self.report.report_workunit(wu)
 
                 yield wu
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_mces()
+
 
     def get_report(self) -> SourceReport:
         return self.report
