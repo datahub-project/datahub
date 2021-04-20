@@ -1,28 +1,28 @@
+import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Iterable, List, Optional
 
-import requests
-import json
 import dateutil.parser as dp
+import requests
 
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
-    ChangeAuditStamps,
-)
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    AuditStamp,
+    ChangeAuditStamps,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    DashboardSnapshot,
     ChartSnapshot,
+    DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    DashboardInfoClass,
     ChartInfoClass,
     ChartTypeClass,
+    DashboardInfoClass,
 )
 
 PAGE_SIZE = 25
