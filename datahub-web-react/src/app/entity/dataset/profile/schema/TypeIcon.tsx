@@ -13,6 +13,10 @@ import { VscSymbolString, VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
 import { SchemaFieldDataType } from '../../../../../types.generated';
 
+const TypeIconContainer = styled.div`
+    display: inline-block;
+`;
+
 const TypeSubtitle = styled.div`
     font-size: 8px;
 `;
@@ -51,11 +55,11 @@ type Props = {
 export default function TypeIcon({ type }: Props) {
     const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[type];
     return (
-        <span data-testid={`icon-${type}`}>
+        <TypeIconContainer data-testid={`icon-${type}`}>
             {Icon && <Icon style={{ fontSize: size }} />}
             <TypeSubtitle>
                 <Typography.Text type="secondary">{text}</Typography.Text>
             </TypeSubtitle>
-        </span>
+        </TypeIconContainer>
     );
 }
