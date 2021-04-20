@@ -135,7 +135,7 @@
         "type" : "enum",
         "name" : "ChartType",
         "doc" : "The various types of charts",
-        "symbols" : [ "BAR", "PIE", "SCATTER", "TABLE", "TEXT" ],
+        "symbols" : [ "BAR", "PIE", "SCATTER", "TABLE", "TEXT", "LINE", "AREA", "HISTOGRAM", "BOX_PLOT" ],
         "symbolDocs" : {
           "BAR" : "Chart showing a Bar chart",
           "PIE" : "Chart showing a Pie chart",
