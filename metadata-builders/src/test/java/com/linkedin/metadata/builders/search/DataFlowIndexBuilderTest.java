@@ -2,7 +2,6 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.datajob.DataFlowInfo;
-import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.metadata.aspect.DataFlowAspectArray;
 import com.linkedin.metadata.search.DataFlowDocument;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;

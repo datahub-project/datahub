@@ -2,8 +2,6 @@ package com.linkedin.metadata.builders.common;
 
 import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.datajob.DataFlowInfo;
-import com.linkedin.common.DatasetUrnArray;
-import com.linkedin.common.urn.DatasetUrn;
 
 import static com.linkedin.metadata.testing.Owners.*;
 import static com.linkedin.metadata.testing.Urns.*;
