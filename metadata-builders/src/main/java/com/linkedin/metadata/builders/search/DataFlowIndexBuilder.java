@@ -35,7 +35,7 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
 
   @Nonnull
   private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn, @Nonnull DataFlowInfo info) {
-    final DataFlowDocument document = setUrnDerivedFields(urn);
+    final DataFlowDocument document = new DataFlowDocument().setUrn(urn);
     document.setName(info.getName());
     if (info.getDescription() != null) {
       document.setDescription(info.getDescription());
@@ -49,13 +49,13 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
   @Nonnull
   private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn, @Nonnull Ownership ownership) {
     final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-    return setUrnDerivedFields(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
+    return new DataFlowDocument().setUrn(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
   }
 
   @Nonnull
   private List<DataFlowDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataFlowSnapshot snapshot) {
     DataFlowUrn urn = snapshot.getUrn();
-    return snapshot.getAspects().stream().map(aspect -> {
+    final List<DataFlowDocument> documents = snapshot.getAspects().stream().map(aspect -> {
       if (aspect.isDataFlowInfo()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataFlowInfo());
       } else if (aspect.isOwnership()) {
@@ -63,6 +63,8 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
+    documents.add(setUrnDerivedFields(urn));
+    return documents;
   }
 
   @Nonnull

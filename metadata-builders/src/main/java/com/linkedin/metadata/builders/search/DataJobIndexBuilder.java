@@ -35,7 +35,7 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
 
   @Nonnull
   private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn, @Nonnull DataJobInfo info) {
-    final DataJobDocument document = setUrnDerivedFields(urn);
+    final DataJobDocument document = new DataJobDocument().setUrn(urn);
     document.setName(info.getName());
     if (info.getDescription() != null) {
       document.setDescription(info.getDescription());
@@ -46,7 +46,7 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   @Nonnull
   private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn,
       @Nonnull DataJobInputOutput inputOutput) {
-    final DataJobDocument document = setUrnDerivedFields(urn);
+    final DataJobDocument document = new DataJobDocument().setUrn(urn);
     if (inputOutput.getInputDatasets() != null) {
       document.setInputs(inputOutput.getInputDatasets()).setNumInputDatasets(inputOutput.getInputDatasets().size());
     }
@@ -59,13 +59,13 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   @Nonnull
   private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn, @Nonnull Ownership ownership) {
     final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-    return setUrnDerivedFields(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
+    return new DataJobDocument().setUrn(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
   }
 
   @Nonnull
   private List<DataJobDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataJobSnapshot snapshot) {
     DataJobUrn urn = snapshot.getUrn();
-    return snapshot.getAspects().stream().map(aspect -> {
+    final List<DataJobDocument> documents = snapshot.getAspects().stream().map(aspect -> {
       if (aspect.isDataJobInfo()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataJobInfo());
       } else if (aspect.isDataJobInputOutput()) {
@@ -75,6 +75,8 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
+    documents.add(setUrnDerivedFields(urn));
+    return documents;
   }
 
   @Nonnull
