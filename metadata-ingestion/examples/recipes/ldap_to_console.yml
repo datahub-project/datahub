@@ -1,12 +1,10 @@
 source:
-  type: "superset"
+  type: "ldap"
   config:
-    username: admin
-    password: admin
-    provider: db
-    connect_uri: http://localhost:8088/
+    ldap_server: ldap://localhost
+    ldap_user: "cn=admin,dc=example,dc=org"
+    ldap_password: "admin"
+    base_dn: "dc=example,dc=org"
 
 sink:
-  type: "datahub-rest"
-  config:
-    server: 'http://localhost:8080'
+  type: "console"
