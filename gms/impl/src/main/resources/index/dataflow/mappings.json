@@ -37,7 +37,7 @@
           "analyzer": "custom_ngram"
         }
       },
-      "normalizer": "custom_normalizerz"
+      "normalizer": "custom_normalizer"
     },
     "name": {
       "type": "keyword",

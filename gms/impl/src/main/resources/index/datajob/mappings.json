@@ -76,11 +76,11 @@
     },
     "inputs": {
       "type": "keyword",
-      "normalizer": "my_normalizer"
+      "normalizer": "custom_normalizer"
     },
     "outputs": {
       "type": "keyword",
-      "normalizer": "my_normalizer"
+      "normalizer": "custom_normalizer"
     }
   }
 }
