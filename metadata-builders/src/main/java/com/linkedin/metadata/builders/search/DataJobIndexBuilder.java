@@ -3,6 +3,7 @@ package com.linkedin.metadata.builders.search;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.datajob.DataJobInfo;
+import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.search.DataJobDocument;
@@ -14,7 +15,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   public DataJobIndexBuilder() {
@@ -23,35 +23,43 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
 
   @Nonnull
   private static String buildBrowsePath(@Nonnull DataJobUrn urn) {
-    return ("/" + urn.getFlowEntity().getFlowIdEntity() + "/"  + urn.getJobIdEntity()).toLowerCase();
+    return ("/" + urn.getFlowEntity().getFlowIdEntity() + "/" + urn.getJobIdEntity()).toLowerCase();
   }
-
 
   @Nonnull
   private static DataJobDocument setUrnDerivedFields(@Nonnull DataJobUrn urn) {
-    return new DataJobDocument()
-        .setUrn(urn)
-        .setDataFlow(urn.getFlowEntity().getFlowIdEntity())
+    return new DataJobDocument().setUrn(urn).setDataFlow(urn.getFlowEntity().getFlowIdEntity())
         .setJobId(urn.getJobIdEntity())
         .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
 
   @Nonnull
-  private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn,
-      @Nonnull DataJobInfo info) {
+  private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn, @Nonnull DataJobInfo info) {
     final DataJobDocument document = setUrnDerivedFields(urn);
     document.setName(info.getName());
     if (info.getDescription() != null) {
-        document.setDescription(info.getDescription());
+      document.setDescription(info.getDescription());
     }
     return document;
   }
 
   @Nonnull
   private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn,
-      @Nonnull Ownership ownership) {
-    return setUrnDerivedFields(urn)
-        .setOwners(BuilderUtils.getCorpUserOwners(ownership));  // TODO: should be optional?
+      @Nonnull DataJobInputOutput inputOutput) {
+    final DataJobDocument document = setUrnDerivedFields(urn);
+    if (inputOutput.getInputDatasets() != null) {
+      document.setInputs(inputOutput.getInputDatasets()).setNumInputDatasets(inputOutput.getInputDatasets().size());
+    }
+    if (inputOutput.getOutputDatasets() != null) {
+      document.setOutputs(inputOutput.getOutputDatasets()).setNumOutputDatasets(inputOutput.getInputDatasets().size());
+    }
+    return document;
+  }
+
+  @Nonnull
+  private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn, @Nonnull Ownership ownership) {
+    final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
+    return setUrnDerivedFields(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
   }
 
   @Nonnull
@@ -60,6 +68,8 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
     return snapshot.getAspects().stream().map(aspect -> {
       if (aspect.isDataJobInfo()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataJobInfo());
+      } else if (aspect.isDataJobInputOutput()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getDataJobInputOutput());
       } else if (aspect.isOwnership()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
       }

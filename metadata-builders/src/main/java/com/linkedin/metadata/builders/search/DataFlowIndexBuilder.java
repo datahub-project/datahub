@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
   public DataFlowIndexBuilder() {
@@ -23,27 +22,23 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
 
   @Nonnull
   private static String buildBrowsePath(@Nonnull DataFlowUrn urn) {
-    return ("/" + urn.getOrchestratorEntity() + "/"  + urn.getClusterEntity() + "/"  + urn.getFlowIdEntity()).toLowerCase();
+    return ("/" + urn.getOrchestratorEntity() + "/" + urn.getClusterEntity() + "/" + urn.getFlowIdEntity())
+        .toLowerCase();
   }
-
 
   @Nonnull
   private static DataFlowDocument setUrnDerivedFields(@Nonnull DataFlowUrn urn) {
-    return new DataFlowDocument()
-        .setUrn(urn)
-        .setOrchestrator(urn.getOrchestratorEntity())
-        .setFlowId(urn.getFlowIdEntity())
-        .setCluster(urn.getClusterEntity())
+    return new DataFlowDocument().setUrn(urn).setOrchestrator(urn.getOrchestratorEntity())
+        .setFlowId(urn.getFlowIdEntity()).setCluster(urn.getClusterEntity())
         .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
 
   @Nonnull
-  private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn,
-      @Nonnull DataFlowInfo info) {
+  private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn, @Nonnull DataFlowInfo info) {
     final DataFlowDocument document = setUrnDerivedFields(urn);
     document.setName(info.getName());
     if (info.getDescription() != null) {
-        document.setDescription(info.getDescription());
+      document.setDescription(info.getDescription());
     }
     if (info.getProject() != null) {
       document.setProject(info.getProject());
@@ -52,10 +47,9 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
   }
 
   @Nonnull
-  private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn,
-      @Nonnull Ownership ownership) {
-    return setUrnDerivedFields(urn)
-        .setOwners(BuilderUtils.getCorpUserOwners(ownership));
+  private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn, @Nonnull Ownership ownership) {
+    final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
+    return setUrnDerivedFields(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
   }
 
   @Nonnull

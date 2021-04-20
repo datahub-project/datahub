@@ -48,4 +48,8 @@ record DataFlowDocument includes BaseDocument {
    */
   owners: optional array[string]
 
+  /**
+   * Flag to indicate if the flow has non empty corp users as owners or not.
+   */
+  hasOwners: optional boolean
 }

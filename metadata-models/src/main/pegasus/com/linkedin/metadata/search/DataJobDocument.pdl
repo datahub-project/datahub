@@ -2,6 +2,8 @@ namespace com.linkedin.metadata.search
 
 import com.linkedin.common.AccessLevel
 import com.linkedin.common.DataJobUrn
+import com.linkedin.common.DatasetUrn
+
 
 /**
  * Data model for DataJob entity search
@@ -37,5 +39,30 @@ record DataJobDocument includes BaseDocument {
    * LDAP usernames of corp users who are the owners of this job
    */
   owners: optional array[string]
+
+  /**
+   * Flag to indicate if the job has non empty corp users as owners or not.
+   */
+  hasOwners: optional boolean
+
+  /**
+   * Lineage information represented by the number of immediate input datasets of this job.
+   */
+  numInputDatasets: optional long
+
+  /**
+   * Lineage information represented by the number of immediate output datasets of this job.
+   */
+  numOutputDatasets: optional long
+
+  /**
+   * List of inputs for this job
+   */
+  inputs: optional array[DatasetUrn]
+
+  /**
+   * List of outputs for this job
+   */
+  outputs: optional array[DatasetUrn]
 
 }
