@@ -1,9 +1,4 @@
 /**
- * Change to true to enable event logging in the console.
- */
-const isEnabled = false;
-
-/**
  * Analytics plugin that logs tracking events + page views to console.s
  */
 const loggingPlugin = () => {
@@ -26,6 +21,11 @@ const loggingPlugin = () => {
         },
     };
 };
+
+/**
+ * Change to true to enable event logging in the console.
+ */
+const isEnabled = false;
 
 export default {
     isEnabled,
