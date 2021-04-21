@@ -10,12 +10,15 @@ import { BrowsePath } from './BrowsePath';
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { Message } from '../shared/Message';
+import { useTrackPageView } from '../analytics';
 
 type BrowseResultsPageParams = {
     type: string;
 };
 
 export const BrowseResultsPage = () => {
+    useTrackPageView();
+
     const location = useLocation();
     const history = useHistory();
     const { type } = useParams<BrowseResultsPageParams>();

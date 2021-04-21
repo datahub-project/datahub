@@ -12,6 +12,7 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
 import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
+import analytics, { EventType, useTrackPageView } from '../analytics';
 
 const ALL_ENTITIES_TAB_NAME = 'All';
 
@@ -41,6 +42,7 @@ type SearchPageParams = {
  * A search results page.
  */
 export const SearchPage = () => {
+    useTrackPageView();
     const history = useHistory();
     const location = useLocation();
 
@@ -54,6 +56,13 @@ export const SearchPage = () => {
     const filters: Array<FacetFilterInput> = useFilters(params);
 
     const onSearch = (q: string) => {
+        analytics.event({
+            type: EventType.SearchEvent,
+            query: q,
+            entityTypeFilter: activeType,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
         navigateToSearchUrl({ type: activeType, query: q, page: 1, history, entityRegistry });
     };
 

@@ -10,6 +10,7 @@ import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
+import analytics, { EventType } from '../analytics';
 
 const Background = styled.div`
     width: 100%;
@@ -103,6 +104,12 @@ export const HomePageHeader = () => {
     const themeConfig = useTheme();
 
     const onSearch = (query: string) => {
+        analytics.event({
+            type: EventType.SearchEvent,
+            query,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
         navigateToSearchUrl({
             query,
             history,

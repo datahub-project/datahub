@@ -3,6 +3,9 @@
     "version": "0.1.0",
     "private": true,
     "dependencies": {
+        "@analytics/google-analytics": "^0.5.2",
+        "@analytics/google-tag-manager": "^0.5.0",
+        "@analytics/mixpanel": "^0.3.1",
         "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
         "@apollo/client": "^3.3.6",
@@ -26,6 +29,7 @@
         "@vx/hierarchy": "^0.0.199",
         "@vx/shape": "^0.0.199",
         "@vx/zoom": "^0.0.199",
+        "analytics": "^0.7.5",
         "antd": "^4.15.2",
         "apollo-link": "^1.2.14",
         "apollo-link-error": "^1.1.13",

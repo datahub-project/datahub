@@ -11,6 +11,7 @@ import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchFilters } from './SearchFilters';
 import { filtersToGraphqlParams } from './utils/filtersToGraphqlParams';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
     loading: { marginTop: '10%' },
@@ -94,6 +95,18 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
         setSelectedFilters(filters);
     };
 
+    const onResultClick = (result: SearchResult, index: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            urn: result.entity.urn,
+            entityType: result.entity.type,
+            entityTypeFilter: type,
+            index,
+            total: totalResults,
+        });
+    };
+
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
@@ -136,7 +149,9 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 split={false}
                 renderItem={(searchResult, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
+                        <List.Item onClick={() => onResultClick(searchResult, index)}>
+                            {entityRegistry.renderSearchResult(type, searchResult)}
+                        </List.Item>
                         {index < results.length - 1 && <Divider />}
                     </>
                 )}
