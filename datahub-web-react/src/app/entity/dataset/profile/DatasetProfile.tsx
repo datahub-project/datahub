@@ -84,7 +84,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: (
                     <OwnershipView
                         owners={(ownership && ownership.owners) || EMPTY_ARR}
-                        lastModifiedAt={(ownership && ownership.lastModified.time) || 0}
+                        lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                         updateOwnership={(update) =>
                             updateDataset({ variables: { input: { urn, ownership: update } } })
                         }

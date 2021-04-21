@@ -19,29 +19,7 @@ query getDashboard($urn: String!) {
                     }
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                email
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
                 }
             }
             url
@@ -55,38 +33,10 @@ query getDashboard($urn: String!) {
             }
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
         }
     }
 }
@@ -109,29 +59,7 @@ mutation updateDashboard($input: DashboardUpdateInput!) {
                     description
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                email
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
                 }
             }
             url
@@ -145,38 +73,10 @@ mutation updateDashboard($input: DashboardUpdateInput!) {
             }
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
         }
     }
 }

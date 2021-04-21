@@ -1,125 +1,3 @@
-fragment nonRecursiveDatasetFields on Dataset {
-    urn
-    name
-    type
-    origin
-    description
-    uri
-    platform {
-        name
-        info {
-            logoUrl
-        }
-    }
-    platformNativeType
-    tags
-    properties {
-        key
-        value
-    }
-    ownership {
-        owners {
-            owner {
-                urn
-                type
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableInfo {
-                    pictureLink
-                }
-            }
-            type
-        }
-        lastModified {
-            time
-        }
-    }
-    institutionalMemory {
-        elements {
-            url
-            author
-            description
-            created {
-                actor
-                time
-            }
-        }
-    }
-    schema {
-        datasetUrn
-        name
-        platformUrn
-        version
-        hash
-        platformSchema {
-            ... on TableSchema {
-                schema
-            }
-            ... on KeyValueSchema {
-                keySchema
-                valueSchema
-            }
-        }
-        fields {
-            fieldPath
-            jsonPath
-            nullable
-            description
-            type
-            nativeDataType
-            recursive
-            globalTags {
-                tags {
-                    tag {
-                        urn
-                        name
-                        description
-                    }
-                }
-            }
-        }
-        primaryKeys
-    }
-    editableSchemaMetadata {
-        editableSchemaFieldInfo {
-            fieldPath
-            description
-            globalTags {
-                tags {
-                    tag {
-                        urn
-                        name
-                        description
-                    }
-                }
-            }
-        }
-    }
-    deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
-    }
-    globalTags {
-        tags {
-            tag {
-                urn
-                name
-                description
-            }
-        }
-    }
-}
-
 mutation updateDataset($input: DatasetUpdateInput!) {
     updateDataset(input: $input) {
         ...nonRecursiveDatasetFields
@@ -147,29 +25,7 @@ query getDataset($urn: String!) {
             value
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
         institutionalMemory {
             elements {
@@ -206,13 +62,7 @@ query getDataset($urn: String!) {
                 nativeDataType
                 recursive
                 globalTags {
-                    tags {
-                        tag {
-                            urn
-                            name
-                            description
-                        }
-                    }
+                    ...globalTagsFields
                 }
             }
             primaryKeys
@@ -222,13 +72,7 @@ query getDataset($urn: String!) {
                 fieldPath
                 description
                 globalTags {
-                    tags {
-                        tag {
-                            urn
-                            name
-                            description
-                        }
-                    }
+                    ...globalTagsFields
                 }
             }
         }
@@ -239,67 +83,13 @@ query getDataset($urn: String!) {
             decommissionTime
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
         }
         upstreamLineage {
-            upstreams {
-                dataset {
-                    ...nonRecursiveDatasetFields
-                    downstreamLineage {
-                        downstreams {
-                            type
-                            dataset {
-                                urn
-                            }
-                        }
-                    }
-                    upstreamLineage {
-                        upstreams {
-                            type
-                            dataset {
-                                urn
-                            }
-                        }
-                    }
-                }
-                type
-                created {
-                    time
-                }
-            }
+            ...upstreamLineageFields
         }
         downstreamLineage {
-            downstreams {
-                dataset {
-                    ...nonRecursiveDatasetFields
-                    downstreamLineage {
-                        downstreams {
-                            type
-                            dataset {
-                                urn
-                            }
-                        }
-                    }
-                    upstreamLineage {
-                        upstreams {
-                            type
-                            dataset {
-                                urn
-                            }
-                        }
-                    }
-                }
-                type
-                created {
-                    time
-                }
-            }
+            ...downstreamLineageFields
         }
     }
 }
