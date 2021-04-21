@@ -100,6 +100,25 @@ basicAuditStamp = models.AuditStampClass(
                 '{"snapshot": {"urn": "urn:li:chart:(superset,227)", "aspects": [{"com.linkedin.chart.ChartInfo": {"title": "Weekly Messages", "description": "", "lastModified": {"created": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}}, "type": "SCATTER"}}]}}'  # noqa: E501
             ),
         ),
+        (
+            # Verify that DataJobInfo is serialized properly (particularly it's union type).
+            models.MetadataChangeEventClass(
+                proposedSnapshot=models.DataJobSnapshotClass(
+                    urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
+                    aspects=[
+                        models.DataJobInfoClass(
+                            name="User Deletions",
+                            description="Constructs the fct_users_deleted from logging_events",
+                            type=models.AzkabanJobTypeClass.SQL,
+                        )
+                    ],
+                )
+            ),
+            "dataJobs",
+            json.loads(
+                '{"snapshot": {"urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)", "aspects": [{"com.linkedin.datajob.DataJobInfo": {"name": "User Deletions", "description": "Constructs the fct_users_deleted from logging_events", "type": {"com.linkedin.datajob.azkaban.AzkabanJobType": "SQL"}}}]}}'  # noqa: E501
+            ),
+        ),
     ],
 )
 def test_datahub_rest_emitter(requests_mock, mce, endpoint, snapshot):
