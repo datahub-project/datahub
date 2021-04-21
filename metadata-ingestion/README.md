@@ -261,6 +261,7 @@ source:
     username: user
     password: pass
     host_port: account_name
+    database: db_name
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
