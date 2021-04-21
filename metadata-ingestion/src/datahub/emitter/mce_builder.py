@@ -16,27 +16,27 @@ DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
 
-def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV):
+def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})"
 
 
-def make_user_urn(username: str):
+def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
 
 def make_data_flow_urn(
     orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
-):
+) -> str:
     return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
 
 
-def make_data_job_urn_with_flow(flow_urn: str, job_id: str):
+def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
     return f"urn:li:dataJob:({flow_urn},{job_id})"
 
 
 def make_data_job_urn(
     orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
-):
+) -> str:
     return make_data_job_urn_with_flow(
         make_data_flow_urn(orchestrator, flow_id, cluster), job_id
     )
