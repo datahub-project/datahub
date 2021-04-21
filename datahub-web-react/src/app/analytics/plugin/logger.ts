@@ -25,7 +25,7 @@ const loggingPlugin = () => {
 /**
  * Change to true to enable event logging in the console.
  */
-const isEnabled = false;
+const isEnabled = true;
 
 export default {
     isEnabled,
