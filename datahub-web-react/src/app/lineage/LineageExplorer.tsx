@@ -97,50 +97,46 @@ export default function LineageExplorer({ urn, type }: Props) {
                     />
                 </div>
             )}
-            {selectedEntity && (
-                <Drawer
-                    title="Entity Overview"
-                    placement="left"
-                    closable
-                    onClose={() => {
-                        setIsDrawVisible(false);
-                        setSelectedEntity(undefined);
-                    }}
-                    visible={isDrawerVisible}
-                    width={425}
-                    mask={false}
-                    footer={
-                        data && (
-                            <FooterButtonGroup gutter={24}>
-                                <Col span={7} offset={4}>
-                                    <Button
-                                        type="primary"
-                                        href={`/${entityRegistry.getPathName(selectedEntity.type)}/${
-                                            selectedEntity.urn
-                                        }/`}
-                                    >
-                                        View Profile
-                                    </Button>
-                                </Col>
-                                <Col span={7} offset={1}>
-                                    <Button
-                                        type="default"
-                                        href={`/${entityRegistry.getPathName(selectedEntity.type)}/${
-                                            selectedEntity.urn
-                                        }/?is_lineage_mode=true`}
-                                    >
-                                        View Lineage
-                                    </Button>
-                                </Col>
-                            </FooterButtonGroup>
-                        )
-                    }
-                >
-                    <CompactContext.Provider value>
-                        {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
-                    </CompactContext.Provider>
-                </Drawer>
-            )}
+            <Drawer
+                title="Entity Overview"
+                placement="left"
+                closable
+                onClose={() => {
+                    setIsDrawVisible(false);
+                    setSelectedEntity(undefined);
+                }}
+                visible={isDrawerVisible}
+                width={425}
+                mask={false}
+                footer={
+                    selectedEntity && (
+                        <FooterButtonGroup gutter={24}>
+                            <Col span={7} offset={4}>
+                                <Button
+                                    type="primary"
+                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${selectedEntity.urn}/`}
+                                >
+                                    View Profile
+                                </Button>
+                            </Col>
+                            <Col span={7} offset={1}>
+                                <Button
+                                    type="default"
+                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${
+                                        selectedEntity.urn
+                                    }/?is_lineage_mode=true`}
+                                >
+                                    View Lineage
+                                </Button>
+                            </Col>
+                        </FooterButtonGroup>
+                    )
+                }
+            >
+                <CompactContext.Provider value>
+                    {selectedEntity && entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
+                </CompactContext.Provider>
+            </Drawer>
         </>
     );
 }
