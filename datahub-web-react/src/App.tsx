@@ -14,6 +14,8 @@ import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
 import { UserEntity } from './app/entity/user/User';
 import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { DataFlowEntity } from './app/entity/dataFlow/DataFlowEntity';
+import { DataJobEntity } from './app/entity/dataJob/DataJobEntity';
 import { TagEntity } from './app/entity/tag/Tag';
 import { EntityRegistryContext } from './entityRegistryContext';
 import { Theme } from './conf/theme/types';
@@ -78,6 +80,8 @@ const App: React.VFC = () => {
         register.register(new ChartEntity());
         register.register(new UserEntity());
         register.register(new TagEntity());
+        register.register(new DataFlowEntity());
+        register.register(new DataJobEntity());
         return register;
     }, []);
 
@@ -87,7 +91,14 @@ const App: React.VFC = () => {
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     {/* Temporary: For local testing during development. */}
                     {MOCK_MODE ? (
-                        <MockedProvider mocks={mocks} addTypename={false}>
+                        <MockedProvider
+                            mocks={mocks}
+                            addTypename={false}
+                            defaultOptions={{
+                                watchQuery: { fetchPolicy: 'no-cache' },
+                                query: { fetchPolicy: 'no-cache' },
+                            }}
+                        >
                             <Routes />
                         </MockedProvider>
                     ) : (

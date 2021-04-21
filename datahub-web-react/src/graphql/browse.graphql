@@ -21,28 +21,7 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 tags
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
                 }
             }
             ... on Dashboard {
@@ -60,28 +39,7 @@ query getBrowseResults($input: BrowseInput!) {
                     }
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
                 }
             }
             ... on Chart {
@@ -100,28 +58,21 @@ query getBrowseResults($input: BrowseInput!) {
                     }
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
+                }
+            }
+            ... on DataFlow {
+                urn
+                type
+                orchestrator
+                flowId
+                cluster
+                info {
+                    name
+                    project
+                }
+                ownership {
+                    ...ownershipFields
                 }
             }
         }

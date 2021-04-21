@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
+import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
+import { DataJobEntity } from '../../app/entity/dataJob/DataJobEntity';
 import { UserEntity } from '../../app/entity/user/User';
 import EntityRegistry from '../../app/entity/EntityRegistry';
 import { EntityRegistryContext } from '../../entityRegistryContext';
@@ -20,6 +22,8 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DatasetEntity());
     entityRegistry.register(new UserEntity());
     entityRegistry.register(new TagEntity());
+    entityRegistry.register(new DataFlowEntity());
+    entityRegistry.register(new DataJobEntity());
     return entityRegistry;
 }
 

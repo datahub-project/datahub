@@ -25,7 +25,14 @@ describe('TagProfile', () => {
 
     it('renders tag ownership', async () => {
         const { getByTestId, queryByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer initialEntries={['/tag/urn:li:tag:abc-sample-tag']}>
                     <Route path="/tag/:urn" render={() => <TagProfile />} />
                 </TestPageContainer>

@@ -1,4 +1,6 @@
 import { GetDatasetDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
+import { GetDataFlowDocument } from './graphql/dataFlow.generated';
+import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import {
     GetAutoCompleteResultsDocument,
@@ -6,7 +8,15 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, DatasetLineageType, EntityType, PlatformType, RelatedDataset } from './types.generated';
+import {
+    Dataset,
+    DataFlow,
+    DataJob,
+    DatasetLineageType,
+    EntityType,
+    PlatformType,
+    RelatedDataset,
+} from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
@@ -569,6 +579,78 @@ const sampleTag = {
     },
 };
 
+export const dataFlow1 = {
+    __typename: 'DataFlow',
+    urn: 'urn:li:dataFlow:1',
+    type: EntityType.DataFlow,
+    orchestrator: 'Airflow',
+    flowId: 'flowId1',
+    cluster: 'cluster1',
+    info: {
+        __typename: 'DataFlowInfo',
+        name: 'DataFlowInfoName',
+        description: 'DataFlowInfo1 Description',
+        project: 'DataFlowInfo1 project',
+    },
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+} as DataFlow;
+
+export const dataJob1 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId1',
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    info: {
+        __typename: 'DataJobInfo',
+        name: 'DataJobInfoName',
+        description: 'DataJobInfo1 Description',
+    },
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset3],
+        outputDatasets: [dataset3],
+    },
+} as DataJob;
+
 /*
     Define mock data to be returned by Apollo MockProvider. 
 */
@@ -981,6 +1063,9 @@ export const mocks = [
                                 type: 'DATAOWNER',
                             },
                         ],
+                        lastModified: {
+                            time: 0,
+                        },
                     },
                 },
             },
@@ -1144,6 +1229,142 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATA_FLOW',
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataFlow',
+                                ...dataFlow1,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetDataFlowDocument,
+            variables: {
+                urn: 'urn:li:dataFlow:1',
+            },
+        },
+        result: {
+            data: {
+                dataFlow: {
+                    ...dataFlow1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATA_JOB',
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataJob',
+                                ...dataJob1,
+                            },
+                            matchedFields: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1 },
+                                { value: 'mysql', count: 1 },
+                                { value: 'kafka', count: 1 },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetDataJobDocument,
+            variables: {
+                urn: 'urn:li:dataJob:1',
+            },
+        },
+        result: {
+            data: {
+                dataJob: {
+                    ...dataJob1,
+                },
+            },
         },
     },
     {

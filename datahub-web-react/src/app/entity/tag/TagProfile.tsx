@@ -97,7 +97,7 @@ export default function TagProfile() {
     const someStats =
         !statsLoading &&
         Object.keys(allSearchResultsByType).some((type) => {
-            return allSearchResultsByType[type]?.data.search.total > 0;
+            return allSearchResultsByType[type]?.data?.search.total > 0;
         });
 
     if (error || (!loading && !error && !data)) {
@@ -149,7 +149,7 @@ export default function TagProfile() {
                             {!statsLoading &&
                                 someStats &&
                                 Object.keys(allSearchResultsByType).map((type) => {
-                                    if (allSearchResultsByType[type].data.search.total === 0) {
+                                    if (allSearchResultsByType[type]?.data?.search.total === 0) {
                                         return null;
                                     }
                                     return (
@@ -167,7 +167,7 @@ export default function TagProfile() {
                                                 }
                                             >
                                                 <StatText data-testid={`stats-${type}`}>
-                                                    {allSearchResultsByType[type].data.search.total}{' '}
+                                                    {allSearchResultsByType[type]?.data?.search.total}{' '}
                                                     {entityRegistry.getCollectionName(type as EntityType)}
                                                 </StatText>
                                             </TagSearchButton>

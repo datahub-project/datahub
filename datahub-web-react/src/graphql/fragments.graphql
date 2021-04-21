@@ -1,0 +1,189 @@
+fragment ownershipFields on Ownership {
+    owners {
+        owner {
+            urn
+            type
+            username
+            info {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
+            }
+            editableInfo {
+                pictureLink
+            }
+        }
+        type
+    }
+    lastModified {
+        time
+    }
+}
+
+fragment globalTagsFields on GlobalTags {
+    tags {
+        tag {
+            urn
+            name
+            description
+        }
+    }
+}
+
+fragment nonRecursiveDatasetFields on Dataset {
+    urn
+    name
+    type
+    origin
+    description
+    uri
+    platform {
+        name
+        info {
+            logoUrl
+        }
+    }
+    platformNativeType
+    tags
+    properties {
+        key
+        value
+    }
+    ownership {
+        ...ownershipFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+    schema {
+        datasetUrn
+        name
+        platformUrn
+        version
+        hash
+        platformSchema {
+            ... on TableSchema {
+                schema
+            }
+            ... on KeyValueSchema {
+                keySchema
+                valueSchema
+            }
+        }
+        fields {
+            fieldPath
+            jsonPath
+            nullable
+            description
+            type
+            nativeDataType
+            recursive
+            globalTags {
+                ...globalTagsFields
+            }
+        }
+        primaryKeys
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+fragment nonRecursiveDataFlowFields on DataFlow {
+    urn
+    type
+    orchestrator
+    flowId
+    cluster
+    info {
+        name
+        description
+        project
+    }
+    ownership {
+        ...ownershipFields
+    }
+}
+
+fragment downstreamLineageFields on DownstreamLineage {
+    downstreams {
+        dataset {
+            ...nonRecursiveDatasetFields
+            downstreamLineage {
+                downstreams {
+                    dataset {
+                        urn
+                    }
+                    type
+                }
+            }
+            upstreamLineage {
+                upstreams {
+                    dataset {
+                        urn
+                    }
+                    type
+                }
+            }
+        }
+        type
+        created {
+            time
+        }
+    }
+}
+
+fragment upstreamLineageFields on UpstreamLineage {
+    upstreams {
+        dataset {
+            ...nonRecursiveDatasetFields
+            downstreamLineage {
+                downstreams {
+                    type
+                    dataset {
+                        urn
+                    }
+                }
+            }
+            upstreamLineage {
+                upstreams {
+                    type
+                    dataset {
+                        urn
+                    }
+                }
+            }
+        }
+        type
+        created {
+            time
+        }
+    }
+}
