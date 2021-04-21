@@ -34,7 +34,7 @@ class SupersetConfig(ConfigModel):
     options: dict = {}
 
 
-def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str):
+def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("bigquery"):
         return "bigquery"
     if sqlalchemy_uri.startswith("druid"):
@@ -65,7 +65,6 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str):
     return "external"
 
 
-@dataclass
 class SupersetSource(Source):
     config: SupersetConfig
     report: SourceReport
@@ -109,7 +108,7 @@ class SupersetSource(Source):
             # TODO(Gabe): how should we message about this error?
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = SupersetConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
