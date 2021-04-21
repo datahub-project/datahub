@@ -1,7 +1,7 @@
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import dateutil.parser as dp
 import requests
@@ -19,11 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (
-    ChartInfoClass,
-    ChartTypeClass,
-    DashboardInfoClass,
-)
+from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
 
 PAGE_SIZE = 25
 
