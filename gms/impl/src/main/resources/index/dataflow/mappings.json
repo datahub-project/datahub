@@ -11,15 +11,6 @@
       "analyzer": "custom_browse_slash",
       "fielddata": true
     },
-    "access": {
-      "type": "keyword",
-      "fields": {
-        "ngram": {
-          "type": "text",
-          "analyzer": "delimit_edgengram"
-        }
-      }
-    },
     "description": {
       "type": "text",
       "fields": {
@@ -38,10 +29,17 @@
       },
       "analyzer": "comma_pattern"
     },
-    "queryType": {
-      "type": "keyword"
+    "orchestrator": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      },
+      "normalizer": "custom_normalizer"
     },
-    "title": {
+    "name": {
       "type": "keyword",
       "fields": {
         "delimited": {
@@ -55,7 +53,7 @@
       },
       "normalizer": "custom_normalizer"
     },
-    "tool": {
+    "project": {
       "type": "keyword",
       "fields": {
         "ngram": {
@@ -64,8 +62,26 @@
         }
       }
     },
-    "type": {
-      "type": "keyword"
+    "cluster": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
+    },
+    "flowId": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
+    },
+    "hasOwners": {
+      "type": "boolean"
     },
     "urn": {
       "type": "keyword",
