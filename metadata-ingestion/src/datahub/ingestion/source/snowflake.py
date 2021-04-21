@@ -1,7 +1,17 @@
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
+from snowflake.sqlalchemy import custom_types
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from .sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+    TimeTypeClass,
+    register_custom_type,
+)
+
+register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
+register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
+register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
 
 
 class SnowflakeConfig(BasicSQLAlchemyConfig):
