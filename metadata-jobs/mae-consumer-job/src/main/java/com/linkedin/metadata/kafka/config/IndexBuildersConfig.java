@@ -6,6 +6,8 @@ import com.linkedin.metadata.builders.search.ChartIndexBuilder;
 import com.linkedin.metadata.builders.search.CorpGroupIndexBuilder;
 import com.linkedin.metadata.builders.search.CorpUserInfoIndexBuilder;
 import com.linkedin.metadata.builders.search.DashboardIndexBuilder;
+import com.linkedin.metadata.builders.search.DataFlowIndexBuilder;
+import com.linkedin.metadata.builders.search.DataJobIndexBuilder;
 import com.linkedin.metadata.builders.search.DataProcessIndexBuilder;
 import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
 import com.linkedin.metadata.builders.search.MLModelIndexBuilder;
@@ -21,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 
 /**
  * Configurations for search index builders
@@ -50,6 +51,8 @@ public class IndexBuildersConfig {
     builders.add(new CorpUserInfoIndexBuilder());
     builders.add(new ChartIndexBuilder());
     builders.add(new DatasetIndexBuilder());
+    builders.add(new DataFlowIndexBuilder());
+    builders.add(new DataJobIndexBuilder());
     builders.add(new DataProcessIndexBuilder());
     builders.add(new DashboardIndexBuilder());
     builders.add(new MLModelIndexBuilder());
