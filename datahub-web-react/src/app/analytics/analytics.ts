@@ -1,4 +1,4 @@
-import Analytics, { AnalyticsInstance } from 'analytics';
+import Analytics from 'analytics';
 import Cookies from 'js-cookie';
 import plugins from './plugin';
 import { Event, EventType } from './event';
