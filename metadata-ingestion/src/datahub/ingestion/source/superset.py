@@ -71,7 +71,7 @@ class SupersetSource(Source):
     platform = "superset"
 
     def __hash__(self):
-        return 0
+        return id(self)
 
     def __init__(self, ctx: PipelineContext, config: SupersetConfig):
         super().__init__(ctx)
