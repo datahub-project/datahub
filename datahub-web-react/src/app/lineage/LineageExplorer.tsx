@@ -109,12 +109,12 @@ export default function LineageExplorer({ urn, type }: Props) {
                 width={425}
                 mask={false}
                 footer={
-                    data && (
+                    selectedEntity && (
                         <FooterButtonGroup gutter={24}>
                             <Col span={7} offset={4}>
                                 <Button
                                     type="primary"
-                                    href={`/${entityRegistry.getPathName(data.type)}/${selectedEntity?.urn}/`}
+                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${selectedEntity.urn}/`}
                                 >
                                     View Profile
                                 </Button>
@@ -122,8 +122,8 @@ export default function LineageExplorer({ urn, type }: Props) {
                             <Col span={7} offset={1}>
                                 <Button
                                     type="default"
-                                    href={`/${entityRegistry.getPathName(data.type)}/${
-                                        selectedEntity?.urn
+                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${
+                                        selectedEntity.urn
                                     }/?is_lineage_mode=true`}
                                 >
                                     View Lineage
