@@ -15,6 +15,10 @@ if TYPE_CHECKING:
         BaseOperator,
     )  # pylint: disable=cyclic-import
 
+    from datahub.integrations.airflow.hooks import (
+        DatahubGenericHook,
+    )  # pylint: disable=cyclic-import
+
 from airflow.configuration import conf
 
 
@@ -22,7 +26,7 @@ def _entities_to_urn_list(iolets: List) -> List[str]:
     return [let.urn for let in iolets]
 
 
-def make_emitter_hook():
+def make_emitter_hook() -> "DatahubGenericHook":
     # This is necessary to avoid issues with circular imports.
     from datahub.integrations.airflow.hooks import DatahubGenericHook
 
@@ -110,12 +114,25 @@ class DatahubAirflowLineageBackend(LineageBackend):
             for outlet in _entities_to_urn_list(outlets or [])
         ]
 
+        force_upstream_materialization = [
+            models.MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=inlet,
+                    aspects=[
+                        models.StatusClass(removed=False),
+                    ],
+                )
+            )
+            for inlet in _entities_to_urn_list(inlets or [])
+        ]
+
         hook = make_emitter_hook()
 
         mces = [
             flow_mce,
             job_mce,
             *lineage_mces,
+            *force_upstream_materialization,
         ]
         operator.log.info(
             "DataHub lineage backend - emitting metadata:\n"
