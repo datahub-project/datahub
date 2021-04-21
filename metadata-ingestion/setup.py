@@ -93,8 +93,10 @@ dev_requirements = {
     "build",
     "twine",
     # Also add the plugins which are used for tests.
-    "apache-airflow==1.10.15",  # Airflow 2.x does not have LineageBackend packaged yet.
+    "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
+    # "apache-airflow>=2.0.2",
+    # "apache-airflow-providers-snowflake",
     *list(
         dependency
         for plugin in [
