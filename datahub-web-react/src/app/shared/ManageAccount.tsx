@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
 import CustomAvatar from './avatar/CustomAvatar';
+import analytics, { EventType } from '../analytics';
 
 const MenuItem = styled(Menu.Item)`
     && {
@@ -43,6 +44,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const handleLogout = () => {
+        analytics.event({ type: EventType.LogOutEvent });
         isLoggedInVar(false);
         Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
     };
