@@ -5,8 +5,13 @@ from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
 
 
 class SnowflakeConfig(BasicSQLAlchemyConfig):
-    # defaults
     scheme = "snowflake"
+
+    database: str  # database is required
+
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = super().get_identifier(schema, table)
+        return f"{self.database}.{regular}"
 
 
 class SnowflakeSource(SQLAlchemySource):
