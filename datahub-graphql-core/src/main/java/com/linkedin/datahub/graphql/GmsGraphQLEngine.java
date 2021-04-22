@@ -103,7 +103,7 @@ public class GmsGraphQLEngine {
     /**
      * Configures the graph objects that cannot be fetched by primary key
      */
-    public static final List<LoadableType<?>> RELATIONSHIP_TYPES= ImmutableList.of(
+    public static final List<LoadableType<?>> RELATIONSHIP_TYPES = ImmutableList.of(
             DOWNSTREAM_LINEAGE_TYPE,
             UPSTREAM_LINEAGE_TYPE
     );

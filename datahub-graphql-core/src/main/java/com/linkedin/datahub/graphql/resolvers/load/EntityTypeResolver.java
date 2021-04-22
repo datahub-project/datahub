@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.Iterables;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import org.dataloader.DataLoader;
