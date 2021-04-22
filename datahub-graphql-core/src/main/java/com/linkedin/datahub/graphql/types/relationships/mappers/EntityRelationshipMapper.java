@@ -1,7 +1,9 @@
-package com.linkedin.datahub.graphql.types.lineage.mappers;
+package com.linkedin.datahub.graphql.types.relationships.mappers;
 
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
+import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
@@ -10,16 +12,16 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 
-public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedin.common.lineage.EntityRelationship, EntityRelationship> {
+public class EntityRelationshipMapper implements ModelMapper<com.linkedin.common.EntityRelationship, EntityRelationship> {
 
-    public static final GenericLineageRelationshipMapper INSTANCE = new GenericLineageRelationshipMapper();
+    public static final EntityRelationshipMapper INSTANCE = new EntityRelationshipMapper();
 
-    public static EntityRelationship map(@Nonnull final com.linkedin.common.lineage.EntityRelationship relationship) {
+    public static EntityRelationship map(@Nonnull final com.linkedin.common.EntityRelationship relationship) {
         return INSTANCE.apply(relationship);
     }
 
     @Override
-    public EntityRelationship apply(@Nonnull final com.linkedin.common.lineage.EntityRelationship relationship) {
+    public EntityRelationship apply(@Nonnull final com.linkedin.common.EntityRelationship relationship) {
         final EntityRelationship result = new EntityRelationship();
 
         Entity partialLineageEntity = null;
@@ -34,6 +36,14 @@ public class GenericLineageRelationshipMapper implements ModelMapper<com.linkedi
         if (relationship.getEntity().getEntityType().equals("dashboard")) {
             partialLineageEntity = new Dashboard();
             ((Dashboard) partialLineageEntity).setUrn(relationship.getEntity().toString());
+        }
+        if (relationship.getEntity().getEntityType().equals("dataFlow")) {
+            partialLineageEntity = new DataFlow();
+            ((DataFlow) partialLineageEntity).setUrn(relationship.getEntity().toString());
+        }
+        if (relationship.getEntity().getEntityType().equals("dataJob")) {
+            partialLineageEntity = new DataJob();
+            ((DataJob) partialLineageEntity).setUrn(relationship.getEntity().toString());
         }
         if (partialLineageEntity != null) {
             result.setEntity(partialLineageEntity);

@@ -1,9 +1,9 @@
-namespace com.linkedin.common.lineage
+namespace com.linkedin.common
 
 /**
  * Downstream lineage of a dataset
  */
-record GenericLineage {
+record EntityRelationships {
 
   /**
    * List of related entities
