@@ -5,8 +5,8 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
-import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
+import com.linkedin.datahub.graphql.generated.EntityWithRelationships;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
@@ -24,7 +24,7 @@ public class EntityRelationshipMapper implements ModelMapper<com.linkedin.common
     public EntityRelationship apply(@Nonnull final com.linkedin.common.EntityRelationship relationship) {
         final EntityRelationship result = new EntityRelationship();
 
-        Entity partialLineageEntity = null;
+        EntityWithRelationships partialLineageEntity = null;
         if (relationship.getEntity().getEntityType().equals("dataset")) {
            partialLineageEntity = new Dataset();
             ((Dataset) partialLineageEntity).setUrn(relationship.getEntity().toString());
@@ -36,10 +36,6 @@ public class EntityRelationshipMapper implements ModelMapper<com.linkedin.common
         if (relationship.getEntity().getEntityType().equals("dashboard")) {
             partialLineageEntity = new Dashboard();
             ((Dashboard) partialLineageEntity).setUrn(relationship.getEntity().toString());
-        }
-        if (relationship.getEntity().getEntityType().equals("dataFlow")) {
-            partialLineageEntity = new DataFlow();
-            ((DataFlow) partialLineageEntity).setUrn(relationship.getEntity().toString());
         }
         if (relationship.getEntity().getEntityType().equals("dataJob")) {
             partialLineageEntity = new DataJob();

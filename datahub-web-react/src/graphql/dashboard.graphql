@@ -1,54 +1,23 @@
-fragment dashboardFields on Dashboard {
-    urn
-    type
-    tool
-    dashboardId
-    info {
-        name
-        description
-        charts {
-            urn
-            tool
-            type
-            info {
-                name
-                description
-                inputs {
-                    urn
-                }
-            }
-            ownership {
-                ...ownershipFields
-            }
-        }
-        url
-        access
-        lastRefreshed
-        created {
-            time
-        }
-        lastModified {
-            time
-        }
-    }
-    ownership {
-        ...ownershipFields
-    }
-    globalTags {
-        ...globalTagsFields
-    }
-}
-
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
         ...dashboardFields
-        ...deepLineageFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }
 
 mutation updateDashboard($input: DashboardUpdateInput!) {
     updateDashboard(input: $input) {
         ...dashboardFields
-        ...deepLineageFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }

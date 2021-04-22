@@ -1,4 +1,4 @@
-fragment shallowLineageFields on EntityWithLineage {
+fragment shallowLineageFields on EntityWithRelationships {
     downstreamLineage {
         entities {
             entity {
@@ -17,16 +17,60 @@ fragment shallowLineageFields on EntityWithLineage {
     }
 }
 
-fragment deepLineageFields on EntityWithLineage {
-    downstreamLineage {
-        ...relationshipsFields
-    }
-    upstreamLineage {
-        ...relationshipsFields
+fragment upstreamRelationshipFields on UpstreamEntityRelationships {
+    entities {
+        entity {
+            urn
+            type
+            downstreamLineage {
+                entities {
+                    entity {
+                        urn
+                        type
+                    }
+                }
+            }
+            upstreamLineage {
+                entities {
+                    entity {
+                        urn
+                        type
+                    }
+                }
+            }
+            ... on DataJob {
+                ...dataJobFields
+            }
+            ... on Dashboard {
+                ...dashboardFields
+            }
+            ... on Chart {
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    inputs {
+                        urn
+                    }
+                }
+            }
+            ... on Dataset {
+                urn
+                name
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+        }
     }
 }
 
-fragment relationshipsFields on EntityRelationships {
+fragment downstreamRelationshipFields on DownstreamEntityRelationships {
     entities {
         entity {
             urn

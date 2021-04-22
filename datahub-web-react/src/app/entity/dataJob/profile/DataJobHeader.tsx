@@ -9,7 +9,7 @@ export type Props = {
     dataJob: DataJob;
 };
 
-export default function DataJobHeader({ dataJob: { ownership, info } }: Props) {
+export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
@@ -17,7 +17,7 @@ export default function DataJobHeader({ dataJob: { ownership, info } }: Props) {
             <Space direction="vertical" size="middle">
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text>DataJob</Typography.Text>
-                    <Typography.Text strong>{info?.name}</Typography.Text>
+                    <Typography.Text strong>{dataFlow?.info?.name}</Typography.Text>
                 </Space>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

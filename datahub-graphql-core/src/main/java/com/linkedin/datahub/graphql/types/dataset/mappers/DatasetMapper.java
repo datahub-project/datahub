@@ -68,9 +68,6 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         if (dataset.hasStatus()) {
             result.setStatus(StatusMapper.map(dataset.getStatus()));
         }
-        if (dataset.hasUpstreamLineage()) {
-            result.setUpstreamLineage(UpstreamLineageMapper.map(dataset.getUpstreamLineage()));
-        }
         if (dataset.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(dataset.getGlobalTags()));
         }

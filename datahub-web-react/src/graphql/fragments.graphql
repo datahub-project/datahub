@@ -131,3 +131,68 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         ...ownershipFields
     }
 }
+
+fragment dataJobFields on DataJob {
+    urn
+    type
+    dataFlow {
+        ...nonRecursiveDataFlowFields
+    }
+    jobId
+    ownership {
+        ...ownershipFields
+    }
+    inputOutput {
+        inputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+        outputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+    }
+    info {
+        name
+        description
+    }
+}
+
+fragment dashboardFields on Dashboard {
+    urn
+    type
+    tool
+    dashboardId
+    info {
+        name
+        description
+        charts {
+            urn
+            tool
+            type
+            info {
+                name
+                description
+                inputs {
+                    urn
+                }
+            }
+            ownership {
+                ...ownershipFields
+            }
+        }
+        url
+        access
+        lastRefreshed
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}

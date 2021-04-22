@@ -25,7 +25,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
     const isLineageMode = useIsLineageMode();
 
-    // TODO(gabe-lyons): pull this logic into the entity registry
     const isLineageSupported = entityRegistry.getLineageEntityTypes().indexOf(entityType) > -1;
 
     return (

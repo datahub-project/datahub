@@ -10,7 +10,7 @@ const styles = {
 
 export type Props = {
     platform: string;
-    description?: string;
+    description?: string | null;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
     url?: string | null;
