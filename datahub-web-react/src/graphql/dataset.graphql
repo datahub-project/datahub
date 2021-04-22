@@ -1,6 +1,12 @@
 mutation updateDataset($input: DatasetUpdateInput!) {
     updateDataset(input: $input) {
         ...nonRecursiveDatasetFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }
 

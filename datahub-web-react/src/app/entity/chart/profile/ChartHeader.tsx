@@ -27,8 +27,8 @@ export default function ChartHeader({ platform, description, ownership, url, las
                     <Typography.Text strong type="secondary">
                         {platform}
                     </Typography.Text>
+                    {url && <Button href={url}>View in {platform}</Button>}
                 </Space>
-                {url && <Button href={url}>View in {platform}</Button>}
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
             <Avatar.Group maxCount={6} size="large">

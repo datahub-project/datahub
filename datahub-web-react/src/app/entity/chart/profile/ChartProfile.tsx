@@ -50,6 +50,11 @@ export default function ChartProfile({ urn }: { urn: string }) {
     const getTabs = ({ ownership, info }: Chart) => {
         return [
             {
+                name: TabType.Sources,
+                path: TabType.Sources.toLowerCase(),
+                content: <ChartSources datasets={info?.inputs || []} />,
+            },
+            {
                 name: TabType.Ownership,
                 path: TabType.Ownership.toLowerCase(),
                 content: (
@@ -59,11 +64,6 @@ export default function ChartProfile({ urn }: { urn: string }) {
                         updateOwnership={() => console.log('Update dashboard not yet implemented')}
                     />
                 ),
-            },
-            {
-                name: TabType.Sources,
-                path: TabType.Sources.toLowerCase(),
-                content: <ChartSources datasets={info?.inputs || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
