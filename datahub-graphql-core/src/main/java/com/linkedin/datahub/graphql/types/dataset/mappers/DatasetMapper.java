@@ -41,6 +41,9 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         partialPlatform.setUrn(dataset.getPlatform().toString());
         result.setPlatform(partialPlatform);
 
+        if (dataset.hasExternalUrl()) {
+            result.setExternalUrl(dataset.getExternalUrl().toString());
+        }
         if (dataset.hasSchemaMetadata()) {
             result.setSchema(SchemaMetadataMapper.map(dataset.getSchemaMetadata()));
         }

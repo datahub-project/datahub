@@ -16,6 +16,9 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
+import com.linkedin.datahub.graphql.types.MutableType;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
@@ -32,10 +35,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.linkedin.r2.RemoteInvocationException;
+
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 
-public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob> {
+public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "jobId";
@@ -53,6 +58,11 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     @Override
     public Class<DataJob> objectClass() {
         return DataJob.class;
+    }
+
+    @Override
+    public Class<DataJobUpdateInput> inputClass() {
+        return DataJobUpdateInput.class;
     }
 
     @Override
@@ -136,5 +146,18 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
         final StringArray result = _dataJobsClient.getBrowsePaths(DataJobUrn.createFromString(urn));
         return BrowsePathsMapper.map(result);
+    }
+
+    @Override
+    public DataJob update(@Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input);
+
+        try {
+            _dataJobsClient.update(DataJobUrn.createFromString(input.getUrn()), partialDataJob);
+        } catch (RemoteInvocationException e) {
+            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+        }
+
+        return load(input.getUrn(), context);
     }
 }
