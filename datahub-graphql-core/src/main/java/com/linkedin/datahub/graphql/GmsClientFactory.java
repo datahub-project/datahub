@@ -140,17 +140,6 @@ public class GmsClientFactory {
         return _dataJobs;
     }
 
-    public static Tags getTagsClient() {
-        if (_tags == null) {
-            synchronized (GmsClientFactory.class) {
-                if (_tags == null) {
-                    _tags = new Tags(REST_CLIENT);
-                }
-            }
-        }
-        return _tags;
-    }
-
     public static Lineages getLineagesClient() {
         if (_Lineages == null) {
             synchronized (GmsClientFactory.class) {
@@ -160,5 +149,16 @@ public class GmsClientFactory {
             }
         }
         return _Lineages;
+    }
+
+    public static Tags getTagsClient() {
+        if (_tags == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_tags == null) {
+                    _tags = new Tags(REST_CLIENT);
+                }
+            }
+        }
+        return _tags;
     }
 }
