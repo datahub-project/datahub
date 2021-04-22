@@ -1,11 +1,14 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.search.DataFlowDocument;
+import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import java.util.Collections;
 import java.util.List;
@@ -53,6 +56,16 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
   }
 
   @Nonnull
+  private DataFlowDocument getDocumentToUpdateFromAspect(@Nonnull DataFlowUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return new DataFlowDocument().setUrn(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DataFlowDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataFlowSnapshot snapshot) {
     DataFlowUrn urn = snapshot.getUrn();
     final List<DataFlowDocument> documents = snapshot.getAspects().stream().map(aspect -> {
@@ -60,6 +73,8 @@ public class DataFlowIndexBuilder extends BaseIndexBuilder<DataFlowDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataFlowInfo());
       } else if (aspect.isOwnership()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());

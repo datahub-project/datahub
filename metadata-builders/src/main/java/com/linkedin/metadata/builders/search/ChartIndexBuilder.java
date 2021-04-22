@@ -2,12 +2,15 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.chart.ChartQuery;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.search.ChartDocument;
+import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import java.util.Collections;
 import java.util.List;
@@ -73,6 +76,16 @@ public class ChartIndexBuilder extends BaseIndexBuilder<ChartDocument> {
   }
 
   @Nonnull
+  private ChartDocument getDocumentToUpdateFromAspect(@Nonnull ChartUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return setUrnDerivedFields(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<ChartDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull ChartSnapshot snapshot) {
     ChartUrn urn = snapshot.getUrn();
     return snapshot.getAspects().stream().map(aspect -> {
@@ -84,6 +97,8 @@ public class ChartIndexBuilder extends BaseIndexBuilder<ChartDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
       } else if (aspect.isStatus()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getStatus());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());

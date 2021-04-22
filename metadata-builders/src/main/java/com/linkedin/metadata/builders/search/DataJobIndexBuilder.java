@@ -1,11 +1,14 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.search.DataFlowDocument;
 import com.linkedin.metadata.search.DataJobDocument;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import java.util.Collections;
@@ -67,6 +70,16 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   }
 
   @Nonnull
+  private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return new DataJobDocument().setUrn(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DataJobDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataJobSnapshot snapshot) {
     DataJobUrn urn = snapshot.getUrn();
     final List<DataJobDocument> documents = snapshot.getAspects().stream().map(aspect -> {
@@ -76,6 +89,8 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataJobInputOutput());
       } else if (aspect.isOwnership()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
