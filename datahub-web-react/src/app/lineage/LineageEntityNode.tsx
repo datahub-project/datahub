@@ -34,6 +34,7 @@ export default function LineageEntityNode({
     isSelected,
     isHovered,
     onEntityClick,
+    onEntityCenter,
     onHover,
     onExpandClick,
     direction,
@@ -45,6 +46,7 @@ export default function LineageEntityNode({
     isHovered: boolean;
     isCenterNode: boolean;
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
@@ -104,6 +106,7 @@ export default function LineageEntityNode({
                 </Group>
             ) : null}
             <Group
+                onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
                 onClick={() => {
                     onEntityClick({ urn: node.data.urn, type: node.data.type });
                 }}

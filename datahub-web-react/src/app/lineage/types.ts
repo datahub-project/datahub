@@ -51,6 +51,7 @@ export type TreeProps = {
     entityAndType?: EntityAndType | null;
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
