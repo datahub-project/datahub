@@ -21,10 +21,12 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
+import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
@@ -71,6 +73,7 @@ public class GmsGraphQLEngine {
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getDatasetsClient());
     public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getCorpUsersClient());
+    public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getCorpGroupsClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getChartsClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
@@ -91,6 +94,7 @@ public class GmsGraphQLEngine {
     public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
             DATASET_TYPE,
             CORP_USER_TYPE,
+            CORP_GROUP_TYPE,
             DATA_PLATFORM_TYPE,
             CHART_TYPE,
             DASHBOARD_TYPE,
@@ -205,6 +209,10 @@ public class GmsGraphQLEngine {
                         new LoadableTypeResolver<>(
                                 CORP_USER_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("corpGroup", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                CORP_GROUP_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
                 .dataFetcher("dashboard", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
                                 DASHBOARD_TYPE,
@@ -264,7 +272,7 @@ public class GmsGraphQLEngine {
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
                             new LoadableTypeResolver<>(
-                                    CORP_USER_TYPE,
+                                    (CORP_USER_TYPE | CORP_GROUP_TYPE),
                                     (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
                     )
             )

@@ -56,6 +56,10 @@ enum EntityType {
     """
     CORP_USER
     """
+    The CorpGroup Entity
+    """
+    CORP_GROUP
+    """
     The DataPlatform Entity
     """
     DATA_PLATFORM
@@ -95,6 +99,11 @@ type Query {
     Fetch a CorpUser by primary key
     """
     corpUser(urn: String!): CorpUser
+
+    """
+    Fetch a CorpGroup by primary key
+    """
+    corpGroup(urn: String!): CorpGroup
 
     """
     Fetch a Dashboard by primary key
@@ -769,7 +778,7 @@ type Owner {
     """
     Owner object - This should be extended to support CorpGroups as well
     """
-    owner: CorpUser!
+    owner: OwnerType!
 
     """
     The type of the ownership
@@ -781,6 +790,8 @@ type Owner {
     """
     source: OwnershipSource
 }
+
+union OwnerType = CorpUser | CorpGroup
 
 type CorpUser implements Entity {
     """
@@ -891,6 +902,50 @@ type CorpUserEditableInfo {
     A URL which points to a picture which user wants to set as a profile photo
     """
     pictureLink: String
+}
+
+type CorpGroup implements Entity {
+"""
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group
+    """
+    info: CorpGroupInfo
+}
+
+type CorpGroupInfo {
+    """
+    email of this group
+    """
+    email: String!
+
+    """
+    owners of this group
+    """
+    admins: [String]
+
+    """
+    List of ldap urn in this group.
+    """
+    members: [String]
+
+    """
+    List of groups in this group.
+    """
+    groups: [String]
 }
 
 type Tag implements Entity{
