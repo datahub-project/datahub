@@ -1,6 +1,7 @@
 import pytest
 from click.testing import CliRunner
 
+import datahub as datahub_metadata
 from datahub.configuration.common import ConfigurationError
 from datahub.entrypoints import datahub
 from datahub.ingestion.api.registry import Registry
@@ -9,6 +10,13 @@ from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
+
+
+def test_datahub_version():
+    # Simply importing pkg_resources checks for unsatisfied dependencies.
+    import pkg_resources
+
+    assert pkg_resources.get_distribution(datahub_metadata.__package_name__).version
 
 
 @pytest.mark.parametrize(
