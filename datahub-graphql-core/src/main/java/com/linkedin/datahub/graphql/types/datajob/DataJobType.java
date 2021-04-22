@@ -1,5 +1,14 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
+import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.dataset.DatasetUtils;
+import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.metadata.query.BrowseResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,9 +36,10 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.datajob.client.DataJobs;
 import com.linkedin.restli.common.CollectionResponse;
 
+import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 
-public class DataJobType implements SearchableEntityType<DataJob> {
+public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "jobId";
@@ -101,5 +111,34 @@ public class DataJobType implements SearchableEntityType<DataJob> {
         } catch (URISyntaxException e) {
             throw new RuntimeException(String.format("Failed to retrieve datajob with urn %s, invalid urn", urnStr));
         }
+    }
+
+    @Override
+    public BrowseResults browse(@Nonnull List<String> path, @Nullable List<FacetFilterInput> filters, int start,
+        int count, @Nonnull QueryContext context) throws Exception {
+                final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
+        final BrowseResult result = _dataJobsClient.browse(
+                pathStr,
+                facetFilters,
+                start,
+                count);
+        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
+        final List<DataJob> dataJobs = batchLoad(urns, context);
+        final BrowseResults browseResults = new BrowseResults();
+        browseResults.setStart(result.getFrom());
+        browseResults.setCount(result.getPageSize());
+        browseResults.setTotal(result.getNumEntities());
+        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
+        browseResults.setEntities(dataJobs.stream()
+                .map(dataset -> (com.linkedin.datahub.graphql.generated.Entity) dataset)
+                .collect(Collectors.toList()));
+        return browseResults;
+    }
+
+    @Override
+    public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
+        final StringArray result = _dataJobsClient.getBrowsePaths(DataJobUrn.createFromString(urn));
+        return BrowsePathsMapper.map(result);
     }
 }
