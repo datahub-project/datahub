@@ -1,9 +1,19 @@
 import * as React from 'react';
-import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
+import { DoubleRightOutlined } from '@ant-design/icons';
 import { DataJob, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { DataJobProfile } from './profile/DataJobProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import getChildren from '../../lineage/utils/getChildren';
+import { Direction } from '../../lineage/types';
+import airflowLogo from '../../../images/airflowlogo.png';
+
+export function getLogoFromPlatform(platform: string) {
+    if (platform.toLowerCase() === 'airflow') {
+        return airflowLogo;
+    }
+    return undefined;
+}
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -14,21 +24,21 @@ export class DataJobEntity implements Entity<DataJob> {
     // TODO: add job specific icons
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DatabaseOutlined style={{ fontSize }} />;
+            return <DoubleRightOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <DoubleRightOutlined style={{ fontSize, color: '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
             return (
-                <path d="M342 88H120c-17.7 0-32 14.3-32 32v224c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16V168h174c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16zm578 576h-48c-8.8 0-16 7.2-16 16v176H682c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h222c17.7 0 32-14.3 32-32V680c0-8.8-7.2-16-16-16zM342 856H168V680c0-8.8-7.2-16-16-16h-48c-8.8 0-16 7.2-16 16v224c0 17.7 14.3 32 32 32h222c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16zM904 88H682c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h174v176c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16V120c0-17.7-14.3-32-32-32z" />
+                <path d="M533.2 492.3L277.9 166.1c-3-3.9-7.7-6.1-12.6-6.1H188c-6.7 0-10.4 7.7-6.3 12.9L447.1 512 181.7 851.1A7.98 7.98 0 00188 864h77.3c4.9 0 9.6-2.3 12.6-6.1l255.3-326.1c9.1-11.7 9.1-27.9 0-39.5zm304 0L581.9 166.1c-3-3.9-7.7-6.1-12.6-6.1H492c-6.7 0-10.4 7.7-6.3 12.9L751.1 512 485.7 851.1A7.98 7.98 0 00492 864h77.3c4.9 0 9.6-2.3 12.6-6.1l255.3-326.1c9.1-11.7 9.1-27.9 0-39.5z" />
             );
         }
 
         return (
-            <DatabaseFilled
+            <DoubleRightOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -37,11 +47,11 @@ export class DataJobEntity implements Entity<DataJob> {
         );
     };
 
-    isSearchEnabled = () => false;
+    isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
@@ -72,5 +82,20 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataJob) => {
+        return {
+            urn: entity.urn,
+            name: entity.info?.name || '',
+            type: EntityType.DataJob,
+            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream).map(
+                (child) => child.entity.urn,
+            ),
+            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream).map(
+                (child) => child.entity.urn,
+            ),
+            icon: getLogoFromPlatform(entity.dataFlow.orchestrator),
+        };
     };
 }

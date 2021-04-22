@@ -2,14 +2,14 @@ import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { DownstreamLineage, EntityType, UpstreamLineage } from '../../../../types.generated';
+import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '../../../../types.generated';
 import { navigateToLineageUrl } from '../../../lineage/utils/navigateToLineageUrl';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
 export type Props = {
-    upstreamLineage?: UpstreamLineage | null;
-    downstreamLineage?: DownstreamLineage | null;
+    upstreamLineage?: UpstreamEntityRelationships | null;
+    downstreamLineage?: DownstreamEntityRelationships | null;
 };
 
 const ViewRawButtonContainer = styled.div`
@@ -22,8 +22,8 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
     const history = useHistory();
     const location = useLocation();
 
-    const upstreamEntities = upstreamLineage?.upstreams.map((upstream) => upstream.dataset);
-    const downstreamEntities = downstreamLineage?.downstreams.map((downstream) => downstream.dataset);
+    const upstreamEntities = upstreamLineage?.entities?.map((entityRelationship) => entityRelationship?.entity);
+    const downstreamEntities = downstreamLineage?.entities?.map((entityRelationship) => entityRelationship?.entity);
 
     return (
         <>
@@ -42,7 +42,7 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
                     header={<Typography.Title level={3}>Upstream</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>
-                            {entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}
+                            {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}
                         </List.Item>
                     )}
                 />
@@ -53,7 +53,7 @@ export default function Lineage({ upstreamLineage, downstreamLineage }: Props) {
                     header={<Typography.Title level={3}>Downstream</Typography.Title>}
                     renderItem={(item) => (
                         <List.Item style={{ paddingTop: '20px' }}>
-                            {entityRegistry.renderPreview(EntityType.Dataset, PreviewType.PREVIEW, item)}
+                            {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}
                         </List.Item>
                     )}
                 />

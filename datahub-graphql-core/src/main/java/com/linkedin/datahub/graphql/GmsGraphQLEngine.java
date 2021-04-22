@@ -34,14 +34,14 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
-import com.linkedin.datahub.graphql.types.dataset.LineageType;
+import com.linkedin.datahub.graphql.types.dataset.DownstreamLineageType;
+import com.linkedin.datahub.graphql.types.dataset.UpstreamLineageType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 
 
-import com.linkedin.metadata.query.RelationshipDirection;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -74,13 +74,11 @@ public class GmsGraphQLEngine {
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getChartsClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
-    public static final LineageType DOWNSTREAM_LINEAGE_TYPE = new LineageType(
-            GmsClientFactory.getLineagesClient(),
-            RelationshipDirection.INCOMING
+    public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(
+            GmsClientFactory.getLineagesClient()
     );
-    public static final LineageType UPSTREAM_LINEAGE_TYPE = new LineageType(
-            GmsClientFactory.getLineagesClient(),
-            RelationshipDirection.OUTGOING
+    public static final UpstreamLineageType UPSTREAM_LINEAGE_TYPE = new UpstreamLineageType(
+            GmsClientFactory.getLineagesClient()
     );
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
@@ -321,6 +319,18 @@ public class GmsGraphQLEngine {
                                         .collect(Collectors.toList())))
                 )
         );
+        builder.type("Dashboard", typeWiring -> typeWiring
+                .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                )
+                .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                )
+        );
     }
 
     /**
@@ -361,6 +371,12 @@ public class GmsGraphQLEngine {
                             .map(graphType -> (EntityType<?>) graphType)
                             .collect(Collectors.toList())
                     )))
+                .type("EntityWithRelationships", typeWiring -> typeWiring
+                        .typeResolver(new EntityInterfaceTypeResolver(LOADABLE_TYPES.stream()
+                                .filter(graphType -> graphType instanceof EntityType)
+                                .map(graphType -> (EntityType<?>) graphType)
+                                .collect(Collectors.toList())
+                        )))
             .type("PlatformSchema", typeWiring -> typeWiring
                     .typeResolver(new PlatformSchemaUnionTypeResolver())
             )

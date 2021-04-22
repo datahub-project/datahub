@@ -60,6 +60,9 @@ const client = new ApolloClient({
                 keyFields: ['urn'],
             },
         },
+        possibleTypes: {
+            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob'],
+        },
     }),
     credentials: 'include',
 });

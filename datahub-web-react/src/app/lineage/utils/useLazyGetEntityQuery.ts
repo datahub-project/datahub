@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useGetChartLazyQuery } from '../../../graphql/chart.generated';
 import { useGetDashboardLazyQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetLazyQuery } from '../../../graphql/dataset.generated';
+import { useGetDataJobLazyQuery } from '../../../graphql/dataJob.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
@@ -10,6 +11,7 @@ export default function useLazyGetEntityQuery() {
     const [getAsyncDataset, { data: asyncDatasetData }] = useGetDatasetLazyQuery();
     const [getAsyncChart, { data: asyncChartData }] = useGetChartLazyQuery();
     const [getAsyncDashboard, { data: asyncDashboardData }] = useGetDashboardLazyQuery();
+    const [getAsyncDataJob, { data: asyncDataJobData }] = useGetDataJobLazyQuery();
 
     const getAsyncEntity = useCallback(
         (urn: string, type: EntityType) => {
@@ -25,8 +27,12 @@ export default function useLazyGetEntityQuery() {
                 setFetchedEntityType(type);
                 getAsyncDashboard({ variables: { urn } });
             }
+            if (type === EntityType.DataJob) {
+                setFetchedEntityType(type);
+                getAsyncDataJob({ variables: { urn } });
+            }
         },
-        [setFetchedEntityType, getAsyncChart, getAsyncDataset, getAsyncDashboard],
+        [setFetchedEntityType, getAsyncChart, getAsyncDataset, getAsyncDashboard, getAsyncDataJob],
     );
 
     const returnEntityAndType: EntityAndType | undefined = useMemo(() => {
@@ -59,11 +65,20 @@ export default function useLazyGetEntityQuery() {
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.DataJob:
+                returnData = asyncDataJobData?.dataJob;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.DataJob,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
         return undefined;
-    }, [asyncDatasetData, asyncChartData, asyncDashboardData, fetchedEntityType]);
+    }, [asyncDatasetData, asyncChartData, asyncDashboardData, asyncDataJobData, fetchedEntityType]);
 
     return { getAsyncEntity, asyncData: returnEntityAndType };
 }

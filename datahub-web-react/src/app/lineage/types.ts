@@ -1,4 +1,4 @@
-import { Chart, Dashboard, Dataset, EntityType } from '../../types.generated';
+import { Chart, Dashboard, DataJob, Dataset, EntityType } from '../../types.generated';
 
 export type EntitySelectParams = {
     type: EntityType;
@@ -68,4 +68,8 @@ export type EntityAndType =
     | {
           type: EntityType.Dashboard;
           entity: Dashboard;
+      }
+    | {
+          type: EntityType.DataJob;
+          entity: DataJob;
       };

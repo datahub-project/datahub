@@ -21,7 +21,7 @@ interface Entity {
     type: EntityType!
 }
 
-interface EntityWithLineage implements Entity {
+interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
     """
@@ -35,12 +35,12 @@ interface EntityWithLineage implements Entity {
 
     Entities upstream of the given entity
     """
-    upstreamLineage: EntityRelationships
+    upstreamLineage: UpstreamEntityRelationships
 
     """
     Entities downstream of the given entity
     """
-    downstreamLineage: EntityRelationships
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 """
@@ -165,7 +165,7 @@ type AuditStamp {
     actor: String
 }
 
-type Dataset implements EntityWithLineage & Entity {
+type Dataset implements EntityWithRelationships & Entity {
     """
     The unique Dataset URN
     """
@@ -249,12 +249,12 @@ type Dataset implements EntityWithLineage & Entity {
     """
     Entities upstream of the given entity
     """
-    upstreamLineage: EntityRelationships
+    upstreamLineage: UpstreamEntityRelationships
 
     """
     Entities downstream of the given entity
     """
-    downstreamLineage: EntityRelationships
+    downstreamLineage: DownstreamEntityRelationships
 
     """
     The structured tags associated with the dataset
@@ -572,10 +572,14 @@ type EntityRelationship {
     """
     Entity that is related via lineage
     """
-    entity: Entity
+    entity: EntityWithRelationships
 }
 
-type EntityRelationships {
+type UpstreamEntityRelationships {
+    entities: [EntityRelationship]
+}
+
+type DownstreamEntityRelationships {
     entities: [EntityRelationship]
 }
 
@@ -1314,7 +1318,7 @@ input InstitutionalMemoryMetadataUpdate {
     """
     Description of the resource
     """
-    description: String!
+    description: String
 
     """
     The corp user urn of the author of the metadata
@@ -1327,7 +1331,7 @@ input InstitutionalMemoryMetadataUpdate {
     createdAt: Long
 }
 
-type Dashboard implements EntityWithLineage & Entity {
+type Dashboard implements EntityWithRelationships & Entity {
     """
     The unique dashboard URN
     """
@@ -1371,12 +1375,12 @@ type Dashboard implements EntityWithLineage & Entity {
     """
     Entities upstream of the given entity
     """
-    upstreamLineage: EntityRelationships
+    upstreamLineage: UpstreamEntityRelationships
 
     """
     Entities downstream of the given entity
     """
-    downstreamLineage: EntityRelationships
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type DashboardInfo {
@@ -1388,7 +1392,7 @@ type DashboardInfo {
     """
     Description of the dashboard
     """
-    description: String!
+    description: String
 
     """
     Charts that comprise the dashboard
@@ -1438,7 +1442,7 @@ enum AccessLevel {
     PRIVATE
 }
 
-type Chart implements EntityWithLineage & Entity {
+type Chart implements EntityWithRelationships & Entity {
     """
     The unique user URN
     """
@@ -1487,12 +1491,12 @@ type Chart implements EntityWithLineage & Entity {
     """
     Entities upstream of the given entity
     """
-    upstreamLineage: EntityRelationships
+    upstreamLineage: UpstreamEntityRelationships
 
     """
     Entities downstream of the given entity
     """
-    downstreamLineage: EntityRelationships
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type ChartInfo {
@@ -1504,7 +1508,7 @@ type ChartInfo {
     """
     Description of the chart
     """
-    description: String!
+    description: String
 
     """
     Data sources for the chart
@@ -2016,7 +2020,7 @@ type Deprecation {
     actor: String
 }
 
-type DataFlow implements EntityWithLineage & Entity {
+type DataFlow implements Entity {
     """
     The unique flow URN
     """
@@ -2051,16 +2055,6 @@ type DataFlow implements EntityWithLineage & Entity {
     Ownership metadata of the flow
     """
     ownership: Ownership
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: EntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: EntityRelationships
 }
 
 type DataFlowInfo {
@@ -2081,7 +2075,7 @@ type DataFlowInfo {
 }
 
 
-type DataJob implements EntityWithLineage & Entity {
+type DataJob implements EntityWithRelationships & Entity {
     """
     The unique job URN
     """
@@ -2120,12 +2114,12 @@ type DataJob implements EntityWithLineage & Entity {
     """
     Entities upstream of the given entity
     """
-    upstreamLineage: EntityRelationships
+    upstreamLineage: UpstreamEntityRelationships
 
     """
     Entities downstream of the given entity
     """
-    downstreamLineage: EntityRelationships
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type DataJobInfo {

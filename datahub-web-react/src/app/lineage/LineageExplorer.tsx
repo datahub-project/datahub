@@ -78,6 +78,8 @@ export default function LineageExplorer({ urn, type }: Props) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
+    console.log(selectedEntity);
+
     return (
         <>
             {loading && <LoadingMessage type="loading" content="Loading..." />}

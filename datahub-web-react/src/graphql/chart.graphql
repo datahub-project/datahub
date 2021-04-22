@@ -46,7 +46,12 @@ query getChart($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        ...deepLineageFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }
 
@@ -97,6 +102,11 @@ mutation updateChart($input: ChartUpdateInput!) {
         globalTags {
             ...globalTagsFields
         }
-        ...deepLineageFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }
