@@ -17,11 +17,11 @@ export type Props = {
     description?: string | null;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
-    url?: string | null;
+    externalUrl?: string | null;
     chartType?: ChartType | null;
 };
 
-export default function ChartHeader({ platform, description, ownership, url, lastModified, chartType }: Props) {
+export default function ChartHeader({ platform, description, ownership, externalUrl, lastModified, chartType }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
@@ -34,7 +34,7 @@ export default function ChartHeader({ platform, description, ownership, url, las
                     <Typography.Text strong type="secondary">
                         {capitalizeFirstLetter(platform.toLowerCase())}
                     </Typography.Text>
-                    {url && <Button href={url}>View in {platform}</Button>}
+                    {externalUrl && <Button href={externalUrl}>View in {platform}</Button>}
                 </Space>
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>

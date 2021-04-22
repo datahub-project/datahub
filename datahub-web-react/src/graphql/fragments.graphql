@@ -179,7 +179,7 @@ fragment dashboardFields on Dashboard {
                 ...ownershipFields
             }
         }
-        url
+        externalUrl
         access
         lastRefreshed
         created {
