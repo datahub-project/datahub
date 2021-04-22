@@ -85,14 +85,6 @@ query getDataset($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        genericDownstreamLineage {
-            ...genericLineage
-        }
-        upstreamLineage {
-            ...upstreamLineageFields
-        }
-        downstreamLineage {
-            ...downstreamLineageFields
-        }
+        ...deepLineageFields
     }
 }

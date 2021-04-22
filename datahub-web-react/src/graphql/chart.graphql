@@ -23,22 +23,7 @@ query getChart($urn: String!) {
                 ownership {
                     ...ownershipFields
                 }
-                downstreamLineage {
-                    downstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
-                }
-                upstreamLineage {
-                    upstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
-                }
+                ...shallowLineageFields
             }
             url
             type
@@ -61,9 +46,7 @@ query getChart($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        genericDownstreamLineage {
-            ...genericLineage
-        }
+        ...deepLineageFields
     }
 }
 
@@ -114,5 +97,6 @@ mutation updateChart($input: ChartUpdateInput!) {
         globalTags {
             ...globalTagsFields
         }
+        ...deepLineageFields
     }
 }
