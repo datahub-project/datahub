@@ -44,6 +44,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
             ownership={chart.ownership}
             lastModified={chart.info?.lastModified}
             url={chart.info?.url}
+            chartType={chart.info?.type}
         />
     );
 
@@ -67,6 +68,8 @@ export default function ChartProfile({ urn }: { urn: string }) {
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
+
+    console.log(data?.chart);
 
     return (
         <>

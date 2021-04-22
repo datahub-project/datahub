@@ -1,6 +1,6 @@
 import { Avatar, Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
+import { AuditStamp, ChartType, EntityType, Ownership } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 
@@ -8,24 +8,31 @@ const styles = {
     content: { width: '100%' },
 };
 
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 export type Props = {
     platform: string;
     description?: string | null;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
     url?: string | null;
+    chartType?: ChartType | null;
 };
 
-export default function ChartHeader({ platform, description, ownership, url, lastModified }: Props) {
+export default function ChartHeader({ platform, description, ownership, url, lastModified, chartType }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
         <Space direction="vertical" size={15} style={styles.content}>
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
-                    <Typography.Text type="secondary">Chart</Typography.Text>
                     <Typography.Text strong type="secondary">
-                        {platform}
+                        {chartType ? `${capitalizeFirstLetter(chartType.toLowerCase())} ` : ''}Chart
+                    </Typography.Text>
+                    <Typography.Text strong type="secondary">
+                        {capitalizeFirstLetter(platform.toLowerCase())}
                     </Typography.Text>
                     {url && <Button href={url}>View in {platform}</Button>}
                 </Space>

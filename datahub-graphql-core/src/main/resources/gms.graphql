@@ -1576,6 +1576,11 @@ enum ChartType {
     Markdown formatted text
     """
     TEXT
+
+    LINE
+    AREA
+    HISTOGRAM
+    BOX_PLOT
 }
 
 type ChartQuery {

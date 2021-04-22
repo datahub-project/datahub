@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.ChartQuery;
 import com.linkedin.datahub.graphql.generated.ChartQueryType;
+import com.linkedin.datahub.graphql.generated.ChartType;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -65,6 +66,9 @@ public class ChartMapper implements ModelMapper<com.linkedin.dashboard.Chart, Ch
         }
         if (info.hasChartUrl()) {
             result.setUrl(info.getChartUrl().toString());
+        }
+        if (info.hasType()) {
+            result.setType(ChartType.valueOf(info.getType().toString()));
         }
         result.setLastModified(AuditStampMapper.map(info.getLastModified().getLastModified()));
         result.setCreated(AuditStampMapper.map(info.getLastModified().getCreated()));
