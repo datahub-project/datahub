@@ -73,6 +73,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "superset": {"requests"},
     "glue": {"boto3"},
 }
 
@@ -180,6 +181,7 @@ setuptools.setup(
             "oracle = datahub.ingestion.source.oracle:OracleSource",
             "postgres = datahub.ingestion.source.postgres:PostgresSource",
             "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+            "superset = datahub.ingestion.source.superset:SupersetSource",
         ],
         "datahub.ingestion.sink.plugins": [
             "file = datahub.ingestion.sink.file:FileSink",
