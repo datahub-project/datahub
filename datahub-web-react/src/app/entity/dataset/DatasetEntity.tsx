@@ -117,6 +117,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 (child) => child.entity.urn,
             ),
             icon: entity.platform.info?.logoUrl || undefined,
+            platform: entity.platform.name,
         };
     };
 }

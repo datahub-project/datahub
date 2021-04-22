@@ -5,11 +5,13 @@ import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.ChartUrn
 import com.linkedin.common.Time
 import com.linkedin.common.Url
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a dashboard
  */
-record DashboardInfo {
+record DashboardInfo includes CustomProperties, ExternalReference {
 
   /**
    * Title of the dashboard

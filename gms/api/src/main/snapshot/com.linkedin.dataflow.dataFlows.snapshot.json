@@ -50,6 +50,20 @@
       "optional" : true
     } ]
   }, {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataFlowUrn",
     "namespace" : "com.linkedin.common",
@@ -87,6 +101,74 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
+  }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "GlobalTags",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Tag aspect used for applying tags to an entity",
+    "fields" : [ {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "TagAssociation",
+          "doc" : "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters.",
+          "fields" : [ {
+            "name" : "tag",
+            "type" : {
+              "type" : "typeref",
+              "name" : "TagUrn",
+              "doc" : "Globally defined tag",
+              "ref" : "string",
+              "java" : {
+                "class" : "com.linkedin.common.urn.TagUrn"
+              },
+              "validate" : {
+                "com.linkedin.common.validator.TypedUrnValidator" : {
+                  "accessible" : true,
+                  "constructable" : true,
+                  "doc" : "Globally defined tags",
+                  "entityType" : "tag",
+                  "fields" : [ {
+                    "doc" : "tag name",
+                    "maxLength" : 200,
+                    "name" : "name",
+                    "type" : "string"
+                  } ],
+                  "maxLength" : 220,
+                  "name" : "Tag",
+                  "namespace" : "li",
+                  "owners" : [ ],
+                  "owningTeam" : "urn:li:internalTeam:datahub"
+                }
+              }
+            },
+            "doc" : "Urn of the applied tag"
+          } ]
+        }
+      },
+      "doc" : "Tags associated with a given entity"
+    } ]
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -164,7 +246,18 @@
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
     } ]
-  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false
+    } ]
+  }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataFlow",
     "namespace" : "com.linkedin.datajob",
@@ -210,16 +303,12 @@
       "type" : "com.linkedin.common.DataFlowUrn",
       "doc" : "DataFlow urn"
     }, {
-      "name" : "ownership",
-      "type" : "com.linkedin.common.Ownership",
-      "doc" : "Ownership Info",
-      "optional" : true
-    }, {
       "name" : "info",
       "type" : {
         "type" : "record",
         "name" : "DataFlowInfo",
         "doc" : "Information about a Data processing flow",
+        "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
         "fields" : [ {
           "name" : "name",
           "type" : "string",
@@ -238,13 +327,28 @@
       },
       "doc" : "Optional additional metadata about the data flow",
       "optional" : true
+    }, {
+      "name" : "ownership",
+      "type" : "com.linkedin.common.Ownership",
+      "doc" : "Ownership Info",
+      "optional" : true
+    }, {
+      "name" : "status",
+      "type" : "com.linkedin.common.Status",
+      "doc" : "Status information for the chart such as removed or not",
+      "optional" : true
+    }, {
+      "name" : "globalTags",
+      "type" : "com.linkedin.common.GlobalTags",
+      "doc" : "List of global tags applied to the chart",
+      "optional" : true
     } ]
   }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", {
     "type" : "typeref",
     "name" : "DataFlowAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data flow",
-    "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership" ]
+    "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",

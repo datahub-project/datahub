@@ -23,7 +23,12 @@ query getChart($urn: String!) {
                 ownership {
                     ...ownershipFields
                 }
-                ...shallowLineageFields
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
+                }
             }
             url
             type
@@ -79,6 +84,12 @@ mutation updateChart($input: ChartUpdateInput!) {
                 tags
                 ownership {
                     ...ownershipFields
+                }
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
                 }
             }
             url

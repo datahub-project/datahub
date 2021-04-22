@@ -95,6 +95,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 (child) => child.entity.urn,
             ),
             icon: getLogoFromPlatform(entity.dataFlow.orchestrator),
+            platform: entity.dataFlow.orchestrator,
         };
     };
 }

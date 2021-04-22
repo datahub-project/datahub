@@ -83,6 +83,7 @@ export class ChartEntity implements Entity<Chart> {
                 (child) => child.entity.urn,
             ),
             icon: getLogoFromPlatform(entity.tool),
+            platform: entity.tool,
         };
     };
 }
