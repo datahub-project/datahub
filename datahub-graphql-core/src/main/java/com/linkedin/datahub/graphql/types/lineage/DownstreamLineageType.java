@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.dataset;
+package com.linkedin.datahub.graphql.types.lineage;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DownstreamEntityRelationships;
@@ -36,7 +36,7 @@ public class DownstreamLineageType implements LoadableType<DownstreamEntityRelat
                             _lineageClient.getLineage(urn, _direction);
                     return DownstreamEntityRelationshipsMapper.map(relationships);
                 } catch (RemoteInvocationException | URISyntaxException e) {
-                    throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for dataset %s", urn), e);
+                    throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for entity %s", urn), e);
                 }
             }).collect(Collectors.toList());
         } catch (Exception e) {

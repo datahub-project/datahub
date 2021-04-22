@@ -18,7 +18,6 @@ public class DatasetGraphBuilder extends BaseGraphBuilder<DatasetSnapshot> {
       Collections.unmodifiableSet(new HashSet<BaseRelationshipBuilder>() {
         {
           add(new DownstreamOfBuilderFromUpstreamLineage());
-          // add(new DownstreamOfBuilderFromUpstreamLineage());
           add(new OwnedByBuilderFromOwnership());
         }
       });
