@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
  *    1. Retrieving a single input urn.
  *    2. Resolving a single Entity
  *
- *  Note that this resolver expects that {@link DataLoader}s were registered
- *  for the all the {@link LoadableType}s that
  *
  */
 public class EntityTypeResolver implements DataFetcher<CompletableFuture<Entity>> {
