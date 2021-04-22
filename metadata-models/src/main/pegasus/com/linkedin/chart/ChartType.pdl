@@ -29,4 +29,12 @@ enum ChartType {
    * Chart showing Markdown formatted text
    */
   TEXT
+
+  LINE
+
+  AREA
+
+  HISTOGRAM
+
+  BOX_PLOT
 }
