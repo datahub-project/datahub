@@ -21,7 +21,6 @@ export function getLogoFromPlatform(platform: string) {
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
-    // TODO: add job specific icons
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <DoubleRightOutlined style={{ fontSize }} />;
@@ -57,7 +56,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'datajob';
 
-    getCollectionName = () => 'DataJobs';
+    getCollectionName = () => 'Data Jobs';
 
     renderProfile = (urn: string) => <DataJobProfile urn={urn} />;
 
