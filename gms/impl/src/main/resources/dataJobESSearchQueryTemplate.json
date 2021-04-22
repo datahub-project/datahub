@@ -1,14 +1,32 @@
 {
   "function_score": {
     "query": {
-      "query_string": {
-        "query": "$INPUT",
-        "fields": [
-          "name^4",
-          "dataFlow"
-        ],
-        "default_operator": "and",
-        "analyzer": "standard"
+      "bool": {
+        "should": [
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "fields": [
+                "name^4",
+                "dataFlow",
+                "orchestrator",
+                "cluster"
+              ],
+              "default_operator": "and",
+              "analyzer": "lowercase_keyword"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "fields": [
+                "name.delimited"
+              ],
+              "default_operator": "and",
+              "analyzer": "standard"
+            }
+          }
+        ]
       }
     },
     "functions": [

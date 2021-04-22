@@ -4,11 +4,13 @@ import com.linkedin.common.AccessLevel
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.Time
 import com.linkedin.common.Url
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a chart
  */
-record ChartInfo {
+record ChartInfo includes CustomProperties, ExternalReference {
 
   /**
    * Title of the chart

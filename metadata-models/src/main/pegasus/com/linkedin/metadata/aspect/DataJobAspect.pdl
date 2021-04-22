@@ -3,8 +3,10 @@ namespace com.linkedin.metadata.aspect
 import com.linkedin.common.Ownership
 import com.linkedin.datajob.DataJobInfo
 import com.linkedin.datajob.DataJobInputOutput
+import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
 
 /**
  * A union of all supported metadata aspects for a Data job
  */
-typeref DataJobAspect = union[DataJobInfo, DataJobInputOutput, Ownership]
+typeref DataJobAspect = union[DataJobInfo, DataJobInputOutput, Ownership, Status, GlobalTags]

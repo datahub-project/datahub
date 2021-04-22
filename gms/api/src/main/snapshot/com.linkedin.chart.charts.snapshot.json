@@ -46,6 +46,40 @@
     "name" : "ChartInfo",
     "namespace" : "com.linkedin.chart",
     "doc" : "Information about a chart",
+    "include" : [ {
+      "type" : "record",
+      "name" : "CustomProperties",
+      "namespace" : "com.linkedin.common",
+      "doc" : "Misc. properties about an entity.",
+      "fields" : [ {
+        "name" : "customProperties",
+        "type" : {
+          "type" : "map",
+          "values" : "string"
+        },
+        "doc" : "Custom property bag.",
+        "default" : { }
+      } ]
+    }, {
+      "type" : "record",
+      "name" : "ExternalReference",
+      "namespace" : "com.linkedin.common",
+      "doc" : "A reference to an external platform.",
+      "fields" : [ {
+        "name" : "externalUrl",
+        "type" : {
+          "type" : "typeref",
+          "name" : "Url",
+          "ref" : "string",
+          "java" : {
+            "class" : "com.linkedin.common.url.Url",
+            "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+          }
+        },
+        "doc" : "URL where the reference exist",
+        "optional" : true
+      } ]
+    } ],
     "fields" : [ {
       "name" : "title",
       "type" : "string",
@@ -109,16 +143,7 @@
       "doc" : "Captures information about who created/last modified/deleted this chart and when"
     }, {
       "name" : "chartUrl",
-      "type" : {
-        "type" : "typeref",
-        "name" : "Url",
-        "namespace" : "com.linkedin.common",
-        "ref" : "string",
-        "java" : {
-          "class" : "com.linkedin.common.url.Url",
-          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-        }
-      },
+      "type" : "com.linkedin.common.Url",
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true
     }, {
@@ -222,7 +247,7 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, "com.linkedin.common.DatasetUrn", {
+  }, "com.linkedin.common.CustomProperties", "com.linkedin.common.DatasetUrn", "com.linkedin.common.ExternalReference", {
     "type" : "record",
     "name" : "GlobalTags",
     "namespace" : "com.linkedin.common",

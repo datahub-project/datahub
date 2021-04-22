@@ -1,25 +1,33 @@
 package com.linkedin.datajob.client;
 
 import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.datajob.DataFlow;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.aspect.DataFlowAspect;
+import com.linkedin.metadata.dao.DataFlowActionRequestBuilder;
+import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.datajob.DataFlowKey;
 import com.linkedin.dataflow.DataFlowsDoAutocompleteRequestBuilder;
 import com.linkedin.dataflow.DataFlowsDoBrowseRequestBuilder;
 import com.linkedin.dataflow.DataFlowsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.dataflow.DataFlowsFindBySearchRequestBuilder;
 import com.linkedin.dataflow.DataFlowsRequestBuilders;
-import com.linkedin.datajob.DataFlow;
-import com.linkedin.datajob.DataFlowKey;
-import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseBrowsableClient;
+import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,6 +39,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 public class DataFlows extends BaseBrowsableClient<DataFlow, DataFlowUrn> {
     private static final DataFlowsRequestBuilders DATA_FLOWS_REQUEST_BUILDERS = new DataFlowsRequestBuilders();
+    private static final DataFlowActionRequestBuilder DATA_FLOWS_ACTION_REQUEST_BUILDER = new DataFlowActionRequestBuilder();
 
     public DataFlows(@Nonnull Client restliClient) {
         super(restliClient);
@@ -178,6 +187,31 @@ public class DataFlows extends BaseBrowsableClient<DataFlow, DataFlowUrn> {
                 entry -> getUrnFromKey(entry.getKey()),
                 entry -> entry.getValue().getEntity())
             );
+    }
+
+    /**
+     * Update an existing DataFlow
+     */
+    public void update(@Nonnull final DataFlowUrn urn, @Nonnull final DataFlow dataFlow) throws RemoteInvocationException {
+        Request request = DATA_FLOWS_ACTION_REQUEST_BUILDER.createRequest(urn, toSnapshot(dataFlow, urn));
+        _client.sendRequest(request).getResponse();
+    }
+
+    static DataFlowSnapshot toSnapshot(@Nonnull DataFlow dataFlow, @Nonnull DataFlowUrn urn) {
+        final List<DataFlowAspect> aspects = new ArrayList<>();
+        if (dataFlow.hasInfo()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getInfo()));
+        }
+        if (dataFlow.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getOwnership()));
+        }
+        if (dataFlow.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getStatus()));
+        }
+        if (dataFlow.hasGlobalTags()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
+        }
+        return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
     }
 
     @Nonnull
