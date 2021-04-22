@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.ChartType;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -64,9 +65,6 @@ public class ChartMapper implements ModelMapper<com.linkedin.dashboard.Chart, Ch
         if (info.hasAccess()) {
             result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
         }
-        if (info.hasChartUrl()) {
-            result.setUrl(info.getChartUrl().toString());
-        }
         if (info.hasType()) {
             result.setType(ChartType.valueOf(info.getType().toString()));
         }
@@ -74,6 +72,13 @@ public class ChartMapper implements ModelMapper<com.linkedin.dashboard.Chart, Ch
         result.setCreated(AuditStampMapper.map(info.getLastModified().getCreated()));
         if (info.getLastModified().hasDeleted()) {
             result.setDeleted(AuditStampMapper.map(info.getLastModified().getDeleted()));
+        }
+        if (info.hasChartUrl()) {
+            // TODO: Migrate to using the External URL field for consistency.
+            result.setExternalUrl(info.getChartUrl().toString());
+        }
+        if (info.hasCustomProperties()) {
+            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
         }
         return result;
     }

@@ -30,7 +30,7 @@ query getChart($urn: String!) {
                     ...upstreamRelationshipFields
                 }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
@@ -92,7 +92,7 @@ mutation updateChart($input: ChartUpdateInput!) {
                     ...upstreamRelationshipFields
                 }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
