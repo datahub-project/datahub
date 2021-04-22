@@ -1,25 +1,30 @@
+fragment dataJobFields on DataJob {
+    urn
+    type
+    dataFlow {
+        ...nonRecursiveDataFlowFields
+    }
+    jobId
+    ownership {
+        ...ownershipFields
+    }
+    inputOutput {
+        inputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+        outputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+    }
+    info {
+        name
+        description
+    }
+}
+
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
-        urn
-        type
-        dataFlow {
-            ...nonRecursiveDataFlowFields
-        }
-        jobId
-        ownership {
-            ...ownershipFields
-        }
-        inputOutput {
-            inputDatasets {
-                ...nonRecursiveDatasetFields
-            }
-            outputDatasets {
-                ...nonRecursiveDatasetFields
-            }
-        }
-        info {
-            name
-            description
-        }
+        ...dataJobFields
+        ...deepLineageFields
     }
 }

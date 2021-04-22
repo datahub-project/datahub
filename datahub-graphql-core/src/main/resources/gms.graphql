@@ -21,6 +21,28 @@ interface Entity {
     type: EntityType!
 }
 
+interface EntityWithLineage implements Entity {
+    """
+    GMS Entity urn
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+    """
+
+    Entities upstream of the given entity
+    """
+    upstreamLineage: EntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: EntityRelationships
+}
+
 """
 Top-level GMS Entity Type
 """
@@ -143,7 +165,7 @@ type AuditStamp {
     actor: String
 }
 
-type Dataset implements Entity {
+type Dataset implements EntityWithLineage & Entity {
     """
     The unique Dataset URN
     """
@@ -1305,7 +1327,7 @@ input InstitutionalMemoryMetadataUpdate {
     createdAt: Long
 }
 
-type Dashboard implements Entity {
+type Dashboard implements EntityWithLineage & Entity {
     """
     The unique dashboard URN
     """
@@ -1416,7 +1438,7 @@ enum AccessLevel {
     PRIVATE
 }
 
-type Chart implements Entity {
+type Chart implements EntityWithLineage & Entity {
     """
     The unique user URN
     """
@@ -1994,7 +2016,7 @@ type Deprecation {
     actor: String
 }
 
-type DataFlow implements Entity {
+type DataFlow implements EntityWithLineage & Entity {
     """
     The unique flow URN
     """
@@ -2059,7 +2081,7 @@ type DataFlowInfo {
 }
 
 
-type DataJob implements Entity {
+type DataJob implements EntityWithLineage & Entity {
     """
     The unique job URN
     """

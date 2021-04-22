@@ -1,24 +1,43 @@
-fragment genericLineage on GenericLineage {
+fragment shallowLineageFields on EntityWithLineage {
+    downstreamLineage {
+        entities {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+    upstreamLineage {
+        entities {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+}
+
+fragment deepLineageFields on EntityWithLineage {
+    downstreamLineage {
+        ...relationshipsFields
+    }
+    upstreamLineage {
+        ...relationshipsFields
+    }
+}
+
+fragment relationshipsFields on EntityRelationships {
     entities {
         entity {
             urn
             type
+            ... on DataJob {
+                ...dataJobFields
+                ...shallowLineageFields
+            }
             ... on Dashboard {
-                tool
-                dashboardId
-                info {
-                    name
-                    description
-                    charts {
-                        urn
-                        tool
-                        type
-                        info {
-                            name
-                            description
-                        }
-                    }
-                }
+                ...dashboardFields
+                ...shallowLineageFields
             }
             ... on Chart {
                 tool
@@ -30,14 +49,7 @@ fragment genericLineage on GenericLineage {
                         urn
                     }
                 }
-                genericDownstreamLineage {
-                    entities {
-                        entity {
-                            urn
-                            type
-                        }
-                    }
-                }
+                ...shallowLineageFields
             }
             ... on Dataset {
                 urn
@@ -49,22 +61,7 @@ fragment genericLineage on GenericLineage {
                         logoUrl
                     }
                 }
-                upstreamLineage {
-                    upstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
-                }
-                genericDownstreamLineage {
-                    entities {
-                        entity {
-                            urn
-                            type
-                        }
-                    }
-                }
+                ...shallowLineageFields
             }
         }
     }
