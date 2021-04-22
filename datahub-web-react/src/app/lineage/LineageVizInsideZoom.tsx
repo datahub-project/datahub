@@ -125,6 +125,15 @@ export default function LineageVizInsideZoom({
                         <stop offset="0%" stopColor="black" />
                         <stop offset="100%" stopColor="black" stopOpacity="0" />
                     </linearGradient>
+                    <filter id="shadow1">
+                        <feDropShadow
+                            dx="1"
+                            dy="3"
+                            stdDeviation="4"
+                            floodColor="rgba(72, 106, 108, 0.25)"
+                            floodOpacity="1"
+                        />
+                    </filter>
                 </defs>
                 <rect width={width} height={height} fill="#f6f8fa" />
                 <LineageTree
