@@ -1,40 +1,36 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
-import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.DataJob;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.dataset.DatasetUtils;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
+import com.linkedin.datajob.client.DataJobs;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.restli.common.CollectionResponse;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.net.URISyntaxException;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.DataJobUrn;
-import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.DataJob;
-import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
-import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.datajob.client.DataJobs;
-import com.linkedin.restli.common.CollectionResponse;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 

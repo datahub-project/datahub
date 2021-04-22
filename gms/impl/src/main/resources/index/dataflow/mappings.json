@@ -34,7 +34,7 @@
       "fields": {
         "ngram": {
           "type": "text",
-          "analyzer": "custom_ngram"
+          "analyzer": "delimit_edgengram"
         }
       },
       "normalizer": "custom_normalizer"
