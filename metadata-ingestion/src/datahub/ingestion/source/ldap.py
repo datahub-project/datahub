@@ -32,9 +32,7 @@ def get_pctrls(
     Lookup an LDAP paged control object from the returned controls.
     """
     return [
-        c
-        for c in serverctrls
-        if c.controlType == SimplePagedResultsControl.controlType
+        c for c in serverctrls if c.controlType == SimplePagedResultsControl.controlType
     ]
 
 
@@ -104,9 +102,7 @@ class LDAPSource(Source):
         self.lc = create_controls(self.config.page_size)
 
     @classmethod
-    def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
-    ) -> "LDAPSource":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
         """Factory method."""
         config = LDAPSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
@@ -122,9 +118,7 @@ class LDAPSource(Source):
                     self.config.filter,
                     serverctrls=[self.lc],
                 )
-                _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(
-                    msgid
-                )
+                _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
                 self.report.report_failure(
                     "ldap-control", "LDAP search failed: {}".format(e)
@@ -153,9 +147,7 @@ class LDAPSource(Source):
 
             cookie = set_cookie(self.lc, pctrls)
 
-    def handle_user(
-        self, dn: str, attrs: Dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
+    def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
         Handle a DN and attributes by adding manager info and constructing a
         work unit based on the information.
@@ -208,9 +200,7 @@ class LDAPSource(Source):
         last_name = attrs["sn"][0].decode()
         email = (attrs["mail"][0]).decode() if "mail" in attrs else ldap_user
         display_name = (
-            (attrs["displayName"][0]).decode()
-            if "displayName" in attrs
-            else full_name
+            (attrs["displayName"][0]).decode() if "displayName" in attrs else full_name
         )
         department = (
             (attrs["departmentNumber"][0]).decode()
@@ -218,9 +208,7 @@ class LDAPSource(Source):
             else None
         )
         title = attrs["title"][0].decode() if "title" in attrs else None
-        manager_urn = (
-            f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
-        )
+        manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
         return MetadataChangeEvent(
             proposedSnapshot=CorpUserSnapshotClass(
@@ -241,12 +229,10 @@ class LDAPSource(Source):
             )
         )
 
-    def build_corp_group_mce(
-        self, attrs: dict
-    ) -> Optional[MetadataChangeEvent]:
+    def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
-
-        if cn := attrs.get("cn"):
+        cn = attrs.get("cn")
+        if cn:
             full_name = cn[0].decode()
             owners = parse_from_attrs(attrs, "owner")
             members = parse_from_attrs(attrs, "uniqueMember")
@@ -265,6 +251,7 @@ class LDAPSource(Source):
                     ],
                 )
             )
+        return None
 
     def get_report(self) -> SourceReport:
         """Returns the sourcereport."""
