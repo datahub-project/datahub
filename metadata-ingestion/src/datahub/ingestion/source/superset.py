@@ -290,21 +290,6 @@ class SupersetSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-from_viz_type = {
-    'line': ChartTypeClass.LINE,
-    'big_number': ChartTypeClass.LINE,
-    'table': ChartTypeClass.TABLE,
-    'dist_bar': ChartTypeClass.BAR,
-    'area': ChartTypeClass.AREA,
-    'bar': ChartTypeClass.BAR,
-    'pie': ChartTypeClass.PIE,
-    'histogram': ChartTypeClass.HISTOGRAM,
-    'big_number_total': ChartTypeClass.LINE,
-    'dual_line': ChartTypeClass.LINE,
-    'line_multi': ChartTypeClass.LINE,
-    'treemap': ChartTypeClass.AREA,
-    'box_plot': ChartTypeClass.BAR,
-}
 
 
 class SupersetConfig(ConfigModel):
@@ -513,11 +498,13 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_url = f"{self.config.connect_uri[:-1]}{chart_data.get('url', '')}"
+        chart_type = chart_type_from_viz_type.get(chart_data.get('viz_type'))
 
         datasource_id = chart_data.get("datasource_id")
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)
 
         chart_info = ChartInfoClass(
+            type=chart_type,
             description="",
             title=title,
             lastModified=last_modified,
