@@ -225,19 +225,14 @@ type Dataset implements Entity {
     status: Status
 
     """
-    Upstream Lineage metadata of the dataset
+    Entities upstream of the given entity
     """
-    upstreamLineage: UpstreamLineage
+    upstreamLineage: EntityRelationships
 
     """
-    Dataset-specific Downstream Lineage - this will not include downstream charts for example
+    Entities downstream of the given entity
     """
-    downstreamLineage: DownstreamLineage @deprecated(reason: "Use `genericDownstreamLineage`.")
-
-    """
-    Generic downstream lineage that includes downstream lineage of all entity types
-    """
-    genericDownstreamLineage: GenericLineage
+    downstreamLineage: EntityRelationships
 
     """
     The structured tags associated with the dataset
@@ -558,7 +553,7 @@ type EntityRelationship {
     entity: Entity
 }
 
-type GenericLineage {
+type EntityRelationships {
     entities: [EntityRelationship]
 }
 
@@ -1350,6 +1345,16 @@ type Dashboard implements Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: EntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: EntityRelationships
 }
 
 type DashboardInfo {
@@ -1458,9 +1463,14 @@ type Chart implements Entity {
     globalTags: GlobalTags
 
     """
-    Generic downstream lineage that includes downstream lineage of all entity types
+    Entities upstream of the given entity
     """
-    genericDownstreamLineage: GenericLineage
+    upstreamLineage: EntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: EntityRelationships
 }
 
 type ChartInfo {
@@ -2019,6 +2029,16 @@ type DataFlow implements Entity {
     Ownership metadata of the flow
     """
     ownership: Ownership
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: EntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: EntityRelationships
 }
 
 type DataFlowInfo {
@@ -2074,6 +2094,16 @@ type DataJob implements Entity {
     Information about a Data processing job
     """
     info: DataJobInfo
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: EntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: EntityRelationships
 }
 
 type DataJobInfo {

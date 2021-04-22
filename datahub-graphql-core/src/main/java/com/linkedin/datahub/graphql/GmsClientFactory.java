@@ -4,9 +4,8 @@ import com.linkedin.chart.client.Charts;
 import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
-import com.linkedin.dataset.client.Lineages;
 import com.linkedin.identity.client.CorpUsers;
-import com.linkedin.lineage.client.GenericDownstreamLineages;
+import com.linkedin.lineage.client.Lineages;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
@@ -44,8 +43,8 @@ public class GmsClientFactory {
     private static Charts _charts;
     private static DataPlatforms _dataPlatforms;
     private static MLModels _mlModels;
-    private static Lineages _lineages;
-    private static GenericDownstreamLineages _genericDownstreamLineages;
+    private static com.linkedin.dataset.client.Lineages _lineages;
+    private static Lineages _Lineages;
     private static Tags _tags;
     private static DataFlows _dataFlows;
     private static DataJobs _dataJobs;
@@ -141,17 +140,6 @@ public class GmsClientFactory {
         return _dataJobs;
     }
 
-    public static Lineages getLineagesClient() {
-        if (_lineages == null) {
-            synchronized (GmsClientFactory.class) {
-                if (_lineages == null) {
-                    _lineages = new Lineages(REST_CLIENT);
-                }
-            }
-        }
-        return _lineages;
-    }
-
     public static Tags getTagsClient() {
         if (_tags == null) {
             synchronized (GmsClientFactory.class) {
@@ -163,14 +151,14 @@ public class GmsClientFactory {
         return _tags;
     }
 
-    public static GenericDownstreamLineages getGenericDownstreamLineagesClient() {
-        if (_genericDownstreamLineages == null) {
+    public static Lineages getLineagesClient() {
+        if (_Lineages == null) {
             synchronized (GmsClientFactory.class) {
-                if (_genericDownstreamLineages == null) {
-                    _genericDownstreamLineages = new GenericDownstreamLineages(REST_CLIENT);
+                if (_Lineages == null) {
+                    _Lineages = new Lineages(REST_CLIENT);
                 }
             }
         }
-        return _genericDownstreamLineages;
+        return _Lineages;
     }
 }
