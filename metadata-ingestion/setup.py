@@ -30,6 +30,7 @@ framework_common = {
     "click>=6.0.0",
     "PyYAML",
     "toml>=0.10.0",
+    "entrypoints",
     "docker",
     "expandvars>=0.6.5",
     "avro-gen3==0.4.3",
