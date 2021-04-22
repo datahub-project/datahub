@@ -43,8 +43,7 @@ public class GmsClientFactory {
     private static Charts _charts;
     private static DataPlatforms _dataPlatforms;
     private static MLModels _mlModels;
-    private static com.linkedin.dataset.client.Lineages _lineages;
-    private static Lineages _Lineages;
+    private static Lineages _lineages;
     private static Tags _tags;
     private static DataFlows _dataFlows;
     private static DataJobs _dataJobs;
@@ -141,14 +140,14 @@ public class GmsClientFactory {
     }
 
     public static Lineages getLineagesClient() {
-        if (_Lineages == null) {
+        if (_lineages == null) {
             synchronized (GmsClientFactory.class) {
-                if (_Lineages == null) {
-                    _Lineages = new Lineages(REST_CLIENT);
+                if (_lineages == null) {
+                    _lineages = new Lineages(REST_CLIENT);
                 }
             }
         }
-        return _Lineages;
+        return _lineages;
     }
 
     public static Tags getTagsClient() {
