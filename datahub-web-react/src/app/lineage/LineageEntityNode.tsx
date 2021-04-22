@@ -155,9 +155,29 @@ export default function LineageEntityNode({
                         </svg>
                     )
                 )}
-                <text dy=".33em" x={textX} fontSize={16} fontFamily="Arial" textAnchor="start" fill="black">
-                    {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
-                </text>
+                <Group>
+                    <text
+                        dy="-1em"
+                        x={textX}
+                        fontSize={8}
+                        fontFamily="Helvetica Neue"
+                        fontWeight="bold"
+                        textAnchor="start"
+                        fill="#686868"
+                    >
+                        {truncate(node.data.type?.split('.').slice(-1)[0], 16)}
+                    </text>
+                    <text
+                        dy="1em"
+                        x={textX}
+                        fontSize={16}
+                        fontFamily="Arial"
+                        textAnchor="start"
+                        fill={isCenterNode ? '#304D85' : 'black'}
+                    >
+                        {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                    </text>
+                </Group>
                 {unexploredHiddenChildren && isHovered ? (
                     <text
                         dy=".33em"
