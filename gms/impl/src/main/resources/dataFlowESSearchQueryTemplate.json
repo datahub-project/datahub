@@ -1,15 +1,32 @@
 {
   "function_score": {
     "query": {
-      "query_string": {
-        "query": "$INPUT",
-        "fields": [
-          "flowId^4",
-          "orchestrator",
-          "cluster"
-        ],
-        "default_operator": "and",
-        "analyzer": "standard"
+      "bool": {
+        "should": [
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "fields": [
+                "flowId^4",
+                "name^4",
+                "orchestrator",
+                "cluster"
+              ],
+              "default_operator": "and",
+              "analyzer": "lowercase_keyword"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "fields": [
+                "name.delimited"
+              ],
+              "default_operator": "and",
+              "analyzer": "standard"
+            }
+          }
+        ]
       }
     },
     "functions": [

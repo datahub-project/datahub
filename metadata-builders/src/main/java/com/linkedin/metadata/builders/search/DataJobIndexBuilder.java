@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+
 @Slf4j
 public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   public DataJobIndexBuilder() {
@@ -23,12 +24,15 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
 
   @Nonnull
   private static String buildBrowsePath(@Nonnull DataJobUrn urn) {
-    return ("/" + urn.getFlowEntity().getFlowIdEntity() + "/" + urn.getJobIdEntity()).toLowerCase();
+    return ("/" + urn.getFlowEntity().getOrchestratorEntity() + "/" + urn.getFlowEntity().getFlowIdEntity() + "/"
+        + urn.getJobIdEntity()).toLowerCase();
   }
 
   @Nonnull
   private static DataJobDocument setUrnDerivedFields(@Nonnull DataJobUrn urn) {
-    return new DataJobDocument().setUrn(urn).setDataFlow(urn.getFlowEntity().getFlowIdEntity())
+    return new DataJobDocument().setUrn(urn)
+        .setDataFlow(urn.getFlowEntity().getFlowIdEntity())
+        .setOrchestrator(urn.getFlowEntity().getOrchestratorEntity())
         .setJobId(urn.getJobIdEntity())
         .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }

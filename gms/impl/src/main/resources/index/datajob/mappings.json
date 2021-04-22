@@ -70,6 +70,16 @@
         }
       }
     },
+    "orchestrator": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      },
+      "normalizer": "custom_normalizer"
+    },
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
