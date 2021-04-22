@@ -13,10 +13,10 @@ export type Props = {
     description?: string | null;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
-    url?: string | null;
+    externalUrl?: string | null;
 };
 
-export default function DashboardHeader({ platform, description, ownership, url, lastModified }: Props) {
+export default function DashboardHeader({ platform, description, ownership, externalUrl, lastModified }: Props) {
     const entityRegistry = useEntityRegistry();
     return (
         <Space direction="vertical" size={16} style={styles.content}>
@@ -27,7 +27,7 @@ export default function DashboardHeader({ platform, description, ownership, url,
                         {platform}
                     </Typography.Text>
                 </Space>
-                {url && <Button href={url}>View in {platform}</Button>}
+                {externalUrl && <Button href={externalUrl}>View in {platform}</Button>}
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
             <Avatar.Group maxCount={6} size="large">
