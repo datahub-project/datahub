@@ -165,7 +165,8 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#686868"
                     >
-                        {truncate(node.data.type?.split('.').slice(-1)[0], 16)}
+                        {truncate(node.data.type?.split('.').slice(-1)[0], 16)} |{' '}
+                        {truncate(node.data.platform?.toUpperCase(), 16)}
                     </text>
                     <text
                         dy="1em"

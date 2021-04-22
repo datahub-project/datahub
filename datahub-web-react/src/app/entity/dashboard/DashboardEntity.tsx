@@ -90,6 +90,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             upstreamChildren: getChildren(entity, Direction.Upstream),
             downstreamChildren: getChildren(entity, Direction.Downstream),
             icon: getLogoFromPlatform(entity.tool),
+            platform: entity.tool,
         };
     };
 }
