@@ -6,8 +6,11 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
@@ -36,6 +39,12 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
         if (dataJob.hasOwnership()) {
             result.setOwnership(OwnershipMapper.map(dataJob.getOwnership()));
         }
+        if (dataJob.hasStatus()) {
+            result.setStatus(StatusMapper.map(dataJob.getStatus()));
+        }
+        if (dataJob.hasGlobalTags()) {
+            result.setGlobalTags(GlobalTagsMapper.map(dataJob.getGlobalTags()));
+        }
         return result;
     }
 
@@ -43,7 +52,12 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
         final DataJobInfo result = new DataJobInfo();
         result.setName(info.getName());
         result.setDescription(info.getDescription());
-
+        if (info.hasExternalUrl()) {
+            result.setExternalUrl(info.getExternalUrl().toString());
+        }
+        if (info.hasCustomProperties()) {
+            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
+        }
         return result;
     }
 

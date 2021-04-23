@@ -86,6 +86,16 @@
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
+    },
+    "tags": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
     }
   }
 }

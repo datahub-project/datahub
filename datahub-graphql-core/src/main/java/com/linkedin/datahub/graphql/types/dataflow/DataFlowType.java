@@ -8,13 +8,16 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataFlowUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowMapper;
+import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
@@ -22,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datajob.client.DataFlows;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -35,7 +39,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 
-public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow> {
+public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "flowId";
@@ -53,6 +57,11 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     @Override
     public Class<DataFlow> objectClass() {
         return DataFlow.class;
+    }
+
+    @Override
+    public Class<DataFlowUpdateInput> inputClass() {
+        return DataFlowUpdateInput.class;
     }
 
     @Override
@@ -136,5 +145,18 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
         final StringArray result = _dataFlowsClient.getBrowsePaths(DataFlowUrn.createFromString(urn));
         return BrowsePathsMapper.map(result);
+    }
+
+    @Override
+    public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input);
+
+        try {
+            _dataFlowsClient.update(DataFlowUrn.createFromString(input.getUrn()), partialDataFlow);
+        } catch (RemoteInvocationException e) {
+            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+        }
+
+        return load(input.getUrn(), context);
     }
 }

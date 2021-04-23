@@ -10,7 +10,8 @@
                 "flowId^4",
                 "name^4",
                 "orchestrator",
-                "cluster"
+                "cluster",
+                "tags"
               ],
               "default_operator": "and",
               "analyzer": "lowercase_keyword"
@@ -20,7 +21,8 @@
             "query_string": {
               "query": "$INPUT",
               "fields": [
-                "name.delimited"
+                "name.delimited",
+                "tags.ngram^0.1"
               ],
               "default_operator": "and",
               "analyzer": "standard"

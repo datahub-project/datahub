@@ -70,4 +70,8 @@ record DataJobDocument includes BaseDocument {
    */
   orchestrator: optional string
 
+  /**
+   * List of tags for this dataset
+   */
+  tags: optional array[string]
 }
