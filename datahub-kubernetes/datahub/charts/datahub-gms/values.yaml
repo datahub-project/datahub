@@ -1,11 +1,11 @@
-# Default values for datahub-mce-consumer.
+# Default values for datahub-gms.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: linkedin/datahub-mce-consumer
+  repository: linkedin/datahub-gms
   pullPolicy: Always
   tag: latest
 
@@ -37,8 +37,7 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: ClusterIP
-  port: 80
+  type: LoadBalancer #ClusterIP
 
 ingress:
   enabled: false
@@ -137,23 +136,48 @@ exporters:
 livenessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 4
+  failureThreshold: 8
 
 readinessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 4
+  failureThreshold: 8
 
+#This section is useful if we are installing this chart separately for testing
+# helm install datahub-gms datahub-gms/
 global:
+  elasticsearch:
+    host: "elasticsearch"
+    port: "9200"
+
   kafka:
     bootstrap:
-      server: "broker:29092"
+      server: "broker:9092"
     schemaregistry:
       url: "http://schema-registry:8081"
+
+  neo4j:
+    host: "neo4j:7474"
+    uri: "bolt://neo4j"
+    username: "neo4j"
+    password:
+      secretRef: "neo4j-secrets"
+      secretKey: "neo4j-password"
+
+  sql:
+    datasource:
+      host: "mysql:3306"
+      url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
+      driver: "com.mysql.jdbc.Driver"
+      username: "datahub"
+      password:
+        secretRef: "mysql-secrets"
+        secretKey: "mysql-password"
 
   datahub:
     gms:
       port: "8080"
+    appVersion: "1.0"
 
   hostAliases:
     - ip: "192.168.0.104"
