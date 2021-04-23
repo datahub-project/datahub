@@ -20,10 +20,10 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
         update(cache, { data: newDataFlow }) {
             cache.modify({
                 fields: {
-                    chart() {
+                    dataFlow() {
                         cache.writeQuery({
                             query: GetDataFlowDocument,
-                            data: { dataJob: { ...newDataFlow?.updateDataFlow } },
+                            data: { dataFlow: { ...newDataFlow?.updateDataFlow } },
                         });
                     },
                 },

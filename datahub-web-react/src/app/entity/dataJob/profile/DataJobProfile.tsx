@@ -20,7 +20,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
         update(cache, { data: newDataJob }) {
             cache.modify({
                 fields: {
-                    chart() {
+                    dataJob() {
                         cache.writeQuery({
                             query: GetDataJobDocument,
                             data: { dataJob: { ...newDataJob?.updateDataJob } },
