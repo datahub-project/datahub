@@ -39,10 +39,28 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                 }
             }
             ... on DataJob {
-                ...dataJobFields
+                urn
+                type
+                dataFlow {
+                    urn
+                    type
+                    orchestrator
+                    flowId
+                    cluster
+                }
+                jobId
             }
             ... on Dashboard {
-                ...dashboardFields
+                urn
+                type
+                tool
+                dashboardId
+                info {
+                    externalUrl
+                    name
+                    description
+                    externalUrl
+                }
             }
             ... on Chart {
                 tool
