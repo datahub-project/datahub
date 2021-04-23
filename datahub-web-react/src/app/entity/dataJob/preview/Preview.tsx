@@ -2,6 +2,7 @@ import React from 'react';
 import { EntityType, GlobalTags, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export const Preview = ({
     urn,
@@ -23,14 +24,14 @@ export const Preview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    console.log('heres a description');
+    const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
             url={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
             name={name}
             description={description || ''}
             type="Data Task"
-            platform={platformName.charAt(0).toUpperCase() + platformName.slice(1)}
+            platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
             owners={
                 owners?.map((owner) => {

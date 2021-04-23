@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { DataJob, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import defaultAvatar from '../../../../images/default_avatar.png';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export type Props = {
     dataJob: DataJob;
@@ -11,7 +12,7 @@ export type Props = {
 
 export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }: Props) {
     const entityRegistry = useEntityRegistry();
-    const platformName = dataFlow.orchestrator.charAt(0).toUpperCase() + dataFlow.orchestrator.slice(1);
+    const platformName = capitalizeFirstLetter(dataFlow.orchestrator);
 
     return (
         <>
@@ -20,8 +21,12 @@ export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }
                     <Space split={<Divider type="vertical" />}>
                         <Typography.Text>Data Task</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
+                        {info?.externalUrl && (
+                            <Button onClick={() => window.open(info?.externalUrl || undefined, '_blank')}>
+                                View in {platformName}
+                            </Button>
+                        )}
                     </Space>
-                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {platformName}</Button>}
                 </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

@@ -3,14 +3,11 @@ import React from 'react';
 import { AuditStamp, ChartType, EntityType, Ownership } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 const styles = {
     content: { width: '100%' },
 };
-
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
 
 export type Props = {
     platform: string;
@@ -34,7 +31,11 @@ export default function ChartHeader({ platform, description, ownership, external
                     <Typography.Text strong type="secondary">
                         {capitalizeFirstLetter(platform.toLowerCase())}
                     </Typography.Text>
-                    {externalUrl && <Button href={externalUrl}>View in {capitalizeFirstLetter(platform)}</Button>}
+                    {externalUrl && (
+                        <Button onClick={() => window.open(externalUrl || undefined, '_blank')}>
+                            View in {capitalizeFirstLetter(platform)}
+                        </Button>
+                    )}
                 </Space>
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
