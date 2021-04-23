@@ -5,7 +5,7 @@ import dateutil.parser
 from airflow.lineage.backend import LineageBackend
 
 import datahub.emitter.mce_builder as builder
-import datahub.metadata as models
+import datahub.metadata.schema_classes as models
 
 if TYPE_CHECKING:
     from airflow import DAG

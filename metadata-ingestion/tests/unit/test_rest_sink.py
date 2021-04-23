@@ -3,7 +3,7 @@ import json
 import pytest
 import requests
 
-import datahub.metadata as models
+import datahub.metadata.schema_classes as models
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
