@@ -59,7 +59,6 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                     externalUrl
                     name
                     description
-                    externalUrl
                 }
             }
             ... on Chart {
