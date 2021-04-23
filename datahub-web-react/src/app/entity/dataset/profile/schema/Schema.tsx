@@ -22,7 +22,7 @@ import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated'
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
 
-const MAX_FIELDPATH_LENGTH = 100;
+const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
@@ -58,14 +58,17 @@ const defaultColumns = [
         key: 'fieldPath',
         width: 192,
         render: (fieldPath: string) => {
+            if (!fieldPath.includes('.')) {
+                return <Typography.Text strong>{fieldPath}</Typography.Text>;
+            }
             let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
-            const isOverflow = fieldPath.length > MAX_FIELDPATH_LENGTH;
+            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
             if (isOverflow) {
-                if (lastPath.length >= MAX_FIELDPATH_LENGTH) {
-                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELDPATH_LENGTH)}`;
+                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
+                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
                     firstPath = '';
                 } else {
-                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELDPATH_LENGTH);
+                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
                     if (firstPath.includes('.')) {
                         firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
                     } else {
@@ -255,12 +258,17 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                     </pre>
                 </Typography.Text>
             ) : (
-                <Table
-                    pagination={false}
-                    columns={[...defaultColumns, descriptionColumn, tagColumn]}
-                    dataSource={rows}
-                    rowKey="fieldPath"
-                />
+                rows.length > 0 && (
+                    <Table
+                        columns={[...defaultColumns, descriptionColumn, tagColumn]}
+                        dataSource={rows}
+                        rowKey="fieldPath"
+                        expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
+                        defaultExpandAllRows
+                        expandRowByClick
+                        pagination={false}
+                    />
+                )
             )}
         </>
     );
