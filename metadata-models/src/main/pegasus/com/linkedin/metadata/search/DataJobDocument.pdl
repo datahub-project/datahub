@@ -65,4 +65,13 @@ record DataJobDocument includes BaseDocument {
    */
   outputs: optional array[DatasetUrn]
 
+  /**
+   * Workflow orchestrator ex: Azkaban, Airflow
+   */
+  orchestrator: optional string
+
+  /**
+   * List of tags for this dataset
+   */
+  tags: optional array[string]
 }

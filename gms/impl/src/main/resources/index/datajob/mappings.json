@@ -70,6 +70,16 @@
         }
       }
     },
+    "orchestrator": {
+      "type": "keyword",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      },
+      "normalizer": "custom_normalizer"
+    },
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
@@ -81,6 +91,16 @@
     "outputs": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
+    },
+    "tags": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
     }
   }
 }

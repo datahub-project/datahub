@@ -15,6 +15,7 @@ type LineageTreeProps = {
     canvasHeight: number;
     canvasWidth: number;
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
     margin: TreeProps['margin'];
@@ -28,6 +29,7 @@ export default function LineageTree({
     canvasWidth,
     canvasHeight,
     onEntityClick,
+    onEntityCenter,
     onLineageExpand,
     selectedEntity,
     direction,
@@ -68,6 +70,7 @@ export default function LineageTree({
                     margin={margin}
                     canvasHeight={canvasHeight}
                     onEntityClick={onEntityClick}
+                    onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
                     selectedEntity={selectedEntity}
                     direction={direction}

@@ -59,6 +59,15 @@ const client = new ApolloClient({
             Chart: {
                 keyFields: ['urn'],
             },
+            DataFlow: {
+                keyFields: ['urn'],
+            },
+            DataJob: {
+                keyFields: ['urn'],
+            },
+        },
+        possibleTypes: {
+            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob'],
         },
     }),
     credentials: 'include',

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.datajob.DataJobInfo;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+
 @Slf4j
 public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   public DataJobIndexBuilder() {
@@ -23,12 +25,15 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
 
   @Nonnull
   private static String buildBrowsePath(@Nonnull DataJobUrn urn) {
-    return ("/" + urn.getFlowEntity().getFlowIdEntity() + "/" + urn.getJobIdEntity()).toLowerCase();
+    return ("/" + urn.getFlowEntity().getOrchestratorEntity() + "/" + urn.getFlowEntity().getFlowIdEntity() + "/"
+        + urn.getJobIdEntity()).toLowerCase();
   }
 
   @Nonnull
   private static DataJobDocument setUrnDerivedFields(@Nonnull DataJobUrn urn) {
-    return new DataJobDocument().setUrn(urn).setDataFlow(urn.getFlowEntity().getFlowIdEntity())
+    return new DataJobDocument().setUrn(urn)
+        .setDataFlow(urn.getFlowEntity().getFlowIdEntity())
+        .setOrchestrator(urn.getFlowEntity().getOrchestratorEntity())
         .setJobId(urn.getJobIdEntity())
         .setBrowsePaths(new StringArray(Collections.singletonList(buildBrowsePath(urn))));
   }
@@ -63,6 +68,16 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   }
 
   @Nonnull
+  private DataJobDocument getDocumentToUpdateFromAspect(@Nonnull DataJobUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return new DataJobDocument().setUrn(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DataJobDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DataJobSnapshot snapshot) {
     DataJobUrn urn = snapshot.getUrn();
     final List<DataJobDocument> documents = snapshot.getAspects().stream().map(aspect -> {
@@ -72,6 +87,8 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getDataJobInputOutput());
       } else if (aspect.isOwnership()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());

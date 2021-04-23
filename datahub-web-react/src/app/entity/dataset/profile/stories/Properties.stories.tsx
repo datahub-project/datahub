@@ -2,7 +2,7 @@ import React from 'react';
 import { Story, Meta } from '@storybook/react';
 
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import Properties, { Props } from '../Properties';
+import { Properties, Props } from '../../../shared/Properties';
 import { sampleProperties } from './properties';
 
 export default {

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useGetChartQuery } from '../../../graphql/chart.generated';
 import { useGetDashboardQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetQuery } from '../../../graphql/dataset.generated';
+import { useGetDataJobQuery } from '../../../graphql/dataJob.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
@@ -18,6 +19,10 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         [EntityType.Dashboard]: useGetDashboardQuery({
             variables: { urn },
             skip: entityType !== EntityType.Dashboard,
+        }),
+        [EntityType.DataJob]: useGetDataJobQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.DataJob,
         }),
     };
 
@@ -51,6 +56,15 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.DataJob:
+                returnData = allResults[EntityType.DataJob]?.data?.dataJob;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.DataJob,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
@@ -65,6 +79,8 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Chart],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.Dashboard],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.DataJob],
     ]);
 
     const returnObject = useMemo(() => {
@@ -92,6 +108,8 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Chart],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.Dashboard],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.DataJob],
     ]);
 
     return returnObject;

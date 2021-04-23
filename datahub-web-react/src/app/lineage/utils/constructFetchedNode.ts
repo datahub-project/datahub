@@ -31,6 +31,7 @@ export default function constructFetchedNode(
             countercurrentChildrenUrns:
                 fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren'],
             children: [],
+            platform: fetchedNode?.platform,
         };
 
         // eslint-disable-next-line no-param-reassign

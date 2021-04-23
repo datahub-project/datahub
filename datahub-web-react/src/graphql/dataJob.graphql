@@ -1,25 +1,23 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
-        urn
-        type
-        dataFlow {
-            ...nonRecursiveDataFlowFields
+        ...dataJobFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
         }
-        jobId
-        ownership {
-            ...ownershipFields
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
-        inputOutput {
-            inputDatasets {
-                ...nonRecursiveDatasetFields
-            }
-            outputDatasets {
-                ...nonRecursiveDatasetFields
-            }
+    }
+}
+
+mutation updateDataJob($input: DataJobUpdateInput!) {
+    updateDataJob(input: $input) {
+        ...dataJobFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
         }
-        info {
-            name
-            description
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

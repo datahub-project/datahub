@@ -10,12 +10,19 @@ interface Props {
     type: EntityType;
     children: React.ReactNode;
     lineageSupported?: boolean;
+    isBrowsable?: boolean;
 }
 
 /**
  * A entity-details page that includes a search header & entity browse path view
  */
-export const BrowsableEntityPage = ({ urn: _urn, type: _type, children: _children, lineageSupported }: Props) => {
+export const BrowsableEntityPage = ({
+    urn: _urn,
+    type: _type,
+    children: _children,
+    lineageSupported,
+    isBrowsable,
+}: Props) => {
     const { data } = useGetBrowsePathsQuery({ variables: { input: { urn: _urn, type: _type } } });
 
     return (
@@ -27,6 +34,7 @@ export const BrowsableEntityPage = ({ urn: _urn, type: _type, children: _childre
                         path={data.browsePaths[0].path}
                         lineageSupported={lineageSupported}
                         isProfilePage
+                        isBrowsable={isBrowsable}
                     />
                 </Affix>
             )}

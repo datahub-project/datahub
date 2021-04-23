@@ -1,9 +1,12 @@
 import * as React from 'react';
-import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
+import { ConsoleSqlOutlined } from '@ant-design/icons';
 import { DataJob, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { DataJobProfile } from './profile/DataJobProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import getChildren from '../../lineage/utils/getChildren';
+import { Direction } from '../../lineage/types';
+import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -11,24 +14,17 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
-    // TODO: add job specific icons
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DatabaseOutlined style={{ fontSize }} />;
+            return <ConsoleSqlOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: '#B37FEB' }} />;
-        }
-
-        if (styleType === IconStyleType.SVG) {
-            return (
-                <path d="M342 88H120c-17.7 0-32 14.3-32 32v224c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16V168h174c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16zm578 576h-48c-8.8 0-16 7.2-16 16v176H682c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h222c17.7 0 32-14.3 32-32V680c0-8.8-7.2-16-16-16zM342 856H168V680c0-8.8-7.2-16-16-16h-48c-8.8 0-16 7.2-16 16v224c0 17.7 14.3 32 32 32h222c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16zM904 88H682c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h174v176c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16V120c0-17.7-14.3-32-32-32z" />
-            );
+            return <ConsoleSqlOutlined style={{ fontSize, color: '#B37FEB' }} />;
         }
 
         return (
-            <DatabaseFilled
+            <ConsoleSqlOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',
@@ -37,40 +33,64 @@ export class DataJobEntity implements Entity<DataJob> {
         );
     };
 
-    isSearchEnabled = () => false;
+    isSearchEnabled = () => true;
 
     isBrowseEnabled = () => false;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'datajob';
+    getPathName = () => 'tasks';
 
-    getCollectionName = () => 'DataJobs';
+    getCollectionName = () => 'Tasks';
 
     renderProfile = (urn: string) => <DataJobProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: DataJob) => {
+        const platformName = data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1);
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description || ''}
+                description={data.info?.description}
+                platformName={platformName}
+                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator)}
                 owners={data.ownership?.owners}
+                globalTags={data.globalTags || null}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
+        const platformName = data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1);
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description || ''}
+                description={data.info?.description}
+                platformName={platformName}
+                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator)}
                 owners={data.ownership?.owners}
+                globalTags={data.globalTags}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataJob) => {
+        return {
+            urn: entity.urn,
+            name: entity.info?.name || '',
+            type: EntityType.DataJob,
+            upstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Upstream).map(
+                (child) => child.entity.urn,
+            ),
+            downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream).map(
+                (child) => child.entity.urn,
+            ),
+            icon: getLogoFromPlatform(entity.dataFlow.orchestrator),
+            platform: entity.dataFlow.orchestrator,
+        };
     };
 }

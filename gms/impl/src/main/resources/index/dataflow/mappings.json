@@ -34,7 +34,7 @@
       "fields": {
         "ngram": {
           "type": "text",
-          "analyzer": "custom_ngram"
+          "analyzer": "delimit_edgengram"
         }
       },
       "normalizer": "custom_normalizer"
@@ -86,6 +86,16 @@
     "urn": {
       "type": "keyword",
       "normalizer": "custom_normalizer"
+    },
+    "tags": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
     }
   }
 }
