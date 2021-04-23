@@ -86,6 +86,8 @@ class SupersetConfig(ConfigModel):
 
 
 def get_metric_name(metric):
+    if not metric:
+        return ''
     if isinstance(metric, str):
         return metric
     label = metric.get("label")
@@ -277,7 +279,7 @@ class SupersetSource(Source):
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)
 
         params = json.loads(chart_data.get("params"))
-        metrics = [get_metric_name(metric) for metric in params.get("metrics", [])]
+        metrics = [get_metric_name(metric) for metric in (params.get("metrics", []) or [params.get('metric')])]
         filters = [
             get_filter_name(filter_obj)
             for filter_obj in params.get("adhoc_filters", [])
@@ -287,9 +289,9 @@ class SupersetSource(Source):
             group_bys = [group_bys]
 
         custom_properties = {
-            "metrics": ",".join(metrics),
-            "filters": ",".join(filters),
-            "group_bys": ",".join(group_bys),
+            "Metrics": ", ".join(metrics),
+            "Filters": ", ".join(filters),
+            "Dimensions": ", ".join(group_bys),
         }
 
         chart_info = ChartInfoClass(
