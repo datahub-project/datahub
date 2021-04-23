@@ -16,7 +16,7 @@ helm install datahub datahub/
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | datahub-frontend.enabled | bool | `true` | Enable Datahub Front-end |
-| datahub-frontend.image.repository | string | `"linkedin/datahub-frontend"` | Image repository for datahub-frontend |
+| datahub-frontend.image.repository | string | `"linkedin/datahub-frontend-react"` | Image repository for datahub-frontend |
 | datahub-frontend.image.tag | string | `"latest"` | Image tag for datahub-frontend |
 | datahub-gms.enabled | bool | `true` | Enable GMS |
 | datahub-gms.image.repository | string | `"linkedin/datahub-gms"` | Image repository for datahub-gms |
