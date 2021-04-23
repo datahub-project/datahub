@@ -21,7 +21,7 @@ export default function DataFlowHeader({ dataFlow: { ownership, info, orchestrat
                         <Typography.Text>Data Pipeline</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
                     </Space>
-                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {orchestrator}</Button>}
+                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {platformName}</Button>}
                 </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

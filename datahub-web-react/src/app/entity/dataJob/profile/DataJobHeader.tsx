@@ -21,7 +21,7 @@ export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }
                         <Typography.Text>Data Task</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
                     </Space>
-                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {dataFlow.orchestrator}</Button>}
+                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {platformName}</Button>}
                 </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

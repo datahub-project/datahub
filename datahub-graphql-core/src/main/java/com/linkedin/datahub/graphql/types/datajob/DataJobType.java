@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -150,7 +151,9 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
     @Override
     public DataJob update(@Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input);
+
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+        final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input, actor);
 
         try {
             _dataJobsClient.update(DataJobUrn.createFromString(input.getUrn()), partialDataJob);
