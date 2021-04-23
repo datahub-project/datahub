@@ -88,7 +88,7 @@ public class RestHighLevelClientFactory {
         .setHttpClientConfigCallback(httpAsyncClientBuilder -> {
           HttpAsyncClientBuilder clientBuilder = httpAsyncClientBuilder.setDefaultIOReactorConfig(
               IOReactorConfig.custom().setIoThreadCount(threadCount).build());
-          if(useAwsAuth) httpAsyncClientBuilder.addInterceptorLast(getAwsAuthInterceptor());
+          if (useAwsAuth) httpAsyncClientBuilder.addInterceptorLast(getAwsAuthInterceptor());
           return clientBuilder;
         });
 
@@ -115,7 +115,7 @@ public class RestHighLevelClientFactory {
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
         }
 
-        if(useAwsAuth) {
+        if (useAwsAuth) {
           httpAsyncClientBuilder.addInterceptorLast(getAwsAuthInterceptor());
         }
 
