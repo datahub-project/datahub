@@ -6,7 +6,8 @@ set -euxo pipefail
 pytest --basetemp=tmp || true
 
 # Update the golden files.
-cp tmp/test_serde_large0/output.json tests/unit/serde/test_serde_large.json
+cp tmp/test_serde_to_json_tests_unit_0/output.json tests/unit/serde/test_serde_large.json
+cp tmp/test_serde_to_json_tests_unit_1/output.json tests/unit/serde/test_serde_chart_snapshot.json
 cp tmp/test_ldap_ingest0/ldap_mces.json tests/integration/ldap/ldap_mce_golden.json
 cp tmp/test_mysql_ingest0/mysql_mces.json tests/integration/mysql/mysql_mce_golden.json
 cp tmp/test_mssql_ingest0/mssql_mces.json tests/integration/sql_server/mssql_mce_golden.json

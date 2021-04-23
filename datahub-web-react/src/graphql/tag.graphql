@@ -4,29 +4,7 @@ query getTag($urn: String!) {
         name
         description
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
     }
 }
@@ -37,29 +15,7 @@ mutation updateTag($input: TagUpdate!) {
         name
         description
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
     }
 }

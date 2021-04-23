@@ -2,22 +2,11 @@ import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
+import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getLogoFromPlatform } from './getLogoFromPlatform';
+import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
-
-export default function getChildren(entity: Chart, direction: Direction | null): Array<string> {
-    if (direction === Direction.Upstream) {
-        return entity.info?.inputs?.map((input) => input.urn) || [];
-    }
-
-    if (direction === Direction.Downstream) {
-        return [];
-    }
-
-    return [];
-}
 
 /**
  * Definition of the DataHub Chart entity.
@@ -87,9 +76,14 @@ export class ChartEntity implements Entity<Chart> {
             urn: entity.urn,
             name: entity.info?.name || '',
             type: EntityType.Chart,
-            upstreamChildren: getChildren(entity, Direction.Upstream),
-            downstreamChildren: getChildren(entity, Direction.Downstream),
+            upstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Upstream).map(
+                (child) => child.entity.urn,
+            ),
+            downstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Downstream).map(
+                (child) => child.entity.urn,
+            ),
             icon: getLogoFromPlatform(entity.tool),
+            platform: entity.tool,
         };
     };
 }

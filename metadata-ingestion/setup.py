@@ -30,9 +30,10 @@ framework_common = {
     "click>=6.0.0",
     "PyYAML",
     "toml>=0.10.0",
+    "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.4.1",
+    "avro-gen3==0.4.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
 }
@@ -73,6 +74,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "superset": {"requests"},
     "glue": {"boto3"},
 }
 
@@ -89,12 +91,15 @@ dev_requirements = {
     "pytest-docker",
     "sqlalchemy-stubs",
     "deepdiff",
+    "requests-mock",
     "freezegun",
     "build",
     "twine",
     # Also add the plugins which are used for tests.
-    "apache-airflow==1.10.15",  # Airflow 2.x does not have LineageBackend packaged yet.
+    "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
+    # "apache-airflow>=2.0.2",
+    # "apache-airflow-providers-snowflake",
     *list(
         dependency
         for plugin in [
@@ -177,6 +182,7 @@ setuptools.setup(
             "oracle = datahub.ingestion.source.oracle:OracleSource",
             "postgres = datahub.ingestion.source.postgres:PostgresSource",
             "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+            "superset = datahub.ingestion.source.superset:SupersetSource",
         ],
         "datahub.ingestion.sink.plugins": [
             "file = datahub.ingestion.sink.file:FileSink",

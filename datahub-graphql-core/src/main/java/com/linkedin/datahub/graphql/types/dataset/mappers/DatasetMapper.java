@@ -41,6 +41,9 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         partialPlatform.setUrn(dataset.getPlatform().toString());
         result.setPlatform(partialPlatform);
 
+        if (dataset.hasExternalUrl()) {
+            result.setExternalUrl(dataset.getExternalUrl().toString());
+        }
         if (dataset.hasSchemaMetadata()) {
             result.setSchema(SchemaMetadataMapper.map(dataset.getSchemaMetadata()));
         }
@@ -67,9 +70,6 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         }
         if (dataset.hasStatus()) {
             result.setStatus(StatusMapper.map(dataset.getStatus()));
-        }
-        if (dataset.hasUpstreamLineage()) {
-            result.setUpstreamLineage(UpstreamLineageMapper.map(dataset.getUpstreamLineage()));
         }
         if (dataset.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(dataset.getGlobalTags()));

@@ -261,6 +261,7 @@ source:
     username: user
     password: pass
     host_port: account_name
+    database: db_name
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -570,6 +571,8 @@ airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --c
 ```
 
 ### Using Datahub's Airflow lineage backend
+
+_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
 
 1. First, you must configure the Airflow hooks. See above for details.
 2. Add the following lines to your `airflow.cfg` file. You might need to

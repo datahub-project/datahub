@@ -21,47 +21,16 @@ query getChart($urn: String!) {
                 platformNativeType
                 tags
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
                 }
                 downstreamLineage {
-                    downstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
+                    ...downstreamRelationshipFields
                 }
                 upstreamLineage {
-                    upstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
+                    ...upstreamRelationshipFields
                 }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
@@ -71,44 +40,26 @@ query getChart($urn: String!) {
             created {
                 time
             }
+            customProperties {
+                key
+                value
+            }
         }
         query {
             rawQuery
             type
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }
@@ -136,31 +87,16 @@ mutation updateChart($input: ChartUpdateInput!) {
                 platformNativeType
                 tags
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
+                }
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
                 }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
@@ -170,44 +106,26 @@ mutation updateChart($input: ChartUpdateInput!) {
             created {
                 time
             }
+            customProperties {
+                key
+                value
+            }
         }
         query {
             rawQuery
             type
         }
         ownership {
-            owners {
-                owner {
-                    urn
-                    type
-                    username
-                    info {
-                        active
-                        displayName
-                        title
-                        email
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-                type
-            }
-            lastModified {
-                time
-            }
+            ...ownershipFields
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

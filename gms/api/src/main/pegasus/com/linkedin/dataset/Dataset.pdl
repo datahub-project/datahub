@@ -6,6 +6,7 @@ import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.Uri
+import com.linkedin.common.Url
 import com.linkedin.common.VersionTag
 import com.linkedin.schema.SchemaMetadata
 import com.linkedin.schema.EditableSchemaMetadata
@@ -122,4 +123,9 @@ record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
    * List of global tags applied to the dataset
    */
   globalTags: optional GlobalTags
+
+  /**
+   * External URL associated with the dataset
+   */
+   externalUrl: optional Url
 }
