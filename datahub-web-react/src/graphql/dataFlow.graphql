@@ -1,22 +1,3 @@
-fragment dataFlowFields on DataFlow {
-    urn
-    type
-    orchestrator
-    flowId
-    cluster
-    info {
-        name
-        description
-        project
-    }
-    ownership {
-        ...ownershipFields
-    }
-    globalTags {
-        ...globalTagsFields
-    }
-}
-
 query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
