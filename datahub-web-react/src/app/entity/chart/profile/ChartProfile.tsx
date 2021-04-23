@@ -53,11 +53,6 @@ export default function ChartProfile({ urn }: { urn: string }) {
     const getTabs = ({ ownership, info }: Chart) => {
         return [
             {
-                name: TabType.Properties,
-                path: TabType.Properties.toLowerCase(),
-                content: <PropertiesView properties={info?.customProperties || []} />,
-            },
-            {
                 name: TabType.Sources,
                 path: TabType.Sources.toLowerCase(),
                 content: <ChartSources datasets={info?.inputs || []} />,
@@ -73,10 +68,13 @@ export default function ChartProfile({ urn }: { urn: string }) {
                     />
                 ),
             },
+            {
+                name: TabType.Properties,
+                path: TabType.Properties.toLowerCase(),
+                content: <PropertiesView properties={info?.customProperties || []} />,
+            },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
-
-    console.log(data?.chart);
 
     return (
         <>
