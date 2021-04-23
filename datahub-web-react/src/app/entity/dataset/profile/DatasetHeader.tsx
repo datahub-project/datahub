@@ -6,6 +6,7 @@ import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 import CompactContext from '../../../shared/CompactContext';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 type DescriptionTextProps = ParagraphProps & {
     isCompact: boolean;
@@ -27,7 +28,7 @@ export type Props = {
 export default function DatasetHeader({ dataset: { description, ownership, deprecation, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
-    const platformName = platform?.name.charAt(0).toUpperCase() + platform?.name.slice(1);
+    const platformName = capitalizeFirstLetter(platform.name);
 
     return (
         <>

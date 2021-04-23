@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { DataFlow, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import defaultAvatar from '../../../../images/default_avatar.png';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export type Props = {
     dataFlow: DataFlow;
@@ -11,7 +12,7 @@ export type Props = {
 
 export default function DataFlowHeader({ dataFlow: { ownership, info, orchestrator } }: Props) {
     const entityRegistry = useEntityRegistry();
-    const platformName = orchestrator.charAt(0).toUpperCase() + orchestrator.slice(1);
+    const platformName = capitalizeFirstLetter(orchestrator);
 
     return (
         <>
@@ -20,8 +21,12 @@ export default function DataFlowHeader({ dataFlow: { ownership, info, orchestrat
                     <Space split={<Divider type="vertical" />}>
                         <Typography.Text>Data Pipeline</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
+                        {info?.externalUrl && (
+                            <Button onClick={() => window.open(info?.externalUrl || undefined, '_blank')}>
+                                View in {platformName}
+                            </Button>
+                        )}
                     </Space>
-                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {platformName}</Button>}
                 </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">

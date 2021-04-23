@@ -3,6 +3,7 @@ import { AccessLevel, EntityType, GlobalTags, Owner } from '../../../../types.ge
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
 export const ChartPreview = ({
     urn,
@@ -22,6 +23,7 @@ export const ChartPreview = ({
     tags?: GlobalTags;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     return (
         <DefaultPreviewCard
@@ -30,7 +32,7 @@ export const ChartPreview = ({
             description={description || ''}
             type="Chart"
             logoUrl={getLogoFromPlatform(platform) || ''}
-            platform={platform}
+            platform={capitalizedPlatform}
             qualifier={access}
             tags={tags}
             owners={
