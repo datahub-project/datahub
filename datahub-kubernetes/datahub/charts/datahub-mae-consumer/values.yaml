@@ -1,13 +1,13 @@
-# Default values for datahub-frontend.
+# Default values for datahub-mae-consumer.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: linkedin/datahub-frontend
-  tag: "latest"
+  repository: linkedin/datahub-mae-consumer
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -37,8 +37,8 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: LoadBalancer
-  port: 9002
+  type: ClusterIP
+  port: 80
 
 ingress:
   enabled: false
@@ -48,7 +48,6 @@ ingress:
   hosts:
     - host: chart-example.local
       paths: []
-      redirectPaths: []
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
@@ -59,7 +58,7 @@ ingress:
 # syntax here
 extraEnvs: []
   # - name: MY_ENVIRONMENT_VAR
- #   value: the_value_goes_here
+  #   value: the_value_goes_here
 
 extraVolumes: []
   # - name: extras
@@ -102,7 +101,6 @@ exporters:
 #      pullPolicy: IfNotPresent
 #    config:
 #      lowercaseOutputName: true
-#      lowercaseOutputLabelNames: true
 #      rules:
 #        - pattern: ".*"
 #      startDelaySeconds: 30
@@ -139,20 +137,36 @@ exporters:
 livenessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 4
+  failureThreshold: 8
 
 readinessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 4
+  failureThreshold: 8
 
-datahub:
-  play:
-    mem:
-      buffer:
-        size: "10MB"
 global:
-  datahub:
-    gms:
-      port: "8080"
-    appVersion: "1.0"
+  elasticsearch:
+    host: "elasticsearch"
+    port: "9200"
+
+  kafka:
+    bootstrap:
+      server: "broker:9092"
+    schemaregistry:
+      url: "http://schema-registry:8081"
+
+  neo4j:
+    host: "neo4j:7474"
+    uri: "bolt://neo4j"
+    username: "neo4j"
+    password:
+      secretRef: "neo4j-secrets"
+      secretKey: "neo4j-password"
+
+  hostAliases:
+    - ip: "192.168.0.104"
+      hostnames:
+        - "broker"
+        - "mysql"
+        - "elasticsearch"
+        - "neo4j"

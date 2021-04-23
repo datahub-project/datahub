@@ -1,13 +1,13 @@
-# Default values for datahub-gms.
+# Default values for datahub-frontend.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: linkedin/datahub-gms
+  repository: linkedin/datahub-frontend-react
+  tag: "latest"
   pullPolicy: Always
-  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -37,7 +37,8 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  type: LoadBalancer #ClusterIP
+  type: LoadBalancer
+  port: 9002
 
 ingress:
   enabled: false
@@ -47,6 +48,7 @@ ingress:
   hosts:
     - host: chart-example.local
       paths: []
+      redirectPaths: []
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
@@ -57,7 +59,7 @@ ingress:
 # syntax here
 extraEnvs: []
   # - name: MY_ENVIRONMENT_VAR
-  #   value: the_value_goes_here
+ #   value: the_value_goes_here
 
 extraVolumes: []
   # - name: extras
@@ -100,6 +102,7 @@ exporters:
 #      pullPolicy: IfNotPresent
 #    config:
 #      lowercaseOutputName: true
+#      lowercaseOutputLabelNames: true
 #      rules:
 #        - pattern: ".*"
 #      startDelaySeconds: 30
@@ -136,53 +139,20 @@ exporters:
 livenessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 8
+  failureThreshold: 4
 
 readinessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 8
+  failureThreshold: 4
 
-#This section is useful if we are installing this chart separately for testing
-# helm install datahub-gms datahub-gms/
+datahub:
+  play:
+    mem:
+      buffer:
+        size: "10MB"
 global:
-  elasticsearch:
-    host: "elasticsearch"
-    port: "9200"
-
-  kafka:
-    bootstrap:
-      server: "broker:29092"
-    schemaregistry:
-      url: "http://schema-registry:8081"
-
-  neo4j:
-    host: "neo4j:7474"
-    uri: "bolt://neo4j"
-    username: "neo4j"
-    password:
-      secretRef: "neo4j-secrets"
-      secretKey: "neo4j-password"
-
-  sql:
-    datasource:
-      host: "mysql:3306"
-      url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
-      driver: "com.mysql.jdbc.Driver"
-      username: "datahub"
-      password:
-        secretRef: "mysql-secrets"
-        secretKey: "mysql-password"
-
   datahub:
     gms:
       port: "8080"
     appVersion: "1.0"
-
-  hostAliases:
-    - ip: "192.168.0.104"
-      hostnames:
-        - "broker"
-        - "mysql"
-        - "elasticsearch"
-        - "neo4j"

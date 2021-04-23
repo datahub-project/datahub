@@ -1,8 +1,8 @@
-{{- if .Values.mysqlSetupJob.enabled -}}
+{{- if .Values.elasticsearchSetupJob.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-mysql-setup-job
+  name: {{ .Release.Name }}-elasticsearch-setup-job
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -21,11 +21,11 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
     {{- end }}
-    {{- with .Values.mysqlSetupJob.serviceAccount }}
+    {{- with .Values.elasticsearchSetupJob.serviceAccount }}
       serviceAccountName: {{ . }}
     {{- end }}
       volumes:
-      {{- with .Values.mysqlSetupJob.extraVolumes }}
+      {{- with .Values.elasticsearchSetupJob.extraVolumes }}
         {{- toYaml . | nindent 8}}
       {{- end }}
       restartPolicy: Never
@@ -33,25 +33,18 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       containers:
-        - name: mysql-setup-job
-          image: "{{ .Values.mysqlSetupJob.image.repository }}:{{ .Values.mysqlSetupJob.image.tag }}"
+        - name: elasticsearch-setup-job
+          image: "{{ .Values.elasticsearchSetupJob.image.repository }}:{{ .Values.elasticsearchSetupJob.image.tag }}"
           env:
-            - name: MYSQL_USERNAME
-              value: {{ .Values.global.sql.datasource.username | quote }}
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .Values.global.sql.datasource.password.secretRef }}"
-                  key: "{{ .Values.global.sql.datasource.password.secretKey }}"
-            - name: MYSQL_HOST
-              value: {{ .Values.global.sql.datasource.hostForMysqlClient | quote }}
-            - name: MYSQL_PORT
-              value: {{ .Values.global.sql.datasource.port | quote }}
-          {{- with .Values.mysqlSetupJob.extraEnvs }}
+            - name: ELASTICSEARCH_HOST
+              value: {{ tpl .Values.global.elasticsearch.host . | quote }}
+            - name: ELASTICSEARCH_PORT
+              value: {{ .Values.global.elasticsearch.port | quote }}
+          {{- with .Values.elasticsearchSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- with .Values.mysqlSetupJob.extraVolumeMounts }}
+          {{- with .Values.elasticsearchSetupJob.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
