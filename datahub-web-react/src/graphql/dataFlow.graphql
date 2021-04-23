@@ -12,10 +12,19 @@ fragment dataFlowFields on DataFlow {
     ownership {
         ...ownershipFields
     }
+    globalTags {
+        ...globalTagsFields
+    }
 }
 
 query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
+        ...dataFlowFields
+    }
+}
+
+mutation updateDataFlow($input: DataFlowUpdateInput!) {
+    updateDataFlow(input: $input) {
         ...dataFlowFields
     }
 }
