@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -18,6 +21,7 @@ import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowMapper;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
@@ -149,7 +153,9 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
 
     @Override
     public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input);
+
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+        final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input, actor);
 
         try {
             _dataFlowsClient.update(DataFlowUrn.createFromString(input.getUrn()), partialDataFlow);

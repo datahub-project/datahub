@@ -25,6 +25,7 @@ export const Preview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const capitalPlatformName = platformName.charAt(0).toUpperCase() + platformName.slice(1);
     return (
         <DefaultPreviewCard
             url={`/${entityRegistry.getPathName(EntityType.Dataset)}/${urn}`}
@@ -32,7 +33,7 @@ export const Preview = ({
             description={description || ''}
             type="Dataset"
             logoUrl={platformLogo || ''}
-            platform={platformName}
+            platform={capitalPlatformName}
             qualifier={origin}
             tags={globalTags || undefined}
             owners={
