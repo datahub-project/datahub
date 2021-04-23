@@ -86,8 +86,8 @@ class DatahubAirflowLineageBackend(LineageBackend):
         for key in task.get_serialized_fields():
             if key not in job_property_bag:
                 job_property_bag[key] = repr(getattr(task, key))
-        operator.log.info(f"{flow_property_bag=}")
-        operator.log.info(f"{job_property_bag=}")
+        # operator.log.info(f"{flow_property_bag=}")
+        # operator.log.info(f"{job_property_bag=}")
 
         timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
         ownership = models.OwnershipClass(
@@ -105,7 +105,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
                 time=timestamp, actor=builder.make_user_urn("airflow")
             ),
         )
-        operator.log.info(f"{ownership=}")
+        # operator.log.info(f"{ownership=}")
 
         tags = models.GlobalTagsClass(
             tags=[
