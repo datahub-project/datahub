@@ -154,6 +154,9 @@ fragment dataJobFields on DataJob {
         name
         description
     }
+    globalTags {
+        ...globalTagsFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -188,6 +191,25 @@ fragment dashboardFields on Dashboard {
         lastModified {
             time
         }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+fragment dataFlowFields on DataFlow {
+    urn
+    type
+    orchestrator
+    flowId
+    cluster
+    info {
+        name
+        description
+        project
     }
     ownership {
         ...ownershipFields

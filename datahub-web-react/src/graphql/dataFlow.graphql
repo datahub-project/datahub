@@ -1,21 +1,11 @@
-fragment dataFlowFields on DataFlow {
-    urn
-    type
-    orchestrator
-    flowId
-    cluster
-    info {
-        name
-        description
-        project
-    }
-    ownership {
-        ...ownershipFields
+query getDataFlow($urn: String!) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
     }
 }
 
-query getDataFlow($urn: String!) {
-    dataFlow(urn: $urn) {
+mutation updateDataFlow($input: DataFlowUpdateInput!) {
+    updateDataFlow(input: $input) {
         ...dataFlowFields
     }
 }

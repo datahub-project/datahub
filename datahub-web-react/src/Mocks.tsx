@@ -470,6 +470,18 @@ export const dataFlow1 = {
             time: 0,
         },
     },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
 } as DataFlow;
 
 export const dataJob1 = {
@@ -510,6 +522,18 @@ export const dataJob1 = {
     },
     upstreamLineage: null,
     downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
 } as DataJob;
 
 /*
