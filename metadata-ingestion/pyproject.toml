@@ -1,3 +1,7 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "wheel", "pip"]
+
 [tool.black]
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories
