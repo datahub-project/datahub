@@ -1,7 +1,6 @@
-from typing import Optional
-
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.rest_emitter import DatahubRestEmitter

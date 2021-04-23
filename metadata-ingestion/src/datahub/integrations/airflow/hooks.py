@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 
