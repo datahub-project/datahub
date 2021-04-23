@@ -75,6 +75,7 @@ global:
     datasource:
       host: "mysql:3306"
       hostForMysqlClient: "mysql"
+      port: "3306"
       url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
       driver: "com.mysql.jdbc.Driver"
       username: "datahub"
