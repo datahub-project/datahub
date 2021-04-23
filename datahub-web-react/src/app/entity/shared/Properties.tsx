@@ -1,12 +1,12 @@
 import { Space, Table, Typography } from 'antd';
 import React from 'react';
-import { StringMapEntry } from '../../../../types.generated';
+import { StringMapEntry } from '../../../types.generated';
 
 export type Props = {
     properties: StringMapEntry[];
 };
 
-export default function Properties({ properties }: Props) {
+export function Properties({ properties }: Props) {
     const propertyTableColumns = [
         {
             title: 'Name',

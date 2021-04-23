@@ -450,6 +450,8 @@ export const dataFlow1 = {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
+        externalUrl: null,
+        customProperties: [],
     },
     ownership: {
         owners: [
@@ -514,6 +516,8 @@ export const dataJob1 = {
         __typename: 'DataJobInfo',
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
+        externalUrl: null,
+        customProperties: [],
     },
     inputOutput: {
         __typename: 'DataJobInputOutput',

@@ -126,6 +126,11 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         name
         description
         project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
     }
     ownership {
         ...ownershipFields
@@ -153,6 +158,11 @@ fragment dataJobFields on DataJob {
     info {
         name
         description
+        externalUrl
+        customProperties {
+            key
+            value
+        }
     }
     globalTags {
         ...globalTagsFields

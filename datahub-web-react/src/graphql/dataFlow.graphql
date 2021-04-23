@@ -8,6 +8,11 @@ fragment dataFlowFields on DataFlow {
         name
         description
         project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
     }
     ownership {
         ...ownershipFields

@@ -6,15 +6,27 @@ import {
     useUpdateDataFlowMutation,
 } from '../../../../graphql/dataFlow.generated';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { DataFlow, GlobalTags } from '../../../../types.generated';
+import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
+import { Properties as PropertiesView } from '../../shared/Properties';
+import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+
+export enum TabType {
+    // Tasks = 'Tasks',
+    Ownership = 'Ownership',
+    Properties = 'Properties',
+}
+
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties];
 
 /**
  * Responsible for display the DataFlow Page
  */
 export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
+    const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         update(cache, { data: newDataFlow }) {
@@ -37,6 +49,29 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
 
+    const getTabs = ({ ownership, info }: DataFlow) => {
+        return [
+            {
+                name: TabType.Ownership,
+                path: TabType.Ownership.toLowerCase(),
+                content: (
+                    <OwnershipView
+                        owners={(ownership && ownership.owners) || []}
+                        lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
+                        updateOwnership={(update) => {
+                            updateDataFlow({ variables: { input: { urn, ownership: update } } });
+                        }}
+                    />
+                ),
+            },
+            {
+                name: TabType.Properties,
+                path: TabType.Properties.toLowerCase(),
+                content: <PropertiesView properties={info?.customProperties || []} />,
+            },
+        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+    };
+
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
@@ -50,8 +85,9 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                             updateTags={(globalTags) => updateDataFlow({ variables: { input: { urn, globalTags } } })}
                         />
                     }
-                    titleLink={data.dataFlow.urn && `/dataFlow/${data.dataFlow.urn}`}
+                    titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
                     title={data.dataFlow.info?.name || ''}
+                    tabs={getTabs(data.dataFlow)}
                     header={getHeader(data.dataFlow as DataFlow)}
                 />
             )}

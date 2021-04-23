@@ -97,6 +97,7 @@ query getSearchResults($input: SearchInput!) {
                     cluster
                     info {
                         name
+                        description
                         project
                     }
                     ownership {
@@ -123,6 +124,7 @@ query getSearchResults($input: SearchInput!) {
                     }
                     info {
                         name
+                        description
                     }
                 }
             }

@@ -4,10 +4,11 @@ import javax.annotation.Nonnull;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
@@ -17,20 +18,22 @@ import com.linkedin.schema.EditableSchemaMetadata;
 
 import java.util.stream.Collectors;
 
-public class DatasetUpdateInputMapper implements ModelMapper<DatasetUpdateInput, Dataset> {
+public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateInput, Dataset, Urn> {
 
     public static final DatasetUpdateInputMapper INSTANCE = new DatasetUpdateInputMapper();
 
-    public static Dataset map(@Nonnull final DatasetUpdateInput datasetUpdateInput) {
-        return INSTANCE.apply(datasetUpdateInput);
+    public static Dataset map(@Nonnull final DatasetUpdateInput datasetUpdateInput,
+                              @Nonnull final Urn actor) {
+        return INSTANCE.apply(datasetUpdateInput, actor);
     }
 
     @Override
-    public Dataset apply(@Nonnull final DatasetUpdateInput datasetUpdateInput) {
+    public Dataset apply(@Nonnull final DatasetUpdateInput datasetUpdateInput,
+                         @Nonnull final Urn actor) {
         final Dataset result = new Dataset();
 
         if (datasetUpdateInput.getOwnership() != null) {
-            result.setOwnership(OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership()));
+            result.setOwnership(OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor));
         }
 
         if (datasetUpdateInput.getDeprecation() != null) {

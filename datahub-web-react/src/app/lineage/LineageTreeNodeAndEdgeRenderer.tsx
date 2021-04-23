@@ -87,7 +87,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
         });
 
         Object.keys(nodesByDepth).forEach((depth) => {
-            if (findMin(nodesByDepth[depth]?.map((entity) => entity.x)) < 90) {
+            if (findMin(nodesByDepth[depth]?.map((entity) => entity.x)) < 130) {
                 debouncedSetYCanvasScale(yCanvasScale * 1.025);
             }
         });

@@ -27,13 +27,14 @@ export type Props = {
 export default function DatasetHeader({ dataset: { description, ownership, deprecation, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
+    const platformName = platform?.name.charAt(0).toUpperCase() + platform?.name.slice(1);
 
     return (
         <>
             <Space direction="vertical" size="middle">
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text>Dataset</Typography.Text>
-                    <Typography.Text strong>{platform?.name}</Typography.Text>
+                    <Typography.Text strong>{platformName}</Typography.Text>
                 </Space>
                 <DescriptionText isCompact={isCompact}>{description}</DescriptionText>
                 <Avatar.Group maxCount={6} size="large">

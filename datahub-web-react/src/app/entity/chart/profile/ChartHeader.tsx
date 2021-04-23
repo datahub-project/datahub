@@ -34,7 +34,7 @@ export default function ChartHeader({ platform, description, ownership, external
                     <Typography.Text strong type="secondary">
                         {capitalizeFirstLetter(platform.toLowerCase())}
                     </Typography.Text>
-                    {externalUrl && <Button href={externalUrl}>View in {platform}</Button>}
+                    {externalUrl && <Button href={externalUrl}>View in {capitalizeFirstLetter(platform)}</Button>}
                 </Space>
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>

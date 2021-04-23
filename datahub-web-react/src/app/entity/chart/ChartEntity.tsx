@@ -4,7 +4,7 @@ import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
 import getChildren from '../../lineage/utils/getChildren';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { getLogoFromPlatform } from './getLogoFromPlatform';
+import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { ChartPreview } from './preview/ChartPreview';
 import ChartProfile from './profile/ChartProfile';
 

@@ -2,7 +2,7 @@ import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Dashboard, EntityType, SearchResult } from '../../../types.generated';
 import { Direction } from '../../lineage/types';
-import { getLogoFromPlatform } from '../chart/getLogoFromPlatform';
+import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';

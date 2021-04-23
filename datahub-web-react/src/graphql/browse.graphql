@@ -69,6 +69,7 @@ query getBrowseResults($input: BrowseInput!) {
                 cluster
                 info {
                     name
+                    description
                     project
                 }
                 ownership {
