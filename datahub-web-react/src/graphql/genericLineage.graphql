@@ -49,6 +49,11 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                     cluster
                 }
                 jobId
+                info {
+                    name
+                    description
+                    externalUrl
+                }
             }
             ... on Dashboard {
                 urn
