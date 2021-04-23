@@ -1,6 +1,12 @@
 mutation updateDataset($input: DatasetUpdateInput!) {
     updateDataset(input: $input) {
         ...nonRecursiveDatasetFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
     }
 }
 
@@ -85,11 +91,11 @@ query getDataset($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        upstreamLineage {
-            ...upstreamLineageFields
-        }
         downstreamLineage {
-            ...downstreamLineageFields
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

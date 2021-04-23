@@ -31,6 +31,7 @@ type Props = {
     entityAndType?: EntityAndType | null;
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
     zoom: ProvidedZoom & {
@@ -47,6 +48,7 @@ export default function LineageVizInsideZoom({
     entityAndType,
     fetchedEntities,
     onEntityClick,
+    onEntityCenter,
     onLineageExpand,
     selectedEntity,
     width,
@@ -123,12 +125,22 @@ export default function LineageVizInsideZoom({
                         <stop offset="0%" stopColor="black" />
                         <stop offset="100%" stopColor="black" stopOpacity="0" />
                     </linearGradient>
+                    <filter id="shadow1">
+                        <feDropShadow
+                            dx="1"
+                            dy="3"
+                            stdDeviation="4"
+                            floodColor="rgba(72, 106, 108, 0.25)"
+                            floodOpacity="1"
+                        />
+                    </filter>
                 </defs>
                 <rect width={width} height={height} fill="#f6f8fa" />
                 <LineageTree
                     data={upstreamData}
                     zoom={zoom}
                     onEntityClick={onEntityClick}
+                    onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
                     canvasHeight={yMax}
                     canvasWidth={xMax}
@@ -140,6 +152,7 @@ export default function LineageVizInsideZoom({
                     data={downstreamData}
                     zoom={zoom}
                     onEntityClick={onEntityClick}
+                    onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
                     canvasHeight={yMax}
                     canvasWidth={xMax}

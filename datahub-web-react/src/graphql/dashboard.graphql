@@ -1,82 +1,23 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
-        urn
-        type
-        tool
-        dashboardId
-        info {
-            name
-            description
-            charts {
-                urn
-                tool
-                type
-                info {
-                    name
-                    description
-                    inputs {
-                        urn
-                    }
-                }
-                ownership {
-                    ...ownershipFields
-                }
-            }
-            url
-            access
-            lastRefreshed
-            created {
-                time
-            }
-            lastModified {
-                time
-            }
+        ...dashboardFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
         }
-        ownership {
-            ...ownershipFields
-        }
-        globalTags {
-            ...globalTagsFields
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }
 
 mutation updateDashboard($input: DashboardUpdateInput!) {
     updateDashboard(input: $input) {
-        urn
-        type
-        tool
-        dashboardId
-        info {
-            name
-            description
-            charts {
-                urn
-                tool
-                type
-                info {
-                    name
-                    description
-                }
-                ownership {
-                    ...ownershipFields
-                }
-            }
-            url
-            access
-            lastRefreshed
-            created {
-                time
-            }
-            lastModified {
-                time
-            }
+        ...dashboardFields
+        downstreamLineage {
+            ...downstreamRelationshipFields
         }
-        ownership {
-            ...ownershipFields
-        }
-        globalTags {
-            ...globalTagsFields
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

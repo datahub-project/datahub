@@ -126,64 +126,86 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         name
         description
         project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
     }
     ownership {
         ...ownershipFields
     }
 }
 
-fragment downstreamLineageFields on DownstreamLineage {
-    downstreams {
-        dataset {
+fragment dataJobFields on DataJob {
+    urn
+    type
+    dataFlow {
+        ...nonRecursiveDataFlowFields
+    }
+    jobId
+    ownership {
+        ...ownershipFields
+    }
+    inputOutput {
+        inputDatasets {
             ...nonRecursiveDatasetFields
-            downstreamLineage {
-                downstreams {
-                    dataset {
-                        urn
-                    }
-                    type
-                }
-            }
-            upstreamLineage {
-                upstreams {
-                    dataset {
-                        urn
-                    }
-                    type
-                }
-            }
         }
-        type
-        created {
-            time
+        outputDatasets {
+            ...nonRecursiveDatasetFields
         }
+    }
+    info {
+        name
+        description
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    globalTags {
+        ...globalTagsFields
     }
 }
 
-fragment upstreamLineageFields on UpstreamLineage {
-    upstreams {
-        dataset {
-            ...nonRecursiveDatasetFields
-            downstreamLineage {
-                downstreams {
-                    type
-                    dataset {
-                        urn
-                    }
+fragment dashboardFields on Dashboard {
+    urn
+    type
+    tool
+    dashboardId
+    info {
+        name
+        description
+        charts {
+            urn
+            tool
+            type
+            info {
+                name
+                description
+                inputs {
+                    urn
                 }
             }
-            upstreamLineage {
-                upstreams {
-                    type
-                    dataset {
-                        urn
-                    }
-                }
+            ownership {
+                ...ownershipFields
             }
         }
-        type
+        externalUrl
+        access
+        lastRefreshed
         created {
             time
         }
+        lastModified {
+            time
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
     }
 }

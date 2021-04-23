@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useHistory } from 'react-router';
 
 import { Alert, Button, Col, Row, Drawer } from 'antd';
 import styled from 'styled-components';
@@ -36,6 +37,7 @@ type Props = {
 
 export default function LineageExplorer({ urn, type }: Props) {
     const previousUrn = usePrevious(urn);
+    const history = useHistory();
 
     const entityRegistry = useEntityRegistry();
 
@@ -91,6 +93,11 @@ export default function LineageExplorer({ urn, type }: Props) {
                             setIsDrawVisible(true);
                             setSelectedEntity(params);
                         }}
+                        onEntityCenter={(params: EntitySelectParams) => {
+                            history.push(
+                                `/${entityRegistry.getPathName(params.type)}/${params.urn}/?is_lineage_mode=true`,
+                            );
+                        }}
                         onLineageExpand={(params: LineageExpandParams) => {
                             getAsyncEntity(params.urn, params.type);
                         }}
@@ -111,22 +118,12 @@ export default function LineageExplorer({ urn, type }: Props) {
                 footer={
                     selectedEntity && (
                         <FooterButtonGroup gutter={24}>
-                            <Col span={7} offset={4}>
+                            <Col span={8} offset={8}>
                                 <Button
                                     type="primary"
                                     href={`/${entityRegistry.getPathName(selectedEntity.type)}/${selectedEntity.urn}/`}
                                 >
                                     View Profile
-                                </Button>
-                            </Col>
-                            <Col span={7} offset={1}>
-                                <Button
-                                    type="default"
-                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${
-                                        selectedEntity.urn
-                                    }/?is_lineage_mode=true`}
-                                >
-                                    View Lineage
                                 </Button>
                             </Col>
                         </FooterButtonGroup>

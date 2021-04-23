@@ -31,6 +31,8 @@ describe('constructTree', () => {
             type: EntityType.Dataset,
             unexploredChildren: 0,
             children: [],
+            icon: undefined,
+            platform: 'Kafka',
         });
     });
 
@@ -62,6 +64,8 @@ describe('constructTree', () => {
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
+            icon: undefined,
+            platform: 'Kafka',
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -70,6 +74,8 @@ describe('constructTree', () => {
                     urn: 'urn:li:dataset:4',
                     countercurrentChildrenUrns: [],
                     children: [],
+                    icon: undefined,
+                    platform: 'Kafka',
                 },
             ],
         });
@@ -103,6 +109,8 @@ describe('constructTree', () => {
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
+            icon: undefined,
+            platform: 'Kafka',
             children: [
                 {
                     countercurrentChildrenUrns: [],
@@ -111,6 +119,8 @@ describe('constructTree', () => {
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:5',
                     children: [],
+                    icon: undefined,
+                    platform: 'Kafka',
                 },
             ],
         });
@@ -145,6 +155,8 @@ describe('constructTree', () => {
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
+            icon: undefined,
+            platform: 'Kafka',
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -152,6 +164,8 @@ describe('constructTree', () => {
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
+                    icon: undefined,
+                    platform: 'Kafka',
                     children: [
                         {
                             name: 'Sixth Test Dataset',
@@ -159,6 +173,8 @@ describe('constructTree', () => {
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:6',
                             countercurrentChildrenUrns: ['urn:li:dataset:4'],
+                            icon: undefined,
+                            platform: 'Kafka',
                             children: [
                                 {
                                     name: 'Fifth Test Dataset',
@@ -171,6 +187,8 @@ describe('constructTree', () => {
                                         'urn:li:dataset:6',
                                         'urn:li:dataset:4',
                                     ],
+                                    icon: undefined,
+                                    platform: 'Kafka',
                                 },
                             ],
                         },
@@ -181,6 +199,8 @@ describe('constructTree', () => {
                             urn: 'urn:li:dataset:5',
                             children: [],
                             countercurrentChildrenUrns: ['urn:li:dataset:7', 'urn:li:dataset:6', 'urn:li:dataset:4'],
+                            icon: undefined,
+                            platform: 'Kafka',
                         },
                     ],
                 },
@@ -244,6 +264,8 @@ describe('constructTree', () => {
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
+            icon: undefined,
+            platform: 'Kafka',
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -252,6 +274,8 @@ describe('constructTree', () => {
                     urn: 'urn:li:dataset:4',
                     children: [],
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
+                    icon: undefined,
+                    platform: 'Kafka',
                 },
             ],
         });

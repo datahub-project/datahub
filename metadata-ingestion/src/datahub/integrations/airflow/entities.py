@@ -13,7 +13,7 @@ class _Entity:
         return attr.asdict(self)
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, str=True)
 class Dataset(_Entity):
     platform: str
     name: str

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.datajob;
 
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Status;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.DataFlowUrn;
@@ -129,6 +131,11 @@ public class DataFlows extends BaseBrowsableEntityResource<
       } else if (aspect instanceof Ownership) {
         Ownership ownership = Ownership.class.cast(aspect);
         value.setOwnership(ownership);
+      } else if (aspect instanceof Status) {
+        Status status = Status.class.cast(aspect);
+        value.setStatus(status);
+      } else if (aspect instanceof GlobalTags) {
+        value.setGlobalTags(GlobalTags.class.cast(aspect));
       }
     });
 
@@ -144,6 +151,12 @@ public class DataFlows extends BaseBrowsableEntityResource<
     }
     if (dataFlow.hasOwnership()) {
       aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getOwnership()));
+    }
+    if (dataFlow.hasStatus()) {
+      aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getStatus()));
+    }
+    if (dataFlow.hasGlobalTags()) {
+      aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
     }
     return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
   }

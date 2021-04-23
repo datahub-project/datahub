@@ -8,15 +8,7 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import {
-    Dataset,
-    DataFlow,
-    DataJob,
-    DatasetLineageType,
-    EntityType,
-    PlatformType,
-    RelatedDataset,
-} from './types.generated';
+import { Dataset, DataFlow, DataJob, EntityType, PlatformType } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
@@ -275,71 +267,45 @@ export const dataset7 = {
 export const dataset3WithLineage = {
     ...dataset3,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
                 created: {
                     time: 0,
                 },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
             {
                 created: {
                     time: 0,
                 },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
-    },
-    downstreamLineage: {
-        downstreams: [],
     },
 };
 
 export const dataset4WithLineage = {
     ...dataset4,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
                 created: {
                     time: 0,
                 },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset6,
+                entity: dataset6,
             },
             {
                 created: {
                     time: 0,
                 },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset5,
+                entity: dataset5,
             },
         ],
     },
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
         ],
     },
@@ -348,50 +314,22 @@ export const dataset4WithLineage = {
 export const dataset5WithCyclicalLineage = {
     ...dataset5,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
         ],
     },
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset6,
+                entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
     },
@@ -399,40 +337,17 @@ export const dataset5WithCyclicalLineage = {
 
 export const dataset5WithLineage = {
     ...dataset5,
-    upstreamLineage: {
-        upstreams: [] as RelatedDataset[],
-    },
+    upstreamLineage: null,
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset6,
+                entity: dataset6,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
     },
@@ -441,30 +356,16 @@ export const dataset5WithLineage = {
 export const dataset6WithLineage = {
     ...dataset6,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset5,
+                entity: dataset5,
             },
         ],
     },
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset4,
+                entity: dataset4,
             },
         ],
     },
@@ -473,30 +374,16 @@ export const dataset6WithLineage = {
 export const dataset7WithLineage = {
     ...dataset7,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset5,
+                entity: dataset5,
             },
         ],
     },
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
         ],
     },
@@ -505,50 +392,22 @@ export const dataset7WithLineage = {
 export const dataset7WithSelfReferentialLineage = {
     ...dataset7,
     upstreamLineage: {
-        upstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset5,
+                entity: dataset5,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
         ],
     },
     downstreamLineage: {
-        downstreams: [
+        entities: [
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset3,
+                entity: dataset3,
             },
             {
-                created: {
-                    time: 0,
-                },
-                lastModified: {
-                    time: 0,
-                },
-                type: DatasetLineageType.Transformed,
-                dataset: dataset7,
+                entity: dataset7,
             },
         ],
     },
@@ -591,6 +450,8 @@ export const dataFlow1 = {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
         project: 'DataFlowInfo1 project',
+        externalUrl: null,
+        customProperties: [],
     },
     ownership: {
         owners: [
@@ -610,6 +471,18 @@ export const dataFlow1 = {
         lastModified: {
             time: 0,
         },
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
     },
 } as DataFlow;
 
@@ -643,11 +516,27 @@ export const dataJob1 = {
         __typename: 'DataJobInfo',
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
+        externalUrl: null,
+        customProperties: [],
     },
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
         outputDatasets: [dataset3],
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
     },
 } as DataJob;
 

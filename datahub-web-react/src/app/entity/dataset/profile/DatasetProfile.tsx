@@ -8,14 +8,15 @@ import {
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, GlobalTags } from '../../../../types.generated';
+import { Dataset, EntityType, GlobalTags } from '../../../../types.generated';
 import LineageView from './Lineage';
-import PropertiesView from './Properties';
+import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
 import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -32,6 +33,7 @@ const EMPTY_ARR: never[] = [];
  * Responsible for display the Dataset Page
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
+    const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
@@ -121,7 +123,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
                 <EntityProfile
-                    titleLink={data.dataset.urn && `/dataset/${data.dataset.urn}?is_lineage_mode=${isLineageMode}`}
+                    titleLink={`/${entityRegistry.getPathName(
+                        EntityType.Dataset,
+                    )}/${urn}?is_lineage_mode=${isLineageMode}`}
                     title={data.dataset.name}
                     tags={
                         <TagGroup

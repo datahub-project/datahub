@@ -24,23 +24,13 @@ query getChart($urn: String!) {
                     ...ownershipFields
                 }
                 downstreamLineage {
-                    downstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
+                    ...downstreamRelationshipFields
                 }
                 upstreamLineage {
-                    upstreams {
-                        type
-                        dataset {
-                            urn
-                        }
-                    }
+                    ...upstreamRelationshipFields
                 }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
@@ -49,6 +39,10 @@ query getChart($urn: String!) {
             }
             created {
                 time
+            }
+            customProperties {
+                key
+                value
             }
         }
         query {
@@ -60,6 +54,12 @@ query getChart($urn: String!) {
         }
         globalTags {
             ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }
@@ -89,8 +89,14 @@ mutation updateChart($input: ChartUpdateInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                downstreamLineage {
+                    ...downstreamRelationshipFields
+                }
+                upstreamLineage {
+                    ...upstreamRelationshipFields
+                }
             }
-            url
+            externalUrl
             type
             access
             lastRefreshed
@@ -99,6 +105,10 @@ mutation updateChart($input: ChartUpdateInput!) {
             }
             created {
                 time
+            }
+            customProperties {
+                key
+                value
             }
         }
         query {
@@ -110,6 +120,12 @@ mutation updateChart($input: ChartUpdateInput!) {
         }
         globalTags {
             ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
         }
     }
 }

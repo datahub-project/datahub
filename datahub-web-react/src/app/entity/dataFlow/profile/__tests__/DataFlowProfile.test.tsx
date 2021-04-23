@@ -10,7 +10,7 @@ describe('DataJobProfile', () => {
     it('renders', async () => {
         const { getByText, queryAllByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer initialEntries={['/dataflow/urn:li:dataFlow:1']}>
+                <TestPageContainer initialEntries={['/pipeline/urn:li:dataFlow:1']}>
                     <DataFlowProfile urn="urn:li:dataFlow:1" />
                 </TestPageContainer>
             </MockedProvider>,

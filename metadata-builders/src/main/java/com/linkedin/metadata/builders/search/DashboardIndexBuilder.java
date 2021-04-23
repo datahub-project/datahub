@@ -1,5 +1,6 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DashboardUrn;
@@ -62,6 +63,16 @@ public class DashboardIndexBuilder extends BaseIndexBuilder<DashboardDocument> {
   }
 
   @Nonnull
+  private DashboardDocument getDocumentToUpdateFromAspect(@Nonnull DashboardUrn urn,
+      @Nonnull GlobalTags globalTags) {
+    return setUrnDerivedFields(urn)
+        .setTags(new StringArray(globalTags.getTags()
+            .stream()
+            .map(tag -> tag.getTag().getName())
+            .collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DashboardDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DashboardSnapshot snapshot) {
     DashboardUrn urn = snapshot.getUrn();
     return snapshot.getAspects().stream().map(aspect -> {
@@ -71,6 +82,8 @@ public class DashboardIndexBuilder extends BaseIndexBuilder<DashboardDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
       } else if (aspect.isStatus()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getStatus());
+      } else if (aspect.isGlobalTags()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());
