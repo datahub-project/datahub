@@ -40,7 +40,6 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
-        ENABLE_REACT: "true"
     volumes:
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
 

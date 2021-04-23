@@ -1,4 +1,4 @@
-import { Avatar, Divider, Space, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Divider, Row, Space, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { DataJob, EntityType } from '../../../../types.generated';
@@ -11,14 +11,18 @@ export type Props = {
 
 export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }: Props) {
     const entityRegistry = useEntityRegistry();
+    const platformName = dataFlow.orchestrator.charAt(0).toUpperCase() + dataFlow.orchestrator.slice(1);
 
     return (
         <>
             <Space direction="vertical" size="middle">
-                <Space split={<Divider type="vertical" />}>
-                    <Typography.Text>DataJob</Typography.Text>
-                    <Typography.Text strong>{dataFlow?.info?.name}</Typography.Text>
-                </Space>
+                <Row justify="space-between">
+                    <Space split={<Divider type="vertical" />}>
+                        <Typography.Text>Data Task</Typography.Text>
+                        <Typography.Text strong>{platformName}</Typography.Text>
+                    </Space>
+                    {info?.externalUrl && <Button href={info?.externalUrl}>View in {dataFlow.orchestrator}</Button>}
+                </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
                 <Avatar.Group maxCount={6} size="large">
                     {ownership?.owners?.map((owner) => (

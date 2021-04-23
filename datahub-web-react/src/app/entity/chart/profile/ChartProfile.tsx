@@ -8,7 +8,7 @@ import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../.
 import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
-import PropertiesView from '../../dataset/profile/Properties';
+import { Properties as PropertiesView } from '../../shared/Properties';
 
 export enum TabType {
     Ownership = 'Ownership',

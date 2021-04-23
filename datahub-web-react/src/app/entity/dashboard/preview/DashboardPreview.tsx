@@ -2,7 +2,7 @@ import React from 'react';
 import { AccessLevel, EntityType, GlobalTags, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getLogoFromPlatform } from '../../chart/getLogoFromPlatform';
+import { getLogoFromPlatform } from '../../../shared/getLogoFromPlatform';
 
 export const DashboardPreview = ({
     urn,

@@ -4,6 +4,7 @@ import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { DataFlowProfile } from './profile/DataFlowProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { getLogoFromPlatform } from '../../shared/getLogoFromPlatform';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -44,19 +45,21 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'dataflow';
+    getPathName = () => 'pipelines';
 
     getCollectionName = () => 'Pipelines';
 
     renderProfile = (urn: string) => <DataFlowProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: DataFlow) => {
+        const platformName = data.orchestrator.charAt(0).toUpperCase() + data.orchestrator.slice(1);
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description || ''}
-                platformName={data.info?.project || ''}
+                description={data.info?.description}
+                platformName={platformName}
+                platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
             />
         );
@@ -64,12 +67,14 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataFlow;
+        const platformName = data.orchestrator.charAt(0).toUpperCase() + data.orchestrator.slice(1);
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
                 description={data.info?.description || ''}
-                platformName={data.info?.project || ''}
+                platformName={platformName}
+                platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
             />
         );
