@@ -3,8 +3,10 @@ package com.linkedin.datahub.graphql.types.dataflow.mappers;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 
 import javax.annotation.Nonnull;
 
@@ -30,6 +32,9 @@ public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow
         if (dataflow.hasOwnership()) {
             result.setOwnership(OwnershipMapper.map(dataflow.getOwnership()));
         }
+        if (dataflow.hasGlobalTags()) {
+            result.setGlobalTags(GlobalTagsMapper.map(dataflow.getGlobalTags()));
+        }
         return result;
     }
 
@@ -38,7 +43,12 @@ public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow
         result.setName(info.getName());
         result.setDescription(info.getDescription());
         result.setProject(info.getProject());
-
+        if (info.hasExternalUrl()) {
+            result.setExternalUrl(info.getExternalUrl().toString());
+        }
+        if (info.hasCustomProperties()) {
+            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
+        }
         return result;
     }
 }

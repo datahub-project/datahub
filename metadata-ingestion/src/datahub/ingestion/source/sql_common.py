@@ -2,7 +2,7 @@ import logging
 import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import reflection
@@ -97,7 +97,7 @@ class SqlWorkUnit(MetadataWorkUnit):
     pass
 
 
-_field_type_mapping = {
+_field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
     types.Boolean: BooleanTypeClass,
@@ -117,10 +117,19 @@ _field_type_mapping = {
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
-_known_unknown_field_types = {
+_known_unknown_field_types: Set[Type[types.TypeEngine]] = {
     types.Interval,
     types.CLOB,
 }
+
+
+def register_custom_type(
+    tp: Type[types.TypeEngine], output: Optional[Type] = None
+) -> None:
+    if output:
+        _field_type_mapping[tp] = output
+    else:
+        _known_unknown_field_types.add(tp)
 
 
 def get_column_type(

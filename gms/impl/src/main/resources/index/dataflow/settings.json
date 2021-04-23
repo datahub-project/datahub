@@ -40,6 +40,13 @@
           "type": "custom",
           "tokenizer": "comma_tokenizer"
         },
+        "custom_ngram": {
+          "filter": [
+            "lowercase"
+          ],
+          "type": "custom",
+          "tokenizer": "custom_ngram"
+        },
         "comma_pattern_ngram": {
           "filter": [
             "lowercase",
@@ -91,6 +98,11 @@
         "comma_tokenizer": {
           "pattern": ",",
           "type": "pattern"
+        },
+        "custom_ngram": {
+          "type": "ngram",
+          "min_gram": "3",
+          "max_gram": "20"
         }
       }
     }

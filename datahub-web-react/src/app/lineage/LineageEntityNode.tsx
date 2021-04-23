@@ -34,6 +34,7 @@ export default function LineageEntityNode({
     isSelected,
     isHovered,
     onEntityClick,
+    onEntityCenter,
     onHover,
     onExpandClick,
     direction,
@@ -45,6 +46,7 @@ export default function LineageEntityNode({
     isHovered: boolean;
     isCenterNode: boolean;
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
     onExpandClick: (LineageExpandParams) => void;
     direction: Direction;
@@ -104,6 +106,7 @@ export default function LineageEntityNode({
                 </Group>
             ) : null}
             <Group
+                onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
                 onClick={() => {
                     onEntityClick({ urn: node.data.urn, type: node.data.type });
                 }}
@@ -120,11 +123,19 @@ export default function LineageEntityNode({
                     y={centerY}
                     x={centerX}
                     fill="white"
-                    // eslint-disable-next-line no-nested-ternary
-                    stroke={isSelected ? 'blue' : isHovered ? 'lightblue' : 'black'}
-                    strokeWidth={isCenterNode ? 4 : 2}
+                    stroke={
+                        // eslint-disable-next-line no-nested-ternary
+                        isSelected
+                            ? 'rgba(142, 175, 240, 0.79)'
+                            : isHovered
+                            ? 'rgba(142, 175, 240, 0.79)'
+                            : 'rgba(192, 190, 190, 0.25)'
+                    }
+                    strokeWidth={isCenterNode ? 2 : 1}
                     strokeOpacity={1}
-                    rx={10}
+                    rx={5}
+                    // eslint-disable-next-line react/style-prop-object
+                    style={{ filter: 'url(#shadow1)' }}
                 />
                 {node.data.icon ? (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
@@ -144,9 +155,30 @@ export default function LineageEntityNode({
                         </svg>
                     )
                 )}
-                <text dy=".33em" x={textX} fontSize={16} fontFamily="Arial" textAnchor="start" fill="black">
-                    {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
-                </text>
+                <Group>
+                    <text
+                        dy="-1em"
+                        x={textX}
+                        fontSize={8}
+                        fontFamily="Helvetica Neue"
+                        fontWeight="bold"
+                        textAnchor="start"
+                        fill="#686868"
+                    >
+                        {truncate(node.data.type?.split('.').slice(-1)[0], 16)} |{' '}
+                        {truncate(node.data.platform?.toUpperCase(), 16)}
+                    </text>
+                    <text
+                        dy="1em"
+                        x={textX}
+                        fontSize={16}
+                        fontFamily="Arial"
+                        textAnchor="start"
+                        fill={isCenterNode ? '#304D85' : 'black'}
+                    >
+                        {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                    </text>
+                </Group>
                 {unexploredHiddenChildren && isHovered ? (
                     <text
                         dy=".33em"

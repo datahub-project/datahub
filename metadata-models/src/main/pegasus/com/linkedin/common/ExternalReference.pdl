@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * A reference to an external platform.
+ */
+record ExternalReference {
+  /**
+   * URL where the reference exist
+   */
+  externalUrl: optional Url
+}

@@ -7,6 +7,8 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {},
+                        "externalUrl": null,
                         "title": "Baz Chart 2",
                         "description": "Baz Chart 2",
                         "lastModified": {

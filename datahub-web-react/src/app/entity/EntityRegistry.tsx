@@ -49,7 +49,7 @@ export default class EntityRegistry {
     }
 
     getLineageEntityTypes(): Array<EntityType> {
-        return this.entities.filter((entity) => entity.isBrowseEnabled()).map((entity) => entity.type);
+        return this.entities.filter((entity) => entity.isLineageEnabled()).map((entity) => entity.type);
     }
 
     getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {

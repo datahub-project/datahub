@@ -50,7 +50,7 @@ datahub_kafka_connection_config = Connection(
 
 
 def setup_module(module):
-    airflow.configuration.load_test_config()
+    airflow.configuration.conf.load_test_config()
 
 
 def test_airflow_provider_info():
@@ -180,4 +180,6 @@ def test_lineage_backend(mock_emit):
         post = apply_lineage(func)
         post(op1, ctx1)
 
-        mock_emit.assert_called()
+        mock_emit.assert_called_once()
+        assert len(mock_emit.call_args[0][0]) == 4
+        assert all(mce.validate() for mce in mock_emit.call_args[0][0])

@@ -141,6 +141,9 @@ public final class Datasets extends BaseBrowsableEntityResource<
         if (datasetProperties.getDescription() != null) {
           value.setDescription(datasetProperties.getDescription());
         }
+        if (datasetProperties.getExternalUrl() != null) {
+          value.setExternalUrl(datasetProperties.getExternalUrl());
+        }
       } else if (aspect instanceof DatasetDeprecation) {
         value.setDeprecation((DatasetDeprecation) aspect);
       } else if (aspect instanceof InstitutionalMemory) {
@@ -210,6 +213,9 @@ public final class Datasets extends BaseBrowsableEntityResource<
     }
     if (dataset.getProperties() != null) {
       datasetProperties.setCustomProperties(dataset.getProperties());
+    }
+    if (dataset.getExternalUrl() != null) {
+      datasetProperties.setExternalUrl(dataset.getExternalUrl());
     }
     return datasetProperties;
   }

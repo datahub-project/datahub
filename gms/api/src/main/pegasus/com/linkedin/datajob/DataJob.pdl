@@ -3,8 +3,8 @@ namespace com.linkedin.datajob
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.DataJobUrn
 import com.linkedin.common.Ownership
-
-
+import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
 
 /**
  * Metadata bout DataJob
@@ -14,6 +14,11 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
    * DataJob urn
    */
   urn: DataJobUrn
+
+  /**
+   * Optional additional metadata about the job
+   */
+  info: optional DataJobInfo
 
   /**
    * Ownership Info
@@ -26,8 +31,12 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
    inputOutput: optional DataJobInputOutput
 
   /**
-   * Optional additional metadata about the job
+   * Status information for the chart such as removed or not
    */
-   info: optional DataJobInfo
+  status: optional Status
 
+  /**
+   * List of global tags applied to the chart
+   */
+  globalTags: optional GlobalTags
 }

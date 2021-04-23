@@ -1,12 +1,13 @@
 namespace com.linkedin.datajob
 
 import com.linkedin.datajob.azkaban.AzkabanJobType
-
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a Data processing job
  */
-record DataJobInfo {
+record DataJobInfo includes CustomProperties, ExternalReference {
 
   /**
    * Job name

@@ -8,13 +8,15 @@ import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../.
 import ChartSources from './ChartSources';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
+import { Properties as PropertiesView } from '../../shared/Properties';
 
 export enum TabType {
     Ownership = 'Ownership',
     Sources = 'Sources',
+    Properties = 'Properties',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties];
 
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
@@ -43,12 +45,18 @@ export default function ChartProfile({ urn }: { urn: string }) {
             platform={chart.tool}
             ownership={chart.ownership}
             lastModified={chart.info?.lastModified}
-            url={chart.info?.url}
+            externalUrl={chart.info?.externalUrl}
+            chartType={chart.info?.type}
         />
     );
 
     const getTabs = ({ ownership, info }: Chart) => {
         return [
+            {
+                name: TabType.Sources,
+                path: TabType.Sources.toLowerCase(),
+                content: <ChartSources datasets={info?.inputs || []} />,
+            },
             {
                 name: TabType.Ownership,
                 path: TabType.Ownership.toLowerCase(),
@@ -61,9 +69,9 @@ export default function ChartProfile({ urn }: { urn: string }) {
                 ),
             },
             {
-                name: TabType.Sources,
-                path: TabType.Sources.toLowerCase(),
-                content: <ChartSources datasets={info?.inputs || []} />,
+                name: TabType.Properties,
+                path: TabType.Properties.toLowerCase(),
+                content: <PropertiesView properties={info?.customProperties || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };

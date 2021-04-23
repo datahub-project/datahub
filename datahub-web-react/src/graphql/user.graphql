@@ -17,13 +17,7 @@ query getUser($urn: String!) {
             skills
         }
         globalTags {
-            tags {
-                tag {
-                    urn
-                    name
-                    description
-                }
-            }
+            ...globalTagsFields
         }
     }
 }

@@ -17,6 +17,7 @@ interface Props {
     path: Array<string>;
     lineageSupported?: boolean;
     isProfilePage?: boolean;
+    isBrowsable?: boolean;
 }
 
 const LineageIconGroup = styled.div`
@@ -57,7 +58,7 @@ const BrowseRow = styled(Row)`
 /**
  * Responsible for rendering a clickable browse path view.
  */
-export const BrowsePath = ({ type, path, lineageSupported, isProfilePage }: Props) => {
+export const BrowsePath = ({ type, path, lineageSupported, isProfilePage, isBrowsable }: Props) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
@@ -73,7 +74,7 @@ export const BrowsePath = ({ type, path, lineageSupported, isProfilePage }: Prop
         <Breadcrumb.Item key={`${part || index}`}>
             <Link
                 to={
-                    isProfilePage && index === path.length - 1
+                    (isProfilePage && index === path.length - 1) || !isBrowsable
                         ? '#'
                         : `${baseBrowsePath}/${createPartialPath(path.slice(0, index + 1))}`
                 }
@@ -87,7 +88,7 @@ export const BrowsePath = ({ type, path, lineageSupported, isProfilePage }: Prop
         <BrowseRow>
             <Breadcrumb style={{ fontSize: '16px' }}>
                 <Breadcrumb.Item>
-                    <Link to={baseBrowsePath}>{entityRegistry.getCollectionName(type)}</Link>
+                    <Link to={isBrowsable ? baseBrowsePath : '#'}>{entityRegistry.getCollectionName(type)}</Link>
                 </Breadcrumb.Item>
                 {pathCrumbs}
             </Breadcrumb>
