@@ -1,3 +1,5 @@
+from typing import Optional
+
 import logging
 from dataclasses import dataclass
 
@@ -14,6 +16,7 @@ class DatahubRestSinkConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
+    token: Optional[str]
 
 
 @dataclass
@@ -26,7 +29,7 @@ class DatahubRestSink(Sink):
         super().__init__(ctx)
         self.config = config
         self.report = SinkReport()
-        self.emitter = DatahubRestEmitter(self.config.server)
+        self.emitter = DatahubRestEmitter(self.config.server, self.config.token)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":

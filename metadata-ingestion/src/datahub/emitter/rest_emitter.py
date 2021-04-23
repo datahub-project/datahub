@@ -1,5 +1,9 @@
+import itertools
+import json
+import logging
+import shlex
 from collections import OrderedDict
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Optional, Type
 
 import requests
 from requests.exceptions import HTTPError, RequestException
@@ -18,6 +22,8 @@ from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
     MLModelSnapshotClass,
     TagSnapshotClass,
 )
+
+logger = logging.getLogger(__name__)
 
 resource_locator: Dict[Type[object], str] = {
     ChartSnapshotClass: "charts",
@@ -58,11 +64,41 @@ def _rest_li_ify(obj: Any) -> Any:
     return obj
 
 
+def _make_curl_command(
+    session: requests.Session, method: str, url: str, payload: str
+) -> str:
+    fragments: List[str] = [
+        "curl",
+        *itertools.chain(
+            *[
+                ("-X", method),
+                *[("-H", f"{k}: {v}") for (k, v) in session.headers.items()],
+                ("--data", payload),
+            ]
+        ),
+        url,
+    ]
+    return " ".join(shlex.quote(fragment) for fragment in fragments)
+
+
 class DatahubRestEmitter:
     _gms_server: str
+    _token: Optional[str]
+    _session: requests.Session
 
-    def __init__(self, gms_server: str):
+    def __init__(self, gms_server: str, token: Optional[str] = None):
         self._gms_server = gms_server
+        self._token = token
+
+        self._session = requests.Session()
+        self._session.headers.update(
+            {
+                "X-RestLi-Protocol-Version": "2.0.0",
+                "Content-Type": "application/json",
+            }
+        )
+        if token:
+            self._session.headers.update({"Authorization": f"Bearer {token}"})
 
     def _get_ingest_endpoint(self, mce: MetadataChangeEvent) -> str:
         snapshot_type = type(mce.proposedSnapshot)
@@ -76,18 +112,19 @@ class DatahubRestEmitter:
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = self._get_ingest_endpoint(mce)
-        headers = {"X-RestLi-Protocol-Version": "2.0.0"}
 
         raw_mce_obj = mce.proposedSnapshot.to_obj()
         mce_obj = _rest_li_ify(raw_mce_obj)
         snapshot = {"snapshot": mce_obj}
+        payload = json.dumps(snapshot)
 
+        curl_command = _make_curl_command(self._session, "POST", url, payload)
+        logger.debug(
+            "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
+            curl_command,
+        )
         try:
-            response = requests.post(url, headers=headers, json=snapshot)
-
-            # import curlify
-            # print(curlify.to_curl(response.request))
-            # breakpoint()
+            response = self._session.post(url, data=payload)
 
             response.raise_for_status()
         except HTTPError as e:
