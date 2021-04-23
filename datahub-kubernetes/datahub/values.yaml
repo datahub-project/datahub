@@ -11,7 +11,7 @@ datahub-gms:
 datahub-frontend:
   enabled: true
   image:
-    repository: linkedin/datahub-frontend
+    repository: linkedin/datahub-frontend-react
     tag: "latest"
 
 datahub-mae-consumer:
@@ -45,7 +45,10 @@ kafkaSetupJob:
     tag: "latest"
 
 mysqlSetupJob:
-  enabled: false
+  enabled: true
+  image:
+    repository: acryldata/datahub-mysql-setup
+    tag: "latest"
 
 global:
   elasticsearch:
@@ -54,7 +57,7 @@ global:
 
   kafka:
     bootstrap:
-      server: "broker:29092"
+      server: "broker:9092"
     zookeeper:
       server: "zookeeper:2181"
     schemaregistry:
@@ -72,6 +75,7 @@ global:
     datasource:
       host: "mysql:3306"
       hostForMysqlClient: "mysql"
+      port: "3306"
       url: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true"
       driver: "com.mysql.jdbc.Driver"
       username: "datahub"
@@ -84,14 +88,15 @@ global:
       port: "8080"
     appVersion: "1.0"
 
-  hostAliases:
-    - ip: "192.168.0.104"
-      hostnames:
-        - "broker"
-        - "mysql"
-        - "elasticsearch"
-        - "neo4j"
+#  hostAliases:
+#    - ip: "192.168.0.104"
+#      hostnames:
+#        - "broker"
+#        - "mysql"
+#        - "elasticsearch"
+#        - "neo4j"
 
+##  Add below to enable SSL for kafka
 #  credentialsAndCertsSecrets:
 #    name: datahub-certs
 #    path: /mnt/datahub/certs

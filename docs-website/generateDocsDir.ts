@@ -50,7 +50,9 @@ function list_markdown_files(): string[] {
     // Ignore everything within this directory.
     /^docs-website\//,
     // Don't want hosted docs for these.
-    /^contrib\/(?!kubernetes\/README\.md)/, // Keeps the main Kubernetes docs.
+    /^contrib\//,
+    // Keep main docs for kubernetes, but skip the inner docs
+    /^datahub-kubernetes\/datahub\//,
     /^datahub-web\//,
     /^metadata-ingestion-examples\//,
     /^docs\/rfc\/templates\/000-template\.md$/,

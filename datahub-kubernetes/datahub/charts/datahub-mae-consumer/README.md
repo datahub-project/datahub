@@ -16,7 +16,7 @@ Current chart version is `0.2.0`
 | fullnameOverride | string | `"datahub-mae-consumer"` |  |
 | global.elasticsearch.host | string | `"elasticsearch"` |  |
 | global.elasticsearch.port | string | `"9200"` |  |
-| global.kafka.bootstrap.server | string | `"broker:29092"` |  |
+| global.kafka.bootstrap.server | string | `"broker:9092"` |  |
 | global.kafka.schemaregistry.url | string | `"http://schema-registry:8081"` |  |
 | global.neo4j.host | string | `"neo4j:7474"` |  |
 | global.neo4j.uri | string | `"bolt://neo4j"` |  |

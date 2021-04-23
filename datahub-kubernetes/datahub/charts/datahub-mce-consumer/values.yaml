@@ -1,11 +1,11 @@
-# Default values for datahub-mae-consumer.
+# Default values for datahub-mce-consumer.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: linkedin/datahub-mae-consumer
+  repository: linkedin/datahub-mce-consumer
   pullPolicy: Always
   tag: latest
 
@@ -137,31 +137,23 @@ exporters:
 livenessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 8
+  failureThreshold: 4
 
 readinessProbe:
   initialDelaySeconds: 60
   periodSeconds: 30
-  failureThreshold: 8
+  failureThreshold: 4
 
 global:
-  elasticsearch:
-    host: "elasticsearch"
-    port: "9200"
-
   kafka:
     bootstrap:
-      server: "broker:29092"
+      server: "broker:9092"
     schemaregistry:
       url: "http://schema-registry:8081"
 
-  neo4j:
-    host: "neo4j:7474"
-    uri: "bolt://neo4j"
-    username: "neo4j"
-    password:
-      secretRef: "neo4j-secrets"
-      secretKey: "neo4j-password"
+  datahub:
+    gms:
+      port: "8080"
 
   hostAliases:
     - ip: "192.168.0.104"
