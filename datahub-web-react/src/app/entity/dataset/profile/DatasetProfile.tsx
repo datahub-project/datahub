@@ -123,7 +123,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
                 <EntityProfile
-                    titleLink={`/${entityRegistry.getPathName(EntityType.Dataset)}?is_lineage_mode=${isLineageMode}`}
+                    titleLink={`/${entityRegistry.getPathName(
+                        EntityType.Dataset,
+                    )}/${urn}?is_lineage_mode=${isLineageMode}`}
                     title={data.dataset.name}
                     tags={
                         <TagGroup
