@@ -29,6 +29,10 @@ const ViewRawButtonContainer = styled.div`
     padding-bottom: 16px;
 `;
 
+const LighterText = styled(Typography.Text)`
+    color: rgba(0, 0, 0, 0.45);
+`;
+
 export type Props = {
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
@@ -78,7 +82,7 @@ const defaultColumns = [
             }
             return (
                 <>
-                    <Typography.Text>{`${firstPath}${lastPath ? '.' : ''}`}</Typography.Text>
+                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
                     {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
                 </>
             );
