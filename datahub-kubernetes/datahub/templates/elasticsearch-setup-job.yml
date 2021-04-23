@@ -37,7 +37,7 @@ spec:
           image: "{{ .Values.elasticsearchSetupJob.image.repository }}:{{ .Values.elasticsearchSetupJob.image.tag }}"
           env:
             - name: ELASTICSEARCH_HOST
-              value: {{ tpl .Values.global.elasticsearch.host . | quote }}
+              value: {{ .Values.global.elasticsearch.host | quote }}
             - name: ELASTICSEARCH_PORT
               value: {{ .Values.global.elasticsearch.port | quote }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}

@@ -44,7 +44,7 @@ spec:
                   name: "{{ .Values.global.sql.datasource.password.secretRef }}"
                   key: "{{ .Values.global.sql.datasource.password.secretKey }}"
             - name: MYSQL_HOST
-              value: {{ tpl .Values.global.sql.datasource.hostForMysqlClient . | quote }}
+              value: {{ .Values.global.sql.datasource.hostForMysqlClient | quote }}
             - name: MYSQL_PORT
               value: {{ .Values.global.sql.datasource.port | quote }}
           {{- with .Values.mysqlSetupJob.extraEnvs }}
