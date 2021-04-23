@@ -53,6 +53,15 @@
               "query": "$INPUT",
               "analyzer": "custom_keyword",
               "boost": 1,
+              "default_field": "platform",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "custom_keyword",
+              "boost": 1,
               "default_field": "tags",
               "default_operator": "AND"
             }
