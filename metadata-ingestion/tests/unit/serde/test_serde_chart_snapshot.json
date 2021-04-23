@@ -23,6 +23,8 @@
                             "deleted": null
                         },
                         "chartUrl": null,
+                        "externalUrl": null,
+                        "customProperties": {},
                         "inputs": [
                             {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"

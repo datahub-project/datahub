@@ -7,14 +7,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "model.sample_dbt.payments_base",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "model",
                             "materialization": "view",
                             "dbt_file_path": "models/base/payments_base.sql"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "model.sample_dbt.payments_base",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -204,14 +205,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "model.sample_dbt.payments_by_customer_by_month",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "model.sample_dbt.payments_by_customer_by_month",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -314,14 +316,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "model.sample_dbt.customer_details",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "model.sample_dbt.customer_details",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -399,14 +402,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "model.sample_dbt.monthly_billing_with_cust",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "model.sample_dbt.monthly_billing_with_cust",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -532,14 +536,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_01",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_01",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -674,14 +679,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_02",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_02",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -816,14 +822,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_03",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_03",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -958,14 +965,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_04",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_04",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1100,14 +1108,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_05",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_05",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1242,14 +1251,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.payment_p2020_06",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.payment_p2020_06",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1384,14 +1394,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.customer",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.customer",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1582,14 +1593,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.address",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.address",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
@@ -1752,14 +1764,15 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "description": "source.sample_dbt.pagila.city",
-                        "uri": null,
-                        "tags": [],
                         "customProperties": {
                             "dbt_node_type": "source",
                             "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
-                        }
+                        },
+                        "externalUrl": null,
+                        "description": "source.sample_dbt.pagila.city",
+                        "uri": null,
+                        "tags": []
                     }
                 },
                 {
