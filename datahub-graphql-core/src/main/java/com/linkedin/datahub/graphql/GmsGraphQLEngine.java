@@ -234,6 +234,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("updateTag", new AuthenticatedResolver<>(new MutableTypeResolver<>(TAG_TYPE)))
                 .dataFetcher("updateChart", new AuthenticatedResolver<>(new MutableTypeResolver<>(CHART_TYPE)))
                 .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(DASHBOARD_TYPE)))
+                .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(DATA_JOB_TYPE)))
+                .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(DATA_FLOW_TYPE)))
         );
     }
 
