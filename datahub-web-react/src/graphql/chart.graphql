@@ -40,6 +40,10 @@ query getChart($urn: String!) {
             created {
                 time
             }
+            customProperties {
+                key
+                value
+            }
         }
         query {
             rawQuery
@@ -101,6 +105,10 @@ mutation updateChart($input: ChartUpdateInput!) {
             }
             created {
                 time
+            }
+            customProperties {
+                key
+                value
             }
         }
         query {

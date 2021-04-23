@@ -154,6 +154,9 @@ fragment dataJobFields on DataJob {
         name
         description
     }
+    globalTags {
+        ...globalTagsFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
