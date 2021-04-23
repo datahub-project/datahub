@@ -2,13 +2,11 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.search.DataFlowDocument;
 import com.linkedin.metadata.search.DataJobDocument;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import java.util.Collections;
