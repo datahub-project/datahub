@@ -81,7 +81,7 @@ def test_datahub_rest_hook(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host)
+        mock_emitter.assert_called_once_with(config.host, None)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 

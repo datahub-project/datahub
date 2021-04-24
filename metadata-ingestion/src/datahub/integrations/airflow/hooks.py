@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 
@@ -45,15 +45,15 @@ class DatahubRestHook(BaseHook):
             },
         }
 
-    def _gms_endpoint(self) -> str:
+    def _get_config(self) -> Tuple[str, Optional[str]]:
         conn = self.get_connection(self.datahub_rest_conn_id)
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
-        return host
+        return (host, conn.password)
 
     def make_emitter(self) -> DatahubRestEmitter:
-        return DatahubRestEmitter(self._gms_endpoint())
+        return DatahubRestEmitter(*self._get_config())
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
         emitter = self.make_emitter()
