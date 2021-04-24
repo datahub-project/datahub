@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.chart;
 
 import com.linkedin.chart.client.Charts;
 import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -151,7 +152,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public Chart update(@Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        final com.linkedin.dashboard.Chart partialChart = ChartUpdateInputMapper.map(input);
+
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+        final com.linkedin.dashboard.Chart partialChart = ChartUpdateInputMapper.map(input, actor);
 
         try {
             _chartsClient.update(ChartUrn.createFromString(input.getUrn()), partialChart);

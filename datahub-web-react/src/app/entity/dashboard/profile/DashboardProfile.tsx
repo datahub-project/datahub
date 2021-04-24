@@ -63,7 +63,9 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                     <OwnershipView
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified.time) || 0}
-                        updateOwnership={() => console.log('Update dashboard not yet implemented')}
+                        updateOwnership={(update) =>
+                            updateDashboard({ variables: { input: { urn, ownership: update } } })
+                        }
                     />
                 ),
             },
