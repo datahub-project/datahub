@@ -7,7 +7,6 @@ import com.linkedin.dashboard.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 
 import javax.annotation.Nonnull;
