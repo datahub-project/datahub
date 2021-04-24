@@ -262,6 +262,8 @@ source:
     password: pass
     host_port: account_name
     database: db_name
+    warehouse: "COMPUTE_WH" # optional
+    role: "sysadmin" # optional
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
