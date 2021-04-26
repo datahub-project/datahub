@@ -774,6 +774,46 @@ enum OwnershipType {
     STAKEHOLDER
 }
 
+union CorpInfo = CorpUserInfo | CorpGroupInfo
+
+interface OwnerType implements CorpUser & CorpGroup {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Username of the corp user
+    """
+    username: String!
+
+    """
+    Writable info about the corp user
+    """
+    editableInfo: CorpUserEditableInfo
+
+    """
+    The structured tags associated with the user
+    """
+    globalTags: GlobalTags
+
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group/user
+    """
+    info: CorpInfo
+}
+
 type Owner {
     """
     Owner object - This should be extended to support CorpGroups as well
@@ -790,8 +830,6 @@ type Owner {
     """
     source: OwnershipSource
 }
-
-union OwnerType = CorpUser | CorpGroup
 
 type CorpUser implements Entity {
     """
@@ -905,7 +943,7 @@ type CorpUserEditableInfo {
 }
 
 type CorpGroup implements Entity {
-"""
+    """
     The unique user URN
     """
     urn: String!
@@ -935,17 +973,17 @@ type CorpGroupInfo {
     """
     owners of this group
     """
-    admins: [String]
+    admins: [CorpUser]
 
     """
     List of ldap urn in this group.
     """
-    members: [String]
+    members: [CorpUser]
 
     """
     List of groups in this group.
     """
-    groups: [String]
+    groups: [CorpGroup]
 }
 
 type Tag implements Entity{

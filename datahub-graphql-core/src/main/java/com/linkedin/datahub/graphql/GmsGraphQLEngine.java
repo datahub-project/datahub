@@ -25,7 +25,9 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
@@ -272,7 +274,7 @@ public class GmsGraphQLEngine {
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
                             new LoadableTypeResolver<>(
-                                    (CORP_USER_TYPE | CORP_GROUP_TYPE),
+                                    CORP_USER_TYPE,
                                     (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
                     )
             )
@@ -303,6 +305,35 @@ public class GmsGraphQLEngine {
                             CORP_USER_TYPE,
                             (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn()))
             )
+        );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.CorpGroup} type.
+     */
+    private static void configureCorpGroupResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("CorpGroupInfo", typeWiring -> typeWiring
+                .dataFetcher("admins", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CORP_USER_TYPE,
+                                (env) -> ((CorpGroupInfo) env.getSource()).getAdmins().stream()
+                                        .map(CorpUser::getUrn)
+                                        .collect(Collectors.toList())))
+                )
+                .dataFetcher("members", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CORP_USER_TYPE,
+                                (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
+                                        .map(CorpUser::getUrn)
+                                        .collect(Collectors.toList())))
+                )
+                .dataFetcher("groups", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CORP_GROUP_TYPE,
+                                (env) -> ((CorpGroupInfo) env.getSource()).getGroups().stream()
+                                        .map(CorpGroup::getUrn)
+                                        .collect(Collectors.toList())))
+                )
         );
     }
 

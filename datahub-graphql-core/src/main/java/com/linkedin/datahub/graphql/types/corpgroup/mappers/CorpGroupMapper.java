@@ -4,7 +4,6 @@ import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 
 import javax.annotation.Nonnull;
 
