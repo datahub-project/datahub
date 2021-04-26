@@ -15,18 +15,17 @@ REQUIRED_CONTAINERS = [
     "datahub-mce-consumer",
     "datahub-frontend-react",
     "datahub-mae-consumer",
-    "kafka-rest-proxy",
     "kafka-setup",
     "schema-registry",
     "broker",
-    "kibana",
     "mysql",
     "neo4j",
     "zookeeper",
-    *ENSURE_EXIT_SUCCESS,
     # These two containers are not necessary - only helpful in debugging.
     # "kafka-topics-ui",
     # "schema-registry-ui",
+    # "kibana",
+    # "kafka-rest-proxy",
 ]
 
 MIN_MEMORY_NEEDED = 8  # GB
