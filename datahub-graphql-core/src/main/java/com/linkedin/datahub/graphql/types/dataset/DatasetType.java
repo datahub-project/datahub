@@ -33,11 +33,15 @@ import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
@@ -71,26 +75,31 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     @Override
     public List<Dataset> batchLoad(final List<String> urns, final QueryContext context) {
 
-        final List<DatasetUrn> datasetUrns = urns.stream()
+        AtomicInteger index = new AtomicInteger(0);
+
+        final Collection<List<DatasetUrn>> datasetUrnsBatches = urns.stream()
                 .map(DatasetUtils::getDatasetUrn)
-                .collect(Collectors.toList());
+                .collect(Collectors.groupingBy(x -> index.getAndIncrement() / 50))
+                .values();
 
-        try {
-            final Map<DatasetUrn, com.linkedin.dataset.Dataset> datasetMap = _datasetsClient.batchGet(datasetUrns
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+        final List<com.linkedin.dataset.Dataset> datasets = new ArrayList<>();
 
-            final List<com.linkedin.dataset.Dataset> gmsResults = new ArrayList<>();
-            for (DatasetUrn urn : datasetUrns) {
-                gmsResults.add(datasetMap.getOrDefault(urn, null));
+        datasetUrnsBatches.forEach(datasetUrns -> {
+            try {
+                final Map<DatasetUrn, com.linkedin.dataset.Dataset> batchDatasetMap = _datasetsClient.batchGet(datasetUrns
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet()));
+
+                datasets.addAll(batchDatasetMap.values());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to batch load Datasets", e);
             }
-            return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load Datasets", e);
-        }
+        });
+
+        return datasets.stream()
+                .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
+                .collect(Collectors.toList());
     }
 
     @Override
