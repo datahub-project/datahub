@@ -237,8 +237,6 @@ class SQLAlchemySource(Source):
                 if description is not None:
                     dataset_properties = DatasetPropertiesClass(
                         description=description,
-                        tags=[],
-                        customProperties={},
                         # uri=dataset_name,
                     )
                     dataset_snapshot.aspects.append(dataset_properties)

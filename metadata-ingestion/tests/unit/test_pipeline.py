@@ -104,9 +104,6 @@ def get_initial_mce() -> MetadataChangeEventClass:
             aspects=[
                 DatasetPropertiesClass(
                     description="test.description",
-                    customProperties={},
-                    uri=None,
-                    tags=[],
                 )
             ],
         )
