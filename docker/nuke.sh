@@ -8,4 +8,4 @@ docker-compose -p datahub down -v
 docker-compose rm -f -v
 
 # Tear down ingestion container
-cd ingestion && docker-compose -p datahub down -v
+(cd ingestion && docker-compose -p datahub down -v)
