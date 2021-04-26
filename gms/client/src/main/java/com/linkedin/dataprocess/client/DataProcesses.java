@@ -1,5 +1,6 @@
 package com.linkedin.dataprocess.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataprocess.DataProcess;
@@ -55,16 +56,13 @@ public class DataProcesses extends BaseSearchableClient<DataProcess> {
   @Nonnull
   public Map<DataProcessUrn, DataProcess> batchGet(@Nonnull Set<DataProcessUrn> urns)
       throws RemoteInvocationException {
-    BatchGetEntityRequest<ComplexResourceKey<DataProcessKey, EmptyRecord>, DataProcess> batchGetRequest
-        = DATA_PROCESSES_REQUEST_BUILDERS.batchGet()
-        .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-        .build();
-
-    return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-        .entrySet().stream().collect(Collectors.toMap(
-            entry -> getUrnFromKey(entry.getKey()),
-            entry -> entry.getValue().getEntity())
-        );
+    return BatchGetUtils.batchGet(
+            urns,
+            DATA_PROCESSES_REQUEST_BUILDERS.batchGet(),
+            this::getKeyFromUrn,
+            this::getUrnFromKey,
+            _client
+    );
   }
 
   public void createDataProcessInfo(@Nonnull DataProcessUrn dataProcessUrn,

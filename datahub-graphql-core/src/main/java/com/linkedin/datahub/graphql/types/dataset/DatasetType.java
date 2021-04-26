@@ -152,16 +152,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input);
+        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
 
+        // TODO: Migrate inner mappers to InputModelMappers & remove
         // Create Audit Stamp
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
-
-        if (partialDataset.hasOwnership()) {
-            partialDataset.getOwnership().setLastModified(auditStamp);
-        }
 
         if (partialDataset.hasDeprecation()) {
             partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);

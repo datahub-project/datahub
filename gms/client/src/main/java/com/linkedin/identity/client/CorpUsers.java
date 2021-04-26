@@ -1,5 +1,6 @@
 package com.linkedin.identity.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpUser;
@@ -69,16 +70,13 @@ public class CorpUsers extends BaseSearchableClient<CorpUser> {
   @Nonnull
   public Map<CorpuserUrn, CorpUser> batchGet(@Nonnull Set<CorpuserUrn> urns)
       throws RemoteInvocationException {
-    BatchGetEntityRequest<ComplexResourceKey<CorpUserKey, EmptyRecord>, CorpUser> batchGetRequest
-        = CORP_USERS_REQUEST_BUILDERS.batchGet()
-        .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-        .build();
-
-    return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-        .entrySet().stream().collect(Collectors.toMap(
-            entry -> getUrnFromKey(entry.getKey()),
-            entry -> entry.getValue().getEntity())
-        );
+    return BatchGetUtils.batchGet(
+            urns,
+            CORP_USERS_REQUEST_BUILDERS.batchGet(),
+            this::getKeyFromUrn,
+            this::getUrnFromKey,
+            _client
+    );
   }
 
   /**

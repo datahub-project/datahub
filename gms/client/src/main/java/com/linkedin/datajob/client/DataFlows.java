@@ -1,5 +1,6 @@
 package com.linkedin.datajob.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.datajob.DataFlow;
 import com.linkedin.data.template.StringArray;
@@ -177,16 +178,13 @@ public class DataFlows extends BaseBrowsableClient<DataFlow, DataFlowUrn> {
     @Nonnull
     public Map<DataFlowUrn, DataFlow> batchGet(@Nonnull Set<DataFlowUrn> urns)
         throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<DataFlowKey, EmptyRecord>, DataFlow> batchGetRequest
-            = DATA_FLOWS_REQUEST_BUILDERS.batchGet()
-            .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-            .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-            .entrySet().stream().collect(Collectors.toMap(
-                entry -> getUrnFromKey(entry.getKey()),
-                entry -> entry.getValue().getEntity())
-            );
+        return BatchGetUtils.batchGet(
+                urns,
+                DATA_FLOWS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     /**
