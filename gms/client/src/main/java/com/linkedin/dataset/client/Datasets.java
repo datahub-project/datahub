@@ -229,7 +229,13 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     @Nonnull
     public Map<DatasetUrn, Dataset> batchGet(@Nonnull Set<DatasetUrn> urns)
         throws RemoteInvocationException {
-        return BatchGetUtils.batchGet(urns, DATASETS_REQUEST_BUILDERS.batchGet(), this::getKeyFromUrn, this::getUrnFromKey, _client);
+        return BatchGetUtils.batchGet(
+                urns,
+                DATASETS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     /**

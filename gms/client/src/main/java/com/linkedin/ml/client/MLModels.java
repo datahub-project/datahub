@@ -1,5 +1,6 @@
 package com.linkedin.ml.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -124,16 +125,13 @@ public class MLModels extends BaseSearchableClient<MLModel> {
     @Nonnull
     public Map<MLModelUrn, MLModel> batchGet(@Nonnull Set<MLModelUrn> urns)
         throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<MLModelKey, EmptyRecord>, MLModel> batchGetRequest
-            = ML_MODELS_REQUEST_BUILDERS.batchGet()
-            .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-            .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-            .entrySet().stream().collect(Collectors.toMap(
-                entry -> getUrnFromKey(entry.getKey()),
-                entry -> entry.getValue().getEntity())
-            );
+        return BatchGetUtils.batchGet(
+                urns,
+                ML_MODELS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     @Nonnull

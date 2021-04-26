@@ -1,5 +1,6 @@
 package com.linkedin.dashboard.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardKey;
@@ -76,16 +77,13 @@ public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
     @Nonnull
     public Map<DashboardUrn, Dashboard> batchGet(@Nonnull Set<DashboardUrn> urns)
             throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<DashboardKey, EmptyRecord>, Dashboard> batchGetRequest
-                = DASHBOARDS_REQUEST_BUILDERS.batchGet()
-                .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-                .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-                .entrySet().stream().collect(Collectors.toMap(
-                        entry -> getUrnFromKey(entry.getKey()),
-                        entry -> entry.getValue().getEntity())
-                );
+        return BatchGetUtils.batchGet(
+                urns,
+                DASHBOARDS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     @Nonnull
