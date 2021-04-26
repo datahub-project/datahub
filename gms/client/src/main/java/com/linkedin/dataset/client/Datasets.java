@@ -1,5 +1,6 @@
 package com.linkedin.dataset.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -33,10 +34,13 @@ import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -225,16 +229,7 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     @Nonnull
     public Map<DatasetUrn, Dataset> batchGet(@Nonnull Set<DatasetUrn> urns)
         throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<DatasetKey, EmptyRecord>, Dataset> batchGetRequest
-            = DATASETS_REQUEST_BUILDERS.batchGet()
-            .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-            .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-            .entrySet().stream().collect(Collectors.toMap(
-                entry -> getUrnFromKey(entry.getKey()),
-                entry -> entry.getValue().getEntity())
-            );
+        return BatchGetUtils.batchGet(urns, DATASETS_REQUEST_BUILDERS.batchGet(), this::getKeyFromUrn, this::getUrnFromKey, _client);
     }
 
     /**
