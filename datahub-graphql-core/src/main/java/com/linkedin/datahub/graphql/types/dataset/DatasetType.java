@@ -34,12 +34,10 @@ import com.linkedin.restli.common.CollectionResponse;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
@@ -73,31 +71,26 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     @Override
     public List<Dataset> batchLoad(final List<String> urns, final QueryContext context) {
 
-        AtomicInteger index = new AtomicInteger(0);
-
-        final Collection<List<DatasetUrn>> datasetUrnsBatches = urns.stream()
+        final List<DatasetUrn> datasetUrns = urns.stream()
                 .map(DatasetUtils::getDatasetUrn)
-                .collect(Collectors.groupingBy(x -> index.getAndIncrement() / 50))
-                .values();
-
-        final List<com.linkedin.dataset.Dataset> datasets = new ArrayList<>();
-
-        datasetUrnsBatches.forEach(datasetUrns -> {
-            try {
-                final Map<DatasetUrn, com.linkedin.dataset.Dataset> batchDatasetMap = _datasetsClient.batchGet(datasetUrns
-                        .stream()
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet()));
-
-                datasets.addAll(batchDatasetMap.values());
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to batch load Datasets", e);
-            }
-        });
-
-        return datasets.stream()
-                .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
                 .collect(Collectors.toList());
+
+        try {
+            final Map<DatasetUrn, com.linkedin.dataset.Dataset> datasetMap = _datasetsClient.batchGet(datasetUrns
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet()));
+
+            final List<com.linkedin.dataset.Dataset> gmsResults = new ArrayList<>();
+            for (DatasetUrn urn : datasetUrns) {
+                gmsResults.add(datasetMap.getOrDefault(urn, null));
+            }
+            return gmsResults.stream()
+                    .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to batch load Datasets", e);
+        }
     }
 
     @Override
@@ -159,13 +152,16 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
+        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input);
 
-        // TODO: Migrate inner mappers to InputModelMappers & remove
         // Create Audit Stamp
         final AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(actor, SetMode.IGNORE_NULL);
         auditStamp.setTime(System.currentTimeMillis());
+
+        if (partialDataset.hasOwnership()) {
+            partialDataset.getOwnership().setLastModified(auditStamp);
+        }
 
         if (partialDataset.hasDeprecation()) {
             partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);
