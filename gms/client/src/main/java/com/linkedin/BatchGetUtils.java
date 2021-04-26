@@ -19,10 +19,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class BatchGetUtils {
+public final class BatchGetUtils {
+    private BatchGetUtils() {
+        // not called
+    }
+
     private static int batchSize = 50;
 
-    public static <U extends Urn, T extends RecordTemplate, CRK extends ComplexResourceKey<K, EmptyRecord>, RB extends BatchGetEntityRequestBuilderBase<CRK, T, RB>, K extends RecordTemplate> Map<U, T> batchGet(
+    public static <
+            U extends Urn,
+            T extends RecordTemplate,
+            CRK extends ComplexResourceKey<K, EmptyRecord>,
+            RB extends BatchGetEntityRequestBuilderBase<CRK, T, RB>,
+            K extends RecordTemplate> Map<U, T> batchGet(
             @Nonnull Set<U> urns,
             BatchGetEntityRequestBuilderBase<CRK, T, RB> requestBuilders,
             Function<U, CRK> getKeyFromUrn,
