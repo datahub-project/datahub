@@ -50,7 +50,7 @@ class ConfigurationMechanism(ABC):
 
 
 class AllowDenyPattern(ConfigModel):
-    """ A class to store allow deny regexes"""
+    """A class to store allow deny regexes"""
 
     allow: List[str] = [".*"]
     deny: List[str] = []
