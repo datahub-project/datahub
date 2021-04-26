@@ -142,9 +142,6 @@ def create_metadata_work_unit(timestamp):
     dataset_snapshot.aspects.append(
         DatasetPropertiesClass(
             description="Grilled Food",
-            customProperties={},
-            uri=None,
-            tags=[],
         )
     )
 
