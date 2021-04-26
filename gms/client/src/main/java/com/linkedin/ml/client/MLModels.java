@@ -12,7 +12,6 @@ import com.linkedin.ml.MlModelsDoAutocompleteRequestBuilder;
 import com.linkedin.ml.MlModelsFindBySearchRequestBuilder;
 import com.linkedin.ml.MlModelsRequestBuilders;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
@@ -20,7 +19,6 @@ import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
