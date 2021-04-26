@@ -91,7 +91,6 @@ basicAuditStamp = models.AuditStampClass(
                                 lastModified=basicAuditStamp,
                             ),
                             type=models.ChartTypeClass.SCATTER,
-                            customProperties={},
                         ),
                     ],
                 )
@@ -133,7 +132,6 @@ basicAuditStamp = models.AuditStampClass(
                             name="User Deletions",
                             description="Constructs the fct_users_deleted from logging_events",
                             type=models.AzkabanJobTypeClass.SQL,
-                            customProperties={},
                         )
                     ],
                 )
