@@ -98,6 +98,19 @@ spec:
             - name: INDEX_PREFIX
               value: {{ . }}
             {{- end }}
+            {{- with .Values.global.elasticsearch.useSSL }}
+            - name: ELASTICSEARCH_USE_SSL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.global.elasticsearch.auth }}
+            - name: ELASTICSEARCH_USERNAME
+              value: {{ .username }}
+            - name: ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.global.elasticsearch.auth.passwordSecretRef }}"
+                  key: "{{ .Values.global.elasticsearch.auth.passwordSecretKey }}"
+            {{- end }}
             - name: NEO4J_HOST
               value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI

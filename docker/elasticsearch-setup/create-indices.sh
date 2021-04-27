@@ -8,10 +8,10 @@ else
     ELASTICSEARCH_PROTOCOL=http
 fi
 
-if [[ -z $ELASTICSEARCH_USERNAME ]]; then
+if [[ -z $ELASTICSEARCH_MASTER_USERNAME ]]; then
     ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_HOST
 else
-    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST
+    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_MASTER_USERNAME:$ELASTICSEARCH_MASTER_PASSWORD@$ELASTICSEARCH_HOST
 fi
 
 function get_index_name() {
@@ -122,6 +122,26 @@ function create_index() {
   fi
 }
 
+function create_user() {
+  ROLE="${INDEX_PREFIX}_access"
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles//$ELASTICSEARCH_USERNAME") -eq 404 ]
+  then
+    echo -e '\ncreating role' "${ROLE}"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles/${ROLE}" -H 'Content-Type: application/json' \
+      -d "{\"index_permissions\":{\"index_patterns\":[\"${INDEX_PREFIX}*\"], \"allowed_actions\":[\"read\", \"write\"]}}"
+  else
+    echo -e "\nrole exists"
+  fi
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/internalusers/$ELASTICSEARCH_USERNAME") -eq 404 ]
+  then
+    echo -e '\ncreating user' "${ELASTICSEARCH_USERNAME}"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/internalusers/${ELASTICSEARCH_USERNAME}" -H 'Content-Type: application/json' \
+      -d "{\"password\":\"${ELASTICSEARCH_PASSWORD}\", \"opendistro_security_roles\":[\"${ROLE}\"]}"
+  else
+    echo -e "\nuser exists"
+  fi
+}
+
 create_index $(get_index_name chartdocument) chart/settings.json chart/mappings.json || exit 1
 create_index $(get_index_name corpuserinfodocument) corp-user/settings.json corp-user/mappings.json  || exit 1
 create_index $(get_index_name dashboarddocument) dashboard/settings.json dashboard/mappings.json  || exit 1
@@ -131,3 +151,4 @@ create_index $(get_index_name dataprocessdocument) data-process/settings.json da
 create_index $(get_index_name datasetdocument) dataset/settings.json dataset/mappings.json || exit 1
 create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/mappings.json || exit 1
 create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
+}
