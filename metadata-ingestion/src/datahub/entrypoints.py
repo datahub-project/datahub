@@ -7,7 +7,8 @@ import click
 from pydantic import ValidationError
 
 import datahub as datahub_package
-from datahub.check.check_cli import check
+from datahub.cli.check_cli import check
+from datahub.cli.docker import docker
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -77,3 +78,4 @@ def ingest(config: str) -> None:
 
 
 datahub.add_command(check)
+datahub.add_command(docker)

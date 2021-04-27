@@ -50,7 +50,7 @@ def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
 
-def check_local_docker_containers() -> List[str]:
+def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
     issues: List[str] = []
     with get_client_with_error() as (client, error):
         if error:
@@ -63,6 +63,9 @@ def check_local_docker_containers() -> List[str]:
             issues.append(
                 f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
             )
+
+        if preflight_only:
+            return issues
 
         containers = client.containers.list(
             all=True,

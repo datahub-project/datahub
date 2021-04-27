@@ -1,10 +1,8 @@
-import sys
-
 import click
 
 from datahub import __package_name__
-from datahub.check.docker import check_local_docker_containers
-from datahub.check.json_file import check_mce_file
+from datahub.cli.docker import docker_check_impl
+from datahub.cli.json_file import check_mce_file
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 
@@ -26,15 +24,8 @@ def mce_file(json_file: str) -> None:
 @check.command()
 def local_docker() -> None:
     """Check that the local Docker containers are healthy"""
-
-    issues = check_local_docker_containers()
-    if not issues:
-        click.secho("✔ No issues detected", fg="green")
-    else:
-        click.secho("The following issues were detected:", fg="bright_red")
-        for issue in issues:
-            click.echo(f"- {issue}")
-        sys.exit(1)
+    click.secho("DeprecationWarning: use `datahub docker check` instead", fg="yellow")
+    docker_check_impl()
 
 
 @check.command()
