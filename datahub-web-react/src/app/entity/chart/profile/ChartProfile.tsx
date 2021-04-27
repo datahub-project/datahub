@@ -6,6 +6,7 @@ import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
 import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
+import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
@@ -14,9 +15,10 @@ export enum TabType {
     Ownership = 'Ownership',
     Sources = 'Sources',
     Properties = 'Properties',
+    Dashboards = 'Dashboards',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties];
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Properties, TabType.Dashboards];
 
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
@@ -50,8 +52,13 @@ export default function ChartProfile({ urn }: { urn: string }) {
         />
     );
 
-    const getTabs = ({ ownership, info }: Chart) => {
+    const getTabs = ({ ownership, info, downstreamLineage }: Chart) => {
         return [
+            {
+                name: TabType.Dashboards,
+                path: TabType.Dashboards.toLowerCase(),
+                content: <ChartDashboards downstreamLineage={downstreamLineage} />,
+            },
             {
                 name: TabType.Sources,
                 path: TabType.Sources.toLowerCase(),
