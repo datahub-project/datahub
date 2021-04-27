@@ -1,8 +1,7 @@
-import { AutoComplete, Avatar, Button, Form, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../types.generated';
-import defaultAvatar from '../../../images/default_avatar.png';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
@@ -159,19 +158,14 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         />
                     </Form.Item>
                 ) : (
-                    <Tooltip placement="left" title={record.fullName}>
-                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}>
-                            <Avatar
-                                style={{
-                                    marginRight: '15px',
-                                    color: '#f56a00',
-                                    backgroundColor: '#fde3cf',
-                                }}
-                                src={record.pictureLink || defaultAvatar}
-                            />
-                            {text}
-                        </Link>
-                    </Tooltip>
+                    <CustomAvatar
+                        key={record.urn}
+                        placement="left"
+                        name={record.fullName}
+                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}
+                        photoUrl={record.pictureLink}
+                        style={{ marginRight: '15px' }}
+                    />
                 );
             },
         },

@@ -18,7 +18,6 @@ dependencies {
   } else {
     assets project(path: ':datahub-web-react', configuration: 'assets')
   }
-
   play project(":datahub-dao")
   play project(":datahub-graphql-core")
 

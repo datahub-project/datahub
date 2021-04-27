@@ -1,7 +1,8 @@
 import json
 
-import mce_helpers
 import pytest
+
+from tests.test_helpers import mce_helpers
 
 basic_1 = json.loads(
     """[
@@ -147,15 +148,15 @@ basic_3 = json.loads(
 )
 
 
-def test_basic_diff_same():
+def test_basic_diff_same() -> None:
     mce_helpers.assert_mces_equal(basic_1, basic_2)
 
 
-def test_basic_diff_only_owner_change():
+def test_basic_diff_only_owner_change() -> None:
     with pytest.raises(AssertionError):
         mce_helpers.assert_mces_equal(basic_2, basic_3)
 
 
-def test_basic_diff_owner_change():
+def test_basic_diff_owner_change() -> None:
     with pytest.raises(AssertionError):
         mce_helpers.assert_mces_equal(basic_1, basic_3)

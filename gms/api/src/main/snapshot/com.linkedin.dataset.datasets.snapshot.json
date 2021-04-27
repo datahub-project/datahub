@@ -84,6 +84,20 @@
       "optional" : true
     } ]
   }, {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -180,6 +194,25 @@
       }
     }
   }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
+  }, {
     "type" : "enum",
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
@@ -255,15 +288,7 @@
           "doc" : "Metadata corresponding to a record of institutional memory.",
           "fields" : [ {
             "name" : "url",
-            "type" : {
-              "type" : "typeref",
-              "name" : "Url",
-              "ref" : "string",
-              "java" : {
-                "class" : "com.linkedin.common.url.Url",
-                "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-              }
-            },
+            "type" : "Url",
             "doc" : "Link to an engineering design document or a wiki page."
           }, {
             "name" : "description",
@@ -959,6 +984,11 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the dataset",
       "optional" : true
+    }, {
+      "name" : "externalUrl",
+      "type" : "com.linkedin.common.Url",
+      "doc" : "External URL associated with the dataset",
+      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", {
     "type" : "record",
@@ -988,6 +1018,7 @@
     "name" : "DatasetProperties",
     "namespace" : "com.linkedin.dataset",
     "doc" : "Properties associated with a Dataset",
+    "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
       "name" : "description",
       "type" : "string",
@@ -1006,14 +1037,6 @@
       },
       "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
       "default" : [ ]
-    }, {
-      "name" : "customProperties",
-      "type" : {
-        "type" : "map",
-        "values" : "string"
-      },
-      "doc" : "A key-value map to capture any other non-standardized properties for the dataset",
-      "default" : { }
     } ]
   }, {
     "type" : "record",

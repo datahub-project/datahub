@@ -1,10 +1,12 @@
 namespace com.linkedin.datajob
 
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Information about a Data processing flow
  */
-record DataFlowInfo {
+record DataFlowInfo includes CustomProperties, ExternalReference {
 
   /**
    * Flow name

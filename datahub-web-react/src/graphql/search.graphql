@@ -32,37 +32,10 @@ query getSearchResults($input: SearchInput!) {
                         value
                     }
                     ownership {
-                        owners {
-                            owner {
-                                urn
-                                type
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                    fullName
-                                }
-                                editableInfo {
-                                    pictureLink
-                                }
-                            }
-                            type
-                        }
-                        lastModified {
-                            time
-                        }
+                        ...ownershipFields
                     }
                     globalTags {
-                        tags {
-                            tag {
-                                urn
-                                name
-                                description
-                            }
-                        }
+                        ...globalTagsFields
                     }
                 }
                 ... on CorpUser {
@@ -87,35 +60,17 @@ query getSearchResults($input: SearchInput!) {
                     info {
                         name
                         description
-                        url
+                        externalUrl
                         access
                         lastModified {
                             time
                         }
                     }
                     ownership {
-                        owners {
-                            owner {
-                                urn
-                                type
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                    fullName
-                                }
-                                editableInfo {
-                                    pictureLink
-                                }
-                            }
-                            type
-                        }
-                        lastModified {
-                            time
-                        }
+                        ...ownershipFields
+                    }
+                    globalTags {
+                        ...globalTagsFields
                     }
                 }
                 ... on Chart {
@@ -126,7 +81,7 @@ query getSearchResults($input: SearchInput!) {
                     info {
                         name
                         description
-                        url
+                        externalUrl
                         type
                         access
                         lastModified {
@@ -134,28 +89,54 @@ query getSearchResults($input: SearchInput!) {
                         }
                     }
                     ownership {
-                        owners {
-                            owner {
-                                urn
-                                type
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                    fullName
-                                }
-                                editableInfo {
-                                    pictureLink
-                                }
-                            }
-                            type
+                        ...ownershipFields
+                    }
+                    globalTags {
+                        ...globalTagsFields
+                    }
+                }
+                ... on DataFlow {
+                    urn
+                    type
+                    orchestrator
+                    flowId
+                    cluster
+                    info {
+                        name
+                        description
+                        project
+                    }
+                    ownership {
+                        ...ownershipFields
+                    }
+                    globalTags {
+                        ...globalTagsFields
+                    }
+                }
+                ... on DataJob {
+                    urn
+                    type
+                    dataFlow {
+                        ...nonRecursiveDataFlowFields
+                    }
+                    jobId
+                    ownership {
+                        ...ownershipFields
+                    }
+                    inputOutput {
+                        inputDatasets {
+                            ...nonRecursiveDatasetFields
                         }
-                        lastModified {
-                            time
+                        outputDatasets {
+                            ...nonRecursiveDatasetFields
                         }
+                    }
+                    info {
+                        name
+                        description
+                    }
+                    globalTags {
+                        ...globalTagsFields
                     }
                 }
             }

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Avatar, Space, Typography } from 'antd';
+import { Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import defaultAvatar from '../../../../images/default_avatar.png';
+import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 
 const styles = {
     name: { margin: 0, color: '#0073b1' },
@@ -26,7 +26,7 @@ export const Preview = ({
     return (
         <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
             <Space size={28}>
-                <Avatar size={60} src={photoUrl || defaultAvatar} />
+                <CustomAvatar size={60} photoUrl={photoUrl} name={name} />
                 <Space direction="vertical" size={4}>
                     <Typography.Title style={styles.name} level={3}>
                         {name}

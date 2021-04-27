@@ -3,7 +3,7 @@ from typing import Callable
 from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
-from confluent_kafka.serialization import StringSerializer
+from confluent_kafka.serialization import SerializationContext, StringSerializer
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
@@ -31,7 +31,9 @@ class DatahubKafkaEmitter:
         }
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-        def convert_mce_to_dict(mce: MetadataChangeEvent, ctx):
+        def convert_mce_to_dict(
+            mce: MetadataChangeEvent, ctx: SerializationContext
+        ) -> dict:
             tuple_encoding = mce.to_obj(tuples=True)
             return tuple_encoding
 
@@ -54,7 +56,7 @@ class DatahubKafkaEmitter:
         self,
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
-    ):
+    ) -> None:
         # Call poll to trigger any callbacks on success / failure of previous writes
         self.producer.poll(0)
         self.producer.produce(

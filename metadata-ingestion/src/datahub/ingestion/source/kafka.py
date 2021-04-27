@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
+    env: str = "PROD"
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -33,7 +34,7 @@ class KafkaSourceConfig(ConfigModel):
 
 @dataclass
 class KafkaSourceReport(SourceReport):
-    topics_scanned = 0
+    topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
@@ -86,16 +87,13 @@ class KafkaSource(Source):
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
-        env = "PROD"  # TODO: configure!
         actor, sys_time = "urn:li:corpuser:etl", int(time.time() * 1000)
 
-        metadata_record = MetadataChangeEvent()
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-        metadata_record.proposedSnapshot = dataset_snapshot
 
         # Fetch schema from the registry.
         has_schema = True
@@ -130,6 +128,7 @@ class KafkaSource(Source):
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
 
     def get_report(self):

@@ -4,7 +4,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
-import com.linkedin.metadata.dao.TagActionRequestBuilders;
+import com.linkedin.metadata.dao.TagActionRequestBuilder;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
@@ -39,7 +39,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 public class Tags extends BaseSearchableClient<Tag>  {
 
     private static final TagsRequestBuilders TAGS_REQUEST_BUILDERS = new TagsRequestBuilders();
-    private static final TagActionRequestBuilders TAGS_ACTION_REQUEST_BUILDERS = new TagActionRequestBuilders();
+    private static final TagActionRequestBuilder TAGS_ACTION_REQUEST_BUILDERS = new TagActionRequestBuilder();
     private static final TagSearchConfig TAGS_SEARCH_CONFIG = new TagSearchConfig();
 
     public Tags(@Nonnull Client restliClient) {

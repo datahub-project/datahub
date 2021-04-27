@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Col, Divider, List, Pagination, Row } from 'antd';
+import { Col, Divider, List, Pagination, Row, Empty } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
@@ -49,7 +49,7 @@ export const BrowseResults = ({
                 <h1 className="ant-typography">{title}</h1>
                 <Row gutter={[4, 8]}>
                     {groups.map((group) => (
-                        <Col span={24}>
+                        <Col span={24} key={`${group.name}_key`}>
                             <BrowseResultCard
                                 name={group.name}
                                 count={group.count}
@@ -58,7 +58,7 @@ export const BrowseResults = ({
                             />
                         </Col>
                     ))}
-                    {entities.length > 0 && (
+                    {(!(groups && groups.length > 0) || (entities && entities.length > 0)) && (
                         <EntityList
                             dataSource={entities}
                             split={false}
@@ -69,6 +69,9 @@ export const BrowseResults = ({
                                 </>
                             )}
                             bordered
+                            locale={{
+                                emptyText: <Empty description="No Entities" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                            }}
                         />
                     )}
                     <Col span={24}>

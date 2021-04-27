@@ -15,6 +15,12 @@ class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "postgresql+psycopg2"
 
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
 
 class PostgresSource(SQLAlchemySource):
     def __init__(self, config, ctx):

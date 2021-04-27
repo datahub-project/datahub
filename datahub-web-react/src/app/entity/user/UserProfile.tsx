@@ -35,12 +35,12 @@ export default function UserProfile() {
 
     const ownershipForDetails = useMemo(() => {
         Object.keys(ownershipResult).forEach((type) => {
-            const entities = ownershipResult[type].data?.search?.entities;
+            const entities = ownershipResult[type].data?.search?.searchResults;
 
             if (!entities || entities.length === 0) {
                 delete ownershipResult[type];
             } else {
-                ownershipResult[type] = ownershipResult[type].data?.search?.entities;
+                ownershipResult[type] = ownershipResult[type].data?.search?.searchResults;
             }
         });
         return ownershipResult;

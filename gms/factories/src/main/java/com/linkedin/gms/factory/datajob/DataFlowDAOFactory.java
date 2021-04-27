@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.datajob;
 
+import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.mxe.TopicConvention;
 import javax.annotation.Nonnull;
 
 import org.apache.kafka.clients.producer.Producer;
@@ -17,18 +19,20 @@ import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 
 import io.ebean.config.ServerConfig;
 
+
 @Configuration
 public class DataFlowDAOFactory {
-    @Autowired
-    private ApplicationContext applicationContext;
+  @Autowired
+  private ApplicationContext applicationContext;
 
-    @Bean(name = "dataFlowDAO")
-    @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer"})
-    @Nonnull
-    protected EbeanLocalDAO<DataFlowAspect, DataFlowUrn> createInstance() {
-        KafkaMetadataEventProducer<DataFlowSnapshot, DataFlowAspect, DataFlowUrn> producer =
-            new KafkaMetadataEventProducer<>(DataFlowSnapshot.class, DataFlowAspect.class,
-                applicationContext.getBean(Producer.class));
-        return new EbeanLocalDAO<>(DataFlowAspect.class, producer, applicationContext.getBean(ServerConfig.class), DataFlowUrn.class);
-    }
+  @Bean(name = "dataFlowDAO")
+  @DependsOn({"gmsEbeanServiceConfig", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
+  @Nonnull
+  protected EbeanLocalDAO<DataFlowAspect, DataFlowUrn> createInstance() {
+    KafkaMetadataEventProducer<DataFlowSnapshot, DataFlowAspect, DataFlowUrn> producer =
+        new KafkaMetadataEventProducer<>(DataFlowSnapshot.class, DataFlowAspect.class,
+            applicationContext.getBean(Producer.class), applicationContext.getBean(TopicConvention.class));
+    return new EbeanLocalDAO<>(DataFlowAspect.class, producer, applicationContext.getBean(ServerConfig.class),
+        DataFlowUrn.class);
+  }
 }

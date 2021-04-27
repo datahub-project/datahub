@@ -1,10 +1,10 @@
-import { Avatar, Divider, Image, Row, Space, Tag, Tooltip, Typography } from 'antd';
+import { Avatar, Divider, Image, Row, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { EntityType, GlobalTags } from '../../types.generated';
-import defaultAvatar from '../../images/default_avatar.png';
 import { useEntityRegistry } from '../useEntityRegistry';
+import CustomAvatar from '../shared/avatar/CustomAvatar';
 import TagGroup from '../shared/tags/TagGroup';
 
 interface Props {
@@ -64,7 +64,7 @@ export default function DefaultPreviewCard({
                             <Space split={<Divider type="vertical" />} size={16}>
                                 <Typography.Text>{type}</Typography.Text>
                                 <Typography.Text strong>{platform}</Typography.Text>
-                                <Tag>{qualifier}</Tag>
+                                {qualifier && <Tag>{qualifier}</Tag>}
                             </Space>
                         </Space>
                     </Space>
@@ -80,14 +80,15 @@ export default function DefaultPreviewCard({
             </Space>
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space direction="vertical" size={12}>
-                    <Typography.Text strong>Owned By</Typography.Text>
+                    <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
                     <Avatar.Group maxCount={4}>
                         {owners?.map((owner) => (
-                            <Tooltip title={owner.name} key={owner.urn}>
-                                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.urn}`}>
-                                    <Avatar src={owner.photoUrl || defaultAvatar} />
-                                </Link>
-                            </Tooltip>
+                            <CustomAvatar
+                                key={owner.urn}
+                                name={owner.name}
+                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.urn}`}
+                                photoUrl={owner.photoUrl}
+                            />
                         ))}
                     </Avatar.Group>
                 </Space>
