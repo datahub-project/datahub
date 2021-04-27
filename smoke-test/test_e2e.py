@@ -14,7 +14,7 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 10
+kafka_post_ingestion_wait_sec = 60
 healthcheck_wait_retries = 20
 healthcheck_wait_interval_sec = 15
 
