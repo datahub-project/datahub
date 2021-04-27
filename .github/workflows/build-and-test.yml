@@ -33,22 +33,11 @@ jobs:
         run: cd metadata-ingestion && ./scripts/ci.sh
       - name: Smoke test
         run: |
+          ./gradlew :metadata-events:mxe-schemas:build
           ./docker/dev.sh -d
           sleep 30
           docker ps -a
-          ./docker/dev.sh -d
-          sleep 30
-          docker ps -a
-          ./docker/dev.sh -d
-          sleep 30
-          docker ps -a
-          ./docker/dev.sh -d
-          sleep 30
-          docker ps -a
-          (cd docker && docker-compose -p datahub logs)
-          ./smoke-test/smoke.sh || true
-          docker ps -a
-          (cd docker && docker-compose -p datahub logs)
+          ./smoke-test/smoke.sh
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
