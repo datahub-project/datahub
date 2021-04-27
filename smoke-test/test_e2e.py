@@ -29,6 +29,7 @@ def wait_for_healthchecks():
         
         issues = check_local_docker_containers()
         if not issues:
+            print(f"finished waiting for healthchecks after {tries} tries")
             yield
             return
     
