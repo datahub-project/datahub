@@ -24,7 +24,7 @@ public final class BatchGetUtils {
         // not called
     }
 
-    private static int batchSize = 50;
+    private static int batchSize = 25;
 
     public static <
             U extends Urn,
