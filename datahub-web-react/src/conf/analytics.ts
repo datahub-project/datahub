@@ -1,5 +1,5 @@
 const config: any = {
-    // logging: true,
+    // Uncomment below to configure analytics.
     // googleAnalytics: {
     //    trackingId: 'UA-24123123-01',
     // },
@@ -9,6 +9,7 @@ const config: any = {
     // amplitude: {
     //    apiKey: 'c5c212632315d19c752ab083bc7c92ff',
     // },
+    // logging: true,
 };
 
 export default config;
