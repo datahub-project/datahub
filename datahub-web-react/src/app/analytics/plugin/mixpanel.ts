@@ -1,7 +1,9 @@
 import mixpanel from '@analytics/mixpanel';
+import analyticsConfig from '../../../conf/analytics';
 
-const isEnabled = process.env.ANALYTICS_MIXPANEL_ENABLED || false;
-const token = process.env.ANALYTICS_MIXPANEL_TOKEN || undefined;
+const mixpanelConfigs = analyticsConfig.mixpanel;
+const isEnabled: boolean = mixpanelConfigs || false;
+const token = isEnabled ? mixpanelConfigs.token : undefined;
 
 export default {
     isEnabled,

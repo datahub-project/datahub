@@ -1,3 +1,5 @@
+import analyticsConfig from '../../../conf/analytics';
+
 /**
  * Analytics plugin that logs tracking events + page views to console.s
  */
@@ -25,7 +27,7 @@ const loggingPlugin = () => {
 /**
  * Change to true to enable event logging in the console.
  */
-const isEnabled = true;
+const isEnabled = analyticsConfig.logging || false;
 
 export default {
     isEnabled,
