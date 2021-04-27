@@ -3,6 +3,11 @@ from typing import List
 
 import docker
 
+ENSURE_EXIT_SUCCESS = [
+    "kafka-setup",
+    "elasticsearch-setup",
+]
+
 REQUIRED_CONTAINERS = [
     "elasticsearch-setup",
     "elasticsearch",
@@ -10,21 +15,17 @@ REQUIRED_CONTAINERS = [
     "datahub-mce-consumer",
     "datahub-frontend-react",
     "datahub-mae-consumer",
-    "kafka-topics-ui",
-    "kafka-rest-proxy",
     "kafka-setup",
-    "schema-registry-ui",
     "schema-registry",
     "broker",
-    "kibana",
     "mysql",
     "neo4j",
     "zookeeper",
-]
-
-ALLOW_STOPPED = [
-    "kafka-setup",
-    "elasticsearch-setup",
+    # These two containers are not necessary - only helpful in debugging.
+    # "kafka-topics-ui",
+    # "schema-registry-ui",
+    # "kibana",
+    # "kafka-rest-proxy",
 ]
 
 MIN_MEMORY_NEEDED = 8  # GB
@@ -56,7 +57,7 @@ def check_local_docker_containers() -> List[str]:
             issues.append("Docker doesn't seem to be running. Did you start it?")
             return issues
 
-        # check total memory
+        # Check total memory.
         total_mem_configured = int(client.info()["MemTotal"])
         if memory_in_gb(total_mem_configured) + MEMORY_TOLERANCE < MIN_MEMORY_NEEDED:
             issues.append(
@@ -86,8 +87,13 @@ def check_local_docker_containers() -> List[str]:
                 # This way, we only check required containers like "datahub-frontend-react"
                 # even if there are some old containers lying around.
                 continue
-            if container.name in ALLOW_STOPPED:
-                continue
+
+            if container.name in ENSURE_EXIT_SUCCESS:
+                if container.status != "exited":
+                    issues.append(f"{container.name} is still running")
+                elif container.attrs["State"]["ExitCode"] != 0:
+                    issues.append(f"{container.name} did not exit cleanly")
+
             elif container.status != "running":
                 issues.append(f"{container.name} is not running")
             elif "Health" in container.attrs["State"]:

@@ -204,7 +204,10 @@ source:
         - "schema1.table2"
     options:
       # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-      # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
+      # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
+      # Many of these options are specific to the underlying database driver, so that library's
+      # documentation will be a good reference for what is supported. To find which dialect is likely
+      # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
       charset: "utf8"
 ```
 
@@ -302,7 +305,6 @@ source:
   type: bigquery
   config:
     project_id: project # optional - can autodetect from environment
-    dataset: dataset_name
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
