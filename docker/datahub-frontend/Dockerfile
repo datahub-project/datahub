@@ -30,6 +30,7 @@ USER datahub
 
 ARG SERVER_PORT=9002
 ENV SERVER_PORT=$SERVER_PORT
+ENV PID_PATH="/datahub-frontend/play.pid"
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
@@ -43,5 +44,5 @@ ENV JAVA_OPTS=" \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
    -Dlogback.debug=true \
-   -Dpidfile.path=/datahub-frontend/play.pid"
+   -Dpidfile.path=$PID_PATH"
 CMD ["datahub-frontend/bin/playBinary"]
