@@ -146,4 +146,4 @@ def test_avro_schema_to_mce_fields_with_default():
 
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields) == 1
-    assert "custom, default value" in fields[0].description
+    assert fields[0].description and "custom, default value" in fields[0].description
