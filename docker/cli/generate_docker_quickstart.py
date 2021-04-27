@@ -23,14 +23,14 @@ def dict_merge(dct, merge_dct):
         else:
             dct[k] = merge_dct[k]
 
-def rewrite_docker_config(base_path, docker_yaml_config):
+def modify_docker_config(base_path, docker_yaml_config):
     # 0. Filter out services to be omitted.
     keys_to_delete = [key for key in docker_yaml_config["services"] if key in omitted_services]
     for key in keys_to_delete: del docker_yaml_config["services"][key]
 
     for name,service in docker_yaml_config["services"].items():
 
-        # 1. Parse the env file pointer
+        # 1. Extract the env file pointer
         env_file = service.get("env_file")
 
         if env_file is None:
@@ -42,7 +42,7 @@ def rewrite_docker_config(base_path, docker_yaml_config):
         # 3. Resolve the .env values
         env_vars = dotenv_values(env_file_path)
 
-        # 4. Add an "environment" block to my YAML
+        # 4. Add an "environment" block to YAML
         formatted_env_pairs = map(lambda tuple: "{key}={value}".format(key=tuple[0], value=tuple[1]), env_vars.items())
         service["environment"] = list(formatted_env_pairs)
 
@@ -62,7 +62,7 @@ def generate(compose_files, output_file) -> None:
             docker_config = yaml.load(orig_conf, Loader=Loader)
 
         base_path = os.path.dirname(compose_file)
-        rewrite_docker_config(base_path, docker_config)
+        modify_docker_config(base_path, docker_config)
         modified_files.append(docker_config)
 
     # Merge services, networks, and volumes maps
