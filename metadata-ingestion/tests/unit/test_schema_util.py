@@ -1,4 +1,4 @@
-import unittest
+import pytest
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 
@@ -90,41 +90,60 @@ SCHEMA_WITH_TWO_FIELD_RECORD = """
 }
 """
 
+SCHEMA_WITH_DEFAULT_VALUE = """
+{
+  "type": "record",
+  "name": "some.event.name",
+  "namespace": "some.event.namespace",
+  "fields": [
+    {
+      "name": "my.field",
+      "type": "string",
+      "doc": "some docs",
+      "default": "this is custom, default value"
+    }
+  ]
+}
+"""
 
-class SchemaUtilTest(unittest.TestCase):
-    def test_avro_schema_to_mce_fields_events_with_nullable_fields(self):
 
-        examples = [
-            SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE,
-            SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION,
-            SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE,
-        ]
+@pytest.mark.parametrize(
+    "schema",
+    [
+        SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE,
+        SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION,
+        SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE,
+    ],
+)
+def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):
+    fields = avro_schema_to_mce_fields(schema)
+    assert 1 == len(fields)
+    assert fields[0].nullable
 
-        for schema in examples:
-            fields = avro_schema_to_mce_fields(schema)
-            self.assertEqual(1, len(fields))
-            self.assertTrue(fields[0].nullable)
 
-    def test_avro_schema_to_mce_fields_sample_events_with_different_field_types(self):
+def test_avro_schema_to_mce_fields_sample_events_with_different_field_types():
+    schema = SCHEMA_WITH_MAP_TYPE_FIELD
+    fields = avro_schema_to_mce_fields(schema)
+    assert 1 == len(fields)
 
-        examples = [SCHEMA_WITH_MAP_TYPE_FIELD]
 
-        for schema in examples:
-            fields = avro_schema_to_mce_fields(schema)
-            self.assertEqual(1, len(fields))
+def test_avro_schema_to_mce_fields_record_with_two_fields():
+    schema = SCHEMA_WITH_TWO_FIELD_RECORD
 
-    def test_avro_schema_to_mce_fields_record_with_two_fields(self):
+    fields = avro_schema_to_mce_fields(schema)
+    assert len(fields) == 2
 
-        examples = [SCHEMA_WITH_TWO_FIELD_RECORD]
 
-        for schema in examples:
-            fields = avro_schema_to_mce_fields(schema)
-            self.assertEqual(2, len(fields))
+def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
+    schema = SCHEMA_WITH_TOP_LEVEL_PRIMITIVE_FIELD
 
-    def test_avro_schema_to_mce_fields_toplevel_isnt_a_record(self):
+    fields = avro_schema_to_mce_fields(schema)
+    assert len(fields) == 1
 
-        examples = [SCHEMA_WITH_TOP_LEVEL_PRIMITIVE_FIELD]
 
-        for schema in examples:
-            fields = avro_schema_to_mce_fields(schema)
-            self.assertEqual(1, len(fields))
+def test_avro_schema_to_mce_fields_with_default():
+    schema = SCHEMA_WITH_DEFAULT_VALUE
+
+    fields = avro_schema_to_mce_fields(schema)
+    assert len(fields) == 1
+    assert "custom, default value" in fields[0].description
