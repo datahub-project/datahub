@@ -1181,6 +1181,10 @@
                         "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                             "title": "Baz Dashboard",
                             "description": "Baz Dashboard",
+                            "customProperties": {
+                                "prop1": "fakeprop",
+                                "prop2": "pikachu"
+                            },
                             "charts": [
                                 "urn:li:chart:(looker,baz1)",
                                 "urn:li:chart:(looker,baz2)"
