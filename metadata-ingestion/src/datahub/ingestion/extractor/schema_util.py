@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import avro.schema
 
@@ -68,11 +68,15 @@ def _recordschema_to_mce_fields(schema: avro.schema.RecordSchema) -> List[Schema
     fields: List[SchemaField] = []
 
     for parsed_field in schema.fields:
+        description: Optional[str] = parsed_field.doc
+        if parsed_field.has_default:
+            description = description if description else "No description available."
+            description = f"{description}\nField default value: {parsed_field.default}"
         field = SchemaField(
             fieldPath=parsed_field.name,
             nativeDataType=str(parsed_field.type),
             type=_get_column_type(parsed_field.type),
-            description=parsed_field.props.get("doc", None),
+            description=description,
             recursive=False,
             nullable=_is_nullable(parsed_field.type),
         )
