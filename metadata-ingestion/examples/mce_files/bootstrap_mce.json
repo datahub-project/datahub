@@ -288,11 +288,11 @@
                             },
                             "fields": [
                                 {
-                                    "fieldPath": "field_foo",
+                                    "fieldPath": "shipment_info",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field description"
+                                        "string": "Shipment info description"
                                     },
                                     "type": {
                                         "type": {
@@ -303,11 +303,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.date",
+                                    "fieldPath": "shipment_info.date",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field date description"
+                                        "string": "Shipment info date description"
                                     },
                                     "type": {
                                         "type": {
@@ -318,11 +318,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.target",
+                                    "fieldPath": "shipment_info.target",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field target description"
+                                        "string": "Shipment info target description"
                                     },
                                     "type": {
                                         "type": {
@@ -333,11 +333,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.destination",
+                                    "fieldPath": "shipment_info.destination",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field destination description"
+                                        "string": "Shipment info destination description"
                                     },
                                     "type": {
                                         "type": {
@@ -348,11 +348,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.geo_info",
+                                    "fieldPath": "shipment_info.geo_info",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field geo_info description"
+                                        "string": "Shipment info geo_info description"
                                     },
                                     "type": {
                                         "type": {
@@ -363,11 +363,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.geo_info.xyz",
+                                    "fieldPath": "shipment_info.geo_info.lat",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field geo_info xyz description"
+                                        "string": "Shipment info geo_info lat"
                                     },
                                     "type": {
                                         "type": {
@@ -378,101 +378,11 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "field_foo.geo_info.boolean",
+                                    "fieldPath": "shipment_info.geo_info.lng",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Foo field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "string",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.date",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field date description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.DateType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "DATE()",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.target",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field target description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "text",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.destination",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field destination description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "string",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "string",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.xyz",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info xyz description"
+                                        "string": "Shipment info geo_info lng"
                                     },
                                     "type": {
                                         "type": {
@@ -480,126 +390,6 @@
                                         }
                                     },
                                     "nativeDataType": "float",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e.f",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar.geo_info.boolean.a.b.c.d.e.f.g.h.j.k.l",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field geo_info boolean description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
                                     "recursive": false
                                 }
                             ],
