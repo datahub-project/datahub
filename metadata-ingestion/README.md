@@ -45,6 +45,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
 | kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
@@ -270,6 +271,24 @@ source:
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+### Superset `superset`
+
+Extracts:
+
+- List of charts and dashboards
+
+```yml
+source:
+  type: superset
+  config:
+    username: user
+    password: pass
+    provider: db | ldap
+    connect_uri: http://localhost:8088
+```
+
+See documentation for superset's `/security/login` at  https://superset.apache.org/docs/rest-api for more details on superset's login api.
 
 ### Oracle `oracle`
 
