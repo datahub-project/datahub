@@ -1,0 +1,2 @@
+PyYAML
+python-dotenv
