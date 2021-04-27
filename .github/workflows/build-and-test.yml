@@ -29,8 +29,8 @@ jobs:
           python-version: "3.6"
       - name: Gradle build (and test)
         run: ./gradlew build
-      # - name: Python ingest framework tests
-      #   run: cd metadata-ingestion && ./scripts/ci.sh
+      - name: Python ingest framework tests
+        run: cd metadata-ingestion && ./scripts/ci.sh
       - name: Smoke test
         run: |
           ./gradlew :metadata-events:mxe-schemas:build
