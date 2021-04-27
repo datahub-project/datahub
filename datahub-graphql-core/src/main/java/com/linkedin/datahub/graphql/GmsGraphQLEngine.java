@@ -275,7 +275,12 @@ public class GmsGraphQLEngine {
                     .dataFetcher("owner", new AuthenticatedResolver<>(
                             new LoadableTypeResolver<>(
                                     CORP_USER_TYPE,
-                                    (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
+                                    (env) -> ((CorpUser) ((Owner) env.getSource()).getOwner()).getUrn()))
+                    )
+                    .dataFetcher("owner", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                            CORP_GROUP_TYPE,
+                            (env) -> ((CorpGroup) ((Owner) env.getSource()).getOwner()).getUrn()))
                     )
             )
             .type("RelatedDataset", typeWiring -> typeWiring

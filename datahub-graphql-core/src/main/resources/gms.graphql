@@ -683,18 +683,6 @@ type StringMapEntry {
     value: String
 }
 
-type Ownership {
-    """
-    List of owners of the entity
-    """
-    owners: [Owner!]
-
-    """
-      Audit stamp containing who last modified the record and when
-    """
-    lastModified: AuditStamp!
-}
-
 enum OwnershipSourceType {
     """
     Auditing system or audit logs
@@ -772,63 +760,6 @@ enum OwnershipType {
     A person or a group that has direct business interest
     """
     STAKEHOLDER
-}
-
-union CorpInfo = CorpUserInfo | CorpGroupInfo
-
-interface OwnerType implements CorpUser & CorpGroup {
-    """
-    The unique user URN
-    """
-    urn: String!
-
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
-
-    """
-    Username of the corp user
-    """
-    username: String!
-
-    """
-    Writable info about the corp user
-    """
-    editableInfo: CorpUserEditableInfo
-
-    """
-    The structured tags associated with the user
-    """
-    globalTags: GlobalTags
-
-
-    """
-    group name e.g. wherehows-dev, ask_metadata
-    """
-    name: String
-
-    """
-    Information of the corp group/user
-    """
-    info: CorpInfo
-}
-
-type Owner {
-    """
-    Owner object - This should be extended to support CorpGroups as well
-    """
-    owner: OwnerType!
-
-    """
-    The type of the ownership
-    """
-    type: OwnershipType!
-
-    """
-    Source information for the ownership
-    """
-    source: OwnershipSource
 }
 
 type CorpUser implements Entity {
@@ -986,7 +917,38 @@ type CorpGroupInfo {
     groups: [CorpGroup]
 }
 
-type Tag implements Entity{
+union OwnerType = CorpUser | CorpGroup
+
+type Owner {
+    """
+    Owner object
+    """
+    owner: OwnerType!
+
+    """
+    The type of the ownership
+    """
+    type: OwnershipType!
+
+    """
+    Source information for the ownership
+    """
+    source: OwnershipSource
+}
+
+type Ownership {
+    """
+    List of owners of the entity
+    """
+    owners: [Owner!]
+
+    """
+      Audit stamp containing who last modified the record and when
+    """
+    lastModified: AuditStamp!
+}
+
+type Tag implements Entity {
     urn: String!
     """
     GMS Entity Type
