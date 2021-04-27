@@ -12,14 +12,15 @@ import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
+import { Properties as PropertiesView } from '../../shared/Properties';
 
 export enum TabType {
     Ownership = 'Ownership',
     Charts = 'Charts',
+    Properties = 'Properties',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts];
-
+const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties];
 /**
  * Responsible for reading & writing users.
  */
@@ -68,6 +69,11 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                         }
                     />
                 ),
+            },
+            {
+                name: TabType.Properties,
+                path: TabType.Properties.toLowerCase(),
+                content: <PropertiesView properties={info?.customProperties || []} />,
             },
             {
                 name: TabType.Charts,
