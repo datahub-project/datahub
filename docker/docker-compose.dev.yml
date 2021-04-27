@@ -40,12 +40,8 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
-    environment:
-      - PID_PATH=/tmp/play/play.pid
     volumes:
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
-    tmpfs:
-      - /tmp/play
 
   datahub-mae-consumer:
     image: linkedin/datahub-mae-consumer:debug
