@@ -56,12 +56,7 @@ jobs:
         run: |
           ./docker/dev.sh -d
           sleep 30
-          docker ps -a
-          ./smoke-test/smoke.sh || true
-          docker ps -a
-          (cd docker && docker-compose -p datahub logs)
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+          ./smoke-test/smoke.sh
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
