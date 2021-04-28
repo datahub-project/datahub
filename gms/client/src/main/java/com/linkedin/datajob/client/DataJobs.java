@@ -1,5 +1,6 @@
 package com.linkedin.datajob.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datajob.DataJobsDoBrowseRequestBuilder;
@@ -18,7 +19,6 @@ import com.linkedin.datajob.DataJobsFindBySearchRequestBuilder;
 import com.linkedin.datajob.DataJobsRequestBuilders;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.client.Request;
@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -176,16 +175,13 @@ public class DataJobs extends BaseBrowsableClient<DataJob, DataJobUrn> {
     @Nonnull
     public Map<DataJobUrn, DataJob> batchGet(@Nonnull Set<DataJobUrn> urns)
         throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<DataJobKey, EmptyRecord>, DataJob> batchGetRequest
-            = DATA_JOBS_REQUEST_BUILDERS.batchGet()
-            .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-            .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-            .entrySet().stream().collect(Collectors.toMap(
-                entry -> getUrnFromKey(entry.getKey()),
-                entry -> entry.getValue().getEntity())
-            );
+        return BatchGetUtils.batchGet(
+                urns,
+                DATA_JOBS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     /**
