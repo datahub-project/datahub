@@ -1,8 +1,10 @@
 import { Button, Form, Input, Space, Table, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Cookies from 'js-cookie';
 import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { GlobalCfg } from '../../../../conf';
 
 export type Props = {
     documents: Array<InstitutionalMemoryMetadata>;
@@ -70,7 +72,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
         const newDoc = {
             url: '',
             description: '',
-            author: localStorage.getItem('userUrn') as string,
+            author: Cookies.get(GlobalCfg.CLIENT_AUTH_COOKIE) as string,
             created: {
                 time: Date.now(),
             },
