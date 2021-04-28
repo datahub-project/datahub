@@ -26,7 +26,7 @@
         "@vx/hierarchy": "^0.0.199",
         "@vx/shape": "^0.0.199",
         "@vx/zoom": "^0.0.199",
-        "antd": "^4.9.4",
+        "antd": "^4.15.2",
         "apollo-link": "^1.2.14",
         "apollo-link-error": "^1.1.13",
         "apollo-link-http": "^1.5.17",

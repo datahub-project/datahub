@@ -2,7 +2,7 @@ import importlib
 import inspect
 from typing import Dict, Generic, Type, TypeVar, Union
 
-import pkg_resources
+import entrypoints
 import typing_inspect
 
 from datahub import __package_name__
@@ -20,7 +20,7 @@ class Registry(Generic[T]):
         tp = typing_inspect.get_args(cls)[0]
         return tp
 
-    def _check_cls(self, cls: Type[T]):
+    def _check_cls(self, cls: Type[T]) -> None:
         if inspect.isabstract(cls):
             raise ValueError(
                 f"cannot register an abstract type in the registry; got {cls}"
@@ -48,7 +48,8 @@ class Registry(Generic[T]):
         return not isinstance(tp, Exception)
 
     def load(self, entry_point_key: str) -> None:
-        for entry_point in pkg_resources.iter_entry_points(entry_point_key):
+        entry_point: entrypoints.EntryPoint
+        for entry_point in entrypoints.get_group_all(entry_point_key):
             name = entry_point.name
 
             try:

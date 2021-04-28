@@ -22,14 +22,12 @@ export const EntityPage = ({ entityType }: Props) => {
     const { urn } = useParams<RouteParams>();
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
-    const ContainerPage = isBrowsable ? BrowsableEntityPage : SearchablePage;
+    const isLineageSupported = entityRegistry.getEntity(entityType).isLineageEnabled();
+    const ContainerPage = isBrowsable || isLineageSupported ? BrowsableEntityPage : SearchablePage;
     const isLineageMode = useIsLineageMode();
 
-    // TODO(gabe-lyons): pull this logic into the entity registry
-    const isLineageSupported = entityRegistry.getLineageEntityTypes().indexOf(entityType) > -1;
-
     return (
-        <ContainerPage urn={urn} type={entityType} lineageSupported={isLineageSupported}>
+        <ContainerPage isBrowsable={isBrowsable} urn={urn} type={entityType} lineageSupported={isLineageSupported}>
             {isLineageMode && isLineageSupported ? (
                 <LineageExplorer type={entityType} urn={urn} />
             ) : (

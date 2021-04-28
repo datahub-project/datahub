@@ -7,10 +7,11 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
                         "description": null,
                         "uri": null,
-                        "tags": [],
-                        "customProperties": {}
+                        "tags": []
                     }
                 }
             ]

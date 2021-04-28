@@ -12,6 +12,7 @@ export default function LineageViz({
     entityAndType,
     fetchedEntities,
     onEntityClick,
+    onEntityCenter,
     onLineageExpand,
     selectedEntity,
 }: TreeProps) {
@@ -44,6 +45,7 @@ export default function LineageViz({
                     height={height}
                     margin={margin}
                     onEntityClick={onEntityClick}
+                    onEntityCenter={onEntityCenter}
                     onLineageExpand={onLineageExpand}
                     selectedEntity={selectedEntity}
                     zoom={zoom}

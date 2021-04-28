@@ -328,6 +328,9 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
         if (dataset.getProperties() != null) {
             datasetProperties.setCustomProperties(dataset.getProperties());
         }
+        if (dataset.getExternalUrl() != null) {
+            datasetProperties.setExternalUrl(dataset.getExternalUrl());
+        }
         return datasetProperties;
     }
 }

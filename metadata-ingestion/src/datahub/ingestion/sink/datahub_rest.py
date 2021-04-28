@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -14,6 +15,7 @@ class DatahubRestSinkConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
+    token: Optional[str]
 
 
 @dataclass
@@ -26,10 +28,10 @@ class DatahubRestSink(Sink):
         super().__init__(ctx)
         self.config = config
         self.report = SinkReport()
-        self.emitter = DatahubRestEmitter(self.config.server)
+        self.emitter = DatahubRestEmitter(self.config.server, self.config.token)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":
         config = DatahubRestSinkConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
@@ -43,7 +45,7 @@ class DatahubRestSink(Sink):
         self,
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
-    ):
+    ) -> None:
         mce = record_envelope.record
 
         try:

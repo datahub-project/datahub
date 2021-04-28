@@ -21,28 +21,10 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 tags
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
             ... on Dashboard {
@@ -53,35 +35,17 @@ query getBrowseResults($input: BrowseInput!) {
                 info {
                     name
                     description
-                    url
+                    externalUrl
                     access
                     lastModified {
                         time
                     }
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
             ... on Chart {
@@ -92,7 +56,7 @@ query getBrowseResults($input: BrowseInput!) {
                 info {
                     name
                     description
-                    url
+                    externalUrl
                     type
                     access
                     lastModified {
@@ -100,28 +64,28 @@ query getBrowseResults($input: BrowseInput!) {
                     }
                 }
                 ownership {
-                    owners {
-                        owner {
-                            urn
-                            type
-                            username
-                            info {
-                                active
-                                displayName
-                                title
-                                firstName
-                                lastName
-                                fullName
-                            }
-                            editableInfo {
-                                pictureLink
-                            }
-                        }
-                        type
-                    }
-                    lastModified {
-                        time
-                    }
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+            ... on DataFlow {
+                urn
+                type
+                orchestrator
+                flowId
+                cluster
+                info {
+                    name
+                    description
+                    project
+                }
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
         }

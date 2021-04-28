@@ -149,6 +149,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                     total={totalResults}
                     showLessItems
                     onChange={onChangePage}
+                    showSizeChanger={false}
                 />
             </Row>
         </div>

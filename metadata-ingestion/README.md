@@ -45,9 +45,10 @@ We use a plugin architecture so that you can install only the dependencies you a
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
-| kakfa         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
+| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
 | druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source               |
 | dbt           | _no additional dependencies_                               | DBT source                 |
 | datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API |
@@ -106,6 +107,11 @@ source:
     username: sa
     password: ${MSSQL_PASSWORD}
     database: DemoData
+
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
 
 sink:
   type: "datahub-rest"
@@ -199,7 +205,10 @@ source:
         - "schema1.table2"
     options:
       # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-      # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
+      # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
+      # Many of these options are specific to the underlying database driver, so that library's
+      # documentation will be a good reference for what is supported. To find which dialect is likely
+      # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
       charset: "utf8"
 ```
 
@@ -256,9 +265,30 @@ source:
     username: user
     password: pass
     host_port: account_name
+    database: db_name
+    warehouse: "COMPUTE_WH" # optional
+    role: "sysadmin" # optional
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+### Superset `superset`
+
+Extracts:
+
+- List of charts and dashboards
+
+```yml
+source:
+  type: superset
+  config:
+    username: user
+    password: pass
+    provider: db | ldap
+    connect_uri: http://localhost:8088
+```
+
+See documentation for superset's `/security/login` at  https://superset.apache.org/docs/rest-api for more details on superset's login api.
 
 ### Oracle `oracle`
 
@@ -294,7 +324,6 @@ source:
   type: bigquery
   config:
     project_id: project # optional - can autodetect from environment
-    dataset: dataset_name
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
@@ -514,14 +543,29 @@ sink:
     filename: ./path/to/mce/file.json
 ```
 
+## Transformations
+
+Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
+Example use cases could be to add ownership information, add extra tags etc.
+
+In such a scenario, it is possible to configure a recipe with a list of transformers.
+
+```yml
+transformers:
+  - type: "fully-qualified-class-name-of-transformer"
+    config:
+      some_property: "some.value"
+```
+
+A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
+At the moment there are no built-in transformers.
+
 ## Using as a library
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
 
-- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`)
-- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`)
-
-For a basic usage example, see the [lineage_emitter.py](./examples/library/lineage_emitter.py) example.
+- [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
+- [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
 
 ## Usage with Airflow
 
@@ -550,6 +594,8 @@ airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --c
 ```
 
 ### Using Datahub's Airflow lineage backend
+
+_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
 
 1. First, you must configure the Airflow hooks. See above for details.
 2. Add the following lines to your `airflow.cfg` file. You might need to

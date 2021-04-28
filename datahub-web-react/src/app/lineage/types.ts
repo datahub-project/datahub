@@ -1,4 +1,4 @@
-import { Chart, Dashboard, Dataset, EntityType } from '../../types.generated';
+import { Chart, Dashboard, DataJob, Dataset, EntityType } from '../../types.generated';
 
 export type EntitySelectParams = {
     type: EntityType;
@@ -20,6 +20,7 @@ export type FetchedEntity = {
     upstreamChildren?: Array<string>;
     downstreamChildren?: Array<string>;
     fullyFetched?: boolean;
+    platform?: string;
 };
 
 export type NodeData = {
@@ -32,6 +33,7 @@ export type NodeData = {
     // Hidden children are unexplored but in the opposite direction of the flow of the graph.
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
+    platform?: string;
 };
 
 export type FetchedEntities = { [x: string]: FetchedEntity };
@@ -51,6 +53,7 @@ export type TreeProps = {
     entityAndType?: EntityAndType | null;
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
+    onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (LineageExpandParams) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
@@ -68,4 +71,8 @@ export type EntityAndType =
     | {
           type: EntityType.Dashboard;
           entity: Dashboard;
+      }
+    | {
+          type: EntityType.DataJob;
+          entity: DataJob;
       };

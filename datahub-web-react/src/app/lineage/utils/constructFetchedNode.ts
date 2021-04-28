@@ -5,7 +5,13 @@ export default function constructFetchedNode(
     fetchedEntities: FetchedEntities,
     direction: Direction,
     constructedNodes: { [x: string]: NodeData },
+    constructionPath: string[],
 ) {
+    if (constructionPath.indexOf(urn) >= 0) {
+        return null;
+    }
+    const newConstructionPath = [...constructionPath, urn];
+
     const fetchedNode = fetchedEntities[urn];
 
     if (constructedNodes[urn]) {
@@ -25,6 +31,7 @@ export default function constructFetchedNode(
             countercurrentChildrenUrns:
                 fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren'],
             children: [],
+            platform: fetchedNode?.platform,
         };
 
         // eslint-disable-next-line no-param-reassign
@@ -32,7 +39,16 @@ export default function constructFetchedNode(
 
         node.children = fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']
             ?.map((childUrn) => {
-                return constructFetchedNode(childUrn, fetchedEntities, direction, constructedNodes);
+                if (childUrn === node.urn) {
+                    return null;
+                }
+                return constructFetchedNode(
+                    childUrn,
+                    fetchedEntities,
+                    direction,
+                    constructedNodes,
+                    newConstructionPath,
+                );
             })
             .filter(Boolean) as Array<NodeData>;
 

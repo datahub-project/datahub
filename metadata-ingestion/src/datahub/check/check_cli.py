@@ -45,7 +45,7 @@ def local_docker() -> None:
     default=False,
     help="Include extra information for each plugin",
 )
-def plugins(verbose) -> None:
+def plugins(verbose: bool) -> None:
     """Check the enabled ingestion plugins"""
 
     click.secho("Sources:", bold=True)

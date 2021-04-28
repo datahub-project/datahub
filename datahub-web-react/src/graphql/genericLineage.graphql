@@ -1,0 +1,134 @@
+fragment shallowLineageFields on EntityWithRelationships {
+    downstreamLineage {
+        entities {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+    upstreamLineage {
+        entities {
+            entity {
+                urn
+                type
+            }
+        }
+    }
+}
+
+fragment upstreamRelationshipFields on UpstreamEntityRelationships {
+    entities {
+        entity {
+            urn
+            type
+            downstreamLineage {
+                entities {
+                    entity {
+                        urn
+                        type
+                    }
+                }
+            }
+            upstreamLineage {
+                entities {
+                    entity {
+                        urn
+                        type
+                    }
+                }
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    urn
+                    type
+                    orchestrator
+                    flowId
+                    cluster
+                }
+                jobId
+                info {
+                    name
+                    description
+                    externalUrl
+                }
+            }
+            ... on Dashboard {
+                urn
+                type
+                tool
+                dashboardId
+                info {
+                    externalUrl
+                    name
+                    description
+                }
+            }
+            ... on Chart {
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    inputs {
+                        urn
+                    }
+                }
+            }
+            ... on Dataset {
+                urn
+                name
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+        }
+    }
+}
+
+fragment downstreamRelationshipFields on DownstreamEntityRelationships {
+    entities {
+        entity {
+            urn
+            type
+            ... on DataJob {
+                ...dataJobFields
+                ...shallowLineageFields
+            }
+            ... on Dashboard {
+                ...dashboardFields
+                ...shallowLineageFields
+            }
+            ... on Chart {
+                tool
+                chartId
+                info {
+                    name
+                    description
+                    inputs {
+                        urn
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on Dataset {
+                urn
+                name
+                description
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+        }
+    }
+}

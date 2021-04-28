@@ -2,8 +2,10 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.common.Ownership
 import com.linkedin.datajob.DataFlowInfo
+import com.linkedin.common.Status
+import com.linkedin.common.GlobalTags
 
 /**
  * A union of all supported metadata aspects for a Data flow
  */
-typeref DataFlowAspect = union[DataFlowInfo, Ownership]
+typeref DataFlowAspect = union[DataFlowInfo, Ownership, Status, GlobalTags]
