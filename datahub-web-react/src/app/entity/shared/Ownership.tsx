@@ -1,6 +1,13 @@
 import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    Owner,
+    OwnershipSourceType,
+    OwnershipType,
+    OwnershipUpdate,
+} from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -31,16 +38,16 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     useEffect(() => {
         setStagedOwners(owners);
     }, [owners]);
-
+    // TODO: update owner to support corpuser and corpgroup
     const ownerTableData = useMemo(
         () =>
             stagedOwners.map((owner, index) => ({
                 key: index,
-                urn: owner.owner.urn,
-                ldap: owner.owner.username,
-                fullName: owner.owner.info?.fullName,
+                urn: (owner.owner as CorpUser).urn,
+                ldap: (owner.owner as CorpUser).username,
+                fullName: (owner.owner as CorpUser).info?.fullName,
                 role: owner.type,
-                pictureLink: owner.owner.editableInfo?.pictureLink,
+                pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
             })),
         [stagedOwners],
     );

@@ -101,11 +101,6 @@ type Query {
     corpUser(urn: String!): CorpUser
 
     """
-    Fetch a CorpGroup by primary key
-    """
-    corpGroup(urn: String!): CorpGroup
-
-    """
     Fetch a Dashboard by primary key
     """
     dashboard(urn: String!): Dashboard
@@ -917,13 +912,11 @@ type CorpGroupInfo {
     groups: [CorpGroup]
 }
 
-union OwnerType = CorpUser | CorpGroup
-
 type Owner {
     """
     Owner object
     """
-    owner: OwnerType!
+    owner: Entity!
 
     """
     The type of the ownership

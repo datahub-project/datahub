@@ -3,9 +3,3 @@ query getUser($urn: String!) {
         ...corpUserFields
     }
 }
-
-query getUserGroup($urn: String!) {
-    corpGroup(urn: $urn) {
-        ...corpGroupFields
-    }
-}

@@ -52,6 +52,7 @@ export class UserEntity implements Entity<CorpUser> {
             photoUrl={data.editableInfo?.pictureLink || undefined}
         />
     );
+    // TODO: update owner to support corpuser and corpgroup
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser);
