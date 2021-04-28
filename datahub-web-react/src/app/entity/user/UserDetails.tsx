@@ -53,9 +53,10 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
         setSelectedItem(String(key));
     };
 
-    if (!subview && ownerships) {
-        const firstItemType = Object.keys(ownerships)[0].toLowerCase();
-        const key = toMenuKey(Subview.Ownership, firstItemType);
+    // Sometimes tries to render component with empty ownerships
+    if (!subview && Object.keys(ownerships).length > 0) {
+        const firstEntityType = Object.keys(ownerships)[0].toLowerCase();
+        const key = toMenuKey(Subview.Ownership, firstEntityType);
         setSelectedItem(key);
     }
     const subviews = Object.values(Subview);
