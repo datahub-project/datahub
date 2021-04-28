@@ -1,5 +1,6 @@
 package com.linkedin.tag.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.TagAspect;
@@ -11,7 +12,6 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -74,16 +73,13 @@ public class Tags extends BaseSearchableClient<Tag>  {
     @Nonnull
     public Map<TagUrn, Tag> batchGet(@Nonnull Set<TagUrn> urns)
             throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<TagKey, EmptyRecord>, Tag> batchGetRequest
-                = TAGS_REQUEST_BUILDERS.batchGet()
-                .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-                .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-                .entrySet().stream().collect(Collectors.toMap(
-                        entry -> getUrnFromKey(entry.getKey()),
-                        entry -> entry.getValue().getEntity())
-                );
+        return BatchGetUtils.batchGet(
+                urns,
+                TAGS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     @Nonnull

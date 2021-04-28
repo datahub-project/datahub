@@ -1,5 +1,6 @@
 package com.linkedin.identity.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpGroup;
@@ -13,7 +14,6 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
@@ -21,7 +21,6 @@ import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -62,16 +61,13 @@ public class CorpGroups extends BaseSearchableClient<CorpGroup> {
   @Nonnull
   public Map<CorpGroupUrn, CorpGroup> batchGet(@Nonnull Set<CorpGroupUrn> urns)
       throws RemoteInvocationException {
-    BatchGetEntityRequest<ComplexResourceKey<CorpGroupKey, EmptyRecord>, CorpGroup> batchGetRequest
-        = CORP_GROUPS_REQUEST_BUILDERS.batchGet()
-        .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-        .build();
-
-    return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-        .entrySet().stream().collect(Collectors.toMap(
-            entry -> getUrnFromKey(entry.getKey()),
-            entry -> entry.getValue().getEntity())
-        );
+    return BatchGetUtils.batchGet(
+            urns,
+            CORP_GROUPS_REQUEST_BUILDERS.batchGet(),
+            this::getKeyFromUrn,
+            this::getUrnFromKey,
+            _client
+    );
   }
 
   @Override
