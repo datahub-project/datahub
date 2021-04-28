@@ -27,7 +27,7 @@
                 "name.ngram^0.125",
                 "tags.ngram^0.0625",
                 "glossaryTerms",
-                "glossaryTerms.ngram"
+                "glossaryTerms.ngram^0.0625"
               ],
               "default_operator": "and",
               "analyzer": "whitespace_lowercase"
