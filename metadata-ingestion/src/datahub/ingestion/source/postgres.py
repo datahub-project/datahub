@@ -24,7 +24,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
 
 class PostgresSource(SQLAlchemySource):
     def __init__(self, config, ctx):
-        super().__init__(config, ctx, "postgresql")
+        super().__init__(config, ctx, "postgres")
 
     @classmethod
     def create(cls, config_dict, ctx):
