@@ -4,6 +4,7 @@ public class Topics {
   public static final String METADATA_AUDIT_EVENT = "MetadataAuditEvent_v4";
   public static final String METADATA_CHANGE_EVENT = "MetadataChangeEvent_v4";
   public static final String FAILED_METADATA_CHANGE_EVENT = "FailedMetadataChangeEvent_v4";
+  public static final String DATAHUB_USAGE_EVENT = "DataHubUsageEvent_v1";
   public static final String METADATA_GRAPH_EVENT = "MetadataGraphEvent_v4";
   public static final String METADATA_SEARCH_EVENT = "MetadataSearchEvent_v4";
 

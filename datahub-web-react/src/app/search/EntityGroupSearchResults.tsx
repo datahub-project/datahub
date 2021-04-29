@@ -42,7 +42,7 @@ export const EntityGroupSearchResults = ({ type, query, searchResults }: Props) 
         analytics.event({
             type: EventType.SearchResultClickEvent,
             query,
-            urn: result.entity.urn,
+            entityUrn: result.entity.urn,
             entityType: result.entity.type,
             index,
             total: searchResults.length,

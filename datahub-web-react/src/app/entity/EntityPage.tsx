@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
-import { useTrackPageView } from '../analytics/useTrackPageView';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
 import useIsLineageMode from '../lineage/utils/useIsLineageMode';
@@ -21,7 +20,6 @@ interface Props {
  * Responsible for rendering an Entity Profile
  */
 export const EntityPage = ({ entityType }: Props) => {
-    useTrackPageView();
     const { urn } = useParams<RouteParams>();
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
@@ -32,7 +30,7 @@ export const EntityPage = ({ entityType }: Props) => {
         analytics.event({
             type: EventType.EntityViewEvent,
             entityType,
-            urn,
+            entityUrn: urn,
         });
     }, [entityType, urn]);
 

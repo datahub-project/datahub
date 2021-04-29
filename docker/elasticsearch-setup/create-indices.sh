@@ -2,6 +2,8 @@
 
 set -e
 
+: ${ANALYTICS_ENABLED:=true}
+
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
@@ -131,3 +133,6 @@ create_index $(get_index_name dataprocessdocument) data-process/settings.json da
 create_index $(get_index_name datasetdocument) dataset/settings.json dataset/mappings.json || exit 1
 create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/mappings.json || exit 1
 create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
+if [[ $ANALYTICS_ENABLED == true ]]; then
+  create_index $(get_index_name datahub_usage_event) usage-event/settings.json usage-event/mappings.json || exit 1
+fi

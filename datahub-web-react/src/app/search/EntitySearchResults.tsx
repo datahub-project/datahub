@@ -74,6 +74,18 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     const lastResultIndex =
         pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
 
+    useEffect(() => {
+        if (!loading && !error) {
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                page,
+                query,
+                entityTypeFilter: type,
+                total: totalResults,
+            });
+        }
+    }, [page, query, totalResults, type, loading, error, data]);
+
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
             ? [...selectedFilters, { field, value }]
@@ -99,7 +111,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
         analytics.event({
             type: EventType.SearchResultClickEvent,
             query,
-            urn: result.entity.urn,
+            entityUrn: result.entity.urn,
             entityType: result.entity.type,
             entityTypeFilter: type,
             index,

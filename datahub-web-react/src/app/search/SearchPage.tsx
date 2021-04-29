@@ -12,7 +12,7 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
 import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
-import analytics, { EventType, useTrackPageView } from '../analytics';
+import analytics, { EventType } from '../analytics';
 
 const ALL_ENTITIES_TAB_NAME = 'All';
 
@@ -42,7 +42,6 @@ type SearchPageParams = {
  * A search results page.
  */
 export const SearchPage = () => {
-    useTrackPageView();
     const history = useHistory();
     const location = useLocation();
 

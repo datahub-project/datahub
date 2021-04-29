@@ -7,7 +7,7 @@ import { Redirect } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
-import analytics, { EventType, useTrackPageView } from '../analytics';
+import analytics, { EventType } from '../analytics';
 
 type FormValues = {
     username: string;
@@ -17,7 +17,6 @@ type FormValues = {
 export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
-    useTrackPageView();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
 
     const themeConfig = useTheme();
