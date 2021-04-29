@@ -61,7 +61,7 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
     const subviews = Object.values(Subview);
 
     const selectedKey = toMenuKey(subview, item);
-    
+
     return (
         <DetailWrapper>
             <MenuWrapper>
