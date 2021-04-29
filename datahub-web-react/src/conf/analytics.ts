@@ -9,7 +9,10 @@ const config: any = {
     // amplitude: {
     //    apiKey: 'c5c212632315d19c752ab083bc7c92ff',
     // },
-    // logging: true,
+    logging: true,
+    datahub: {
+        enabled: true,
+    },
 };
 
 export default config;

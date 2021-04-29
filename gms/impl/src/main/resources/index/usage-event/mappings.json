@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "type": {
+      "type": "keyword"
+    },
+    "timestamp": {
+      "type": "date"
+    },
+    "userAgent": {
+      "type": "keyword"
+    },
+    "browserId": {
+      "type": "keyword"
+    }
+  }
+}

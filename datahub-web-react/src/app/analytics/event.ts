@@ -4,9 +4,11 @@ import { EntityType } from '../../types.generated';
  * Valid event types.
  */
 export enum EventType {
+    PageViewEvent,
     LogInEvent,
     LogOutEvent,
     SearchEvent,
+    SearchResultsViewEvent,
     SearchResultClickEvent,
     BrowseResultClickEvent,
     EntityViewEvent,
@@ -17,13 +19,19 @@ export enum EventType {
 /**
  * Base Interface for all React analytics events.
  */
-export interface BaseEvent {
-    type: EventType;
-    actor?: string;
+interface BaseEvent {
+    actorUrn?: string;
     timestamp?: number;
-    urn?: string;
     date?: string;
     userAgent?: string;
+    browserId?: string;
+}
+
+/**
+ * Viewed a page on the UI.
+ */
+export interface PageViewEvent extends BaseEvent {
+    type: EventType.PageViewEvent;
 }
 
 /**
@@ -49,6 +57,18 @@ export interface SearchEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    // TODO: Collect total results.
+}
+
+/**
+ * Logged on user search result click.
+ */
+export interface SearchResultsViewEvent extends BaseEvent {
+    type: EventType.SearchResultsViewEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    page?: number;
+    total: number;
 }
 
 /**
@@ -57,7 +77,7 @@ export interface SearchEvent extends BaseEvent {
 export interface SearchResultClickEvent extends BaseEvent {
     type: EventType.SearchResultClickEvent;
     query: string;
-    urn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityTypeFilter?: EntityType;
     index: number;
@@ -72,8 +92,8 @@ export interface BrowseResultClickEvent extends BaseEvent {
     browsePath: string;
     entityType: EntityType;
     resultType: 'Entity' | 'Group';
-    urn?: string;
-    name?: string;
+    entityUrn?: string;
+    groupName?: string;
 }
 
 /**
@@ -82,7 +102,7 @@ export interface BrowseResultClickEvent extends BaseEvent {
 export interface EntityViewEvent extends BaseEvent {
     type: EventType.EntityViewEvent;
     entityType: EntityType;
-    urn: string;
+    entityUrn: string;
 }
 
 /**
@@ -91,27 +111,39 @@ export interface EntityViewEvent extends BaseEvent {
 export interface EntitySectionViewEvent extends BaseEvent {
     type: EventType.EntitySectionViewEvent;
     entityType: EntityType;
-    urn: string;
+    entityUrn: string;
     section: string;
 }
 
 /**
- * Logged when user interacts with a particular control of an entity.
+ * Logged when a user takes some action on an entity
  */
+export const EntityActionType = {
+    UpdateTags: 'UpdateTags',
+    UpdateOwnership: 'UpdateOwnership',
+    UpdateDocumentation: 'UpdateDocumentation',
+    UpdateDescription: 'UpdateDescription',
+    UpdateSchemaDescription: 'UpdateSchemaDescription',
+    UpdateSchemaTags: 'UpdateSchemaTags',
+    ClickExternalUrl: 'ClickExternalUrl',
+};
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
+    actionType: string;
     entityType: EntityType;
-    urn: string;
-    action: string;
+    entityUrn: string;
 }
 
 /**
  * Event consisting of a union of specific event types.
  */
 export type Event =
+    | PageViewEvent
     | LogInEvent
     | LogOutEvent
     | SearchEvent
+    | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
     | EntityViewEvent

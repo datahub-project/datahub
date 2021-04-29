@@ -1,8 +1,9 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import { List } from 'antd';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../shared/Message';
 import { EntityGroupSearchResults } from './EntityGroupSearchResults';
+import analytics, { EventType } from '../analytics';
 
 interface Props {
     query: string;
@@ -36,6 +37,25 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
             dataSource={[]}
         />
     );
+
+    useEffect(() => {
+        if (!loading) {
+            let resultCount = 0;
+            Object.keys(allSearchResultsByType).forEach((key) => {
+                if (allSearchResultsByType[key].loading) {
+                    resultCount += 0;
+                } else {
+                    resultCount += allSearchResultsByType[key].data?.search?.total;
+                }
+            });
+
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                query,
+                total: resultCount,
+            });
+        }
+    }, [query, allSearchResultsByType, loading]);
 
     return (
         <>

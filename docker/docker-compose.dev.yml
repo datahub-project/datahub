@@ -42,6 +42,8 @@ services:
         APP_ENV: dev
     volumes:
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
+    ports:
+      - "9002:9002"
 
   datahub-mae-consumer:
     image: linkedin/datahub-mae-consumer:debug

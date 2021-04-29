@@ -51,7 +51,7 @@ export const BrowseResults = ({
             browsePath: rootPath,
             entityType: type,
             resultType: 'Group',
-            name: group.name,
+            groupName: group.name,
         });
     };
 
@@ -61,7 +61,7 @@ export const BrowseResults = ({
             browsePath: rootPath,
             entityType: type,
             resultType: 'Entity',
-            urn: entity.urn,
+            entityUrn: entity.urn,
         });
     };
 

@@ -4,7 +4,6 @@ import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-
 import TypeIcon from './TypeIcon';
 import {
     Schema,
@@ -16,11 +15,13 @@ import {
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
+    EntityType,
 } from '../../../../../types.generated';
 import TagGroup from '../../../../shared/tags/TagGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
@@ -34,6 +35,7 @@ const LighterText = styled(Typography.Text)`
 `;
 
 export type Props = {
+    urn: string;
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
@@ -103,7 +105,7 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
+export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
@@ -162,17 +164,28 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
 
     const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
         if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaTags,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
         const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: record?.description,
             globalTags: update,
         };
-
         return updateSchema(newFieldInfo, record);
     };
 
     const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
         if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaDescription,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
         const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: updatedDescription,
