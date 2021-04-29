@@ -45,19 +45,19 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
     const ownershipMenuOptions: Array<EntityType> = Object.keys(ownerships) as Array<EntityType>;
     const history = useHistory();
 
-    const setSelectedItem = (key: string) => {
+    const setSelectedEntityType = (key: string) => {
         const { subview: nextSubview, item: nextItem } = fromMenuKey(String(key));
         navigateToUserUrl({ urn, subview: nextSubview, item: nextItem, history, entityRegistry });
     };
     const onMenuClick: MenuProps['onClick'] = ({ key }) => {
-        setSelectedItem(String(key));
+        setSelectedEntityType(String(key));
     };
 
     // Sometimes tries to render component with empty ownerships
     if (!subview && Object.keys(ownerships).length > 0) {
         const firstEntityType = Object.keys(ownerships)[0].toLowerCase();
         const key = toMenuKey(Subview.Ownership, firstEntityType);
-        setSelectedItem(key);
+        setSelectedEntityType(key);
     }
     const subviews = Object.values(Subview);
 
