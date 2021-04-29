@@ -127,9 +127,17 @@ class DatahubGenericHook(BaseHook):
 
     def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
         conn = self.get_connection(self.datahub_conn_id)
-        if conn.conn_type == DatahubRestHook.conn_type:
+
+        # Attempt to guess the correct underlying hook type.
+        if (
+            conn.conn_type == DatahubRestHook.conn_type
+            or "rest" in self.datahub_conn_id
+        ):
             return DatahubRestHook(self.datahub_conn_id)
-        elif conn.conn_type == DatahubKafkaHook.conn_type:
+        elif (
+            conn.conn_type == DatahubKafkaHook.conn_type
+            or "kafka" in self.datahub_conn_id
+        ):
             return DatahubKafkaHook(self.datahub_conn_id)
         else:
             raise AirflowException(
