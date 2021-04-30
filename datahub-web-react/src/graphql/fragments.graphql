@@ -240,6 +240,10 @@ fragment dashboardFields on Dashboard {
                 ...ownershipFields
             }
         }
+        customProperties {
+            key
+            value
+        }
         externalUrl
         access
         lastRefreshed

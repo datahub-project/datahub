@@ -1,5 +1,6 @@
 package com.linkedin.chart.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.chart.ChartsDoAutocompleteRequestBuilder;
 import com.linkedin.chart.ChartsDoBrowseRequestBuilder;
 import com.linkedin.chart.ChartsDoGetBrowsePathsRequestBuilder;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.client.Request;
@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -76,16 +75,13 @@ public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
     @Nonnull
     public Map<ChartUrn, Chart> batchGet(@Nonnull Set<ChartUrn> urns)
             throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<ChartKey, EmptyRecord>, Chart> batchGetRequest
-                = CHARTS_REQUEST_BUILDERS.batchGet()
-                .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-                .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-                .entrySet().stream().collect(Collectors.toMap(
-                        entry -> getUrnFromKey(entry.getKey()),
-                        entry -> entry.getValue().getEntity())
-                );
+        return BatchGetUtils.batchGet(
+                urns,
+                CHARTS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     @Nonnull

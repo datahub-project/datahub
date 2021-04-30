@@ -28,6 +28,7 @@ export const SearchResults = ({ typeName, pageStart, pageSize, totalResults, res
                 total={totalResults / pageSize}
                 showLessItems
                 onChange={onChangePage}
+                showSizeChanger={false}
             />
         </Card>
     );
