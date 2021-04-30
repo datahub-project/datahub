@@ -127,12 +127,12 @@ class LookerView:
 		derived_table = looker_view.get("derived_table", None)
 
 		# Parse SQL from derived tables to extract dependencies
-		if derived_table is not None:
+		if derived_table is not None and 'sql' in derived_table:
 			# Get the list of tables in the query
 			sql_tables: typing.List[str] = get_query_tables(derived_table['sql'])
 
 			# Remove temporary tables from WITH statements
-			sql_table_names = [t for t in sql_tables if not re.search(f'WITH(.*,)?\s+{t}(\s+\([\w\s,]+\))?\s+AS\s+\(', derived_table['sql'], re.IGNORECASE|re.DOTALL)]
+			sql_table_names = [t for t in sql_tables if not re.search(f'WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(', derived_table['sql'], re.IGNORECASE|re.DOTALL)]
 
 			# Remove quotes from tables
 			sql_table_names = [t.replace('"', '') for t in sql_table_names]
