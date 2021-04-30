@@ -6,6 +6,7 @@ function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
         return map.get(key) as V;
     }
+    console.log('validatedGet-', key, map);
     throw new Error(`Unrecognized key ${key} provided in map ${JSON.stringify(map)}`);
 }
 

@@ -7,68 +7,19 @@ fragment globalTagsFields on GlobalTags {
         }
     }
 }
-fragment corpUserFields on CorpUser {
-    urn
-    username
-    info {
-        active
-        displayName
-        title
-        firstName
-        lastName
-        fullName
-        email
-    }
-    editableInfo {
-        pictureLink
-        teams
-        skills
-    }
-    globalTags {
-        ...globalTagsFields
-    }
-}
-
-fragment corpGroupFields on CorpGroup {
-    urn
-    type
-    name
-    info {
-        email
-        admins {
-            ...corpUserFields
-        }
-        members {
-            ...corpUserFields
-        }
-        groups {
-            urn
-            type
-            name
-            info {
-                email
-                admins {
-                    ...corpUserFields
-                }
-                members {
-                    ...corpUserFields
-                }
-            }
-        }
-    }
-}
 
 fragment ownershipFields on Ownership {
     owners {
         owner {
-            urn
-            type
             ... on CorpUser {
+                urn
+                type
                 username
                 info {
                     active
                     displayName
                     title
+                    email
                     firstName
                     lastName
                     fullName
@@ -77,21 +28,52 @@ fragment ownershipFields on Ownership {
                     pictureLink
                 }
             }
-#            ... on CorpGroup {
-#                name
-#                info {
-#                    email
-#                    admins {
-#                        ...corpUserFields
-#                    }
-#                    members {
-#                        ...corpUserFields
-#                    }
-#                    groups {
-#                        ...corpGroupFields
-#                    }
-#                }
-#            }
+
+            ... on CorpGroup {
+                urn
+                type
+                name
+                info {
+                    email
+                    admins {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    members {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    groups
+                }
+            }
         }
         type
     }

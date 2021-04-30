@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
-import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -40,11 +39,7 @@ public class CorpGroupInfoMapper implements ModelMapper<com.linkedin.identity.Co
             }).collect(Collectors.toList()));
         }
         if (info.hasGroups()) {
-            result.setGroups(info.getGroups().stream().map(urn -> {
-                final CorpGroup corpGroup = new CorpGroup();
-                corpGroup.setUrn(urn.toString());
-                return corpGroup;
-            }).collect(Collectors.toList()));
+            result.setGroups(info.getGroups().stream().map(urn -> (urn.toString())).collect(Collectors.toList()));
         }
         return result;
     }

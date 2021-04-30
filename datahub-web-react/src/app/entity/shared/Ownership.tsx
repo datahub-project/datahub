@@ -1,6 +1,7 @@
 import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    CorpGroup,
     CorpUser,
     EntityType,
     Owner,
@@ -38,17 +39,28 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     useEffect(() => {
         setStagedOwners(owners);
     }, [owners]);
-    // TODO: update owner to support corpuser and corpgroup
+
     const ownerTableData = useMemo(
         () =>
-            stagedOwners.map((owner, index) => ({
-                key: index,
-                urn: (owner.owner as CorpUser).urn,
-                ldap: (owner.owner as CorpUser).username,
-                fullName: (owner.owner as CorpUser).info?.fullName,
-                role: owner.type,
-                pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
-            })),
+            stagedOwners.map((owner, index) =>
+                owner.owner.type === EntityType.CorpUser
+                    ? {
+                          key: index,
+                          urn: (owner.owner as CorpUser).urn,
+                          ldap: (owner.owner as CorpUser).username,
+                          fullName: (owner.owner as CorpUser).info?.fullName,
+                          role: owner.type,
+                          pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
+                      }
+                    : {
+                          key: index,
+                          urn: (owner.owner as CorpGroup).urn,
+                          ldap: (owner.owner as CorpGroup).name,
+                          fullName: (owner.owner as CorpGroup).name,
+                          role: owner.type,
+                          isGroup: owner.owner.type === EntityType.CorpGroup,
+                      },
+            ),
         [stagedOwners],
     );
 
@@ -107,7 +119,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         const updatedOwners = stagedOwners.map((owner, index) => {
             if (record.key === index) {
                 return {
-                    owner: `urn:li:corpuser:${row.ldap}`,
+                    owner: `urn:li:${record.isGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
                     type: row.role,
                 };
             }
@@ -169,7 +181,9 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         key={record.urn}
                         placement="left"
                         name={record.fullName}
-                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${record.urn}`}
+                        url={`/${entityRegistry.getPathName(
+                            record.isGroup ? EntityType.CorpGroup : EntityType.CorpUser,
+                        )}/${record.urn}`}
                         photoUrl={record.pictureLink}
                         style={{ marginRight: '15px' }}
                     />

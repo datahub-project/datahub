@@ -1,5 +1,71 @@
 query getUser($urn: String!) {
     corpUser(urn: $urn) {
-        ...corpUserFields
+        urn
+        username
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        editableInfo {
+            pictureLink
+            teams
+            skills
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+    }
+}
+
+query getUserGroup($urn: String!) {
+    corpGroup(urn: $urn) {
+        urn
+        type
+        name
+        info {
+            email
+            admins {
+                urn
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                    teams
+                    skills
+                }
+            }
+            members {
+                urn
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                    teams
+                    skills
+                }
+            }
+            groups
+        }
     }
 }

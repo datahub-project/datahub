@@ -270,17 +270,17 @@ type CorpGroupInfo {
     """
     owners of this group
     """
-    admins: [CorpUser]
+    admins: [String!]!
 
     """
     List of ldap urn in this group.
     """
-    members: [CorpUser]
+    members: [String!]!
 
     """
     List of groups in this group.
     """
-    groups: [CorpGroup]
+    groups: [String!]!
 }
 
 enum EntityType {

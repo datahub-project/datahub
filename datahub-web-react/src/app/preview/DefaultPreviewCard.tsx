@@ -51,7 +51,7 @@ export default function DefaultPreviewCard({
     snippet,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    console.log('owners---', owners);
+
     return (
         <Row style={styles.row} justify="space-between">
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
