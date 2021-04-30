@@ -77,7 +77,7 @@ public class Dashboards extends BaseBrowsableClient<Dashboard, DashboardUrn> {
             throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                DASHBOARDS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> DASHBOARDS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client

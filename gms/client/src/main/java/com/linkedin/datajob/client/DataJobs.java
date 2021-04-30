@@ -177,7 +177,7 @@ public class DataJobs extends BaseBrowsableClient<DataJob, DataJobUrn> {
         throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                DATA_JOBS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> DATA_JOBS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client

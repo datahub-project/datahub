@@ -2,6 +2,7 @@ package com.linkedin;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.gms.factory.common.BatchGetConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
@@ -33,7 +34,7 @@ public final class BatchGetUtils {
             RB extends BatchGetEntityRequestBuilderBase<CRK, T, RB>,
             K extends RecordTemplate> Map<U, T> batchGet(
             @Nonnull Set<U> urns,
-            BatchGetEntityRequestBuilderBase<CRK, T, RB> requestBuilders,
+            Function<Void, BatchGetEntityRequestBuilderBase<CRK, T, RB>> requestBuilders,
             Function<U, CRK> getKeyFromUrn,
             Function<CRK, U> getUrnFromKey,
             Client client
@@ -48,7 +49,7 @@ public final class BatchGetUtils {
 
         for (List<U> urnsInBatch : entityUrnBatches) {
             BatchGetEntityRequest<CRK, T> batchGetRequest =
-                    requestBuilders
+                    requestBuilders.apply(null)
                             .ids(urnsInBatch.stream().map(getKeyFromUrn).collect(Collectors.toSet()))
                             .build();
             final Map<U, T> batchResponse = client.sendRequest(batchGetRequest).getResponseEntity().getResults()
