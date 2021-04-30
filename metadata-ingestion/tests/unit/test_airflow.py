@@ -138,7 +138,7 @@ def test_hook_airflow_ui(hook):
 
 
 @pytest.mark.parametrize(
-    "inlets,outlets",
+    ["inlets", "outlets"],
     [
         (
             # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
@@ -157,6 +157,10 @@ def test_hook_airflow_ui(hook):
                 reason="list-style lineage is only supported in Airflow 2.x",
             ),
         ),
+    ],
+    ids=[
+        "airflow-1-10-x-decl",
+        "airflow-2-x-decl",
     ],
 )
 @mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
