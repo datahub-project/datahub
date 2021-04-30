@@ -178,7 +178,7 @@ public class DataFlows extends BaseBrowsableClient<DataFlow, DataFlowUrn> {
         throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                DATA_FLOWS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> DATA_FLOWS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client

@@ -125,7 +125,7 @@ public class MLModels extends BaseSearchableClient<MLModel> {
         throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                ML_MODELS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> ML_MODELS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client
