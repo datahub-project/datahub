@@ -63,7 +63,7 @@ public class CorpGroups extends BaseSearchableClient<CorpGroup> {
       throws RemoteInvocationException {
     return BatchGetUtils.batchGet(
             urns,
-            CORP_GROUPS_REQUEST_BUILDERS.batchGet(),
+            (Void v) -> CORP_GROUPS_REQUEST_BUILDERS.batchGet(),
             this::getKeyFromUrn,
             this::getUrnFromKey,
             _client

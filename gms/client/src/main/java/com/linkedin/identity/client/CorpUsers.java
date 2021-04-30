@@ -70,7 +70,7 @@ public class CorpUsers extends BaseSearchableClient<CorpUser> {
       throws RemoteInvocationException {
     return BatchGetUtils.batchGet(
             urns,
-            CORP_USERS_REQUEST_BUILDERS.batchGet(),
+            (Void v) -> CORP_USERS_REQUEST_BUILDERS.batchGet(),
             this::getKeyFromUrn,
             this::getUrnFromKey,
             _client

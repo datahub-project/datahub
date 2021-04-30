@@ -56,7 +56,7 @@ public class DataProcesses extends BaseSearchableClient<DataProcess> {
       throws RemoteInvocationException {
     return BatchGetUtils.batchGet(
             urns,
-            DATA_PROCESSES_REQUEST_BUILDERS.batchGet(),
+            (Void v) -> DATA_PROCESSES_REQUEST_BUILDERS.batchGet(),
             this::getKeyFromUrn,
             this::getUrnFromKey,
             _client

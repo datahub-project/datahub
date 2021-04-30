@@ -77,7 +77,7 @@ public class Charts extends BaseBrowsableClient<Chart, ChartUrn> {
             throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                CHARTS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> CHARTS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client
