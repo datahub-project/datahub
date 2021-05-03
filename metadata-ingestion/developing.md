@@ -30,7 +30,7 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip uninstall datahub || true ; rm -r src/*.egg-info || true
 pip install -e .
-./scripts/codegen.sh
+(cd .. && ./gradlew :metadata-events:mxe-schemas:build) && ./scripts/codegen.sh
 ```
 
 ### Common setup issues

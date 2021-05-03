@@ -7,7 +7,7 @@ import pytest
 from _pytest.config import Config as PytestConfig
 from click.testing import CliRunner
 
-import datahub.metadata as models
+import datahub.metadata.schema_classes as models
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.mce_file import iterate_mce_file
