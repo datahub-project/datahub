@@ -40,7 +40,8 @@ module.exports = {
             },
         ],
         '@typescript-eslint/no-empty-interface': 'off',
-        "@typescript-eslint/explicit-module-boundary-types": "off"
+        '@typescript-eslint/explicit-module-boundary-types': 'off',
+        'react/destructuring-assignment': 'warn',
     },
     settings: {
         react: {

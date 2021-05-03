@@ -1,10 +1,9 @@
 import { Button, Form, Input, Space, Table, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Cookies from 'js-cookie';
 import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { GlobalCfg } from '../../../../conf';
+import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 
 export type Props = {
     documents: Array<InstitutionalMemoryMetadata>;
@@ -38,6 +37,7 @@ function FormInput({ name, placeholder, type }: { name: string; placeholder: str
 
 export default function Documentation({ documents, updateDocumentation }: Props) {
     const entityRegistry = useEntityRegistry();
+    const authenticatedUser = useGetAuthenticatedUser();
 
     const [form] = Form.useForm();
     const [editingIndex, setEditingIndex] = useState(-1);
@@ -72,7 +72,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
         const newDoc = {
             url: '',
             description: '',
-            author: Cookies.get(GlobalCfg.CLIENT_AUTH_COOKIE) as string,
+            author: authenticatedUser?.urn || '',
             created: {
                 time: Date.now(),
             },
