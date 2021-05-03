@@ -6,6 +6,7 @@ import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.relationship.DownstreamOf;
 import com.linkedin.metadata.relationship.Consumes;
 import com.linkedin.metadata.relationship.Produces;
+import com.linkedin.metadata.relationship.RunsBefore;
 
 import java.util.List;
 import java.util.Arrays;
@@ -39,9 +40,17 @@ public class RelationshipBuilderFromDataJobInputOutput extends BaseRelationshipB
         .map(outputDataset -> new Produces().setSource(urn).setDestination(outputDataset))
         .collect(Collectors.toList());
 
+    final List<RunsBefore> upstreamTasksList = inputOutput.getInputDatajobs()
+            .stream()
+            .map(inputDatajob -> new RunsBefore().setSource(inputDatajob).setDestination(urn))
+            .collect(Collectors.toList());
+
+
     return Arrays.asList(
       new GraphBuilder.RelationshipUpdates(downstreamEdges, REMOVE_ALL_EDGES_FROM_SOURCE),
       new GraphBuilder.RelationshipUpdates(inputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
-      new GraphBuilder.RelationshipUpdates(outputsList, REMOVE_ALL_EDGES_FROM_SOURCE));
+      new GraphBuilder.RelationshipUpdates(outputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
+      new GraphBuilder.RelationshipUpdates(upstreamTasksList, REMOVE_ALL_EDGES_TO_DESTINATION)
+    );
   }
 }

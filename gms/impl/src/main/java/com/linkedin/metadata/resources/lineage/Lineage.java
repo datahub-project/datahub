@@ -42,6 +42,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 /**
  * Rest.li entry point: /lineage/{entityKey}?type={entityType}direction={direction}
  */
+//TODO: Shirshanka add relnship type
 @RestLiSimpleResource(name = "lineage", namespace = "com.linkedin.lineage")
 public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
