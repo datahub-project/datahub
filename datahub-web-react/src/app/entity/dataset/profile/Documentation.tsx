@@ -62,6 +62,10 @@ export default function Documentation({ documents, updateDocumentation }: Props)
     const isEditing = (record: any) => record.key === editingIndex;
 
     const onAdd = () => {
+        if (!authenticatedUser?.urn) {
+            throw new Error('Failed to add documentation: Unable to find logged in user.');
+        }
+
         setEditingIndex(stagedDocs.length);
 
         form.setFieldsValue({
@@ -72,7 +76,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
         const newDoc = {
             url: '',
             description: '',
-            author: authenticatedUser?.urn || '',
+            author: authenticatedUser?.urn,
             created: {
                 time: Date.now(),
             },
