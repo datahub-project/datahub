@@ -8,7 +8,8 @@ import defaultAvatar from '../../../images/default_avatar.png';
 
 const AvatarStyled = styled(Avatar)<{ size?: number; isGroup?: boolean }>`
     color: #fff;
-    background-color: ${(props) => (props.isGroup ? '#ccc' : '#ccc')};
+    background-color: ${(props) =>
+        props.isGroup ? '#ccc' : '#ccc'}; // TODO: make it different style for corpGroup vs corpUser
     text-align: center;
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 14)}px` : '14px')} !important;
     && > span {
@@ -59,7 +60,7 @@ export default function CustomAvatar({
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }
     return (
-        <Tooltip title={name} placement={placement}>
+        <Tooltip title={isGroup ? `${name} - Group` : name} placement={placement}>
             {url ? <Link to={url}>{avatar}</Link> : avatar}
         </Tooltip>
     );
