@@ -26,7 +26,7 @@ export const Preview = ({
     return (
         <Link to={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${urn}`}>
             <Space size={28}>
-                <CustomAvatar size={60} photoUrl={photoUrl} name={name} />
+                <CustomAvatar size={60} photoUrl={photoUrl} name={name} isGroup />
                 <Space direction="vertical" size={4}>
                     <Typography.Title style={styles.name} level={3}>
                         {name}

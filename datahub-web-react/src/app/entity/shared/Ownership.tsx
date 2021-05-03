@@ -186,6 +186,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         )}/${record.urn}`}
                         photoUrl={record.pictureLink}
                         style={{ marginRight: '15px' }}
+                        isGroup={record.isGroup}
                     />
                 );
             },
