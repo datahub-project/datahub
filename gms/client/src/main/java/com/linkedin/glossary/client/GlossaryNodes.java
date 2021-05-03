@@ -1,5 +1,6 @@
 package com.linkedin.glossary.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.glossary.GlossaryNode;
 import com.linkedin.glossary.GlossaryNodeKey;
 import com.linkedin.glossary.GlossaryNodesFindBySearchRequestBuilder;
@@ -10,7 +11,6 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
@@ -23,7 +23,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
@@ -53,25 +52,22 @@ public class GlossaryNodes extends BaseSearchableClient<GlossaryNode> {
   }
 
   /**
-   * Batch gets list of {@link GlossaryNode} models of the business nodes
+   * Batch gets list of {@link GlossaryNode} models
    *
-   * @param urns list of business node urn
-   * @return map of {@link GlossaryNode} models of the business nodes
+   * @param urns list of dataset urn
+   * @return map of {@link Dataset} models
    * @throws RemoteInvocationException
    */
   @Nonnull
   public Map<GlossaryNodeUrn, GlossaryNode> batchGet(@Nonnull Set<GlossaryNodeUrn> urns)
-      throws RemoteInvocationException {
-    BatchGetEntityRequest<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>, GlossaryNode> batchGetRequest
-        = BUSINESS_NODES_REQUEST_BUILDERS.batchGet()
-        .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-        .build();
-
-    return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-        .entrySet().stream().collect(Collectors.toMap(
-            entry -> getUrnFromKey(entry.getKey()),
-            entry -> entry.getValue().getEntity())
-        );
+          throws RemoteInvocationException {
+    return BatchGetUtils.batchGet(
+            urns,
+            (Void v) -> BUSINESS_NODES_REQUEST_BUILDERS.batchGet(),
+            this::getKeyFromUrn,
+            this::getUrnFromKey,
+            _client
+    );
   }
 
   /**
