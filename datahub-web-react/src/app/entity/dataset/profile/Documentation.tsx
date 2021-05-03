@@ -62,10 +62,6 @@ export default function Documentation({ documents, updateDocumentation }: Props)
     const isEditing = (record: any) => record.key === editingIndex;
 
     const onAdd = () => {
-        if (!authenticatedUser?.urn) {
-            throw new Error('Failed to add documentation: Unable to find logged in user.');
-        }
-
         setEditingIndex(stagedDocs.length);
 
         form.setFieldsValue({
@@ -190,7 +186,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
             <Form form={form} component={false}>
                 <Table pagination={false} columns={tableColumns} dataSource={tableData} />
             </Form>
-            {editingIndex < 0 && (
+            {authenticatedUser && editingIndex < 0 && (
                 <Button type="link" onClick={onAdd}>
                     <b> + </b> Add a link
                 </Button>
