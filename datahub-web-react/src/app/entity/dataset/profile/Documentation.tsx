@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 
 export type Props = {
     authenticatedUserUrn?: string;
