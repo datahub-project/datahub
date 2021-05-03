@@ -333,12 +333,6 @@ public class GmsGraphQLEngine {
                                         .map(CorpUser::getUrn)
                                         .collect(Collectors.toList())))
                 )
-                .dataFetcher("groups", new AuthenticatedResolver<>(
-                        new LoadableTypeBatchResolver<>(
-                                CORP_GROUP_TYPE,
-                                (env) -> ((CorpGroupInfo) env.getSource()).getGroups().stream()
-                                        .collect(Collectors.toList())))
-                )
         );
     }
 
