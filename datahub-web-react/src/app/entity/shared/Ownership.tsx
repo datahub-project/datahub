@@ -51,6 +51,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                           fullName: (owner.owner as CorpUser).info?.fullName || (owner.owner as CorpUser).username,
                           role: owner.type,
                           pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
+                          type: EntityType.CorpUser,
                       }
                     : {
                           key: index,
@@ -58,7 +59,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                           ldap: (owner.owner as CorpGroup).name,
                           fullName: (owner.owner as CorpGroup).name,
                           role: owner.type,
-                          isGroup: owner.owner.type === EntityType.CorpGroup,
+                          type: EntityType.CorpGroup,
                       },
             ),
         [stagedOwners],
@@ -72,6 +73,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         form.setFieldsValue({
             ldap: '',
             role: OwnershipType.Stakeholder,
+            type: EntityType.CorpUser,
         });
 
         const newOwner = {
@@ -100,14 +102,15 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         updateOwnership({ owners: updatedOwners });
     };
 
-    const onChangeOwnerQuery = (query: string) => {
+    const onChangeOwnerQuery = async (query: string) => {
         if (query && query !== '') {
+            const row = await form.validateFields();
             getOwnerAutoCompleteResults({
                 variables: {
                     input: {
-                        type: EntityType.CorpUser,
+                        type: row.type,
                         query,
-                        field: 'ldap',
+                        // field: 'ldap',
                     },
                 },
             });
@@ -117,11 +120,10 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     const onSave = async (record: any) => {
         const row = await form.validateFields();
-
         const updatedOwners = stagedOwners.map((owner, index) => {
             if (record.key === index) {
                 return {
-                    owner: `urn:li:${record.isGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
+                    owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
                     type: row.role,
                 };
             }
@@ -183,12 +185,10 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         key={record.urn}
                         placement="left"
                         name={record.fullName}
-                        url={`/${entityRegistry.getPathName(
-                            record.isGroup ? EntityType.CorpGroup : EntityType.CorpUser,
-                        )}/${record.urn}`}
+                        url={`/${entityRegistry.getPathName(record.type)}/${record.urn}`}
                         photoUrl={record.pictureLink}
                         style={{ marginRight: '15px' }}
-                        isGroup={record.isGroup}
+                        isGroup={record.type === EntityType.CorpGroup}
                     />
                 );
             },
@@ -218,12 +218,47 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                     >
                         <Select placeholder="Select a role">
                             {Object.values(OwnershipType).map((value) => (
-                                <Select.Option value={value}>{value}</Select.Option>
+                                <Select.Option value={value} key={value}>
+                                    {value}
+                                </Select.Option>
                             ))}
                         </Select>
                     </Form.Item>
                 ) : (
                     <Tag>{role}</Tag>
+                );
+            },
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            render: (type: EntityType, record: any) => {
+                return isEditing(record) ? (
+                    <Form.Item
+                        name="type"
+                        style={{
+                            margin: 0,
+                            width: '50%',
+                        }}
+                        rules={[
+                            {
+                                required: true,
+                                type: 'string',
+                                message: `Please select a type!`,
+                            },
+                        ]}
+                    >
+                        <Select placeholder="Select a type" defaultValue={EntityType.CorpUser}>
+                            <Select.Option value={EntityType.CorpUser} key={EntityType.CorpUser}>
+                                {EntityType.CorpUser}
+                            </Select.Option>
+                            <Select.Option value={EntityType.CorpGroup} key={EntityType.CorpGroup}>
+                                {EntityType.CorpGroup}
+                            </Select.Option>
+                        </Select>
+                    </Form.Item>
+                ) : (
+                    <Tag>{type}</Tag>
                 );
             },
         },
