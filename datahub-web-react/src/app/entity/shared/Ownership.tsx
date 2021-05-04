@@ -48,7 +48,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                           key: index,
                           urn: (owner.owner as CorpUser).urn,
                           ldap: (owner.owner as CorpUser).username,
-                          fullName: (owner.owner as CorpUser).info?.fullName,
+                          fullName: (owner.owner as CorpUser).info?.fullName || (owner.owner as CorpUser).username,
                           role: owner.type,
                           pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
                       }
@@ -101,15 +101,17 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     };
 
     const onChangeOwnerQuery = (query: string) => {
-        getOwnerAutoCompleteResults({
-            variables: {
-                input: {
-                    type: EntityType.CorpUser,
-                    query,
-                    field: 'ldap',
+        if (query && query !== '') {
+            getOwnerAutoCompleteResults({
+                variables: {
+                    input: {
+                        type: EntityType.CorpUser,
+                        query,
+                        field: 'ldap',
+                    },
                 },
-            },
-        });
+            });
+        }
         setOwnerQuery(query);
     };
 
