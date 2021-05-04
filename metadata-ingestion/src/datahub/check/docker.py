@@ -28,9 +28,8 @@ REQUIRED_CONTAINERS = [
     # "kafka-rest-proxy",
 ]
 
-MIN_MEMORY_NEEDED = 8  # GB
-# docker seems to under-report memory allocated, adding a bit of buffer to account for it
-MEMORY_TOLERANCE = 0.2  # GB
+# Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
+MIN_MEMORY_NEEDED = 6.75  # GB
 
 
 @contextmanager
@@ -59,7 +58,7 @@ def check_local_docker_containers() -> List[str]:
 
         # Check total memory.
         total_mem_configured = int(client.info()["MemTotal"])
-        if memory_in_gb(total_mem_configured) + MEMORY_TOLERANCE < MIN_MEMORY_NEEDED:
+        if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
             issues.append(
                 f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
             )

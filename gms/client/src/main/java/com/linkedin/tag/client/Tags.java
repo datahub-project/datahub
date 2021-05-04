@@ -75,7 +75,7 @@ public class Tags extends BaseSearchableClient<Tag>  {
             throws RemoteInvocationException {
         return BatchGetUtils.batchGet(
                 urns,
-                TAGS_REQUEST_BUILDERS.batchGet(),
+                (Void v) -> TAGS_REQUEST_BUILDERS.batchGet(),
                 this::getKeyFromUrn,
                 this::getUrnFromKey,
                 _client

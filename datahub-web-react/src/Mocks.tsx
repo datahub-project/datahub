@@ -576,6 +576,21 @@ export const mocks = [
     },
     {
         request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:2',
+            },
+        },
+        result: {
+            data: {
+                corpUser: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetBrowsePathsDocument,
             variables: {
                 input: {

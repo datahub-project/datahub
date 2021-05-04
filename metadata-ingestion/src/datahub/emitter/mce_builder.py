@@ -3,7 +3,7 @@
 import time
 from typing import List, Union
 
-from datahub.metadata import (
+from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
