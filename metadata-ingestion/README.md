@@ -238,29 +238,22 @@ source:
 ```
 
 <details>
-  <summary>Using ingestion with Azure HDInsight</summary>
-
-HDInsight [does not expose](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-port-settings-for-services#hive-ports) the HiveServer2 port 10001 publicly. There are two possible workarounds:
-
-1. Run `datahub` directly on the cluster's node.
-2. Use ssh to forward the Hive server's port 10001 to the local machine before running ingestion.
-   ```sh
-   # In first terminal window. Keep this running during ingestion.
-   ssh -L 10001:localhost:10001 'sshuser@<clusterName>-ssh.azurehdinsight.net'
-   # In a second terminal window.
-   datahub ingest -c ...
-   ```
-
-In both cases, the config is fairly similar:
+  <summary>Example: using ingestion with Azure HDInsight</summary>
 
 ```yml
-# Connecting to Microsoft HDInsight. See above for required setup steps.
+# Connecting to Microsoft Azure HDInsight using TLS.
 source:
   type: hive
   config:
-    scheme: "hive+http"
-    host_port: localhost:10001
-    # other options from above are still available as well
+    scheme: "hive+https"
+    host_port: <cluster_name>.azurehdinsight.net:443
+    username: admin
+    password: "<password>"
+    options:
+      connect_args:
+        http_path: "/hive2"
+        auth: BASIC
+    # table_pattern/schema_pattern is same as above
 ```
 
 </details>
