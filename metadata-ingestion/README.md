@@ -223,13 +223,47 @@ Extracts:
 source:
   type: hive
   config:
-    username: user
-    password: pass
+    # For more details on authentication, see the PyHive docs:
+    # https://github.com/dropbox/PyHive#passing-session-configuration.
+    # LDAP, Kerberos, etc. are supported using connect_args, which can be
+    # added under the `options` config parameter.
+    #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
+    #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
+    username: user # optional
+    password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase
+    database: DemoDatabase # optional, defaults to 'default'
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+<details>
+  <summary>Using ingestion with Azure HDInsight</summary>
+
+HDInsight [does not expose](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-hadoop-port-settings-for-services#hive-ports) the HiveServer2 port 10001 publicly. There are two possible workarounds:
+
+1. Run `datahub` directly on the cluster's node.
+2. Use ssh to forward the Hive server's port 10001 to the local machine before running ingestion.
+   ```sh
+   # In first terminal window. Keep this running during ingestion.
+   ssh -L 10001:localhost:10001 'sshuser@<clusterName>-ssh.azurehdinsight.net'
+   # In a second terminal window.
+   datahub ingest -c ...
+   ```
+
+In both cases, the config is fairly similar:
+
+```yml
+# Connecting to Microsoft HDInsight. See above for required setup steps.
+source:
+  type: hive
+  config:
+    scheme: "hive+http"
+    host_port: localhost:10001
+    # other options from above are still available as well
+```
+
+</details>
 
 ### PostgreSQL `postgres`
 
@@ -288,7 +322,7 @@ source:
     connect_uri: http://localhost:8088
 ```
 
-See documentation for superset's `/security/login` at  https://superset.apache.org/docs/rest-api for more details on superset's login api.
+See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
 
 ### Oracle `oracle`
 
