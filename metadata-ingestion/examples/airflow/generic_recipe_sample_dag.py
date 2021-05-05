@@ -11,8 +11,9 @@ from airflow import DAG
 
 try:
     from airflow.operators.python import PythonOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.python_operator import PythonOperator
+
 from airflow.utils.dates import days_ago
 
 from datahub.ingestion.run.pipeline import Pipeline
