@@ -69,7 +69,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.5"
+        "acryl-pyhive[hive]>=0.6.6"
     },
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
