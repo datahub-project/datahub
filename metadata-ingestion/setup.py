@@ -78,6 +78,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
+    "looker": {"lkml>=1.1.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
     "superset": {"requests"},
