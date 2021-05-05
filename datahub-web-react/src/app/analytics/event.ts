@@ -57,7 +57,6 @@ export interface SearchEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
-    // TODO: Collect total results.
 }
 
 /**
