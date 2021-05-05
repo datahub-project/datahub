@@ -12,3 +12,4 @@ dependencies {
 mainAvroSchemaJar.dependsOn generateAvroSchema
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
+
