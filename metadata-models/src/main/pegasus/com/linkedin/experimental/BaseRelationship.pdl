@@ -1,0 +1,10 @@
+namespace com.linkedin.experimental
+
+import com.linkedin.common.Urn
+
+/**
+ * Represents an outbound edge - foreign key relationship.
+ */
+record BaseRelationship {
+    entity: Urn
+}

@@ -1,0 +1,6 @@
+namespace com.linkedin.experimental
+
+/**
+ * A union of all supported metadata aspects for a TestEntity
+ */
+typeref TestEntityAspect = union[TestEntityKey, TestEntityInfo]

@@ -1,0 +1,59 @@
+namespace com.linkedin.experimental
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.Time
+import com.linkedin.common.Url
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Information about a test entity
+ */
+@Aspect = {
+  "name": "testEntityInfo"
+}
+record TestEntityInfo includes CustomProperties, ExternalReference {
+
+  /**
+   * Title of the test entity
+   */
+  @Searchable = {
+    "type": "DEFAULT",
+    "field": "title"
+  }
+  title: string
+
+  /**
+   * Detailed description about the test entity
+   */
+  description: string
+
+  /**
+   * Captures information about who created/last modified/deleted this chart and when
+   */
+  lastModified: ChangeAuditStamps
+
+  /**
+   * URL for the test entity. This could be used as an external link on DataHub to allow users access/view the chart
+   */
+  url: optional Url
+
+  /**
+   * Test Entity inputs
+   */
+  inputs: optional array[Input]
+
+  /**
+   * Type of the chart
+   */
+  type: optional enum ChartType {
+    TYPE_1
+    TYPE_2
+  }
+
+  /**
+   * The time when this test entity was last refreshed
+   */
+  lastRefreshed: optional Time
+}

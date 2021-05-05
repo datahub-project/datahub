@@ -29,5 +29,6 @@ include 'metadata-testing:metadata-models-test-utils'
 include 'metadata-testing:metadata-test-utils'
 include 'metadata-utils'
 include 'docs-website'
+include 'buildSrc'
 
 startParameter.excludedTaskNames << ':datahub-web:build'

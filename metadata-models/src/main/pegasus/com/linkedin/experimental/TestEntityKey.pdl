@@ -1,0 +1,25 @@
+namespace com.linkedin.experimental
+
+/**
+ * Key for a TestEntity
+ */
+@Aspect = {
+    "name": "key",
+    "isKey": true
+}
+record TestEntityKey {
+    /**
+    * Title of the chart
+    */
+    keyPart1: string
+
+    /**
+    * Title of the chart
+    */
+    keyPart2: string
+
+    /**
+     * Title of the chart
+     */
+    keyPart3: string
+}
