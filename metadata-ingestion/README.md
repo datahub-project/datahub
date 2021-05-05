@@ -218,6 +218,7 @@ Extracts:
 
 - List of databases, schema, and tables
 - Column types associated with each table
+- Detailed table and storage information
 
 ```yml
 source:
