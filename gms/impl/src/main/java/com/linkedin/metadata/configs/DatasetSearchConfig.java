@@ -53,6 +53,7 @@ public class DatasetSearchConfig extends BaseSearchConfigWithConvention<DatasetD
   @Override
   @Nullable
   public List<String> getFieldsToHighlightMatch() {
-    return ImmutableList.of("name", "fieldPaths");
+    return ImmutableList.of("name", "fieldPaths", "description", "tags", "fieldDescriptions", "fieldTags",
+        "editedFieldDescriptions", "editedFieldTags");
   }
 }
