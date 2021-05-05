@@ -221,15 +221,15 @@ class SQLAlchemySource(Source):
 
                 columns = inspector.get_columns(table, schema)
                 try:
-                    info: dict = inspector.get_table_comment(table, schema)
+                    table_info: dict = inspector.get_table_comment(table, schema)
                 except NotImplementedError:
                     description: Optional[str] = None
                     properties: Dict[str, str] = {}
                 else:
-                    description = info["text"]
+                    description = table_info["text"]
 
                     # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-                    properties = info.get("properties", {})
+                    properties = table_info.get("properties", {})
 
                 # TODO: capture inspector.get_pk_constraint
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
