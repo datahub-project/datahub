@@ -36,6 +36,7 @@ class LookMLSourceConfig(ConfigModel):
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     env: str = "PROD"
+    parse_table_names_from_sql: bool = False
 
 
 @dataclass
@@ -160,6 +161,7 @@ class LookerView:
         connection: str,
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
+        parse_table_names_from_sql: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         sql_table_name = looker_view.get("sql_table_name", None)
@@ -170,25 +172,26 @@ class LookerView:
         derived_table = looker_view.get("derived_table", None)
 
         # Parse SQL from derived tables to extract dependencies
-        if derived_table is not None and "sql" in derived_table:
-            # TODO: add featre flag to config!
-            # Get the list of tables in the query
-            sql_tables: List[str] = get_query_tables(derived_table["sql"])
+        if derived_table is not None:
+            if parse_table_names_from_sql and "sql" in derived_table:
+                # Get the list of tables in the query
+                sql_tables: List[str] = get_query_tables(derived_table["sql"])
 
-            # Remove temporary tables from WITH statements
-            sql_table_names = [
-                t
-                for t in sql_tables
-                if not re.search(
-                    f"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
-                    derived_table["sql"],
-                    re.IGNORECASE | re.DOTALL,
-                )
-            ]
+                # Remove temporary tables from WITH statements
+                sql_table_names = [
+                    t
+                    for t in sql_tables
+                    if not re.search(
+                        f"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
+                        derived_table["sql"],
+                        re.IGNORECASE | re.DOTALL,
+                    )
+                ]
 
-            # Remove quotes from tables
-            sql_table_names = [t.replace('"', "") for t in sql_table_names]
-
+                # Remove quotes from tables
+                sql_table_names = [t.replace('"', "") for t in sql_table_names]
+            else:
+                sql_table_names = []
             return LookerView(
                 absolute_file_path=looker_viewfile.absolute_file_path,
                 connection=connection,
@@ -223,7 +226,11 @@ class LookerView:
                 # Make sure to skip loading view we are currently trying to resolve
                 if raw_view_name != view_name:
                     maybe_looker_view = LookerView.from_looker_dict(
-                        raw_view, connection, looker_viewfile, looker_viewfile_loader
+                        raw_view,
+                        connection,
+                        looker_viewfile,
+                        looker_viewfile_loader,
+                        parse_table_names_from_sql,
                     )
                     if (
                         maybe_looker_view is not None
@@ -239,7 +246,11 @@ class LookerView:
                 if maybe_looker_viewfile is not None:
                     for view in looker_viewfile.views:
                         maybe_looker_view = LookerView.from_looker_dict(
-                            view, connection, looker_viewfile, looker_viewfile_loader
+                            view,
+                            connection,
+                            looker_viewfile,
+                            looker_viewfile_loader,
+                            parse_table_names_from_sql,
                         )
                         if maybe_looker_view is None:
                             continue
@@ -368,7 +379,11 @@ class LookMLSource(Source):
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
                         maybe_looker_view = LookerView.from_looker_dict(
-                            raw_view, model.connection, looker_viewfile, viewfile_loader
+                            raw_view,
+                            model.connection,
+                            looker_viewfile,
+                            viewfile_loader,
+                            self.source_config.parse_table_names_from_sql,
                         )
                         if maybe_looker_view:
                             if self.source_config.view_pattern.allowed(
