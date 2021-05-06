@@ -12,4 +12,8 @@ record GlossaryNodeInfo {
    */
   definition: string
 
+  /**
+   * Parent node of the glossary term
+   */
+  parentNode: optional GlossaryNodeUrn
 }

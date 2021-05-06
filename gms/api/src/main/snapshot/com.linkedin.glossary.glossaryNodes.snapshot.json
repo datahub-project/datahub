@@ -153,6 +153,11 @@
           "name" : "definition",
           "type" : "string",
           "doc" : "Definition of business node"
+        }, {
+          "name" : "parentNode",
+          "type" : "com.linkedin.common.GlossaryNodeUrn",
+          "doc" : "Parent node of the glossary term",
+          "optional" : true
         } ]
       },
       "doc" : "Business node info",
@@ -177,10 +182,6 @@
           "min" : 1
         }
       }
-    }, {
-      "name" : "glossaryNodePath",
-      "type" : "string",
-      "doc" : "Parent business nodes(in sequence) to this business term."
     } ]
   }, {
     "type" : "typeref",
