@@ -12,28 +12,31 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
-  commandLine 'sh', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools"
 }
 
 task installPackage(type: Exec, dependsOn: environmentSetup) {
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
-  commandLine 'sh', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
 }
 
 task install(dependsOn: [installPackage, codegen])
 
-task lint(type: Exec, dependsOn: install) {
-  commandLine 'sh', '-x', '-c', "source ${venv_name}/bin/activate && black --check . && isort --check-only . && flake8 --count --statistics . && mypy ."
+task installDev(type: Exec, dependsOn: [environmentSetup, codegen]) {
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
 }
-task lintFix(type: Exec, dependsOn: install) {
-  commandLine 'sh', '-x', '-c', "source ${venv_name}/bin/activate && black . && isort . && flake8 . && mypy ."
+task lint(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black --check . && isort --check-only . && flake8 --count --statistics . && mypy ."
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black . && isort . && flake8 . && mypy ."
 }
 
-task test(type: Exec, dependsOn: install) {
-  commandLine 'sh', '-x', '-c', "source ${venv_name}/bin/activate && pytest -vv"
+task test(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && pytest -vv"
 }
 
 build.dependsOn install
