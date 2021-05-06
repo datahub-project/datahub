@@ -5,6 +5,7 @@ import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } fr
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export type Props = {
+    authenticatedUserUrn?: string;
     documents: Array<InstitutionalMemoryMetadata>;
     updateDocumentation: (update: InstitutionalMemoryUpdate) => void;
 };
@@ -34,7 +35,7 @@ function FormInput({ name, placeholder, type }: { name: string; placeholder: str
     );
 }
 
-export default function Documentation({ documents, updateDocumentation }: Props) {
+export default function Documentation({ authenticatedUserUrn, documents, updateDocumentation }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [form] = Form.useForm();
@@ -59,7 +60,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
 
     const isEditing = (record: any) => record.key === editingIndex;
 
-    const onAdd = () => {
+    const onAdd = (authorUrn: string) => {
         setEditingIndex(stagedDocs.length);
 
         form.setFieldsValue({
@@ -70,7 +71,7 @@ export default function Documentation({ documents, updateDocumentation }: Props)
         const newDoc = {
             url: '',
             description: '',
-            author: localStorage.getItem('userUrn') as string,
+            author: authorUrn,
             created: {
                 time: Date.now(),
             },
@@ -184,8 +185,8 @@ export default function Documentation({ documents, updateDocumentation }: Props)
             <Form form={form} component={false}>
                 <Table pagination={false} columns={tableColumns} dataSource={tableData} />
             </Form>
-            {editingIndex < 0 && (
-                <Button type="link" onClick={onAdd}>
+            {authenticatedUserUrn && editingIndex < 0 && (
+                <Button type="link" onClick={() => onAdd(authenticatedUserUrn)}>
                     <b> + </b> Add a link
                 </Button>
             )}

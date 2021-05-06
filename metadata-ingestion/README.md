@@ -45,6 +45,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
 | kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
@@ -204,7 +205,10 @@ source:
         - "schema1.table2"
     options:
       # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-      # See https://docs.sqlalchemy.org/en/14/core/engines.html for details.
+      # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
+      # Many of these options are specific to the underlying database driver, so that library's
+      # documentation will be a good reference for what is supported. To find which dialect is likely
+      # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
       charset: "utf8"
 ```
 
@@ -219,13 +223,40 @@ Extracts:
 source:
   type: hive
   config:
-    username: user
-    password: pass
+    # For more details on authentication, see the PyHive docs:
+    # https://github.com/dropbox/PyHive#passing-session-configuration.
+    # LDAP, Kerberos, etc. are supported using connect_args, which can be
+    # added under the `options` config parameter.
+    #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
+    #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
+    username: user # optional
+    password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase
+    database: DemoDatabase # optional, defaults to 'default'
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+<details>
+  <summary>Example: using ingestion with Azure HDInsight</summary>
+
+```yml
+# Connecting to Microsoft Azure HDInsight using TLS.
+source:
+  type: hive
+  config:
+    scheme: "hive+https"
+    host_port: <cluster_name>.azurehdinsight.net:443
+    username: admin
+    password: "<password>"
+    options:
+      connect_args:
+        http_path: "/hive2"
+        auth: BASIC
+    # table_pattern/schema_pattern is same as above
+```
+
+</details>
 
 ### PostgreSQL `postgres`
 
@@ -262,9 +293,29 @@ source:
     password: pass
     host_port: account_name
     database: db_name
+    warehouse: "COMPUTE_WH" # optional
+    role: "sysadmin" # optional
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+### Superset `superset`
+
+Extracts:
+
+- List of charts and dashboards
+
+```yml
+source:
+  type: superset
+  config:
+    username: user
+    password: pass
+    provider: db | ldap
+    connect_uri: http://localhost:8088
+```
+
+See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
 
 ### Oracle `oracle`
 
@@ -300,7 +351,6 @@ source:
   type: bigquery
   config:
     project_id: project # optional - can autodetect from environment
-    dataset: dataset_name
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional

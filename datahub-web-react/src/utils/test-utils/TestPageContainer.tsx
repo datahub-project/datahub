@@ -29,7 +29,10 @@ export function getTestEntityRegistry() {
 
 export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
-
+    Object.defineProperty(window.document, 'cookie', {
+        writable: true,
+        value: 'actor=urn:li:corpuser:2',
+    });
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>

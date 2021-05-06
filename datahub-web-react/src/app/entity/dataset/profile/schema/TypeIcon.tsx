@@ -14,11 +14,21 @@ import styled from 'styled-components';
 import { SchemaFieldDataType } from '../../../../../types.generated';
 
 const TypeIconContainer = styled.div`
-    display: inline-block;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    margin-top: 2.5px;
+    width: 40px;
 `;
 
-const TypeSubtitle = styled.div`
+const TypeSubtitle = styled(Typography.Text)`
     font-size: 8px;
+    text-align: center;
+`;
+
+const IconSpan = styled.span`
+    font-size: 18px;
 `;
 
 const DATA_TYPE_ICON_MAP: Record<
@@ -31,9 +41,21 @@ const DATA_TYPE_ICON_MAP: Record<
         text: 'Boolean',
     },
     [SchemaFieldDataType.Fixed]: { icon: FieldBinaryOutlined, size: 18, text: 'Fixed' },
-    [SchemaFieldDataType.String]: { icon: VscSymbolString, size: 20, text: 'String' },
+    [SchemaFieldDataType.String]: {
+        icon: () => (
+            <IconSpan role="img" aria-label="calendar" className="anticon anticon-calendar">
+                <VscSymbolString />
+            </IconSpan>
+        ),
+        size: 20,
+        text: 'String',
+    },
     [SchemaFieldDataType.Bytes]: {
-        icon: VscFileBinary,
+        icon: () => (
+            <IconSpan role="img" aria-label="calendar" className="anticon anticon-calendar">
+                <VscFileBinary />
+            </IconSpan>
+        ),
         size: 18,
         text: 'Bytes',
     },
@@ -57,9 +79,7 @@ export default function TypeIcon({ type }: Props) {
     return (
         <TypeIconContainer data-testid={`icon-${type}`}>
             {Icon && <Icon style={{ fontSize: size }} />}
-            <TypeSubtitle>
-                <Typography.Text type="secondary">{text}</Typography.Text>
-            </TypeSubtitle>
+            <TypeSubtitle type="secondary">{text}</TypeSubtitle>
         </TypeIconContainer>
     );
 }
