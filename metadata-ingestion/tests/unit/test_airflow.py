@@ -14,7 +14,7 @@ from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.dummy import DummyOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder

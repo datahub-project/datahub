@@ -5,10 +5,15 @@ import { sampleDocs } from '../stories/documentation';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 
 describe('Documentation', () => {
-    it('renders', () => {
+    it('renders', async () => {
         const { getByText } = render(
             <TestPageContainer>
-                <Documentation documents={sampleDocs} updateDocumentation={(_) => undefined} />,
+                <Documentation
+                    authenticatedUserUrn="urn:li:corpuser:1"
+                    documents={sampleDocs}
+                    updateDocumentation={(_) => undefined}
+                />
+                ,
             </TestPageContainer>,
         );
         expect(getByText('Documentation')).toBeInTheDocument();
