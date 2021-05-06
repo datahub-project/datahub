@@ -286,7 +286,7 @@ class LookerView:
 
         # The sql_table_name might be defined in another view and this view is extending that view, try to find it
         else:
-            extends = looker_view.get("extends", [])
+            extends = looker_view.get("extends", looker_view.get("extends__all", []))
             if len(extends) == 0:
                 # The view is malformed, the view is not a derived table, does not contain a sql_table_name or an extends
                 logger.warning(
