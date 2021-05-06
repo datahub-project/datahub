@@ -216,7 +216,6 @@ class LookerView:
     ) -> List[ViewField]:
         fields = []
         for field_dict in field_list:
-            logger.warning(field_dict)
             is_primary_key = field_dict.get("primary_key", "no") == "yes"
             name = field_dict["name"]
             native_type = field_dict.get("type", "string")
@@ -247,8 +246,6 @@ class LookerView:
             sql_table_name.replace('"', "") if sql_table_name is not None else None
         )
         derived_table = looker_view.get("derived_table", None)
-
-        logger.warning(f"-> {view_name}")
 
         dimensions = cls._get_fields(
             looker_view.get("dimensions", []), ViewFieldType.DIMENSION
@@ -304,7 +301,6 @@ class LookerView:
                 raw_view_name = raw_view["name"]
                 # Make sure to skip loading view we are currently trying to resolve
                 if raw_view_name != view_name:
-                    logger.warning(f"Into raw: {raw_view_name}")
                     maybe_looker_view = LookerView.from_looker_dict(
                         raw_view,
                         connection,
@@ -320,15 +316,11 @@ class LookerView:
 
             # Or it could live in one of the included files, we do not know which file the base view lives in, try them all!
             for include in looker_viewfile.resolved_includes:
-                logger.warning(f"Into  includes: {include}")
-
                 maybe_looker_viewfile = looker_viewfile_loader.load_viewfile(
                     include, connection
                 )
                 if maybe_looker_viewfile is not None:
                     for view in looker_viewfile.views:
-                        logger.warning(f"Into  resolved includes: {raw_view_name}")
-
                         maybe_looker_view = LookerView.from_looker_dict(
                             view,
                             connection,
@@ -537,7 +529,6 @@ class LookMLSource(Source):
                     "LookML", f"unable to parse Looker model: {file_path}"
                 )
                 continue
-            logger.warning(f"MODEL: {model_name}, {len(model.resolved_includes)}")
 
             for include in model.resolved_includes:
                 is_view_seen = viewfile_loader.is_view_seen(include)
