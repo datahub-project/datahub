@@ -5,8 +5,9 @@ import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
+from enum import Enum
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import lkml
 from sql_metadata import get_query_tables
@@ -24,6 +25,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    DateTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    OtherSchema,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringTypeClass,
+    TimeTypeClass,
+    UnionTypeClass,
+)
+from datahub.metadata.schema_classes import EnumTypeClass, SchemaMetadataClass
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +139,11 @@ class LookerViewFileLoader:
         self.viewfile_cache: Dict[str, LookerViewFile] = {}
         self._base_folder = base_folder
 
+    def is_view_seen(self, path: str) -> bool:
+        return path in self.viewfile_cache
+
     def _load_viewfile(self, path: str) -> Optional[LookerViewFile]:
-        if path in self.viewfile_cache:
+        if self.is_view_seen(path):
             return self.viewfile_cache[path]
 
         try:
@@ -148,15 +167,73 @@ class LookerViewFileLoader:
         return replace(viewfile, connection=connection)
 
 
+class ViewFieldType(Enum):
+    DIMENSION = "Dimension"
+    DIMENSION_GROUP = "Dimension Group"
+    MEASURE = "Measure"
+
+
+@dataclass
+class ViewField:
+    name: str
+    type: str
+    description: str
+    field_type: ViewFieldType
+    is_primary_key: bool = False
+
+
 @dataclass
 class LookerView:
     absolute_file_path: str
     connection: str
     view_name: str
     sql_table_names: List[str]
+    fields: List[ViewField]
 
-    @staticmethod
+    @classmethod
+    def _get_sql_table_names(cls, sql: str) -> List[str]:
+        sql_tables: List[str] = get_query_tables(sql)
+
+        # Remove temporary tables from WITH statements
+        sql_table_names = [
+            t
+            for t in sql_tables
+            if not re.search(
+                f"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",  # noqa: W605
+                sql,
+                re.IGNORECASE | re.DOTALL,
+            )
+        ]
+
+        # Remove quotes from tables
+        sql_table_names = [t.replace('"', "") for t in sql_table_names]
+
+        return sql_table_names
+
+    @classmethod
+    def _get_fields(
+        cls, field_list: List[Dict], type_cls: ViewFieldType
+    ) -> List[ViewField]:
+        fields = []
+        for field_dict in field_list:
+            logger.warning(field_dict)
+            is_primary_key = field_dict.get("primary_key", "no") == "yes"
+            name = field_dict["name"]
+            native_type = field_dict.get("type", "string")
+            description = field_dict.get("description", "")
+            field = ViewField(
+                name=name,
+                type=native_type,
+                description=description,
+                is_primary_key=is_primary_key,
+                field_type=type_cls,
+            )
+            fields.append(field)
+        return fields
+
+    @classmethod
     def from_looker_dict(
+        cls,
         looker_view: dict,
         connection: str,
         looker_viewfile: LookerViewFile,
@@ -171,32 +248,33 @@ class LookerView:
         )
         derived_table = looker_view.get("derived_table", None)
 
+        logger.warning(f"-> {view_name}")
+
+        dimensions = cls._get_fields(
+            looker_view.get("dimensions", []), ViewFieldType.DIMENSION
+        )
+        dimension_groups = cls._get_fields(
+            looker_view.get("dimension_groups", []), ViewFieldType.DIMENSION_GROUP
+        )
+        measures = cls._get_fields(
+            looker_view.get("measures", []), ViewFieldType.MEASURE
+        )
+        fields: List[ViewField] = dimensions + dimension_groups + measures
+
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
             if parse_table_names_from_sql and "sql" in derived_table:
                 # Get the list of tables in the query
-                sql_tables: List[str] = get_query_tables(derived_table["sql"])
-
-                # Remove temporary tables from WITH statements
-                sql_table_names = [
-                    t
-                    for t in sql_tables
-                    if not re.search(
-                        f"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
-                        derived_table["sql"],
-                        re.IGNORECASE | re.DOTALL,
-                    )
-                ]
-
-                # Remove quotes from tables
-                sql_table_names = [t.replace('"', "") for t in sql_table_names]
+                sql_table_names = cls._get_sql_table_names(derived_table["sql"])
             else:
                 sql_table_names = []
+
             return LookerView(
                 absolute_file_path=looker_viewfile.absolute_file_path,
                 connection=connection,
                 view_name=view_name,
                 sql_table_names=sql_table_names,
+                fields=fields,
             )
 
         # There is a single dependency in the view, on the sql_table_name
@@ -206,6 +284,7 @@ class LookerView:
                 connection=connection,
                 view_name=view_name,
                 sql_table_names=[sql_table_name],
+                fields=fields,
             )
 
         # The sql_table_name might be defined in another view and this view is extending that view, try to find it
@@ -213,8 +292,8 @@ class LookerView:
             extends = looker_view.get("extends", [])
             if len(extends) == 0:
                 # The view is malformed, the view is not a derived table, does not contain a sql_table_name or an extends
-                print(
-                    f"Skipping malformed with view_name: {view_name}. View should have a sql_table_name if it is not a derived table"
+                logger.warning(
+                    f"Skipping malformed with view_name: {view_name} ({looker_viewfile.absolute_file_path}). View should have a sql_table_name if it is not a derived table"
                 )
                 return None
 
@@ -225,6 +304,7 @@ class LookerView:
                 raw_view_name = raw_view["name"]
                 # Make sure to skip loading view we are currently trying to resolve
                 if raw_view_name != view_name:
+                    logger.warning(f"Into raw: {raw_view_name}")
                     maybe_looker_view = LookerView.from_looker_dict(
                         raw_view,
                         connection,
@@ -240,11 +320,15 @@ class LookerView:
 
             # Or it could live in one of the included files, we do not know which file the base view lives in, try them all!
             for include in looker_viewfile.resolved_includes:
+                logger.warning(f"Into  includes: {include}")
+
                 maybe_looker_viewfile = looker_viewfile_loader.load_viewfile(
                     include, connection
                 )
                 if maybe_looker_viewfile is not None:
                     for view in looker_viewfile.views:
+                        logger.warning(f"Into  resolved includes: {raw_view_name}")
+
                         maybe_looker_view = LookerView.from_looker_dict(
                             view,
                             connection,
@@ -262,7 +346,7 @@ class LookerView:
                             extends_to_looker_view.append(maybe_looker_view)
 
             if len(extends_to_looker_view) != 1:
-                print(
+                logger.warning(
                     f"Skipping malformed view with view_name: {view_name}. View should have a single view in a view inheritance chain with a sql_table_name"
                 )
                 return None
@@ -272,6 +356,7 @@ class LookerView:
                 connection=connection,
                 view_name=view_name,
                 sql_table_names=extends_to_looker_view[0].sql_table_names,
+                fields=fields,
             )
             return output_looker_view
 
@@ -328,6 +413,85 @@ class LookMLSource(Source):
 
         return upstream_lineage
 
+    def _get_field_type(self, native_type: str) -> SchemaFieldDataType:
+        field_type_mapping = {
+            "date": DateTypeClass,
+            "date_time": TimeTypeClass,
+            "distance": NumberTypeClass,
+            "duration": NumberTypeClass,
+            "location": UnionTypeClass,
+            "number": NumberTypeClass,
+            "string": StringTypeClass,
+            "tier": EnumTypeClass,
+            "time": TimeTypeClass,
+            "unquoted": StringTypeClass,
+            "yesno": BooleanTypeClass,
+            "zipcode": EnumTypeClass,
+            "int": NumberTypeClass,
+            "average": NumberTypeClass,
+            "average_distinct": NumberTypeClass,
+            "count": NumberTypeClass,
+            "count_distinct": NumberTypeClass,
+            "list": ArrayTypeClass,
+            "max": NumberTypeClass,
+            "median": NumberTypeClass,
+            "median_distinct": NumberTypeClass,
+            "min": NumberTypeClass,
+            "percent_of_previous": NumberTypeClass,
+            "percent_of_total": NumberTypeClass,
+            "percentile": NumberTypeClass,
+            "percentile_distinct": NumberTypeClass,
+            "running_total": NumberTypeClass,
+            "sum": NumberTypeClass,
+            "sum_distinct": NumberTypeClass,
+        }
+
+        if native_type in field_type_mapping:
+            type_class = field_type_mapping[native_type]
+        else:
+            self.report.report_warning(
+                native_type,
+                f"The type '{native_type}' is not recognised for field type, setting as NullTypeClass.",
+            )
+            type_class = NullTypeClass
+        data_type = SchemaFieldDataType(type=type_class())
+        return data_type
+
+    def _get_fields_and_primary_keys(
+        self, looker_view: LookerView
+    ) -> Tuple[List[SchemaField], List[str]]:
+        fields: List[SchemaField] = []
+        primary_keys: List = []
+        for field in looker_view.fields:
+            schema_field = SchemaField(
+                fieldPath=field.name,
+                type=self._get_field_type(field.type),
+                nativeDataType=field.type,
+                description=f"{field.field_type.value}. {field.description}",
+            )
+            fields.append(schema_field)
+            if field.is_primary_key:
+                primary_keys.append(schema_field.fieldPath)
+        return fields, primary_keys
+
+    def _get_schema(
+        self, looker_view: LookerView, actor: str, sys_time: int
+    ) -> SchemaMetadataClass:
+        fields, primary_keys = self._get_fields_and_primary_keys(looker_view)
+        stamp = AuditStamp(time=sys_time, actor=actor)
+        schema_metadata = SchemaMetadata(
+            schemaName=looker_view.view_name,
+            platform=self.source_config.platform_name,
+            version=0,
+            fields=fields,
+            primaryKeys=primary_keys,
+            created=stamp,
+            lastModified=stamp,
+            hash="",
+            platformSchema=OtherSchema(rawSchema="looker-view"),
+        )
+        return schema_metadata
+
     def _build_dataset_mce(self, looker_view: LookerView) -> MetadataChangeEvent:
         """
         Creates MetadataChangeEvent for the dataset, creating upstream lineage links
@@ -346,6 +510,8 @@ class LookMLSource(Source):
         dataset_snapshot.aspects.append(
             self._get_upsteam_lineage(looker_view, actor, sys_time)
         )
+        dataset_snapshot.aspects.append(self._get_schema(looker_view, actor, sys_time))
+
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
         return mce
@@ -371,8 +537,12 @@ class LookMLSource(Source):
                     "LookML", f"unable to parse Looker model: {file_path}"
                 )
                 continue
+            logger.warning(f"MODEL: {model_name}, {len(model.resolved_includes)}")
 
             for include in model.resolved_includes:
+                is_view_seen = viewfile_loader.is_view_seen(include)
+                if is_view_seen:
+                    continue
                 looker_viewfile = viewfile_loader.load_viewfile(
                     include, model.connection
                 )
