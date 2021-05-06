@@ -1,6 +1,6 @@
 namespace com.linkedin.glossary
 
-import com.linkedin.common.Uri
+import com.linkedin.common.Url
 import com.linkedin.common.GlossaryNodeUrn
 
 /**
@@ -14,6 +14,11 @@ record GlossaryTermInfo {
   definition: string
 
   /**
+   * Parent node of the glossary term
+   */
+  parentNode: optional GlossaryNodeUrn
+
+  /**
    * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
    */
   termSource: string
@@ -24,9 +29,9 @@ record GlossaryTermInfo {
   sourceRef: optional string
 
   /**
-   * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
+   * The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
-  sourceURI: optional Uri
+  sourceURI: optional Url
 
   /**
    * A key-value map to capture any other non-standardized properties for the glossary term

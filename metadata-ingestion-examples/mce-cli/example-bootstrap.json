@@ -543,8 +543,9 @@
             {
               "com.linkedin.glossary.GlossaryTermInfo": {
                 "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
-                "sourceRef": "EXTERNAL",
-                "termSource": "FIBO",
+                "parentNode": "urn:li:glossaryNode:instruments",
+                "sourceRef": "FIBO",
+                "termSource": "EXTERNAL",
                 "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
                 "customProperties": {
                   "FQDN": "common.instruments.FinancialInstrument"

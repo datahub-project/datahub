@@ -32,6 +32,33 @@
     } ]
   }, {
     "type" : "typeref",
+    "name" : "GlossaryNodeUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Business Node",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.GlossaryNodeUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized business node identifier",
+        "entityType" : "glossaryNode",
+        "fields" : [ {
+          "doc" : "The name of business node with hierarchy.",
+          "name" : "name",
+          "type" : "string"
+        } ],
+        "maxLength" : 56,
+        "name" : "GlossaryNode",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
+      }
+    }
+  }, {
+    "type" : "typeref",
     "name" : "GlossaryTermUrn",
     "namespace" : "com.linkedin.common",
     "doc" : "Business Term",
@@ -136,11 +163,12 @@
     } ]
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", "com.linkedin.common.Time", {
     "type" : "typeref",
-    "name" : "Uri",
+    "name" : "Url",
     "namespace" : "com.linkedin.common",
     "ref" : "string",
     "java" : {
-      "class" : "java.net.URI"
+      "class" : "com.linkedin.common.url.Url",
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
     }
   }, "com.linkedin.common.Urn", {
     "type" : "record",
@@ -162,6 +190,11 @@
           "type" : "string",
           "doc" : "Definition of business term"
         }, {
+          "name" : "parentNode",
+          "type" : "com.linkedin.common.GlossaryNodeUrn",
+          "doc" : "Parent node of the glossary term",
+          "optional" : true
+        }, {
           "name" : "termSource",
           "type" : "string",
           "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
@@ -172,8 +205,8 @@
           "optional" : true
         }, {
           "name" : "sourceURI",
-          "type" : "com.linkedin.common.Uri",
-          "doc" : "The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
+          "type" : "com.linkedin.common.Url",
+          "doc" : "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
           "optional" : true
         }, {
           "name" : "customProperties",
@@ -207,10 +240,6 @@
           "min" : 1
         }
       }
-    }, {
-      "name" : "glossaryNodePath",
-      "type" : "string",
-      "doc" : "Parent business nodes(in sequence) to this business term."
     } ]
   }, {
     "type" : "typeref",

@@ -12,9 +12,4 @@ record GlossaryNodeKey {
     "min" : 1
   }
   name: string
-
-  /**
-   * Parent business nodes(in sequence) to this business term.
-   */
-  glossaryNodePath: string
 }
