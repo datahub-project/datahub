@@ -38,6 +38,7 @@ project.ext.externalDependency = [
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
     'ebean': 'io.ebean:ebean:11.33.3',
     'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',

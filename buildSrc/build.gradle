@@ -1,5 +1,23 @@
 apply plugin: 'java'
 
+repositories {
+    gradlePluginPortal()
+    jcenter()
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url "https://packages.confluent.io/maven/"
+    }
+    maven {
+        url "https://plugins.gradle.org/m2/"
+    }
+    maven {
+        url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
+    }
+}
+
 dependencies {
+    compile 'com.linkedin.pegasus:data:28.3.7'
+    compile 'com.linkedin.pegasus:generator:28.3.7'
     implementation gradleApi()
 }

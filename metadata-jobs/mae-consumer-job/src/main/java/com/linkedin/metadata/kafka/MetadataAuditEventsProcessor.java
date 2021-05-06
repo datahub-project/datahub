@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;

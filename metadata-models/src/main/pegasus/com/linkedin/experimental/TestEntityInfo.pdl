@@ -25,6 +25,21 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
   title: string
 
   /**
+   *
+   */
+   @Searchable = {
+     "type": "DEFAULT",
+   }
+   aliases: array[string]
+
+   recordAliases: array[record AliasRecord {
+       @Searchable = {
+         "type": "DEFAULT",
+       }
+       name: string
+   }]
+
+  /**
    * Detailed description about the test entity
    */
   description: string

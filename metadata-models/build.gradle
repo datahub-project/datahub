@@ -12,10 +12,3 @@ dependencies {
 mainAvroSchemaJar.dependsOn generateAvroSchema
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
-
-
-task generateGmsArtifacts(type: com.linkedin.experimental.ModelProcessorTask) {
-  baseModelPath = project.getProjectDir().getAbsolutePath() + "/src/main/pegasus"
-}
-
-compileJava.dependsOn generateGmsArtifacts

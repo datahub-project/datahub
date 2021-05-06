@@ -33,4 +33,4 @@ namespace com.linkedin.common
   }],
   "maxLength" : 240
 }
-typeref DashboardUrn = string
+typeref TestEntityUrn = string

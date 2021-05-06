@@ -2,7 +2,7 @@ namespace com.linkedin.experimental
 
 @Relationship = {
   "type": "DownstreamOf",
-  "keyTypes": [ "com.linkedin.common.DatasetUrn" ]
+  "entities": [ "dataset" ]
 }
 record Input includes BaseRelationship {
     myEdgeProp: optional string

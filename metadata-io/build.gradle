@@ -1,0 +1,15 @@
+apply plugin: 'pegasus'
+
+dependencies {
+    dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
+    dataModel project(path: ':li-utils', configuration: 'dataTemplate')
+    implementation gradleApi()
+}
+
+task generateGmsArtifacts(type: com.linkedin.experimental.ModelProcessorTask) {
+    modelPath = project.getProjectDir().getAbsolutePath() + "/../metadata-models/src/main/pegasus"
+    resolverPath = files('../metadata-models/src/main/pegasus', '../li-utils/src/main/pegasus') +
+            configurations.dataModel
+}
+
+compileJava.dependsOn generateGmsArtifacts

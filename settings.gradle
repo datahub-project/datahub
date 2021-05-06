@@ -1,3 +1,4 @@
+include 'buildSrc'
 include 'datahub-dao'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
@@ -29,6 +30,6 @@ include 'metadata-testing:metadata-models-test-utils'
 include 'metadata-testing:metadata-test-utils'
 include 'metadata-utils'
 include 'docs-website'
-include 'buildSrc'
+include 'metadata-io'
 
 startParameter.excludedTaskNames << ':datahub-web:build'
