@@ -9,6 +9,7 @@ public enum DataHubUsageEventType {
   LOG_IN_EVENT("LogInEvent"),
   LOG_OUT_EVENT("LogOutEvent"),
   SEARCH_EVENT("SearchEvent"),
+  SEARCH_RESULTS_VIEW_EVENT("SearchResultsViewEvent"),
   SEARCH_RESULT_CLICK_EVENT("SearchResultClickEvent"),
   BROWSE_RESULT_CLICK_EVENT("BrowseResultClickEvent"),
   ENTITY_VIEW_EVENT("EntityViewEvent"),

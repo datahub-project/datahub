@@ -40,10 +40,8 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     DateTime startDate = endDate.minusWeeks(1);
     DateTime lastWeekStartDate = startDate.minusWeeks(1);
     DateRange dateRange = new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
-    DateRange dateRangeLastWeek = new DateRange(
-            String.valueOf(lastWeekStartDate.getMillis()),
-            String.valueOf(startDate.getMillis())
-    );
+    DateRange dateRangeLastWeek =
+        new DateRange(String.valueOf(lastWeekStartDate.getMillis()), String.valueOf(startDate.getMillis()));
 
     // Highlight 1: The Highlights!
     String title = "Weekly Active Users";
@@ -54,17 +52,21 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
             ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.of("actorUrn.keyword"));
 
     int weeklyActiveUsersLastWeek =
-            _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRangeLastWeek),
-                    ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.of("actorUrn.keyword"));
+        _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRangeLastWeek),
+            ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.of("actorUrn.keyword"));
 
-    Double percentChange = (Double.valueOf(weeklyActiveUsers) - Double.valueOf(weeklyActiveUsersLastWeek))
-            / Double.valueOf(weeklyActiveUsersLastWeek) * 100;
+    String bodyText = "";
+    if (weeklyActiveUsersLastWeek > 0) {
+      Double percentChange =
+          (Double.valueOf(weeklyActiveUsers) - Double.valueOf(weeklyActiveUsersLastWeek)) / Double.valueOf(
+              weeklyActiveUsersLastWeek) * 100;
 
-    String directionChange = percentChange > 0 ? "increase" : "decrease";
+      String directionChange = percentChange > 0 ? "increase" : "decrease";
 
-    String bodyText = Double.isInfinite(percentChange) ? "" :
-            String.format("%%%.2f %s from last week", percentChange, directionChange);
-
+      bodyText = Double.isInfinite(percentChange) ? ""
+          : String.format("%%%.2f %s from last week", percentChange, directionChange);
+    }
+    
     highlights.add(Highlight.builder().setTitle(title).setValue(weeklyActiveUsers).setBody(bodyText).build());
 
     // Entity metdata statistics
@@ -77,11 +79,10 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Highlight getEntityMetadataStats(String title, String index) {
-    int numEntities =
-        _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of(),
+    int numEntities = _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of(), Optional.empty());
+    int numEntitiesWithOwners =
+        _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of("hasOwners", ImmutableList.of("true")),
             Optional.empty());
-    int numEntitiesWithOwners = _analyticsService.getHighlights(index, Optional.empty(),
-        ImmutableMap.of("hasOwners", ImmutableList.of("true")), Optional.empty());
     String bodyText = "";
     if (numEntities > 0) {
       double percentChange = 100.0 * numEntitiesWithOwners / numEntities;

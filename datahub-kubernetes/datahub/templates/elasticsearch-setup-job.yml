@@ -40,6 +40,8 @@ spec:
               value: {{ .Values.global.elasticsearch.host | quote }}
             - name: ELASTICSEARCH_PORT
               value: {{ .Values.global.elasticsearch.port | quote }}
+            - name: DATAHUB_ANALYTICS_ENABLED
+              value: {{ .Values.global.datahub_analytics_enabled | quote }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
