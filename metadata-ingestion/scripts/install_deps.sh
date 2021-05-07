@@ -11,7 +11,3 @@ else
         libsasl2-dev \
         ldap-utils
 fi
-
-# python -m pip install --upgrade pip wheel setuptools
-# python -m pip install -e ".[dev]"
-# airflow db init
