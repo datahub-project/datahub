@@ -12,42 +12,36 @@ import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.relationship.Consumes;
 import com.linkedin.metadata.relationship.Contains;
 import com.linkedin.metadata.relationship.DownstreamOf;
+import com.linkedin.metadata.relationship.IsPartOf;
 import com.linkedin.metadata.relationship.Produces;
-import com.linkedin.metadata.resources.dashboard.Charts;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.metadata.resources.lineage.Relationships;
 import com.linkedin.restli.server.annotations.Optional;
-import com.linkedin.restli.server.annotations.RestLiCollection;
+import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
+import org.elasticsearch.common.collect.Map;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
-import com.linkedin.restli.server.annotations.QueryParam;
-
 import java.net.URISyntaxException;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
-
 /**
- * Rest.li entry point: /lineage/{entityKey}?type={entityType}direction={direction}
+ * Rest.li entry point: /relationships?type={entityType}&direction={direction}&relationshipTypes={types}
  */
-//TODO: Shirshanka add relnship type
-@RestLiSimpleResource(name = "lineage", namespace = "com.linkedin.lineage")
-public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
+@RestLiSimpleResource(name = "relationships", namespace = "com.linkedin.lineage")
+public final class Relationships extends SimpleResourceTemplate<EntityRelationships> {
 
-    private static final String CHART_KEY = Charts.class.getAnnotation(RestLiCollection.class).keyName();
     private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
@@ -55,7 +49,7 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     @Named("datasetQueryDao")
     private BaseQueryDAO _graphQueryDao;
 
-    public Lineage() {
+    public Relationships() {
         super();
     }
 
@@ -87,28 +81,36 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
         return direction;
     }
 
+    public static java.util.Map<String, Class<? extends RecordTemplate>> relationshipMap = Map.of(
+            "DownstreamOf", DownstreamOf.class,
+            "Contains", Contains.class,
+            "Consumes", Consumes.class,
+            "Produces", Produces.class,
+            "IsPartOf", IsPartOf.class
+    );
+
     @Nonnull
     @RestMethod.Get
     public Task<EntityRelationships> get(
             @QueryParam("urn") @Nonnull String rawUrn,
+            @QueryParam("types") @Nonnull String relationshipTypesParam,
             @QueryParam("direction") @Optional @Nullable String rawDirection
     ) throws URISyntaxException {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
+        final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam.split(","));
         return RestliUtils.toTask(() -> {
-            // TODO(gabe-lyons): support unions in Neo4jQueryDao queries & then we can remove the multiple DAO queries
-            final List<Urn> downstreamOfEntities = getRelatedEntities(rawUrn, DownstreamOf.class, direction);
-            final List<Urn> containsEntities = getRelatedEntities(rawUrn, Contains.class, direction);
-            final List<Urn> consumesEntities = getRelatedEntities(rawUrn, Consumes.class, direction);
-            final List<Urn> producesEntities = getRelatedEntities(rawUrn, Produces.class, getOppositeDirection(direction));
+            final List<List<Urn>> relatedEntities = relationshipTypes.stream()
+                    .map(relationshipType ->
+                            getRelatedEntities(rawUrn, relationshipMap.get(relationshipType), direction))
+                    .collect(Collectors.toList());
 
             final EntityRelationshipArray entityArray = new EntityRelationshipArray(
-                    Stream.of(downstreamOfEntities, containsEntities, producesEntities, consumesEntities).flatMap(Collection::stream)
-                        .map(entity -> {
-                            return new EntityRelationship()
-                                    .setEntity(entity);
-                        })
-                        .collect(Collectors.toList())
-                );
+                    relatedEntities.stream().flatMap(entities -> {
+                        return entities.stream().map(entity -> new EntityRelationship()
+                                .setEntity(entity));
+                    })
+                            .collect(Collectors.toList())
+            );
 
             return new EntityRelationships().setEntities(entityArray);
         });
