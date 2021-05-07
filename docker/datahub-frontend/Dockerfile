@@ -23,6 +23,7 @@ RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
+VOLUME [ "/datahub-frontend" ]
 
 FROM ${APP_ENV}-install as final
 USER datahub
@@ -42,5 +43,5 @@ ENV JAVA_OPTS=" \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
    -Dlogback.debug=true \
-   -Dpidfile.path=/datahub-frontend/play.pid"
-CMD ["/datahub-frontend/bin/playBinary"]
+   -Dpidfile.path=/dev/null"
+CMD ["datahub-frontend/bin/playBinary"]
