@@ -10,7 +10,9 @@
                 "name^1000",
                 "platform",
                 "tags",
-                "fieldPaths"
+                "fieldPaths",
+                "fieldTags^0.5",
+                "editedFieldTags^0.5"
               ],
               "default_operator": "and",
               "analyzer": "custom_keyword"
@@ -25,7 +27,12 @@
                 "name.delimited",
                 "fieldPaths.delimited^0.2",
                 "name.ngram^0.125",
-                "tags.ngram^0.0625"
+                "tags.ngram^0.0625",
+                "description^0.5",
+                "fieldDescriptions^0.125",
+                "fieldTags.ngram^0.0125",
+                "editedFieldDescriptions^0.125",
+                "editedFieldTags.ngram^0.0125"
               ],
               "default_operator": "and",
               "analyzer": "whitespace_lowercase"

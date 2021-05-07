@@ -221,11 +221,15 @@ class SQLAlchemySource(Source):
 
                 columns = inspector.get_columns(table, schema)
                 try:
-                    description: Optional[str] = inspector.get_table_comment(
-                        table, schema
-                    )["text"]
+                    table_info: dict = inspector.get_table_comment(table, schema)
                 except NotImplementedError:
-                    description = None
+                    description: Optional[str] = None
+                    properties: Dict[str, str] = {}
+                else:
+                    description = table_info["text"]
+
+                    # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+                    properties = table_info.get("properties", {})
 
                 # TODO: capture inspector.get_pk_constraint
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
@@ -234,9 +238,10 @@ class SQLAlchemySource(Source):
                     urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})",
                     aspects=[],
                 )
-                if description is not None:
+                if description is not None or properties:
                     dataset_properties = DatasetPropertiesClass(
                         description=description,
+                        customProperties=properties,
                         # uri=dataset_name,
                     )
                     dataset_snapshot.aspects.append(dataset_properties)
