@@ -3,7 +3,6 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
@@ -26,11 +25,9 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
     public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
         if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
             final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
-            if (currentSchema.isPrimitive()) {
+            if (currentSchema.isComplex()) {
 
-                final RecordDataSchema.Field enclosingField = context.getEnclosingField();
-                final Object annotationObj = enclosingField.getProperties().get(RELATIONSHIP_ANNOTATION_NAME);
-
+                final Object annotationObj = currentSchema.getProperties().get(RELATIONSHIP_ANNOTATION_NAME);
                 if (annotationObj != null) {
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
                     final RelationshipAnnotation annotation = RelationshipAnnotation
