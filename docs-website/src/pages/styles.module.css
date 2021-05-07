@@ -137,6 +137,10 @@
   max-height: 10em;
   max-width: 12em;
 }
+.logo_image_square {
+  max-height: 7em;
+  max-width: 7em;
+}
 
 .big_padding_top {
   padding-top: 4rem;
