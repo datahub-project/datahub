@@ -49,9 +49,6 @@ POST          /callback/oidc                                                  @o
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
 
-# Analytics route for recording events
-POST          /track                                                          react.controllers.TrackingController.track()
-
 GET           /api/*path                                                      controllers.Application.apiNotFound(path)
 POST          /api/*path                                                      controllers.Application.apiNotFound(path)
 

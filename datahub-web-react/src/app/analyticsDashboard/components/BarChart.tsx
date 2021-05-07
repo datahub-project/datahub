@@ -112,13 +112,10 @@ export const BarChart = ({ chartData, width, height }: Props) => {
                     top={yMax + MARGIN_SIZE}
                     left={MARGIN_SIZE}
                     scale={xAxisScale}
-                    tickLabelProps={(_, i) => ({
+                    tickLabelProps={(_) => ({
                         fontSize: 11,
-                        textAnchor: 'end',
-                        transform: `translate(0, 23) rotate(-40 ${
-                            xAxisScale(transformedChartData.map((bar) => bar.name)[i]) || 0
-                        }
-                        ,0)`,
+                        textAnchor: 'start',
+                        angle: 40,
                     })}
                 />
                 <AxisRight
