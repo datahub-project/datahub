@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.linkedin.datahub.graphql.generated.CorpGroup;
-import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.schema.DataFetcher;
@@ -10,7 +9,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.dataloader.DataLoader;
-
+import java.util.stream.Collectors;
+import com.google.common.collect.Iterables;
 
 /**
  * Generic GraphQL resolver responsible for
@@ -36,12 +36,10 @@ public class OwnerTypeResolver<T> implements DataFetcher<CompletableFuture<T>> {
     @Override
     public CompletableFuture<T> get(DataFetchingEnvironment environment) {
         final OwnerType ownerType = _urnProvider.apply(environment);
-        if (ownerType instanceof CorpUser) {
-            final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableTypes.get(0).name());
-            return loader.load(((CorpUser) ownerType).getUrn());
-        } else {
-            final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(_loadableTypes.get(1).name());
-            return loader.load(((CorpGroup) ownerType).getUrn());
-        }
+        final LoadableType<?> filteredEntity = Iterables.getOnlyElement(_loadableTypes.stream()
+                .filter(entity -> ownerType.getClass().isAssignableFrom(entity.objectClass()))
+                .collect(Collectors.toList()));
+        final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
+        return loader.load(((Entity) ownerType).getUrn());
     }
 }
