@@ -1,8 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-(cd .. && ./gradlew :metadata-events:mxe-schemas:build)
-./scripts/ci.sh
+./gradlew build  # also runs tests
 
 rm -rf build dist || true
 python -m build

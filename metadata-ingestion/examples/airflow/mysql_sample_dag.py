@@ -31,6 +31,7 @@ default_args = {
 
 def ingest_from_mysql():
     pipeline = Pipeline.create(
+        # This configuration is analogous to a recipe configuration.
         {
             "source": {
                 "type": "mysql",
