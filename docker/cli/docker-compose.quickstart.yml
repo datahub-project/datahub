@@ -19,9 +19,6 @@ services:
     - 29092:29092
     - 9092:9092
   datahub-frontend-react:
-    build:
-      context: ../
-      dockerfile: docker/datahub-frontend/Dockerfile
     container_name: datahub-frontend-react
     depends_on:
     - datahub-gms
@@ -62,9 +59,6 @@ services:
     ports:
     - 8080:8080
   datahub-mae-consumer:
-    build:
-      context: ../
-      dockerfile: docker/datahub-mae-consumer/Dockerfile
     container_name: datahub-mae-consumer
     depends_on:
     - kafka-setup
@@ -84,9 +78,6 @@ services:
     ports:
     - 9091:9091
   datahub-mce-consumer:
-    build:
-      context: ../
-      dockerfile: docker/datahub-mce-consumer/Dockerfile
     container_name: datahub-mce-consumer
     depends_on:
     - kafka-setup
@@ -120,9 +111,6 @@ services:
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
-    build:
-      context: ../
-      dockerfile: docker/elasticsearch-setup/Dockerfile
     container_name: elasticsearch-setup
     depends_on:
     - elasticsearch
@@ -133,8 +121,6 @@ services:
     hostname: elasticsearch-setup
     image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-latest}
   kafka-setup:
-    build:
-      context: kafka-setup
     container_name: kafka-setup
     depends_on:
     - broker

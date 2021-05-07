@@ -49,6 +49,9 @@ def modify_docker_config(base_path, docker_yaml_config):
         # 5. Delete the "env_file" value
         del service["env_file"]
 
+        # 6. Delete build instructions
+        service.pop("build", None)
+
 
 @click.command()
 @click.argument("compose-files", nargs=-1, type=click.Path(exists=True, dir_okay=False))
