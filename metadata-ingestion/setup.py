@@ -202,7 +202,9 @@ setuptools.setup(
             "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
             "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         ],
-        "apache_airflow_provider": ["provider_info = datahub_provider:get_provider_info"],
+        "apache_airflow_provider": [
+            "provider_info = datahub_provider:get_provider_info"
+        ],
     },
     # Dependencies.
     install_requires=list(base_requirements | framework_common),
