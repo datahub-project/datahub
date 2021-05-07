@@ -7,6 +7,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +16,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
     private static final String SEARCHABLE_ANNOTATION_NAME = "Searchable";
 
-    private List<SearchableFieldSpec> _specs;
-
-    public SearchableFieldSpecExtractor() {
-        _specs = new ArrayList<>();
-    }
+    private final List<SearchableFieldSpec> _specs = new ArrayList<>();
 
     public List<SearchableFieldSpec> getSpecs() {
         return _specs;
@@ -36,7 +33,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
                 if (annotationObj != null) {
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-                    final SearchableFieldSpec.SearchableAnnotation annotation = SearchableFieldSpec.SearchableAnnotation
+                    final SearchableAnnotation annotation = SearchableAnnotation
                             .fromPegasusAnnotationObject(annotationObj);
                     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, currentSchema, annotation);
                     _specs.add(fieldSpec);

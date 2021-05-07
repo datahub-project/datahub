@@ -7,6 +7,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
+import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +16,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
     private static final String RELATIONSHIP_ANNOTATION_NAME = "Relationship";
 
-    private List<RelationshipFieldSpec> _specs;
-
-    public RelationshipFieldSpecExtractor() {
-        _specs = new ArrayList<>();
-    }
+    private final List<RelationshipFieldSpec> _specs = new ArrayList<>();
 
     public List<RelationshipFieldSpec> getSpecs() {
         return _specs;
@@ -36,7 +33,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
                 if (annotationObj != null) {
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-                    final RelationshipFieldSpec.RelationshipAnnotation annotation = RelationshipFieldSpec.RelationshipAnnotation
+                    final RelationshipAnnotation annotation = RelationshipAnnotation
                             .fromPegasusAnnotationObject(annotationObj);
                     final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, currentSchema, annotation);
                     _specs.add(fieldSpec);

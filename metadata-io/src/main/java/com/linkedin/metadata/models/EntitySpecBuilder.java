@@ -5,6 +5,8 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
+import com.linkedin.metadata.models.annotation.AspectAnnotation;
+import com.linkedin.metadata.models.annotation.EntityAnnotation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +48,7 @@ public class EntitySpecBuilder {
                 aspectSpecs.add(getAspectSpec(member.getType()));
             }
 
-            return new EntitySpec(aspectSpecs, EntitySpec.EntityAnnotation.fromSchemaProperty(entityAnnotationObj));
+            return new EntitySpec(aspectSpecs, EntityAnnotation.fromSchemaProperty(entityAnnotationObj));
         }
         // TODO: Replace with exception once we are ready.
         System.out.println(String.format("Warning: Could not build entity spec for entity with name %s. Missing @Entity annotation.",
@@ -61,7 +63,7 @@ public class EntitySpecBuilder {
 
         if (aspectAnnotationObj != null) {
 
-            final AspectSpec.AspectAnnotation aspectAnnotation = AspectSpec.AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
+            final AspectAnnotation aspectAnnotation = AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
 
             final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
             final DataSchemaRichContextTraverser searchableFieldSpecTraverser = new DataSchemaRichContextTraverser(searchableFieldSpecExtractor);
