@@ -170,7 +170,6 @@ setuptools.setup(
     python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
-    include_package_data=True,
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
