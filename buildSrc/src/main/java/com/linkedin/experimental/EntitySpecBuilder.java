@@ -9,20 +9,24 @@ import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SnapshotUtils {
 
-    public static List<EntitySpec> getEntitySpecs(final DataSchema snapshotSchema) {
+public class EntitySpecBuilder {
+
+    public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema) {
         final UnionDataSchema snapshotUnionSchema = (UnionDataSchema) snapshotSchema.getDereferencedDataSchema();
         final List<UnionDataSchema.Member> unionMembers = snapshotUnionSchema.getMembers();
 
         final List<EntitySpec> entitySpecs = new ArrayList<>();
         for (UnionDataSchema.Member member : unionMembers) {
-            entitySpecs.add(getEntitySpec(member.getType()));
+            final EntitySpec entitySpec = buildEntitySpec(member.getType());
+            if (entitySpec != null) {
+                entitySpecs.add(buildEntitySpec(member.getType()));
+            }
         }
         return entitySpecs;
     }
 
-    public static EntitySpec getEntitySpec(final DataSchema entitySnapshotSchema) {
+    public static EntitySpec buildEntitySpec(final DataSchema entitySnapshotSchema) {
         // 0. Validate the Snapshot definition
         final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
 

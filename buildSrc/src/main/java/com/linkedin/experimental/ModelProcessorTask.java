@@ -1,10 +1,6 @@
 package com.linkedin.experimental;
 
-import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
-import com.linkedin.data.schema.RecordDataSchema;
-import com.linkedin.data.schema.UnionDataSchema;
-import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
 import com.linkedin.pegasus.generator.DataSchemaParser;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.FileCollection;
@@ -13,7 +9,6 @@ import org.gradle.api.tasks.options.Option;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 public class ModelProcessorTask extends DefaultTask {
 
@@ -34,7 +29,6 @@ public class ModelProcessorTask extends DefaultTask {
 
         // Parsed schemas success --> Now time to look through.
         final DataSchema snapshotSchema = parser.getSchemaResolver().existingDataSchema("com.linkedin.metadata.snapshot.Snapshot");
-        final List<EntitySpec> entitySpecs = SnapshotUtils.getEntitySpecs(snapshotSchema);
-
+        final List<EntitySpec> entitySpecs = EntitySpecBuilder.buildEntitySpecs(snapshotSchema);
     }
 }
