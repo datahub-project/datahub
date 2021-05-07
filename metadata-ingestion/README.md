@@ -499,7 +499,8 @@ can produce such files, and a number of samples are included in the
 ```yml
 source:
   type: file
-  filename: ./path/to/mce/file.json
+  config:
+    filename: ./path/to/mce/file.json
 ```
 
 ### DBT `dbt`
