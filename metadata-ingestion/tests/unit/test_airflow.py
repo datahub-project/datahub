@@ -163,8 +163,9 @@ def test_hook_airflow_ui(hook):
         "airflow-2-x-decl",
     ],
 )
+@mock.patch("airflow.models.BaseOperator.xcom_push", autospec=True)
 @mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
-def test_lineage_backend(mock_emit, inlets, outlets):
+def test_lineage_backend(mock_emit, mock_xcom_push, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
     with mock.patch.dict(
@@ -207,6 +208,10 @@ def test_lineage_backend(mock_emit, inlets, outlets):
         assert len(op1.outlets) == 1
         assert all(map(lambda let: isinstance(let, Dataset), op1.inlets))
         assert all(map(lambda let: isinstance(let, Dataset), op1.outlets))
+
+        # Verify xcom push calls are correct.
+        # Two calls, one for inlets and the other for outlets.
+        assert mock_xcom_push.call_count == 2
 
         # Check that the right things were emitted.
         mock_emit.assert_called_once()

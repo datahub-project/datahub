@@ -27,10 +27,10 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build (and test)
         run: ./gradlew build
-      - name: Python ingest framework tests
-        run: cd metadata-ingestion && ./scripts/ci.sh
       - name: Ensure codegen is updated
         run: |
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
@@ -60,6 +60,8 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build
         run: ./gradlew build -x check -x docs-website:build
       - name: Smoke test
