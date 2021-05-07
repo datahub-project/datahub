@@ -43,6 +43,15 @@ from datahub.metadata.schema_classes import EnumTypeClass, SchemaMetadataClass
 
 logger = logging.getLogger(__name__)
 
+# handle extend?
+# tests
+# docs
+# TODO: build schema field lineage
+# TODO: in our own stuff, could add link to github to the files in a transformer.
+# Could gather more metadata from fields to description?
+
+# Default schema!!!! maybe a transformer?
+
 
 class LookMLSourceConfig(ConfigModel):
     base_folder: str
@@ -154,9 +163,8 @@ class LookerViewFileLoader:
                 )
                 self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
-        except Exception as e:
-            print(e)
-            print(f"Error processing view file {path}. Skipping it")
+        except Exception:
+            logger.warning(f"Error processing view file {path}. Skipping it")
             return None
 
     def load_viewfile(self, path: str, connection: str) -> Optional[LookerViewFile]:
