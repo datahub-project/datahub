@@ -55,6 +55,7 @@ The above commands sets the passwords to "datahub" as an example. Change to any 
 Second, deploy the dependencies by running the following
 
 ```(shell)
+(cd prerequisites && helm dep update)
 helm install prerequisites prerequisites/
 ```
 

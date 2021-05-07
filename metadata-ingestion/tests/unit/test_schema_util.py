@@ -114,6 +114,11 @@ SCHEMA_WITH_DEFAULT_VALUE = """
         SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION,
         SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE,
     ],
+    ids=[
+        "optional_field_via_union_type",
+        "optional_field_via_union_null_not_first",
+        "optional_field_via_primitive",
+    ],
 )
 def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):
     fields = avro_schema_to_mce_fields(schema)
@@ -146,4 +151,4 @@ def test_avro_schema_to_mce_fields_with_default():
 
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields) == 1
-    assert "custom, default value" in fields[0].description
+    assert fields[0].description and "custom, default value" in fields[0].description

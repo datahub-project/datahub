@@ -12,7 +12,7 @@ from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.python import PythonOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.python_operator import PythonOperator
 
 from datahub.ingestion.run.pipeline import Pipeline

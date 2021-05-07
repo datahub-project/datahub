@@ -98,7 +98,7 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { data } = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser();
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
     const themeConfig = useTheme();
 
@@ -154,16 +154,16 @@ export const HomePageHeader = () => {
         <Background>
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
-                    {data && (
+                    {user && (
                         <>
-                            Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
+                            Welcome back, <b>{user.info?.firstName || user.username}</b>.
                         </>
                     )}
                 </WelcomeText>
                 <ManageAccount
-                    urn={data?.corpUser?.urn || ''}
-                    pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
-                    name={data?.corpUser?.info?.firstName || data?.corpUser?.username || undefined}
+                    urn={user?.urn || ''}
+                    pictureLink={user?.editableInfo?.pictureLink || ''}
+                    name={user?.info?.firstName || user?.username || undefined}
                 />
             </Row>
             <HeaderContainer>

@@ -33,7 +33,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { data: userData } = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser();
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const search = (query: string) => {
@@ -65,8 +65,8 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 }
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}
-                authenticatedUserUrn={userData?.corpUser?.urn || ''}
-                authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink}
+                authenticatedUserUrn={user?.urn || ''}
+                authenticatedUserPictureLink={user?.editableInfo?.pictureLink}
             />
             <div style={styles.children}>{children}</div>
         </Layout>

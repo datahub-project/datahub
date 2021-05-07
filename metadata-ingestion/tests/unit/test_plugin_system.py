@@ -43,7 +43,7 @@ def test_registry():
     # Make a mini sink registry.
     fake_registry = Registry[Sink]()
     fake_registry.register("console", ConsoleSink)
-    fake_registry.register_disabled("disabled", ImportError("disabled sink"))
+    fake_registry.register_disabled("disabled", ModuleNotFoundError("disabled sink"))
 
     class DummyClass:
         pass

@@ -17,6 +17,7 @@ import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
 import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -35,6 +36,7 @@ const EMPTY_ARR: never[] = [];
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+    const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
             cache.modify({
@@ -108,6 +110,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 path: 'docs',
                 content: (
                     <DocumentsView
+                        authenticatedUserUrn={user?.urn}
                         documents={institutionalMemory?.elements || EMPTY_ARR}
                         updateDocumentation={(update) =>
                             updateDataset({ variables: { input: { urn, institutionalMemory: update } } })
