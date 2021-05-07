@@ -1,4 +1,4 @@
-package com.linkedin.experimental;
+package com.linkedin.metadata.models;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;

@@ -26,6 +26,18 @@ task generateMXEDataTemplate(type: com.linkedin.pegasus.gradle.tasks.GenerateDat
       configurations.dataModel
 }
 
+task generateGmsArtifacts(type: JavaExec) {
+  main = 'com.linkedin.metadata.model.processor.ModelProcessorTask'
+  args '../metadata-models/src/main/pegasus/:' + '../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../metadata-models/src/main/pegasus"
+  classpath = project.configurations.schemaGen
+  debugOptions {
+    enabled = true
+    port = 5005
+  }
+}
+
+compileJava.dependsOn generateGmsArtifacts
+
 compileMainGeneratedDataTemplateJava.dependsOn generateMXEDataTemplate
 
 clean {

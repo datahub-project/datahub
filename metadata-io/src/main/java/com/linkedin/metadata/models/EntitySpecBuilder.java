@@ -1,4 +1,4 @@
-package com.linkedin.experimental;
+package com.linkedin.metadata.models;
 
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
@@ -11,6 +11,8 @@ import java.util.List;
 
 
 public class EntitySpecBuilder {
+
+    private EntitySpecBuilder() { }
 
     public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema) {
         final UnionDataSchema snapshotUnionSchema = (UnionDataSchema) snapshotSchema.getDereferencedDataSchema();
@@ -84,18 +86,26 @@ public class EntitySpecBuilder {
     private static RecordDataSchema validateSnapshot(final DataSchema entitySnapshotSchema) {
         // 0. Validate that schema is a Record
         if (entitySnapshotSchema.getType() != DataSchema.Type.RECORD) {
-            throw new IllegalArgumentException(String.format("Failed to validate entity snapshot schema of type %s. Schema must be of record type.", entitySnapshotSchema.getType().toString()));
+            throw new IllegalArgumentException(
+                    String.format("Failed to validate entity snapshot schema of type %s. Schema must be of record type.",
+                            entitySnapshotSchema.getType().toString()));
         }
         final RecordDataSchema entitySnapshotRecordSchema = (RecordDataSchema) entitySnapshotSchema;
 
         // 1. Validate Urn field
-        if (entitySnapshotRecordSchema.getField("urn") == null || entitySnapshotRecordSchema.getField("urn").getType().getDereferencedType() != DataSchema.Type.STRING) {
-            throw new IllegalArgumentException(String.format("Failed to validate entity snapshot schema with name %s. Invalid urn field.", entitySnapshotRecordSchema.getName()));
+        if (entitySnapshotRecordSchema.getField("urn") == null
+                || entitySnapshotRecordSchema.getField("urn").getType().getDereferencedType() != DataSchema.Type.STRING) {
+            throw new IllegalArgumentException(
+                    String.format("Failed to validate entity snapshot schema with name %s. Invalid urn field.",
+                            entitySnapshotRecordSchema.getName()));
         }
 
         // 2. Validate Aspect field
-        if (entitySnapshotRecordSchema.getField("aspects") == null || entitySnapshotRecordSchema.getField("aspects").getType().getDereferencedType() != DataSchema.Type.ARRAY) {
-            throw new IllegalArgumentException(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field.", entitySnapshotRecordSchema.getName()));
+        if (entitySnapshotRecordSchema.getField("aspects") == null
+                || entitySnapshotRecordSchema.getField("aspects").getType().getDereferencedType() != DataSchema.Type.ARRAY) {
+            throw new IllegalArgumentException(
+                    String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field.",
+                            entitySnapshotRecordSchema.getName()));
         }
         return entitySnapshotRecordSchema;
     }
@@ -103,7 +113,9 @@ public class EntitySpecBuilder {
     private static RecordDataSchema validateAspect(final DataSchema aspectSchema) {
         // 0. Validate that schema is a Record
         if (aspectSchema.getType() != DataSchema.Type.RECORD) {
-            throw new IllegalArgumentException(String.format("Failed to validate aspect schema of type %s. Schema must be of record type.", aspectSchema.getType().toString()));
+            throw new IllegalArgumentException(
+                    String.format("Failed to validate aspect schema of type %s. Schema must be of record type.",
+                            aspectSchema.getType().toString()));
         }
         return (RecordDataSchema) aspectSchema;
     }

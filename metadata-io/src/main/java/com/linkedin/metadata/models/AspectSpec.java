@@ -1,7 +1,8 @@
-package com.linkedin.experimental;
+package com.linkedin.metadata.models;
 
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;

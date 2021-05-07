@@ -1,4 +1,4 @@
-package com.linkedin.experimental;
+package com.linkedin.metadata.models;
 
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
@@ -61,7 +61,8 @@ public class RelationshipFieldSpec {
                 final List entityTypes = (List) entityTypesObj;
                 for (Object entityTypeObj : entityTypes) {
                     if (!(String.class.isAssignableFrom(entityTypeObj.getClass()))) {
-                        throw new IllegalArgumentException("Failed to validate Relationship field 'entityTypes' field of type List<String>: Invalid values provided (Expected String)");
+                        throw new IllegalArgumentException(
+                                "Failed to validate Relationship field 'entityTypes' field of type List<String>: Invalid values provided (Expected String)");
                     }
                 }
                 return new RelationshipAnnotation(name, (List<String>) entityTypes);
