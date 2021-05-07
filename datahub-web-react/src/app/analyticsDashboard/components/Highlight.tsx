@@ -17,7 +17,7 @@ const HighlightCard = styled(Card)`
     justify-content: center;
     text-align: center;
     line-height: 0;
-    margin: 16px;
+    margin: 10px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
 `;
 
