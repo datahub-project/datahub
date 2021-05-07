@@ -11,6 +11,7 @@ import UserGroupProfile from './UserGroupProfile';
 export class UserGroupEntity implements Entity<CorpGroup> {
     type: EntityType = EntityType.CorpGroup;
 
+    // TODO: update icons for UserGroup
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <UserOutlined style={{ fontSize }} />;

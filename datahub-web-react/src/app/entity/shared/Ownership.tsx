@@ -1,14 +1,6 @@
 import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    CorpGroup,
-    CorpUser,
-    EntityType,
-    Owner,
-    OwnershipSourceType,
-    OwnershipType,
-    OwnershipUpdate,
-} from '../../../types.generated';
+import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -42,30 +34,35 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     const ownerTableData = useMemo(
         () =>
-            stagedOwners.map((owner, index) =>
-                owner.owner.type === EntityType.CorpUser
-                    ? {
-                          key: index,
-                          urn: (owner.owner as CorpUser).urn,
-                          ldap: (owner.owner as CorpUser).username,
-                          fullName: (owner.owner as CorpUser).info?.fullName || (owner.owner as CorpUser).username,
-                          role: owner.type,
-                          pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
-                          type: EntityType.CorpUser,
-                      }
-                    : {
-                          key: index,
-                          urn: (owner.owner as CorpGroup).urn,
-                          ldap: (owner.owner as CorpGroup).name,
-                          fullName: (owner.owner as CorpGroup).name,
-                          role: owner.type,
-                          type: EntityType.CorpGroup,
-                      },
-            ),
+            // eslint-disable-next-line consistent-return, array-callback-return
+            stagedOwners.map((owner, index) => {
+                if (owner.owner.__typename === 'CorpUser') {
+                    return {
+                        key: index,
+                        urn: owner.owner.urn,
+                        ldap: owner.owner.username,
+                        fullName: owner.owner.info?.fullName || owner.owner.username,
+                        role: owner.type,
+                        pictureLink: owner.owner.editableInfo?.pictureLink,
+                        type: EntityType.CorpUser,
+                    };
+                }
+                if (owner.owner.__typename === 'CorpGroup') {
+                    return {
+                        key: index,
+                        urn: owner.owner.urn,
+                        ldap: owner.owner.name,
+                        fullName: owner.owner.name,
+                        role: owner.type,
+                        type: EntityType.CorpGroup,
+                    };
+                }
+                return {};
+            }),
         [stagedOwners],
     );
 
-    const isEditing = (record: any) => record.key === editingIndex;
+    const isEditing = (record: { key: number }) => record.key === editingIndex;
 
     const onAdd = () => {
         setEditingIndex(stagedOwners.length);
@@ -110,7 +107,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                     input: {
                         type: row.type,
                         query,
-                        // field: 'ldap',
+                        field: row.type === EntityType.CorpUser ? 'ldap' : 'name',
                     },
                 },
             });

@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
 
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "ldap";
+    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
 
     private final CorpGroups _corpGroupsClient;
 
@@ -64,7 +64,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                     .map(gmsCorpGroup -> gmsCorpGroup == null ? null : CorpGroupMapper.map(gmsCorpGroup))
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load Datasets", e);
+            throw new RuntimeException("Failed to batch load CorpGroup", e);
         }
     }
 

@@ -1,4 +1,4 @@
-import { CorpUser, Dataset, EntityType, FabricType, OwnershipType } from '../../../../../types.generated';
+import { Dataset, EntityType, FabricType, OwnershipType } from '../../../../../types.generated';
 
 export const sampleDataset: Dataset = {
     __typename: 'Dataset',
@@ -16,7 +16,7 @@ export const sampleDataset: Dataset = {
     ownership: {
         owners: [
             {
-                owner: { urn: 'user:urn', type: EntityType.CorpUser, username: 'UserA' } as CorpUser,
+                owner: { urn: 'user:urn', type: EntityType.CorpUser, username: 'UserA' },
                 type: OwnershipType.Dataowner,
             },
         ],
@@ -57,7 +57,7 @@ export const sampleDeprecatedDataset: Dataset = {
     ownership: {
         owners: [
             {
-                owner: { urn: 'user:urn', type: EntityType.CorpUser, username: 'UserA' } as CorpUser,
+                owner: { urn: 'user:urn', type: EntityType.CorpUser, username: 'UserA' },
                 type: OwnershipType.Dataowner,
             },
         ],
