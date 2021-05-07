@@ -36,7 +36,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   private List<Highlight> getHighlights() {
     final List<Highlight> highlights = new ArrayList<>();
 
-    DateTime endDate = DateTime.now().withTimeAtStartOfDay();
+    DateTime endDate = DateTime.now();
     DateTime startDate = endDate.minusWeeks(1);
     DateTime lastWeekStartDate = startDate.minusWeeks(1);
     DateRange dateRange = new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
@@ -49,11 +49,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     int weeklyActiveUsers =
         _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
-            ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.of("actorUrn.keyword"));
+            ImmutableMap.of(), Optional.of("browserId"));
 
     int weeklyActiveUsersLastWeek =
         _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRangeLastWeek),
-            ImmutableMap.of("type", ImmutableList.of(eventType)), Optional.of("actorUrn.keyword"));
+            ImmutableMap.of(), Optional.of("browserId"));
 
     String bodyText = "";
     if (weeklyActiveUsersLastWeek > 0) {
@@ -66,7 +66,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
       bodyText = Double.isInfinite(percentChange) ? ""
           : String.format("%%%.2f %s from last week", percentChange, directionChange);
     }
-    
+
     highlights.add(Highlight.builder().setTitle(title).setValue(weeklyActiveUsers).setBody(bodyText).build());
 
     // Entity metdata statistics
