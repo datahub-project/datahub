@@ -1,9 +1,9 @@
 import time
+
 import pytest
 import requests
-
+from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.check.docker import check_local_docker_containers
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
@@ -26,15 +26,17 @@ def wait_for_healthchecks():
         if tries > 0:
             time.sleep(healthcheck_wait_interval_sec)
         tries += 1
-        
+
         issues = check_local_docker_containers()
         if not issues:
             print(f"finished waiting for healthchecks after {tries} tries")
             yield
             return
-    
-    issues_str = '\n'.join(f"- {issue}" for issue in issues)
-    raise RuntimeError(f"retry limit exceeded while waiting for docker healthchecks\n{issues_str}")
+
+    issues_str = "\n".join(f"- {issue}" for issue in issues)
+    raise RuntimeError(
+        f"retry limit exceeded while waiting for docker healthchecks\n{issues_str}"
+    )
 
 
 @pytest.mark.dependency()
