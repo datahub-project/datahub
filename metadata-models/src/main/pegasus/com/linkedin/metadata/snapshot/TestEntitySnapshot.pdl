@@ -1,6 +1,7 @@
-namespace com.linkedin.experimental
+namespace com.linkedin.metadata.snapshot
 
 import com.linkedin.common.TestEntityUrn
+import com.linkedin.experimental.TestEntityAspect
 
 /**
  * A metadata snapshot for a specific Test Entity.

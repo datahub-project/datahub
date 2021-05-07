@@ -17,6 +17,7 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     compile project(':metadata-utils')
+    compile project(':metadata-io')
     compile project(':metadata-builders')
     compile project(':metadata-dao-impl:restli-dao')
     compile project(':metadata-events:mxe-schemas')
@@ -41,7 +42,7 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
-    runtime externalDependency.logbackClassic
+    // runtime externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

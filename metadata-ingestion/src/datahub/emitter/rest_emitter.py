@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
     TagSnapshotClass,
+    TestEntitySnapshotClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ resource_locator: Dict[Type[object], str] = {
     DataJobSnapshotClass: "dataJobs",
     MLModelSnapshotClass: "mlModels",
     TagSnapshotClass: "tags",
+    TestEntitySnapshotClass: "test",
 }
 
 

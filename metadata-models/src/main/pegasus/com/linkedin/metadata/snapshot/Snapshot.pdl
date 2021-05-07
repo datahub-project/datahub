@@ -1,7 +1,5 @@
 namespace com.linkedin.metadata.snapshot
 
-import com.linkedin.experimental.TestEntitySnapshot
-
 /**
  * A union of all supported metadata snapshot types.
  */
