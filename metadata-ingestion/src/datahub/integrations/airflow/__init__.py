@@ -1,7 +1,5 @@
 try:
-    from datahub.integrations.airflow.lineage_backend import (
-        DatahubAirflowLineageBackend,
-    )
+    from datahub_provider.lineage.datahub import DatahubAirflowLineageBackend
 except ModuleNotFoundError:
-    # Compat for Airflow 2.x.
+    # Compat for older versions of Airflow.
     pass
