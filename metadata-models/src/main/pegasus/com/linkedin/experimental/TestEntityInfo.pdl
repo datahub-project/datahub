@@ -19,7 +19,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    * Title of the test entity
    */
   @Searchable = {
-    "type": "DEFAULT",
+    "indexType": "KEYWORD",
     "field": "title"
   }
   title: string
@@ -28,13 +28,13 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    *
    */
    @Searchable = {
-     "type": "DEFAULT",
+     "indexType": "KEYWORD",
    }
    aliases: array[string]
 
    recordAliases: array[record AliasRecord {
        @Searchable = {
-         "type": "DEFAULT",
+         "indexType": "KEYWORD",
        }
        name: string
    }]
