@@ -355,12 +355,12 @@ class LookerView:
 
 class LookMLSource(Source):
     source_config: LookMLSourceConfig
-    report = LookMLSourceReport()
+    report = LookMLSourceReport
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
-        self.report = LookMLSourceReport()
+        self.reporter = LookMLSourceReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -441,7 +441,7 @@ class LookMLSource(Source):
         if native_type in field_type_mapping:
             type_class = field_type_mapping[native_type]
         else:
-            self.report.report_warning(
+            self.reporter.report_warning(
                 native_type,
                 f"The type '{native_type}' is not recognised for field type, setting as NullTypeClass.",
             )
@@ -520,12 +520,12 @@ class LookMLSource(Source):
         for file_path in model_files:
             model_name = Path(file_path).stem
             if not self.source_config.model_pattern.allowed(model_name):
-                self.report.report_models_dropped(model_name)
+                self.reporter.report_models_dropped(model_name)
                 continue
             try:
                 model = self._load_model(file_path)
             except Exception:
-                self.report.report_warning(
+                self.reporter.report_warning(
                     "LookML", f"unable to parse Looker model: {file_path}"
                 )
                 continue
@@ -554,14 +554,14 @@ class LookMLSource(Source):
                                 workunit = MetadataWorkUnit(
                                     id=f"lookml-{maybe_looker_view.view_name}", mce=mce
                                 )
-                                self.report.report_workunit(workunit)
-                                self.report.report_views_scanned()
+                                self.reporter.report_workunit(workunit)
+                                self.reporter.report_views_scanned()
                                 yield workunit
                             else:
-                                self.report.report_views_dropped(
+                                self.reporter.report_views_dropped(
                                     maybe_looker_view.view_name
                                 )
-            self.report.report_models_scanned()
+            self.reporter.report_models_scanned()
 
     def get_report(self):
         return self.report
