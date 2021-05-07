@@ -1,6 +1,7 @@
-namespace com.linkedin.experimental
+namespace com.linkedin.metadata.snapshot
 
-import com.linkedin.common.Urn
+import com.linkedin.common.TestEntityUrn
+import com.linkedin.experimental.TestEntityAspect
 
 /**
  * A metadata snapshot for a specific Test Entity.
@@ -14,7 +15,7 @@ record TestEntitySnapshot {
   /**
    * Key for the entity the metadata snapshot is associated with.
    */
-  key: TestEntityKey
+  urn: TestEntityUrn
 
   /**
    * The list of metadata aspects associated with the Test Entity. Depending on the use case, this can either be all, or a selection, of supported aspects.

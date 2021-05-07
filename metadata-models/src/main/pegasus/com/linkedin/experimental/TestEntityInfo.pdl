@@ -62,7 +62,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
   /**
    * Type of the chart
    */
-  type: optional enum ChartType {
+  type: optional enum ChartTypeOption {
     TYPE_1
     TYPE_2
   }

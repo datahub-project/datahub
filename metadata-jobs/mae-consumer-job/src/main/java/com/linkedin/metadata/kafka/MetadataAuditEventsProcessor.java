@@ -1,9 +1,10 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.builders.graph.BaseGraphBuilder;
 import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.builders.graph.RegisteredGraphBuilders;
@@ -82,6 +83,7 @@ public class MetadataAuditEventsProcessor {
    * @param snapshot Snapshot
    */
   private void updateNeo4j(final RecordTemplate snapshot) {
+    final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
     try {
       final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
       final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
