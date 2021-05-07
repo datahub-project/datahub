@@ -278,9 +278,9 @@ curl 'http://localhost:8080/glossaryTerms/($params:(),name:instruments.Financial
     "customProperties": {
       "FQDN": "full"
     },
-    "sourceRef": "sourceRef",
-    "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
-    "termSource": "FIBO"
+    "sourceRef": "FIBO",
+    "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+    "termSource": "EXTERNAL"
   }
 }
 ```
@@ -363,9 +363,9 @@ curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0'
         "customProperties": {
           "FQDN": "full"
         },
-        "sourceRef": "sourceRef",
-        "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
-        "termSource": "FIBO"
+        "sourceRef": "FIBO",
+        "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+        "termSource": "EXTERNAL"
       }
     }
   ],
@@ -556,9 +556,9 @@ curl "http://localhost:8080/glossaryTerms?q=search&input=FinancialInstrument_v1&
       },
       "glossaryTermInfo": {
           "definition": "business term definition",
-          "sourceRef": "EXTERNAL",
-          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
-          "termSource": "FIBO"
+          "sourceRef": "FIBO",
+          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "EXTERNAL"
        }
     }
   ],
@@ -599,9 +599,9 @@ curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=
       },
       "glossaryTermInfo": {
           "definition": "business term definition",
-          "sourceRef": "EXTERNAL",
-          "sourceURI": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
-          "termSource": "FIBO"
+          "sourceRef": "FIBO",
+          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "EXTERNAL"
         }
     }
   ],
@@ -735,18 +735,5 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://loca
       "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
     }
   ]
-}
-```
-
-### Get linked business term for a dataset
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:SampleKafkaDataset,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Akafka)/glossaryTerms/0' | jq
-
-{
-  "auditStamp": {
-    "actor": "urn:li:corpuser:jdoe",
-    "time": 1581407189000
-  },
-  "glossaryTermUrn": "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
 }
 ```

@@ -204,7 +204,7 @@
           "doc" : "External Reference to the business-term",
           "optional" : true
         }, {
-          "name" : "sourceURI",
+          "name" : "sourceUrl",
           "type" : "com.linkedin.common.Url",
           "doc" : "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
           "optional" : true

@@ -31,7 +31,7 @@ record GlossaryTermInfo {
   /**
    * The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
-  sourceURI: optional Url
+  sourceUrl: optional Url
 
   /**
    * A key-value map to capture any other non-standardized properties for the glossary term
