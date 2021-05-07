@@ -1,5 +1,6 @@
 import io
 import pathlib
+from typing import Union
 
 from expandvars import expandvars
 
@@ -8,7 +9,9 @@ from datahub.configuration.toml import TomlConfigurationMechanism
 from datahub.configuration.yaml import YamlConfigurationMechanism
 
 
-def load_config_file(config_file: pathlib.Path) -> dict:
+def load_config_file(config_file: Union[pathlib.Path, str]) -> dict:
+    if isinstance(config_file, str):
+        config_file = pathlib.Path(config_file)
     if not config_file.is_file():
         raise ConfigurationError(f"Cannot open config file {config_file}")
 
