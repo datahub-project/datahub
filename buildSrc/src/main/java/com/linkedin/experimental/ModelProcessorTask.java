@@ -18,11 +18,13 @@ public class ModelProcessorTask extends DefaultTask {
     @Option(option = "resolverPath", description = "The root directory to read PDL models from.")
     FileCollection resolverPath;
 
+    @Option(option = "outputDir", description = "The output directory to write generated metadata to.")
+    String outputDir;
+
     @TaskAction
     public void generateArtifacts() throws IOException {
         // First, create a SchemaParser
         final String resolverPathAsStr = resolverPath.getAsPath();
-        System.out.println(resolverPathAsStr);
 
         final DataSchemaParser parser = new DataSchemaParser(resolverPathAsStr);
         parser.parseSources(new String[]{ modelPath });
