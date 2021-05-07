@@ -66,7 +66,9 @@ jobs:
         run: |
           ./docker/dev.sh -d
           sleep 30
-          ./smoke-test/smoke.sh
+          ./smoke-test/smoke.sh || true
+          docker ps -a
+          docker logs datahub-frontend-react
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
