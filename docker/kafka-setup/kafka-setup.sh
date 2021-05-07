@@ -4,7 +4,7 @@
 
 : ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:=PLAINTEXT}
 
-: ${ANALYTICS_ENABLED:=true}
+: ${DATAHUB_ANALYTICS_ENABLED:=true}
 
 CONNECTION_PROPERTIES_PATH=/tmp/connection.properties
 
@@ -26,6 +26,6 @@ kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PA
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME
 
 # Create topic for datahub usage event
-if [[ $ANALYTICS_ENABLED == true ]]; then
+if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $DATAHUB_USAGE_EVENT_NAME
 fi

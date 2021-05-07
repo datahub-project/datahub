@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "ANALYTICS_ENABLED", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(value = "DATAHUB_ANALYTICS_ENABLED", havingValue = "true", matchIfMissing = true)
 @EnableKafka
 public class DataHubUsageEventsProcessor {
 
@@ -54,7 +54,7 @@ public class DataHubUsageEventsProcessor {
       return;
     }
     elasticEvent.setIndex(indexName);
-    elasticEvent.setActionType(ChangeType.UPDATE);
+    elasticEvent.setActionType(ChangeType.CREATE);
     elasticSearchConnector.feedElasticEvent(elasticEvent);
   }
 }

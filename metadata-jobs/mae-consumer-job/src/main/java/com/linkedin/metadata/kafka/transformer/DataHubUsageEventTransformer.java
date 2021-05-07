@@ -59,6 +59,14 @@ public class DataHubUsageEventTransformer {
       log.info("Invalid event type: {}", usageEvent.get(TYPE).asText());
       return Optional.empty();
     }
+
+    // Timestamp is required
+    if (!usageEvent.has(TIMESTAMP)) {
+      return Optional.empty();
+    }
+    // Set @timestamp
+    eventDocument.put("@timestamp", usageEvent.get(TIMESTAMP).asLong());
+
     // Hydrate actor fields
     setFieldsForEntity(EntityType.CORP_USER, usageEvent.get(ACTOR_URN).asText(), eventDocument);
 
