@@ -1,9 +1,10 @@
-import click
 import os
-import yaml
 from collections.abc import Mapping
-from yaml import Loader
+
+import click
+import yaml
 from dotenv import dotenv_values
+from yaml import Loader
 
 # Generates a merged docker-compose file with env variables inlined.
 # Usage: python3 docker_compose_cli_gen.py ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
@@ -12,24 +13,33 @@ omitted_services = [
     "kafka-rest-proxy",
     "kafka-topics-ui",
     "schema-registry-ui",
-    "kibana"
+    "kibana",
 ]
+mem_limits = {
+    "datahub-gms": "768m",
+    "datahub-mae-consumer": "256m",
+    "datahub-mce-consumer": "256m",
+    "elasticsearch": "1536m",
+}
+
 
 def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], Mapping)):
+        if k in dct and isinstance(dct[k], dict) and isinstance(merge_dct[k], Mapping):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
 
+
 def modify_docker_config(base_path, docker_yaml_config):
     # 0. Filter out services to be omitted.
-    keys_to_delete = [key for key in docker_yaml_config["services"] if key in omitted_services]
-    for key in keys_to_delete: del docker_yaml_config["services"][key]
+    keys_to_delete = [
+        key for key in docker_yaml_config["services"] if key in omitted_services
+    ]
+    for key in keys_to_delete:
+        del docker_yaml_config["services"][key]
 
-    for name,service in docker_yaml_config["services"].items():
-
+    for name, service in docker_yaml_config["services"].items():
         # 1. Extract the env file pointer
         env_file = service.get("env_file")
 
@@ -43,7 +53,10 @@ def modify_docker_config(base_path, docker_yaml_config):
         env_vars = dotenv_values(env_file_path)
 
         # 4. Add an "environment" block to YAML
-        formatted_env_pairs = map(lambda tuple: "{key}={value}".format(key=tuple[0], value=tuple[1]), env_vars.items())
+        formatted_env_pairs = map(
+            lambda tuple: "{key}={value}".format(key=tuple[0], value=tuple[1]),
+            env_vars.items(),
+        )
         service["environment"] = list(formatted_env_pairs)
 
         # 5. Delete the "env_file" value
@@ -51,6 +64,13 @@ def modify_docker_config(base_path, docker_yaml_config):
 
         # 6. Delete build instructions
         service.pop("build", None)
+
+        # 7. Set memory limits
+        if name in mem_limits:
+            service["mem_limit"] = mem_limits[name]
+
+    # 8. Set docker compose version to 2.
+    docker_yaml_config["version"] = "2"
 
 
 @click.command()
@@ -61,7 +81,7 @@ def generate(compose_files, output_file) -> None:
     # Resolve .env files to inlined vars
     modified_files = []
     for compose_file in compose_files:
-        with open(compose_file, 'r') as orig_conf:
+        with open(compose_file, "r") as orig_conf:
             docker_config = yaml.load(orig_conf, Loader=Loader)
 
         base_path = os.path.dirname(compose_file)
@@ -77,7 +97,7 @@ def generate(compose_files, output_file) -> None:
     output_dir = os.path.dirname(output_file)
     if len(output_dir) and not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    with open(output_file, 'w') as new_conf_file:
+    with open(output_file, "w") as new_conf_file:
         yaml.dump(merged_docker_config, new_conf_file, default_flow_style=False)
 
     print("Successfully generated {output_file}.".format(output_file=output_file))

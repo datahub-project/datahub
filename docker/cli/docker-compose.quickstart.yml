@@ -56,6 +56,7 @@ services:
     - NEO4J_PASSWORD=datahub
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
+    mem_limit: 768m
     ports:
     - 8080:8080
   datahub-mae-consumer:
@@ -75,6 +76,7 @@ services:
     - NEO4J_PASSWORD=datahub
     hostname: datahub-mae-consumer
     image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
+    mem_limit: 256m
     ports:
     - 9091:9091
   datahub-mce-consumer:
@@ -89,6 +91,7 @@ services:
     - GMS_PORT=8080
     hostname: datahub-mce-consumer
     image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
+    mem_limit: 256m
     ports:
     - 9090:9090
   elasticsearch:
@@ -106,6 +109,7 @@ services:
         || exit 1
     hostname: elasticsearch
     image: elasticsearch:7.9.3
+    mem_limit: 1536m
     ports:
     - 9200:9200
     volumes:
@@ -181,7 +185,7 @@ services:
     - 2181:2181
     volumes:
     - zkdata:/var/opt/zookeeper
-version: '3.8'
+version: '2'
 volumes:
   esdata: null
   mysqldata: null
