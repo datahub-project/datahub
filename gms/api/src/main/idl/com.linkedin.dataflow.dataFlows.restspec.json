@@ -135,31 +135,7 @@
       } ]
     } ],
     "entity" : {
-      "path" : "/dataFlows/{key}",
-      "subresources" : [ {
-        "name" : "jobs",
-        "namespace" : "com.linkedin.dataflow",
-        "path" : "/dataFlows/{key}/jobs",
-        "schema" : "com.linkedin.common.EntityRelationships",
-        "doc" : "Rest.li entry point: /dataFlows/{dataflowKey}/jobs?direction={direction}\n\ngenerated from: com.linkedin.metadata.resources.datajob.JobsResource",
-        "simple" : {
-          "supports" : [ "get" ],
-          "methods" : [ {
-            "method" : "get",
-            "parameters" : [ {
-              "name" : "urn",
-              "type" : "string"
-            }, {
-              "name" : "direction",
-              "type" : "string",
-              "optional" : true
-            } ]
-          } ],
-          "entity" : {
-            "path" : "/dataFlows/{key}/jobs"
-          }
-        }
-      } ]
+      "path" : "/dataFlows/{key}"
     }
   }
 }

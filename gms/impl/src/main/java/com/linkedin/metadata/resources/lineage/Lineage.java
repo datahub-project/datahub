@@ -16,7 +16,6 @@ import com.linkedin.metadata.relationship.Produces;
 import com.linkedin.metadata.resources.dashboard.Charts;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.metadata.resources.lineage.Relationships;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
