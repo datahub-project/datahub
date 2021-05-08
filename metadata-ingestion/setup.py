@@ -187,6 +187,7 @@ setuptools.setup(
             "glue = datahub.ingestion.source.glue:GlueSource",
             "hive = datahub.ingestion.source.hive:HiveSource",
             "kafka = datahub.ingestion.source.kafka:KafkaSource",
+            "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
             "ldap = datahub.ingestion.source.ldap:LDAPSource",
             "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
             "mssql = datahub.ingestion.source.mssql:SQLServerSource",
