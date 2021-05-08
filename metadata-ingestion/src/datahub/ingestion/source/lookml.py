@@ -207,7 +207,7 @@ class LookerView:
             t
             for t in sql_tables
             if not re.search(
-                f"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",  # noqa: W605
+                fr"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
                 sql,
                 re.IGNORECASE | re.DOTALL,
             )
