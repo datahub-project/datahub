@@ -16,7 +16,7 @@ omitted_services = [
     "kibana",
 ]
 mem_limits = {
-    "datahub-gms": "768m",
+    "datahub-gms": "850m",
     "datahub-mae-consumer": "256m",
     "datahub-mce-consumer": "384m",
     "elasticsearch": "1536m",
