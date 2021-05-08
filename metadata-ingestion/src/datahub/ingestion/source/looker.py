@@ -124,7 +124,7 @@ class LookerDashboard:
 
 class LookerDashboardSource(Source):
     source_config: LookerDashboardSourceConfig
-    report = LookerDashboardSourceReport
+    report = LookerDashboardSourceReport()
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)

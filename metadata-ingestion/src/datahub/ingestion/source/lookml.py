@@ -363,7 +363,7 @@ class LookerView:
 
 class LookMLSource(Source):
     source_config: LookMLSourceConfig
-    report = LookMLSourceReport
+    report = LookMLSourceReport()
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
