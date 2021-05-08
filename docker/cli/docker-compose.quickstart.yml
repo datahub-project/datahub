@@ -99,7 +99,7 @@ services:
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    - ES_JAVA_OPTS=-Xms512m -Xmx512m
     healthcheck:
       retries: 4
       start_period: 2m
@@ -109,7 +109,7 @@ services:
         || exit 1
     hostname: elasticsearch
     image: elasticsearch:7.9.3
-    mem_limit: 1536m
+    mem_limit: 1g
     ports:
     - 9200:9200
     volumes:

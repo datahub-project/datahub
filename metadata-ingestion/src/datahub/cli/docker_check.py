@@ -29,7 +29,7 @@ REQUIRED_CONTAINERS = [
 ]
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
-MIN_MEMORY_NEEDED = 6.75  # GB
+MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
