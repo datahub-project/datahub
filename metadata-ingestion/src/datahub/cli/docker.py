@@ -10,9 +10,14 @@ import click
 import requests
 
 from datahub.cli.docker_check import check_local_docker_containers
+from datahub.ingestion.run.pipeline import Pipeline
 
 SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/cli/docker-compose.quickstart.yml"
-QUICKSTART_COMPOSE_URL = f"https://raw.githubusercontent.com/linkedin/datahub/master/{SIMPLE_QUICKSTART_COMPOSE_FILE}"
+BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
+
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
+GITHUB_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{SIMPLE_QUICKSTART_COMPOSE_FILE}"
+GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 
 @click.group()
@@ -69,7 +74,7 @@ def quickstart(use_locally_generated_quickstart: bool) -> None:
             path = pathlib.Path(tmp_file.name)
 
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(QUICKSTART_COMPOSE_URL)
+            quickstart_download_response = requests.get(GITHUB_QUICKSTART_COMPOSE_URL)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
 
@@ -128,5 +133,52 @@ def quickstart(use_locally_generated_quickstart: bool) -> None:
     )
 
 
-# TODO add a clean command
-# TODO add an ingest sample data command
+@docker.command()
+@click.option(
+    "--path",
+    type=click.Path(exists=True, dir_okay=False),
+    help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
+)
+def ingest_sample_data(path: Optional[str]) -> None:
+    if path is None:
+        click.echo("Downloading sample data...")
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
+            path = str(pathlib.Path(tmp_file.name))
+
+            # Download the bootstrap MCE file from GitHub.
+            mce_json_download_response = requests.get(GITHUB_BOOTSTRAP_MCES_URL)
+            mce_json_download_response.raise_for_status()
+            tmp_file.write(mce_json_download_response.content)
+        click.echo(f"Downloaded to {path}")
+
+    # Verify that docker is up.
+    issues = check_local_docker_containers()
+    if issues:
+        _print_issue_list_and_exit(
+            issues,
+            header="Docker is not ready:",
+            footer="Try running `datahub docker quickstart` first",
+        )
+
+    # Run ingestion.
+    click.echo("Starting ingestion...")
+    pipeline = Pipeline.create(
+        {
+            "source": {
+                "type": "file",
+                "config": {
+                    "filename": path,
+                },
+            },
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": "http://localhost:8080"},
+            },
+        }
+    )
+    pipeline.run()
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)
+
+
+# TODO add a clean/nuke command
