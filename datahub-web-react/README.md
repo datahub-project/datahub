@@ -47,6 +47,8 @@ can run the following in this directory:
 which will start a forwarding server at `localhost:3000`. Note that to fetch real data, `datahub-frontend` server will also
 need to be deployed, still at `http://localhost:9002`, to service GraphQL API requests.
 
+Optionally you could also start the app with the mock server without running the docker containers by executing `yarn start:mock`. See [here](src/graphql-mock/fixtures/searchResult/userSearchResult.ts#L6) for available login users.
+
 ### Theming
 
 #### Selecting a theme

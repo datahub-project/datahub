@@ -3,12 +3,10 @@ import Cookies from 'js-cookie';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import { MockedProvider } from '@apollo/client/testing';
 import { ThemeProvider } from 'styled-components';
 
 import './App.less';
 import { Routes } from './app/Routes';
-import { mocks } from './Mocks';
 import EntityRegistry from './app/entity/EntityRegistry';
 import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
@@ -26,11 +24,8 @@ import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
 
-// Enable to use the Apollo MockProvider instead of a real HTTP client
-const MOCK_MODE = false;
-
 /*
-    Construct Apollo Client 
+    Construct Apollo Client
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
@@ -102,23 +97,9 @@ const App: React.VFC = () => {
         <ThemeProvider theme={dynamicThemeConfig}>
             <Router>
                 <EntityRegistryContext.Provider value={entityRegistry}>
-                    {/* Temporary: For local testing during development. */}
-                    {MOCK_MODE ? (
-                        <MockedProvider
-                            mocks={mocks}
-                            addTypename={false}
-                            defaultOptions={{
-                                watchQuery: { fetchPolicy: 'no-cache' },
-                                query: { fetchPolicy: 'no-cache' },
-                            }}
-                        >
-                            <Routes />
-                        </MockedProvider>
-                    ) : (
-                        <ApolloProvider client={client}>
-                            <Routes />
-                        </ApolloProvider>
-                    )}
+                    <ApolloProvider client={client}>
+                        <Routes />
+                    </ApolloProvider>
                 </EntityRegistryContext.Provider>
             </Router>
         </ThemeProvider>
