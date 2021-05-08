@@ -527,6 +527,7 @@ class LookMLSource(Source):
         )
         for file_path in model_files:
             model_name = Path(file_path).stem
+            self.reporter.report_models_scanned()
             if not self.source_config.model_pattern.allowed(model_name):
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -555,6 +556,7 @@ class LookMLSource(Source):
                             self.source_config.parse_table_names_from_sql,
                         )
                         if maybe_looker_view:
+                            self.reporter.report_views_scanned()
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.view_name
                             ):
@@ -563,13 +565,11 @@ class LookMLSource(Source):
                                     id=f"lookml-{maybe_looker_view.view_name}", mce=mce
                                 )
                                 self.reporter.report_workunit(workunit)
-                                self.reporter.report_views_scanned()
                                 yield workunit
                             else:
                                 self.reporter.report_views_dropped(
                                     maybe_looker_view.view_name
                                 )
-            self.reporter.report_models_scanned()
 
     def get_report(self):
         return self.report

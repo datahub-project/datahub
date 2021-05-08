@@ -334,8 +334,6 @@ class LookerDashboardSource(Source):
         )
         chart_snapshot.aspects.append(chart_info)
 
-        self.reporter.report_charts_scanned()
-
         return MetadataChangeEvent(proposedSnapshot=chart_snapshot)
 
     def _make_dashboard_and_chart_mces(
@@ -383,7 +381,6 @@ class LookerDashboardSource(Source):
         dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
 
         dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-        self.reporter.report_dashboards_scanned()
 
         return chart_mces + [dashboard_mce]
 
@@ -395,6 +392,7 @@ class LookerDashboardSource(Source):
             else []
         )
         for element in elements:
+            self.reporter.report_charts_scanned()
             if element.id is not None and self.source_config.chart_pattern.allowed(
                 element.id
             ):
@@ -435,6 +433,7 @@ class LookerDashboardSource(Source):
         ]
 
         for dashboard_id in dashboard_ids:
+            self.reporter.report_dashboards_scanned()
             if not self.source_config.dashboard_pattern.allowed(dashboard_id):
                 self.reporter.report_dashboards_dropped(dashboard_id)
                 continue
