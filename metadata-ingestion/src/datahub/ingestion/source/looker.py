@@ -403,7 +403,7 @@ class LookerDashboardSource(Source):
                 dashboard_elements.append(looker_dashboard_element)
 
         if dashboard.id is None or dashboard.title is None:
-            raise ValueError("Dashboard ID and Title can't be None")
+            raise ValueError("Neither Dashboard ID nor Title can't be None")
 
         looker_dashboard = LookerDashboard(
             id=dashboard.id,
