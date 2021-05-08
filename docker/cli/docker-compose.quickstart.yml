@@ -91,7 +91,7 @@ services:
     - GMS_PORT=8080
     hostname: datahub-mce-consumer
     image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
-    mem_limit: 256m
+    mem_limit: 384m
     ports:
     - 9090:9090
   elasticsearch:

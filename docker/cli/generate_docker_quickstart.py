@@ -18,7 +18,7 @@ omitted_services = [
 mem_limits = {
     "datahub-gms": "768m",
     "datahub-mae-consumer": "256m",
-    "datahub-mce-consumer": "256m",
+    "datahub-mce-consumer": "384m",
     "elasticsearch": "1536m",
 }
 
