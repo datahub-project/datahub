@@ -91,3 +91,23 @@ class AllowDenyPattern(ConfigModel):
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_allow_list()
         return [a for a in self.allow if self.allowed(a)]
+
+
+class Selector(ConfigModel):
+    pattern: str
+    is_regex: bool = True
+    value: Any
+
+
+class SelectionRules(ConfigModel):
+    pass
+
+
+"""
+transformers:
+- type: asdf.asdf.asdf.Foo
+  config:
+    rules:
+    - pattern: 'asdf.*'
+      value: ['foo', 'bar']
+"""
