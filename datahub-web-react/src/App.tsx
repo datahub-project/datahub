@@ -23,6 +23,7 @@ import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
+import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -89,8 +90,12 @@ const App: React.VFC = () => {
         register.register(new ChartEntity());
         register.register(new UserEntity());
         register.register(new TagEntity());
+<<<<<<< Updated upstream
         register.register(new DataFlowEntity());
         register.register(new DataJobEntity());
+=======
+        register.register(new GlossaryTermEntity());
+>>>>>>> Stashed changes
         return register;
     }, []);
 

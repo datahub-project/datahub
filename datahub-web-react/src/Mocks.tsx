@@ -8,7 +8,11 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
+<<<<<<< Updated upstream
 import { Dataset, DataFlow, DataJob, EntityType, PlatformType } from './types.generated';
+=======
+import { Dataset, EntityType, GlossaryTerm, PlatformType } from './types.generated';
+>>>>>>> Stashed changes
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
@@ -240,6 +244,7 @@ export const dataset3 = {
     deprecation: null,
 } as Dataset;
 
+<<<<<<< Updated upstream
 export const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
@@ -412,6 +417,38 @@ export const dataset7WithSelfReferentialLineage = {
         ],
     },
 };
+=======
+const glossaryTerm1 = {
+    urn: 'urn:li:glossaryTerm:1',
+    type: EntityType.GlossaryTerm,
+    name: 'Another glossary term',
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    glossaryTermInfo: {
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
+} as GlossaryTerm;
+>>>>>>> Stashed changes
 
 const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
@@ -1080,6 +1117,7 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
+<<<<<<< Updated upstream
                     type: 'DATASET',
                     query: '*',
                     start: 0,
@@ -1144,6 +1182,12 @@ export const mocks = [
                     query: 'Sample',
                     start: 0,
                     count: 10,
+=======
+                    type: 'GLOSSARY_TERM',
+                    query: 'tags:abc-sample-tag',
+                    start: 0,
+                    count: 1,
+>>>>>>> Stashed changes
                     filters: [],
                 },
             },
@@ -1156,6 +1200,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
+<<<<<<< Updated upstream
                     searchResults: [
                         {
                             entity: {
@@ -1163,6 +1208,12 @@ export const mocks = [
                                 ...dataFlow1,
                             },
                             matchedFields: [],
+=======
+                    entities: [
+                        {
+                            __typename: 'GLOSSARY_TERM',
+                            ...glossaryTerm1,
+>>>>>>> Stashed changes
                         },
                     ],
                     facets: [
@@ -1190,6 +1241,7 @@ export const mocks = [
     },
     {
         request: {
+<<<<<<< Updated upstream
             query: GetDataFlowDocument,
             variables: {
                 urn: 'urn:li:dataFlow:1',
@@ -1273,6 +1325,8 @@ export const mocks = [
     },
     {
         request: {
+=======
+>>>>>>> Stashed changes
             query: GetTagDocument,
             variables: {
                 urn: 'urn:li:tag:abc-sample-tag',
