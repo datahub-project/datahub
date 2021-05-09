@@ -31,7 +31,7 @@ const styles = {
     row: { width: '100%', marginBottom: '0px' },
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
-    logoImage: { width: '48px' },
+    logoImage: { width: '48px', height: '36px' },
     name: { fontSize: '18px' },
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
