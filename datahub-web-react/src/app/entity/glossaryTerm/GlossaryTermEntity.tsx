@@ -35,11 +35,15 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    isLineageEnabled = () => false;
+
     getPathName = () => 'glossary';
 
     getCollectionName = () => 'Business Glossary';
 
     renderProfile = (urn: string) => <div>Coming soon.... {urn}</div>;
+
+    renderSearch = () => <div>Coming soon </div>;
 
     renderPreview = (_: PreviewType, data: GlossaryTerm) => {
         return (

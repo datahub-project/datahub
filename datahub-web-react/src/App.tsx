@@ -90,12 +90,9 @@ const App: React.VFC = () => {
         register.register(new ChartEntity());
         register.register(new UserEntity());
         register.register(new TagEntity());
-<<<<<<< Updated upstream
         register.register(new DataFlowEntity());
         register.register(new DataJobEntity());
-=======
         register.register(new GlossaryTermEntity());
->>>>>>> Stashed changes
         return register;
     }, []);
 

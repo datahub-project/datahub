@@ -2,2310 +2,2288 @@
 scalar Long
 
 schema {
-    query: Query
-    mutation: Mutation
+  query: Query
+  mutation: Mutation
 }
 
 """
 Top-level GMS Entity
 """
 interface Entity {
-    """
-    GMS Entity urn
-    """
-    urn: String!
+  """
+  GMS Entity urn
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 }
 
 interface EntityWithRelationships implements Entity {
-    """
-    GMS Entity urn
-    """
-    urn: String!
+  """
+  GMS Entity urn
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
-    """
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
+  """
+  Entities upstream of the given entity
+  """
+  upstreamLineage: UpstreamEntityRelationships
 
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
+  """
+  Entities downstream of the given entity
+  """
+  downstreamLineage: DownstreamEntityRelationships
 }
 
 """
 Top-level GMS Entity Type
 """
 enum EntityType {
-    """
-    The Dataset Entity
-    """
-    DATASET
-    """
-    The CorpUser Entity
-    """
-    CORP_USER
-    """
-    The DataPlatform Entity
-    """
-    DATA_PLATFORM
-    """
-    The Dashboard Entity
-    """
-    DASHBOARD
-    """
-    The Chart Entity
-    """
-    CHART
-    """
-    The Tag Entity
-    """
-    TAG
-    """
-    The MLModel Entity
-    """
-    MLMODEL
-    """
-    The DATA_FLOW Entity
-    """
-    DATA_FLOW
-    """
-    The DATA_JOB Entity
-    """
-    DATA_JOB
+  """
+  The Dataset Entity
+  """
+  DATASET
+  """
+  The CorpUser Entity
+  """
+  CORP_USER
+  """
+  The DataPlatform Entity
+  """
+  DATA_PLATFORM
+  """
+  The Dashboard Entity
+  """
+  DASHBOARD
+  """
+  The Chart Entity
+  """
+  CHART
+  """
+  The Tag Entity
+  """
+  TAG
+  """
+  The MLModel Entity
+  """
+  MLMODEL
+  """
+  The DATA_FLOW Entity
+  """
+  DATA_FLOW
+  """
+  The DATA_JOB Entity
+  """
+  DATA_JOB
 }
 
 type Query {
-    """
-    Fetch a Dataset by primary key
-    """
-    dataset(urn: String!): Dataset
+  """
+  Fetch a Dataset by primary key
+  """
+  dataset(urn: String!): Dataset
 
-    """
-    Fetch a CorpUser by primary key
-    """
-    corpUser(urn: String!): CorpUser
+  """
+  Fetch a CorpUser by primary key
+  """
+  corpUser(urn: String!): CorpUser
 
-    """
-    Fetch a Dashboard by primary key
-    """
-    dashboard(urn: String!): Dashboard
+  """
+  Fetch a Dashboard by primary key
+  """
+  dashboard(urn: String!): Dashboard
 
-    """
-    Fetch a Chart by primary key
-    """
-    chart(urn: String!): Chart
+  """
+  Fetch a Chart by primary key
+  """
+  chart(urn: String!): Chart
 
-    """
-    Fetch a Tag by primary key
-    """
-    tag(urn: String!): Tag
+  """
+  Fetch a Tag by primary key
+  """
+  tag(urn: String!): Tag
 
-    """
-    Fetch a MLModel by primary key
-    """
-    mlModel(urn: String!): MLModel
+  """
+  Fetch a MLModel by primary key
+  """
+  mlModel(urn: String!): MLModel
 
-    """
-    Fetch a DataFlow by primary key
-    """
-    dataFlow(urn: String!): DataFlow
+  """
+  Fetch a DataFlow by primary key
+  """
+  dataFlow(urn: String!): DataFlow
 
-    """
-    Fetch a DataJob by primary key
-    """
-    dataJob(urn: String!): DataJob
+  """
+  Fetch a DataJob by primary key
+  """
+  dataJob(urn: String!): DataJob
 
-    """
-    Search DataHub entities
-    """
-    search(input: SearchInput!): SearchResults
+  """
+  Search DataHub entities
+  """
+  search(input: SearchInput!): SearchResults
 
-    """
-    Autocomplete a search query against DataHub entities
-    """
-    autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+  """
+  Autocomplete a search query against DataHub entities
+  """
+  autoComplete(input: AutoCompleteInput!): AutoCompleteResults
 
-    """
-    Browse DataHub entities by path
-    """
-    browse(input: BrowseInput!): BrowseResults
+  """
+  Browse DataHub entities by path
+  """
+  browse(input: BrowseInput!): BrowseResults
 
-    """
-    Retrieve the browse path(s) corresponding to an entity
-    """
-    browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+  """
+  Retrieve the browse path(s) corresponding to an entity
+  """
+  browsePaths(input: BrowsePathsInput!): [BrowsePath!]
 }
 
 type Mutation {
-    updateDataset(input: DatasetUpdateInput!): Dataset
-    updateChart(input: ChartUpdateInput!): Chart
-    updateDashboard(input: DashboardUpdateInput!): Dashboard
-    updateDataFlow(input: DataFlowUpdateInput!): DataFlow
-    updateDataJob(input: DataJobUpdateInput!): DataJob
-    updateTag(input: TagUpdate!): Tag
+  updateDataset(input: DatasetUpdateInput!): Dataset
+  updateChart(input: ChartUpdateInput!): Chart
+  updateDashboard(input: DashboardUpdateInput!): Dashboard
+  updateDataFlow(input: DataFlowUpdateInput!): DataFlow
+  updateDataJob(input: DataJobUpdateInput!): DataJob
+  updateTag(input: TagUpdate!): Tag
 }
 
 type AuditStamp {
-    """
-    When the audited action took place
-    """
-    time: Long!
+  """
+  When the audited action took place
+  """
+  time: Long!
 
-    """
-    Who performed the audited action
-    """
-    actor: String
+  """
+  Who performed the audited action
+  """
+  actor: String
 }
 
 type Dataset implements EntityWithRelationships & Entity {
-    """
-    The unique Dataset URN
-    """
-    urn: String!
+  """
+  The unique Dataset URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    Standardized platform urn where the dataset is defined
-    """
-    platform: DataPlatform!
+  """
+  Standardized platform urn where the dataset is defined
+  """
+  platform: DataPlatform!
 
-    """
-    Dataset native name
-    """
-    name: String!
+  """
+  Dataset native name
+  """
+  name: String!
 
-    """
-    Fabric type where dataset belongs to or where it was generated
-    """
-    origin: FabricType!
+  """
+  Fabric type where dataset belongs to or where it was generated
+  """
+  origin: FabricType!
 
-    """
-    Human readable description for dataset
-    """
-    description: String
+  """
+  Human readable description for dataset
+  """
+  description: String
 
-    """
-    The native format for the data platform
-    """
-    platformNativeType: PlatformNativeType
+  """
+  The native format for the data platform
+  """
+  platformNativeType: PlatformNativeType
 
-    """
-    Native Dataset Uri. Uri should not include any environment specific properties
-    """
-    uri: String
+  """
+  Native Dataset Uri. Uri should not include any environment specific properties
+  """
+  uri: String
 
-    """
-    Tags used for searching dataset
-    """
-    tags: [String!]!
+  """
+  Tags used for searching dataset
+  """
+  tags: [String!]!
 
-    """
-    A list of platform-specific metadata tuples
-    """
-    properties: [StringMapEntry!]
+  """
+  A list of platform-specific metadata tuples
+  """
+  properties: [StringMapEntry!]
 
-    """
-    External URL associated with the Dataset
-    """
-    externalUrl: String
+  """
+  External URL associated with the Dataset
+  """
+  externalUrl: String
 
-    """
-    Ownership metadata of the dataset
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the dataset
+  """
+  ownership: Ownership
 
-    """
-    The dataset deprecation status
-    """
-    deprecation: DatasetDeprecation
+  """
+  The dataset deprecation status
+  """
+  deprecation: DatasetDeprecation
 
-    """
-    References to internal resources related to the dataset
-    """
-    institutionalMemory: InstitutionalMemory
+  """
+  References to internal resources related to the dataset
+  """
+  institutionalMemory: InstitutionalMemory
 
-    """
-    Schema metadata of the dataset
-    """
-    schema: Schema
+  """
+  Schema metadata of the dataset
+  """
+  schema: Schema
 
-    """
-    Editable schema metadata of the dataset
-    """
-    editableSchemaMetadata: EditableSchemaMetadata
+  """
+  Editable schema metadata of the dataset
+  """
+  editableSchemaMetadata: EditableSchemaMetadata
 
-    """
-    Status metadata of the dataset
-    """
-    status: Status
+  """
+  Status metadata of the dataset
+  """
+  status: Status
 
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
+  """
+  Entities upstream of the given entity
+  """
+  upstreamLineage: UpstreamEntityRelationships
 
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
+  """
+  Entities downstream of the given entity
+  """
+  downstreamLineage: DownstreamEntityRelationships
 
-    """
-    The structured tags associated with the dataset
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the dataset
+  """
+  globalTags: GlobalTags
 }
 
-<<<<<<< Updated upstream
-=======
 type GlossaryTerm implements Entity {
-    """
-    Urn of the data platform
-    """
-    urn: String!
+  """
+  Urn of the data platform
+  """
+  urn: String!
 
-    """
-    Ownership metadata of the dataset
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the dataset
+  """
+  ownership: Ownership
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    Name of the data platform
-    """
-    name: String!
+  """
+  Name of the data platform
+  """
+  name: String!
 
-    """
-    Details of the Glossary Term
-    """
-    glossaryTermInfo: GlossaryTermInfo!
+  """
+  Details of the Glossary Term
+  """
+  glossaryTermInfo: GlossaryTermInfo!
 }
 
 type GlossaryTermInfo {
-    """
-    Name of the glossary term
-    """
-    definition: String!
+  """
+  Name of the glossary term
+  """
+  definition: String!
 
-    """
-    Term Source of the glossary term
-    """
-    termSource: String!
+  """
+  Term Source of the glossary term
+  """
+  termSource: String!
 
-    """
-    Source Ref of the glossary term
-    """
-    sourceRef: String
+  """
+  Source Ref of the glossary term
+  """
+  sourceRef: String
 
-    """
-    Source URI of the glossary term
-    """
-    sourceURI: String
+  """
+  Source URI of the glossary term
+  """
+  sourceURI: String
 
-    """
-    Properties of the glossary term
-    """
-    customProperties: [StringMapEntry!]
+  """
+  Properties of the glossary term
+  """
+  customProperties: [StringMapEntry!]
 }
 
->>>>>>> Stashed changes
 type DataPlatform implements Entity {
-    """
-    Urn of the data platform
-    """
-    urn: String!
+  """
+  Urn of the data platform
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    Name of the data platform
-    """
-    name: String!
+  """
+  Name of the data platform
+  """
+  name: String!
 
-    """
-    Metadata associated with a dataplatform
-    """
-    info: DataPlatformInfo
+  """
+  Metadata associated with a dataplatform
+  """
+  info: DataPlatformInfo
 }
 
 type DataPlatformInfo {
-    """
-    The Platform Type
-    """
-    type: PlatformType!
+  """
+  The Platform Type
+  """
+  type: PlatformType!
 
-    """
-    Display name associated with the platform
-    """
-    displayName: String
+  """
+  Display name associated with the platform
+  """
+  displayName: String
 
-    """
-    The delimiter in the dataset names on the data platform
-    """
-    datasetNameDelimiter: String!
+  """
+  The delimiter in the dataset names on the data platform
+  """
+  datasetNameDelimiter: String!
 
-    """
-    A logo URL associated with the platform
-    """
-    logoUrl: String
+  """
+  A logo URL associated with the platform
+  """
+  logoUrl: String
 }
 
 enum PlatformType {
-    """
-    Value for a file system
-    """
-    FILE_SYSTEM
+  """
+  Value for a file system
+  """
+  FILE_SYSTEM
 
-    """
-    Value for a key value store
-    """
-    KEY_VALUE_STORE
+  """
+  Value for a key value store
+  """
+  KEY_VALUE_STORE
 
-    """
-    Value for a message broker
-    """
-    MESSAGE_BROKER
+  """
+  Value for a message broker
+  """
+  MESSAGE_BROKER
 
-    """
-    Value for an object store
-    """
-    OBJECT_STORE
+  """
+  Value for an object store
+  """
+  OBJECT_STORE
 
-    """
-    Value for an OLAP datastore
-    """
-    OLAP_DATASTORE
+  """
+  Value for an OLAP datastore
+  """
+  OLAP_DATASTORE
 
-    """
-    Value for a query engine
-    """
-    QUERY_ENGINE
+  """
+  Value for a query engine
+  """
+  QUERY_ENGINE
 
-    """
-    Value for a relational database
-    """
-    RELATIONAL_DB
+  """
+  Value for a relational database
+  """
+  RELATIONAL_DB
 
-    """
-    Value for a search engine
-    """
-    SEARCH_ENGINE
+  """
+  Value for a search engine
+  """
+  SEARCH_ENGINE
 
-    """
-    Value for other platforms
-    """
-    OTHERS
+  """
+  Value for other platforms
+  """
+  OTHERS
 }
 
 enum FabricType {
-    """
-    Designates development fabrics
-    """
-    DEV
+  """
+  Designates development fabrics
+  """
+  DEV
 
-    """
-    Designates early-integration (staging) fabrics
-    """
-    EI
+  """
+  Designates early-integration (staging) fabrics
+  """
+  EI
 
-    """
-    Designates production fabrics
-    """
-    PROD
+  """
+  Designates production fabrics
+  """
+  PROD
 
-    """
-    Designates corporation fabrics
-    """
-    CORP
+  """
+  Designates corporation fabrics
+  """
+  CORP
 }
 
 type DatasetDeprecation {
-    """
-    Whether the dataset has been deprecated by owner
-    """
-    deprecated: Boolean!
+  """
+  Whether the dataset has been deprecated by owner
+  """
+  deprecated: Boolean!
 
-    """
-    The time user plan to decommission this dataset
-    """
-    decommissionTime: Long
+  """
+  The time user plan to decommission this dataset
+  """
+  decommissionTime: Long
 
-    """
-    Additional information about the dataset deprecation plan
-    """
-    note: String!
+  """
+  Additional information about the dataset deprecation plan
+  """
+  note: String!
 
-    """
-    The user who will be credited for modifying this deprecation content
-    """
-    actor: String
+  """
+  The user who will be credited for modifying this deprecation content
+  """
+  actor: String
 }
 
 type InstitutionalMemory {
-    """
-    List of records that represent the institutional memory (internal documentation) of an entity
-    """
-    elements: [InstitutionalMemoryMetadata!]!
+  """
+  List of records that represent the institutional memory (internal documentation) of an entity
+  """
+  elements: [InstitutionalMemoryMetadata!]!
 }
 
 type InstitutionalMemoryMetadata {
-    """
-    Link to a document or wiki page or another internal resource
-    """
-    url: String!
+  """
+  Link to a document or wiki page or another internal resource
+  """
+  url: String!
 
-    """
-    Description of the resource
-    """
-    description: String!
+  """
+  Description of the resource
+  """
+  description: String!
 
-    """
-    The author of this metadata
-    """
-    author: String!
+  """
+  The author of this metadata
+  """
+  author: String!
 
-    """
-    An AuditStamp corresponding to the creation of this resource
-    """
-    created: AuditStamp!
+  """
+  An AuditStamp corresponding to the creation of this resource
+  """
+  created: AuditStamp!
 }
 
 type Schema {
-    """
-    Dataset this schema metadata is associated with
-    """
-    datasetUrn: String
+  """
+  Dataset this schema metadata is associated with
+  """
+  datasetUrn: String
 
-    """
-    Schema name
-    """
-    name: String!
+  """
+  Schema name
+  """
+  name: String!
 
-    """
-    Platform this schema metadata is associated with
-    """
-    platformUrn: String!
+  """
+  Platform this schema metadata is associated with
+  """
+  platformUrn: String!
 
-    """
-    The version of the GMS Schema metadata
-    """
-    version: Long!
+  """
+  The version of the GMS Schema metadata
+  """
+  version: Long!
 
-    """
-    The cluster this schema metadata is derived from
-    """
-    cluster: String
+  """
+  The cluster this schema metadata is derived from
+  """
+  cluster: String
 
-    """
-    The SHA1 hash of the schema content
-    """
-    hash: String!
+  """
+  The SHA1 hash of the schema content
+  """
+  hash: String!
 
-    """
-    The native schema in the datasets platform, schemaless if it was not provided
-    """
-    platformSchema: PlatformSchema
-    """
-    Client provided a list of fields from value schema
-    """
-    fields: [SchemaField!]!
-    """
-    Client provided list of fields that define primary keys to access record
-    """
-    primaryKeys: [String!]
+  """
+  The native schema in the datasets platform, schemaless if it was not provided
+  """
+  platformSchema: PlatformSchema
+  """
+  Client provided a list of fields from value schema
+  """
+  fields: [SchemaField!]!
+  """
+  Client provided list of fields that define primary keys to access record
+  """
+  primaryKeys: [String!]
 }
 
 union PlatformSchema = TableSchema | KeyValueSchema
 
 type TableSchema {
-    """
-    Raw table schema
-    """
-    schema: String!
+  """
+  Raw table schema
+  """
+  schema: String!
 }
 
 type KeyValueSchema {
-    """
-    Raw key schema
-    """
-    keySchema: String!
-    """
-    Raw value schema
-    """
-    valueSchema: String!
+  """
+  Raw key schema
+  """
+  keySchema: String!
+  """
+  Raw value schema
+  """
+  valueSchema: String!
 }
 
 type SchemaField {
-    """
-    Flattened name of the field computed from jsonPath field
-    """
-    fieldPath: String!
-    """
-    Flattened name of a field in JSON Path notation
-    """
-    jsonPath: String
-    """
-    Indicates if this field is optional or nullable
-    """
-    nullable: Boolean!
-    """
-    Description of the field
-    """
-    description: String
-    """
-    Platform independent field type of the field
-    """
-    type: SchemaFieldDataType!
-    """
-    The native type of the field in the datasets platform as declared by platform schema
-    """
-    nativeDataType: String
-    """
-    Whether the field references its own type recursively
-    """
-    recursive: Boolean!
-    """
-    Tags associated with the field
-    """
-    globalTags: GlobalTags
+  """
+  Flattened name of the field computed from jsonPath field
+  """
+  fieldPath: String!
+  """
+  Flattened name of a field in JSON Path notation
+  """
+  jsonPath: String
+  """
+  Indicates if this field is optional or nullable
+  """
+  nullable: Boolean!
+  """
+  Description of the field
+  """
+  description: String
+  """
+  Platform independent field type of the field
+  """
+  type: SchemaFieldDataType!
+  """
+  The native type of the field in the datasets platform as declared by platform schema
+  """
+  nativeDataType: String
+  """
+  Whether the field references its own type recursively
+  """
+  recursive: Boolean!
+  """
+  Tags associated with the field
+  """
+  globalTags: GlobalTags
 }
 
 type EditableSchemaMetadata {
-    editableSchemaFieldInfo: [EditableSchemaFieldInfo!]!
+  editableSchemaFieldInfo: [EditableSchemaFieldInfo!]!
 }
 
 type EditableSchemaFieldInfo {
-    """
-    Flattened name of a field identifying the field the editable info is applied to
-    """
-    fieldPath: String!
+  """
+  Flattened name of a field identifying the field the editable info is applied to
+  """
+  fieldPath: String!
 
-    """
-    Edited description of the field
-    """
-    description: String
+  """
+  Edited description of the field
+  """
+  description: String
 
-    """
-    Tags associated with the field
-    """
-    globalTags: GlobalTags
+  """
+  Tags associated with the field
+  """
+  globalTags: GlobalTags
 }
 
 enum SchemaFieldDataType {
-    BOOLEAN
-    FIXED
-    STRING
-    BYTES
-    NUMBER
-    DATE
-    TIME
-    ENUM
-    NULL
-    MAP
-    ARRAY
-    UNION
-    STRUCT
+  BOOLEAN
+  FIXED
+  STRING
+  BYTES
+  NUMBER
+  DATE
+  TIME
+  ENUM
+  NULL
+  MAP
+  ARRAY
+  UNION
+  STRUCT
 }
 
 type EntityRelationship {
-    """
-    An AuditStamp corresponding to the last modification of this relationship
-    """
-    created: AuditStamp
+  """
+  An AuditStamp corresponding to the last modification of this relationship
+  """
+  created: AuditStamp
 
-    """
-    Entity that is related via lineage
-    """
-    entity: EntityWithRelationships
+  """
+  Entity that is related via lineage
+  """
+  entity: EntityWithRelationships
 }
 
 type UpstreamEntityRelationships {
-    entities: [EntityRelationship]
+  entities: [EntityRelationship]
 }
 
 type DownstreamEntityRelationships {
-    entities: [EntityRelationship]
+  entities: [EntityRelationship]
 }
 
 type UpstreamLineage {
-    """
-    List of upstream datasets
-    """
-    upstreams: [RelatedDataset!]!
+  """
+  List of upstream datasets
+  """
+  upstreams: [RelatedDataset!]!
 }
 
 type DownstreamLineage {
-    """
-    List of downstream datasets
-    """
-    downstreams: [RelatedDataset!]!
+  """
+  List of downstream datasets
+  """
+  downstreams: [RelatedDataset!]!
 }
 
 type RelatedDataset {
-    """
-    The upstream dataset the lineage points to
-    """
-    dataset: Dataset!
-    """
-    The type of the lineage
-    """
-    type: DatasetLineageType!
-    """
-    When the lineage was created
-    """
-    created: AuditStamp!
+  """
+  The upstream dataset the lineage points to
+  """
+  dataset: Dataset!
+  """
+  The type of the lineage
+  """
+  type: DatasetLineageType!
+  """
+  When the lineage was created
+  """
+  created: AuditStamp!
 }
 
 enum DatasetLineageType {
-    """
-    Direct copy without modification
-    """
-    COPY
-    """
-    Transformed dataset
-    """
-    TRANSFORMED
-    """
-    Represents a view defined on the sources
-    """
-    VIEW
+  """
+  Direct copy without modification
+  """
+  COPY
+  """
+  Transformed dataset
+  """
+  TRANSFORMED
+  """
+  Represents a view defined on the sources
+  """
+  VIEW
 }
 
 type Status {
-    """
-    Whether the entity is removed or not
-    """
-    removed: Boolean!
+  """
+  Whether the entity is removed or not
+  """
+  removed: Boolean!
 }
 
 enum PlatformNativeType {
-    """
-    Table
-    """
-    TABLE
+  """
+  Table
+  """
+  TABLE
 
-    """
-    View
-    """
-    VIEW
+  """
+  View
+  """
+  VIEW
 
-    """
-    Directory in file system
-    """
-    DIRECTORY
+  """
+  Directory in file system
+  """
+  DIRECTORY
 
-    """
-    Stream
-    """
-    STREAM
+  """
+  Stream
+  """
+  STREAM
 
-    """
-    Bucket in key value store
-    """
-    BUCKET
+  """
+  Bucket in key value store
+  """
+  BUCKET
 }
 
 type StringMapEntry {
-    key: String!
-    value: String
+  key: String!
+  value: String
 }
 
 type Ownership {
-    """
-    List of owners of the entity
-    """
-    owners: [Owner!]
+  """
+  List of owners of the entity
+  """
+  owners: [Owner!]
 
-    """
-      Audit stamp containing who last modified the record and when
-    """
-    lastModified: AuditStamp!
+  """
+  Audit stamp containing who last modified the record and when
+  """
+  lastModified: AuditStamp!
 }
 
 enum OwnershipSourceType {
-    """
-    Auditing system or audit logs
-    """
-    AUDIT
-    """
-    Database, e.g. GRANTS table
-    """
-    DATABASE
-    """
-    File system, e.g. file/directory owner
-    """
-    FILE_SYSTEM
-    """
-    Issue tracking system, e.g. Jira
-    """
-    ISSUE_TRACKING_SYSTEM
-    """
-    Manually provided by a user
-    """
-    MANUAL
-    """
-    Other ownership-like service, e.g. Nuage, ACL service etc
-    """
-    SERVICE
-    """
-    SCM system, e.g. GIT, SVN
-    """
-    SOURCE_CONTROL
-    """
-    Other sources
-    """
-    OTHER
+  """
+  Auditing system or audit logs
+  """
+  AUDIT
+  """
+  Database, e.g. GRANTS table
+  """
+  DATABASE
+  """
+  File system, e.g. file/directory owner
+  """
+  FILE_SYSTEM
+  """
+  Issue tracking system, e.g. Jira
+  """
+  ISSUE_TRACKING_SYSTEM
+  """
+  Manually provided by a user
+  """
+  MANUAL
+  """
+  Other ownership-like service, e.g. Nuage, ACL service etc
+  """
+  SERVICE
+  """
+  SCM system, e.g. GIT, SVN
+  """
+  SOURCE_CONTROL
+  """
+  Other sources
+  """
+  OTHER
 }
 
 type OwnershipSource {
-    """
-    The type of the source
-    """
-    type: OwnershipSourceType!
+  """
+  The type of the source
+  """
+  type: OwnershipSourceType!
 
-    """
-    A reference URL for the source
-    """
-    url: String
+  """
+  A reference URL for the source
+  """
+  url: String
 }
 
 enum OwnershipType {
-    """
-    A person or group that is in charge of developing the code
-    """
-    DEVELOPER
+  """
+  A person or group that is in charge of developing the code
+  """
+  DEVELOPER
 
-    """
-    A person or group that is owning the data
-    """
-    DATAOWNER
+  """
+  A person or group that is owning the data
+  """
+  DATAOWNER
 
-    """
-    A person or a group that overseas the operation, e.g. a DBA or SRE.
-    """
-    DELEGATE
+  """
+  A person or a group that overseas the operation, e.g. a DBA or SRE.
+  """
+  DELEGATE
 
-    """
-    A person, group, or service that produces/generates the data
-    """
-    PRODUCER
+  """
+  A person, group, or service that produces/generates the data
+  """
+  PRODUCER
 
-    """
-    A person, group, or service that consumes the data
-    """
-    CONSUMER
+  """
+  A person, group, or service that consumes the data
+  """
+  CONSUMER
 
-    """
-    A person or a group that has direct business interest
-    """
-    STAKEHOLDER
+  """
+  A person or a group that has direct business interest
+  """
+  STAKEHOLDER
 }
 
 type Owner {
-    """
-    Owner object - This should be extended to support CorpGroups as well
-    """
-    owner: CorpUser!
+  """
+  Owner object - This should be extended to support CorpGroups as well
+  """
+  owner: CorpUser!
 
-    """
-    The type of the ownership
-    """
-    type: OwnershipType!
+  """
+  The type of the ownership
+  """
+  type: OwnershipType!
 
-    """
-    Source information for the ownership
-    """
-    source: OwnershipSource
+  """
+  Source information for the ownership
+  """
+  source: OwnershipSource
 }
 
 type CorpUser implements Entity {
-    """
-    The unique user URN
-    """
-    urn: String!
+  """
+  The unique user URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    Username of the corp user
-    """
-    username: String!
+  """
+  Username of the corp user
+  """
+  username: String!
 
-    """
-    Readable info about the corp user
-    """
-    info: CorpUserInfo
+  """
+  Readable info about the corp user
+  """
+  info: CorpUserInfo
 
-    """
-    Writable info about the corp user
-    """
-    editableInfo: CorpUserEditableInfo
+  """
+  Writable info about the corp user
+  """
+  editableInfo: CorpUserEditableInfo
 
-    """
-    The structured tags associated with the user
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the user
+  """
+  globalTags: GlobalTags
 }
 
 type CorpUserInfo {
-    """
-    Whether the user is active
-    """
-    active: Boolean!
+  """
+  Whether the user is active
+  """
+  active: Boolean!
 
-    """
-    Display name of the user
-    """
-    displayName: String
+  """
+  Display name of the user
+  """
+  displayName: String
 
-    """
-    Email address of the user
-    """
-    email: String!
+  """
+  Email address of the user
+  """
+  email: String!
 
-    """
-    Title of the user
-    """
-    title: String
+  """
+  Title of the user
+  """
+  title: String
 
-    """
-    Direct manager of the user
-    """
-    manager: CorpUser
+  """
+  Direct manager of the user
+  """
+  manager: CorpUser
 
-    """
-    department id the user belong to
-    """
-    departmentId: Long
+  """
+  department id the user belong to
+  """
+  departmentId: Long
 
-    """
-    department name this user belong to
-    """
-    departmentName: String
+  """
+  department name this user belong to
+  """
+  departmentName: String
 
-    """
-    first name of the user
-    """
-    firstName: String
+  """
+  first name of the user
+  """
+  firstName: String
 
-    """
-    last name of the user
-    """
-    lastName: String
+  """
+  last name of the user
+  """
+  lastName: String
 
-    """
-    Common name of this user, format is firstName plus lastName
-    """
-    fullName: String
+  """
+  Common name of this user, format is firstName plus lastName
+  """
+  fullName: String
 
-    """
-    two uppercase letters country code
-    """
-    countryCode: String
+  """
+  two uppercase letters country code
+  """
+  countryCode: String
 }
 
 type CorpUserEditableInfo {
-    """
-    About me section of the user
-    """
-    aboutMe: String
+  """
+  About me section of the user
+  """
+  aboutMe: String
 
-    """
-    Teams that the user belongs to
-    """
-    teams: [String!]
+  """
+  Teams that the user belongs to
+  """
+  teams: [String!]
 
-    """
-    Skills that the user possesses
-    """
-    skills: [String!]
+  """
+  Skills that the user possesses
+  """
+  skills: [String!]
 
-    """
-    A URL which points to a picture which user wants to set as a profile photo
-    """
-    pictureLink: String
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
-type Tag implements Entity{
-    urn: String!
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
-    name: String!
+type Tag implements Entity {
+  urn: String!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
+  name: String!
 
-    """
-    Description of the tag
-    """
-    description: String
+  """
+  Description of the tag
+  """
+  description: String
 
-    """
-    Ownership metadata of the dataset
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the dataset
+  """
+  ownership: Ownership
 }
 
 type TagAssociation {
-    tag: Tag!
+  tag: Tag!
 }
 
 type GlobalTags {
-    tags: [TagAssociation!]
+  tags: [TagAssociation!]
 }
 
 input SearchInput {
-    """
-    Entity type to be searched
-    """
-	type: EntityType!
+  """
+  Entity type to be searched
+  """
+  type: EntityType!
 
-	"""
-	The query string
-	"""
-	query: String!
+  """
+  The query string
+  """
+  query: String!
 
-	"""
-	The starting point of paginated results
-	"""
-	start: Int
+  """
+  The starting point of paginated results
+  """
+  start: Int
 
-	"""
-	The number of elements included in the results
-	"""
-	count: Int
+  """
+  The number of elements included in the results
+  """
+  count: Int
 
-	"""
-	Faceted filters applied to search results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to search results
+  """
+  filters: [FacetFilterInput!]
 }
 
 input FacetFilterInput {
-    """
-    Name of field to filter by
-    """
-	field: String!
+  """
+  Name of field to filter by
+  """
+  field: String!
 
-	"""
-	Value of the field to filter by
-	"""
-	value: String!
+  """
+  Value of the field to filter by
+  """
+  value: String!
 }
 
 type MatchedField {
-    """
-    Name of the field that matched
-    """
-    name: String!
+  """
+  Name of the field that matched
+  """
+  name: String!
 
-    """
-    Value of the field that matched
-    """
-    value: String!
+  """
+  Value of the field that matched
+  """
+  value: String!
 }
 
 type SearchResult {
-    """
-    Searched entity
-    """
-    entity: Entity!
+  """
+  Searched entity
+  """
+  entity: Entity!
 
-    """
-    Matched field names and their values
-    """
-    matchedFields: [MatchedField!]!
+  """
+  Matched field names and their values
+  """
+  matchedFields: [MatchedField!]!
 }
 
 type SearchResults {
-    """
-    The starting point of paginated results
-    """
-    start: Int!
+  """
+  The starting point of paginated results
+  """
+  start: Int!
 
-    """
-    The number of elements included in the results
-    """
-    count: Int!
+  """
+  The number of elements included in the results
+  """
+  count: Int!
 
-    """
-    The total number of search results matching the query and filters
-    """
-    total: Int!
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
 
-    """
-    The search results
-    """
-    searchResults: [SearchResult!]!
+  """
+  The search results
+  """
+  searchResults: [SearchResult!]!
 
-    """
-    Field aggregations used for faceted search
-    """
-    facets: [FacetMetadata!]
+  """
+  Field aggregations used for faceted search
+  """
+  facets: [FacetMetadata!]
 }
 
 type FacetMetadata {
-    """
-    Name of a field present in the search entity
-    """
-    field: String!
+  """
+  Name of a field present in the search entity
+  """
+  field: String!
 
-    """
-    Aggregated search result counts by value of the field
-    """
-    aggregations: [AggregationMetadata!]!
+  """
+  Aggregated search result counts by value of the field
+  """
+  aggregations: [AggregationMetadata!]!
 }
 
 type AggregationMetadata {
-    """
-    A particular value of a facet field
-    """
-    value: String!
+  """
+  A particular value of a facet field
+  """
+  value: String!
 
-    """
-    The number of search results containing the value
-    """
-    count: Long!
+  """
+  The number of search results containing the value
+  """
+  count: Long!
 }
 
 input AutoCompleteInput {
-    """
-    Entity type to be autocompleted against
-    """
-	type: EntityType!
+  """
+  Entity type to be autocompleted against
+  """
+  type: EntityType!
 
-	"""
-	The query string
-	"""
-	query: String!
+  """
+  The query string
+  """
+  query: String!
 
-	"""
-	An optional field to autocomplete against
-	"""
-	field: String
+  """
+  An optional field to autocomplete against
+  """
+  field: String
 
-	"""
-	The maximum number of autocomplete results
-	"""
-	limit: Int
+  """
+  The maximum number of autocomplete results
+  """
+  limit: Int
 
-	"""
-	Faceted filters applied to autocomplete results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to autocomplete results
+  """
+  filters: [FacetFilterInput!]
 }
 
 type AutoCompleteResults {
-	"""
-	The query string
-	"""
-	query: String!
+  """
+  The query string
+  """
+  query: String!
 
-	"""
-	The autocompletion results
-	"""
-	suggestions: [String!]!
+  """
+  The autocompletion results
+  """
+  suggestions: [String!]!
 }
 
 input BrowseInput {
-    """
-    The browse entity type
-    """
-	type: EntityType!
+  """
+  The browse entity type
+  """
+  type: EntityType!
 
-	"""
-	The browse path.. Should this be an array?
-	"""
-	path: [String!]
+  """
+  The browse path.. Should this be an array?
+  """
+  path: [String!]
 
-    """
-    The starting point of paginated results
-    """
-	start: Int
+  """
+  The starting point of paginated results
+  """
+  start: Int
 
-    """
-    The number of elements included in the results
-    """
-	count: Int
+  """
+  The number of elements included in the results
+  """
+  count: Int
 
-    """
-    Faceted filters applied to browse results
-    """
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to browse results
+  """
+  filters: [FacetFilterInput!]
 }
 
 type BrowseResults {
-    """
-    The browse results
-    """
-	entities: [Entity!]!
+  """
+  The browse results
+  """
+  entities: [Entity!]!
 
-    """
-    The starting point of paginated results
-    """
-	start: Int!
+  """
+  The starting point of paginated results
+  """
+  start: Int!
 
-    """
-    The number of elements included in the results
-    """
-	count: Int!
+  """
+  The number of elements included in the results
+  """
+  count: Int!
 
-    """
-    The total number of browse results under the path with filters applied
-    """
-	total: Int!
+  """
+  The total number of browse results under the path with filters applied
+  """
+  total: Int!
 
-    """
-    Metadata containing resulting browse groups
-    """
-	metadata: BrowseResultMetadata!
+  """
+  Metadata containing resulting browse groups
+  """
+  metadata: BrowseResultMetadata!
 }
 
 type BrowseResultMetadata {
-    """
-    The provided path
-    """
-	path: [String!]!
-	"""
-	The groups present at the provided browse path
-	"""
-	groups: [BrowseResultGroup!]!
-    """
-    The total number of entities under the provided browse path
-    """
-	totalNumEntities: Long!
+  """
+  The provided path
+  """
+  path: [String!]!
+  """
+  The groups present at the provided browse path
+  """
+  groups: [BrowseResultGroup!]!
+  """
+  The total number of entities under the provided browse path
+  """
+  totalNumEntities: Long!
 }
 
 type BrowseResultGroup {
-    """
-    The path name of a group of browse results
-    """
-  	name: String!
+  """
+  The path name of a group of browse results
+  """
+  name: String!
 
-  	"""
-  	The number of entities within the group
-  	"""
-  	count: Long!
+  """
+  The number of entities within the group
+  """
+  count: Long!
 }
 
 input BrowsePathsInput {
-    """
-    The browse entity type
-    """
-	type: EntityType!
+  """
+  The browse entity type
+  """
+  type: EntityType!
 
-	"""
-	The entity urn
-	"""
-	urn: String!
+  """
+  The entity urn
+  """
+  urn: String!
 }
 
 type BrowsePath {
-    """
-    The components of the browse path
-    """
-	path: [String!]!
+  """
+  The components of the browse path
+  """
+  path: [String!]!
 }
 
 input ChartUpdateInput {
-   """
-   The chart urn
-   """
-   urn: String!
+  """
+  The chart urn
+  """
+  urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+  """
+  Update to ownership
+  """
+  ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+  """
+  Update to global tags
+  """
+  globalTags: GlobalTagsUpdate
 }
 
 input DashboardUpdateInput {
-   """
-   The dashboard urn
-   """
-   urn: String!
+  """
+  The dashboard urn
+  """
+  urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+  """
+  Update to ownership
+  """
+  ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+  """
+  Update to global tags
+  """
+  globalTags: GlobalTagsUpdate
 }
 
 input DataFlowUpdateInput {
-   """
-   The dataFlow urn
-   """
-   urn: String!
+  """
+  The dataFlow urn
+  """
+  urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+  """
+  Update to ownership
+  """
+  ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+  """
+  Update to global tags
+  """
+  globalTags: GlobalTagsUpdate
 }
 
 input DataJobUpdateInput {
-   """
-   The dataJob urn
-   """
-   urn: String!
+  """
+  The dataJob urn
+  """
+  urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+  """
+  Update to ownership
+  """
+  ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+  """
+  Update to global tags
+  """
+  globalTags: GlobalTagsUpdate
 }
 
 input DatasetUpdateInput {
-    """
-    The dataset urn
-    """
-   urn: String!
+  """
+  The dataset urn
+  """
+  urn: String!
 
-    """
-    Update to ownership
-    """
-    ownership: OwnershipUpdate
+  """
+  Update to ownership
+  """
+  ownership: OwnershipUpdate
 
-    """
-    Update to deprecation status
-    """
-    deprecation: DatasetDeprecationUpdate
+  """
+  Update to deprecation status
+  """
+  deprecation: DatasetDeprecationUpdate
 
-    """
-    Update to institutional memory, ie documentation
-    """
-    institutionalMemory: InstitutionalMemoryUpdate
+  """
+  Update to institutional memory, ie documentation
+  """
+  institutionalMemory: InstitutionalMemoryUpdate
 
-    """
-    Update to global tags
-    """
-    globalTags: GlobalTagsUpdate
+  """
+  Update to global tags
+  """
+  globalTags: GlobalTagsUpdate
 
-    """
-    Update to editable schema metadata of the dataset
-    """
-    editableSchemaMetadata: EditableSchemaMetadataUpdate
+  """
+  Update to editable schema metadata of the dataset
+  """
+  editableSchemaMetadata: EditableSchemaMetadataUpdate
 }
 
 input EditableSchemaMetadataUpdate {
-    editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
+  editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
 }
 
 input EditableSchemaFieldInfoUpdate {
-    """
-    Flattened name of a field identifying the field the editable info is applied to
-    """
-    fieldPath: String!
+  """
+  Flattened name of a field identifying the field the editable info is applied to
+  """
+  fieldPath: String!
 
-    """
-    Edited description of the field
-    """
-    description: String
+  """
+  Edited description of the field
+  """
+  description: String
 
-    """
-    Tags associated with the field
-    """
-    globalTags: GlobalTagsUpdate
+  """
+  Tags associated with the field
+  """
+  globalTags: GlobalTagsUpdate
 }
 
 input GlobalTagsUpdate {
-    tags: [TagAssociationUpdate!]
+  tags: [TagAssociationUpdate!]
 }
 
 input TagAssociationUpdate {
-    tag: TagUpdate!
+  tag: TagUpdate!
 }
 
 input TagUpdate {
-    urn: String!
+  urn: String!
 
-    name: String!
+  name: String!
 
-    """
-    Description of the tag
-    """
-    description: String
+  """
+  Description of the tag
+  """
+  description: String
 
-    """
-    Ownership metadata of the tag
-    """
-    ownership: OwnershipUpdate
+  """
+  Ownership metadata of the tag
+  """
+  ownership: OwnershipUpdate
 }
 
 input OwnershipUpdate {
-    """
-    The list of owners
-    """
-   owners: [OwnerUpdate!]!
+  """
+  The list of owners
+  """
+  owners: [OwnerUpdate!]!
 }
 
 input OwnerUpdate {
-    """
-    The owner URN, eg urn:li:corpuser:1
-    """
-    owner: String!
+  """
+  The owner URN, eg urn:li:corpuser:1
+  """
+  owner: String!
 
-    """
-    The owner role type
-    """
-    type: OwnershipType!
+  """
+  The owner role type
+  """
+  type: OwnershipType!
 }
 
 input DatasetDeprecationUpdate {
-    """
-    Whether the dataset is deprecated
-    """
-    deprecated: Boolean!
+  """
+  Whether the dataset is deprecated
+  """
+  deprecated: Boolean!
 
-    """
-    The time user plan to decommission this dataset
-    """
-    decommissionTime: Long
+  """
+  The time user plan to decommission this dataset
+  """
+  decommissionTime: Long
 
-    """
-    Additional information about the dataset deprecation plan
-    """
-    note: String!
+  """
+  Additional information about the dataset deprecation plan
+  """
+  note: String!
 }
 
 input InstitutionalMemoryUpdate {
-    """
-    The individual references in the institutional memory
-    """
-    elements: [InstitutionalMemoryMetadataUpdate!]!
+  """
+  The individual references in the institutional memory
+  """
+  elements: [InstitutionalMemoryMetadataUpdate!]!
 }
 
 input InstitutionalMemoryMetadataUpdate {
-    """
-    Link to a document or wiki page or another internal resource
-    """
-    url: String!
+  """
+  Link to a document or wiki page or another internal resource
+  """
+  url: String!
 
-    """
-    Description of the resource
-    """
-    description: String
+  """
+  Description of the resource
+  """
+  description: String
 
-    """
-    The corp user urn of the author of the metadata
-    """
-    author: String!
+  """
+  The corp user urn of the author of the metadata
+  """
+  author: String!
 
-    """
-    The time at which this metadata was created
-    """
-    createdAt: Long
+  """
+  The time at which this metadata was created
+  """
+  createdAt: Long
 }
 
 type Dashboard implements EntityWithRelationships & Entity {
-    """
-    The unique dashboard URN
-    """
-    urn: String!
+  """
+  The unique dashboard URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    The dashboard tool name
-    """
-    tool: String!
+  """
+  The dashboard tool name
+  """
+  tool: String!
 
-    """
-    An id unique within the dashboard tool
-    """
-    dashboardId: String!
+  """
+  An id unique within the dashboard tool
+  """
+  dashboardId: String!
 
-    """
-    Info about the dashboard
-    """
-    info: DashboardInfo
+  """
+  Info about the dashboard
+  """
+  info: DashboardInfo
 
-    """
-    Ownership metadata of the dashboard
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the dashboard
+  """
+  ownership: Ownership
 
-    """
-    Status metadata of the dashboard
-    """
-    status: Status
+  """
+  Status metadata of the dashboard
+  """
+  status: Status
 
-    """
-    The structured tags associated with the dashboard
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the dashboard
+  """
+  globalTags: GlobalTags
 
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
+  """
+  Entities upstream of the given entity
+  """
+  upstreamLineage: UpstreamEntityRelationships
 
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
+  """
+  Entities downstream of the given entity
+  """
+  downstreamLineage: DownstreamEntityRelationships
 }
 
 type DashboardInfo {
-    """
-    Name of the dashboard
-    """
-    name: String!
+  """
+  Name of the dashboard
+  """
+  name: String!
 
-    """
-    Description of the dashboard
-    """
-    description: String
+  """
+  Description of the dashboard
+  """
+  description: String
 
-    """
-    Charts that comprise the dashboard
-    """
-    charts: [Chart!]!
+  """
+  Charts that comprise the dashboard
+  """
+  charts: [Chart!]!
 
-    """
-    Native platform URL of the dashboard
-    """
-    externalUrl: String
+  """
+  Native platform URL of the dashboard
+  """
+  externalUrl: String
 
-    """
-    Access level for the dashboard
-    """
-    access: AccessLevel
+  """
+  Access level for the dashboard
+  """
+  access: AccessLevel
 
-    """
-    A list of platform-specific metadata tuples
-    """
-    customProperties: [StringMapEntry!]
+  """
+  A list of platform-specific metadata tuples
+  """
+  customProperties: [StringMapEntry!]
 
-    """
-    The time when this dashboard last refreshed
-    """
-    lastRefreshed: Long
+  """
+  The time when this dashboard last refreshed
+  """
+  lastRefreshed: Long
 
-    """
-    An AuditStamp corresponding to the creation of this dashboard
-    """
-    created: AuditStamp!
+  """
+  An AuditStamp corresponding to the creation of this dashboard
+  """
+  created: AuditStamp!
 
-    """
-    An AuditStamp corresponding to the modification of this dashboard
-    """
-    lastModified: AuditStamp!
+  """
+  An AuditStamp corresponding to the modification of this dashboard
+  """
+  lastModified: AuditStamp!
 
-    """
-    An optional AuditStamp corresponding to the deletion of this dashboard
-    """
-    deleted: AuditStamp
+  """
+  An optional AuditStamp corresponding to the deletion of this dashboard
+  """
+  deleted: AuditStamp
 }
 
 enum AccessLevel {
-    """
-    Publicly available
-    """
-    PUBLIC
+  """
+  Publicly available
+  """
+  PUBLIC
 
-    """
-    Restricted to a subset of viewers
-    """
-    PRIVATE
+  """
+  Restricted to a subset of viewers
+  """
+  PRIVATE
 }
 
 type Chart implements EntityWithRelationships & Entity {
-    """
-    The unique user URN
-    """
-    urn: String!
+  """
+  The unique user URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    The chart tool name
-    """
-    tool: String!
+  """
+  The chart tool name
+  """
+  tool: String!
 
-    """
-    An id unique within the charting tool
-    """
-    chartId: String!
+  """
+  An id unique within the charting tool
+  """
+  chartId: String!
 
-    """
-    Info about the chart
-    """
-    info: ChartInfo
+  """
+  Info about the chart
+  """
+  info: ChartInfo
 
-    """
-    Info about the query which is used to render the chart
-    """
-    query: ChartQuery
+  """
+  Info about the query which is used to render the chart
+  """
+  query: ChartQuery
 
-    """
-    Ownership metadata of the chart
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the chart
+  """
+  ownership: Ownership
 
-    """
-    Status metadata of the chart
-    """
-    status: Status
+  """
+  Status metadata of the chart
+  """
+  status: Status
 
-    """
-    The structured tags associated with the chart
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the chart
+  """
+  globalTags: GlobalTags
 
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
+  """
+  Entities upstream of the given entity
+  """
+  upstreamLineage: UpstreamEntityRelationships
 
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
+  """
+  Entities downstream of the given entity
+  """
+  downstreamLineage: DownstreamEntityRelationships
 }
 
 type ChartInfo {
-    """
-    Name of the chart
-    """
-    name: String!
+  """
+  Name of the chart
+  """
+  name: String!
 
-    """
-    Description of the chart
-    """
-    description: String
+  """
+  Description of the chart
+  """
+  description: String
 
-    """
-    Data sources for the chart
-    """
-    inputs: [Dataset!]
+  """
+  Data sources for the chart
+  """
+  inputs: [Dataset!]
 
-    """
-    Native platform URL of the chart
-    """
-    externalUrl: String
+  """
+  Native platform URL of the chart
+  """
+  externalUrl: String
 
-    """
-    Access level for the chart
-    """
-    type: ChartType
+  """
+  Access level for the chart
+  """
+  type: ChartType
 
-    """
-    Access level for the chart
-    """
-    access: AccessLevel
+  """
+  Access level for the chart
+  """
+  access: AccessLevel
 
-    """
-    A list of platform-specific metadata tuples
-    """
-    customProperties: [StringMapEntry!]
+  """
+  A list of platform-specific metadata tuples
+  """
+  customProperties: [StringMapEntry!]
 
-    """
-    The time when this chart last refreshed
-    """
-    lastRefreshed: Long
+  """
+  The time when this chart last refreshed
+  """
+  lastRefreshed: Long
 
-    """
-    An AuditStamp corresponding to the creation of this chart
-    """
-    created: AuditStamp!
+  """
+  An AuditStamp corresponding to the creation of this chart
+  """
+  created: AuditStamp!
 
-    """
-    An AuditStamp corresponding to the modification of this chart
-    """
-    lastModified: AuditStamp!
+  """
+  An AuditStamp corresponding to the modification of this chart
+  """
+  lastModified: AuditStamp!
 
-    """
-    An optional AuditStamp corresponding to the deletion of this chart
-    """
-    deleted: AuditStamp
+  """
+  An optional AuditStamp corresponding to the deletion of this chart
+  """
+  deleted: AuditStamp
 }
 
 enum ChartType {
-    """
-    Bar graph
-    """
-    BAR
+  """
+  Bar graph
+  """
+  BAR
 
-    """
-    Pie chart
-    """
-    PIE
+  """
+  Pie chart
+  """
+  PIE
 
-    """
-    Scatter plot
-    """
-    SCATTER
+  """
+  Scatter plot
+  """
+  SCATTER
 
-    """
-    Table
-    """
-    TABLE
+  """
+  Table
+  """
+  TABLE
 
-    """
-    Markdown formatted text
-    """
-    TEXT
+  """
+  Markdown formatted text
+  """
+  TEXT
 
-    LINE
-    AREA
-    HISTOGRAM
-    BOX_PLOT
+  LINE
+  AREA
+  HISTOGRAM
+  BOX_PLOT
 }
 
 type ChartQuery {
-    """
-    Raw query to build a chart from input datasets
-    """
-    rawQuery: String!
+  """
+  Raw query to build a chart from input datasets
+  """
+  rawQuery: String!
 
-    """
-    The type of the chart query
-    """
-    type: ChartQueryType!
+  """
+  The type of the chart query
+  """
+  type: ChartQueryType!
 }
 
 enum ChartQueryType {
-    """
-    Standard ANSI SQL
-    """
-    SQL
+  """
+  Standard ANSI SQL
+  """
+  SQL
 
-    """
-    LookML
-    """
-    LOOKML
+  """
+  LookML
+  """
+  LOOKML
 }
 
 type MLModel implements Entity {
+  """
+  The unique mlmodel URN
+  """
+  urn: String!
 
-    """
-    The unique mlmodel URN
-    """
-    urn: String!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  MLModel native name
+  """
+  name: String!
 
-    """
-    MLModel native name
-    """
-    name: String!
+  """
+  Fabric type where mlmodel belongs to or where it was generated
+  """
+  origin: FabricType!
 
-    """
-    Fabric type where mlmodel belongs to or where it was generated
-    """
-    origin: FabricType!
+  """
+  Human readable description for mlmodel
+  """
+  description: String
 
-    """
-    Human readable description for mlmodel
-    """
-    description: String
+  """
+  Tags used for searching mlmodel
+  """
+  tags: [String!]!
 
-    """
-    Tags used for searching mlmodel
-    """
-    tags: [String!]!
+  """
+  Ownership metadata of the mlmodel
+  """
+  ownership: Ownership
 
-    """
-    Ownership metadata of the mlmodel
-    """
-    ownership: Ownership
+  """
+  ModelProperties metadata of the mlmodel
+  """
+  properties: MLModelProperties
 
-    """
-    ModelProperties metadata of the mlmodel
-    """
-    properties: MLModelProperties
+  """
+  Intended use of the mlmodel
+  """
+  intendedUse: IntendedUse
 
-    """
-    Intended use of the mlmodel
-    """
-    intendedUse: IntendedUse
+  """
+  Factors metadata of the mlmodel
+  """
+  factorPrompts: MLModelFactorPrompts
 
-    """
-    Factors metadata of the mlmodel
-    """
-    factorPrompts: MLModelFactorPrompts
+  """
+  Metrics metadata of the mlmodel
+  """
+  metrics: Metrics
 
-    """
-    Metrics metadata of the mlmodel
-    """
-    metrics: Metrics
+  """
+  Evaluation Data of the mlmodel
+  """
+  evaluationData: [BaseData!]
 
-    """
-    Evaluation Data of the mlmodel
-    """
-    evaluationData: [BaseData!]
+  """
+  Training Data of the mlmodel
+  """
+  trainingData: [BaseData!]
 
-    """
-    Training Data of the mlmodel
-    """
-    trainingData: [BaseData!]
+  """
+  Quantitative Analyses of the mlmodel
+  """
+  quantitativeAnalyses: QuantitativeAnalyses
 
-    """
-    Quantitative Analyses of the mlmodel
-    """
-    quantitativeAnalyses: QuantitativeAnalyses
+  """
+  Ethical Considerations of the mlmodel
+  """
+  ethicalConsiderations: EthicalConsiderations
 
-    """
-    Ethical Considerations of the mlmodel
-    """
-    ethicalConsiderations: EthicalConsiderations
+  """
+  Caveats and Recommendations of the mlmodel
+  """
+  caveatsAndRecommendations: CaveatsAndRecommendations
 
-    """
-    Caveats and Recommendations of the mlmodel
-    """
-    caveatsAndRecommendations: CaveatsAndRecommendations
+  """
+  References to internal resources related to the mlmodel
+  """
+  institutionalMemory: InstitutionalMemory
 
-    """
-    References to internal resources related to the mlmodel
-    """
-    institutionalMemory: InstitutionalMemory
+  """
+  Source Code
+  """
+  sourceCode: SourceCode
 
-    """
-    Source Code
-    """
-    sourceCode: SourceCode
+  """
+  Status metadata of the mlmodel
+  """
+  status: Status
 
-    """
-    Status metadata of the mlmodel
-    """
-    status: Status
+  """
+  Cost Aspect of the mlmodel
+  """
+  cost: Cost
 
-    """
-    Cost Aspect of the mlmodel
-    """
-    cost: Cost
-
-    """
-    Deprecation
-    """
-    deprecation: Deprecation
+  """
+  Deprecation
+  """
+  deprecation: Deprecation
 }
 
 type MLModelProperties {
+  description: String
 
-    description: String
+  date: Long
 
-    date: Long
+  version: String
 
-    version: String
+  type: String
 
-    type: String
+  hyperParameters: HyperParameterMap
 
-    hyperParameters: HyperParameterMap
+  mlFeatures: [String!]
 
-    mlFeatures: [String!]
-
-    tags: [String!]
+  tags: [String!]
 }
 
 type HyperParameterMap {
-    key: String!
-    value: HyperParameterValueType!
+  key: String!
+  value: HyperParameterValueType!
 }
 
 type StringBox {
-    stringValue: String!
+  stringValue: String!
 }
 
 type IntBox {
-    intValue: Int!
+  intValue: Int!
 }
 
 type FloatBox {
-    floatValue: Float!
+  floatValue: Float!
 }
 
 type BooleanBox {
-    booleanValue: Boolean!
+  booleanValue: Boolean!
 }
 
 union HyperParameterValueType = StringBox | IntBox | FloatBox | BooleanBox
 
 type MLModelFactorPrompts {
+  """
+  What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?
+  """
+  relevantFactors: [MLModelFactors!]
 
-    """
-    What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?
-    """
-    relevantFactors: [MLModelFactors!]
-
-    """
-    Which factors are being reported, and why were these chosen?
-    """
-    evaluationFactors: [MLModelFactors!]
+  """
+  Which factors are being reported, and why were these chosen?
+  """
+  evaluationFactors: [MLModelFactors!]
 }
 
 type MLModelFactors {
+  """
+  Distinct categories with similar characteristics that are present in the evaluation data instances.
+  """
+  groups: [String!]
 
-    """
-    Distinct categories with similar characteristics that are present in the evaluation data instances.
-    """
-    groups: [String!]
+  """
+  Instrumentation used for MLModel
+  """
+  instrumentation: [String!]
 
-    """
-    Instrumentation used for MLModel
-    """
-    instrumentation: [String!]
-
-    """
-    Environment in which the MLModel is deployed.
-    """
-    environment: [String!]
+  """
+  Environment in which the MLModel is deployed.
+  """
+  environment: [String!]
 }
 
 type QuantitativeAnalyses {
-    """
-    Link to a dashboard with results showing how the model performed with respect to each factor
-    """
-    unitaryResults: ResultsType
+  """
+  Link to a dashboard with results showing how the model performed with respect to each factor
+  """
+  unitaryResults: ResultsType
 
-    """
-    Link to a dashboard with results showing how the model performed with respect to the intersection of evaluated factors?
-    """
-    intersectionalResults: ResultsType
+  """
+  Link to a dashboard with results showing how the model performed with respect to the intersection of evaluated factors?
+  """
+  intersectionalResults: ResultsType
 }
 
 union ResultsType = StringBox
 
 type CaveatsAndRecommendations {
+  """
+  Caveats on using this MLModel
+  """
+  caveats: CaveatDetails
 
-    """
-    Caveats on using this MLModel
-    """
-    caveats: CaveatDetails
+  """
+  Recommendations on where this MLModel should be used.
+  """
+  recommendations: String
 
-    """
-    Recommendations on where this MLModel should be used.
-    """
-    recommendations: String
-
-    """
-    Ideal characteristics of an evaluation dataset for this MLModel
-    """
-    idealDatasetCharacteristics: [String!]
+  """
+  Ideal characteristics of an evaluation dataset for this MLModel
+  """
+  idealDatasetCharacteristics: [String!]
 }
 type CaveatDetails {
+  """
+  Did the results suggest any further testing?
+  """
+  needsFurtherTesting: Boolean
 
-    """
-    Did the results suggest any further testing?
-    """
-    needsFurtherTesting: Boolean
+  """
+  Caveat Description
+  """
+  caveatDescription: String
 
-    """
-    Caveat Description
-    """
-    caveatDescription: String
-
-    """
-    Relevant groups that were not represented in the evaluation dataset?
-    """
-    groupsNotRepresented: [String!]
+  """
+  Relevant groups that were not represented in the evaluation dataset?
+  """
+  groupsNotRepresented: [String!]
 }
 
 type EthicalConsiderations {
+  """
+  Does the model use any sensitive data (e.g., protected classes)?
+  """
+  data: [String!]
 
-    """
-    Does the model use any sensitive data (e.g., protected classes)?
-    """
-    data: [String!]
+  """
+  Is the model intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?
+  """
+  humanLife: [String!]
 
-    """
-    Is the model intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?
-    """
-    humanLife: [String!]
+  """
+  What risk mitigation strategies were used during model development?
+  """
+  mitigations: [String!]
 
-    """
-    What risk mitigation strategies were used during model development?
-    """
-    mitigations: [String!]
+  """
+  What risks may be present in model usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown.
+  """
+  risksAndHarms: [String!]
 
-    """
-    What risks may be present in model usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown.
-    """
-    risksAndHarms: [String!]
-
-    """
-    Are there any known model use cases that are especially fraught? This may connect directly to the intended use section
-    """
-    useCases: [String!]
+  """
+  Are there any known model use cases that are especially fraught? This may connect directly to the intended use section
+  """
+  useCases: [String!]
 }
 
 type BaseData {
+  """
+  Dataset used for the Training/Evaluation of the MLModel
+  """
+  dataset: String!
 
-    """
-    Dataset used for the Training/Evaluation of the MLModel
-    """
-    dataset: String!
+  """
+  Motivation to pick these datasets
+  """
+  motivation: String
 
-    """
-    Motivation to pick these datasets
-    """
-    motivation: String
-
-    """
-    Details of Data Proprocessing
-    """
-    preProcessing: [String!]
+  """
+  Details of Data Proprocessing
+  """
+  preProcessing: [String!]
 }
 
 type Metrics {
+  """
+  Measures of MLModel performance
+  """
+  performanceMeasures: [String!]
 
-    """
-    Measures of MLModel performance
-    """
-    performanceMeasures: [String!]
-
-    """
-    Decision Thresholds used (if any)?
-    """
-    decisionThreshold: [String!]
-
+  """
+  Decision Thresholds used (if any)?
+  """
+  decisionThreshold: [String!]
 }
 
 type IntendedUse {
+  """
+  Primary Use cases for the model.
+  """
+  primaryUses: [String!]
 
-    """
-    Primary Use cases for the model.
-    """
-    primaryUses: [String!]
+  """
+  Primary Intended Users
+  """
+  primaryUsers: [IntendedUserType!]
 
-    """
-    Primary Intended Users
-    """
-    primaryUsers: [IntendedUserType!]
-
-    """
-    Out of scope uses of the MLModel
-    """
-    outOfScopeUses: [String!]
+  """
+  Out of scope uses of the MLModel
+  """
+  outOfScopeUses: [String!]
 }
 
 enum IntendedUserType {
+  """
+  Developed for Enterprise Users
+  """
+  ENTERPRISE
 
-    """
-    Developed for Enterprise Users
-    """
-    ENTERPRISE
+  """
+  Developed for Hobbyists
+  """
+  HOBBY
 
-    """
-    Developed for Hobbyists
-    """
-    HOBBY
-
-    """
-    Developed for Entertainment Purposes
-    """
-    ENTERTAINMENT
+  """
+  Developed for Entertainment Purposes
+  """
+  ENTERTAINMENT
 }
 
 type SourceCode {
-    """
-    Source Code along with types
-    """
-    sourceCode: [SourceCodeUrl!]
+  """
+  Source Code along with types
+  """
+  sourceCode: [SourceCodeUrl!]
 }
 
 type SourceCodeUrl {
+  """
+  Source Code Url Types
+  """
+  type: SourceCodeUrlType!
 
-    """
-    Source Code Url Types
-    """
-    type: SourceCodeUrlType!
-
-    """
-    Source Code Url
-    """
-    sourceCodeUrl: String!
+  """
+  Source Code Url
+  """
+  sourceCodeUrl: String!
 }
 
 enum SourceCodeUrlType {
+  """
+  MLModel Source Code
+  """
+  ML_MODEL_SOURCE_CODE
 
-    """
-    MLModel Source Code
-    """
-    ML_MODEL_SOURCE_CODE
+  """
+  Training Pipeline Source Code
+  """
+  TRAINING_PIPELINE_SOURCE_CODE
 
-    """
-    Training Pipeline Source Code
-    """
-    TRAINING_PIPELINE_SOURCE_CODE
-
-    """
-    Evaluation Pipeline Source Code
-    """
-    EVALUATION_PIPELINE_SOURCE_CODE
+  """
+  Evaluation Pipeline Source Code
+  """
+  EVALUATION_PIPELINE_SOURCE_CODE
 }
 
 type Cost {
+  """
+  Type of Cost Code
+  """
+  costType: CostType!
 
-    """
-    Type of Cost Code
-    """
-    costType: CostType!
-
-    """
-    Code to which the Cost of this entity should be attributed to i.e. organizational cost ID
-    """
-    costValue: CostValue!
+  """
+  Code to which the Cost of this entity should be attributed to i.e. organizational cost ID
+  """
+  costValue: CostValue!
 }
 
 type CostValue {
+  """
+  Organizational Cost ID
+  """
+  costId: Float
 
-    """
-    Organizational Cost ID
-    """
-    costId: Float
-
-    """
-    Organizational Cost Code
-    """
-    costCode: String
+  """
+  Organizational Cost Code
+  """
+  costCode: String
 }
 
 enum CostType {
-
-    """
-    Org Cost Type to which the Cost of this entity should be attributed to
-    """
-    ORG_COST_TYPE
+  """
+  Org Cost Type to which the Cost of this entity should be attributed to
+  """
+  ORG_COST_TYPE
 }
 
 type Deprecation {
-    """
-    Whether the entity has been deprecated by owner
-    """
-    deprecated: Boolean!
+  """
+  Whether the entity has been deprecated by owner
+  """
+  deprecated: Boolean!
 
-    """
-    The time user plan to decommission this entity
-    """
-    decommissionTime: Long
+  """
+  The time user plan to decommission this entity
+  """
+  decommissionTime: Long
 
-    """
-    Additional information about the entity deprecation plan
-    """
-    note: String!
+  """
+  Additional information about the entity deprecation plan
+  """
+  note: String!
 
-    """
-    The user who will be credited for modifying this deprecation content
-    """
-    actor: String
+  """
+  The user who will be credited for modifying this deprecation content
+  """
+  actor: String
 }
 
 type DataFlow implements Entity {
-    """
-    The unique flow URN
-    """
-    urn: String!
+  """
+  The unique flow URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    Workflow orchestrator ex: Azkaban, Airflow
-    """
-    orchestrator: String!
+  """
+  Workflow orchestrator ex: Azkaban, Airflow
+  """
+  orchestrator: String!
 
-    """
-    Id of the flow
-    """
-    flowId: String!
+  """
+  Id of the flow
+  """
+  flowId: String!
 
-    """
-    Cluster of the flow
-    """
-    cluster: String!
+  """
+  Cluster of the flow
+  """
+  cluster: String!
 
-    """
-    Information about a Data processing flow
-    """
-    info: DataFlowInfo
+  """
+  Information about a Data processing flow
+  """
+  info: DataFlowInfo
 
-    """
-    Ownership metadata of the flow
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the flow
+  """
+  ownership: Ownership
 
-    """
-    The structured tags associated with the dataflow
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the dataflow
+  """
+  globalTags: GlobalTags
 
-    """
-    Status metadata of the dataflow
-    """
-    status: Status
+  """
+  Status metadata of the dataflow
+  """
+  status: Status
 }
 
 type DataFlowInfo {
-    """
-    Name of the flow
-    """
-    name: String!
+  """
+  Name of the flow
+  """
+  name: String!
 
-    """
-    Description of the flow
-    """
-    description: String
+  """
+  Description of the flow
+  """
+  description: String
 
-    """
-    Optional project/namespace associated with the flow
-    """
-    project: String
+  """
+  Optional project/namespace associated with the flow
+  """
+  project: String
 
-    """
-    External URL associated with the DataFlow
-    """
-    externalUrl: String
+  """
+  External URL associated with the DataFlow
+  """
+  externalUrl: String
 
-    """
-    A list of platform-specific metadata tuples
-    """
-    customProperties: [StringMapEntry!]
+  """
+  A list of platform-specific metadata tuples
+  """
+  customProperties: [StringMapEntry!]
 }
 
 type DataJob implements EntityWithRelationships & Entity {
-    """
-    The unique job URN
-    """
-    urn: String!
+  """
+  The unique job URN
+  """
+  urn: String!
 
-    """
-    GMS Entity Type
-    """
-    type: EntityType!
+  """
+  GMS Entity Type
+  """
+  type: EntityType!
 
-    """
-    The associated data flow
-    """
-    dataFlow: DataFlow!
+  """
+  The associated data flow
+  """
+  dataFlow: DataFlow!
 
-    """
-    Id of the job
-    """
-    jobId: String!
+  """
+  Id of the job
+  """
+  jobId: String!
 
-    """
-    Information about a Data processing job
-    """
-    info: DataJobInfo
+  """
+  Information about a Data processing job
+  """
+  info: DataJobInfo
 
-    """
-    Ownership metadata of the job
-    """
-    ownership: Ownership
+  """
+  Ownership metadata of the job
+  """
+  ownership: Ownership
 
-    """
-    Information about the inputs and outputs of a Data processing job
-    """
-    inputOutput: DataJobInputOutput
+  """
+  Information about the inputs and outputs of a Data processing job
+  """
+  inputOutput: DataJobInputOutput
 
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
+  """
+  Entities upstream of the given entity
+  """
+  upstreamLineage: UpstreamEntityRelationships
 
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
+  """
+  Entities downstream of the given entity
+  """
+  downstreamLineage: DownstreamEntityRelationships
 
-    """
-    The structured tags associated with the DataJob
-    """
-    globalTags: GlobalTags
+  """
+  The structured tags associated with the DataJob
+  """
+  globalTags: GlobalTags
 
-    """
-    Status metadata of the DataJob
-    """
-    status: Status
-
+  """
+  Status metadata of the DataJob
+  """
+  status: Status
 }
 
 type DataJobInfo {
-    """
-    Job name
-    """
-    name: String!
+  """
+  Job name
+  """
+  name: String!
 
-    """
-    Job description
-    """
-    description: String
+  """
+  Job description
+  """
+  description: String
 
-    """
-    External URL associated with the DataJob
-    """
-    externalUrl: String
+  """
+  External URL associated with the DataJob
+  """
+  externalUrl: String
 
-    """
-    A list of platform-specific metadata tuples
-    """
-    customProperties: [StringMapEntry!]
+  """
+  A list of platform-specific metadata tuples
+  """
+  customProperties: [StringMapEntry!]
 }
 
 type DataJobInputOutput {
-    """
-    Input datasets produced by the data job during processing
-    """
-    inputDatasets: [Dataset!]
+  """
+  Input datasets produced by the data job during processing
+  """
+  inputDatasets: [Dataset!]
 
-    """
-    Output datasets produced by the data job during processing
-    """
-    outputDatasets: [Dataset!]
+  """
+  Output datasets produced by the data job during processing
+  """
+  outputDatasets: [Dataset!]
 }

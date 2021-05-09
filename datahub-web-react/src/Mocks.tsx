@@ -8,11 +8,7 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-<<<<<<< Updated upstream
-import { Dataset, DataFlow, DataJob, EntityType, PlatformType } from './types.generated';
-=======
-import { Dataset, EntityType, GlossaryTerm, PlatformType } from './types.generated';
->>>>>>> Stashed changes
+import { Dataset, DataFlow, DataJob, GlossaryTerm, EntityType, PlatformType } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
@@ -244,7 +240,6 @@ export const dataset3 = {
     deprecation: null,
 } as Dataset;
 
-<<<<<<< Updated upstream
 export const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
@@ -417,7 +412,6 @@ export const dataset7WithSelfReferentialLineage = {
         ],
     },
 };
-=======
 const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
@@ -448,7 +442,6 @@ const glossaryTerm1 = {
         sourceURI: 'sourceURI',
     },
 } as GlossaryTerm;
->>>>>>> Stashed changes
 
 const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
@@ -1117,77 +1110,10 @@ export const mocks = [
             query: GetSearchResultsDocument,
             variables: {
                 input: {
-<<<<<<< Updated upstream
-                    type: 'DATASET',
-                    query: '*',
-                    start: 0,
-                    count: 20,
-                    filters: [],
-                },
-            },
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                search: {
-                    __typename: 'SearchResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    searchResults: [
-                        {
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset3,
-                            },
-                            matchedFields: [],
-                        },
-                        {
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset4,
-                            },
-                            matchedFields: [],
-                        },
-                    ],
-                    facets: [
-                        {
-                            field: 'origin',
-                            aggregations: [
-                                {
-                                    value: 'PROD',
-                                    count: 3,
-                                },
-                            ],
-                        },
-                        {
-                            field: 'platform',
-                            aggregations: [
-                                { value: 'hdfs', count: 1 },
-                                { value: 'mysql', count: 1 },
-                                { value: 'kafka', count: 1 },
-                            ],
-                        },
-                    ],
-                },
-            } as GetSearchResultsQuery,
-        },
-    },
-    {
-        request: {
-            query: GetSearchResultsDocument,
-            variables: {
-                input: {
-                    type: 'DATA_FLOW',
-                    query: 'Sample',
-                    start: 0,
-                    count: 10,
-=======
                     type: 'GLOSSARY_TERM',
                     query: 'tags:abc-sample-tag',
                     start: 0,
                     count: 1,
->>>>>>> Stashed changes
                     filters: [],
                 },
             },
@@ -1200,20 +1126,13 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     total: 1,
-<<<<<<< Updated upstream
                     searchResults: [
                         {
                             entity: {
-                                __typename: 'DataFlow',
-                                ...dataFlow1,
+                                __typename: 'GLOSSARY_TERM',
+                                ...glossaryTerm1,
                             },
                             matchedFields: [],
-=======
-                    entities: [
-                        {
-                            __typename: 'GLOSSARY_TERM',
-                            ...glossaryTerm1,
->>>>>>> Stashed changes
                         },
                     ],
                     facets: [
@@ -1241,7 +1160,6 @@ export const mocks = [
     },
     {
         request: {
-<<<<<<< Updated upstream
             query: GetDataFlowDocument,
             variables: {
                 urn: 'urn:li:dataFlow:1',
@@ -1325,8 +1243,6 @@ export const mocks = [
     },
     {
         request: {
-=======
->>>>>>> Stashed changes
             query: GetTagDocument,
             variables: {
                 urn: 'urn:li:tag:abc-sample-tag',

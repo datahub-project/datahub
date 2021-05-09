@@ -23,12 +23,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DatasetEntity());
     entityRegistry.register(new UserEntity());
     entityRegistry.register(new TagEntity());
-<<<<<<< Updated upstream
-    entityRegistry.register(new DataFlowEntity());
-    entityRegistry.register(new DataJobEntity());
-=======
     entityRegistry.register(new GlossaryTermEntity());
->>>>>>> Stashed changes
     return entityRegistry;
 }
 

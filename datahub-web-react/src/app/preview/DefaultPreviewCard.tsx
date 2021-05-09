@@ -63,21 +63,13 @@ export default function DefaultPreviewCard({
                             <Typography.Text strong style={styles.name}>
                                 {name}
                             </Typography.Text>
-<<<<<<< Updated upstream
-                            <Space split={<Divider type="vertical" />} size={16}>
-                                <Typography.Text>{type}</Typography.Text>
-                                <Typography.Text strong>{platform}</Typography.Text>
-                                {qualifier && <Tag>{qualifier}</Tag>}
-                            </Space>
-=======
-                            {(type || platform || tags) && (
+                            {(type || platform || qualifier) && (
                                 <Space split={<Divider type="vertical" />} size={16}>
                                     <Typography.Text>{type}</Typography.Text>
                                     <Typography.Text strong>{platform}</Typography.Text>
                                     <Tag>{qualifier}</Tag>
                                 </Space>
                             )}
->>>>>>> Stashed changes
                         </Space>
                     </Space>
                 </Link>
