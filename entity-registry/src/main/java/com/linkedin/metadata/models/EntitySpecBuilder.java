@@ -3,6 +3,7 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
@@ -48,7 +49,11 @@ public class EntitySpecBuilder {
                 aspectSpecs.add(getAspectSpec(member.getType()));
             }
 
-            return new EntitySpec(aspectSpecs, EntityAnnotation.fromSchemaProperty(entityAnnotationObj));
+            return new EntitySpec(aspectSpecs,
+                    EntityAnnotation.fromSchemaProperty(entityAnnotationObj),
+                    entitySnapshotRecordSchema,
+                    (TyperefDataSchema) aspectArraySchema.getItems()
+            );
         }
         // TODO: Replace with exception once we are ready.
         System.out.println(String.format("Warning: Could not build entity spec for entity with name %s. Missing @Entity annotation.",

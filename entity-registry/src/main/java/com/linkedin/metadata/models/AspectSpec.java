@@ -15,16 +15,24 @@ public class AspectSpec {
     private final AspectAnnotation _aspectAnnotation;
     private final Map<PathSpec, SearchableFieldSpec> _searchableFieldSpecs;
     private final Map<PathSpec, RelationshipFieldSpec> _relationshipFieldSpecs;
-    private final RecordDataSchema _pegasusSchema;
+
+    // Classpath & Pegasus-specific: Temporary.
+    private final RecordDataSchema _schema;
+
+    public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
+                      @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
+                      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec) {
+        this(aspectAnnotation, searchableFieldSpecs, relationshipFieldSpec, null);
+    }
 
     public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
                       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
                       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
-                      @Nonnull final RecordDataSchema pegasusSchema) {
+                      final RecordDataSchema schema) {
         _aspectAnnotation = aspectAnnotation;
         _searchableFieldSpecs = searchableFieldSpecs.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec));
         _relationshipFieldSpecs = relationshipFieldSpec.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec));
-        _pegasusSchema = pegasusSchema;
+        _schema = schema;
     }
 
     public String getName() {
@@ -52,7 +60,7 @@ public class AspectSpec {
     }
 
     public RecordDataSchema getPegasusSchema() {
-        return _pegasusSchema;
+        return _schema;
     }
 }
 

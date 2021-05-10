@@ -54,7 +54,7 @@ class Registry(Generic[T]):
 
             try:
                 plugin_class = entry_point.load()
-            except ImportError as e:
+            except ModuleNotFoundError as e:
                 self.register_disabled(name, e)
                 continue
 

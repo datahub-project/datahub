@@ -32,7 +32,7 @@ task generateGmsArtifacts(type: JavaExec) {
   classpath = project.configurations.schemaGen
   /*
   debugOptions {
-    enabled = true
+    enabled = false
     port = 5005
   }
   */

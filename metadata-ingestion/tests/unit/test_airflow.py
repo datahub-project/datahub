@@ -14,7 +14,7 @@ from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.dummy import DummyOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
@@ -173,7 +173,11 @@ def test_lineage_backend(mock_emit, inlets, outlets):
             "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
         },
-    ), patch_airflow_connection(datahub_rest_connection_config):
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(
+        "airflow.models.BaseOperator.xcom_push", autospec=True
+    ), patch_airflow_connection(
+        datahub_rest_connection_config
+    ):
         func = mock.Mock()
         func.__name__ = "foo"
 

@@ -3,6 +3,7 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+
 import javax.annotation.Nonnull;
 
 public class SearchableFieldSpec {

@@ -188,21 +188,16 @@ class DatahubAirflowLineageBackend(LineageBackend):
             )
         )
 
-        lineage_mces = [
-            builder.make_lineage_mce(_entities_to_urn_list(inlets or []), outlet)
-            for outlet in _entities_to_urn_list(outlets or [])
-        ]
-
-        force_upstream_materialization = [
+        force_entity_materialization = [
             models.MetadataChangeEventClass(
                 proposedSnapshot=models.DatasetSnapshotClass(
-                    urn=inlet,
+                    urn=iolet,
                     aspects=[
                         models.StatusClass(removed=False),
                     ],
                 )
             )
-            for inlet in _entities_to_urn_list(inlets or [])
+            for iolet in _entities_to_urn_list((inlets or []) + (outlets or []))
         ]
 
         hook = make_emitter_hook()
@@ -210,8 +205,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
         mces = [
             flow_mce,
             job_mce,
-            *lineage_mces,
-            *force_upstream_materialization,
+            *force_entity_materialization,
         ]
         operator.log.info(
             "DataHub lineage backend - emitting metadata:\n"

@@ -1,0 +1,7 @@
+namespace com.linkedin.experimental
+
+import com.linkedin.metadata.snapshot.Snapshot
+
+record Entity {
+    value: Snapshot
+}
