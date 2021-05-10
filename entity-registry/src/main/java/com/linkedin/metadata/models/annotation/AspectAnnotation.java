@@ -1,44 +1,29 @@
 package com.linkedin.metadata.models.annotation;
 
+import lombok.Value;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Simple object representation of the @Aspect annotation metadata.
  */
+@Value
 public class AspectAnnotation {
-
-    private final String _name;
-    private final Boolean _isKey;
-
-    public AspectAnnotation(@Nonnull final String name,
-                            @Nullable final Boolean isKey) {
-        _name = name;
-        _isKey = isKey != null && isKey;
-    }
-
-    public String getName() {
-        return _name;
-    }
-
-    public Boolean isKey() {
-        return _isKey;
-    }
+    String _name;
+    Boolean _isKey;
 
     public static AspectAnnotation fromSchemaProperty(@Nonnull final Object annotationObj, @Nonnull final String fullyQualifiedName) {
-        if (Map.class.isAssignableFrom(annotationObj.getClass())) {
-            Map map = (Map) annotationObj;
-            final String nameObj = fullyQualifiedName;
-            final Object isKeyObj = map.get("isKey");
-            if (nameObj == null || !String.class.isAssignableFrom(nameObj.getClass())) {
-                throw new IllegalArgumentException("Failed to validate required @Aspect field 'name' field of type String");
-            }
-            if (isKeyObj != null && !Boolean.class.isAssignableFrom(isKeyObj.getClass())) {
-                throw new IllegalArgumentException("Failed to validate required @Aspect field 'isKey' field of type Boolean");
-            }
-            return new AspectAnnotation(nameObj, (Boolean) isKeyObj);
+        if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
+            throw new IllegalArgumentException("Failed to validate @Aspect annotation object: Invalid value type provided (Expected Map)");
         }
-        throw new IllegalArgumentException("Failed to validate @Aspect annotation object: Invalid value type provided (Expected Map)");
+        Map map = (Map) annotationObj;
+        final Optional<Boolean> isKey = AnnotationUtils.getField(map, "isKey", Boolean.class);
+        if (!isKey.isPresent()) {
+            throw new IllegalArgumentException("Failed to validate required @Aspect field 'isKey' field of type Boolean");
+        }
+        return new AspectAnnotation(fullyQualifiedName, isKey.get());
     }
 }
