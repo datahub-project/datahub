@@ -71,4 +71,5 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    * The time when this test entity was last refreshed
    */
   lastRefreshed: optional Time
+
 }

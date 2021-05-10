@@ -261,8 +261,8 @@
       "optional" : true
     } ],
     "Relationship" : {
-      "entities" : [ "dataset" ],
-      "type" : "DownstreamOf"
+      "entityTypes" : [ "dataset" ],
+      "name" : "DownstreamOf"
     }
   }, {
     "type" : "typeref",
@@ -362,7 +362,7 @@
     "fields" : [ {
       "name" : "urn",
       "type" : "com.linkedin.common.TestEntityUrn",
-      "doc" : "URN for the entity the metadata snapshot is associated with."
+      "doc" : "Key for the entity the metadata snapshot is associated with."
     }, {
       "name" : "aspects",
       "type" : {

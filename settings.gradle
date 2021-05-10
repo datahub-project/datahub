@@ -32,5 +32,6 @@ include 'metadata-testing:metadata-test-utils'
 include 'metadata-utils'
 include 'docs-website'
 include 'metadata-io'
+include 'entity-registry'
 
 startParameter.excludedTaskNames << ':datahub-web:build'
