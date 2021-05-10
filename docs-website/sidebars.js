@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 function list_ids_in_directory(directory) {
-  const files = fs.readdirSync(`../${directory}`);
+  const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
     if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
@@ -19,7 +19,6 @@ function list_ids_in_directory(directory) {
       }
     }
   }
-  ids.sort();
   return ids;
 }
 
