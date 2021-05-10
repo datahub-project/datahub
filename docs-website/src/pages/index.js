@@ -21,6 +21,7 @@ import LogoViasat from "./logos/viasat.png";
 import LogoKlarna from "./logos/klarna.svg";
 import LogoWolt from "./logos/wolt.png";
 // logos for ingestion sources
+import LogoAirflow from "./logos/airflow.svg";
 import LogoAthena from "./logos/athena.png";
 import LogoBigquery from "./logos/bigquery.svg";
 import LogoDbt from "./logos/dbt.png";
@@ -29,12 +30,14 @@ import LogoGlue from "./logos/glue.png";
 import LogoHive from "./logos/hive.svg";
 import LogoKafka from "./logos/kafka.svg";
 import LogoLdap from "./logos/ldap.png";
+import LogoLooker from "./logos/looker.svg";
 import LogoMongodb from "./logos/mongodb.svg";
 import LogoMssql from "./logos/mssql.svg";
 import LogoMysql from "./logos/mysql.svg";
 import LogoOracle from "./logos/oracle.svg";
 import LogoPostgres from "./logos/postgres.png";
 import LogoSnowflake from "./logos/snowflake.svg";
+import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
 
 const features = [
@@ -158,6 +161,10 @@ const companyLogos = [
 
 const sourceLogos = [
   {
+    name: "Airflow",
+    image: svgFormatter(LogoAirflow),
+  },
+  {
     name: "Athena",
     image: pngFormatter(LogoAthena, clsx(styles.logo_image_square)),
   },
@@ -176,6 +183,7 @@ const sourceLogos = [
     image: svgFormatter(LogoHive, clsx(styles.logo_image_square)),
   },
   { name: "Kafka", image: svgFormatter(LogoKafka) },
+  { name: "Looker", image: svgFormatter(LogoLooker) },
   {
     name: "LDAP",
     image: pngFormatter(LogoLdap, clsx(styles.logo_image_square)),
@@ -186,6 +194,7 @@ const sourceLogos = [
   { name: "Oracle", image: svgFormatter(LogoOracle) },
   { name: "PostgreSQL", image: pngFormatter(LogoPostgres) },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
+  { name: "Spark", image: svgFormatter(LogoSpark) },
   {
     name: "Superset",
     image: svgFormatter(LogoSuperset, clsx(styles.logo_image_large)),
