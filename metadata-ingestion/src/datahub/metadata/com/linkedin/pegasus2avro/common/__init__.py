@@ -7,6 +7,8 @@ from .....schema_classes import CostCostDiscriminatorClass
 from .....schema_classes import CostTypeClass
 from .....schema_classes import DeprecationClass
 from .....schema_classes import GlobalTagsClass
+from .....schema_classes import GlossaryTermAssociationClass
+from .....schema_classes import GlossaryTermsClass
 from .....schema_classes import InstitutionalMemoryClass
 from .....schema_classes import InstitutionalMemoryMetadataClass
 from .....schema_classes import MLFeatureDataTypeClass
@@ -29,6 +31,8 @@ CostCostDiscriminator = CostCostDiscriminatorClass
 CostType = CostTypeClass
 Deprecation = DeprecationClass
 GlobalTags = GlobalTagsClass
+GlossaryTermAssociation = GlossaryTermAssociationClass
+GlossaryTerms = GlossaryTermsClass
 InstitutionalMemory = InstitutionalMemoryClass
 InstitutionalMemoryMetadata = InstitutionalMemoryMetadataClass
 MLFeatureDataType = MLFeatureDataTypeClass

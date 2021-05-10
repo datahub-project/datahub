@@ -815,6 +815,89 @@ class GlobalTagsClass(DictWrapper):
         self._inner_dict['tags'] = value
     
     
+class GlossaryTermAssociationClass(DictWrapper):
+    """Properties of an applied glossary term."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.GlossaryTermAssociation")
+    def __init__(self,
+        urn: str,
+    ):
+        super().__init__()
+        
+        self.urn = urn
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryTermAssociationClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: Urn of the applied glossary term"""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: Urn of the applied glossary term"""
+        self._inner_dict['urn'] = value
+    
+    
+class GlossaryTermsClass(DictWrapper):
+    """Related business terms information"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.GlossaryTerms")
+    def __init__(self,
+        terms: List["GlossaryTermAssociationClass"],
+        auditStamp: "AuditStampClass",
+    ):
+        super().__init__()
+        
+        self.terms = terms
+        self.auditStamp = auditStamp
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryTermsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.terms = list()
+        self.auditStamp = AuditStampClass.construct_with_defaults()
+    
+    
+    @property
+    def terms(self) -> List["GlossaryTermAssociationClass"]:
+        """Getter: The related business terms"""
+        return self._inner_dict.get('terms')  # type: ignore
+    
+    
+    @terms.setter
+    def terms(self, value: List["GlossaryTermAssociationClass"]) -> None:
+        """Setter: The related business terms"""
+        self._inner_dict['terms'] = value
+    
+    
+    @property
+    def auditStamp(self) -> "AuditStampClass":
+        """Getter: Audit stamp containing who reported the related business term"""
+        return self._inner_dict.get('auditStamp')  # type: ignore
+    
+    
+    @auditStamp.setter
+    def auditStamp(self, value: "AuditStampClass") -> None:
+        """Setter: Audit stamp containing who reported the related business term"""
+        self._inner_dict['auditStamp'] = value
+    
+    
 class InstitutionalMemoryClass(DictWrapper):
     """Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity."""
     
@@ -2215,6 +2298,167 @@ class UpstreamLineageClass(DictWrapper):
         self._inner_dict['upstreams'] = value
     
     
+class GlossaryNodeInfoClass(DictWrapper):
+    """Properties associated with a GlossaryNode"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo")
+    def __init__(self,
+        definition: str,
+        parentNode: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.definition = definition
+        self.parentNode = parentNode
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryNodeInfoClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.definition = str()
+        self.parentNode = self.RECORD_SCHEMA.field_map["parentNode"].default
+    
+    
+    @property
+    def definition(self) -> str:
+        """Getter: Definition of business node"""
+        return self._inner_dict.get('definition')  # type: ignore
+    
+    
+    @definition.setter
+    def definition(self, value: str) -> None:
+        """Setter: Definition of business node"""
+        self._inner_dict['definition'] = value
+    
+    
+    @property
+    def parentNode(self) -> Union[None, str]:
+        """Getter: Parent node of the glossary term"""
+        return self._inner_dict.get('parentNode')  # type: ignore
+    
+    
+    @parentNode.setter
+    def parentNode(self, value: Union[None, str]) -> None:
+        """Setter: Parent node of the glossary term"""
+        self._inner_dict['parentNode'] = value
+    
+    
+class GlossaryTermInfoClass(DictWrapper):
+    """Properties associated with a GlossaryTerm"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.glossary.GlossaryTermInfo")
+    def __init__(self,
+        definition: str,
+        termSource: str,
+        parentNode: Union[None, str]=None,
+        sourceRef: Union[None, str]=None,
+        sourceUrl: Union[None, str]=None,
+        customProperties: Optional[Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.definition = definition
+        self.parentNode = parentNode
+        self.termSource = termSource
+        self.sourceRef = sourceRef
+        self.sourceUrl = sourceUrl
+        if customProperties is None:
+            self.customProperties = {}
+        else:
+            self.customProperties = customProperties
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryTermInfoClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.definition = str()
+        self.parentNode = self.RECORD_SCHEMA.field_map["parentNode"].default
+        self.termSource = str()
+        self.sourceRef = self.RECORD_SCHEMA.field_map["sourceRef"].default
+        self.sourceUrl = self.RECORD_SCHEMA.field_map["sourceUrl"].default
+        self.customProperties = dict()
+    
+    
+    @property
+    def definition(self) -> str:
+        """Getter: Definition of business term"""
+        return self._inner_dict.get('definition')  # type: ignore
+    
+    
+    @definition.setter
+    def definition(self, value: str) -> None:
+        """Setter: Definition of business term"""
+        self._inner_dict['definition'] = value
+    
+    
+    @property
+    def parentNode(self) -> Union[None, str]:
+        """Getter: Parent node of the glossary term"""
+        return self._inner_dict.get('parentNode')  # type: ignore
+    
+    
+    @parentNode.setter
+    def parentNode(self, value: Union[None, str]) -> None:
+        """Setter: Parent node of the glossary term"""
+        self._inner_dict['parentNode'] = value
+    
+    
+    @property
+    def termSource(self) -> str:
+        """Getter: Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"""
+        return self._inner_dict.get('termSource')  # type: ignore
+    
+    
+    @termSource.setter
+    def termSource(self, value: str) -> None:
+        """Setter: Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"""
+        self._inner_dict['termSource'] = value
+    
+    
+    @property
+    def sourceRef(self) -> Union[None, str]:
+        """Getter: External Reference to the business-term"""
+        return self._inner_dict.get('sourceRef')  # type: ignore
+    
+    
+    @sourceRef.setter
+    def sourceRef(self, value: Union[None, str]) -> None:
+        """Setter: External Reference to the business-term"""
+        self._inner_dict['sourceRef'] = value
+    
+    
+    @property
+    def sourceUrl(self) -> Union[None, str]:
+        """Getter: The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument."""
+        return self._inner_dict.get('sourceUrl')  # type: ignore
+    
+    
+    @sourceUrl.setter
+    def sourceUrl(self, value: Union[None, str]) -> None:
+        """Setter: The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument."""
+        self._inner_dict['sourceUrl'] = value
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Getter: A key-value map to capture any other non-standardized properties for the glossary term"""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        """Setter: A key-value map to capture any other non-standardized properties for the glossary term"""
+        self._inner_dict['customProperties'] = value
+    
+    
 class CorpGroupInfoClass(DictWrapper):
     """group of corpUser, it may contains nested group"""
     
@@ -2915,7 +3159,7 @@ class DatasetSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass"]],
+        aspects: List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass"]],
     ):
         super().__init__()
         
@@ -2947,14 +3191,112 @@ class DatasetSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass"]]:
+    def aspects(self) -> List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass"]]:
         """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass"]]) -> None:
+    def aspects(self, value: List[Union["DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
+class GlossaryNodeSnapshotClass(DictWrapper):
+    """A metadata snapshot for a specific GlossaryNode entity."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List[Union["GlossaryNodeInfoClass", "OwnershipClass"]],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryNodeSnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List[Union["GlossaryNodeInfoClass", "OwnershipClass"]]:
+        """Getter: The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    
+    @aspects.setter
+    def aspects(self, value: List[Union["GlossaryNodeInfoClass", "OwnershipClass"]]) -> None:
+        """Setter: The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
+class GlossaryTermSnapshotClass(DictWrapper):
+    """A metadata snapshot for a specific GlossaryTerm entity."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List[Union["GlossaryTermInfoClass", "OwnershipClass"]],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryTermSnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List[Union["GlossaryTermInfoClass", "OwnershipClass"]]:
+        """Getter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    
+    @aspects.setter
+    def aspects(self, value: List[Union["GlossaryTermInfoClass", "OwnershipClass"]]) -> None:
+        """Setter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
     
@@ -4037,7 +4379,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
     ):
@@ -4073,13 +4415,13 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -4930,6 +5272,7 @@ class SchemaFieldClass(DictWrapper):
         description: Union[None, str]=None,
         recursive: Optional[bool]=None,
         globalTags: Union[None, "GlobalTagsClass"]=None,
+        glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
     ):
         super().__init__()
         
@@ -4947,6 +5290,7 @@ class SchemaFieldClass(DictWrapper):
         else:
             self.recursive = recursive
         self.globalTags = globalTags
+        self.glossaryTerms = glossaryTerms
     
     @classmethod
     def construct_with_defaults(cls) -> "SchemaFieldClass":
@@ -4964,6 +5308,7 @@ class SchemaFieldClass(DictWrapper):
         self.nativeDataType = str()
         self.recursive = self.RECORD_SCHEMA.field_map["recursive"].default
         self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
+        self.glossaryTerms = self.RECORD_SCHEMA.field_map["glossaryTerms"].default
     
     
     @property
@@ -5060,6 +5405,18 @@ class SchemaFieldClass(DictWrapper):
     def globalTags(self, value: Union[None, "GlobalTagsClass"]) -> None:
         """Setter: Tags associated with the field"""
         self._inner_dict['globalTags'] = value
+    
+    
+    @property
+    def glossaryTerms(self) -> Union[None, "GlossaryTermsClass"]:
+        """Getter: Glossary terms associated with the field"""
+        return self._inner_dict.get('glossaryTerms')  # type: ignore
+    
+    
+    @glossaryTerms.setter
+    def glossaryTerms(self, value: Union[None, "GlossaryTermsClass"]) -> None:
+        """Setter: Glossary terms associated with the field"""
+        self._inner_dict['glossaryTerms'] = value
     
     
 class SchemaFieldDataTypeClass(DictWrapper):
@@ -5502,6 +5859,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.CostType': CostTypeClass,
     'com.linkedin.pegasus2avro.common.Deprecation': DeprecationClass,
     'com.linkedin.pegasus2avro.common.GlobalTags': GlobalTagsClass,
+    'com.linkedin.pegasus2avro.common.GlossaryTermAssociation': GlossaryTermAssociationClass,
+    'com.linkedin.pegasus2avro.common.GlossaryTerms': GlossaryTermsClass,
     'com.linkedin.pegasus2avro.common.InstitutionalMemory': InstitutionalMemoryClass,
     'com.linkedin.pegasus2avro.common.InstitutionalMemoryMetadata': InstitutionalMemoryMetadataClass,
     'com.linkedin.pegasus2avro.common.MLFeatureDataType': MLFeatureDataTypeClass,
@@ -5528,6 +5887,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
+    'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserEditableInfo': CorpUserEditableInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserInfo': CorpUserInfoClass,
@@ -5539,6 +5900,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot': DataJobSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot': DataProcessSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot': DatasetSnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot': GlossaryNodeSnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot': GlossaryTermSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot': MLFeatureSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot': MLModelSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot': TagSnapshotClass,
@@ -5606,6 +5969,8 @@ __SCHEMA_TYPES = {
     'CostType': CostTypeClass,
     'Deprecation': DeprecationClass,
     'GlobalTags': GlobalTagsClass,
+    'GlossaryTermAssociation': GlossaryTermAssociationClass,
+    'GlossaryTerms': GlossaryTermsClass,
     'InstitutionalMemory': InstitutionalMemoryClass,
     'InstitutionalMemoryMetadata': InstitutionalMemoryMetadataClass,
     'MLFeatureDataType': MLFeatureDataTypeClass,
@@ -5632,6 +5997,8 @@ __SCHEMA_TYPES = {
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
+    'GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
     'CorpUserEditableInfo': CorpUserEditableInfoClass,
     'CorpUserInfo': CorpUserInfoClass,
@@ -5643,6 +6010,8 @@ __SCHEMA_TYPES = {
     'DataJobSnapshot': DataJobSnapshotClass,
     'DataProcessSnapshot': DataProcessSnapshotClass,
     'DatasetSnapshot': DatasetSnapshotClass,
+    'GlossaryNodeSnapshot': GlossaryNodeSnapshotClass,
+    'GlossaryTermSnapshot': GlossaryTermSnapshotClass,
     'MLFeatureSnapshot': MLFeatureSnapshotClass,
     'MLModelSnapshot': MLModelSnapshotClass,
     'TagSnapshot': TagSnapshotClass,

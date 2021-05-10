@@ -1760,6 +1760,49 @@
                                 ],
                                 "doc": "Tags associated with the field",
                                 "default": null
+                              },
+                              {
+                                "name": "glossaryTerms",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "GlossaryTerms",
+                                    "namespace": "com.linkedin.pegasus2avro.common",
+                                    "doc": "Related business terms information",
+                                    "fields": [
+                                      {
+                                        "name": "terms",
+                                        "type": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "record",
+                                            "name": "GlossaryTermAssociation",
+                                            "doc": "Properties of an applied glossary term.",
+                                            "fields": [
+                                              {
+                                                "name": "urn",
+                                                "type": "string",
+                                                "doc": "Urn of the applied glossary term",
+                                                "java": {
+                                                  "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "doc": "The related business terms"
+                                      },
+                                      {
+                                        "name": "auditStamp",
+                                        "type": "AuditStamp",
+                                        "doc": "Audit stamp containing who reported the related business term"
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "Glossary terms associated with the field",
+                                "default": null
                               }
                             ]
                           }
@@ -1908,7 +1951,8 @@
                       }
                     ]
                   },
-                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.GlossaryTerms"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2774,6 +2818,144 @@
                 ]
               },
               "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "GlossaryTermSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific GlossaryTerm entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "GlossaryTermInfo",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Properties associated with a GlossaryTerm",
+                    "fields": [
+                      {
+                        "name": "definition",
+                        "type": "string",
+                        "doc": "Definition of business term"
+                      },
+                      {
+                        "name": "parentNode",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Parent node of the glossary term",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+                        }
+                      },
+                      {
+                        "name": "termSource",
+                        "type": "string",
+                        "doc": "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+                      },
+                      {
+                        "name": "sourceRef",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "External Reference to the business-term",
+                        "default": null
+                      },
+                      {
+                        "name": "sourceUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
+                        "default": {}
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "GlossaryNodeSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific GlossaryNode entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "GlossaryNodeInfo",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Properties associated with a GlossaryNode",
+                    "fields": [
+                      {
+                        "name": "definition",
+                        "type": "string",
+                        "doc": "Definition of business node"
+                      },
+                      {
+                        "name": "parentNode",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Parent node of the glossary term",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+                        }
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ]
         }
