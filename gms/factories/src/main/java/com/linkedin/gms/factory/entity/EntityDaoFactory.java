@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.metadata.dao.EntityDao;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.kafka.EntityEventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.mxe.TopicConvention;

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event;
+package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;

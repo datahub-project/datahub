@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event.config;
+package com.linkedin.metadata.kafka.config;
 
 import org.neo4j.driver.Driver;
 import org.springframework.context.annotation.Bean;

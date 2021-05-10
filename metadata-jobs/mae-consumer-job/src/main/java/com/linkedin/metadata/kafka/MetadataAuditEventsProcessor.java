@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event;
+package com.linkedin.metadata.kafka;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -13,8 +13,8 @@ import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.internal.BaseGraphWriterDAO;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.event.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.event.elasticsearch.MCEElasticEvent;
+import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
+import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;

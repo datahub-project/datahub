@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event.config;
+package com.linkedin.metadata.kafka.config;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;

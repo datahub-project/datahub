@@ -187,44 +187,6 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, {
-    "type" : "typeref",
-    "name" : "TestEntityUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized dashboard identifier",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.TestEntityUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized dashboard identifier",
-        "entityType" : "testEntity",
-        "fields" : [ {
-          "doc" : "First key part.",
-          "maxLength" : 20,
-          "name" : "keyPart1",
-          "type" : "string"
-        }, {
-          "doc" : "Second key part",
-          "maxLength" : 200,
-          "name" : "keyPart2",
-          "type" : "string"
-        }, {
-          "doc" : "Third key part",
-          "maxLength" : 200,
-          "name" : "keyPart2",
-          "type" : "string"
-        } ],
-        "maxLength" : 240,
-        "name" : "TestEntity",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
   }, "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "AliasRecord",
@@ -361,7 +323,7 @@
     "doc" : "A metadata snapshot for a specific Test Entity.",
     "fields" : [ {
       "name" : "urn",
-      "type" : "com.linkedin.common.TestEntityUrn",
+      "type" : "com.linkedin.common.Urn",
       "doc" : "Key for the entity the metadata snapshot is associated with."
     }, {
       "name" : "aspects",

@@ -5,7 +5,7 @@ import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.template.DataTemplate;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.kafka.EntityEventProducer;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.config.ServerConfig;

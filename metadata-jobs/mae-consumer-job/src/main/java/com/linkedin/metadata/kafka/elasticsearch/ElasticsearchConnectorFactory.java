@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event.elasticsearch;
+package com.linkedin.metadata.kafka.elasticsearch;
 
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RestHighLevelClient;

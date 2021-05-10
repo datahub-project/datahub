@@ -79,6 +79,29 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         });
     }
 
+    @RestMethod.BatchGet
+    @Nonnull
+    public Task<Map<String, Entity>> batchGet(
+            @Nonnull Set<String> urnStrs,
+            @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
+        return RestliUtils.toTask(() -> {
+            final List<Urn> urns =
+                    urnStrs.stream().map(urnStr -> {
+                        try {
+                            return Urn.createFromString(urnStr);
+                        } catch (URISyntaxException e) {
+                            throw new RuntimeException(String.format("Failed to create valid urn from string %s", urnStr));
+                        }
+                    }).collect(Collectors.toList());
+
+            final String entityName = urns.get(0).getEntityType();
+
+            return getInternal(entityName, urns, parseAspectsParam(entityName, aspectNames)).entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(e -> e.getKey().toString(), e -> new Entity().setValue(newSnapshotUnion(e.getValue()))));
+        });
+    }
+
     @Nonnull
     protected Set<Class<? extends RecordTemplate>> parseAspectsParam(@Nullable String entityName,
                                                                      @Nullable String[] aspectNames) {

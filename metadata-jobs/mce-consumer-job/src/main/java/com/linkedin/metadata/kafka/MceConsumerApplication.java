@@ -1,4 +1,4 @@
-package com.linkedin.metadata.event;
+package com.linkedin.metadata.kafka;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -6,10 +6,10 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(exclude = {RestClientAutoConfiguration.class})
-public class MaeConsumerApplication {
+public class MceConsumerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(MaeConsumerApplication.class, args);
+        SpringApplication.run(MceConsumerApplication.class, args);
     }
 
 }
