@@ -29,10 +29,10 @@ task installDev(type: Exec, dependsOn: [environmentSetup, codegen]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
 }
 task lint(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black --check . && isort --check-only . && flake8 --count --statistics . && mypy ."
+  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black --check src/ tests/ && isort --check-only src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black . && isort . && flake8 . && mypy ."
+  commandLine 'bash', '-x', '-c', "source ${venv_name}/bin/activate && black src/ tests/ && isort src/ tests/ && flake8 src/ tests/ && mypy src/ tests/"
 }
 
 task test(type: Exec, dependsOn: installDev) {
