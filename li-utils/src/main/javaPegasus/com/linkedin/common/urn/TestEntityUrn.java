@@ -30,11 +30,11 @@ public final class TestEntityUrn extends Urn {
         if (!"li".equals(urn.getNamespace())) {
             throw new URISyntaxException(urn.toString(), "Urn namespace type should be 'li'.");
         } else if (!ENTITY_TYPE.equals(urn.getEntityType())) {
-            throw new URISyntaxException(urn.toString(), "Urn entity type should be '" + urn.getEntityType() + "'.");
+            throw new URISyntaxException(urn.toString(), "Urn entity type should be '" + ENTITY_TYPE + " got " + urn.getEntityType() + "'.");
         } else {
             TupleKey key = urn.getEntityKey();
             if (key.size() != 3) {
-                throw new URISyntaxException(urn.toString(), "Invalid number of keys: found " + key.size() + " expected 1.");
+                throw new URISyntaxException(urn.toString(), "Invalid number of keys: found " + key.size() + " expected 3.");
             } else {
                 try {
                     return new TestEntityUrn(

@@ -3,5 +3,6 @@ apply plugin: 'pegasus'
 dependencies {
     compile spec.product.pegasus.data
     compile spec.product.pegasus.generator
+    compile project(path: ':metadata-models')
     implementation gradleApi()
 }

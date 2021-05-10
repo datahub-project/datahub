@@ -32,6 +32,33 @@
         "proposedDelta": null
     },
     {
+		"auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.TestEntitySnapshot": {
+                "urn": "urn:li:testEntity:(part1,part2,part3)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.experimental.TestEntityInfo": {
+                            "title": "test_title",
+                            "aliases": ["alias_one", "alias_two"],
+                            "recordAliases": [{
+                            	"name": "alias_three"
+                            }],
+                            "description": "some descript",
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            },
+                            "inputs": []
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+	},
+    {
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
