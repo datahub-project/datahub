@@ -30,7 +30,7 @@ const DescriptionParagraph = styled(Typography.Paragraph)`
 const PreviewImage = styled(Image)`
     max-height: 48px;
     width: auto;
-    object-fit: cover;
+    object-fit: contain;
 `;
 
 const styles = {
