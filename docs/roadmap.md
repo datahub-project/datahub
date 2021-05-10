@@ -20,7 +20,7 @@ Of course, you always have access to our community through [Slack](https://slack
 - [x] Build a Python-based Ingestion Framework
 - [x] Support common people repositories (LDAP)
 - [x] Support common data repositories (Kafka, SQL databases, AWS Glue, Hive)
-- [ ] Support common transformation sources (dbt, Looker)
+- [x] Support common transformation sources (dbt, Looker)
 - [x] Support for push-based metadata emission from Python (e.g. Airflow DAGs)
 
 ### Dashboards and Charts
@@ -44,7 +44,7 @@ Use-Case: Support for free-form global tags for social collaboration and aiding 
 ### Jobs, Flows / Pipelines
 Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand lineage with datasets
 - [x] Support for Metadata Models + Backend Implementation
-- [ ] Metadata Integrations with systems like Airflow.
+- [x] Metadata Integrations with systems like Airflow.
 
 ### Data Profiling and Dataset Previews
 Use Case: See sample data for a dataset and statistics on the shape of the data (column distribution, nullability etc.)
@@ -54,22 +54,22 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 ## Q2 2021 (Apr - Jun 2021)
 
 ### Cloud Deployment
-- [ ] Production-grade Helm charts for Kubernetes-based deployment
+- [X] Production-grade Helm charts for Kubernetes-based deployment
 - [ ] How-to guides for deploying DataHub to all the major cloud providers (AWS, Azure, GCP)
 
 
 ### Data Quality
-- Support for data quality visualization
-- Support for data health score based on data quality results and pipeline observability
-- Integration with systems like Great Expectations, AWS deequ etc.
+- [ ] Support for data quality visualization
+- [ ] Support for data health score based on data quality results and pipeline observability
+- [ ] Integration with systems like Great Expectations, AWS deequ etc.
 
 ### Product Analytics for DataHub
-- Helping you understand how your users are interacting with DataHub
-- Integration with common systems like Google Analytics etc.
+- [ ] Helping you understand how your users are interacting with DataHub
+- [ ] Integration with common systems like Google Analytics etc.
 
 ### Usage-Based Insights
-- Display frequently used datasets, dashboards
-- Improved search relevance through usage data
+- [ ] Display frequently used datasets, dashboards
+- [ ] Improved search relevance through usage data
 
 ### Role-based Access Control
 - Support for fine-grained access control for metadata operations (read, write, modify)
@@ -78,7 +78,8 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 
 ### No-code Metadata Model Additions
 Use Case: Developers should be able to add new entities and aspects to the metadata model easily
-- No need to write any code (in Java or Python) to store, retrieve, search and query metadata
+- [ ] No need to write any code (in Java or Python) to store, retrieve, search and query metadata
+- [ ] No need to write any code (in GraphQL or UI) to visualize metadata
 
 ## Beyond the horizon
 

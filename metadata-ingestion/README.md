@@ -218,18 +218,46 @@ Extracts:
 
 - List of databases, schema, and tables
 - Column types associated with each table
+- Detailed table and storage information
 
 ```yml
 source:
   type: hive
   config:
-    username: user
-    password: pass
+    # For more details on authentication, see the PyHive docs:
+    # https://github.com/dropbox/PyHive#passing-session-configuration.
+    # LDAP, Kerberos, etc. are supported using connect_args, which can be
+    # added under the `options` config parameter.
+    #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
+    #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
+    username: user # optional
+    password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase
+    database: DemoDatabase # optional, defaults to 'default'
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+<details>
+  <summary>Example: using ingestion with Azure HDInsight</summary>
+
+```yml
+# Connecting to Microsoft Azure HDInsight using TLS.
+source:
+  type: hive
+  config:
+    scheme: "hive+https"
+    host_port: <cluster_name>.azurehdinsight.net:443
+    username: admin
+    password: "<password>"
+    options:
+      connect_args:
+        http_path: "/hive2"
+        auth: BASIC
+    # table_pattern/schema_pattern is same as above
+```
+
+</details>
 
 ### PostgreSQL `postgres`
 
@@ -288,7 +316,7 @@ source:
     connect_uri: http://localhost:8088
 ```
 
-See documentation for superset's `/security/login` at  https://superset.apache.org/docs/rest-api for more details on superset's login api.
+See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
 
 ### Oracle `oracle`
 
@@ -471,7 +499,8 @@ can produce such files, and a number of samples are included in the
 ```yml
 source:
   type: file
-  filename: ./path/to/mce/file.json
+  config:
+    filename: ./path/to/mce/file.json
 ```
 
 ### DBT `dbt`
@@ -567,37 +596,25 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 - [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
 - [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
 
-## Usage with Airflow
+## Lineage with Airflow
 
-There's a couple ways to integrate DataHub with Airflow.
+There's a couple ways to get lineage information from Airflow into DataHub.
 
-### Running ingestion on a schedule
+_Note: if you're simply looking to run ingestion on a schedule, take a look at these sample DAGs: (1) [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it; and (2) [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration._
 
-Take a look at these sample DAGs:
-
-- [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
-- [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
-
-### Emitting lineage via a separate operator
-
-Take a look at this sample DAG:
-
-- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
-
-In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook.
-
-```sh
-# For REST-based:
-airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
-# For Kafka-based (standard Kafka sink config can be passed via extras):
-airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
-```
-
-### Using Datahub's Airflow lineage backend
+### Using Datahub's Airflow lineage backend (recommended)
 
 _Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
 
-1. First, you must configure the Airflow hooks. See above for details.
+1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
+
+   ```sh
+   # For REST-based:
+   airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
+   # For Kafka-based (standard Kafka sink config can be passed via extras):
+   airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
+   ```
+
 2. Add the following lines to your `airflow.cfg` file. You might need to
    ```ini
    [lineage]
@@ -606,6 +623,14 @@ _Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0
    ```
 3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./examples/airflow/lineage_backend_demo.py).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
+
+### Emitting lineage via a separate operator
+
+Take a look at this sample DAG:
+
+- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
+
+In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
 
 ## Developing
 

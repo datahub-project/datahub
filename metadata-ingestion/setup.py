@@ -65,7 +65,12 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
-    "hive": sql_common | {"pyhive[hive]"},
+    "hive": sql_common
+    | {
+        # Acryl maintains a fork of PyHive, which adds support for table comments
+        # and column comments, and also releases HTTP and HTTPS transport schemes.
+        "acryl-pyhive[hive]>=0.6.6"
+    },
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
@@ -165,7 +170,6 @@ setuptools.setup(
     python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
-    include_package_data=True,
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
