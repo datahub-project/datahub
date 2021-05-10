@@ -6,7 +6,7 @@ try:
     from airflow.hooks.base import BaseHook
 
     AIRFLOW_1 = False
-except ImportError:
+except ModuleNotFoundError:
     from airflow.hooks.base_hook import BaseHook
 
     AIRFLOW_1 = True

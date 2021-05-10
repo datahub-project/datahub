@@ -10,7 +10,7 @@ from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.bash import BashOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.bash_operator import BashOperator
 
 from datahub.integrations.airflow.entities import Dataset

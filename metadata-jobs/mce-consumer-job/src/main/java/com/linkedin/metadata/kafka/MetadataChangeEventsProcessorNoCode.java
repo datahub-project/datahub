@@ -1,6 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.internal.BaseRemoteWriterDAO;
@@ -100,7 +99,7 @@ public class MetadataChangeEventsProcessorNoCode {
     private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws URISyntaxException {
         final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
         final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-        final RecordTemplate urn = getUrnFromSnapshot(snapshot); // This would have to change to be a key!
-        remoteWriterDAO.create(urn, snapshot);
+        // final RecordTemplate urn = getUrnFromSnapshot(snapshot); // This would have to change to be a key!
+        // remoteWriterDAO.create(urn, snapshot);
     }
 }

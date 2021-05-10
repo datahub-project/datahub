@@ -28,13 +28,13 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    *
    */
    @Searchable = {
-     "indexType": "KEYWORD",
+     "indexType": "KEYWORD"
    }
    aliases: array[string]
 
    recordAliases: array[record AliasRecord {
        @Searchable = {
-         "indexType": "KEYWORD",
+         "indexType": "KEYWORD"
        }
        name: string
    }]
@@ -71,4 +71,5 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    * The time when this test entity was last refreshed
    */
   lastRefreshed: optional Time
+
 }

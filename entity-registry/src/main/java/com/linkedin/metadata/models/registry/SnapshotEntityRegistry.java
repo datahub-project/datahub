@@ -7,6 +7,8 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.snapshot.Snapshot;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,11 @@ public class SnapshotEntityRegistry implements EntityRegistry {
             throw new IllegalArgumentException(String.format("Failed to find entity with name %s in EntityRegistry", entityName));
         }
         return entityNameToSpec.get(entityName);
+    }
+
+    @Override
+    public List<EntitySpec> getEntitySpecs() {
+        return new ArrayList<>(entityNameToSpec.values());
     }
 
     public EntitySpec getEntitySpec(@Nonnull final RecordDataSchema entitySnapshotSchema) {
