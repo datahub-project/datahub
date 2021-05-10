@@ -94,8 +94,6 @@ public class MetadataAuditEventsProcessor {
   private void updateNeo4j(final RecordTemplate snapshot) {
     // TODO(Gabe): memoize this
     final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
-    List<PathSpec> relationshipFieldPaths = entitySpec.getAspectSpecs().stream().flatMap(aspect -> aspect.getRelationshipFieldSpecs().stream())
-            .map(fieldSpec -> fieldSpec.getPath()).collect(Collectors.toList());
     ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
             snapshot.schema(),
             IterationOrder.PRE_ORDER);
