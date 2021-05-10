@@ -26,10 +26,10 @@ public class AspectAnnotation {
         return _isKey;
     }
 
-    public static AspectAnnotation fromSchemaProperty(@Nonnull final Object annotationObj) {
+    public static AspectAnnotation fromSchemaProperty(@Nonnull final Object annotationObj, @Nonnull final String fullyQualifiedName) {
         if (Map.class.isAssignableFrom(annotationObj.getClass())) {
             Map map = (Map) annotationObj;
-            final Object nameObj = map.get("name");
+            final String nameObj = fullyQualifiedName;
             final Object isKeyObj = map.get("isKey");
             if (nameObj == null || !String.class.isAssignableFrom(nameObj.getClass())) {
                 throw new IllegalArgumentException("Failed to validate required @Aspect field 'name' field of type String");
@@ -37,7 +37,7 @@ public class AspectAnnotation {
             if (isKeyObj != null && !Boolean.class.isAssignableFrom(isKeyObj.getClass())) {
                 throw new IllegalArgumentException("Failed to validate required @Aspect field 'isKey' field of type Boolean");
             }
-            return new AspectAnnotation((String) nameObj, (Boolean) isKeyObj);
+            return new AspectAnnotation(nameObj, (Boolean) isKeyObj);
         }
         throw new IllegalArgumentException("Failed to validate @Aspect annotation object: Invalid value type provided (Expected Map)");
     }

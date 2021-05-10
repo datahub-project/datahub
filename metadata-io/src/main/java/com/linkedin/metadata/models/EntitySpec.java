@@ -43,4 +43,3 @@ public class EntitySpec {
         return _aspectSpecs.get(name);
     }
 }
-
