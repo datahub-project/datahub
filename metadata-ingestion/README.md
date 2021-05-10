@@ -514,6 +514,60 @@ source:
     filter: "(objectClass=*)" # optional field
 ```
 
+### LookML `lookml`
+
+Extracts:
+
+- LookML views from model files
+- Name, upstream table names, dimensions, measures, and dimension groups
+
+```yml
+source:
+  type: "lookml"
+  config:
+    base_fodler: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
+    connection_to_platform_map: # mapping between connection names in the model files to platform names.
+      my_snowflake_conn: snowflake
+    platform_name: looker_views # Optional, default is "looker_views"
+    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    model_pattern: {}
+    view_pattern: {}
+    env: "PROD" # Optional, default is "PROD"
+    parse_table_names_from_sql: False # See note below.
+```
+
+Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
+views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
+Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+`parse_table_names_from_sql: True`.
+
+### Looker dashboards `looker`
+
+Extracts:
+
+- Looker dashboards and dashboard elements (charts)
+- Names, descriptions, URLs, chart types, input view for the charts
+
+```yml
+source:
+  type: "lookml"
+  config:
+    base_fodler: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
+    connection_to_platform_map: # mapping between connection names in the model files to platform names.
+      my_snowflake_conn: snowflake
+    platform_name: looker_views # Optional, default is "looker_views"
+    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    model_pattern: {}
+    view_pattern: {}
+    env: "PROD" # Optional, default is "PROD"
+    parse_table_names_from_sql: False # See note below.
+```
+
+Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
+views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
+Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+`parse_table_names_from_sql: True`.
+
 ### File `file`
 
 Pulls metadata from a previously generated file. Note that the file sink
