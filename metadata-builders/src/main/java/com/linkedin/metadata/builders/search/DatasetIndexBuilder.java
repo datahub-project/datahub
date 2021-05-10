@@ -2,6 +2,7 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
@@ -18,6 +19,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -140,6 +142,22 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   }
 
   @Nonnull
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+                                                        @Nonnull GlossaryTerms glossaryTerms) {
+    return new DatasetDocument().setUrn(urn)
+            .setGlossaryTerms(new StringArray(glossaryTerms.getTerms()
+                    .stream()
+                    .map(term -> {
+                      String name = term.getUrn().getNameEntity();
+                      if (name.contains(".")) {
+                        String[] nodes = name.split(Pattern.quote("."));
+                        return nodes[nodes.length - 1];
+                      }
+                      return name;
+                    }).collect(Collectors.toList())));
+  }
+
+  @Nonnull
   private List<DatasetDocument> getDocumentsToUpdateFromSnapshotType(@Nonnull DatasetSnapshot datasetSnapshot) {
     final DatasetUrn urn = datasetSnapshot.getUrn();
     final List<DatasetDocument> documents = datasetSnapshot.getAspects().stream().map(aspect -> {
@@ -159,6 +177,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getUpstreamLineage());
       } else if (aspect.isGlobalTags()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
+      } else if (aspect.isGlossaryTerms()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlossaryTerms());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());

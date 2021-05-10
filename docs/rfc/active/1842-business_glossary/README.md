@@ -31,9 +31,9 @@ Business terms can be linked to specific entities/tables and columns in a data a
 ### Sample Business Glossary Definition
 |URN|Business Term |Definition  | Domain/Namespace | Owner | Ext Source| Ext Reference |
 |--|--|--|--|--|--|--|
-|urn:li:businessTerm:(instrument.cashInstrument) | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
-|urn:li:businessTerm:(common.dateTime) | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
-|urn:li:businessTerm:(market.bidSize) | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - | - |
+|urn:li:glossaryTerm:instrument.cashInstrument | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
+|urn:li:glossaryTerm:common.dateTime | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
+|urn:li:glossaryTerm:market.bidSize | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - | - |
 |--|--|--|--|--|--|--|
 | | | | | | | |
 
@@ -51,7 +51,7 @@ Business terms can be linked to specific entities/tables and columns in a data a
 ### Stiching Together
 
 
-Business Glossary will be a first class entity where one can define the `BusinessTerm`s and this will be similar to entities like Dataset, CorporateUser etc. Business Term can be linked to other entities like Dataset, DatasetField. In future Business terms can be linked to Dashboards, Metrics etc
+Business Glossary will be a first class entity where one can define the `GlossaryTerm`s and this will be similar to entities like Dataset, CorporateUser etc. Business Term can be linked to other entities like Dataset, DatasetField. In future Business terms can be linked to Dashboards, Metrics etc
 
 
 ![high level design](business_glossary_rel.png)
@@ -63,21 +63,16 @@ Dataset (`DS-2`) it-self linked to Business Term `Term-4`
 
 ## Metadata Model Enhancements 
 
-There will be 1 top level GMA [entities](../../../what/entity.md) in the design: businessTerm (Business Glossary).
-It's important to make businessTerm as a top level entity because it can exist without a Dataset and can be defined independently by the business team.
+There will be 1 top level GMA [entities](../../../what/entity.md) in the design: glossaryTerm (Business Glossary).
+It's important to make glossaryTerm as a top level entity because it can exist without a Dataset and can be defined independently by the business team.
 
 ### URN Representation
-We'll define a [URNs](../../../what/urn.md): `BusinessTermUrn`.
+We'll define a [URNs](../../../what/urn.md): `GlossaryTermUrn`.
 These URNs should allow for unique identification of business term.  
 
-A business term  URN (BusinessTermUrn) will look like below:
+A business term  URN (GlossaryTermUrn) will look like below:
 ```
-urn:li:businessTerm:(<<namespace>>,<<name>>)
-```
-
-A Dataset Field URN(DatasetFieldUrn will be like below (this is being added as part of field-level-lineage [RFC](../../active/1841-lineage/field_level_lineage.md))
-```
-urn:li:datasetField:(<datasetUrn>,<fieldPath>)
+urn:li:glossaryTerm:<<name>>
 ```
 
 ### New Snapshot Object
@@ -86,33 +81,33 @@ There will be new snapshot object to onboard business terms along with definitio
 Path : metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/
 ```java
 /**
- * A metadata snapshot for a specific BusinessTerm entity.
+ * A metadata snapshot for a specific GlossaryTerm entity.
  */
-record BusinessTermSnapshot {
+record GlossaryTermSnapshot {
 
   /**
    * URN for the entity the metadata snapshot is associated with.
    */
-  urn: BusinessTermUrn
+  urn: GlossaryTermUrn
 
   /**
    * The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects.
    */
-  aspects: array[BusinessTermAspect]
+  aspects: array[GlossaryTermAspect]
 }
 ```
 
 Path : metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/
 
-### BusinessTermAspect
+### GlossaryTermAspect
 There will be new aspect defined to capture the required attributes & ownership information
 
 ```
 /**
- * A union of all supported metadata aspects for a BusinessTerm
+ * A union of all supported metadata aspects for a GlossaryTerm
  */
-typeref BusinessTermAspect = union[
-  BusinessTermInfo,
+typeref GlossaryTermAspect = union[
+  GlossaryTermInfo,
   Ownership
 ]
 ```
@@ -122,12 +117,12 @@ Business Term Entity Definition
 /**
  * Data model for a Business Term entity
  */
-record BusinessTermEntity includes BaseEntity {
+record GlossaryTermEntity includes BaseEntity {
 
   /**
    * Urn for the dataset
    */
-  urn: BusinessTermUrn
+  urn: GlossaryTermUrn
 
   /**
    * Business Term native name e.g. CashInstrument
@@ -137,13 +132,13 @@ record BusinessTermEntity includes BaseEntity {
 }
 ```
 
-### Entity BusinessTermInfo
+### Entity GlossaryTermInfo
 
 ```java
 /**
- * Properties associated with a BusinessTerm
+ * Properties associated with a GlossaryTerm
  */
-record BusinessTermInfo {
+record GlossaryTermInfo {
 
   /**
    * Definition of business term
@@ -153,7 +148,7 @@ record BusinessTermInfo {
   /**
    * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
    */
-  termSource: EnumType
+  termSource: string
 
   /**
    * External Reference to the business-term (URL)
@@ -163,7 +158,12 @@ record BusinessTermInfo {
   /**
    * The abstracted URI such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.
    */
-  sourceURI: optional uri
+  sourceUrl: optional Url
+
+  /**
+   * A key-value map to capture any other non-standardized properties for the glossary term
+   */
+  customProperties: map[string, string] = { }
 
 }
 
@@ -178,9 +178,9 @@ Business Terms will be owened by certain business users
  */
 @pairings = [ {
   "destination" : "com.linkedin.common.urn.CorpuserUrn",
-  "source" : "com.linkedin.common.urn.BusinessTermUrn"
+  "source" : "com.linkedin.common.urn.GlossaryTermUrn"
 }, {
-   "destination" : "com.linkedin.common.urn.BusinessTermUrn",
+   "destination" : "com.linkedin.common.urn.GlossaryTermUrn",
    "source" : "com.linkedin.common.urn.CorpuserUrn"
 } ]
 record OwnedBy includes BaseRelationship {
@@ -196,26 +196,45 @@ record OwnedBy includes BaseRelationship {
 Business Term can be asociated with Dataset Field as well as Dataset. Defning the aspect that can be asociated with Dataset and DatasetField 
 
 ```
-record BusinessTerm {
-   businessTermUrn : BusinessTermUrn, 
-   createdBy: ActorUrn
+record GlossaryTerms {
+  /**
+   * The related business terms
+   */
+  terms: array[GlossaryTermAssociation]
+
+  /**
+   * Audit stamp containing who reported the related business term
+   */
+  auditStamp: AuditStamp
+}
+
+record GlossaryTermAssociation {
+   /**
+    * Urn of the applied glossary term
+    */
+    urn: GlossaryTermUrn
 }
 ```
 
-Proposing to have an aspect model to DatasetField to associate with dependent aspects like Business Term (can add the lineage also later)
+Proposed to have the following changes to the SchemaField to associate (optionally) with Business Glossary (terms)
 
 ```
-/**
- * A union of all supported metadata aspects for a DatasetFiled
- */
-typeref DatasetFieldAspect = union[
-  SchemaField,
-+ BusinessTerm  
-]
+record SchemaField {
+  ...
+  /**
+   * Tags associated with the field
+   */
+  globalTags: optional GlobalTags
+
+ +/**
+ + * Glossary terms associated with the field
+ + */
+ +glossaryTerms: optional GlossaryTerms
+}
 ```
 
 
-Proposed to have the following changes to the Dataset aspect to associate (optionally) with Business Glossary (term)
+Proposed to have the following changes to the Dataset aspect to associate (optionally) with Business Glossary (terms)
 
 ```
 /**
@@ -229,40 +248,8 @@ typeref DatasetAspect = union[
   Ownership,
   Status,
   SchemaMetadata
-+ BusinessTerm  
++ GlossaryTerms
 ]
-```
-
-
-### How Dataset/DatasetField related to Business Term
-
-Proposed to introduce a new Relationship as RelatedTo (one way relationship), where one define a Dataset Field/Dataset related to certain Business Term
-
-Relationship with ```DatasetField```
-
-```java
-/**
- * A generic model for the Is-Part-Of relationship
- */
-@pairings = [ {
-  "destination" : "com.linkedin.common.urn.BusinessTermUrn",
-  "source" : "com.linkedin.common.urn.DatasetFieldUrn"
-} ]
-record RelatedTo includes BaseRelationship {
-}
-```
-
-Relationship with ```Dataset```
-```java
-/**
- * A generic model for the Is-Part-Of relationship
- */
-@pairings = [ {
-  "destination" : "com.linkedin.common.urn.BusinessTermUrn",
-  "source" : "com.linkedin.common.urn.DatasetUrn"
-} ]
-record RelatedTo includes BaseRelationship {
-}
 ```
 
 ## Metadata Graph
