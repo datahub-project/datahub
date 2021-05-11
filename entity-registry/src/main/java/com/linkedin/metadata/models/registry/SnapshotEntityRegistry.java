@@ -38,18 +38,4 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     public List<EntitySpec> getEntitySpecs() {
         return new ArrayList<>(entityNameToSpec.values());
     }
-
-    public EntitySpec getEntitySpec(@Nonnull final RecordDataSchema entitySnapshotSchema) {
-        final String entityName = getEntityNameFromSnapshot(entitySnapshotSchema);
-        return getEntitySpec(entityName);
-    }
-
-    private String getEntityNameFromSnapshot(final RecordDataSchema entitySnapshotSchema) {
-        final Object entityAnnotationObj = entitySnapshotSchema.getProperties().get("Entity");
-        if (entityAnnotationObj != null) {
-            return EntityAnnotation.fromSchemaProperty(entityAnnotationObj).getName();
-        }
-        throw new IllegalArgumentException(String.format("Failed to extract entity name from provided schema %s",
-                entitySnapshotSchema.getName()));
-    }
 }
