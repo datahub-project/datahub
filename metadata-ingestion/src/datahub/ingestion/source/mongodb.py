@@ -73,7 +73,8 @@ PYMONGO_TYPE_TO_TYPE_STRING = {
 
 
 def get_type_string(value):
-    """ Return mongo type string from a value
+    """
+    Return mongo type string from a value
     :param value:
     :return type_string: str
     """
@@ -116,7 +117,8 @@ TYPES_STRING_TREE = Tree(NEWICK_TYPES_STRING_TREE, format=8)
 
 
 def common_parent_type(list_of_type_string):
-    """ Get the common parent type from a list of types.
+    """
+    Get the common parent type from a list of types.
     :param list_of_type_string: list
     :return common_type: type_str
     """
@@ -150,63 +152,9 @@ def psql_type(mongo_type_str):
     return MONGO_TO_PSQL_TYPE[mongo_type_str]
 
 
-def extract_pymongo_client_schema(pymongo_client, database_names=None, collection_names=None, sample_size=0):
-    """ Extract the schema for every database in database_names
-    :param pymongo_client: pymongo.mongo_client.MongoClient
-    :param database_names: str, list of str, default None
-    :param collection_names: str, list of str, default None
-        Will be used for every database in database_names list
-    :param sample_size: int, default 0
-        Will be used for all collection
-    :return mongo_schema: dict
-    """
-
-    if isinstance(database_names, basestring):
-        database_names = [database_names]
-
-    if database_names is None:
-        database_names = pymongo_client.database_names()
-        database_names.remove('admin')
-        database_names.remove('local')
-
-    mongo_schema = {}
-    for database in database_names:
-        logger.info('Extract schema of database %s', database)
-        pymongo_database = pymongo_client[database]
-        database_schema = extract_database_schema(pymongo_database, collection_names, sample_size)
-        if database_schema:  # Do not add a schema if it is empty
-            mongo_schema[database] = database_schema
-
-    return mongo_schema
-
-
-def extract_database_schema(pymongo_database, collection_names=None, sample_size=0):
-    """ Extract the database schema, for every collection in collection_names
-    :param pymongo_database: pymongo.database.Database
-    :param collection_names: str, list of str, default None
-    :param sample_size: int, default 0
-    :return database_schema: dict
-    """
-    if isinstance(collection_names, basestring):
-        collection_names = [collection_names]
-
-    database_collections = pymongo_database.collection_names(include_system_collections=False)
-    if collection_names is None:
-        collection_names = database_collections
-    else:
-        collection_names = [col for col in collection_names if col in database_collections]
-
-    database_schema = {}
-    for collection in collection_names:
-        logger.info('...collection %s', collection)
-        pymongo_collection = pymongo_database[collection]
-        database_schema[collection] = extract_collection_schema(pymongo_collection, sample_size)
-
-    return database_schema
-
-
 def extract_collection_schema(pymongo_collection, sample_size=0):
-    """ Iterate through all document of a collection to create its schema
+    """
+    Iterate through all document of a collection to create its schema
     - Init collection schema
     - Add every document from MongoDB collection to the schema
     - Post-process schema
@@ -237,7 +185,8 @@ def extract_collection_schema(pymongo_collection, sample_size=0):
 
 
 def recursive_default_to_regular_dict(value):
-    """ If value is a dictionary, recursively replace defaultdict to regular dict
+    """
+    If value is a dictionary, recursively replace defaultdict to regular dict
     Note : defaultdict are instances of dict
     :param value:
     :return d: dict or original value
@@ -249,7 +198,8 @@ def recursive_default_to_regular_dict(value):
 
 
 def post_process_schema(object_count_schema):
-    """ Clean and add information to schema once it has been built
+    """
+    Clean and add information to schema once it has been built
     - compute the main type for each field
     - compute the proportion of non null values in the parent object
     - recursively postprocess nested object schemas
@@ -267,7 +217,8 @@ def post_process_schema(object_count_schema):
 
 
 def summarize_types(field_schema):
-    """ Summarize types information to one 'type' field
+    """
+    Summarize types information to one 'type' field
     Add a 'type' field, compatible with all encountered types in 'types_count'.
     This is done by taking the least common parent type between types.
     If 'ARRAY' type count is not null, the main type is 'ARRAY'.
@@ -295,7 +246,8 @@ def summarize_types(field_schema):
 
 
 def init_empty_object_schema():
-    """ Generate an empty object schema.
+    """
+    Generate an empty object schema.
     We use a defaultdict of empty fields schema. This avoid to test for the presence of fields.
     :return: defaultdict(empty_field_schema)
     """
@@ -311,7 +263,8 @@ def init_empty_object_schema():
 
 
 def add_document_to_object_schema(document, object_schema):
-    """ Add a all fields of a document to a local object_schema.
+    """
+    Add a all fields of a document to a local object_schema.
     :param document: dict
     contains a MongoDB Object
     :param object_schema: dict
@@ -321,7 +274,8 @@ def add_document_to_object_schema(document, object_schema):
 
 
 def add_value_to_field_schema(value, field_schema):
-    """ Add a value to a field_schema
+    """
+    Add a value to a field_schema
     - Update count or 'null_count' count.
     - Define or check the type of value.
     - Recursively add 'list' and 'dict' value to the schema.
@@ -337,7 +291,8 @@ def add_value_to_field_schema(value, field_schema):
 
 
 def add_potential_document_to_field_schema(document, field_schema):
-    """ Add a document to a field_schema
+    """
+    Add a document to a field_schema
     - Exit if document is not a dict
     :param document: dict (or skipped)
     :param field_schema:
@@ -349,7 +304,8 @@ def add_potential_document_to_field_schema(document, field_schema):
 
 
 def add_potential_list_to_field_schema(value_list, field_schema):
-    """ Add a list of values to a field_schema
+    """
+    Add a list of values to a field_schema
     - Exit if value_list is not a list
     - Define or check the type of each value of the list.
     - Recursively add 'dict' values to the schema.
@@ -369,7 +325,8 @@ def add_potential_list_to_field_schema(value_list, field_schema):
 
 
 def add_value_type(value, field_schema, type_str='types_count'):
-    """ Define the type_str in field_schema, or check it is equal to the one previously defined.
+    """
+    Define the type_str in field_schema, or check it is equal to the one previously defined.
     :param value:
     :param field_schema: dict
     :param type_str: str, either 'types_count' or 'array_types_count'
@@ -433,8 +390,6 @@ class MongoDBSource(Source):
             for collection_name in sorted(collection_names):
                 dataset_name = f"{database_name}.{collection_name}"
 
-                print(dataset_name)
-
                 if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
@@ -452,6 +407,7 @@ class MongoDBSource(Source):
 
                 # TODO: Guess the schema via sampling
                 # State of the art seems to be https://github.com/variety/variety.
+                collection_schema = extract_collection_schema(database[collection_name])
 
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
