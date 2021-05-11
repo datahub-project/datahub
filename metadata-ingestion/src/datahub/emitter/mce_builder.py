@@ -1,7 +1,7 @@
 """Convenience functions for creating MCEs"""
 
 import time
-from typing import List, Optional, Type, TypeVar, Union
+from typing import List, Optional, Type, TypeVar
 
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -49,14 +49,12 @@ def make_data_job_urn(
 
 
 def make_lineage_mce(
-    upstream_urns: Union[str, List[str]],
+    upstream_urns: List[str],
     downstream_urn: str,
     actor: str = make_user_urn("datahub"),
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
     sys_time = get_sys_time()
-    if not isinstance(upstream_urns, list):
-        upstream_urns = [upstream_urns]
 
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(

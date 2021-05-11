@@ -1,7 +1,4 @@
-import logging
 from typing import Callable, Iterable, List, Union
-
-from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -69,20 +66,24 @@ class AddDatasetOwnership(Transformer):
         return mce
 
 
-class SimpleDatasetOwnershipConfig(AddDatasetOwnershipConfig):
+class SimpleDatasetOwnershipConfig(ConfigModel):
     owner_urns: List[str]
-
-    @validator("get_owners_to_add", always=True)
-    def populate_owners_fn(cls, v, values):
-        breakpoint()
-        assert not v
-        return [
-            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
-            for owner in values["owner_urns"]
-        ]
+    default_actor: str = builder.make_user_urn("etl")
 
 
 class SimpleAddDatasetOwnership(AddDatasetOwnership):
+    def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
+        owners = [
+            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            for owner in config.owner_urns
+        ]
+
+        generic_config = AddDatasetOwnershipConfig(
+            get_owners_to_add=lambda _: owners,
+            default_actor=config.default_actor,
+        )
+        super().__init__(generic_config, ctx)
+
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext

@@ -3,22 +3,7 @@ import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.add_dataset_ownership import (
     SimpleAddDatasetOwnership,
-    SimpleDatasetOwnershipConfig,
 )
-
-
-def test_simple_dataset_ownership_config():
-    config = SimpleDatasetOwnershipConfig.parse_obj(
-        {
-            "owner_urns": [
-                builder.make_user_urn("person1"),
-                builder.make_user_urn("person2"),
-            ],
-            "default_actor": builder.make_user_urn("actor"),
-            "get_owners_to_add": None,
-        },
-    )
-    assert config.get_owners_to_add
 
 
 def test_simple_dataset_ownership_tranformation(mock_time):
@@ -85,7 +70,6 @@ def test_simple_dataset_ownership_tranformation(mock_time):
     assert len(outputs) == len(inputs)
 
     # Check the first entry.
-    assert inputs[0] != outputs[0].record
     first_ownership_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.OwnershipClass
     )
