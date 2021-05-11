@@ -30,8 +30,8 @@ public class AspectSpec {
                       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
                       final RecordDataSchema schema) {
         _aspectAnnotation = aspectAnnotation;
-        _searchableFieldSpecs = searchableFieldSpecs.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec));
-        _relationshipFieldSpecs = relationshipFieldSpec.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec));
+        _searchableFieldSpecs = searchableFieldSpecs.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec, (val1, val2) -> val1));
+        _relationshipFieldSpecs = relationshipFieldSpec.stream().collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec, (val1, val2) -> val1));
         _schema = schema;
     }
 

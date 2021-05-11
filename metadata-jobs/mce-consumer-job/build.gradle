@@ -7,6 +7,8 @@ apply plugin: 'pegasus'
 
 configurations {
     avro
+    all*.exclude module : 'spring-boot-starter-logging'
+    compile.exclude(group: 'ch.qos.logback')
 }
 
 dependencies {
@@ -20,6 +22,7 @@ dependencies {
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
     compile project(':metadata-dao-impl:restli-dao')
+    compile project(':metadata-io')
     compile spec.product.pegasus.restliClient
     compile spec.product.pegasus.restliCommon
     compile externalDependency.elasticSearchRest
@@ -36,7 +39,6 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
-    runtime externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

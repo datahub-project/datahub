@@ -168,7 +168,10 @@
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -245,7 +248,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -256,7 +262,10 @@
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
       "default" : false
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataFlow",
@@ -323,7 +332,10 @@
           "type" : "string",
           "doc" : "Optional project/namespace associated with the flow",
           "optional" : true
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "dataFlowInfo"
+        }
       },
       "doc" : "Optional additional metadata about the data flow",
       "optional" : true
@@ -625,7 +637,12 @@
         "items" : "com.linkedin.metadata.aspect.DataFlowAspect"
       },
       "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : false,
+      "name" : "dataFlow",
+      "searchable" : false
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
