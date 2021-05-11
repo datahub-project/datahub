@@ -79,7 +79,9 @@ class MongoDBSource(Source):
         platform = "mongodb"
 
         database_names: List[str] = self.mongo_client.list_database_names()
-        for database_name in database_names:
+
+        # traverse databases in sorted order so output is consistent
+        for database_name in sorted(database_names):
             if database_name in DENY_DATABASE_LIST:
                 continue
             if not self.config.database_pattern.allowed(database_name):
@@ -88,8 +90,13 @@ class MongoDBSource(Source):
 
             database = self.mongo_client[database_name]
             collection_names: List[str] = database.list_collection_names()
-            for collection_name in collection_names:
+
+            # traverse collections in sorted order so output is consistent
+            for collection_name in sorted(collection_names):
                 dataset_name = f"{database_name}.{collection_name}"
+
+                print(dataset_name)
+
                 if not self.config.collection_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue

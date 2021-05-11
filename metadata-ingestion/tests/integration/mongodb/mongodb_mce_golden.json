@@ -3,26 +3,6 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,mngdb.secondCollection,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": null,
-                        "description": null,
-                        "uri": null,
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    },
-    "proposedDelta": null
-},
-{
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,mngdb.emptyCollection,PROD)",
             "aspects": [
                 {
@@ -44,6 +24,26 @@
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,mngdb.firstCollection,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,mngdb.secondCollection,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
