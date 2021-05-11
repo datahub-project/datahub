@@ -84,10 +84,12 @@ spec:
               value: "{{ .Values.datahub.play.mem.buffer.size }}"
             - name: KAFKA_BOOTSTRAP_SERVER
               value: "{{ .Values.global.kafka.bootstrap.server }}"
-            - name: ELASTICSEARCH_HOST
+            - name: ELASTIC_CLIENT_HOST
               value: "{{ .Values.global.elasticsearch.host }}"
-            - name: ELASTICSEARCH_PORT
+            - name: ELASTIC_CLIENT_PORT
               value: "{{ .Values.global.elasticsearch.port }}"
+            - name: DATAHUB_TRACKING_TOPIC
+              value: "DataHubUsageEvent_v1"
             - name: DATAHUB_ANALYTICS_ENABLED
               value: "{{ .Values.global.datahub_analytics_enabled }}"
           {{- with .Values.extraEnvs }}
