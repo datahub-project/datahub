@@ -129,6 +129,7 @@
 .carousel {
   display: flex;
   overflow-x: scroll;
+  scroll-snap-type: x mandatory;
 }
 .carousel_logo_frame {
   background-color: #ffffff;
@@ -143,6 +144,7 @@
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
     var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  scroll-snap-align: start;
 }
 .carousel_logo_center {
   position: relative;
