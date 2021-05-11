@@ -24,7 +24,6 @@ public class EntitySpec {
         this(aspectSpecs, entityAnnotation, null, null);
     }
 
-
     public EntitySpec(@Nonnull final List<AspectSpec> aspectSpecs,
                       @Nonnull final EntityAnnotation entityAnnotation,
                       final RecordDataSchema snapshotSchema,
@@ -34,7 +33,6 @@ public class EntitySpec {
         _snapshotSchema = snapshotSchema;
         _aspectTyperefSchema = aspectTyperefSchema;
     }
-
 
     public String getName() {
         return _entityAnnotation.getName();

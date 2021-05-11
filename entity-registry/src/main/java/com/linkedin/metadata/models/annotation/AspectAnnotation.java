@@ -3,7 +3,6 @@ package com.linkedin.metadata.models.annotation;
 import lombok.Value;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 
