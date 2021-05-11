@@ -37,8 +37,15 @@ class KafkaConnectSourceReport(SourceReport):
     def report_dropped(self, connector: str) -> None:
         self.filtered.append(connector)
 
+@dataclass
+class KafkaConnectLineage:
+    """Class to store Kafka Connect lineage mapping"""
+    source_dataset: str
+    source_platform: str
+    target_dataset: str
+    target_platform: str
 
-def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iterable:
+def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iterable[KafkaConnectLineage]:
     connector_class = connector_config.get('connector.class')
     database = ''
     lineages = list()
@@ -82,12 +89,13 @@ def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iter
         found = re.search(re.compile(topic_name_pattern), topic)
         if found:
             table = database + re.search(topic_name_pattern, topic).group(2)
-            lineages.append({
-                "source_dataset": table,
-                "source_platform": source_platform,
-                "target_dataset": topic,
-                "target_platform": 'kafka',
-            })
+            lineage = KafkaConnectLineage(
+                source_dataset=table,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform='kafka',
+            )
+            lineages.append(lineage)
 
     return lineages
 
@@ -213,10 +221,10 @@ class KafkaConnectSource(Source):
         lineages = connector.get('lineages', [])
 
         for lineage in lineages:
-            source_dataset = lineage.get('source_dataset')
-            source_platform = lineage.get('source_platform')
-            target_dataset = lineage.get('target_dataset')
-            target_platform = lineage.get('target_platform')
+            source_dataset = lineage.source_dataset
+            source_platform = lineage.source_platform
+            target_dataset = lineage.target_dataset
+            target_platform = lineage.target_platform
 
             job_urn = builder.make_data_job_urn_with_flow(flow_urn, source_dataset)
 
