@@ -37,7 +37,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
                     final PathSpec path = new PathSpec(modifiedPath);
                     final RelationshipAnnotation annotation = RelationshipAnnotation
                             .fromPegasusAnnotationObject(annotationObj);
-                    final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, currentSchema, annotation);
+                    final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, annotation, currentSchema);
                     _specs.add(fieldSpec);
                 }
             } else {
@@ -50,7 +50,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
                     final RelationshipAnnotation annotation = RelationshipAnnotation
                             .fromPegasusAnnotationObject(annotationObj);
-                    final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, currentSchema, annotation);
+                    final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, annotation, currentSchema);
                     _specs.add(fieldSpec);
                 }
             }
