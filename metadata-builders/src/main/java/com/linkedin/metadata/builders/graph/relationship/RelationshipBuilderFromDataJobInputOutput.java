@@ -33,16 +33,21 @@ public class RelationshipBuilderFromDataJobInputOutput extends BaseRelationshipB
         .map(outputDataset -> new Produces().setSource(urn).setDestination(outputDataset))
         .collect(Collectors.toList());
 
-    final List<RunsBefore> upstreamTasksList = inputOutput.getInputDatajobs()
-            .stream()
-            .map(inputDatajob -> new RunsBefore().setSource(inputDatajob).setDestination(urn))
-            .collect(Collectors.toList());
-
-
-    return Arrays.asList(
-      new GraphBuilder.RelationshipUpdates(inputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
-      new GraphBuilder.RelationshipUpdates(outputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
-      new GraphBuilder.RelationshipUpdates(upstreamTasksList, REMOVE_ALL_EDGES_TO_DESTINATION)
-    );
+    if (inputOutput.getInputDatajobs() == null) {
+      return Arrays.asList(
+              new GraphBuilder.RelationshipUpdates(inputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
+              new GraphBuilder.RelationshipUpdates(outputsList, REMOVE_ALL_EDGES_FROM_SOURCE)
+      );
+    } else {
+      final List<RunsBefore> upstreamTasksList = inputOutput.getInputDatajobs()
+              .stream()
+              .map(inputDatajob -> new RunsBefore().setSource(inputDatajob).setDestination(urn))
+              .collect(Collectors.toList());
+      return Arrays.asList(
+              new GraphBuilder.RelationshipUpdates(inputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
+              new GraphBuilder.RelationshipUpdates(outputsList, REMOVE_ALL_EDGES_FROM_SOURCE),
+              new GraphBuilder.RelationshipUpdates(upstreamTasksList, REMOVE_ALL_EDGES_TO_DESTINATION)
+      );
+    }
   }
 }
