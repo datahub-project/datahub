@@ -589,8 +589,6 @@ transformers:
 A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
 At the moment there are no built-in transformers.
 
-TODO here
-
 ## Using as a library
 
 In some cases, you might want to construct the MetadataChangeEvents yourself but still use this framework to emit that metadata to DataHub. In this case, take a look at the emitter interfaces, which can easily be imported and called from your own code.
