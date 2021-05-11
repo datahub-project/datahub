@@ -406,7 +406,8 @@ class MongoDBSource(Source):
                 dataset_snapshot.aspects.append(dataset_properties)
 
                 # TODO: Guess the schema via sampling
-                # State of the art seems to be https://github.com/variety/variety.
+
+                # code adapted from https://github.com/pajachiet/pymongo-schema
                 collection_schema = extract_collection_schema(database[collection_name])
 
                 # TODO: use list_indexes() or index_information() to get index information
