@@ -618,7 +618,7 @@ _Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0
 2. Add the following lines to your `airflow.cfg` file. You might need to
    ```ini
    [lineage]
-   backend = datahub.integrations.airflow.DatahubAirflowLineageBackend
+   backend = datahub_provider.lineage.datahub.DatahubLineageBackend
    datahub_conn_id = datahub_rest_default  # or datahub_kafka_default - whatever you named the connection in step 1
    ```
 3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./examples/airflow/lineage_backend_demo.py).

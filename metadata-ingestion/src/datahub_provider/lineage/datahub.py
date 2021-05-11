@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models.baseoperator import BaseOperator
 
-    from datahub.integrations.airflow.hooks import DatahubGenericHook
+    from datahub_provider.hooks.datahub import DatahubGenericHook
 
 
 def _entities_to_urn_list(iolets: List) -> List[str]:
@@ -21,7 +21,7 @@ def _entities_to_urn_list(iolets: List) -> List[str]:
 
 def make_emitter_hook() -> "DatahubGenericHook":
     # This is necessary to avoid issues with circular imports.
-    from datahub.integrations.airflow.hooks import DatahubGenericHook
+    from datahub_provider.hooks.datahub import DatahubGenericHook
 
     _datahub_conn_id = conf.get("lineage", "datahub_conn_id")
     return DatahubGenericHook(_datahub_conn_id)

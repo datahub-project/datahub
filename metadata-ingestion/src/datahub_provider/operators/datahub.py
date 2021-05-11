@@ -3,12 +3,12 @@ from typing import List, Union
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
-from datahub.integrations.airflow.hooks import (
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub_provider.hooks.datahub import (
     DatahubGenericHook,
     DatahubKafkaHook,
     DatahubRestHook,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
 class DatahubBaseOperator(BaseOperator):

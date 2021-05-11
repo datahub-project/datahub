@@ -18,10 +18,10 @@ except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.entities import Dataset
-from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
-from datahub.integrations.airflow.operators import DatahubEmitterOperator
 from datahub_provider import get_provider_info
+from datahub_provider.entities import Dataset
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -101,7 +101,7 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         task = DatahubEmitterOperator(
@@ -163,14 +163,14 @@ def test_hook_airflow_ui(hook):
         "airflow-2-x-decl",
     ],
 )
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
     with mock.patch.dict(
         os.environ,
         {
-            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
         },
     ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(
