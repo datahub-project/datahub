@@ -121,10 +121,8 @@ class KafkaConnectSource(Source):
 
         # Test the connection
         test_response = self.session.get(f"{self.config.connect_uri}")
-        if test_response.status_code == 200:
-            logger.info(f"Connection OK = {self.config.connect_uri}")
-            pass
-            # TODO(Gabe): how should we message about this error?
+        test_response.raise_for_status()
+        logger.info(f"Connection to {self.config.connect_uri} is ok")
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -279,5 +277,5 @@ class KafkaConnectSource(Source):
 
         yield from self.emit_mces()
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> KafkaConnectSourceReport:
         return self.report
