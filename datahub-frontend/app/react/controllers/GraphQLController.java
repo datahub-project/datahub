@@ -6,9 +6,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.typesafe.config.Config;
+import org.apache.commons.io.IOUtils;
+import react.analytics.AnalyticsService;
 import react.auth.Authenticator;
 import graphql.ExecutionResult;
 import react.graphql.PlayQueryContext;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -16,8 +23,18 @@ import play.api.Environment;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Security;
+import react.resolver.AnalyticsChartTypeResolver;
+import react.resolver.GetChartsResolver;
+import react.resolver.GetHighlightsResolver;
 
 public class GraphQLController extends Controller {
+
+    private static final String FRONTEND_SCHEMA_NAME = "datahub-frontend.graphql";
+
+    private static final String QUERY_TYPE = "Query";
+    private static final String ANALYTICS_CHART_TYPE = "AnalyticsChart";
+    private static final String GET_ANALYTICS_CHARTS_QUERY = "getAnalyticsCharts";
+    private static final String GET_HIGHLIGHTS_QUERY = "getHighlights";
 
     private static final String QUERY = "query";
     private static final String VARIABLES = "variables";
@@ -26,11 +43,15 @@ public class GraphQLController extends Controller {
     private final Config _config;
 
     @Inject
-    public GraphQLController(@Nonnull Environment environment, @Nonnull Config config) {
+    public GraphQLController(@Nonnull Environment environment,
+                             @Nonnull Config config,
+                             @Nonnull AnalyticsService analyticsService) {
         /*
-         * Instantiate engine
+         * Initialize GraphQL Engine
          */
-        _engine = GmsGraphQLEngine.get();
+        _engine = isAnalyticsEnabled(config)
+                ? buildExtendedEngine(environment, analyticsService)
+                : GmsGraphQLEngine.get();
         _config = config;
     }
 
@@ -55,7 +76,7 @@ public class GraphQLController extends Controller {
          * Extract "variables" map
          */
         JsonNode variablesJson = bodyJson.get(VARIABLES);
-        Map<String, Object> variables = null;
+        Map<String, Object> variables = Collections.emptyMap();
         if (variablesJson != null) {
             variables = new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>(){ });
         }
@@ -74,5 +95,34 @@ public class GraphQLController extends Controller {
          * Format & Return Response
          */
         return ok(new ObjectMapper().writeValueAsString(executionResult.toSpecification()));
+    }
+
+    private GraphQLEngine buildExtendedEngine(@Nonnull Environment environment,
+                                              @Nonnull AnalyticsService analyticsService) {
+        /*
+         * Fetch path to custom GraphQL Type System Definition
+         */
+        String schemaString;
+        try {
+            final InputStream is = environment.resourceAsStream(FRONTEND_SCHEMA_NAME).get();
+            schemaString = IOUtils.toString(is, StandardCharsets.UTF_8);
+            is.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to find GraphQL Schema with name " + FRONTEND_SCHEMA_NAME, e);
+        }
+        return GmsGraphQLEngine.builder()
+                .addSchema(schemaString)
+                .configureRuntimeWiring(builder -> builder
+                        .type(QUERY_TYPE, typeWiring -> typeWiring
+                                .dataFetcher(GET_ANALYTICS_CHARTS_QUERY, new GetChartsResolver(analyticsService))
+                                .dataFetcher(GET_HIGHLIGHTS_QUERY, new GetHighlightsResolver(analyticsService)))
+                        .type(ANALYTICS_CHART_TYPE, typeWiring -> typeWiring
+                                .typeResolver(new AnalyticsChartTypeResolver())
+                        ))
+                .build();
+    }
+
+    private boolean isAnalyticsEnabled(final Config config) {
+        return !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
     }
 }

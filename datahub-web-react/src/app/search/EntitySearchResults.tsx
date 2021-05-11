@@ -11,6 +11,7 @@ import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { SearchFilters } from './SearchFilters';
 import { filtersToGraphqlParams } from './utils/filtersToGraphqlParams';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
     loading: { marginTop: '10%' },
@@ -73,6 +74,18 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     const lastResultIndex =
         pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
 
+    useEffect(() => {
+        if (!loading && !error) {
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                page,
+                query,
+                entityTypeFilter: type,
+                total: totalResults,
+            });
+        }
+    }, [page, query, totalResults, type, loading, error, data]);
+
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
             ? [...selectedFilters, { field, value }]
@@ -92,6 +105,18 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     const onCloseEditFilters = () => {
         setIsEditingFilters(false);
         setSelectedFilters(filters);
+    };
+
+    const onResultClick = (result: SearchResult, index: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: result.entity.urn,
+            entityType: result.entity.type,
+            entityTypeFilter: type,
+            index,
+            total: totalResults,
+        });
     };
 
     if (error || (!loading && !error && !data)) {
@@ -136,7 +161,9 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 split={false}
                 renderItem={(searchResult, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
+                        <List.Item onClick={() => onResultClick(searchResult, index)}>
+                            {entityRegistry.renderSearchResult(type, searchResult)}
+                        </List.Item>
                         {index < results.length - 1 && <Divider />}
                     </>
                 )}

@@ -4,12 +4,14 @@ import { AuditStamp, ChartType, EntityType, Ownership } from '../../../../types.
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
     content: { width: '100%' },
 };
 
 export type Props = {
+    urn: string;
     platform: string;
     description?: string | null;
     ownership?: Ownership | null;
@@ -18,8 +20,26 @@ export type Props = {
     chartType?: ChartType | null;
 };
 
-export default function ChartHeader({ platform, description, ownership, externalUrl, lastModified, chartType }: Props) {
+export default function ChartHeader({
+    urn,
+    platform,
+    description,
+    ownership,
+    externalUrl,
+    lastModified,
+    chartType,
+}: Props) {
     const entityRegistry = useEntityRegistry();
+
+    const openExternalUrl = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType: EntityType.Chart,
+            entityUrn: urn,
+        });
+        window.open(externalUrl || undefined, '_blank');
+    };
 
     return (
         <Space direction="vertical" size={15} style={styles.content}>
@@ -32,9 +52,7 @@ export default function ChartHeader({ platform, description, ownership, external
                         {capitalizeFirstLetter(platform.toLowerCase())}
                     </Typography.Text>
                     {externalUrl && (
-                        <Button onClick={() => window.open(externalUrl || undefined, '_blank')}>
-                            View in {capitalizeFirstLetter(platform)}
-                        </Button>
+                        <Button onClick={openExternalUrl}>View in {capitalizeFirstLetter(platform)}</Button>
                     )}
                 </Space>
             </Row>
