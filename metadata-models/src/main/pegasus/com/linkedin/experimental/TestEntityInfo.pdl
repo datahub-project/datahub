@@ -19,8 +19,8 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    * Title of the test entity
    */
   @Searchable = {
-    "indexType": "KEYWORD",
-    "field": "title"
+    "fieldName": "title",
+    "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
   }
   title: string
 
@@ -28,13 +28,17 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    *
    */
    @Searchable = {
-     "indexType": "KEYWORD"
+     "indexType": "KEYWORD",
+     "fieldName": "aliases",
+    "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
    }
    aliases: array[string]
 
    recordAliases: array[record AliasRecord {
        @Searchable = {
-         "indexType": "KEYWORD"
+         "indexType": "KEYWORD",
+        "fieldName": "alias",
+        "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
        }
        name: string
    }]

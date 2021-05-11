@@ -21,9 +21,6 @@ public class AspectAnnotation {
         }
         Map map = (Map) annotationObj;
         final Optional<Boolean> isKey = AnnotationUtils.getField(map, "isKey", Boolean.class);
-        if (!isKey.isPresent()) {
-            throw new IllegalArgumentException("Failed to validate required @Aspect field 'isKey' field of type Boolean");
-        }
-        return new AspectAnnotation(fullyQualifiedName, isKey.get());
+        return new AspectAnnotation(fullyQualifiedName, isKey.orElse(false));
     }
 }
