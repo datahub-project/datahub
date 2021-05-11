@@ -8,6 +8,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class EntitySpec {
@@ -24,12 +25,11 @@ public class EntitySpec {
         this(aspectSpecs, entityAnnotation, null, null);
     }
 
-
     public EntitySpec(@Nonnull final List<AspectSpec> aspectSpecs,
                       @Nonnull final EntityAnnotation entityAnnotation,
                       final RecordDataSchema snapshotSchema,
                       final TyperefDataSchema aspectTyperefSchema) {
-        _aspectSpecs = aspectSpecs != null ? aspectSpecs.stream().collect(Collectors.toMap(spec -> spec.getName(), spec -> spec)) : null;
+        _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
         _entityAnnotation = entityAnnotation;
         _snapshotSchema = snapshotSchema;
         _aspectTyperefSchema = aspectTyperefSchema;
@@ -41,11 +41,11 @@ public class EntitySpec {
     }
 
     public Boolean isSearchable() {
-        return _entityAnnotation.isBrowsable();
+        return _entityAnnotation.isSearchable();
     }
 
     public Boolean isBrowsable() {
-        return _entityAnnotation.isSearchable();
+        return _entityAnnotation.isBrowsable();
     }
 
     public List<AspectSpec> getAspectSpecs() {

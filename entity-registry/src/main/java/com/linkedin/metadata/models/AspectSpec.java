@@ -40,7 +40,7 @@ public class AspectSpec {
     }
 
     public Boolean isKey() {
-        return _aspectAnnotation.isKey();
+        return _aspectAnnotation.getIsKey();
     }
 
     public Map<PathSpec, SearchableFieldSpec> getSearchableFieldSpecMap() {

@@ -1,11 +1,14 @@
 package com.linkedin.metadata.models.annotation;
 
-import java.util.*;
-import javax.annotation.Nonnull;
-
-import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
+
+import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 
 /**
@@ -14,11 +17,13 @@ import org.apache.commons.lang3.EnumUtils;
 @Value
 public class SearchableAnnotation {
     // Name of the field in the search index
-    String _fieldName;
+    String fieldName;
+    // Whether we should use the field for default autocomplete
+    boolean isDefaultAutocomplete;
     // Whether or not to add field to filters. Note, if set to true, the first index setting needs to be of type KEYWORD
-    boolean _addToFilters;
+    boolean addToFilters;
     // List of settings for indexing the field. The first setting is used as default.
-    List<IndexSetting> _indexSettings;
+    List<IndexSetting> indexSettings;
 
     /**
      * Type of indexing to be done for the field
@@ -75,6 +80,7 @@ public class SearchableAnnotation {
         if (!fieldName.isPresent()) {
             throw new IllegalArgumentException("Failed to validate required Searchable field 'fieldName' field of type String");
         }
+        final Optional<Boolean> isDefaultAutocomplete = AnnotationUtils.getField(map, "isDefaultAutocomplete", Boolean.class);
         final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
         final Optional<List> indexSettingsList = AnnotationUtils.getField(map, "indexSettings", List.class);
         if (!indexSettingsList.isPresent() || indexSettingsList.get().isEmpty()) {
@@ -84,6 +90,14 @@ public class SearchableAnnotation {
         for (Object indexSettingObj : indexSettingsList.get()) {
             indexSettings.add(SearchableAnnotation.getIndexSettingFromObject(indexSettingObj));
         }
-        return new SearchableAnnotation(fieldName.get(), addToFilters.orElse(false), indexSettings);
+
+        // If the field is being added to filters, the first index setting must be of type KEYWORD
+        if (addToFilters.orElse(false)) {
+            if (indexSettings.get(0).getIndexType() != IndexType.KEYWORD) {
+                throw new IllegalArgumentException("Failed to validate Searchable annotation: Fields with addToDefaultQuery "
+                        + "set to true, must have a setting of type KEYWORD as it's first index setting");
+            }
+        }
+        return new SearchableAnnotation(fieldName.get(), isDefaultAutocomplete.orElse(false), addToFilters.orElse(false), indexSettings);
     }
 }

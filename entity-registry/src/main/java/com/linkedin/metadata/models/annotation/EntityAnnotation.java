@@ -12,9 +12,9 @@ import java.util.Optional;
 @Value
 public class EntityAnnotation {
 
-    String _name;
-    boolean _searchable;
-    boolean _browsable;
+    String name;
+    boolean searchable;
+    boolean browsable;
 
     public static EntityAnnotation fromSchemaProperty(@Nonnull final Object annotationObj) {
         if (!Map.class.isAssignableFrom(annotationObj.getClass())) {

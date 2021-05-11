@@ -14,8 +14,8 @@ import java.util.Optional;
 @Value
 public class RelationshipAnnotation {
 
-    String _name;
-    List<String> _validDestinationTypes;
+    String name;
+    List<String> validDestinationTypes;
 
     public static RelationshipAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj) {
         if (!Map.class.isAssignableFrom(annotationObj.getClass())) {

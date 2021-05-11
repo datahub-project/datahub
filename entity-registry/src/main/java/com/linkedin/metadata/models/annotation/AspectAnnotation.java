@@ -3,7 +3,6 @@ package com.linkedin.metadata.models.annotation;
 import lombok.Value;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 
@@ -12,8 +11,9 @@ import java.util.Optional;
  */
 @Value
 public class AspectAnnotation {
-    String _name;
-    Boolean _isKey;
+
+    String name;
+    Boolean isKey;
 
     public static AspectAnnotation fromSchemaProperty(@Nonnull final Object annotationObj, @Nonnull final String fullyQualifiedName) {
         if (!Map.class.isAssignableFrom(annotationObj.getClass())) {

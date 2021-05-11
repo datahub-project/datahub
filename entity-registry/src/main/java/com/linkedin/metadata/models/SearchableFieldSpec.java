@@ -5,6 +5,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 public class SearchableFieldSpec {
 
@@ -24,8 +25,20 @@ public class SearchableFieldSpec {
         return _path;
     }
 
-    public SearchableAnnotation.IndexType getIndexType() {
-        return _searchableAnnotation.getIndexType();
+    public String getFieldName() {
+        return _searchableAnnotation.getFieldName();
+    }
+
+    public boolean isDefaultAutocomplete() {
+        return _searchableAnnotation.isDefaultAutocomplete();
+    }
+
+    public boolean addToFilters() {
+        return _searchableAnnotation.isAddToFilters();
+    }
+
+    public List<SearchableAnnotation.IndexSetting> getIndexSettings() {
+        return _searchableAnnotation.getIndexSettings();
     }
 
     public DataSchema getPegasusSchema() {
