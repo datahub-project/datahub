@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import bson
 import pymongo
@@ -335,6 +335,23 @@ def add_value_type(value, field_schema, type_str='types_count'):
     field_schema[type_str][value_type_str] += 1
 
 
+def flatten_schema(nested_schema: Dict[str, Any], parent: str, delimiter: str) -> List[str]:
+    """
+    Flatten a nested schema by concatenating keys with a given delimiter.
+    """
+
+    flattened = []
+
+    for key in list(nested_schema):
+        initial = "" if parent == "" else delimiter
+        
+        if type(nested_schema[key]) == dict:
+
+            flattened.extend(flatten_schema(nested_schema[key], initial.join((parent, key)), delimiter))
+        else:
+            flattened.extend([initial.join((parent, key))])
+    return flattened
+
 @dataclass
 class MongoDBSource(Source):
     config: MongoDBConfig
@@ -409,6 +426,8 @@ class MongoDBSource(Source):
 
                 # code adapted from https://github.com/pajachiet/pymongo-schema
                 collection_schema = extract_collection_schema(database[collection_name])
+                from pprint import pprint
+                pprint(collection_schema)
 
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
