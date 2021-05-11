@@ -32,7 +32,7 @@ spec:
         {{- with .Values.global.credentialsAndCertsSecrets }}
         - name: datahub-certs-dir
           secret:
-            defaultMode: 256
+            defaultMode: 0444
             secretName: {{ .name }}
         {{- end }}
       {{- with .Values.kafkaSetupJob.extraVolumes }}
