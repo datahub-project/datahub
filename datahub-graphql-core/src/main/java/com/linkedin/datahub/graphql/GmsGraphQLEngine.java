@@ -40,7 +40,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
-
+import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
@@ -84,6 +84,7 @@ public class GmsGraphQLEngine {
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
+    public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -97,7 +98,8 @@ public class GmsGraphQLEngine {
             TAG_TYPE,
             ML_MODEL_TYPE,
             DATA_FLOW_TYPE,
-            DATA_JOB_TYPE
+            DATA_JOB_TYPE,
+            GLOSSARY_TERM_TYPE
     );
 
     /**
@@ -224,6 +226,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("dataJob", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
                                 DATA_JOB_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                GLOSSARY_TERM_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }

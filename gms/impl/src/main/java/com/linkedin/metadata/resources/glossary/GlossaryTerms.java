@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
+import com.linkedin.data.template.StringArray;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
@@ -214,4 +215,11 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
     return super.browse(path, filter, start, limit);
   }
 
+  @Action(name = ACTION_GET_BROWSE_PATHS)
+  @Override
+  @Nonnull
+  public Task<StringArray> getBrowsePaths(
+          @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
+    return super.getBrowsePaths(urn);
+  }
 }
