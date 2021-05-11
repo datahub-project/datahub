@@ -11,13 +11,13 @@
     "serve": "docusaurus serve",
     "clear": "docusaurus clear && rm -rf genDocs/*",
     "generate": "rm -rf genDocs/* && ts-node generateDocsDir.ts",
-    "lint": "prettier -w generateDocsDir.ts sidebars.js",
-    "lint-check": "prettier -l generateDocsDir.ts sidebars.js"
+    "lint": "prettier -w generateDocsDir.ts sidebars.js src/pages/index.js",
+    "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js"
   },
   "dependencies": {
     "@docusaurus/core": "2.0.0-alpha.69",
-    "@docusaurus/preset-classic": "2.0.0-alpha.69",
     "@docusaurus/plugin-ideal-image": "2.0.0-alpha.69",
+    "@docusaurus/preset-classic": "2.0.0-alpha.69",
     "clsx": "^1.1.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0"
@@ -35,7 +35,7 @@
     ]
   },
   "devDependencies": {
-    "prettier": "^2.2.1",
+    "prettier": "^2.3.0",
     "ts-node": "^9.1.1",
     "typescript": "^4.1.5"
   }
