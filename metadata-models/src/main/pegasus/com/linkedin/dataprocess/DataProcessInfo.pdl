@@ -5,6 +5,9 @@ import com.linkedin.common.DatasetUrn
 /**
  * The inputs and outputs of this data process
  */
+@Aspect = {
+  "name": "dataProcessInfo"
+}
 record DataProcessInfo {
 
   /**

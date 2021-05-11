@@ -1,5 +1,6 @@
 package com.linkedin.metadata.dao;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.template.DataTemplate;
@@ -44,6 +45,13 @@ public class EntityDao {
             @Nonnull String entityName,
             @Nonnull Set<AspectKey<Urn, ? extends RecordTemplate>> keys) {
         return _entityNameToLocalDao.get(entityName).get(keys);
+    }
+
+    public RecordTemplate add(@Nonnull String entityName,
+                              @Nonnull Urn urn,
+                              @Nonnull RecordTemplate aspect,
+                              @Nonnull AuditStamp auditStamp) {
+        return _entityNameToLocalDao.get(entityName).add(urn, aspect, auditStamp);
     }
 
     private Class<? extends DataTemplate> getDataSchemaClassFromSchema(final NamedDataSchema schema) {

@@ -10,6 +10,9 @@ import com.linkedin.common.ExternalReference
 /**
  * Information about a chart
  */
+@Aspect = {
+  "name": "chartInfo"
+}
 record ChartInfo includes CustomProperties, ExternalReference {
 
   /**

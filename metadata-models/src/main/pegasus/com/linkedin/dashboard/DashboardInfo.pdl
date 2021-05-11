@@ -11,6 +11,9 @@ import com.linkedin.common.ExternalReference
 /**
  * Information about a dashboard
  */
+@Aspect = {
+  "name": "dashboardInfo"
+}
 record DashboardInfo includes CustomProperties, ExternalReference {
 
   /**

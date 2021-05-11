@@ -3,6 +3,9 @@ namespace com.linkedin.chart
 /**
  * Information for chart query which is used for getting data of the chart
  */
+@Aspect = {
+  "name": "chartQuery"
+}
 record ChartQuery {
 
   /**

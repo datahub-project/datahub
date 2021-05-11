@@ -35,7 +35,6 @@ public class EntitySpec {
         _aspectTyperefSchema = aspectTyperefSchema;
     }
 
-
     public String getName() {
         return _entityAnnotation.getName();
     }

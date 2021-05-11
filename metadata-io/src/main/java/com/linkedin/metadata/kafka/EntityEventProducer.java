@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.data.schema.NamedDataSchema;
+import com.linkedin.data.template.DataTemplate;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.BaseMetadataEventProducer;
@@ -31,8 +32,8 @@ public class EntityEventProducer {
             _entityNameToProducer.put(
                     spec.getName(),
                     new KafkaMetadataEventProducer(
-                            getRecordTemplateClassFromSchema(spec.getSnapshotSchema()),
-                            getRecordTemplateClassFromSchema(spec.getAspectTyperefSchema()),
+                            getDataSchemaClassFromSchema(spec.getSnapshotSchema()),
+                            getDataSchemaClassFromSchema(spec.getAspectTyperefSchema()),
                             producer,
                             topicConvention,
                             new KafkaProducerCallback()
@@ -45,10 +46,10 @@ public class EntityEventProducer {
         return _entityNameToProducer.get(entityName);
     }
 
-    private Class<? extends RecordTemplate> getRecordTemplateClassFromSchema(final NamedDataSchema schema) {
-        Class<? extends RecordTemplate> clazz;
+    private Class<? extends DataTemplate> getDataSchemaClassFromSchema(final NamedDataSchema schema) {
+        Class<? extends DataTemplate> clazz;
         try {
-            clazz = Class.forName(schema.getFullName()).asSubclass(RecordTemplate.class);
+            clazz = Class.forName(schema.getFullName()).asSubclass(DataTemplate.class);
         } catch (ClassNotFoundException e) {
             throw new ModelConversionException("Unable to find class " + schema.getFullName(), e);
         }
