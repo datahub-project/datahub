@@ -525,7 +525,7 @@ Extracts:
 source:
   type: "lookml"
   config:
-    base_fodler: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
+    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
     connection_to_platform_map: # mapping between connection names in the model files to platform names.
       my_snowflake_conn: snowflake
     platform_name: looker_views # Optional, default is "looker_views"
@@ -550,23 +550,18 @@ Extracts:
 
 ```yml
 source:
-  type: "lookml"
+  type: "looker"
   config:
-    base_fodler: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
-    connection_to_platform_map: # mapping between connection names in the model files to platform names.
-      my_snowflake_conn: snowflake
-    platform_name: looker_views # Optional, default is "looker_views"
-    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
-    model_pattern: {}
-    view_pattern: {}
-    env: "PROD" # Optional, default is "PROD"
-    parse_table_names_from_sql: False # See note below.
+    client_id: str # Your Looker API client ID. As your Looker admin
+    client_secret: str # Your Looker API client secret. As your Looker admin
+    base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+    platform_name: str = "looker" # Optional, default is "looker"
+    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
+    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    env: str = "PROD" # Optional, default is "PROD"
 ```
-
-Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
-views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
-Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
-`parse_table_names_from_sql: True`.
 
 ### File `file`
 
