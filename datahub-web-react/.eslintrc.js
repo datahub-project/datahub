@@ -22,6 +22,7 @@ module.exports = {
     },
     rules: {
         eqeqeq: ['error', 'always'],
+        'react/destructuring-assignment': 'warn',
         'no-console': 'warn',
         'no-debugger': 'warn',
         'require-await': 'warn',
@@ -40,8 +41,9 @@ module.exports = {
             },
         ],
         '@typescript-eslint/no-empty-interface': 'off',
-        '@typescript-eslint/explicit-module-boundary-types': 'off',
         'react/destructuring-assignment': 'warn',
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "@typescript-eslint/no-explicit-any": 'off',
     },
     settings: {
         react: {

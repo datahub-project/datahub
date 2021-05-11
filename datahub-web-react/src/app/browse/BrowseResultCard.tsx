@@ -24,11 +24,12 @@ export interface BrowseResultProps {
     name: string;
     count?: number | undefined;
     type: string;
+    onClick?: () => void;
 }
 
-export default function BrowseResultCard({ url, count, name, type }: BrowseResultProps) {
+export default function BrowseResultCard({ url, count, name, type, onClick }: BrowseResultProps) {
     return (
-        <Link to={url}>
+        <Link to={url} onClick={onClick}>
             <ResultCard hoverable>
                 <Row style={styles.row} justify="space-between">
                     <Space size="middle" align="center">
