@@ -1,11 +1,16 @@
 import logging
+from typing import Callable, Iterable, List, NoReturn, Union
 
+import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
-    SchemaMetadataClass,
-    TagAssociationClass,
+    OwnerClass,
+    OwnershipClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,61 +25,52 @@ TABLE_TAGS = {
 }
 
 
+class AddDatasetOwnershipConfig(ConfigModel):
+    # Workaround for https://github.com/python/mypy/issues/708.
+    # Suggested by https://stackoverflow.com/a/64528725/5004662.
+    get_owners_to_add: Union[
+        Callable[[DatasetSnapshotClass], List[OwnerClass]], NoReturn
+    ]
+    default_actor: str = builder.make_user_urn("etl")
+
+
 class AddDatasetOwnership(Transformer):
-    def __init__(self, config):
+    ctx: PipelineContext
+    config: AddDatasetOwnershipConfig
+
+    def __init__(self, config: AddDatasetOwnershipConfig, ctx: PipelineContext):
+        self.ctx = ctx
         self.config = config
 
-    def transform(self, record_envelopes):
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetOwnership":
+        config = AddDatasetOwnershipConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+    def transform(
+        self, record_envelopes: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
             if isinstance(envelope.record, MetadataChangeEventClass):
                 envelope.record = self.transform_one(envelope.record)
             yield envelope
-            # print(envelope.record, type(envelope.record))
-            # print(
-            #     envelope.record.proposedSnapshot, type(envelope.record.proposedSnapshot)
-            # )
-            # print(
-            #     envelope.record.proposedSnapshot.urn,
-            #     type(envelope.record.proposedSnapshot.urn),
-            # )
-            # yield envelope
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
 
-        urn = mce.proposedSnapshot.urn
-        if urn in TABLE_TAGS:
-            for aspect in mce.proposedSnapshot.aspects:
-                if isinstance(aspect, SchemaMetadataClass):
-                    for field in aspect.fields:
-                        if isinstance(field, SchemaFieldClass):
-                            if field.fieldPath in TABLE_TAGS[urn]:
-                                if "description" in TABLE_TAGS[urn][field.fieldPath]:
-                                    desc = TABLE_TAGS[urn][field.fieldPath][
-                                        "description"
-                                    ]
-                                    logger.info(
-                                        "Setting table %s field %s description: %s",
-                                        urn,
-                                        field.fieldPath,
-                                        desc,
-                                    )
-                                    field.description = TABLE_TAGS[urn][
-                                        field.fieldPath
-                                    ]["description"]
-                                if "tags" in TABLE_TAGS[urn][field.fieldPath]:
-                                    tags = TABLE_TAGS[urn][field.fieldPath]["tags"]
-                                    logger.info(
-                                        "Setting table %s field %s tags: %s",
-                                        urn,
-                                        field.fieldPath,
-                                        tags,
-                                    )
-                                    field.globalTags = GlobalTagsClass(
-                                        tags=[TagAssociationClass(tag=t) for t in tags]
-                                    )
+        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+        if owners_to_add:
+            ownership = builder.get_or_add_aspect(
+                mce,
+                OwnershipClass(
+                    owners=[],
+                    lastModified=AuditStampClass(
+                        time=builder.get_sys_time(),
+                        actor=self.config.default_actor,
+                    ),
+                ),
+            )
+            ownership.owners.extend(owners_to_add)
 
-    @classmethod
-    def create(cls, config_dict, ctx):
-        return cls(config_dict)
+        return mce
