@@ -6,6 +6,7 @@ from freezegun import freeze_time
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
+
 @freeze_time("2021-05-08 07:00:00")
 def test_lookml_ingest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
