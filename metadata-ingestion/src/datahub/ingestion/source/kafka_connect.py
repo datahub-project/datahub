@@ -129,7 +129,7 @@ class KafkaConnectSource(Source):
         config = KafkaConnectConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_connectors(self):
+    def get_connectors_manifest(self):
         """Get Kafka Connect connectors manifest using REST API.
 
         Enrich with lineages metadata.
@@ -176,7 +176,7 @@ class KafkaConnectSource(Source):
 
             self.connectors_manifest.append(manifest)
 
-    def construct_flow_mce(self, connector) -> MetadataWorkUnit:
+    def construct_flow_workunit(self, connector) -> MetadataWorkUnit:
         connector_name = connector.get('name')
         connector_type = connector.get('type', "")
         connector_class = connector.get('config', {}).get('connector.class')
@@ -198,13 +198,15 @@ class KafkaConnectSource(Source):
                 ],
             )
         )
-        return mce
 
-    def construct_job_mces(self, connector) -> Iterable[MetadataWorkUnit]:
+        wu = MetadataWorkUnit(id=connector_name, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+
+    def construct_job_workunits(self, connector) -> Iterable[MetadataWorkUnit]:
         connector_name = connector.get('name')
         flow_urn = builder.make_data_flow_urn('kafka-connect', connector_name, self.config.env)
 
-        job_mces = list()
         job_property_bag = {}
 
         lineages = connector.get('lineages', [])
@@ -241,41 +243,25 @@ class KafkaConnectSource(Source):
                 )
             )
 
-            job_mces.append({"id": source_dataset, "mce": mce})
+            wu = MetadataWorkUnit(id=source_dataset, mce=mce)
+            self.report.report_workunit(wu)
+            yield wu
 
-        return job_mces
 
-    def emit_mces(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        mces = list()
+        self.get_connectors_manifest()
 
         for connector in self.connectors_manifest:
             name = connector.get('name')
-
             if self.config.connector_patterns.allowed(name):
-                flow_mce = self.construct_flow_mce(connector=connector)
-                mces.append({"id": name, "mce": flow_mce})
-
-                job_mces = self.construct_job_mces(connector=connector)
-                for job_mce in job_mces:
-                    mces.append(job_mce)
+                yield from self.construct_flow_workunit(connector)
+                yield from self.construct_job_workunits(connector)
 
                 self.report.report_connector_scanned(name)
 
             else:
                 self.report.report_dropped(name)
-
-        for mce in mces:
-            wu = MetadataWorkUnit(id=mce["id"], mce=mce["mce"])
-            self.report.report_workunit(wu)
-
-            yield wu
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
-        self.get_connectors()
-
-        yield from self.emit_mces()
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
