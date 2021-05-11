@@ -275,6 +275,59 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "GlossaryTermAssociation",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Properties of an applied glossary term.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : {
+        "type" : "typeref",
+        "name" : "GlossaryTermUrn",
+        "doc" : "Business Term",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.GlossaryTermUrn"
+        },
+        "validate" : {
+          "com.linkedin.common.validator.TypedUrnValidator" : {
+            "accessible" : true,
+            "constructable" : true,
+            "doc" : "business term",
+            "entityType" : "glossaryTerm",
+            "fields" : [ {
+              "doc" : "The name of business term with hierarchy.",
+              "name" : "name",
+              "type" : "string"
+            } ],
+            "maxLength" : 56,
+            "name" : "GlossaryTerm",
+            "namespace" : "li",
+            "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+            "owningTeam" : "urn:li:internalTeam:datahub"
+          }
+        }
+      },
+      "doc" : "Urn of the applied glossary term"
+    } ]
+  }, "com.linkedin.common.GlossaryTermUrn", {
+    "type" : "record",
+    "name" : "GlossaryTerms",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Related business terms information",
+    "fields" : [ {
+      "name" : "terms",
+      "type" : {
+        "type" : "array",
+        "items" : "GlossaryTermAssociation"
+      },
+      "doc" : "The related business terms"
+    }, {
+      "name" : "auditStamp",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the related business term"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
     "doc" : "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.",
@@ -830,6 +883,11 @@
                 "type" : "com.linkedin.common.GlobalTags",
                 "doc" : "Tags associated with the field",
                 "optional" : true
+              }, {
+                "name" : "glossaryTerms",
+                "type" : "com.linkedin.common.GlossaryTerms",
+                "doc" : "Glossary terms associated with the field",
+                "optional" : true
               } ]
             }
           },
@@ -989,6 +1047,11 @@
       "type" : "com.linkedin.common.Url",
       "doc" : "External URL associated with the dataset",
       "optional" : true
+    }, {
+      "name" : "glossaryTerms",
+      "type" : "com.linkedin.common.GlossaryTerms",
+      "doc" : "Related business terms of the dataset",
+      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", {
     "type" : "record",
@@ -1100,7 +1163,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",

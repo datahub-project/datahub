@@ -138,7 +138,7 @@ class DatahubLineageBackend(LineageBackend):
 
         tags = models.GlobalTagsClass(
             tags=[
-                models.TagAssociationClass(tag=f"airflow_{tag}")
+                models.TagAssociationClass(tag=builder.make_tag_urn(f"airflow_{tag}"))
                 for tag in (dag.tags or [])
             ]
         )

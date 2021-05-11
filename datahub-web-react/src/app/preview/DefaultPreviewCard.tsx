@@ -27,11 +27,16 @@ const DescriptionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const PreviewImage = styled(Image)`
+    max-height: 48px;
+    width: auto;
+    object-fit: contain;
+`;
+
 const styles = {
     row: { width: '100%', marginBottom: '0px' },
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
-    logoImage: { width: '48px' },
     name: { fontSize: '18px' },
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
@@ -56,7 +61,7 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
-                        {logoUrl && <Image style={styles.logoImage} src={logoUrl} preview />}
+                        {logoUrl && <PreviewImage src={logoUrl} preview />}
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>
                                 {name}

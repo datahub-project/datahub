@@ -131,3 +131,5 @@ create_index $(get_index_name dataprocessdocument) data-process/settings.json da
 create_index $(get_index_name datasetdocument) dataset/settings.json dataset/mappings.json || exit 1
 create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/mappings.json || exit 1
 create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
+create_index $(get_index_name glossaryterminfodocument) glossary/term/settings.json glossary/term/mappings.json || exit 1
+create_index $(get_index_name glossarynodeinfodocument) glossary/node/settings.json glossary/node/mappings.json || exit 1
