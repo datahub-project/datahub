@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * Properties of an applied glossary term.
+ */
+record GlossaryTermAssociation {
+   /**
+    * Urn of the applied glossary term
+    */
+    urn: GlossaryTermUrn
+}
