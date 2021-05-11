@@ -6,6 +6,11 @@ import com.linkedin.metadata.aspect.TagAspect
 /**
  * A metadata snapshot for a specific dataset entity.
  */
+@Entity = {
+ "name": "tag",
+ "searchable": false,
+ "browsable": false
+}
 record TagSnapshot {
 
   /**

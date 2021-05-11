@@ -6,6 +6,11 @@ import com.linkedin.metadata.aspect.DashboardAspect
 /**
  * A metadata snapshot for a specific Dashboard entity.
  */
+@Entity = {
+  "name": "dashboard",
+  "searchable": false,
+  "browsable": false
+}
 record DashboardSnapshot {
 
   /**

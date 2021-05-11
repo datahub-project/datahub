@@ -324,7 +324,7 @@
     "fields" : [ {
       "name" : "urn",
       "type" : "com.linkedin.common.Urn",
-      "doc" : "Key for the entity the metadata snapshot is associated with."
+      "doc" : "URN for the entity the metadata snapshot is associated with."
     }, {
       "name" : "aspects",
       "type" : {

@@ -18,6 +18,7 @@ public class EntitySpecBuilder {
     private EntitySpecBuilder() { }
 
     public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema) {
+
         final UnionDataSchema snapshotUnionSchema = (UnionDataSchema) snapshotSchema.getDereferencedDataSchema();
         final List<UnionDataSchema.Member> unionMembers = snapshotUnionSchema.getMembers();
 
@@ -46,7 +47,10 @@ public class EntitySpecBuilder {
 
             final List<AspectSpec> aspectSpecs = new ArrayList<>();
             for (UnionDataSchema.Member member : unionMembers) {
-                aspectSpecs.add(getAspectSpec(member.getType()));
+                final AspectSpec spec = getAspectSpec(member.getType());
+                if (spec != null) {
+                    aspectSpecs.add(spec);
+                }
             }
 
             return new EntitySpec(aspectSpecs,

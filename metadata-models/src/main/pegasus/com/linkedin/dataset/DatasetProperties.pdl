@@ -7,6 +7,9 @@ import com.linkedin.common.ExternalReference
 /**
  * Properties associated with a Dataset
  */
+@Aspect = {
+  "name": "datasetProperties"
+}
 record DatasetProperties includes CustomProperties, ExternalReference {
 
   /**

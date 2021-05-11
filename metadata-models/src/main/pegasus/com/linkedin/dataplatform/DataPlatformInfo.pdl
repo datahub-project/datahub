@@ -5,6 +5,9 @@ import com.linkedin.common.Url
 /**
  * Information about a data platform
  */
+@Aspect = {
+  "name": "dataPlatformInfo"
+}
 record DataPlatformInfo {
 
   /**

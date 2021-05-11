@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.template.DataTemplate;
@@ -16,6 +17,8 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.server.annotations.Action;
+import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -85,14 +88,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             @Nonnull Set<String> urnStrs,
             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return RestliUtils.toTask(() -> {
-            final List<Urn> urns =
-                    urnStrs.stream().map(urnStr -> {
-                        try {
-                            return Urn.createFromString(urnStr);
-                        } catch (URISyntaxException e) {
-                            throw new RuntimeException(String.format("Failed to create valid urn from string %s", urnStr));
-                        }
-                    }).collect(Collectors.toList());
+            final List<Urn> urns = urnStrs.stream().map(urnStr -> {
+                    try {
+                        return Urn.createFromString(urnStr);
+                    } catch (URISyntaxException e) {
+                        throw new RuntimeException(String.format("Failed to create valid urn from string %s", urnStr));
+                    }
+                }).collect(Collectors.toList());
 
             final String entityName = urns.get(0).getEntityType();
 
@@ -100,6 +102,31 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     .stream()
                     .collect(Collectors.toMap(e -> e.getKey().toString(), e -> new Entity().setValue(newSnapshotUnion(e.getValue()))));
         });
+    }
+
+    @Action(name = ACTION_INGEST)
+    @Nonnull
+    public Task<Void> ingest(@ActionParam("entity") @Nonnull Entity entity) {
+        return RestliUtils.toTask(() -> {
+
+            final RecordTemplate entitySnapshot = getEntitySnapshot(entity);
+            final Urn urn = ModelUtils.getUrnFromSnapshot(entitySnapshot);
+            final String entityName = urn.getEntityType();
+            final AuditStamp auditStamp = new AuditStamp();
+
+            ModelUtils.getAspectsFromSnapshot(entitySnapshot).stream().forEach(aspect -> {
+                _entityDao.add(entityName, urn, aspect, auditStamp);
+            });
+
+            return null;
+        });
+    }
+
+    private RecordTemplate getEntitySnapshot(final Entity entity) {
+        final Snapshot snapshotUnion = entity.getValue();
+        // Now, extract the correct field based on the type.
+        // This is pretty awful btw
+        return RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     }
 
     @Nonnull
@@ -157,9 +184,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
         _entityDao.get(entityName, keys).forEach((key, aspect) -> aspect.ifPresent(
                         metadata -> urnAspectsMap.get(key.getUrn())
-                                        .add(ModelUtils.newAspectUnion(
-                                                (Class<UnionTemplate>) getDataTemplateClassFromSchema(spec.getAspectTyperefSchema()),
-                                                metadata))));
+                            .add(ModelUtils.newAspectUnion(
+                                (Class<UnionTemplate>) getDataTemplateClassFromSchema(spec.getAspectTyperefSchema()),
+                                metadata
+                            ))));
 
         return urnAspectsMap;
     }

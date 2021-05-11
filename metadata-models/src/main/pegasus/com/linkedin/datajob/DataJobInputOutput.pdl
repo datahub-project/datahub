@@ -6,6 +6,9 @@ import com.linkedin.common.DatasetUrn
 /**
  * Information about the inputs and outputs of a Data processing job
  */
+@Aspect = {
+  "name": "dataJobInputOutput"
+}
 record DataJobInputOutput {
 
   /**

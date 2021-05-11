@@ -6,6 +6,9 @@ import com.linkedin.common.ExternalReference
 /**
  * Information about a Data processing flow
  */
+ @Aspect = {
+   "name": "dataFlowInfo"
+ }
 record DataFlowInfo includes CustomProperties, ExternalReference {
 
   /**

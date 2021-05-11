@@ -5,6 +5,9 @@ import com.linkedin.common.Urn
 /**
  * Dataset deprecation status
  */
+@Aspect = {
+  "name": "datasetDeprecation"
+}
 record DatasetDeprecation {
 
   /**
