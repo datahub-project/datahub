@@ -54,11 +54,11 @@ public class IndexBuilder {
         }
 
         Map<String, Object> oldMappings = searchClient.indices()
-                .getMapping(new GetMappingsRequest().indices(indexName), RequestOptions.DEFAULT).mappings()
-                .get(indexName).getSourceAsMap();
+                .getMapping(new GetMappingsRequest().indices(indexName), RequestOptions.DEFAULT).mappings().values()
+                .stream().findFirst().get().getSourceAsMap();
         Settings oldSettings = searchClient.indices()
                 .getSettings(new GetSettingsRequest().indices(indexName), RequestOptions.DEFAULT).getIndexToSettings()
-                .get(indexName).getAsSettings("index");
+                .values().toArray(Settings.class)[0].getAsSettings("index");
         MapDifference<String, Object> mappingsDiff = Maps.difference(mappings, oldMappings);
         // If there are no updates to mappings, return
         if (mappingsDiff.areEqual()) {

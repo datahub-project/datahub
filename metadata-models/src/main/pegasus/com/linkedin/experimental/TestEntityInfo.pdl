@@ -29,7 +29,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    */
    @Searchable = {
      "fieldName": "aliases"
-     "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliases"}, {"indexType": "COUNT", "overrideFieldName": "numAliases"}]
+     "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "PARTIAL"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliases"}, {"indexType": "COUNT", "overrideFieldName": "numAliases"}]
    }
    aliases: array[string]
 
