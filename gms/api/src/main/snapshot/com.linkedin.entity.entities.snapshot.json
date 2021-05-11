@@ -1198,15 +1198,13 @@
       "name" : "name",
       "type" : "string",
       "Searchable" : {
-        "fieldName" : "aliasRecords",
+        "fieldName" : "alias",
         "indexSettings" : [ {
+          "addToDefaultQuery" : false,
+          "boostScore" : 3,
           "indexType" : "KEYWORD"
-        }, {
-          "indexType" : "DELIMITED"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasAliasRecords"
-        } ]
+        } ],
+        "indexType" : "KEYWORD"
       }
     } ]
   }, {
@@ -2468,29 +2466,11 @@
                   "fields" : [ {
                     "name" : "keyPart1",
                     "type" : "string",
-                    "doc" : "Title of the chart",
-                    "Searchable" : {
-                      "fieldName" : "key",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "DELIMITED"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
-                    }
+                    "doc" : "Title of the chart"
                   }, {
                     "name" : "keyPart2",
                     "type" : "string",
-                    "doc" : "Title of the chart",
-                    "Searchable" : {
-                      "fieldName" : "keyParts",
-                      "indexSettings" : [ {
-                        "indexType" : "PATTERN"
-                      }, {
-                        "indexType" : "PARTIAL_PATTERN"
-                      } ]
-                    }
+                    "doc" : "Title of the chart"
                   }, {
                     "name" : "keyPart3",
                     "type" : "string",
@@ -2512,11 +2492,9 @@
                     "Searchable" : {
                       "fieldName" : "title",
                       "indexSettings" : [ {
+                        "addToDefaultQuery" : false,
+                        "boostScore" : 3,
                         "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "DELIMITED"
-                      }, {
-                        "indexType" : "PARTIAL"
                       } ]
                     }
                   }, {
@@ -2528,16 +2506,11 @@
                     "Searchable" : {
                       "fieldName" : "aliases",
                       "indexSettings" : [ {
+                        "addToDefaultQuery" : false,
+                        "boostScore" : 3,
                         "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "DELIMITED"
-                      }, {
-                        "indexType" : "BOOLEAN",
-                        "overrideFieldName" : "hasAliases"
-                      }, {
-                        "indexType" : "COUNT",
-                        "overrideFieldName" : "numAliases"
-                      } ]
+                      } ],
+                      "indexType" : "KEYWORD"
                     }
                   }, {
                     "name" : "recordAliases",
@@ -2548,12 +2521,7 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "Searchable" : {
-                      "fieldName" : "description",
-                      "indexSettings" : [ {
-                        "indexType" : "DELIMITED"
-                      } ]
-                    }
+                    "doc" : "Detailed description about the test entity"
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -2588,13 +2556,7 @@
                     "name" : "type",
                     "type" : "ChartTypeOption",
                     "doc" : "Type of the chart",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldName" : "chartType",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD"
-                      } ]
-                    }
+                    "optional" : true
                   }, {
                     "name" : "lastRefreshed",
                     "type" : "com.linkedin.common.Time",
