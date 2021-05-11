@@ -117,8 +117,6 @@ class KafkaConnectSource(Source):
             }
         )
 
-        self.connectors_manifest = list()
-
         # Test the connection
         test_response = self.session.get(f"{self.config.connect_uri}")
         test_response.raise_for_status()
@@ -134,6 +132,7 @@ class KafkaConnectSource(Source):
 
         Enrich with lineages metadata.
         """
+        connectors_manifest = list()
 
         connector_response = self.session.get(
             f"{self.config.connect_uri}/connectors",
@@ -174,7 +173,9 @@ class KafkaConnectSource(Source):
                 logger.warn(f"Skipping connector {name}. Sink Connector not yet implemented")
                 pass
 
-            self.connectors_manifest.append(manifest)
+            connectors_manifest.append(manifest)
+
+        return connectors_manifest
 
     def construct_flow_workunit(self, connector) -> MetadataWorkUnit:
         connector_name = connector.get('name')
@@ -250,9 +251,9 @@ class KafkaConnectSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        self.get_connectors_manifest()
+        connectors_manifest = self.get_connectors_manifest()
 
-        for connector in self.connectors_manifest:
+        for connector in connectors_manifest:
             name = connector.get('name')
             if self.config.connector_patterns.allowed(name):
                 yield from self.construct_flow_workunit(connector)
