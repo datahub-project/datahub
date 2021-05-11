@@ -27,7 +27,7 @@ def make_emitter_hook() -> "DatahubGenericHook":
     return DatahubGenericHook(_datahub_conn_id)
 
 
-class DatahubAirflowLineageBackend(LineageBackend):
+class DatahubLineageBackend(LineageBackend):
     # With Airflow 2.0, this can be an instance method. However, with Airflow 1.10.x, this
     # method is used statically, even though LineageBackend declares it as an instance variable.
     @staticmethod
