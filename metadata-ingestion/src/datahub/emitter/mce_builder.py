@@ -24,6 +24,10 @@ def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
 
+def make_tag_urn(tag: str) -> str:
+    return f"urn:li:tag:{tag}"
+
+
 def make_data_flow_urn(
     orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
