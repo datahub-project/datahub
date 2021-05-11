@@ -72,4 +72,24 @@ db.firstCollection.insertMany([
   },
 ]);
 
+db.secondCollection.insertMany([
+  {
+    name: "apple",
+    rating: 10,
+    varieties: ["honey crisp", "red delicious", "fuji"],
+    tasty: true,
+  },
+  {
+    name: "orange",
+    rating: 9,
+    varieties: ["clementine", "navel"],
+    tasty: true,
+  },
+  {
+    name: "kiwi",
+    rating: 1000000000000000000000000000,
+    tasty: true,
+  },
+]);
+
 db.emptyCollection.createIndex({ stringField: 1 }, { unique: true });
