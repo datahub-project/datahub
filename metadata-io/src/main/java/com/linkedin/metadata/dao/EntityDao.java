@@ -14,6 +14,7 @@ import io.ebean.config.ServerConfig;
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -30,7 +31,7 @@ public class EntityDao {
         for (final EntitySpec spec : entitySpecs) {
             // Create a new BaseMetadataEventProducer for Kafka
             _entityNameToLocalDao.put(
-                    spec.getName(),
+                    spec.getName().toLowerCase(),
                     new EbeanLocalDAO(
                             getDataSchemaClassFromSchema(spec.getAspectTyperefSchema()),
                             producer.getProducer(spec.getName()),
@@ -44,14 +45,14 @@ public class EntityDao {
     public Map<AspectKey<Urn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
             @Nonnull String entityName,
             @Nonnull Set<AspectKey<Urn, ? extends RecordTemplate>> keys) {
-        return _entityNameToLocalDao.get(entityName).get(keys);
+        return _entityNameToLocalDao.get(entityName.toLowerCase()).get(keys);
     }
 
     public RecordTemplate add(@Nonnull String entityName,
                               @Nonnull Urn urn,
                               @Nonnull RecordTemplate aspect,
                               @Nonnull AuditStamp auditStamp) {
-        return _entityNameToLocalDao.get(entityName).add(urn, aspect, auditStamp);
+        return _entityNameToLocalDao.get(entityName.toLowerCase()).add(urn, aspect, auditStamp);
     }
 
     private Class<? extends DataTemplate> getDataSchemaClassFromSchema(final NamedDataSchema schema) {

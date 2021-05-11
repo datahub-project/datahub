@@ -26,7 +26,6 @@
         "optional" : true
       } ]
     } ],
-<<<<<<< HEAD
     "actions" : [ {
       "name" : "ingest",
       "parameters" : [ {
@@ -34,8 +33,6 @@
         "type" : "com.linkedin.experimental.Entity"
       } ]
     } ],
-=======
->>>>>>> 551a58ed8cff5c61a86b846f0812f75ff25f4222
     "entity" : {
       "path" : "/entities/{entitiesId}"
     }

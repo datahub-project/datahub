@@ -1,11 +1,8 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.internal.BaseRemoteWriterDAO;
-import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.dao.EntityRemoteWriterDao;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -29,79 +26,78 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private BaseRemoteWriterDAO remoteWriterDAO;
-  private KafkaTemplate<String, GenericRecord> kafkaTemplate;
+    private EntityRemoteWriterDao entityRemoteWriterDao;
+    private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
-  @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
-  private String fmceTopicName;
+    @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
+    private String fmceTopicName;
 
-  public MetadataChangeEventsProcessor(BaseRemoteWriterDAO remoteWriterDAO,
-      KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.remoteWriterDAO = remoteWriterDAO;
-    this.kafkaTemplate = kafkaTemplate;
-  }
-
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}",
-      topics = "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
-  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    final GenericRecord record = consumerRecord.value();
-    log.debug("Got MCE");
-    log.debug("Record ", record);
-
-    MetadataChangeEvent event = new MetadataChangeEvent();
-
-    try {
-      event = EventUtils.avroToPegasusMCE(record);
-      log.debug("MetadataChangeEvent {}", event);
-      if (event.hasProposedSnapshot()) {
-        processProposedSnapshot(event);
-      }
-    } catch (Throwable throwable) {
-      log.error("MCE Processor Error", throwable);
-      log.error("Message: {}", record);
-      sendFailedMCE(event, throwable);
+    public MetadataChangeEventsProcessor(@Nonnull final EntityRemoteWriterDao entityRemoteWriterDao,
+                                         @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
+        this.entityRemoteWriterDao = entityRemoteWriterDao;
+        this.kafkaTemplate = kafkaTemplate;
     }
-  }
 
-  /**
-   * Sending Failed MCE Event to Kafka Topic
-   *
-   * @param event
-   * @param throwable
-   */
-  private void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
-    try {
-      final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
-      log.debug("Sending FailedMessages to topic - {}", fmceTopicName);
-      log.info("Error while processing MCE: FailedMetadataChangeEvent - {}", failedMetadataChangeEvent);
-      this.kafkaTemplate.send(fmceTopicName, genericFailedMCERecord);
-    } catch (IOException e) {
-      log.error("Error while sending FailedMetadataChangeEvent: Exception  - {}, FailedMetadataChangeEvent - {}",
-          e.getStackTrace(), failedMetadataChangeEvent);
+    @KafkaListener(
+            id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}",
+            topics = "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
+    public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+        final GenericRecord record = consumerRecord.value();
+        log.debug("Record ", record);
+
+        MetadataChangeEvent event = new MetadataChangeEvent();
+
+        try {
+            event = EventUtils.avroToPegasusMCE(record);
+            log.debug("MetadataChangeEvent {}", event);
+            if (event.hasProposedSnapshot()) {
+                processProposedSnapshot(event);
+            }
+        } catch (Throwable throwable) {
+            log.error("MCE Processor Error", throwable);
+            log.error("Message: {}", record);
+            sendFailedMCE(event, throwable);
+        }
     }
-  }
 
-  /**
-   * Populate a FailedMetadataChangeEvent from a MCE
-   *
-   * @param event
-   * @param throwable
-   * @return FailedMetadataChangeEvent
-   */
-  @Nonnull
-  private FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event,
-      @Nonnull Throwable throwable) {
-    final FailedMetadataChangeEvent fmce = new FailedMetadataChangeEvent();
-    fmce.setError(ExceptionUtils.getStackTrace(throwable));
-    fmce.setMetadataChangeEvent(event);
-    return fmce;
-  }
+    /**
+     * Sending Failed MCE Event to Kafka Topic
+     *
+     * @param event
+     * @param throwable
+     */
+    private void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
+        final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
+        try {
+            final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCE(failedMetadataChangeEvent);
+            log.debug("Sending FailedMessages to topic - {}", fmceTopicName);
+            log.info("Error while processing MCE: FailedMetadataChangeEvent - {}", failedMetadataChangeEvent);
+            this.kafkaTemplate.send(fmceTopicName, genericFailedMCERecord);
+        } catch (IOException e) {
+            log.error("Error while sending FailedMetadataChangeEvent: Exception  - {}, FailedMetadataChangeEvent - {}",
+                    e.getStackTrace(), failedMetadataChangeEvent);
+        }
+    }
 
-  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws URISyntaxException {
-    Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
-    final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = ModelUtils.getUrnFromSnapshotUnion(snapshotUnion);
-    remoteWriterDAO.create(urn, snapshot);
-  }
+    /**
+     * Populate a FailedMetadataChangeEvent from a MCE
+     *
+     * @param event
+     * @param throwable
+     * @return FailedMetadataChangeEvent
+     */
+    @Nonnull
+    private FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event,
+                                                           @Nonnull Throwable throwable) {
+        final FailedMetadataChangeEvent fmce = new FailedMetadataChangeEvent();
+        fmce.setError(ExceptionUtils.getStackTrace(throwable));
+        fmce.setMetadataChangeEvent(event);
+        return fmce;
+    }
+
+    private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws URISyntaxException {
+        final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
+        final Entity entity = new Entity().setValue(snapshotUnion);
+        entityRemoteWriterDao.create(entity);
+    }
 }

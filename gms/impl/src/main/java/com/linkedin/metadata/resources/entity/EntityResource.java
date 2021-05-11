@@ -57,7 +57,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     public EntityResource() {
         _entityNameToSpec = new SnapshotEntityRegistry().getEntitySpecs().stream().collect(Collectors.toMap(
-                EntitySpec::getName,
+                spec -> spec.getName().toLowerCase(),
                 spec -> spec
         ));
     }
@@ -113,6 +113,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             final Urn urn = ModelUtils.getUrnFromSnapshot(entitySnapshot);
             final String entityName = urn.getEntityType();
             final AuditStamp auditStamp = new AuditStamp();
+            auditStamp.setTime(123L);
+            try {
+                auditStamp.setActor(Urn.createFromString("urn:li:principal:test")); // TODO Properly format this.
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
+                throw new RuntimeException("failed to create actor urn");
+            }
 
             ModelUtils.getAspectsFromSnapshot(entitySnapshot).stream().forEach(aspect -> {
                 _entityDao.add(entityName, urn, aspect, auditStamp);
@@ -139,7 +146,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     private Set<Class<? extends RecordTemplate>> getAspectClassesForEntity(@Nonnull String entityName) {
-        final EntitySpec spec = _entityNameToSpec.get(entityName);
+        final EntitySpec spec = _entityNameToSpec.get(entityName.toLowerCase());
         return spec.getAspectSpecs().stream().map(
                 aspectSpec -> (Class<RecordTemplate>) getDataTemplateClassFromSchema(aspectSpec.getPegasusSchema())
         ).collect(Collectors.toSet());

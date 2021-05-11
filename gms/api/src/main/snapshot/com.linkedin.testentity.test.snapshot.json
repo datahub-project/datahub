@@ -158,7 +158,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "typeref",
     "name" : "TagUrn",
@@ -195,7 +198,15 @@
       "name" : "name",
       "type" : "string",
       "Searchable" : {
-        "indexType" : "KEYWORD"
+        "fieldName" : "aliasRecords",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "DELIMITED"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasAliasRecords"
+        } ]
       }
     } ]
   }, {
@@ -238,11 +249,29 @@
       "fields" : [ {
         "name" : "keyPart1",
         "type" : "string",
-        "doc" : "Title of the chart"
+        "doc" : "Title of the chart",
+        "Searchable" : {
+          "fieldName" : "key",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
       }, {
         "name" : "keyPart2",
         "type" : "string",
-        "doc" : "Title of the chart"
+        "doc" : "Title of the chart",
+        "Searchable" : {
+          "fieldName" : "keyParts",
+          "indexSettings" : [ {
+            "indexType" : "PATTERN"
+          }, {
+            "indexType" : "PARTIAL_PATTERN"
+          } ]
+        }
       }, {
         "name" : "keyPart3",
         "type" : "string",
@@ -262,8 +291,14 @@
         "type" : "string",
         "doc" : "Title of the test entity",
         "Searchable" : {
-          "field" : "title",
-          "indexType" : "KEYWORD"
+          "fieldName" : "title",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
         }
       }, {
         "name" : "aliases",
@@ -272,7 +307,18 @@
           "items" : "string"
         },
         "Searchable" : {
-          "indexType" : "KEYWORD"
+          "fieldName" : "aliases",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "BOOLEAN",
+            "overrideFieldName" : "hasAliases"
+          }, {
+            "indexType" : "COUNT",
+            "overrideFieldName" : "numAliases"
+          } ]
         }
       }, {
         "name" : "recordAliases",
@@ -283,7 +329,12 @@
       }, {
         "name" : "description",
         "type" : "string",
-        "doc" : "Detailed description about the test entity"
+        "Searchable" : {
+          "fieldName" : "description",
+          "indexSettings" : [ {
+            "indexType" : "DELIMITED"
+          } ]
+        }
       }, {
         "name" : "lastModified",
         "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -305,7 +356,13 @@
         "name" : "type",
         "type" : "ChartTypeOption",
         "doc" : "Type of the chart",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldName" : "chartType",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          } ]
+        }
       }, {
         "name" : "lastRefreshed",
         "type" : "com.linkedin.common.Time",
