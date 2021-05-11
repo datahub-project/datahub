@@ -3,45 +3,32 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import lombok.Value;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
+@Value
 public class SearchableFieldSpec {
 
-    private final PathSpec _path;
-    private final SearchableAnnotation _searchableAnnotation;
-    private final DataSchema _pegasusSchema;
-
-    public SearchableFieldSpec(@Nonnull final PathSpec path,
-                               @Nonnull final DataSchema pegasusSchema,
-                               @Nonnull final SearchableAnnotation searchableAnnotation) {
-        _path = path;
-        _pegasusSchema = pegasusSchema;
-        _searchableAnnotation = searchableAnnotation;
-    }
-
-    public PathSpec getPath() {
-        return _path;
-    }
+    PathSpec path;
+    SearchableAnnotation searchableAnnotation;
+    DataSchema pegasusSchema;
 
     public String getFieldName() {
-        return _searchableAnnotation.getFieldName();
+        return searchableAnnotation.getFieldName();
     }
 
     public boolean isDefaultAutocomplete() {
-        return _searchableAnnotation.isDefaultAutocomplete();
+        return searchableAnnotation.isDefaultAutocomplete();
     }
 
     public boolean addToFilters() {
-        return _searchableAnnotation.isAddToFilters();
+        return searchableAnnotation.isAddToFilters();
     }
 
     public List<SearchableAnnotation.IndexSetting> getIndexSettings() {
-        return _searchableAnnotation.getIndexSettings();
+        return searchableAnnotation.getIndexSettings();
     }
 
-    public DataSchema getPegasusSchema() {
-        return _pegasusSchema;
-    }
 }

@@ -27,7 +27,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
         if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
             final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
             if (currentSchema.isPrimitive()) {
-
                 final RecordDataSchema.Field enclosingField = context.getEnclosingField();
                 final Object annotationObj = enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
@@ -35,7 +34,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
                     final SearchableAnnotation annotation = SearchableAnnotation
                             .fromPegasusAnnotationObject(annotationObj);
-                    final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, currentSchema, annotation);
+                    final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
                     _specs.add(fieldSpec);
                 }
             }

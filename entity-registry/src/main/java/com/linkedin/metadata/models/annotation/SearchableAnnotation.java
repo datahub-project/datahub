@@ -32,6 +32,7 @@ public class SearchableAnnotation {
     public enum IndexType {
         KEYWORD,
         BOOLEAN,
+        COUNT,
         BROWSE_PATH,
         DELIMITED,
         PATTERN,
@@ -49,11 +50,14 @@ public class SearchableAnnotation {
         boolean addToDefaultQuery;
         // (Optional) Boost score for ranking
         double boostScore;
+        // (Optional) Override fieldName (If set, creates a new search field with the specified name)
+        Optional<String> overrideFieldName;
     }
 
     private static IndexSetting getIndexSettingFromObject(@Nonnull final Object indexSettingObj) {
         if (!Map.class.isAssignableFrom(indexSettingObj.getClass())) {
-            throw new IllegalArgumentException("Failed to validate Searchable annotation object: Invalid value type provided for indexSettings (Expected Map)");
+            throw new IllegalArgumentException(
+                    "Failed to validate Searchable annotation object: Invalid value type provided for indexSettings (Expected Map)");
         }
 
         Map map = (Map) indexSettingObj;
@@ -66,25 +70,31 @@ public class SearchableAnnotation {
 
         final Optional<Boolean> addToDefaultQuery = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
         final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
+        final Optional<String> overrideFieldName = AnnotationUtils.getField(map, "overrideFieldName", String.class);
 
-        return new IndexSetting(IndexType.valueOf(indexType.get()), addToDefaultQuery.orElse(false), boostScore.orElse(1.0));
+        return new IndexSetting(IndexType.valueOf(indexType.get()), addToDefaultQuery.orElse(false),
+                boostScore.orElse(1.0), overrideFieldName);
     }
 
     public static SearchableAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj) {
         if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-            throw new IllegalArgumentException("Failed to validate Searchable annotation object: Invalid value type provided (Expected Map)");
+            throw new IllegalArgumentException(
+                    "Failed to validate Searchable annotation object: Invalid value type provided (Expected Map)");
         }
 
         Map map = (Map) annotationObj;
         final Optional<String> fieldName = AnnotationUtils.getField(map, "fieldName", String.class);
         if (!fieldName.isPresent()) {
-            throw new IllegalArgumentException("Failed to validate required Searchable field 'fieldName' field of type String");
+            throw new IllegalArgumentException(
+                    "Failed to validate required Searchable field 'fieldName' field of type String");
         }
-        final Optional<Boolean> isDefaultAutocomplete = AnnotationUtils.getField(map, "isDefaultAutocomplete", Boolean.class);
+        final Optional<Boolean> isDefaultAutocomplete = AnnotationUtils
+                .getField(map, "isDefaultAutocomplete", Boolean.class);
         final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
         final Optional<List> indexSettingsList = AnnotationUtils.getField(map, "indexSettings", List.class);
         if (!indexSettingsList.isPresent() || indexSettingsList.get().isEmpty()) {
-            throw new IllegalArgumentException("Failed to validate required Searchable field 'indexSettings': field of type List cannot be empty");
+            throw new IllegalArgumentException(
+                    "Failed to validate required Searchable field 'indexSettings': field of type List cannot be empty");
         }
         final List<IndexSetting> indexSettings = new ArrayList<>(indexSettingsList.get().size());
         for (Object indexSettingObj : indexSettingsList.get()) {
@@ -94,10 +104,12 @@ public class SearchableAnnotation {
         // If the field is being added to filters, the first index setting must be of type KEYWORD
         if (addToFilters.orElse(false)) {
             if (indexSettings.get(0).getIndexType() != IndexType.KEYWORD) {
-                throw new IllegalArgumentException("Failed to validate Searchable annotation: Fields with addToDefaultQuery "
-                        + "set to true, must have a setting of type KEYWORD as it's first index setting");
+                throw new IllegalArgumentException(
+                        "Failed to validate Searchable annotation: Fields with addToDefaultQuery "
+                                + "set to true, must have a setting of type KEYWORD as it's first index setting");
             }
         }
-        return new SearchableAnnotation(fieldName.get(), isDefaultAutocomplete.orElse(false), addToFilters.orElse(false), indexSettings);
+        return new SearchableAnnotation(fieldName.get(), isDefaultAutocomplete.orElse(false),
+                addToFilters.orElse(false), indexSettings);
     }
 }

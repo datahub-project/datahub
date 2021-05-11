@@ -67,4 +67,9 @@ public class EntitySpec {
         return _aspectTyperefSchema;
     }
 
+    public List<SearchableFieldSpec> getSearchableFieldSpecs() {
+        return _aspectSpecs.values().stream()
+                .map(AspectSpec::getSearchableFieldSpecs).flatMap(List::stream).collect(
+                        Collectors.toList());
+    }
 }

@@ -17,6 +17,8 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.search.index_builder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
@@ -37,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -47,21 +50,24 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
+  private RestHighLevelClient elasticSearchClient;
   private ElasticsearchConnector elasticSearchConnector;
   private SnapshotProcessor snapshotProcessor;
   private BaseGraphWriterDAO graphWriterDAO;
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
-  public MetadataAuditEventsProcessor(ElasticsearchConnector elasticSearchConnector,
+  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient, ElasticsearchConnector elasticSearchConnector,
       SnapshotProcessor snapshotProcessor, BaseGraphWriterDAO graphWriterDAO,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
+    this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
     this.snapshotProcessor = snapshotProcessor;
     this.graphWriterDAO = graphWriterDAO;
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
+    new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"), "testEntity");
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
