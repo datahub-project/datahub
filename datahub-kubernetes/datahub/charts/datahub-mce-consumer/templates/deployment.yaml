@@ -33,7 +33,7 @@ spec:
         {{- if .Values.global.credentialsAndCertsSecrets }}
         - name: datahub-certs-dir
           secret:
-            defaultMode: 256
+            defaultMode: 0444
             secretName: {{ .Values.global.credentialsAndCertsSecrets.name }}
         {{- end }}
         {{- if .Values.exporters.jmx.enabled }}
