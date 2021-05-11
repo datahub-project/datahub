@@ -86,7 +86,7 @@ public class MappingsBuilder {
             case COUNT:
                 return ImmutableMap.of("type", "long");
             case DELIMITED:
-                return ImmutableMap.of("type", "keyword", "analyzer", "word_delimited");
+                return ImmutableMap.of("type", "text", "analyzer", "word_delimited");
             case PATTERN:
                 return ImmutableMap.of("type", "text", "analyzer", "pattern");
             case PARTIAL:

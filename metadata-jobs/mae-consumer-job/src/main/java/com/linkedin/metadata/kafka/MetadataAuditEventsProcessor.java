@@ -25,6 +25,8 @@ import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URLEncoder;
@@ -67,7 +69,11 @@ public class MetadataAuditEventsProcessor {
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
-    new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"), "testEntity");
+    try {
+      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"), "testentity").buildIndex();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"

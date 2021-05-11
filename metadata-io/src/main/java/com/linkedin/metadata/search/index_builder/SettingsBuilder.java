@@ -52,7 +52,7 @@ public class SettingsBuilder {
                         .build());
 
         // Filter to split string into words
-        filters.put("partial_filter_long",
+        filters.put("custom_delimiter",
                 ImmutableMap.<String, Object>builder()
                         .put("type", "word_delimiter")
                         .put("split_on_numerics", false)
@@ -141,13 +141,6 @@ public class SettingsBuilder {
         analyzers.put("browse_path",
                 ImmutableMap.<String, Object>builder()
                         .put("tokenizer", "path_hierarchy_tokenizer")
-                        .put("filter", ImmutableList.of("lowercase"))
-                        .build());
-
-        // Analyzer for fields delimited by periods and slashes
-        analyzers.put("pattern",
-                ImmutableMap.<String, Object>builder()
-                        .put("tokenizer", "pattern_tokenizer")
                         .put("filter", ImmutableList.of("lowercase"))
                         .build());
 

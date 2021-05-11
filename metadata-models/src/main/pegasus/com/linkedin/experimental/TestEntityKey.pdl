@@ -11,11 +11,19 @@ record TestEntityKey {
     /**
     * Title of the chart
     */
+    @Searchable = {
+        "fieldName": "key",
+        "indexSettings": [{"indexType": "KEYWORD" }, {"indexType": "DELIMITED"}, {"indexType": "PARTIAL"}]
+    }
     keyPart1: string
 
     /**
     * Title of the chart
     */
+    @Searchable = {
+        "fieldName": "keyParts",
+        "indexSettings": [{"indexType": "PATTERN" }, {"indexType": "PARTIAL_PATTERN"}]
+    }
     keyPart2: string
 
     /**

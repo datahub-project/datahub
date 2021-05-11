@@ -15,4 +15,5 @@ dependencies {
     compile spec.product.pegasus.generator
     compile project(path: ':metadata-models')
     implementation gradleApi()
+    annotationProcessor externalDependency.lombok
 }
