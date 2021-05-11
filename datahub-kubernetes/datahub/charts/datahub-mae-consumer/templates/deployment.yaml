@@ -70,7 +70,7 @@ spec:
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
             - name: GMS_HOST
-              value: { { printf "%s-%s" .Release.Name "datahub-gms" } }
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
               value: "{{ .Values.global.datahub.gms.port }}"
             - name: KAFKA_BOOTSTRAP_SERVER
