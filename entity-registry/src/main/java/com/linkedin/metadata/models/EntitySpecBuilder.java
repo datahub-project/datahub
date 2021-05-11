@@ -72,7 +72,7 @@ public class EntitySpecBuilder {
 
         if (aspectAnnotationObj != null) {
 
-            final AspectAnnotation aspectAnnotation = AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
+            final AspectAnnotation aspectAnnotation = AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, ((RecordDataSchema) aspect).getBindingName());
 
             final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
             final DataSchemaRichContextTraverser searchableFieldSpecTraverser = new DataSchemaRichContextTraverser(searchableFieldSpecExtractor);

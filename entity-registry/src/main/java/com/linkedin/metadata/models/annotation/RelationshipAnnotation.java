@@ -1,52 +1,47 @@
 package com.linkedin.metadata.models.annotation;
 
+import lombok.Value;
+
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Simple object representation of the @Relationship annotation metadata.
  */
+@Value
 public class RelationshipAnnotation {
 
-    private final String _name;
-    private final List<String> _validDestinationTypes;
+    String _name;
+    List<String> _validDestinationTypes;
 
     public static RelationshipAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj) {
-        if (Map.class.isAssignableFrom(annotationObj.getClass())) {
-            Map map = (Map) annotationObj;
-            final Object nameObj = map.get("name");
-            final Object entityTypesObj = map.get("entityTypes");
-            if (nameObj == null || !String.class.isAssignableFrom(nameObj.getClass())) {
-                throw new IllegalArgumentException("Failed to validate required Relationship field 'name' field of type String");
-            }
-            if (entityTypesObj == null || !List.class.isAssignableFrom(entityTypesObj.getClass())) {
-                throw new IllegalArgumentException("Failed to validate required Relationship field 'entityTypes' field of type List<String>");
-            }
-            final String name = (String) nameObj;
-            final List entityTypes = (List) entityTypesObj;
-            for (Object entityTypeObj : entityTypes) {
-                if (!(String.class.isAssignableFrom(entityTypeObj.getClass()))) {
-                    throw new IllegalArgumentException(
-                            "Failed to validate Relationship field 'entityTypes' field of type List<String>: Invalid values provided (Expected String)");
-                }
-            }
-            return new RelationshipAnnotation(name, (List<String>) entityTypes);
+        if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
+            throw new IllegalArgumentException("Failed to validate Relationship annotation object: Invalid value type provided (Expected Map)");
         }
-        throw new IllegalArgumentException("Failed to validate Relationship annotation object: Invalid value type provided (Expected Map)");
+
+        Map map = (Map) annotationObj;
+        final Optional<String> name = AnnotationUtils.getField(map, "name", String.class);
+        if (!name.isPresent()) {
+            throw new IllegalArgumentException("Failed to validate required Relationship field 'name' field of type String");
+        }
+
+        final Optional<List> entityTypesList = AnnotationUtils.getField(map, "entityTypes", List.class);
+        if (!entityTypesList.isPresent() || entityTypesList.get().isEmpty()) {
+            throw new IllegalArgumentException("Failed to validate required Relationship field 'entityTypes' field of type List<String>");
+        }
+        final List<String> entityTypes = new ArrayList<>(entityTypesList.get().size());
+        for (Object entityTypeObj : entityTypesList.get()) {
+            if (!String.class.isAssignableFrom(entityTypeObj.getClass())) {
+                throw new IllegalArgumentException(
+                        "Failed to validate Relationship field 'entityTypes' field of type List<String>: Invalid values provided (Expected String)");
+            }
+            entityTypes.add((String) entityTypeObj);
+        }
+
+        return new RelationshipAnnotation(name.get(), entityTypes);
     }
 
-    public RelationshipAnnotation(final String name,
-                                  final List<String> validDestinationTypes) {
-        _name = name;
-        _validDestinationTypes = validDestinationTypes;
-    }
-
-    public String getName() {
-        return _name;
-    }
-
-    public List<String> getValidDestinationTypes() {
-        return _validDestinationTypes;
-    }
 }

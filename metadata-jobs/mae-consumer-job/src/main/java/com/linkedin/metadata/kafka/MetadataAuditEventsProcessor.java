@@ -1,10 +1,12 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.data.element.DataElement;
+import com.linkedin.data.it.IterationOrder;
+import com.linkedin.data.it.ObjectIterator;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.models.EntitySpecBuilder;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.builders.graph.BaseGraphBuilder;
 import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.builders.graph.RegisteredGraphBuilders;
@@ -12,6 +14,9 @@ import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.internal.BaseGraphWriterDAO;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
@@ -24,9 +29,13 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -83,7 +92,34 @@ public class MetadataAuditEventsProcessor {
    * @param snapshot Snapshot
    */
   private void updateNeo4j(final RecordTemplate snapshot) {
+    // TODO(Gabe): memoize this
     final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
+    ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
+            snapshot.schema(),
+            IterationOrder.PRE_ORDER);
+    while (true) {
+      final DataElement next = dataElement.next();
+      final PathSpec pathSpec = next.getSchemaPathSpec();
+      List<String> pathComponents = pathSpec.getPathComponents();
+      if (pathComponents.size() < 4) {
+        continue;
+      }
+      final String aspectName = pathComponents.get(2);
+      final String suffix = "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
+      final Optional<RelationshipFieldSpec> matchingAnnotation = entitySpec
+              .getAspectSpecMap()
+              .get(aspectName)
+              .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+      if (matchingAnnotation.isPresent()) {
+          log.info(matchingAnnotation.get().getRelationshipName());
+          log.info(matchingAnnotation.get().getValidDestinationTypes().toString());
+          log.info(next.getValue().toString());
+      }
+      if (next == null) {
+        break;
+      }
+    }
+
     try {
       final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
       final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);

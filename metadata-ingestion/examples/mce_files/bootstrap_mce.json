@@ -50,7 +50,10 @@
                                 "actor": "urn:li:corpuser:jdoe",
                                 "impersonator": null
                             },
-                            "inputs": []
+                            "inputs": [{
+                            	"entity": "urn:li:chart:12",
+                            	"myEdgeProp": "extra prop"
+                            }]
                         }
                     }
                 ]

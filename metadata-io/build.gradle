@@ -9,4 +9,8 @@ dependencies {
     compile project(':metadata-events:mxe-utils-avro-1.7')
     compile externalDependency.kafkaClients
     compile externalDependency.gmaEbeanDao
+    compile spec.product.pegasus.data
+    compile spec.product.pegasus.generator
+    compile project(path: ':metadata-models')
+    implementation gradleApi()
 }
