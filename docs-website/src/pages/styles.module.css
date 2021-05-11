@@ -157,6 +157,7 @@
   margin: auto;
   font-size: 1.5rem;
   text-decoration: underline;
+  text-decoration-color: var(--ifm-color-primary);
 }
 
 .logo_image {
