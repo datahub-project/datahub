@@ -25,6 +25,8 @@ class AddDatasetOwnershipConfig(ConfigModel):
 
 
 class AddDatasetOwnership(Transformer):
+    """Transformer that adds owners to datasets according to a callback function."""
+
     ctx: PipelineContext
     config: AddDatasetOwnershipConfig
 
@@ -72,6 +74,8 @@ class SimpleDatasetOwnershipConfig(ConfigModel):
 
 
 class SimpleAddDatasetOwnership(AddDatasetOwnership):
+    """Transformer that adds a specified set of owners to each dataset."""
+
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
         owners = [
             OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
