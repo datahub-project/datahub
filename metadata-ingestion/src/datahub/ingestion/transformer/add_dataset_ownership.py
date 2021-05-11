@@ -1,5 +1,7 @@
 import logging
-from typing import Callable, Iterable, List, NoReturn, Union
+from typing import Callable, Iterable, List, Union
+
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -11,25 +13,16 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipTypeClass,
 )
-
-logger = logging.getLogger(__name__)
-
-TABLE_TAGS = {
-    "urn:li:dataset:(urn:li:dataPlatform:postgresql,myapp.information_schema.sql_parts,PROD)": {
-        "comments": {
-            "tags": ["a_tag", "another_tag"],
-            "description": "Description for comments",
-        }
-    }
-}
 
 
 class AddDatasetOwnershipConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_owners_to_add: Union[
-        Callable[[DatasetSnapshotClass], List[OwnerClass]], NoReturn
+        Callable[[DatasetSnapshotClass], List[OwnerClass]],
+        Callable[[DatasetSnapshotClass], List[OwnerClass]],
     ]
     default_actor: str = builder.make_user_urn("etl")
 
@@ -74,3 +67,25 @@ class AddDatasetOwnership(Transformer):
             ownership.owners.extend(owners_to_add)
 
         return mce
+
+
+class SimpleDatasetOwnershipConfig(AddDatasetOwnershipConfig):
+    owner_urns: List[str]
+
+    @validator("get_owners_to_add", always=True)
+    def populate_owners_fn(cls, v, values):
+        breakpoint()
+        assert not v
+        return [
+            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            for owner in values["owner_urns"]
+        ]
+
+
+class SimpleAddDatasetOwnership(AddDatasetOwnership):
+    @classmethod
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "SimpleAddDatasetOwnership":
+        config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
+        return cls(config, ctx)
