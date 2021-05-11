@@ -6,6 +6,9 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./styles.module.css";
 
+import ExecutionEnvironment from "exenv";
+import "@brainhubeu/react-carousel/lib/style.css";
+
 import Image from "@theme/IdealImage";
 import CodeBlock from "@theme/CodeBlock";
 // logos for companies using
@@ -39,6 +42,28 @@ import LogoPostgres from "./logos/postgres.png";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
+
+const BrowserOnly = ({ children, fallback }) => {
+  if (!ExecutionEnvironment.canUseDOM || children == null) {
+    return fallback || null;
+  }
+
+  return <>{children()}</>;
+};
+
+// Docusaurus doesn't like it when the 'window' variable is referenced
+// in react-carousel, so we lazy-load it here
+const BrowserOnlyReactCarousel = (props) => {
+  return (
+    <BrowserOnly>
+      {() => {
+        const BrowserOnlyReactCarousel =
+          require("@brainhubeu/react-carousel").default;
+        return <BrowserOnlyReactCarousel {...props} />;
+      }}
+    </BrowserOnly>
+  );
+};
 
 const features = [
   {
@@ -232,6 +257,7 @@ function Feature({ imageUrl, title, description }) {
 function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
+
   return (
     <Layout
       title={siteConfig.tagline}
@@ -321,6 +347,31 @@ function Home() {
           </div>
         </div>
       </section>
+
+      <section className={clsx(styles.section, styles.logo_section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>
+              Supported integrations
+            </span>
+          </h1>
+          <BrowserOnlyReactCarousel
+            plugins={["arrows", "centered"]}
+            itemWidth={"20em"}
+          >
+            {sourceLogos.map((logo) => (
+              <div className={styles.carousel_slide} key={logo.name}>
+                <div className={styles.carousel_logo_frame}>
+                  <div className={styles.carousel_logo_center}>
+                    {logo.image}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </BrowserOnlyReactCarousel>
+        </div>
+      </section>
+
       <section className={styles.section}>
         <div className="container">
           <h1 className={clsx(styles.centerText)}>
@@ -418,25 +469,6 @@ function Home() {
                 />
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={clsx(styles.section, styles.logo_section)}>
-        <div className="container">
-          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
-            <span className={styles.larger_on_desktop}>
-              Supported integrations
-            </span>
-          </h1>
-          <div className={styles.logo_container}>
-            {sourceLogos.map((logo) => (
-              <div key={logo.name}>
-                <div className={styles.logo_frame}>
-                  <div className={styles.logo_center}>{logo.image}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

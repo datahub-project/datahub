@@ -110,6 +110,10 @@
   align-items: center;
   align-content: flex-start;
 }
+.carousel_slide {
+  padding: 1em;
+  width: 16em;
+}
 .logo_frame {
   border: 1px solid var(--ifm-color-emphasis-400);
   background-color: #ffffff;
@@ -118,7 +122,21 @@
   height: 12em;
   margin: 1em;
 }
+.carousel_logo_frame {
+  border: 1px solid var(--ifm-color-emphasis-400);
+  background-color: #ffffff;
+  height: 12rem;
+  margin-bottom: 2rem;
+  margin-top: 2rem;
+}
 .logo_center {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-block;
+}
+.carousel_logo_center {
   position: relative;
   top: 50%;
   left: 50%;
