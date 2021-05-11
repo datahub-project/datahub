@@ -67,7 +67,7 @@ spec:
           volumeMounts:
           {{- if .Values.global.credentialsAndCertsSecrets }}
             - name: datahub-certs-dir
-              mountPath: {{ .Values.global.credentialsAndCertsSecretPath | default "/mnt/certs" }}
+              mountPath: {{ .Values.global.credentialsAndCertsSecrets.path | default "/mnt/certs" }}
           {{- end }}
           {{- with .Values.kafkaSetupJob.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
