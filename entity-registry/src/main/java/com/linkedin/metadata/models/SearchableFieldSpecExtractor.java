@@ -31,6 +31,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 final Object annotationObj = enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
                 if (annotationObj != null) {
+                    // TOOD: Validate that we are looking at a primitive / array of primitives.
                     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
                     final SearchableAnnotation annotation = SearchableAnnotation
                             .fromPegasusAnnotationObject(annotationObj);

@@ -8,8 +8,9 @@ import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+
+import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -95,7 +96,7 @@ public class MetadataChangeEventsProcessor {
         return fmce;
     }
 
-    private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws URISyntaxException {
+    private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
         final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
         final Entity entity = new Entity().setValue(snapshotUnion);
         entityRemoteWriterDao.create(entity);

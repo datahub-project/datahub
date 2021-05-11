@@ -41,6 +41,18 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
      name: string
    }]
 
+   @Relationship = {
+     "name": "OwnedBy",
+     "entityTypes": [ "corpUser", "corpGroup" ]
+   }
+   foreignKeyArray: array[Urn]
+
+   @Relationship = {
+     "name": "IsPartOf",
+     "entityTypes": [ "dataset" ]
+   }
+   foreignKey: Urn
+
   @Searchable = {
     "fieldName": "description",
     "indexSettings": [{"indexType": "DELIMITED"}]

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.dao;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.DynamicRecordMetadata;
 import com.linkedin.data.template.FieldDef;
@@ -29,13 +28,14 @@ public class EntityRemoteWriterDao {
     }
 
     public void create(@Nonnull RecordTemplate entity)
-            throws IllegalArgumentException {
+            throws IllegalArgumentException, RemoteInvocationException {
+
+        // TODO: John Refactor this
 
         final FieldDef<?> entityFieldDef = new FieldDef<>("entity", Entity.class, DataTemplateUtil.getSchema(String.class));
-
         final HashMap<String, DynamicRecordMetadata> actionRequestMetadata = new HashMap<>();
-        actionRequestMetadata.put("ingest",
-                new DynamicRecordMetadata("ingest", Arrays.asList(entityFieldDef)));
+
+        actionRequestMetadata.put("ingest", new DynamicRecordMetadata("ingest", Arrays.asList(entityFieldDef)));
 
         final HashMap<java.lang.String, DynamicRecordMetadata> actionResponseMetadata = new HashMap<>();
         actionResponseMetadata.put("ingest", new DynamicRecordMetadata("ingest", Collections.emptyList()));
@@ -65,7 +65,7 @@ public class EntityRemoteWriterDao {
         try {
             _restliClient.sendRequest(request).getResponse();
         } catch (RemoteInvocationException e) {
-            throw new RuntimeException(e);
+            throw new RemoteInvocationException(e);
         }
     }
 }
