@@ -1,7 +1,6 @@
 .envrc
 .vscode/
 output
-src/datahub/metadata/
 pvenv36/
 bq_credentials.json
 /tmp
