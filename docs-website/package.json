@@ -16,9 +16,9 @@
   },
   "dependencies": {
     "@brainhubeu/react-carousel": "^2.0.3",
-    "@docusaurus/core": "2.0.0-alpha.69",
-    "@docusaurus/plugin-ideal-image": "2.0.0-alpha.69",
-    "@docusaurus/preset-classic": "2.0.0-alpha.69",
+    "@docusaurus/core": "^2.0.0-alpha.75",
+    "@docusaurus/plugin-ideal-image": "^2.0.0-alpha.75",
+    "@docusaurus/preset-classic": "^2.0.0-alpha.75",
     "clsx": "^1.1.1",
     "exenv": "^1.2.2",
     "react": "^16.12.0",
