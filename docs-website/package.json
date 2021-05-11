@@ -15,9 +15,9 @@
     "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js"
   },
   "dependencies": {
-    "@docusaurus/core": "2.0.0-alpha.69",
-    "@docusaurus/plugin-ideal-image": "2.0.0-alpha.69",
-    "@docusaurus/preset-classic": "2.0.0-alpha.69",
+    "@docusaurus/core": "^2.0.0-alpha.75",
+    "@docusaurus/plugin-ideal-image": "^2.0.0-alpha.75",
+    "@docusaurus/preset-classic": "^2.0.0-alpha.75",
     "clsx": "^1.1.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0"

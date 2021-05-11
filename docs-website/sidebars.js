@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 function list_ids_in_directory(directory) {
-  const files = fs.readdirSync(`../${directory}`);
+  const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
     if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
@@ -10,12 +10,15 @@ function list_ids_in_directory(directory) {
       ids = ids.concat(inner_ids);
     } else {
       if (name.endsWith(".md")) {
-        const id = `${directory}/${name}`.replace(/\.md$/, "");
+        const slug = name.replace(/\.md$/, "");
+        let id = `${directory}/${slug}`;
+        if (id.match(/\/\d+-.+/)) {
+          id = id.replace(/\/\d+-/, "/");
+        }
         ids.push(id);
       }
     }
   }
-  ids.sort();
   return ids;
 }
 
