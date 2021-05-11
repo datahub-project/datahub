@@ -191,7 +191,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataProcess",
@@ -249,7 +252,10 @@
           },
           "doc" : "the outputs of the data process",
           "optional" : true
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "dataProcessInfo"
+        }
       },
       "doc" : "Metadata associated with a data process including input and output datasets",
       "optional" : true
@@ -460,7 +466,12 @@
         "items" : "com.linkedin.metadata.aspect.DataProcessAspect"
       },
       "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : false,
+      "name" : "dataProcess",
+      "searchable" : false
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

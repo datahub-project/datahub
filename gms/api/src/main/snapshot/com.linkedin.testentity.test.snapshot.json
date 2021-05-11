@@ -158,7 +158,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "typeref",
     "name" : "TagUrn",
@@ -195,6 +198,12 @@
       "name" : "name",
       "type" : "string",
       "Searchable" : {
+        "fieldName" : "alias",
+        "indexSettings" : [ {
+          "addToDefaultQuery" : false,
+          "boostScore" : 3,
+          "indexType" : "KEYWORD"
+        } ],
         "indexType" : "KEYWORD"
       }
     } ]
@@ -262,8 +271,12 @@
         "type" : "string",
         "doc" : "Title of the test entity",
         "Searchable" : {
-          "field" : "title",
-          "indexType" : "KEYWORD"
+          "fieldName" : "title",
+          "indexSettings" : [ {
+            "addToDefaultQuery" : false,
+            "boostScore" : 3,
+            "indexType" : "KEYWORD"
+          } ]
         }
       }, {
         "name" : "aliases",
@@ -272,6 +285,12 @@
           "items" : "string"
         },
         "Searchable" : {
+          "fieldName" : "aliases",
+          "indexSettings" : [ {
+            "addToDefaultQuery" : false,
+            "boostScore" : 3,
+            "indexType" : "KEYWORD"
+          } ],
           "indexType" : "KEYWORD"
         }
       }, {

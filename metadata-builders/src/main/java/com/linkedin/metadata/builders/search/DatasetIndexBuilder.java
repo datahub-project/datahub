@@ -39,7 +39,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   /**
    * Given dataset urn, this returns a {@link DatasetDocument} model that has urn, dataset name, platform and origin fields set
    *
-   * @param urn {@link DatasetUrn} that needs to be set
+   * @param urn {@link DatasetUrn} that needs to be st
    * @return {@link DatasetDocument} model with relevant fields set that are extracted from the urn
    */
   @Nonnull

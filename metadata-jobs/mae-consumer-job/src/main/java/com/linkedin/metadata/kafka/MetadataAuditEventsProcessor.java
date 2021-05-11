@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
@@ -25,19 +26,20 @@ import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.annotation.EnableKafksrc/main/java/com/linkedin/metadata/kafka/config/Neo4jConfig.javaa;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -111,9 +113,16 @@ public class MetadataAuditEventsProcessor {
               .get(aspectName)
               .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
       if (matchingAnnotation.isPresent()) {
-          log.info(matchingAnnotation.get().getRelationshipName());
-          log.info(matchingAnnotation.get().getValidDestinationTypes().toString());
-          log.info(next.getValue().toString());
+        try {
+          graphWriterDAO.addAbstractEdge(
+                  (String) snapshot.data().get("urn"),
+                  (String) ((DataMap) next.getValue()).get("entity"),
+                  matchingAnnotation.get().getRelationshipName(),
+                  new HashMap<>()
+          );
+        } catch (URISyntaxException e) {
+          e.printStackTrace();
+        }
       }
       if (next == null) {
         break;

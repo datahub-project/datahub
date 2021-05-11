@@ -125,7 +125,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "typeref",
     "name" : "TagUrn",
@@ -173,7 +176,10 @@
         "type" : "string",
         "doc" : "Documentation of the tag",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "tagProperties"
+      }
     } ]
   }, {
     "type" : "record",
@@ -375,7 +381,12 @@
         "items" : "com.linkedin.metadata.aspect.TagAspect"
       },
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : false,
+      "name" : "tag",
+      "searchable" : false
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

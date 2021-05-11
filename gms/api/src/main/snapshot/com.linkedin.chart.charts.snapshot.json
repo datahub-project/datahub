@@ -191,7 +191,10 @@
       "type" : "com.linkedin.common.Time",
       "doc" : "The time when this chart last refreshed",
       "optional" : true
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "chartInfo"
+    }
   }, {
     "type" : "record",
     "name" : "ChartQuery",
@@ -213,7 +216,10 @@
         }
       },
       "doc" : "Chart query type"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "chartQuery"
+    }
   }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", "com.linkedin.common.ChangeAuditStamps", {
     "type" : "typeref",
     "name" : "ChartUrn",
@@ -295,7 +301,10 @@
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -372,7 +381,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -383,7 +395,10 @@
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
       "default" : false
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "Chart",
@@ -727,7 +742,12 @@
         "items" : "com.linkedin.metadata.aspect.ChartAspect"
       },
       "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "chart",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

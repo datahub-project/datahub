@@ -193,7 +193,10 @@
       "name" : "actor",
       "type" : "CorpuserUrn",
       "doc" : "The corpuser URN which will be credited for modifying this deprecation content."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "deprecation"
+    }
   }, {
     "type" : "enum",
     "name" : "FabricType",
@@ -243,7 +246,10 @@
         }
       },
       "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "institutionalMemory"
+    }
   }, "com.linkedin.common.InstitutionalMemoryMetadata", {
     "type" : "typeref",
     "name" : "MLFeatureUrn",
@@ -388,7 +394,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -399,7 +408,10 @@
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
       "default" : false
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "VersionTag",
@@ -970,7 +982,12 @@
         "items" : "com.linkedin.metadata.aspect.MLModelAspect"
       },
       "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : false,
+      "name" : "mlModel",
+      "searchable" : false
+    }
   }, {
     "type" : "record",
     "name" : "MLModel",
