@@ -97,8 +97,8 @@ class KafkaConnectSource(Source):
     """The class for Kafka Connect source.
 
     Attributes:
-        config (str): Kafka Connect cluster REST API configurations.
-        report (:obj:`int`, optional): .
+        config (KafkaConnectConfig): Kafka Connect cluster REST API configurations.
+        report (KafkaConnectSourceReport): Kafka Connect source ingestion report.
 
     """
     config: KafkaConnectConfig
