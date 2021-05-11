@@ -16,7 +16,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
 
-```sh
+```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
@@ -56,13 +56,13 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 These plugins can be mixed and matched as desired. For example:
 
-```sh
+```shell
 pip install 'acryl-datahub[bigquery,datahub-rest]'
 ```
 
 You can check the active plugins:
 
-```sh
+```shell
 datahub check plugins
 ```
 
@@ -70,7 +70,7 @@ datahub check plugins
 
 #### Basic Usage
 
-```sh
+```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
@@ -85,7 +85,7 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
-```sh
+```shell
 ./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
@@ -125,7 +125,7 @@ https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitut
 
 Running a recipe is quite easy.
 
-```sh
+```shell
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
@@ -600,15 +600,26 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 
 There's a couple ways to get lineage information from Airflow into DataHub.
 
-_Note: if you're simply looking to run ingestion on a schedule, take a look at these sample DAGs: (1) [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it; and (2) [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration._
+:::note Running ingestion on a schedule
+
+If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
+
+- [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it
+- [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration.
+
+:::
 
 ### Using Datahub's Airflow lineage backend (recommended)
 
-_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
+:::caution
+
+The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
+
+:::
 
 1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
-   ```sh
+   ```shell
    # For REST-based:
    airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
    # For Kafka-based (standard Kafka sink config can be passed via extras):
