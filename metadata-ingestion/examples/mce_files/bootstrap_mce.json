@@ -132,11 +132,6 @@
                                     "owner": "urn:li:corpuser:datahub",
                                     "type": "DATAOWNER",
                                     "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpGroup:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
                                 }
                             ],
                             "lastModified": {
