@@ -24,7 +24,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ### Set up your Python environment
 
-```sh
+```shell
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip wheel setuptools
@@ -44,7 +44,7 @@ If you've already run the pip install, but running `datahub` in your command lin
 
 The easiest way to circumvent this is to install and run via Python, and use `python3 -m datahub` in place of `datahub`.
 
-```sh
+```shell
 python3 -m pip install --upgrade acryl-datahub
 python3 -m datahub --help
 ```
@@ -56,7 +56,7 @@ python3 -m datahub --help
 
 This means Python's `wheel` is not installed. Try running the following commands and then retry.
 
-```sh
+```shell
 pip install --upgrade pip wheel setuptools
 pip cache purge
 ```
@@ -93,7 +93,7 @@ Contributions welcome!
 
 ### Testing
 
-```sh
+```shell
 # Follow standard install from source procedure - see above.
 
 # Install, including all dev requirements.
@@ -108,7 +108,7 @@ pytest tests/integration
 
 ### Sanity check code before committing
 
-```sh
+```shell
 # Assumes: pip install -e '.[dev]'
 black .
 isort .
