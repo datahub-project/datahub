@@ -1,8 +1,9 @@
-from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
 import logging
+
 from freezegun import freeze_time
 
+from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
