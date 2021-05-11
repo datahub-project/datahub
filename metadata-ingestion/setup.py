@@ -112,6 +112,8 @@ base_dev_requirements = {
             "mssql",
             "mongodb",
             "ldap",
+            "looker",
+            "lookml",
             "glue",
             "datahub-kafka",
             "datahub-rest",
