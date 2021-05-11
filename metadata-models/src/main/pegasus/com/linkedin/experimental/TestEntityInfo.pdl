@@ -20,7 +20,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "title",
-    "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
+    "indexSettings": [{"indexType": "KEYWORD" }, {"indexType": "DELIMITED"}, {"indexType": "PARTIAL"}]
   }
   title: string
 
@@ -28,24 +28,35 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    *
    */
    @Searchable = {
-     "indexType": "KEYWORD",
-     "fieldName": "aliases",
-    "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
+     "fieldName": "aliases"
+     "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliases"}, {"indexType": "COUNT", "overrideFieldName": "numAliases"}]
    }
    aliases: array[string]
 
    recordAliases: array[record AliasRecord {
-       @Searchable = {
-         "indexType": "KEYWORD",
-        "fieldName": "alias",
-        "indexSettings": [{"indexType": "KEYWORD", "addToDefaultQuery": false, "boostScore": 3 }]
-       }
-       name: string
+     @Searchable = {
+       "fieldName": "aliasRecords",
+       "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliasRecords"}]
+     }
+     name: string
    }]
 
-  /**
-   * Detailed description about the test entity
-   */
+   @Relationship = {
+     "name": "OwnedBy",
+     "entityTypes": [ "corpUser", "corpGroup" ]
+   }
+   foreignKeyArray: array[Urn]
+
+   @Relationship = {
+     "name": "IsPartOf",
+     "entityTypes": [ "dataset" ]
+   }
+   foreignKey: Urn
+
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [{"indexType": "DELIMITED"}]
+  }
   description: string
 
   /**
@@ -66,6 +77,10 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
   /**
    * Type of the chart
    */
+  @Searchable = {
+    "fieldName": "chartType",
+    "indexSettings": [{"indexType": "KEYWORD"}]
+  }
   type: optional enum ChartTypeOption {
     TYPE_1
     TYPE_2
