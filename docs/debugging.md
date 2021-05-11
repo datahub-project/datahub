@@ -3,7 +3,7 @@
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
 If you set up the `datahub` CLI tool (see [here](../metadata-ingestion/README.md)), you can use the built-in check utility:
-```sh
+```shell
 datahub check local-docker
 ```
 
