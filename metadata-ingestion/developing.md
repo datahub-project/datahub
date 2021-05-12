@@ -20,7 +20,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 ### Set up your Python environment
 
 ```shell
-../gradlew build -x check # setup venv and install
+../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
 datahub version  # check that it works
 ```
@@ -109,5 +109,5 @@ mypy .
 pytest
 
 # These steps are all included in the gradle build:
-../gradlew build
+../gradlew :metadata-ingestion:check
 ```
