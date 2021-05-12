@@ -49,14 +49,6 @@ assert sys.version_info[1] >= 7  # needed for mypy
 
 logger = logging.getLogger(__name__)
 
-# handle extend?
-# tests
-# docs
-# TODO: build schema field lineage
-# TODO: in our own stuff, could add link to github to the files in a transformer.
-# Could gather more metadata from fields to description?
-
-# Default schema!!!! maybe a transformer?
 
 class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     base_folder: str
