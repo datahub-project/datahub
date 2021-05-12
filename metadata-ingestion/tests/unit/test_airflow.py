@@ -18,10 +18,10 @@ except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.entities import Dataset
-from datahub.integrations.airflow.get_provider_info import get_provider_info
-from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
-from datahub.integrations.airflow.operators import DatahubEmitterOperator
+from datahub_provider import get_provider_info
+from datahub_provider.entities import Dataset
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -61,7 +61,9 @@ def test_airflow_provider_info():
 
 
 def test_dags_load_with_no_errors(pytestconfig):
-    airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
+    airflow_examples_folder = (
+        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+    )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
     assert dag_bag.import_errors == {}
@@ -73,12 +75,12 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
     with mock.patch(
-        "datahub.integrations.airflow.hooks.BaseHook.get_connection", return_value=conn
+        "datahub_provider.hooks.datahub.BaseHook.get_connection", return_value=conn
     ):
         yield conn
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
@@ -89,7 +91,7 @@ def test_datahub_rest_hook(mock_emitter):
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub_provider.hooks.datahub.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)
@@ -101,7 +103,7 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         task = DatahubEmitterOperator(
@@ -163,14 +165,14 @@ def test_hook_airflow_ui(hook):
         "airflow-2-x-decl",
     ],
 )
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
     with mock.patch.dict(
         os.environ,
         {
-            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
         },
     ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(

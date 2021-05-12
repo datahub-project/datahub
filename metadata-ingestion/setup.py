@@ -204,10 +204,7 @@ setuptools.setup(
             "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         ],
         "apache_airflow_provider": [
-            "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
-        ],
-        "airflow.plugins": [
-            "datahub = datahub.integrations.airflow.get_provider_info:DatahubAirflowPlugin"
+            "provider_info = datahub_provider:get_provider_info"
         ],
     },
     # Dependencies.
