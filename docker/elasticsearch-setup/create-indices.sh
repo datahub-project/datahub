@@ -2,6 +2,8 @@
 
 set -e
 
+: ${DATAHUB_ANALYTICS_ENABLED:=true}
+
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
@@ -122,6 +124,23 @@ function create_index() {
   fi
 }
 
+function create_datahub_usage_event_datastream() {
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_ilm/policy/datahub_usage_event_policy") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_policy"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_ilm/policy/datahub_usage_event_policy" -H 'Content-Type: application/json' --data @/index/$1
+  else
+    echo -e "\ndatahub_usage_event_policy exists"
+  fi
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_index_template/datahub_usage_event_index_template") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_index_template"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_index_template/datahub_usage_event_index_template" -H 'Content-Type: application/json' --data @/index/$2
+  else
+    echo -e "\ndatahub_usage_event_index_template exists"
+  fi
+}
+
 create_index $(get_index_name chartdocument) chart/settings.json chart/mappings.json || exit 1
 create_index $(get_index_name corpuserinfodocument) corp-user/settings.json corp-user/mappings.json  || exit 1
 create_index $(get_index_name dashboarddocument) dashboard/settings.json dashboard/mappings.json  || exit 1
@@ -133,3 +152,7 @@ create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/m
 create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
 create_index $(get_index_name glossaryterminfodocument) glossary/term/settings.json glossary/term/mappings.json || exit 1
 create_index $(get_index_name glossarynodeinfodocument) glossary/node/settings.json glossary/node/mappings.json || exit 1
+if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
+  create_datahub_usage_event_datastream usage-event/policy.json usage-event/index_template.json || exit 1
+fi
+

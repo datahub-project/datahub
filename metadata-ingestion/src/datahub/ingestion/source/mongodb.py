@@ -56,17 +56,13 @@ PYMONGO_TYPE_TO_TYPE_STRING = {
     list: "ARRAY",
     dict: "OBJECT",
     type(None): "null",
-
     bool: "boolean",
     int: "integer",
     bson.int64.Int64: "biginteger",
     float: "float",
-
     str: "string",
-
     bson.datetime.datetime: "date",
     bson.timestamp.Timestamp: "timestamp",
-
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
 }
@@ -82,10 +78,13 @@ def get_type_string(value):
     try:
         type_string = PYMONGO_TYPE_TO_TYPE_STRING[value_type]
     except KeyError:
-        logger.warning("Pymongo type %s is not mapped to a type_string. "
-                       "We define it as 'unknown' for current schema extraction", value_type)
-        PYMONGO_TYPE_TO_TYPE_STRING[value_type] = 'unknown'
-        type_string = 'unknown'
+        logger.warning(
+            "Pymongo type %s is not mapped to a type_string. "
+            "We define it as 'unknown' for current schema extraction",
+            value_type,
+        )
+        PYMONGO_TYPE_TO_TYPE_STRING[value_type] = "unknown"
+        type_string = "unknown"
 
     return type_string
 
@@ -123,33 +122,12 @@ def common_parent_type(list_of_type_string):
     :return common_type: type_str
     """
     if not list_of_type_string:
-        return 'null'
+        return "null"
     # avoid duplicates as get_common_ancestor('integer', 'integer') -> 'number'
     list_of_type_string = list(set(list_of_type_string))
     if len(list_of_type_string) == 1:
         return list_of_type_string[0]
     return TYPES_STRING_TREE.get_common_ancestor(*list_of_type_string).name
-
-
-MONGO_TO_PSQL_TYPE = {
-    'boolean': 'BOOLEAN',
-    'integer': 'INT',
-    'biginteger': 'BIGINT',
-    'float': 'REAL',
-    'number': 'DOUBLE PRECISION',
-    'date': 'TIMESTAMP',
-    'string': 'TEXT',
-    'oid': 'TEXT',
-    'dbref': 'TEXT'
-}
-
-
-def psql_type(mongo_type_str):
-    """ Map a MongoDB type string to a PSQL type string
-    :param mongo_type_str: str
-    :return psql_type_str: str
-    """
-    return MONGO_TO_PSQL_TYPE[mongo_type_str]
 
 
 def extract_collection_schema(pymongo_collection, sample_size=0):
@@ -162,22 +140,26 @@ def extract_collection_schema(pymongo_collection, sample_size=0):
     :param sample_size: int, default 0
     :return collection_schema: dict
     """
-    collection_schema = {
-        'count': 0,
-        "object": init_empty_object_schema()
-    }
+    collection_schema = {"count": 0, "object": init_empty_object_schema()}
 
     n = pymongo_collection.count()
-    collection_schema['count'] = n
+    collection_schema["count"] = n
     if sample_size:
-        documents = pymongo_collection.aggregate([{'$sample': {'size': sample_size}}], allowDiskUse=True)
+        documents = pymongo_collection.aggregate(
+            [{"$sample": {"size": sample_size}}], allowDiskUse=True
+        )
     else:
         documents = pymongo_collection.find({})
     scan_count = sample_size or n
     for i, document in enumerate(documents, start=1):
-        add_document_to_object_schema(document, collection_schema['object'])
+        add_document_to_object_schema(document, collection_schema["object"])
         if i % 10 ** 5 == 0 or i == scan_count:
-            logger.info('   scanned %s documents out of %s (%.2f %%)', i, scan_count, (100. * i) / scan_count)
+            logger.info(
+                "   scanned %s documents out of %s (%.2f %%)",
+                i,
+                scan_count,
+                (100.0 * i) / scan_count,
+            )
 
     post_process_schema(collection_schema)
     collection_schema = recursive_default_to_regular_dict(collection_schema)
@@ -206,13 +188,15 @@ def post_process_schema(object_count_schema):
     :param object_count_schema: dict
     This schema can either be a field_schema or a collection_schema
     """
-    object_count = object_count_schema['count']
-    object_schema = object_count_schema['object']
+    object_count = object_count_schema["count"]
+    object_schema = object_count_schema["object"]
     for field_schema in object_schema.values():
 
         summarize_types(field_schema)
-        field_schema['prop_in_object'] = round((field_schema['count']) / float(object_count), 4)
-        if 'object' in field_schema:
+        field_schema["prop_in_object"] = round(
+            (field_schema["count"]) / float(object_count), 4
+        )
+        if "object" in field_schema:
             post_process_schema(field_schema)
 
 
@@ -226,23 +210,21 @@ def summarize_types(field_schema):
     :param field_schema:
     """
 
-    type_list = list(field_schema['types_count'])
+    type_list = list(field_schema["types_count"])
     # Only if 'ARRAY' in 'types_count':
-    type_list += list(field_schema.get('array_types_count', {}))
+    type_list += list(field_schema.get("array_types_count", {}))
 
     cleaned_type_list = [
-        type_name
-        for type_name in type_list
-        if type_name not in ['ARRAY', 'null']
+        type_name for type_name in type_list if type_name not in ["ARRAY", "null"]
     ]
 
     common_type = common_parent_type(cleaned_type_list)
 
-    if 'ARRAY' in field_schema['types_count']:
-        field_schema['type'] = 'ARRAY'
-        field_schema['array_type'] = common_type
+    if "ARRAY" in field_schema["types_count"]:
+        field_schema["type"] = "ARRAY"
+        field_schema["array_type"] = common_type
     else:
-        field_schema['type'] = common_type
+        field_schema["type"] = common_type
 
 
 def init_empty_object_schema():
@@ -254,11 +236,13 @@ def init_empty_object_schema():
 
     def empty_field_schema():
         return {
-            'types_count': defaultdict(int),
-            'count': 0,
+            "types_count": defaultdict(int),
+            "count": 0,
         }
 
-    empty_object = defaultdict(empty_field_schema)  # type: defaultdict[str, dict[str, Any]]
+    empty_object = defaultdict(
+        empty_field_schema
+    )  # type: defaultdict[str, dict[str, Any]]
     return empty_object
 
 
@@ -284,7 +268,7 @@ def add_value_to_field_schema(value, field_schema):
     :param field_schema: dict
     subdictionary of the global schema dict corresponding to a field
     """
-    field_schema['count'] += 1
+    field_schema["count"] += 1
     add_value_type(value, field_schema)
     add_potential_list_to_field_schema(value, field_schema)
     add_potential_document_to_field_schema(value, field_schema)
@@ -298,9 +282,9 @@ def add_potential_document_to_field_schema(document, field_schema):
     :param field_schema:
     """
     if isinstance(document, dict):
-        if 'object' not in field_schema:
-            field_schema['object'] = init_empty_object_schema()
-        add_document_to_object_schema(document, field_schema['object'])
+        if "object" not in field_schema:
+            field_schema["object"] = init_empty_object_schema()
+        add_document_to_object_schema(document, field_schema["object"])
 
 
 def add_potential_list_to_field_schema(value_list, field_schema):
@@ -313,18 +297,18 @@ def add_potential_list_to_field_schema(value_list, field_schema):
     :param field_schema: dict
     """
     if isinstance(value_list, list):
-        if 'array_types_count' not in field_schema:
-            field_schema['array_types_count'] = defaultdict(int)
+        if "array_types_count" not in field_schema:
+            field_schema["array_types_count"] = defaultdict(int)
 
         if not value_list:
-            add_value_type(None, field_schema, type_str='array_types_count')
+            add_value_type(None, field_schema, type_str="array_types_count")
 
         for value in value_list:
-            add_value_type(value, field_schema, type_str='array_types_count')
+            add_value_type(value, field_schema, type_str="array_types_count")
             add_potential_document_to_field_schema(value, field_schema)
 
 
-def add_value_type(value, field_schema, type_str='types_count'):
+def add_value_type(value, field_schema, type_str="types_count"):
     """
     Define the type_str in field_schema, or check it is equal to the one previously defined.
     :param value:
@@ -335,7 +319,9 @@ def add_value_type(value, field_schema, type_str='types_count'):
     field_schema[type_str][value_type_str] += 1
 
 
-def flatten_schema(nested_schema: Dict[str, Any], parent: str, delimiter: str) -> List[str]:
+def flatten_schema(
+    nested_schema: Dict[str, Any], parent: str, delimiter: str
+) -> List[str]:
     """
     Flatten a nested schema by concatenating keys with a given delimiter.
     """
@@ -344,13 +330,18 @@ def flatten_schema(nested_schema: Dict[str, Any], parent: str, delimiter: str) -
 
     for key in list(nested_schema):
         initial = "" if parent == "" else delimiter
-        
+
         if type(nested_schema[key]) == dict:
 
-            flattened.extend(flatten_schema(nested_schema[key], initial.join((parent, key)), delimiter))
+            flattened.extend(
+                flatten_schema(
+                    nested_schema[key], initial.join((parent, key)), delimiter
+                )
+            )
         else:
             flattened.extend([initial.join((parent, key))])
     return flattened
+
 
 @dataclass
 class MongoDBSource(Source):
@@ -426,7 +417,10 @@ class MongoDBSource(Source):
 
                 # code adapted from https://github.com/pajachiet/pymongo-schema
                 collection_schema = extract_collection_schema(database[collection_name])
+                import json
                 from pprint import pprint
+
+                print(json.dumps(collection_schema))
                 pprint(collection_schema)
 
                 # TODO: use list_indexes() or index_information() to get index information

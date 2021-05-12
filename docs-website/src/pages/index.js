@@ -232,6 +232,7 @@ function Feature({ imageUrl, title, description }) {
 function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
+
   return (
     <Layout
       title={siteConfig.tagline}
@@ -321,6 +322,29 @@ function Home() {
           </div>
         </div>
       </section>
+
+      <section className={clsx(styles.section, styles.logo_section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>
+              Supported integrations
+            </span>
+          </h1>
+          <div className={styles.carousel}>
+            {sourceLogos.map((logo) => (
+              <div className={styles.carousel_logo_frame} key={logo.name}>
+                <div className={styles.carousel_logo_center}>{logo.image}</div>
+              </div>
+            ))}
+          </div>
+          <div className={styles.sources_link}>
+            <Link to={"/docs/metadata-ingestion/#sources"}>
+              ...and many more!
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <section className={styles.section}>
         <div className="container">
           <h1 className={clsx(styles.centerText)}>
@@ -418,25 +442,6 @@ function Home() {
                 />
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={clsx(styles.section, styles.logo_section)}>
-        <div className="container">
-          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
-            <span className={styles.larger_on_desktop}>
-              Supported integrations
-            </span>
-          </h1>
-          <div className={styles.logo_container}>
-            {sourceLogos.map((logo) => (
-              <div key={logo.name}>
-                <div className={styles.logo_frame}>
-                  <div className={styles.logo_center}>{logo.image}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

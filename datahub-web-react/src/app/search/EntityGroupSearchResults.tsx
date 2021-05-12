@@ -8,6 +8,7 @@ import { EntityType, SearchResult } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
     header: { marginBottom: 20 },
@@ -36,6 +37,17 @@ interface Props {
 export const EntityGroupSearchResults = ({ type, query, searchResults }: Props) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+
+    const onResultClick = (result: SearchResult, index: number) => {
+        analytics.event({
+            type: EventType.SearchResultClickEvent,
+            query,
+            entityUrn: result.entity.urn,
+            entityType: result.entity.type,
+            index,
+            total: searchResults.length,
+        });
+    };
 
     return (
         <Space direction="vertical" style={styles.resultsContainer}>
@@ -74,7 +86,9 @@ export const EntityGroupSearchResults = ({ type, query, searchResults }: Props) 
                 split={false}
                 renderItem={(searchResult, index) => (
                     <>
-                        <List.Item>{entityRegistry.renderSearchResult(type, searchResult)}</List.Item>
+                        <List.Item onClick={() => onResultClick(searchResult, index)}>
+                            {entityRegistry.renderSearchResult(type, searchResult)}
+                        </List.Item>
                         {index < searchResults.length - 1 && <Divider />}
                     </>
                 )}

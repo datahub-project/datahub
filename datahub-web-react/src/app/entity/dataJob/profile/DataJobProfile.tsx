@@ -13,6 +13,7 @@ import TagGroup from '../../../shared/tags/TagGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
     // Tasks = 'Tasks',
@@ -59,7 +60,13 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                         updateOwnership={(update) => {
-                            updateDataJob({ variables: { input: { urn, ownership: update } } });
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.DataJob,
+                                entityUrn: urn,
+                            });
+                            return updateDataJob({ variables: { input: { urn, ownership: update } } });
                         }}
                     />
                 ),
@@ -82,13 +89,29 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
                             editableTags={data.dataJob?.globalTags as GlobalTags}
                             canAdd
                             canRemove
-                            updateTags={(globalTags) => updateDataJob({ variables: { input: { urn, globalTags } } })}
+                            updateTags={(globalTags) => {
+                                analytics.event({
+                                    type: EventType.EntityActionEvent,
+                                    actionType: EntityActionType.UpdateTags,
+                                    entityType: EntityType.DataJob,
+                                    entityUrn: urn,
+                                });
+                                return updateDataJob({ variables: { input: { urn, globalTags } } });
+                            }}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
                     title={data.dataJob.info?.name || ''}
                     tabs={getTabs(data.dataJob as DataJob)}
                     header={getHeader(data.dataJob as DataJob)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.DataJob,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>
