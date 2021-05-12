@@ -82,6 +82,7 @@ module.exports = {
       "docs/how/configure-oidc-react",
       "docs/how/sso/configure-oidc-react-google",
       "docs/how/sso/configure-oidc-react-okta",
+      "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
       "datahub-web-react/README",

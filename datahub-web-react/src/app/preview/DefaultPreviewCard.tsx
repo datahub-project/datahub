@@ -1,10 +1,10 @@
-import { Avatar, Divider, Image, Row, Space, Tag, Typography } from 'antd';
+import { Divider, Image, Row, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType, GlobalTags } from '../../types.generated';
+import { GlobalTags, Owner } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import CustomAvatar from '../shared/avatar/CustomAvatar';
+import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagGroup from '../shared/tags/TagGroup';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
     platform?: string;
     qualifier?: string | null;
     tags?: GlobalTags;
-    owners?: Array<{ urn: string; name?: string; photoUrl?: string }>;
+    owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
 }
 
@@ -56,6 +56,7 @@ export default function DefaultPreviewCard({
     snippet,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+
     return (
         <Row style={styles.row} justify="space-between">
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
@@ -86,16 +87,7 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space direction="vertical" size={12}>
                     <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
-                    <Avatar.Group maxCount={4}>
-                        {owners?.map((owner) => (
-                            <CustomAvatar
-                                key={owner.urn}
-                                name={owner.name}
-                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.urn}`}
-                                photoUrl={owner.photoUrl}
-                            />
-                        ))}
-                    </Avatar.Group>
+                    <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                 </Space>
                 <TagGroup editableTags={tags} maxShow={3} />
             </Space>

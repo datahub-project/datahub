@@ -1,7 +1,7 @@
 """Convenience functions for creating MCEs"""
 
 import time
-from typing import List, Union
+from typing import List, Optional, Type, TypeVar
 
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -14,6 +14,12 @@ from datahub.metadata.schema_classes import (
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
+
+T = TypeVar("T")
+
+
+def get_sys_time() -> int:
+    return int(time.time() * 1000)
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
@@ -47,14 +53,12 @@ def make_data_job_urn(
 
 
 def make_lineage_mce(
-    upstream_urns: Union[str, List[str]],
+    upstream_urns: List[str],
     downstream_urn: str,
     actor: str = make_user_urn("datahub"),
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
-    sys_time = int(time.time() * 1000)
-    if not isinstance(upstream_urns, list):
-        upstream_urns = [upstream_urns]
+    sys_time = get_sys_time()
 
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
@@ -77,3 +81,24 @@ def make_lineage_mce(
         )
     )
     return mce
+
+
+def get_aspect_if_available(
+    mce: MetadataChangeEventClass, type: Type[T]
+) -> Optional[T]:
+    all_aspects = mce.proposedSnapshot.aspects
+    aspects: List[T] = [aspect for aspect in all_aspects if isinstance(aspect, type)]
+
+    if len(aspects) > 1:
+        raise ValueError(f"MCE contains multiple aspects of type {type}: {aspects}")
+    if aspects:
+        return aspects[0]
+    return None
+
+
+def get_or_add_aspect(mce: MetadataChangeEventClass, default: T) -> T:
+    existing = get_aspect_if_available(mce, type(default))
+    if existing is not None:
+        return existing
+    mce.proposedSnapshot.aspects.append(default)
+    return default

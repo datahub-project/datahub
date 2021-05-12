@@ -586,8 +586,27 @@ transformers:
       some_property: "some.value"
 ```
 
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
-At the moment there are no built-in transformers.
+A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py).
+
+### `simple_add_dataset_ownership`
+
+Adds a set of owners to every dataset.
+
+```yml
+transformers:
+  - type: "simple_add_dataset_ownership"
+    config:
+      owner_urns:
+        - "urn:li:corpuser:username1"
+        - "urn:li:corpuser:username2"
+        - "urn:li:corpGroup:groupname"
+```
+
+:::tip
+
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`AddDatasetOwnership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+
+:::
 
 ## Using as a library
 
