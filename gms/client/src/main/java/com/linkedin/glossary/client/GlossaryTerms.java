@@ -9,7 +9,7 @@ import com.linkedin.glossary.GlossaryTermsFindBySearchRequestBuilder;
 import com.linkedin.glossary.GlossaryTermsRequestBuilders;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.restli.BaseSearchableClient;
+import com.linkedin.metadata.restli.BaseBrowsableClient;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
@@ -17,6 +17,11 @@ import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.glossary.GlossaryTermsDoAutocompleteRequestBuilder;
+import com.linkedin.glossary.GlossaryTermsDoBrowseRequestBuilder;
+import com.linkedin.glossary.GlossaryTermsDoGetBrowsePathsRequestBuilder;
+import com.linkedin.metadata.query.BrowseResult;
 
 import java.util.List;
 import java.util.Map;
@@ -26,7 +31,7 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class GlossaryTerms extends BaseSearchableClient<GlossaryTerm> {
+public class GlossaryTerms extends BaseBrowsableClient<GlossaryTerm, GlossaryTermUrn> {
 
   private static final GlossaryTermsRequestBuilders BUSINESS_TERMS_REQUEST_BUILDERS = new GlossaryTermsRequestBuilders();
 
@@ -127,6 +132,67 @@ public class GlossaryTerms extends BaseSearchableClient<GlossaryTerm> {
   public CollectionResponse<GlossaryTerm> search(@Nonnull String input, int start, int count)
           throws RemoteInvocationException {
     return search(input, null, null, start, count);
+  }
+
+  /**
+   * Auto complete glossary terms
+   *
+   * @param query search query
+   * @param field field of the dataset
+   * @param requestFilters autocomplete filters
+   * @param limit max number of autocomplete results
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public AutoCompleteResult autoComplete(@Nonnull String query, @Nonnull String field,
+                                         @Nonnull Map<String, String> requestFilters,
+                                         @Nonnull int limit) throws RemoteInvocationException {
+    GlossaryTermsDoAutocompleteRequestBuilder requestBuilder = BUSINESS_TERMS_REQUEST_BUILDERS
+            .actionAutocomplete()
+            .queryParam(query)
+            .fieldParam(field)
+            .filterParam(newFilter(requestFilters))
+            .limitParam(limit);
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+  }
+
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param path path being browsed
+   * @param requestFilters browse filters
+   * @param start start offset of first dataset
+   * @param limit max number of datasets
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  @Override
+  public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
+                             int start, int limit) throws RemoteInvocationException {
+    GlossaryTermsDoBrowseRequestBuilder requestBuilder = BUSINESS_TERMS_REQUEST_BUILDERS
+            .actionBrowse()
+            .pathParam(path)
+            .startParam(start)
+            .limitParam(limit);
+    if (requestFilters != null) {
+      requestBuilder.filterParam(newFilter(requestFilters));
+    }
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+  }
+
+  /**
+   * Gets browse path(s) given glossary term urn
+   *
+   * @param urn urn for the entity
+   * @return list of paths given urn
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public StringArray getBrowsePaths(@Nonnull GlossaryTermUrn urn) throws RemoteInvocationException {
+    GlossaryTermsDoGetBrowsePathsRequestBuilder requestBuilder = BUSINESS_TERMS_REQUEST_BUILDERS
+            .actionGetBrowsePaths()
+            .urnParam(urn);
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
   }
 
   @Nonnull

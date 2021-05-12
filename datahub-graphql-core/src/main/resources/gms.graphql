@@ -83,6 +83,10 @@ enum EntityType {
     The DATA_JOB Entity
     """
     DATA_JOB
+    """
+    The GlossaryTerm Entity
+    """
+    GLOSSARY_TERM
 }
 
 type Query {
@@ -145,6 +149,11 @@ type Query {
     Retrieve the browse path(s) corresponding to an entity
     """
     browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+    """
+    Fetch a GlossaryTerm by primary key
+    """
+    glossaryTerm(urn: String!): GlossaryTerm
 }
 
 type Mutation {
@@ -268,6 +277,55 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags
+}
+
+type GlossaryTerm implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    name: String!
+
+    """
+    Details of the Glossary Term
+    """
+    glossaryTermInfo: GlossaryTermInfo!
+}
+
+type GlossaryTermInfo {
+    """
+    Name of the glossary term
+    """
+    definition: String!
+
+    """
+    Term Source of the glossary term
+    """
+    termSource: String!
+
+    """
+    Source Ref of the glossary term
+    """
+    sourceRef: String
+
+    """
+    Source Url of the glossary term
+    """
+    sourceUrl: String
+
+    """
+    Properties of the glossary term
+    """
+    customProperties: [StringMapEntry!]
 }
 
 type DataPlatform implements Entity {
