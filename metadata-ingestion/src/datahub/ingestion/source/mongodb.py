@@ -290,7 +290,9 @@ def construct_schema(
 
 
 def construct_schema_pymongo(
-    collection: pymongo.collection.Collection, delimiter: str
+    collection: pymongo.collection.Collection,
+    delimiter: str,
+    sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str], SchemaDescription]:
     """
     Calls construct_schema on a PyMongo collection.
@@ -301,9 +303,20 @@ def construct_schema_pymongo(
             the PyMongo collection
         delimiter:
             string to concatenate field names by
+        sample_size:
+            number of items in the collection to sample
+            (reads entire collection if not provided)
 
     """
-    documents = collection.find({})
+
+    if sample_size:
+        # get sample documents in collection
+        documents = collection.aggregate(
+            [{"$sample": {"size": sample_size}}], allowDiskUse=True
+        )
+    else:
+        # if sample_size is not provided, just take all items in the collection
+        documents = collection.find({})
 
     return construct_schema(documents, delimiter)
 
@@ -404,7 +417,10 @@ class MongoDBSource(Source):
                     database[collection_name], delimiter="."
                 )
 
+                # initialize the schema for the collection
                 canonical_schema: List[SchemaField] = []
+
+                # append each schema field
                 for schema_field in collection_schema.values():
                     field = SchemaField(
                         fieldPath=schema_field["delimited_name"],
@@ -416,6 +432,7 @@ class MongoDBSource(Source):
                     )
                     canonical_schema.append(field)
 
+                # create schema metadata object for collection
                 actor = "urn:li:corpuser:etl"
                 sys_time = int(time.time() * 1000)
                 schema_metadata = SchemaMetadata(
