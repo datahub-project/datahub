@@ -13,24 +13,16 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 ### Requirements
 
 1. Python 3.6+ must be installed in your host environment.
-2. You also need to build the `mxe-schemas` module as below.
-   ```
-   (cd .. && ./gradlew :metadata-events:mxe-schemas:build)
-   ```
-   This is needed to generate `MetadataChangeEvent.avsc` which is the schema for the `MetadataChangeEvent_v4` Kafka topic.
-3. On MacOS: `brew install librdkafka`
-4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
-5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
+2. On MacOS: `brew install librdkafka`
+3. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
 
 ```shell
-python3 -m venv venv
+../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip uninstall datahub || true ; rm -r src/*.egg-info || true
-pip install -e .
-(cd .. && ./gradlew :metadata-events:mxe-schemas:build) && ./scripts/codegen.sh
+datahub version  # check that it works
 ```
 
 ### Common setup issues
@@ -115,4 +107,7 @@ isort .
 flake8 .
 mypy .
 pytest
+
+# These steps are all included in the gradle build:
+../gradlew :metadata-ingestion:check
 ```
