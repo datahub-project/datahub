@@ -1,12 +1,12 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional
 
 import bson
 import pymongo
 from ete3 import Tree
-from past.builtins import basestring
+from mypy_extensions import TypedDict
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -134,9 +134,10 @@ def common_parent_type(list_of_type_string: List[str]) -> str:
     return TYPES_STRING_TREE.get_common_ancestor(*list_of_type_string).name
 
 
+# TODO: figure out correct types for schemas
 def extract_collection_schema(
-    pymongo_collection: pymongo.collection.Collection, sample_size=0
-):
+    pymongo_collection: pymongo.collection.Collection, sample_size: int = 0
+) -> Dict[str, Any]:
     """
     Iterate through all documents of a collection to create its schema:
         - Init collection schema
@@ -148,7 +149,11 @@ def extract_collection_schema(
         pymongo_collection: pymongo collection to iterate over
         sample_size: number of samples to check (if 0, checks all)
     """
-    collection_schema = {"count": 0, "object": init_empty_object_schema()}
+
+    collection_schema = {
+        "count": 0,
+        "object": init_empty_object_schema(),
+    }
 
     n = pymongo_collection.count()
     collection_schema["count"] = n
@@ -160,7 +165,8 @@ def extract_collection_schema(
         documents = pymongo_collection.find({})
     scan_count = sample_size or n
     for i, document in enumerate(documents, start=1):
-        add_document_to_object_schema(document, collection_schema["object"])
+        # TODO: figure out the right types here
+        add_document_to_object_schema(document, collection_schema["object"])  # type: ignore
         if i % 10 ** 5 == 0 or i == scan_count:
             logger.info(
                 "   scanned %s documents out of %s (%.2f %%)",
@@ -190,7 +196,7 @@ def recursive_default_to_regular_dict(value: Dict[Any, Any]) -> Dict[Any, Any]:
         return value
 
 
-def post_process_schema(object_count_schema: dict[str, Any]) -> Dict[str, Any]:
+def post_process_schema(object_count_schema: dict[str, Any]) -> None:
     """
     Clean and add information to schema once it has been built:
         - compute the main type for each field
@@ -213,7 +219,7 @@ def post_process_schema(object_count_schema: dict[str, Any]) -> Dict[str, Any]:
             post_process_schema(field_schema)
 
 
-def summarize_types(field_schema):
+def summarize_types(field_schema: Dict[str, Any]) -> None:
     """
     Summarize types information to one 'type' field.
 
@@ -244,7 +250,7 @@ def summarize_types(field_schema):
         field_schema["type"] = common_type
 
 
-def init_empty_object_schema() -> defaultdict:
+def init_empty_object_schema() -> DefaultDict:
     """
     Generate an empty object schema.
 
@@ -263,7 +269,9 @@ def init_empty_object_schema() -> defaultdict:
     return empty_object
 
 
-def add_document_to_object_schema(document: Dict[Any, Any], object_schema) -> None:
+def add_document_to_object_schema(
+    document: Dict[Any, Any], object_schema: Dict[str, Any]
+) -> None:
     """
     Add all fields of a document to a local object_schema.
 
@@ -338,7 +346,7 @@ def add_potential_list_to_field_schema(
 
 
 def add_value_type(
-    value: Any, field_schema: Dict[str, Any], type_str="types_count"
+    value: Any, field_schema: Dict[str, Any], type_str: str = "types_count"
 ) -> None:
     """
     Define the type_str in field_schema, or check if it is equal to the one previously defined.
@@ -349,6 +357,7 @@ def add_value_type(
         field_schema: field schema to update
         type_str: type string (either 'types_count' or 'array_types_count')
     """
+
     value_type_str = get_type_string(value)
     field_schema[type_str][value_type_str] += 1
 
