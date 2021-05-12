@@ -34,15 +34,7 @@ export const DashboardPreview = ({
             logoUrl={getLogoFromPlatform(platform) || ''}
             platform={capitalizedPlatform}
             qualifier={access}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             tags={tags}
         />
     );

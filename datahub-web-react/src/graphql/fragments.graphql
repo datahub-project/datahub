@@ -1,29 +1,3 @@
-fragment ownershipFields on Ownership {
-    owners {
-        owner {
-            urn
-            type
-            username
-            info {
-                active
-                displayName
-                title
-                email
-                firstName
-                lastName
-                fullName
-            }
-            editableInfo {
-                pictureLink
-            }
-        }
-        type
-    }
-    lastModified {
-        time
-    }
-}
-
 fragment globalTagsFields on GlobalTags {
     tags {
         tag {
@@ -31,6 +5,80 @@ fragment globalTagsFields on GlobalTags {
             name
             description
         }
+    }
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        owner {
+            ... on CorpUser {
+                urn
+                type
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+
+            ... on CorpGroup {
+                urn
+                type
+                name
+                info {
+                    email
+                    admins {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    members {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    groups
+                }
+            }
+        }
+        type
+    }
+    lastModified {
+        time
     }
 }
 

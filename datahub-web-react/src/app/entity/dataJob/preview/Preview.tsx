@@ -33,15 +33,7 @@ export const Preview = ({
             type="Data Task"
             platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             tags={globalTags || undefined}
             snippet={snippet}
         />

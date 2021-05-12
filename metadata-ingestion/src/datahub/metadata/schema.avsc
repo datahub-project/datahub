@@ -1,0 +1,2974 @@
+{
+  "type": "record",
+  "name": "MetadataChangeEvent",
+  "namespace": "com.linkedin.pegasus2avro.mxe",
+  "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "KafkaAuditHeader",
+          "namespace": "com.linkedin.events",
+          "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader",
+          "fields": [
+            {
+              "name": "time",
+              "type": "long",
+              "doc": "The time at which the event was emitted into kafka.",
+              "compliance": [
+                {
+                  "policy": "EVENT_TIME"
+                }
+              ]
+            },
+            {
+              "name": "server",
+              "type": "string",
+              "doc": "The fully qualified name of the host from which the event is being emitted.",
+              "compliance": "NONE"
+            },
+            {
+              "name": "instance",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "The instance on the server from which the event is being emitted. e.g. i001",
+              "default": null,
+              "compliance": "NONE"
+            },
+            {
+              "name": "appName",
+              "type": "string",
+              "doc": "The name of the application from which the event is being emitted. see go/appname",
+              "compliance": "NONE"
+            },
+            {
+              "name": "messageId",
+              "type": {
+                "type": "fixed",
+                "name": "UUID",
+                "size": 16
+              },
+              "doc": "A unique identifier for the message",
+              "compliance": "NONE"
+            },
+            {
+              "name": "auditVersion",
+              "type": [
+                "null",
+                "int"
+              ],
+              "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+              "default": null,
+              "compliance": "NONE"
+            },
+            {
+              "name": "fabricUrn",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+              "default": null,
+              "compliance": "NONE"
+            },
+            {
+              "name": "clusterConnectionString",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from.",
+              "default": null,
+              "compliance": "NONE"
+            }
+          ]
+        }
+      ],
+      "doc": "Kafka audit header. See go/kafkaauditheader for more info.",
+      "default": null
+    },
+    {
+      "name": "proposedSnapshot",
+      "type": [
+        {
+          "type": "record",
+          "name": "ChartSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific Chart entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.ChartUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "ChartInfo",
+                    "namespace": "com.linkedin.pegasus2avro.chart",
+                    "doc": "Information about a chart",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "title",
+                        "type": "string",
+                        "doc": "Title of the chart"
+                      },
+                      {
+                        "name": "description",
+                        "type": "string",
+                        "doc": "Detailed description about the chart"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": {
+                          "type": "record",
+                          "name": "ChangeAuditStamps",
+                          "namespace": "com.linkedin.pegasus2avro.common",
+                          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
+                          "fields": [
+                            {
+                              "name": "created",
+                              "type": {
+                                "type": "record",
+                                "name": "AuditStamp",
+                                "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+                                "fields": [
+                                  {
+                                    "name": "time",
+                                    "type": "long",
+                                    "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                                  },
+                                  {
+                                    "name": "actor",
+                                    "type": "string",
+                                    "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                                    "java": {
+                                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                    }
+                                  },
+                                  {
+                                    "name": "impersonator",
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                                    "default": null,
+                                    "java": {
+                                      "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                    }
+                                  }
+                                ]
+                              },
+                              "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                            },
+                            {
+                              "name": "lastModified",
+                              "type": "AuditStamp",
+                              "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                            },
+                            {
+                              "name": "deleted",
+                              "type": [
+                                "null",
+                                "AuditStamp"
+                              ],
+                              "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                              "default": null
+                            }
+                          ]
+                        },
+                        "doc": "Captures information about who created/last modified/deleted this chart and when"
+                      },
+                      {
+                        "name": "chartUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "inputs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": [
+                              "string"
+                            ]
+                          }
+                        ],
+                        "doc": "Data sources for the chart",
+                        "default": null
+                      },
+                      {
+                        "name": "type",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "ChartType",
+                            "doc": "The various types of charts",
+                            "symbols": [
+                              "BAR",
+                              "PIE",
+                              "SCATTER",
+                              "TABLE",
+                              "TEXT",
+                              "LINE",
+                              "AREA",
+                              "HISTOGRAM",
+                              "BOX_PLOT"
+                            ],
+                            "symbolDocs": {
+                              "BAR": "Chart showing a Bar chart",
+                              "PIE": "Chart showing a Pie chart",
+                              "SCATTER": "Chart showing a Scatter plot",
+                              "TABLE": "Chart showing a table",
+                              "TEXT": "Chart showing Markdown formatted text"
+                            }
+                          }
+                        ],
+                        "doc": "Type of the chart",
+                        "default": null
+                      },
+                      {
+                        "name": "access",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "AccessLevel",
+                            "namespace": "com.linkedin.pegasus2avro.common",
+                            "doc": "The various access levels",
+                            "symbols": [
+                              "PUBLIC",
+                              "PRIVATE"
+                            ],
+                            "symbolDocs": {
+                              "PRIVATE": "Private availability to certain set of users",
+                              "PUBLIC": "Publicly available access level"
+                            }
+                          }
+                        ],
+                        "doc": "Access level for the chart",
+                        "default": null
+                      },
+                      {
+                        "name": "lastRefreshed",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "The time when this chart last refreshed",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "ChartQuery",
+                    "namespace": "com.linkedin.pegasus2avro.chart",
+                    "doc": "Information for chart query which is used for getting data of the chart",
+                    "fields": [
+                      {
+                        "name": "rawQuery",
+                        "type": "string",
+                        "doc": "Raw query to build a chart from input datasets"
+                      },
+                      {
+                        "name": "type",
+                        "type": {
+                          "type": "enum",
+                          "name": "ChartQueryType",
+                          "symbols": [
+                            "LOOKML",
+                            "SQL"
+                          ],
+                          "symbolDocs": {
+                            "LOOKML": "LookML queries",
+                            "SQL": "SQL type queries"
+                          }
+                        },
+                        "doc": "Chart query type"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "Ownership",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Ownership information of an entity.",
+                    "fields": [
+                      {
+                        "name": "owners",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "Owner",
+                            "doc": "Ownership information",
+                            "fields": [
+                              {
+                                "name": "owner",
+                                "type": "string",
+                                "doc": "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                }
+                              },
+                              {
+                                "name": "type",
+                                "type": {
+                                  "type": "enum",
+                                  "name": "OwnershipType",
+                                  "doc": "Owner category or owner role",
+                                  "symbols": [
+                                    "DEVELOPER",
+                                    "DATAOWNER",
+                                    "DELEGATE",
+                                    "PRODUCER",
+                                    "CONSUMER",
+                                    "STAKEHOLDER"
+                                  ],
+                                  "symbolDocs": {
+                                    "CONSUMER": "A person, group, or service that consumes the data",
+                                    "DATAOWNER": "A person or group that is owning the data",
+                                    "DELEGATE": "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+                                    "DEVELOPER": "A person or group that is in charge of developing the code",
+                                    "PRODUCER": "A person, group, or service that produces/generates the data",
+                                    "STAKEHOLDER": "A person or a group that has direct business interest"
+                                  }
+                                },
+                                "doc": "The type of the ownership"
+                              },
+                              {
+                                "name": "source",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "OwnershipSource",
+                                    "doc": "Source/provider of the ownership information",
+                                    "fields": [
+                                      {
+                                        "name": "type",
+                                        "type": {
+                                          "type": "enum",
+                                          "name": "OwnershipSourceType",
+                                          "symbols": [
+                                            "AUDIT",
+                                            "DATABASE",
+                                            "FILE_SYSTEM",
+                                            "ISSUE_TRACKING_SYSTEM",
+                                            "MANUAL",
+                                            "SERVICE",
+                                            "SOURCE_CONTROL",
+                                            "OTHER"
+                                          ],
+                                          "symbolDocs": {
+                                            "AUDIT": "Auditing system or audit logs",
+                                            "DATABASE": "Database, e.g. GRANTS table",
+                                            "FILE_SYSTEM": "File system, e.g. file/directory owner",
+                                            "ISSUE_TRACKING_SYSTEM": "Issue tracking system, e.g. Jira",
+                                            "MANUAL": "Manually provided by a user",
+                                            "OTHER": "Other sources",
+                                            "SERVICE": "Other ownership-like service, e.g. Nuage, ACL service etc",
+                                            "SOURCE_CONTROL": "SCM system, e.g. GIT, SVN"
+                                          }
+                                        },
+                                        "doc": "The type of the source"
+                                      },
+                                      {
+                                        "name": "url",
+                                        "type": [
+                                          "null",
+                                          "string"
+                                        ],
+                                        "doc": "A reference URL for the source",
+                                        "default": null
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "Source information for the ownership",
+                                "default": null
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "List of owners of the entity."
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "AuditStamp",
+                        "doc": "Audit stamp containing who last modified the record and when."
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "Status",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+                    "fields": [
+                      {
+                        "name": "removed",
+                        "type": "boolean",
+                        "doc": "whether the entity is removed or not",
+                        "default": false
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "GlobalTags",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Tag aspect used for applying tags to an entity",
+                    "fields": [
+                      {
+                        "name": "tags",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "TagAssociation",
+                            "doc": "Properties of an applied tag. For now, just an Urn. In the future we can extend this with other properties, e.g.\npropagation parameters.",
+                            "fields": [
+                              {
+                                "name": "tag",
+                                "type": "string",
+                                "doc": "Urn of the applied tag",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Tags associated with a given entity"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "CorpGroupSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific CorpGroup entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.CorpGroupUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "CorpGroupInfo",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "group of corpUser, it may contains nested group",
+                    "fields": [
+                      {
+                        "name": "email",
+                        "type": "string",
+                        "doc": "email of this group"
+                      },
+                      {
+                        "name": "admins",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "owners of this group"
+                      },
+                      {
+                        "name": "members",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "List of ldap urn in this group."
+                      },
+                      {
+                        "name": "groups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "List of groups in this group."
+                      }
+                    ],
+                    "Aspect": {
+                      "EntityUrns": [
+                        "com.linkedin.pegasus2avro.common.CorpGroupUrn"
+                      ]
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "CorpUserSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific CorpUser entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "CorpUserInfo",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Linkedin corp user information",
+                    "fields": [
+                      {
+                        "name": "active",
+                        "type": "boolean",
+                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+                      },
+                      {
+                        "name": "displayName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
+                        "default": null
+                      },
+                      {
+                        "name": "email",
+                        "type": "string",
+                        "doc": "email address of this user"
+                      },
+                      {
+                        "name": "title",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "title of this user",
+                        "default": null
+                      },
+                      {
+                        "name": "managerUrn",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "direct manager of this user",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
+                        }
+                      },
+                      {
+                        "name": "departmentId",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "department id this user belong to",
+                        "default": null
+                      },
+                      {
+                        "name": "departmentName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "department name this user belong to",
+                        "default": null
+                      },
+                      {
+                        "name": "firstName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "first name of this user",
+                        "default": null
+                      },
+                      {
+                        "name": "lastName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "last name of this user",
+                        "default": null
+                      },
+                      {
+                        "name": "fullName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Common name of this user, format is firstName + lastName (split by a whitespace)",
+                        "default": null
+                      },
+                      {
+                        "name": "countryCode",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "two uppercase letters country code. e.g.  US",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "EntityUrns": [
+                        "com.linkedin.pegasus2avro.common.CorpuserUrn"
+                      ]
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "CorpUserEditableInfo",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Linkedin corp user information that can be edited from UI",
+                    "fields": [
+                      {
+                        "name": "aboutMe",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "About me section of the user",
+                        "default": null
+                      },
+                      {
+                        "name": "teams",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Teams that the user belongs to e.g. Metadata",
+                        "default": []
+                      },
+                      {
+                        "name": "skills",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Skills that the user possesses e.g. Machine Learning",
+                        "default": []
+                      },
+                      {
+                        "name": "pictureLink",
+                        "type": "string",
+                        "doc": "A URL which points to a picture which user wants to set as a profile photo",
+                        "default": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png",
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "EntityUrns": [
+                        "com.linkedin.pegasus2avro.common.CorpuserUrn"
+                      ]
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "DashboardSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific Dashboard entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DashboardUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "DashboardInfo",
+                    "namespace": "com.linkedin.pegasus2avro.dashboard",
+                    "doc": "Information about a dashboard",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "title",
+                        "type": "string",
+                        "doc": "Title of the dashboard"
+                      },
+                      {
+                        "name": "description",
+                        "type": "string",
+                        "doc": "Detailed description about the dashboard"
+                      },
+                      {
+                        "name": "charts",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Charts in a dashboard",
+                        "default": []
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.ChangeAuditStamps",
+                        "doc": "Captures information about who created/last modified/deleted this dashboard and when"
+                      },
+                      {
+                        "name": "dashboardUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "access",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AccessLevel"
+                        ],
+                        "doc": "Access level for the dashboard",
+                        "default": null
+                      },
+                      {
+                        "name": "lastRefreshed",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "The time when this dashboard last refreshed",
+                        "default": null
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "DataFlowSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific DataFlow entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DataFlowUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "DataFlowInfo",
+                    "namespace": "com.linkedin.pegasus2avro.datajob",
+                    "doc": "Information about a Data processing flow",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Flow name"
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Flow description",
+                        "default": null
+                      },
+                      {
+                        "name": "project",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Optional project/namespace associated with the flow",
+                        "default": null
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "DataJobSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific DataJob entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DataJobUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "DataJobInfo",
+                    "namespace": "com.linkedin.pegasus2avro.datajob",
+                    "doc": "Information about a Data processing job",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Job name"
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Job description",
+                        "default": null
+                      },
+                      {
+                        "name": "type",
+                        "type": [
+                          {
+                            "type": "enum",
+                            "name": "AzkabanJobType",
+                            "namespace": "com.linkedin.pegasus2avro.datajob.azkaban",
+                            "doc": "The various types of support azkaban jobs",
+                            "symbols": [
+                              "COMMAND",
+                              "HADOOP_JAVA",
+                              "HADOOP_SHELL",
+                              "HIVE",
+                              "PIG",
+                              "SQL"
+                            ],
+                            "symbolDocs": {
+                              "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+                              "HADOOP_JAVA": "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
+                              "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
+                              "HIVE": "Hive type is for running Hive jobs.",
+                              "PIG": "Pig type is for running Pig jobs.",
+                              "SQL": "SQL is for running Presto, mysql queries etc"
+                            }
+                          }
+                        ],
+                        "doc": "Datajob type"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "DataJobInputOutput",
+                    "namespace": "com.linkedin.pegasus2avro.datajob",
+                    "doc": "Information about the inputs and outputs of a Data processing job",
+                    "fields": [
+                      {
+                        "name": "inputDatasets",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Input datasets consumed by the data job during processing"
+                      },
+                      {
+                        "name": "outputDatasets",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Output datasets produced by the data job during processing"
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "DatasetSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific dataset entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "DatasetProperties",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "doc": "Properties associated with a Dataset",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the dataset",
+                        "default": null
+                      },
+                      {
+                        "name": "uri",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
+                        "default": null,
+                        "java": {
+                          "class": "java.net.URI"
+                        }
+                      },
+                      {
+                        "name": "tags",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
+                        "default": []
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "DatasetDeprecation",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "doc": "Dataset deprecation status",
+                    "fields": [
+                      {
+                        "name": "deprecated",
+                        "type": "boolean",
+                        "doc": "Whether the dataset is deprecated by owner."
+                      },
+                      {
+                        "name": "decommissionTime",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "The time user plan to decommission this dataset.",
+                        "default": null
+                      },
+                      {
+                        "name": "note",
+                        "type": "string",
+                        "doc": "Additional information about the dataset deprecation plan, such as the wiki, doc, RB."
+                      },
+                      {
+                        "name": "actor",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The corpuser URN which will be credited for modifying this deprecation content.",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "DatasetUpstreamLineage",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "doc": "Fine Grained upstream lineage for fields in a dataset",
+                    "fields": [
+                      {
+                        "name": "fieldMappings",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "DatasetFieldMapping",
+                            "doc": "Representation of mapping between fields in source dataset to the field in destination dataset",
+                            "fields": [
+                              {
+                                "name": "created",
+                                "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                "doc": "Audit stamp containing who reported the field mapping and when"
+                              },
+                              {
+                                "name": "transformation",
+                                "type": [
+                                  {
+                                    "type": "enum",
+                                    "name": "TransformationType",
+                                    "namespace": "com.linkedin.pegasus2avro.common.fieldtransformer",
+                                    "doc": "Type of the transformation involved in generating destination fields from source fields.",
+                                    "symbols": [
+                                      "BLACKBOX",
+                                      "IDENTITY"
+                                    ],
+                                    "symbolDocs": {
+                                      "BLACKBOX": "Field transformation expressed as unknown black box function.",
+                                      "IDENTITY": "Field transformation expressed as Identity function."
+                                    }
+                                  },
+                                  {
+                                    "type": "record",
+                                    "name": "UDFTransformer",
+                                    "namespace": "com.linkedin.pegasus2avro.common.fieldtransformer",
+                                    "doc": "Field transformation expressed in UDF",
+                                    "fields": [
+                                      {
+                                        "name": "udf",
+                                        "type": "string",
+                                        "doc": "A UDF mentioning how the source fields got transformed to destination field. This is the FQCN(Fully Qualified Class Name) of the udf."
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "Transfomration function between the fields involved"
+                              },
+                              {
+                                "name": "sourceFields",
+                                "type": {
+                                  "type": "array",
+                                  "items": [
+                                    "string"
+                                  ]
+                                },
+                                "doc": "Source fields from which the fine grained lineage is derived"
+                              },
+                              {
+                                "name": "destinationField",
+                                "type": "string",
+                                "doc": "Destination field which is derived from source fields",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.DatasetFieldUrn"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Upstream to downstream field level lineage mappings"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "UpstreamLineage",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "doc": "Upstream lineage of a dataset",
+                    "fields": [
+                      {
+                        "name": "upstreams",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "Upstream",
+                            "doc": "Upstream lineage information about a dataset including the source reporting the lineage",
+                            "fields": [
+                              {
+                                "name": "auditStamp",
+                                "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                "doc": "Audit stamp containing who reported the lineage and when"
+                              },
+                              {
+                                "name": "dataset",
+                                "type": "string",
+                                "doc": "The upstream dataset the lineage points to",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                                }
+                              },
+                              {
+                                "name": "type",
+                                "type": {
+                                  "type": "enum",
+                                  "name": "DatasetLineageType",
+                                  "doc": "The various types of supported dataset lineage",
+                                  "symbols": [
+                                    "COPY",
+                                    "TRANSFORMED",
+                                    "VIEW"
+                                  ],
+                                  "symbolDocs": {
+                                    "COPY": "Direct copy without modification",
+                                    "TRANSFORMED": "Transformed data with modification (format or content change)",
+                                    "VIEW": "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+                                  }
+                                },
+                                "doc": "The type of the lineage"
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "List of upstream dataset lineage information"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "InstitutionalMemory",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.",
+                    "fields": [
+                      {
+                        "name": "elements",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "InstitutionalMemoryMetadata",
+                            "doc": "Metadata corresponding to a record of institutional memory.",
+                            "fields": [
+                              {
+                                "name": "url",
+                                "type": "string",
+                                "doc": "Link to an engineering design document or a wiki page.",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.url.Url",
+                                  "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                                }
+                              },
+                              {
+                                "name": "description",
+                                "type": "string",
+                                "doc": "Description of the link."
+                              },
+                              {
+                                "name": "createStamp",
+                                "type": "AuditStamp",
+                                "doc": "Audit stamp associated with creation of this record"
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  {
+                    "type": "record",
+                    "name": "SchemaMetadata",
+                    "namespace": "com.linkedin.pegasus2avro.schema",
+                    "doc": "SchemaMetadata to describe metadata related to store schema",
+                    "fields": [
+                      {
+                        "name": "schemaName",
+                        "type": "string",
+                        "doc": "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
+                        "validate": {
+                          "strlen": {
+                            "max": 500,
+                            "min": 1
+                          }
+                        }
+                      },
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})",
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.DataPlatformUrn"
+                        }
+                      },
+                      {
+                        "name": "version",
+                        "type": "long",
+                        "doc": "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
+                      },
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "dataset",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Dataset this schema metadata is associated with.",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                        }
+                      },
+                      {
+                        "name": "cluster",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The cluster this schema metadata resides from",
+                        "default": null
+                      },
+                      {
+                        "name": "hash",
+                        "type": "string",
+                        "doc": "the SHA1 hash of the schema content"
+                      },
+                      {
+                        "name": "platformSchema",
+                        "type": [
+                          {
+                            "type": "record",
+                            "name": "EspressoSchema",
+                            "doc": "Schema text of an espresso table schema.",
+                            "fields": [
+                              {
+                                "name": "documentSchema",
+                                "type": "string",
+                                "doc": "The native espresso document schema."
+                              },
+                              {
+                                "name": "tableSchema",
+                                "type": "string",
+                                "doc": "The espresso table schema definition."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "OracleDDL",
+                            "doc": "Schema holder for oracle data definition language that describes an oracle table.",
+                            "fields": [
+                              {
+                                "name": "tableSchema",
+                                "type": "string",
+                                "doc": "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "MySqlDDL",
+                            "doc": "Schema holder for MySql data definition language that describes an MySql table.",
+                            "fields": [
+                              {
+                                "name": "tableSchema",
+                                "type": "string",
+                                "doc": "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "PrestoDDL",
+                            "doc": "Schema holder for presto data definition language that describes a presto view.",
+                            "fields": [
+                              {
+                                "name": "rawSchema",
+                                "type": "string",
+                                "doc": "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "KafkaSchema",
+                            "doc": "Schema holder for kafka schema.",
+                            "fields": [
+                              {
+                                "name": "documentSchema",
+                                "type": "string",
+                                "doc": "The native kafka document schema. This is a human readable avro document schema."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "BinaryJsonSchema",
+                            "doc": "Schema text of binary JSON schema.",
+                            "fields": [
+                              {
+                                "name": "schema",
+                                "type": "string",
+                                "doc": "The native schema text for binary JSON file format."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "OrcSchema",
+                            "doc": "Schema text of an ORC schema.",
+                            "fields": [
+                              {
+                                "name": "schema",
+                                "type": "string",
+                                "doc": "The native schema for ORC file format."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "Schemaless",
+                            "doc": "The dataset has no specific schema associated with it",
+                            "fields": []
+                          },
+                          {
+                            "type": "record",
+                            "name": "KeyValueSchema",
+                            "doc": "Schema text of a key-value store schema.",
+                            "fields": [
+                              {
+                                "name": "keySchema",
+                                "type": "string",
+                                "doc": "The raw schema for the key in the key-value store."
+                              },
+                              {
+                                "name": "valueSchema",
+                                "type": "string",
+                                "doc": "The raw schema for the value in the key-value store."
+                              }
+                            ]
+                          },
+                          {
+                            "type": "record",
+                            "name": "OtherSchema",
+                            "doc": "Schema holder for undefined schema types.",
+                            "fields": [
+                              {
+                                "name": "rawSchema",
+                                "type": "string",
+                                "doc": "The native schema in the dataset's platform."
+                              }
+                            ]
+                          }
+                        ],
+                        "doc": "The native schema in the dataset's platform."
+                      },
+                      {
+                        "name": "fields",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "SchemaField",
+                            "doc": "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+                            "fields": [
+                              {
+                                "name": "fieldPath",
+                                "type": "string",
+                                "doc": "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+                              },
+                              {
+                                "name": "jsonPath",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "Flattened name of a field in JSON Path notation.",
+                                "default": null
+                              },
+                              {
+                                "name": "nullable",
+                                "type": "boolean",
+                                "doc": "Indicates if this field is optional or nullable",
+                                "default": false
+                              },
+                              {
+                                "name": "description",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "Description",
+                                "default": null
+                              },
+                              {
+                                "name": "type",
+                                "type": {
+                                  "type": "record",
+                                  "name": "SchemaFieldDataType",
+                                  "doc": "Schema field data types",
+                                  "fields": [
+                                    {
+                                      "name": "type",
+                                      "type": [
+                                        {
+                                          "type": "record",
+                                          "name": "BooleanType",
+                                          "doc": "Boolean field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "FixedType",
+                                          "doc": "Fixed field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "StringType",
+                                          "doc": "String field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "BytesType",
+                                          "doc": "Bytes field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "NumberType",
+                                          "doc": "Number data type: long, integer, short, etc..",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "DateType",
+                                          "doc": "Date field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "TimeType",
+                                          "doc": "Time field type. This should also be used for datetimes.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "EnumType",
+                                          "doc": "Enum field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "NullType",
+                                          "doc": "Null field type.",
+                                          "fields": []
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "MapType",
+                                          "doc": "Map field type.",
+                                          "fields": [
+                                            {
+                                              "name": "keyType",
+                                              "type": [
+                                                "null",
+                                                "string"
+                                              ],
+                                              "doc": "Key type in a map",
+                                              "default": null
+                                            },
+                                            {
+                                              "name": "valueType",
+                                              "type": [
+                                                "null",
+                                                "string"
+                                              ],
+                                              "doc": "Type of the value in a map",
+                                              "default": null
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "ArrayType",
+                                          "doc": "Array field type.",
+                                          "fields": [
+                                            {
+                                              "name": "nestedType",
+                                              "type": [
+                                                "null",
+                                                {
+                                                  "type": "array",
+                                                  "items": "string"
+                                                }
+                                              ],
+                                              "doc": "List of types this array holds.",
+                                              "default": null
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "UnionType",
+                                          "doc": "Union field type.",
+                                          "fields": [
+                                            {
+                                              "name": "nestedTypes",
+                                              "type": [
+                                                "null",
+                                                {
+                                                  "type": "array",
+                                                  "items": "string"
+                                                }
+                                              ],
+                                              "doc": "List of types in union type.",
+                                              "default": null
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "record",
+                                          "name": "RecordType",
+                                          "doc": "Record field type.",
+                                          "fields": []
+                                        }
+                                      ],
+                                      "doc": "Data platform specific types"
+                                    }
+                                  ]
+                                },
+                                "doc": "Platform independent field type of the field."
+                              },
+                              {
+                                "name": "nativeDataType",
+                                "type": "string",
+                                "doc": "The native type of the field in the dataset's platform as declared by platform schema."
+                              },
+                              {
+                                "name": "recursive",
+                                "type": "boolean",
+                                "doc": "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.",
+                                "default": false
+                              },
+                              {
+                                "name": "globalTags",
+                                "type": [
+                                  "null",
+                                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                                ],
+                                "doc": "Tags associated with the field",
+                                "default": null
+                              },
+                              {
+                                "name": "glossaryTerms",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "record",
+                                    "name": "GlossaryTerms",
+                                    "namespace": "com.linkedin.pegasus2avro.common",
+                                    "doc": "Related business terms information",
+                                    "fields": [
+                                      {
+                                        "name": "terms",
+                                        "type": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "record",
+                                            "name": "GlossaryTermAssociation",
+                                            "doc": "Properties of an applied glossary term.",
+                                            "fields": [
+                                              {
+                                                "name": "urn",
+                                                "type": "string",
+                                                "doc": "Urn of the applied glossary term",
+                                                "java": {
+                                                  "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "doc": "The related business terms"
+                                      },
+                                      {
+                                        "name": "auditStamp",
+                                        "type": "AuditStamp",
+                                        "doc": "Audit stamp containing who reported the related business term"
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "doc": "Glossary terms associated with the field",
+                                "default": null
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Client provided a list of fields from document schema."
+                      },
+                      {
+                        "name": "primaryKeys",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.",
+                        "default": null
+                      },
+                      {
+                        "name": "foreignKeysSpecs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "map",
+                            "values": {
+                              "type": "record",
+                              "name": "ForeignKeySpec",
+                              "doc": "Description of a foreign key in a schema.",
+                              "fields": [
+                                {
+                                  "name": "foreignKey",
+                                  "type": [
+                                    {
+                                      "type": "record",
+                                      "name": "DatasetFieldForeignKey",
+                                      "doc": "For non-urn based foregin keys.",
+                                      "fields": [
+                                        {
+                                          "name": "parentDataset",
+                                          "type": "string",
+                                          "doc": "dataset that stores the resource.",
+                                          "java": {
+                                            "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                                          }
+                                        },
+                                        {
+                                          "name": "currentFieldPaths",
+                                          "type": {
+                                            "type": "array",
+                                            "items": "string"
+                                          },
+                                          "doc": "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
+                                        },
+                                        {
+                                          "name": "parentField",
+                                          "type": "string",
+                                          "doc": "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "record",
+                                      "name": "UrnForeignKey",
+                                      "doc": "If SchemaMetadata fields make any external references and references are of type com.linkedin.pegasus2avro.common.Urn or any children, this models can be used to mark it.",
+                                      "fields": [
+                                        {
+                                          "name": "currentFieldPath",
+                                          "type": "string",
+                                          "doc": "Field in hosting(current) SchemaMetadata."
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "doc": "Foreign key definition in metadata schema."
+                                }
+                              ]
+                            }
+                          }
+                        ],
+                        "doc": "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "EditableSchemaMetadata",
+                    "namespace": "com.linkedin.pegasus2avro.schema",
+                    "doc": "EditableSchemaMetadata stores editable changes made to schema metadata. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "editableSchemaFieldInfo",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "EditableSchemaFieldInfo",
+                            "doc": "SchemaField to describe metadata related to dataset schema.",
+                            "fields": [
+                              {
+                                "name": "fieldPath",
+                                "type": "string",
+                                "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                              },
+                              {
+                                "name": "description",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "Description",
+                                "default": null
+                              },
+                              {
+                                "name": "globalTags",
+                                "type": [
+                                  "null",
+                                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                                ],
+                                "doc": "Tags associated with the field",
+                                "default": null
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Client provided a list of fields from document schema."
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.GlossaryTerms"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "DataProcessSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific Data process entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DataProcessUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  {
+                    "type": "record",
+                    "name": "DataProcessInfo",
+                    "namespace": "com.linkedin.pegasus2avro.dataprocess",
+                    "doc": "The inputs and outputs of this data process",
+                    "fields": [
+                      {
+                        "name": "inputs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "the inputs of the data process",
+                        "default": null
+                      },
+                      {
+                        "name": "outputs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "the outputs of the data process",
+                        "default": null
+                      }
+                    ]
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "MLModelSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "MLModel Snapshot entity details.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.MLModelUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  {
+                    "type": "record",
+                    "name": "MLModelProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a ML Model",
+                    "fields": [
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLModel",
+                        "default": null
+                      },
+                      {
+                        "name": "date",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "Date when the MLModel was developed",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          {
+                            "type": "record",
+                            "name": "VersionTag",
+                            "namespace": "com.linkedin.pegasus2avro.common",
+                            "doc": "A resource-defined string representing the resource state for the purpose of concurrency control",
+                            "fields": [
+                              {
+                                "name": "versionTag",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "default": null
+                              }
+                            ]
+                          }
+                        ],
+                        "doc": "Version of the MLModel",
+                        "default": null
+                      },
+                      {
+                        "name": "type",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
+                        "default": null
+                      },
+                      {
+                        "name": "hyperParameters",
+                        "type": [
+                          "null",
+                          {
+                            "type": "map",
+                            "values": [
+                              "string",
+                              "int",
+                              "float",
+                              "double",
+                              "boolean"
+                            ]
+                          }
+                        ],
+                        "doc": "Hyper Parameters of the MLModel",
+                        "default": null
+                      },
+                      {
+                        "name": "mlFeatures",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of features used for MLModel training",
+                        "default": null
+                      },
+                      {
+                        "name": "tags",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Tags for the MLModel",
+                        "default": []
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "IntendedUse",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Intended Use for the ML Model",
+                    "fields": [
+                      {
+                        "name": "primaryUses",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Primary Use cases for the MLModel.",
+                        "default": null
+                      },
+                      {
+                        "name": "primaryUsers",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "enum",
+                              "name": "IntendedUserType",
+                              "symbols": [
+                                "ENTERPRISE",
+                                "HOBBY",
+                                "ENTERTAINMENT"
+                              ]
+                            }
+                          }
+                        ],
+                        "doc": "Primary Intended Users - For example, was the MLModel developed for entertainment purposes, for hobbyists, or enterprise solutions?",
+                        "default": null
+                      },
+                      {
+                        "name": "outOfScopeUses",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to.",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLModelFactorPrompts",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Prompts which affect the performance of the MLModel",
+                    "fields": [
+                      {
+                        "name": "relevantFactors",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "MLModelFactors",
+                              "doc": "Factors affecting the performance of the MLModel.",
+                              "fields": [
+                                {
+                                  "name": "groups",
+                                  "type": [
+                                    "null",
+                                    {
+                                      "type": "array",
+                                      "items": "string"
+                                    }
+                                  ],
+                                  "doc": "Groups refers to distinct categories with similar characteristics that are present in the evaluation data instances.\nFor human-centric machine learning MLModels, groups are people who share one or multiple characteristics.",
+                                  "default": null
+                                },
+                                {
+                                  "name": "instrumentation",
+                                  "type": [
+                                    "null",
+                                    {
+                                      "type": "array",
+                                      "items": "string"
+                                    }
+                                  ],
+                                  "doc": "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera\u2019s hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.",
+                                  "default": null
+                                },
+                                {
+                                  "name": "environment",
+                                  "type": [
+                                    "null",
+                                    {
+                                      "type": "array",
+                                      "items": "string"
+                                    }
+                                  ],
+                                  "doc": "A further factor affecting MLModel performance is the environment in which it is deployed.",
+                                  "default": null
+                                }
+                              ]
+                            }
+                          }
+                        ],
+                        "doc": "What are foreseeable salient factors for which MLModel performance may vary, and how were these determined?",
+                        "default": null
+                      },
+                      {
+                        "name": "evaluationFactors",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "MLModelFactors"
+                          }
+                        ],
+                        "doc": "Which factors are being reported, and why were these chosen?",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "Metrics",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Metrics to be featured for the MLModel.",
+                    "fields": [
+                      {
+                        "name": "performanceMeasures",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Measures of MLModel performance",
+                        "default": null
+                      },
+                      {
+                        "name": "decisionThreshold",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Decision Thresholds used (if any)?",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "EvaluationData",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "All referenced datasets would ideally point to any set of documents that provide visibility into the source and composition of the dataset.",
+                    "fields": [
+                      {
+                        "name": "evaluationData",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "BaseData",
+                            "doc": "BaseData record",
+                            "fields": [
+                              {
+                                "name": "dataset",
+                                "type": "string",
+                                "doc": "What dataset were used in the MLModel?",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+                                }
+                              },
+                              {
+                                "name": "motivation",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "Why was this dataset chosen?",
+                                "default": null
+                              },
+                              {
+                                "name": "preProcessing",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "array",
+                                    "items": "string"
+                                  }
+                                ],
+                                "doc": "How was the data preprocessed (e.g., tokenization of sentences, cropping of images, any filtering such as dropping images without faces)?",
+                                "default": null
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Details on the dataset(s) used for the quantitative analyses in the MLModel"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "TrainingData",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Ideally, the MLModel card would contain as much information about the training data as the evaluation data. However, there might be cases where it is not feasible to provide this level of detailed information about the training data. For example, the data may be proprietary, or require a non-disclosure agreement. In these cases, we advocate for basic details about the distributions over groups in the data, as well as any other details that could inform stakeholders on the kinds of biases the model may have encoded.",
+                    "fields": [
+                      {
+                        "name": "trainingData",
+                        "type": {
+                          "type": "array",
+                          "items": "BaseData"
+                        },
+                        "doc": "Details on the dataset(s) used for training the MLModel"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "QuantitativeAnalyses",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Quantitative analyses should be disaggregated, that is, broken down by the chosen factors. Quantitative analyses should provide the results of evaluating the MLModel according to the chosen metrics, providing confidence interval values when possible.",
+                    "fields": [
+                      {
+                        "name": "unitaryResults",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Link to a dashboard with results showing how the MLModel performed with respect to each factor",
+                        "default": null
+                      },
+                      {
+                        "name": "intersectionalResults",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "EthicalConsiderations",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "This section is intended to demonstrate the ethical considerations that went into MLModel development, surfacing ethical challenges and solutions to stakeholders.",
+                    "fields": [
+                      {
+                        "name": "data",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Does the MLModel use any sensitive data (e.g., protected classes)?",
+                        "default": null
+                      },
+                      {
+                        "name": "humanLife",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": " Is the MLModel intended to inform decisions about matters central to human life or flourishing \u2013 e.g., health or safety? Or could it be used in such a way?",
+                        "default": null
+                      },
+                      {
+                        "name": "mitigations",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "What risk mitigation strategies were used during MLModel development?",
+                        "default": null
+                      },
+                      {
+                        "name": "risksAndHarms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "What risks may be present in MLModel usage? Try to identify the potential recipients, likelihood, and magnitude of harms. If these cannot be determined, note that they were considered but remain unknown.",
+                        "default": null
+                      },
+                      {
+                        "name": "useCases",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Are there any known MLModel use cases that are especially fraught? This may connect directly to the intended use section",
+                        "default": null
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "CaveatsAndRecommendations",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?",
+                    "fields": [
+                      {
+                        "name": "caveats",
+                        "type": [
+                          "null",
+                          {
+                            "type": "record",
+                            "name": "CaveatDetails",
+                            "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset? Are there additional recommendations for model use?",
+                            "fields": [
+                              {
+                                "name": "needsFurtherTesting",
+                                "type": [
+                                  "null",
+                                  "boolean"
+                                ],
+                                "doc": "Did the results suggest any further testing?",
+                                "default": null
+                              },
+                              {
+                                "name": "caveatDescription",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "Caveat Description\nFor ex: Given gender classes are binary (male/not male), which we include as male/female. Further work needed to evaluate across a spectrum of genders.",
+                                "default": null
+                              },
+                              {
+                                "name": "groupsNotRepresented",
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "array",
+                                    "items": "string"
+                                  }
+                                ],
+                                "doc": "Relevant groups that were not represented in the evaluation dataset?",
+                                "default": null
+                              }
+                            ]
+                          }
+                        ],
+                        "doc": "This section should list additional concerns that were not covered in the previous sections. For example, did the results suggest any further testing? Were there any relevant groups that were not represented in the evaluation dataset?",
+                        "default": null
+                      },
+                      {
+                        "name": "recommendations",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Recommendations on where this MLModel should be used.",
+                        "default": null
+                      },
+                      {
+                        "name": "idealDatasetCharacteristics",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Ideal characteristics of an evaluation dataset for this MLModel",
+                        "default": null
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  {
+                    "type": "record",
+                    "name": "SourceCode",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Source Code",
+                    "fields": [
+                      {
+                        "name": "sourceCode",
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "SourceCodeUrl",
+                            "doc": "Source Code Url Entity",
+                            "fields": [
+                              {
+                                "name": "type",
+                                "type": {
+                                  "type": "enum",
+                                  "name": "SourceCodeUrlType",
+                                  "symbols": [
+                                    "ML_MODEL_SOURCE_CODE",
+                                    "TRAINING_PIPELINE_SOURCE_CODE",
+                                    "EVALUATION_PIPELINE_SOURCE_CODE"
+                                  ]
+                                },
+                                "doc": "Source Code Url Types"
+                              },
+                              {
+                                "name": "sourceCodeUrl",
+                                "type": "string",
+                                "doc": "Source Code Url",
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.url.Url",
+                                  "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "doc": "Source Code along with types"
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Status",
+                  {
+                    "type": "record",
+                    "name": "Cost",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "fields": [
+                      {
+                        "name": "costType",
+                        "type": {
+                          "type": "enum",
+                          "name": "CostType",
+                          "doc": "Type of Cost Code",
+                          "symbols": [
+                            "ORG_COST_TYPE"
+                          ],
+                          "symbolDocs": {
+                            "ORG_COST_TYPE": "Org Cost Type to which the Cost of this entity should be attributed to"
+                          }
+                        }
+                      },
+                      {
+                        "name": "cost",
+                        "type": {
+                          "type": "record",
+                          "name": "CostCost",
+                          "fields": [
+                            {
+                              "name": "costId",
+                              "type": [
+                                "null",
+                                "double"
+                              ],
+                              "default": null
+                            },
+                            {
+                              "name": "costCode",
+                              "type": [
+                                "null",
+                                "string"
+                              ],
+                              "default": null
+                            },
+                            {
+                              "name": "fieldDiscriminator",
+                              "type": {
+                                "type": "enum",
+                                "name": "CostCostDiscriminator",
+                                "symbols": [
+                                  "costId",
+                                  "costCode"
+                                ]
+                              },
+                              "doc": "Contains the name of the field that has its value set."
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "Deprecation",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "doc": "Deprecation status of an entity",
+                    "fields": [
+                      {
+                        "name": "deprecated",
+                        "type": "boolean",
+                        "doc": "Whether the entity is deprecated."
+                      },
+                      {
+                        "name": "decommissionTime",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "The time user plan to decommission this entity.",
+                        "default": null
+                      },
+                      {
+                        "name": "note",
+                        "type": "string",
+                        "doc": "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
+                      },
+                      {
+                        "name": "actor",
+                        "type": "string",
+                        "doc": "The corpuser URN which will be credited for modifying this deprecation content.",
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "MLFeatureSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  {
+                    "type": "record",
+                    "name": "MLFeatureProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a MLFeature",
+                    "fields": [
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLFeature",
+                        "default": null
+                      },
+                      {
+                        "name": "dataType",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "MLFeatureDataType",
+                            "namespace": "com.linkedin.pegasus2avro.common",
+                            "doc": "MLFeature Data Type",
+                            "symbols": [
+                              "USELESS",
+                              "NOMINAL",
+                              "ORDINAL",
+                              "BINARY",
+                              "COUNT",
+                              "TIME",
+                              "INTERVAL",
+                              "IMAGE",
+                              "VIDEO",
+                              "AUDIO",
+                              "TEXT",
+                              "MAP",
+                              "SEQUENCE",
+                              "SET"
+                            ],
+                            "symbolDocs": {
+                              "AUDIO": "Audio Data",
+                              "BINARY": "Binary data is discrete data that can be in only one of two categories \u2014 either yes or no, 1 or 0, off or on, etc",
+                              "COUNT": "Count data is discrete whole number data \u2014 no negative numbers here.\nCount data often has many small values, such as zero and one.",
+                              "IMAGE": "Image Data",
+                              "INTERVAL": "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",
+                              "MAP": "Mapping Data Type ex: dict, map",
+                              "NOMINAL": "Nominal data is made of discrete values with no numerical relationship between the different categories \u2014 mean and median are meaningless.\nAnimal species is one example. For example, pig is not higher than bird and lower than fish.",
+                              "ORDINAL": "Ordinal data are discrete integers that can be ranked or sorted.\nFor example, the distance between first and second may not be the same as the distance between second and third.",
+                              "SEQUENCE": "Sequence Data Type ex: list, tuple, range",
+                              "SET": "Set Data Type ex: set, frozenset",
+                              "TEXT": "Text Data",
+                              "TIME": "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period\u2014 daily, weekly, monthly, annual, etc.",
+                              "USELESS": "Useless data is unique, discrete data with no potential relationship with the outcome variable.\nA useless feature has high cardinality. An example would be bank account numbers that were generated randomly.",
+                              "VIDEO": "Video Data"
+                            }
+                          }
+                        ],
+                        "doc": "Data Type of the MLFeature",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLFeature",
+                        "default": null
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "TagSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific dataset entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  {
+                    "type": "record",
+                    "name": "TagProperties",
+                    "namespace": "com.linkedin.pegasus2avro.tag",
+                    "doc": "Properties associated with a Tag",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the tag"
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the tag",
+                        "default": null
+                      }
+                    ]
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "GlossaryTermSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific GlossaryTerm entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "GlossaryTermInfo",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Properties associated with a GlossaryTerm",
+                    "fields": [
+                      {
+                        "name": "definition",
+                        "type": "string",
+                        "doc": "Definition of business term"
+                      },
+                      {
+                        "name": "parentNode",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Parent node of the glossary term",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+                        }
+                      },
+                      {
+                        "name": "termSource",
+                        "type": "string",
+                        "doc": "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+                      },
+                      {
+                        "name": "sourceRef",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "External Reference to the business-term",
+                        "default": null
+                      },
+                      {
+                        "name": "sourceUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
+                        "default": {}
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "GlossaryNodeSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific GlossaryNode entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "GlossaryNodeInfo",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Properties associated with a GlossaryNode",
+                    "fields": [
+                      {
+                        "name": "definition",
+                        "type": "string",
+                        "doc": "Definition of business node"
+                      },
+                      {
+                        "name": "parentNode",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Parent node of the glossary term",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
+                        }
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        }
+      ],
+      "doc": "Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."
+    },
+    {
+      "name": "proposedDelta",
+      "type": [
+        "null"
+      ],
+      "doc": "Delta of the proposed metadata partial update.",
+      "default": null
+    }
+  ]
+}

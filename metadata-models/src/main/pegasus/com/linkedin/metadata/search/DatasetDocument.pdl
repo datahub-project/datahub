@@ -92,4 +92,9 @@ record DatasetDocument includes BaseDocument {
    * List of tags applied to fields
    */
   editedFieldTags: optional array[string]
+
+  /**
+   * List of terms for this dataset
+   */
+  glossaryTerms: optional array[string]
 }

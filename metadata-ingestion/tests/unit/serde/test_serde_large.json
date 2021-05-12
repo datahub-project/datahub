@@ -42,7 +42,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=500)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "aspect",
@@ -56,7 +57,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "version",
@@ -70,7 +72,8 @@
                                 },
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "metadata",
@@ -84,7 +87,8 @@
                                 },
                                 "nativeDataType": "LONGTEXT()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "createdon",
@@ -98,7 +102,8 @@
                                 },
                                 "nativeDataType": "DATETIME(fsp=6)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "createdby",
@@ -112,7 +117,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "createdfor",
@@ -126,7 +132,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -181,7 +188,8 @@
                                 },
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "urn",
@@ -195,7 +203,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "aspect",
@@ -209,7 +218,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=150)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "path",
@@ -223,7 +233,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=150)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "longVal",
@@ -237,7 +248,8 @@
                                 },
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "stringVal",
@@ -251,7 +263,8 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "doubleVal",
@@ -265,7 +278,8 @@
                                 },
                                 "nativeDataType": "DOUBLE(asdecimal=True)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -320,7 +334,8 @@
                                 },
                                 "nativeDataType": "CHAR(charset='ascii', collation='ascii_general_ci', length=255)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "Db",
@@ -334,7 +349,8 @@
                                 },
                                 "nativeDataType": "CHAR(collation='utf8_bin', length=64)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "User",
@@ -348,7 +364,8 @@
                                 },
                                 "nativeDataType": "CHAR(collation='utf8_bin', length=32)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "Table_name",
@@ -362,7 +379,8 @@
                                 },
                                 "nativeDataType": "CHAR(collation='utf8_bin', length=64)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "Column_name",
@@ -376,7 +394,8 @@
                                 },
                                 "nativeDataType": "CHAR(collation='utf8_bin', length=64)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "Timestamp",
@@ -390,7 +409,8 @@
                                 },
                                 "nativeDataType": "TIMESTAMP()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "Column_priv",
@@ -404,7 +424,8 @@
                                 },
                                 "nativeDataType": "SET(charset='utf8', collation='utf8_general_ci', length=10)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -459,7 +480,8 @@
                                 },
                                 "nativeDataType": "INTEGER(unsigned=True)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "component_group_id",
@@ -473,7 +495,8 @@
                                 },
                                 "nativeDataType": "INTEGER(unsigned=True)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "component_urn",
@@ -487,7 +510,8 @@
                                 },
                                 "nativeDataType": "TEXT()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -542,7 +566,8 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "ProductName",
@@ -556,7 +581,8 @@
                                 },
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -611,7 +637,8 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "ItemName",
@@ -625,7 +652,8 @@
                                 },
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
