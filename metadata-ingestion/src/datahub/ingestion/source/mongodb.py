@@ -433,7 +433,7 @@ class MongoDBSource(Source):
                 for schema_field in collection_schema.values():
                     field = SchemaField(
                         fieldPath=schema_field["delimited_name"],
-                        nativeDataType=get_pymongo_type_string(
+                        nativeDataType=self.get_pymongo_type_string(
                             schema_field["type"], dataset_name
                         ),
                         type=self.get_field_type(schema_field["type"], dataset_name),
