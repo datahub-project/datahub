@@ -1,7 +1,8 @@
 import logging
+import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, Union
 
 import bson
 import pymongo
@@ -11,8 +12,27 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BinaryJsonSchemaClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    DateTypeClass,
+    EnumTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemalessClass,
+    SchemaMetadata,
+    StringTypeClass,
+    TimeTypeClass,
+    UnionTypeClass,
+)
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 # These are MongoDB-internal databases, which we want to skip.
@@ -63,18 +83,18 @@ PYMONGO_TYPE_TO_TYPE_STRING = {
     bson.timestamp.Timestamp: "timestamp",
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
+    "mixed": "mixed",
 }
 
 
-def get_type_string(value: Any) -> str:
+def get_pymongo_type_string(value_type: Union[Type, str]) -> str:
     """
-    Return Mongo type string from a value
+    Return Mongo type string from a Python type
 
     Parameters
     ----------
-        value: value to get type of
+        value_type: type of a Python object
     """
-    value_type = type(value)
     try:
         type_string = PYMONGO_TYPE_TO_TYPE_STRING[value_type]
     except KeyError:
@@ -87,6 +107,23 @@ def get_type_string(value: Any) -> str:
         type_string = "unknown"
 
     return type_string
+
+
+_field_type_mapping: Dict[Union[Type, str], Type] = {
+    list: ArrayTypeClass,
+    bool: BooleanTypeClass,
+    type(None): NullTypeClass,
+    int: NumberTypeClass,
+    bson.int64.Int64: NumberTypeClass,
+    float: NumberTypeClass,
+    str: StringTypeClass,
+    bson.datetime.datetime: TimeTypeClass,
+    bson.timestamp.Timestamp: TimeTypeClass,
+    bson.dbref.DBRef: BytesTypeClass,
+    bson.objectid.ObjectId: BytesTypeClass,
+    dict: RecordTypeClass,
+    "mixed": UnionTypeClass,
+}
 
 
 def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
@@ -125,9 +162,9 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
         # if list, check if any member is missing field
         if isinstance(value, list):
 
-            # TODO: figure out how to resolve empty lists
+            # count empty lists of nested objects as nullable
             if len(value) == 0:
-                return False
+                return True
 
             return any(is_nullable_doc(x, remaining_fields) for x in doc[field])
 
@@ -249,7 +286,7 @@ def construct_schema(
 
         extended_schema[field_path] = field_extended
 
-    return schema
+    return extended_schema
 
 
 def construct_schema_pymongo(
@@ -305,6 +342,25 @@ class MongoDBSource(Source):
         config = MongoDBConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    def get_field_type(
+        self, field_type: Union[Type, str], collection_name: str
+    ) -> SchemaFieldDataType:
+        """
+        Maps types encountered in PyMongo to corresponding schema types
+        """
+
+        print(field_type)
+
+        TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
+
+        if TypeClass is None:
+            self.report.report_warning(
+                collection_name, f"unable to map type {field_type} to metadata schema"
+            )
+            TypeClass = NullTypeClass
+
+        return SchemaFieldDataType(type=TypeClass())
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         env = "PROD"
         platform = "mongodb"
@@ -347,9 +403,33 @@ class MongoDBSource(Source):
                 collection_schema = construct_schema_pymongo(
                     database[collection_name], delimiter="."
                 )
-                from pprint import pprint
 
-                pprint(collection_schema)
+                canonical_schema: List[SchemaField] = []
+                for schema_field in collection_schema.values():
+                    field = SchemaField(
+                        fieldPath=schema_field["delimited_name"],
+                        nativeDataType=get_pymongo_type_string(schema_field["type"]),
+                        type=self.get_field_type(schema_field["type"], dataset_name),
+                        description=None,
+                        nullable=schema_field["nullable"],
+                        recursive=False,
+                    )
+                    canonical_schema.append(field)
+
+                actor = "urn:li:corpuser:etl"
+                sys_time = int(time.time() * 1000)
+                schema_metadata = SchemaMetadata(
+                    schemaName=collection_name,
+                    platform=f"urn:li:dataPlatform:{platform}",
+                    version=0,
+                    hash="",
+                    platformSchema=SchemalessClass(),
+                    created=AuditStamp(time=sys_time, actor=actor),
+                    lastModified=AuditStamp(time=sys_time, actor=actor),
+                    fields=canonical_schema,
+                )
+
+                dataset_snapshot.aspects.append(schema_metadata)
 
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
