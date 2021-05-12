@@ -152,6 +152,8 @@ datahub:
       buffer:
         size: "10MB"
 global:
+  datahub_analytics_enabled: true
+
   datahub:
     gms:
       port: "8080"

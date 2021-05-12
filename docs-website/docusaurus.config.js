@@ -109,10 +109,11 @@ module.exports = {
       ],
       copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors.`,
     },
-    // prism: {
+    prism: {
     //   theme: require('prism-react-renderer/themes/github'),
     //   darkTheme: require('prism-react-renderer/themes/dracula'),
-    // },
+      additionalLanguages: ['ini'],
+    },
     gtag: {
       trackingID: "G-2G54RXWD4D",
     },
