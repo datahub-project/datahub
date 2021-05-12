@@ -2546,6 +2546,23 @@
                       "items" : "AliasRecord"
                     }
                   }, {
+                    "name" : "foreignKeyArray",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "Relationship" : {
+                      "entityTypes" : [ "corpUser", "corpGroup" ],
+                      "name" : "OwnedBy"
+                    }
+                  }, {
+                    "name" : "foreignKey",
+                    "type" : "com.linkedin.common.Urn",
+                    "Relationship" : {
+                      "entityTypes" : [ "dataset" ],
+                      "name" : "IsPartOf"
+                    }
+                  }, {
                     "name" : "description",
                     "type" : "string",
                     "Searchable" : {

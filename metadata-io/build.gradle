@@ -7,13 +7,14 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
+    compile project(path: ':metadata-models')
+
     compile externalDependency.elasticSearchRest
     compile externalDependency.elasticSearchTransport
     compile externalDependency.kafkaClients
     compile externalDependency.gmaEbeanDao
     compile spec.product.pegasus.data
     compile spec.product.pegasus.generator
-    compile project(path: ':metadata-models')
 
     implementation gradleApi()
     annotationProcessor externalDependency.lombok

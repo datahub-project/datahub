@@ -63,6 +63,7 @@ task integrationTest(type: Test) {
 }
 
 check.dependsOn integrationTest
+integrationTest.enabled = false
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([
