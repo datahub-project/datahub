@@ -1,0 +1,9 @@
+namespace com.linkedin.common
+
+record BrowsePath {
+  /**
+   * An array of strings comprising the path
+   */
+  @BrowsePath
+  path: array[string]
+}
