@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.data.DataMap;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
@@ -8,13 +8,10 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.builders.graph.BaseGraphBuilder;
-import com.linkedin.metadata.builders.graph.GraphBuilder;
-import com.linkedin.metadata.builders.graph.RegisteredGraphBuilders;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
-import com.linkedin.metadata.dao.internal.BaseGraphWriterDAO;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -33,8 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -57,17 +52,19 @@ public class MetadataAuditEventsProcessor {
   private RestHighLevelClient elasticSearchClient;
   private ElasticsearchConnector elasticSearchConnector;
   private SnapshotProcessor snapshotProcessor;
-  private BaseGraphWriterDAO graphWriterDAO;
+
+  private Neo4jGraphDAO _graphQueryDao;
+
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
   public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient, ElasticsearchConnector elasticSearchConnector,
-      SnapshotProcessor snapshotProcessor, BaseGraphWriterDAO graphWriterDAO,
+      SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
     this.snapshotProcessor = snapshotProcessor;
-    this.graphWriterDAO = graphWriterDAO;
+    this._graphQueryDao = graphWriterDAO;
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
@@ -124,13 +121,13 @@ public class MetadataAuditEventsProcessor {
               .getAspectSpecMap()
               .get(aspectName)
               .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+
       if (matchingAnnotation.isPresent()) {
         try {
-          graphWriterDAO.addAbstractEdge(
-                  (String) snapshot.data().get("urn"),
-                  (String) ((DataMap) next.getValue()).get("entity"),
-                  matchingAnnotation.get().getRelationshipName(),
-                  new HashMap<>()
+          _graphQueryDao.addAbstractEdge(
+                  Urn.createFromString(snapshot.data().get("urn").toString()),
+                  Urn.createFromString((next.getValue()).toString()),
+                  matchingAnnotation.get().getRelationshipName()
           );
         } catch (URISyntaxException e) {
           e.printStackTrace();
@@ -139,21 +136,6 @@ public class MetadataAuditEventsProcessor {
       if (next == null) {
         break;
       }
-    }
-
-    try {
-      final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
-      final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
-
-      if (!updates.getEntities().isEmpty()) {
-        graphWriterDAO.addEntities(updates.getEntities());
-      }
-
-      for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
-        graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
-      }
-    } catch (Exception ex) {
-      log.error(ex.toString() + " " + Arrays.toString(ex.getStackTrace()));
     }
   }
 

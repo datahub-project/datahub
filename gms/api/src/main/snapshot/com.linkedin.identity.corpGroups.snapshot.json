@@ -157,14 +157,22 @@
             "type" : "array",
             "items" : "com.linkedin.common.CorpuserUrn"
           },
-          "doc" : "owners of this group"
+          "doc" : "owners of this group",
+          "Relationship" : {
+            "entityTypes" : [ "corpUser" ],
+            "name" : "OwnedBy"
+          }
         }, {
           "name" : "members",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.CorpuserUrn"
           },
-          "doc" : "List of ldap urn in this group."
+          "doc" : "List of ldap urn in this group.",
+          "Relationship" : {
+            "entityTypes" : [ "corpUser" ],
+            "name" : "OwnedBy"
+          }
         }, {
           "name" : "groups",
           "type" : {

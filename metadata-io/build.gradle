@@ -15,6 +15,11 @@ dependencies {
     compile externalDependency.gmaEbeanDao
     compile spec.product.pegasus.data
     compile spec.product.pegasus.generator
+    compile project(path: ':metadata-models')
+    compile project(':metadata-dao-impl:restli-dao')
+
+    compile externalDependency.gmaDaoApi
+    compile externalDependency.gmaRestliResources
 
     implementation gradleApi()
     annotationProcessor externalDependency.lombok

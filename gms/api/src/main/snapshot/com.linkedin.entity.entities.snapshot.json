@@ -254,6 +254,35 @@
       } ],
       "doc" : "Transfomration function between the fields involved"
     } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowsePath",
+    "namespace" : "com.linkedin.common",
+    "fields" : [ {
+      "name" : "path",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "An array of strings comprising the path",
+      "BrowsePath" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "BrowsePath"
+      },
+      "doc" : "A list of valid browse paths for the entity."
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
   }, "com.linkedin.common.ChangeAuditStamps", {
     "type" : "typeref",
     "name" : "ChartUrn",
@@ -787,7 +816,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -912,7 +945,11 @@
         "items" : "com.linkedin.common.ChartUrn"
       },
       "doc" : "Charts in a dashboard",
-      "default" : [ ]
+      "default" : [ ],
+      "Relationship" : {
+        "entityTypes" : [ "chart" ],
+        "name" : "Contains"
+      }
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -1008,14 +1045,22 @@
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
-      "doc" : "Input datasets consumed by the data job during processing"
+      "doc" : "Input datasets consumed by the data job during processing",
+      "Relationship" : {
+        "entityTypes" : [ "dataset" ],
+        "name" : "Consumes"
+      }
     }, {
       "name" : "outputDatasets",
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
-      "doc" : "Output datasets produced by the data job during processing"
+      "doc" : "Output datasets produced by the data job during processing",
+      "Relationship" : {
+        "entityTypes" : [ "dataset" ],
+        "name" : "Consumes"
+      }
     } ],
     "Aspect" : {
       "name" : "dataJobInputOutput"
@@ -1032,7 +1077,11 @@
         "items" : "com.linkedin.common.DatasetUrn"
       },
       "doc" : "the inputs of the data process",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataset" ],
+        "name" : "Consumes"
+      }
     }, {
       "name" : "outputs",
       "type" : {
@@ -1040,7 +1089,11 @@
         "items" : "com.linkedin.common.DatasetUrn"
       },
       "doc" : "the outputs of the data process",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataset" ],
+        "name" : "Consumes"
+      }
     } ],
     "Aspect" : {
       "name" : "dataProcessInfo"
@@ -1168,7 +1221,11 @@
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
-      "doc" : "The upstream dataset the lineage points to"
+      "doc" : "The upstream dataset the lineage points to",
+      "Relationship" : {
+        "entityTypes" : [ "dataset" ],
+        "name" : "DownstreamOf"
+      }
     }, {
       "name" : "type",
       "type" : "DatasetLineageType",
@@ -1198,13 +1255,15 @@
       "name" : "name",
       "type" : "string",
       "Searchable" : {
-        "fieldName" : "alias",
+        "fieldName" : "aliasRecords",
         "indexSettings" : [ {
-          "addToDefaultQuery" : false,
-          "boostScore" : 3,
           "indexType" : "KEYWORD"
-        } ],
-        "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "DELIMITED"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasAliasRecords"
+        } ]
       }
     } ]
   }, {
@@ -1249,7 +1308,7 @@
                 "name" : "ChartAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Chart",
-                "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+                "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1291,14 +1350,22 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group"
+                    "doc" : "owners of this group",
+                    "Relationship" : {
+                      "entityTypes" : [ "corpUser" ],
+                      "name" : "OwnedBy"
+                    }
                   }, {
                     "name" : "members",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "List of ldap urn in this group."
+                    "doc" : "List of ldap urn in this group.",
+                    "Relationship" : {
+                      "entityTypes" : [ "corpUser" ],
+                      "name" : "OwnedBy"
+                    }
                   }, {
                     "name" : "groups",
                     "type" : {
@@ -1365,7 +1432,11 @@
                     "name" : "managerUrn",
                     "type" : "com.linkedin.common.CorpuserUrn",
                     "doc" : "direct manager of this user",
-                    "optional" : true
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "corpUser" ],
+                      "name" : "ReportsTo"
+                    }
                   }, {
                     "name" : "departmentId",
                     "type" : "long",
@@ -1464,7 +1535,7 @@
                 "name" : "DashboardAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Dashboard",
-                "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+                "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1491,7 +1562,7 @@
                 "name" : "DataFlowAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Data flow",
-                "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+                "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1929,7 +2000,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2337,7 +2408,7 @@
                     },
                     "doc" : "Source Code along with types"
                   } ]
-                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2387,7 +2458,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureProperties"
                   }
-                }, "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2466,11 +2537,29 @@
                   "fields" : [ {
                     "name" : "keyPart1",
                     "type" : "string",
-                    "doc" : "Title of the chart"
+                    "doc" : "Title of the chart",
+                    "Searchable" : {
+                      "fieldName" : "key",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "DELIMITED"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "keyPart2",
                     "type" : "string",
-                    "doc" : "Title of the chart"
+                    "doc" : "Title of the chart",
+                    "Searchable" : {
+                      "fieldName" : "keyParts",
+                      "indexSettings" : [ {
+                        "indexType" : "PATTERN"
+                      }, {
+                        "indexType" : "PARTIAL_PATTERN"
+                      } ]
+                    }
                   }, {
                     "name" : "keyPart3",
                     "type" : "string",
@@ -2492,9 +2581,11 @@
                     "Searchable" : {
                       "fieldName" : "title",
                       "indexSettings" : [ {
-                        "addToDefaultQuery" : false,
-                        "boostScore" : 3,
                         "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "DELIMITED"
+                      }, {
+                        "indexType" : "PARTIAL"
                       } ]
                     }
                   }, {
@@ -2506,11 +2597,16 @@
                     "Searchable" : {
                       "fieldName" : "aliases",
                       "indexSettings" : [ {
-                        "addToDefaultQuery" : false,
-                        "boostScore" : 3,
                         "indexType" : "KEYWORD"
-                      } ],
-                      "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "DELIMITED"
+                      }, {
+                        "indexType" : "BOOLEAN",
+                        "overrideFieldName" : "hasAliases"
+                      }, {
+                        "indexType" : "COUNT",
+                        "overrideFieldName" : "numAliases"
+                      } ]
                     }
                   }, {
                     "name" : "recordAliases",
@@ -2538,7 +2634,12 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Detailed description about the test entity"
+                    "Searchable" : {
+                      "fieldName" : "description",
+                      "indexSettings" : [ {
+                        "indexType" : "DELIMITED"
+                      } ]
+                    }
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -2573,7 +2674,13 @@
                     "name" : "type",
                     "type" : "ChartTypeOption",
                     "doc" : "Type of the chart",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "chartType",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      } ]
+                    }
                   }, {
                     "name" : "lastRefreshed",
                     "type" : "com.linkedin.common.Time",
@@ -2583,7 +2690,7 @@
                   "Aspect" : {
                     "name" : "testEntityInfo"
                   }
-                } ]
+                }, "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the Test Entity. Depending on the use case, this can either be all, or a selection, of supported aspects."

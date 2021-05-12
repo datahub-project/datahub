@@ -248,7 +248,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -424,14 +428,22 @@
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Input datasets consumed by the data job during processing"
+          "doc" : "Input datasets consumed by the data job during processing",
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          }
         }, {
           "name" : "outputDatasets",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Output datasets produced by the data job during processing"
+          "doc" : "Output datasets produced by the data job during processing",
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          }
         } ],
         "Aspect" : {
           "name" : "dataJobInputOutput"

@@ -138,7 +138,11 @@
           "name" : "managerUrn",
           "type" : "com.linkedin.common.CorpuserUrn",
           "doc" : "direct manager of this user",
-          "optional" : true
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "corpUser" ],
+            "name" : "ReportsTo"
+          }
         }, {
           "name" : "departmentId",
           "type" : "long",
