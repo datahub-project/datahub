@@ -9,7 +9,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-import lkml
+import sys
+
+if sys.version_info[1] >= 7:
+    import lkml
+else:
+    logging.warning("This plugin requres Python 3.7 or newer.")
 from sql_metadata import get_query_tables
 
 from datahub.configuration import ConfigModel

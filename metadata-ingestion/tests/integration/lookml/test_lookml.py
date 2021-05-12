@@ -1,11 +1,13 @@
 import logging
-
+import pytest
+import sys
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
