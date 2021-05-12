@@ -31,6 +31,7 @@ public class MappingsBuilder {
         if (entitySpec.isBrowsable()) {
             mappingsBuilder.put("browsePaths", getMappingsForBrowsePaths());
         }
+        mappingsBuilder.put("urn", getMappingsForUrn());
         entitySpec.getSearchableFieldSpecs()
                 .forEach(searchableFieldSpec -> setMappingsForField(searchableFieldSpec, mappingsBuilder));
         return ImmutableMap.of("properties", mappingsBuilder.build());
@@ -45,6 +46,12 @@ public class MappingsBuilder {
                                 .build()))
                 .put("analyzer", "browse_path")
                 .put("fielddata", true)
+                .build();
+    }
+
+    private static Map<String, Object> getMappingsForUrn() {
+        return ImmutableMap.<String, Object>builder()
+                .put("type", "keyword")
                 .build();
     }
 

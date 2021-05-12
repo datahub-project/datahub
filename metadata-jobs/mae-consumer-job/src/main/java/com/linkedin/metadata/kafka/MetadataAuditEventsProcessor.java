@@ -118,8 +118,8 @@ public class MetadataAuditEventsProcessor {
       if (pathComponents.size() < 4) {
         continue;
       }
-      final String aspectName = pathComponents.get(2);
-      final String suffix = "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
+      final String path = StringUtils.join(pathComponents.subList(2, pathComponents.size()), "/");
+
       final Optional<RelationshipFieldSpec> matchingAnnotation = entitySpec
               .getAspectSpecMap()
               .get(aspectName)
