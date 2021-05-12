@@ -50,28 +50,10 @@ public class Neo4jGraphDAO {
         this._driver = driver;
         this._sessionConfig = sessionConfig;
     }
-
-    /**
-     * Gets Node based on Urn, if not exist, creates placeholder node.
-     */
-    @Nonnull
-    private Statement getOrInsertNode(@Nonnull Urn urn) {
-        final String nodeType = urn.getEntityType();
-
-        final String mergeTemplate = "MERGE (node%s {urn: $urn}) RETURN node";
-        final String statement = String.format(mergeTemplate, nodeType);
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("urn", urn.toString());
-
-        return buildStatement(statement, params);
-    }
-
     public void addAbstractEdge(
             @Nonnull Urn source,
             @Nonnull Urn destination,
-            @Nonnull String relationshipType,
-            Map<String, Object> params
+            @Nonnull String relationshipType
     ) throws URISyntaxException {
         final String sourceType = source.getEntityType();
         final String destinationType = destination.getEntityType();
@@ -84,19 +66,92 @@ public class Neo4jGraphDAO {
 
         // Add/Update relationship
         final String mergeRelationshipTemplate =
-                "MATCH (source%s {urn: $sourceUrn}),(destination%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
+                "MATCH (source:%s {urn: $sourceUrn}),(destination:%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
         final String statement =
                 String.format(mergeRelationshipTemplate, sourceType, destinationType, relationshipType);
 
         final Map<String, Object> paramsMerge = new HashMap<>();
         paramsMerge.put("sourceUrn", source.toString());
         paramsMerge.put("destinationUrn", destination.toString());
-        paramsMerge.put("properties", params);
+        paramsMerge.put("properties", new HashMap<>());
 
         statements.add(buildStatement(statement, paramsMerge));
 
         executeStatements(statements);
     }
+
+    @Nonnull
+    public List<String> findRelatedUrns(
+            @Nullable String sourceType,
+            @Nonnull Filter sourceEntityFilter,
+            @Nullable String destinationType,
+            @Nonnull Filter destinationEntityFilter,
+            @Nonnull List<String> relationshipTypes,
+            @Nonnull RelationshipFilter relationshipFilter,
+            int offset,
+            int count
+    ) {
+        final String srcCriteria = filterToCriteria(sourceEntityFilter);
+        final String destCriteria = filterToCriteria(destinationEntityFilter);
+        final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
+
+        final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+        String matchTemplate = "MATCH (src%s %s)-[r:%s %s]-(dest%s %s) RETURN dest";
+        if (relationshipDirection == RelationshipDirection.INCOMING) {
+            matchTemplate = "MATCH (src%s %s)<-[r:%s %s]-(dest%s %s) RETURN dest";
+        } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+            matchTemplate = "MATCH (src%s %s)-[r:%s %s]->(dest%s %s) RETURN dest";
+        }
+
+        String statementString =
+                String.format(matchTemplate, sourceType, srcCriteria, StringUtils.join(relationshipTypes, "|"), edgeCriteria, destinationType,
+                        destCriteria);
+
+        statementString += " SKIP $offset LIMIT $count";
+
+        final Statement statement = new Statement(statementString, ImmutableMap.of("offset", offset, "count", count));
+
+        return runQuery(statement).list(record -> record.values().get(0).asNode().get("urn").asString());
+    }
+
+    @Nonnull
+    public void removeNode(@Nonnull Urn urn) {
+        // also delete any relationship going to or from it
+        final String matchTemplate = "MATCH (node {urn: $urn}) DETACH DELETE node";
+        final String statement = String.format(matchTemplate);
+
+        final Map<String, Object> params = new HashMap<>();
+        params.put("urn", urn.toString());
+
+        runQuery(buildStatement(statement, params));
+    }
+
+    @Nonnull
+    public void removeEdgeTypesFromNode(
+            @Nonnull Urn urn,
+            @Nonnull List<String> relationshipTypes,
+            @Nonnull RelationshipFilter relationshipFilter
+    ) {
+
+        // also delete any relationship going to or from it
+        final String nodeType = urn.getEntityType();
+        final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+        String matchTemplate = "MATCH (src {urn: $urn})-[r:%s]-(dest) DELETE r";
+        if (relationshipDirection == RelationshipDirection.INCOMING) {
+            matchTemplate = "MATCH (src {urn: $urn})<-[r:%s]-(dest) DELETE r";
+        } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+            matchTemplate = "MATCH (src {urn: $urn})-[r:%s]->(dest) DELETE r";
+        }
+        final String statement = String.format(matchTemplate, StringUtils.join(relationshipTypes, "|"));
+
+        final Map<String, Object> params = new HashMap<>();
+        params.put("urn", urn.toString());
+
+        runQuery(buildStatement(statement, params));
+    }
+
 
     // visible for testing
     @Nonnull
@@ -160,80 +215,6 @@ public class Neo4jGraphDAO {
         return new ExecutionResult(stopWatch.getTime(), retry);
     }
 
-    @Nonnull
-    public List<String> findRelatedUrns(
-                @Nullable String sourceType,
-                @Nonnull Filter sourceEntityFilter,
-                @Nullable String destinationType,
-                @Nonnull Filter destinationEntityFilter,
-                @Nonnull List<String> relationshipTypes,
-                @Nonnull RelationshipFilter relationshipFilter,
-        int offset,
-        int count
-    ) {
-        final String srcCriteria = filterToCriteria(sourceEntityFilter);
-        final String destCriteria = filterToCriteria(destinationEntityFilter);
-        final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
-
-        final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-
-        String matchTemplate = "MATCH (src%s %s)-[r:%s %s]-(dest%s %s) RETURN dest";
-        if (relationshipDirection == RelationshipDirection.INCOMING) {
-            matchTemplate = "MATCH (src%s %s)<-[r:%s %s]-(dest%s %s) RETURN dest";
-        } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-            matchTemplate = "MATCH (src%s %s)-[r:%s %s]->(dest%s %s) RETURN dest";
-        }
-
-        String statementString =
-                String.format(matchTemplate, sourceType, srcCriteria, StringUtils.join(relationshipTypes, "|"), edgeCriteria, destinationType,
-                        destCriteria);
-
-        statementString += " SKIP $offset LIMIT $count";
-
-        final Statement statement = new Statement(statementString, ImmutableMap.of("offset", offset, "count", count));
-
-        // nodeRecord.values().get(0).asNode()
-
-        return runQuery(statement).list(record -> record.values().get(0).asNode().get("urn").asString());
-    }
-
-    @Nonnull
-    public void removeNode(@Nonnull Urn urn) {
-        // also delete any relationship going to or from it
-        final String matchTemplate = "MATCH (node {urn: $urn}) DETACH DELETE node";
-        final String statement = String.format(matchTemplate);
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("urn", urn.toString());
-
-        runQuery(buildStatement(statement, params));
-    }
-
-    @Nonnull
-    public void removeEdgeTypesFromNode(
-            @Nonnull Urn urn,
-            @Nonnull List<String> relationshipTypes,
-            @Nonnull RelationshipFilter relationshipFilter
-    ) {
-
-        // also delete any relationship going to or from it
-        final String nodeType = urn.getEntityType();
-        final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-
-        String matchTemplate = "MATCH (src {urn: $urn})-[r:%s]-(dest) DELETE r";
-        if (relationshipDirection == RelationshipDirection.INCOMING) {
-            matchTemplate = "MATCH (src {urn: $urn})<-[r:%s]-(dest) DELETE r";
-        } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-            matchTemplate = "MATCH (src {urn: $urn})-[r:%s]->(dest) DELETE r";
-        }
-        final String statement = String.format(matchTemplate, StringUtils.join(relationshipTypes, "|"));
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("urn", urn.toString());
-
-        runQuery(buildStatement(statement, params));
-    }
-
     /**
      * Runs a query statement with parameters and return StatementResult.
      *
@@ -286,4 +267,21 @@ public class Neo4jGraphDAO {
 
         return joiner.length() <= 2 ? "" : joiner.toString();
     }
+
+    /**
+     * Gets Node based on Urn, if not exist, creates placeholder node.
+     */
+    @Nonnull
+    private Statement getOrInsertNode(@Nonnull Urn urn) {
+        final String nodeType = urn.getEntityType();
+
+        final String mergeTemplate = "MERGE (node:%s {urn: $urn}) RETURN node";
+        final String statement = String.format(mergeTemplate, nodeType);
+
+        final Map<String, Object> params = new HashMap<>();
+        params.put("urn", urn.toString());
+
+        return buildStatement(statement, params);
+    }
+
 }

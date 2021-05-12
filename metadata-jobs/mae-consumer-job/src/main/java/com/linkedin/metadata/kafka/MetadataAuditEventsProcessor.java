@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
@@ -13,6 +12,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
@@ -32,11 +32,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
@@ -61,8 +62,8 @@ public class MetadataAuditEventsProcessor {
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
-  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient, ElasticsearchConnector elasticSearchConnector,
-      SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
+  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
+      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
@@ -72,7 +73,8 @@ public class MetadataAuditEventsProcessor {
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
     try {
-      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"), "testentity").buildIndex();
+      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"),
+          "testentity").buildIndex();
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -108,37 +110,19 @@ public class MetadataAuditEventsProcessor {
   private void updateNeo4j(final RecordTemplate snapshot) {
     // TODO(Gabe): memoize this
     final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
-    ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
-            snapshot.schema(),
-            IterationOrder.PRE_ORDER);
-    while (true) {
-      final DataElement next = dataElement.next();
-      final PathSpec pathSpec = next.getSchemaPathSpec();
-      List<String> pathComponents = pathSpec.getPathComponents();
-      if (pathComponents.size() < 4) {
-        continue;
-      }
-      final String aspectName = pathComponents.get(2);
-      final String suffix = "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
-      final Optional<RelationshipFieldSpec> matchingAnnotation = entitySpec
-              .getAspectSpecMap()
-              .get(aspectName)
-              .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+    Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
+    Map<RelationshipFieldSpec, Object> extractedFields =
+        FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
 
-      if (matchingAnnotation.isPresent()) {
-        try {
-          _graphQueryDao.addAbstractEdge(
-                  Urn.createFromString(snapshot.data().get("urn").toString()),
-                  Urn.createFromString((next.getValue()).toString()),
-                  matchingAnnotation.get().getRelationshipName(),
-                  ImmutableMap.of()
-          );
-        } catch (URISyntaxException e) {
-          e.printStackTrace();
-        }
-      }
-      if (next == null) {
-        break;
+    for (Map.Entry<RelationshipFieldSpec, Object> entry : extractedFields.entrySet()) {
+      try {
+        _graphQueryDao.addAbstractEdge(Urn.createFromString(snapshot.data().get("urn").toString()),
+            Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName());
+      } catch (URISyntaxException e) {
+        log.info("Invalid urn: {}", e.getLocalizedMessage());
       }
     }
   }
