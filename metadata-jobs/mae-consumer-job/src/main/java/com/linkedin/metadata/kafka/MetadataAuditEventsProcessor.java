@@ -125,8 +125,6 @@ public class MetadataAuditEventsProcessor {
                 Urn.createFromString(sourceUrn),
                 Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName()
         ));
-        _graphQueryDao.addAbstractEdge(Urn.createFromString(snapshot.data().get("urn").toString()),
-            Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName());
       } catch (URISyntaxException e) {
         log.info("Invalid urn: {}", e.getLocalizedMessage());
       }
