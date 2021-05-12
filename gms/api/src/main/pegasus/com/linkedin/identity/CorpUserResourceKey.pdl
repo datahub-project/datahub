@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 /**
  * Key for CorpUser resource
  */
-record CorpUserKey {
+record CorpUserResourceKey {
 
   /**
    * ldap name e.g. hzhang2, ywang5

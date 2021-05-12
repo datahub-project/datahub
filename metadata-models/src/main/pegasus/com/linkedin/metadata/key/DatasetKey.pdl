@@ -1,0 +1,28 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Dataset
+ */
+@Aspect = {
+    "name": "datasetKey",
+    "isKey": true
+}
+record DatasetKey {
+    /**
+    * Data platform urn associated with the dataset
+    */
+    platform: Urn
+
+    /**
+    * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
+    */
+    name: string
+
+    /**
+    * Fabric type where dataset belongs to or where it was generated.
+    */
+    origin: FabricType
+}
