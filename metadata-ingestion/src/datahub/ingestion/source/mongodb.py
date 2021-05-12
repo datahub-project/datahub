@@ -192,28 +192,29 @@ def is_nullable_collection(
 
 
 class BasicSchemaDescription(TypedDict):
-    types: Counter[type]
-    count: int
+    types: Counter[type] # field types and times seen
+    count: int # times the field was seen
 
 
 class SchemaDescription(BasicSchemaDescription):
-    delimited_name: str
-    type: Union[type, str]
-    nullable: bool
+    delimited_name: str # collapsed field name
+    # we use 'mixed' to denote mixed types, so we need a str here
+    type: Union[type, str] # collapsed type
+    nullable: bool # if field is ever missing
 
 
 def construct_schema(
     collection: Iterable[Dict[str, Any]], delimiter: str
-) -> Dict[Tuple[str], SchemaDescription]:
+) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
     Construct (infer) a schema from a collection of documents.
 
     For each field (represented as a tuple to handle nested items), reports the following:
         - `types`: Python types of field values
+        - `count`: Number of times the field was encountered
         - `type`: type of the field if `types` is just a single value, otherwise `mixed`
         - `nullable`: if field is ever null/missing
         - `delimited_name`: name of the field, joined by a given delimiter
-
 
     Parameters
     ----------
@@ -223,9 +224,19 @@ def construct_schema(
             string to concatenate field names by
     """
 
-    schema: Dict[Tuple[str], BasicSchemaDescription] = {}
+    schema: Dict[Tuple[str, ...], BasicSchemaDescription] = {}
 
-    def append_to_schema(doc, parent_prefix):
+    def append_to_schema(doc: Dict[str, Any], parent_prefix: Tuple[str, ...]) -> None:
+        """
+        Recursively update the schema with a document, which may/may not contain nested fields.
+
+        Parameters
+        ----------
+            doc:
+                document to scan
+            parent_prefix:
+                prefix of fields that the document is under, pass an empty tuple when initializing
+        """
 
         for key, value in doc.items():
 
@@ -264,7 +275,7 @@ def construct_schema(
     for document in collection:
         append_to_schema(document, ())
 
-    extended_schema: Dict[Tuple[str], SchemaDescription] = {}
+    extended_schema: Dict[Tuple[str, ...], SchemaDescription] = {}
 
     for field_path in schema.keys():
 
@@ -293,9 +304,12 @@ def construct_schema_pymongo(
     collection: pymongo.collection.Collection,
     delimiter: str,
     sample_size: Optional[int] = None,
-) -> Dict[Tuple[str], SchemaDescription]:
+) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
     Calls construct_schema on a PyMongo collection.
+
+    Returned schema is keyed by tuples of nested field names, with each
+    value containing 'types', 'count', 'nullable', 'delimited_name', and 'type' attributes.
 
     Parameters
     ----------
@@ -410,9 +424,6 @@ class MongoDBSource(Source):
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
 
-                # TODO: Guess the schema via sampling
-
-                # code adapted from https://github.com/pajachiet/pymongo-schema
                 collection_schema = construct_schema_pymongo(
                     database[collection_name], delimiter="."
                 )
