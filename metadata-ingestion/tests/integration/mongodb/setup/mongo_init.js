@@ -78,17 +78,20 @@ db.secondCollection.insertMany([
     rating: 10,
     varieties: ["honey crisp", "red delicious", "fuji"],
     tasty: true,
+    mixedType: 2,
   },
   {
     name: "orange",
     rating: 9,
     varieties: ["clementine", "navel"],
     tasty: true,
+    mixedType: "abc",
   },
   {
     name: "kiwi",
     rating: 1000000000000000000000000000,
     tasty: true,
+    mixedType: { fieldA: "a", fieldTwo: 2 },
   },
 ]);
 
