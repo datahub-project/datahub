@@ -2245,6 +2245,11 @@ type DataFlow implements Entity {
     Status metadata of the dataflow
     """
     status: Status
+
+    """
+    DataJobs
+    """
+    dataJobs: [DataJob!]
 }
 
 type DataFlowInfo {
