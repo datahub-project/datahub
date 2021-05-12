@@ -1,15 +1,12 @@
 import logging
 
-from freezegun import freeze_time
-
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
 
-@freeze_time("2021-05-08 07:00:00")
-def test_lookml_ingest(pytestconfig, tmp_path):
+def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
     print(str(test_resources_dir))
