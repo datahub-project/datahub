@@ -6,6 +6,10 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./styles.module.css";
 
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "./slick-theme.css";
+
 import Image from "@theme/IdealImage";
 import CodeBlock from "@theme/CodeBlock";
 // logos for companies using
@@ -36,6 +40,7 @@ import LogoMssql from "./logos/mssql.svg";
 import LogoMysql from "./logos/mysql.svg";
 import LogoOracle from "./logos/oracle.svg";
 import LogoPostgres from "./logos/postgres.png";
+import LogoRedshift from "./logos/redshift.svg";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
@@ -193,6 +198,10 @@ const sourceLogos = [
   { name: "MySQL", image: svgFormatter(LogoMysql) },
   { name: "Oracle", image: svgFormatter(LogoOracle) },
   { name: "PostgreSQL", image: pngFormatter(LogoPostgres) },
+  {
+    name: "Redshift",
+    image: svgFormatter(LogoRedshift, clsx(styles.logo_image_large)),
+  },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
   { name: "Spark", image: svgFormatter(LogoSpark) },
   {
@@ -323,19 +332,61 @@ function Home() {
         </div>
       </section>
 
-      <section className={clsx(styles.section, styles.logo_section)}>
+      <section className={clsx(styles.section, styles.sources_section)}>
         <div className="container">
           <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
             <span className={styles.larger_on_desktop}>
               Supported integrations
             </span>
           </h1>
-          <div className={styles.carousel}>
-            {sourceLogos.map((logo) => (
-              <div className={styles.carousel_logo_frame} key={logo.name}>
-                <div className={styles.carousel_logo_center}>{logo.image}</div>
-              </div>
-            ))}
+          <div className={styles.carousel_container}>
+            <Slider
+              dots={true}
+              infinite={true}
+              centerMode={true}
+              slidesToShow={4}
+              slidesToScroll={3}
+              infinite={true}
+              dots={true}
+              autoplay={true}
+              autoplaySpeed={1000}
+              cssEase={"linear"}
+              responsive={[
+                {
+                  breakpoint: 1080,
+                  settings: {
+                    slidesToShow: 3,
+                    slidesToScroll: 2,
+                  },
+                },
+                {
+                  breakpoint: 960,
+                  settings: {
+                    slidesToShow: 2,
+                    slidesToScroll: 1,
+                  },
+                },
+                {
+                  breakpoint: 720,
+                  settings: {
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                  },
+                },
+              ]}
+            >
+              {sourceLogos.map((logo) => {
+                return (
+                  <div className={styles.carousel_logo_slide} key={logo.name}>
+                    <div className={styles.carousel_logo_frame}>
+                      <div className={styles.carousel_logo_center}>
+                        {logo.image}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </Slider>
           </div>
           <div className={styles.sources_link}>
             <Link to={"/docs/metadata-ingestion/#sources"}>
