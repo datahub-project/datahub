@@ -27,7 +27,7 @@ public class DataJobGraphBuilder extends BaseGraphBuilder<DataJobSnapshot>  {
             {
                 add(new OwnedByBuilderFromOwnership());
                 add(new RelationshipBuilderFromDataJobInputOutput());
-//                add(new GenericRelationshipBuilder(DataJobInfo.class, "parentFlow", IsPartOf.class, RelationshipDirection.OUTGOING));
+//                add(new GenericRelationshipBuilder(DataJobInfo.class, "dataFlow", IsPartOf.class, RelationshipDirection.OUTGOING));
             }
         });
 
