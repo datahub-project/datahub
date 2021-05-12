@@ -13,11 +13,12 @@ source:
       schema_registry_url: http://localhost:8081
       schema_registry_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
+        # Most of these config keys are optional.
         ssl.ca.location: certificate_ca.pem
         ssl.certificate.location: certificate.pem
         ssl.key.location: private_key.pem
         ssl.key.password: XXXXXXX
-        basic.auth.user.info: ABCDEF
+        basic.auth.user.info: user:secret # optional
 
 sink:
   type: "datahub-kafka"
@@ -34,8 +35,9 @@ sink:
       schema_registry_url: http://localhost:8081
       schema_registry_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
+        # Most of these config keys are optional.
         ssl.ca.location: certificate_ca.pem
         ssl.certificate.location: certificate.pem
         ssl.key.location: private_key.pem
         ssl.key.password: XXXXXXX
-        basic.auth.user.info: ABCDEF
+        basic.auth.user.info: user:secret

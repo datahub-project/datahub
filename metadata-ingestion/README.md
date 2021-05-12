@@ -151,6 +151,8 @@ source:
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
+
 ### MySQL Metadata `mysql`
 
 Extracts:
