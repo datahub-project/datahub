@@ -17,11 +17,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
-    BinaryJsonSchemaClass,
     BooleanTypeClass,
     BytesTypeClass,
-    DateTypeClass,
-    EnumTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -40,8 +37,6 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
-
-logger = logging.getLogger(__name__)
 
 
 class MongoDBConfig(ConfigModel):
@@ -65,11 +60,7 @@ class MongoDBSourceReport(SourceReport):
         self.filtered.append(name)
 
 
-logger = logging.getLogger(__name__)
-
-###
-# Mapping from pymongo_type to type_string
-
+# map PyMongo types to canonical MongoDB strings
 PYMONGO_TYPE_TO_TYPE_STRING = {
     list: "ARRAY",
     dict: "OBJECT",
@@ -87,28 +78,7 @@ PYMONGO_TYPE_TO_TYPE_STRING = {
 }
 
 
-def get_pymongo_type_string(value_type: Union[Type, str]) -> str:
-    """
-    Return Mongo type string from a Python type
-
-    Parameters
-    ----------
-        value_type: type of a Python object
-    """
-    try:
-        type_string = PYMONGO_TYPE_TO_TYPE_STRING[value_type]
-    except KeyError:
-        logger.warning(
-            "Pymongo type %s is not mapped to a type_string. "
-            "We define it as 'unknown' for current schema extraction",
-            value_type,
-        )
-        PYMONGO_TYPE_TO_TYPE_STRING[value_type] = "unknown"
-        type_string = "unknown"
-
-    return type_string
-
-
+# map PyMongo types to DataHub classes
 _field_type_mapping: Dict[Union[Type, str], Type] = {
     list: ArrayTypeClass,
     bool: BooleanTypeClass,
@@ -192,15 +162,15 @@ def is_nullable_collection(
 
 
 class BasicSchemaDescription(TypedDict):
-    types: Counter[type] # field types and times seen
-    count: int # times the field was seen
+    types: Counter[type]  # field types and times seen
+    count: int  # times the field was seen
 
 
 class SchemaDescription(BasicSchemaDescription):
-    delimited_name: str # collapsed field name
+    delimited_name: str  # collapsed field name
     # we use 'mixed' to denote mixed types, so we need a str here
-    type: Union[type, str] # collapsed type
-    nullable: bool # if field is ever missing
+    type: Union[type, str]  # collapsed type
+    nullable: bool  # if field is ever missing
 
 
 def construct_schema(
@@ -369,15 +339,43 @@ class MongoDBSource(Source):
         config = MongoDBConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    def get_pymongo_type_string(
+        self, field_type: Union[Type, str], collection_name: str
+    ) -> str:
+        """
+        Return Mongo type string from a Python type
+
+        Parameters
+        ----------
+            field_type:
+                type of a Python object
+            collection_name:
+                name of collection (for logging)
+        """
+        try:
+            type_string = PYMONGO_TYPE_TO_TYPE_STRING[field_type]
+        except KeyError:
+            self.report.report_warning(
+                collection_name, f"unable to map type {field_type} to metadata schema"
+            )
+            PYMONGO_TYPE_TO_TYPE_STRING[field_type] = "unknown"
+            type_string = "unknown"
+
+        return type_string
+
     def get_field_type(
         self, field_type: Union[Type, str], collection_name: str
     ) -> SchemaFieldDataType:
         """
-        Maps types encountered in PyMongo to corresponding schema types
+        Maps types encountered in PyMongo to corresponding schema types.
+
+        Parameters
+        ----------
+            field_type:
+                type of a Python object
+            collection_name:
+                name of collection (for logging)
         """
-
-        print(field_type)
-
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
@@ -435,7 +433,9 @@ class MongoDBSource(Source):
                 for schema_field in collection_schema.values():
                     field = SchemaField(
                         fieldPath=schema_field["delimited_name"],
-                        nativeDataType=get_pymongo_type_string(schema_field["type"]),
+                        nativeDataType=get_pymongo_type_string(
+                            schema_field["type"], dataset_name
+                        ),
                         type=self.get_field_type(schema_field["type"], dataset_name),
                         description=None,
                         nullable=schema_field["nullable"],
