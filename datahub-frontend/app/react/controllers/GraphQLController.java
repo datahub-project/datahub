@@ -52,8 +52,8 @@ public class GraphQLController extends Controller {
         /*
          * Initialize GraphQL Engine
          */
-        _engine = buildExtendedEngine(environment, analyticsService);
         _config = config;
+        _engine = buildExtendedEngine(environment, analyticsService);
     }
 
     @Security.Authenticated(Authenticator.class)
