@@ -6,6 +6,7 @@ import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.lineage.client.Lineages;
+import com.linkedin.identity.client.CorpGroups;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
@@ -38,6 +39,7 @@ public class GmsClientFactory {
             Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR));
 
     private static CorpUsers _corpUsers;
+    private static CorpGroups _corpGroups;
     private static Datasets _datasets;
     private static Dashboards _dashboards;
     private static Charts _charts;
@@ -61,6 +63,17 @@ public class GmsClientFactory {
             }
         }
         return _corpUsers;
+    }
+
+    public static CorpGroups getCorpGroupsClient() {
+        if (_corpGroups == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_corpGroups == null) {
+                    _corpGroups = new CorpGroups(REST_CLIENT);
+                }
+            }
+        }
+        return _corpGroups;
     }
 
     public static Datasets getDatasetsClient() {
