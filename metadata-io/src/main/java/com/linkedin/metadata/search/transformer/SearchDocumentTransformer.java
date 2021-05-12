@@ -36,7 +36,9 @@ public class SearchDocumentTransformer {
     final Map<SearchableFieldSpec, Optional<Object>> extractedFields =
         FieldExtractor.extractFields(snapshot, searchableFieldSpecsPerAspect);
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-    return null;
+    searchDocument.put("urn", snapshot.data().get("urn").toString());
+    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
+    return searchDocument;
   }
 
   public static void setValue(final SearchableFieldSpec fieldSpec, final Optional<Object> fieldValueOpt,

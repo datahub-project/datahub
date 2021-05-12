@@ -11,6 +11,7 @@ dependencies {
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon
 
+  compile project(':entity-registry')
   compile project(':li-utils')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-utils-avro-1.7')

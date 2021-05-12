@@ -56,7 +56,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     private EntityDao _entityDao;
 
     public EntityResource() {
-        _entityNameToSpec = new SnapshotEntityRegistry().getEntitySpecs().stream().collect(Collectors.toMap(
+        _entityNameToSpec = SnapshotEntityRegistry.getInstance().getEntitySpecs().stream().collect(Collectors.toMap(
                 spec -> spec.getName().toLowerCase(),
                 spec -> spec
         ));

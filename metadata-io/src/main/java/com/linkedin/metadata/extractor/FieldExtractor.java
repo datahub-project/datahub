@@ -26,7 +26,7 @@ public class FieldExtractor {
         .stream()
         .flatMap(entry -> entry.getValue()
             .stream()
-            .map(fieldSpec -> Pair.of(entry.getKey() + "/" + fieldSpec.getPath().toString(), fieldSpec)))
+            .map(fieldSpec -> Pair.of(entry.getKey() + fieldSpec.getPath().toString(), fieldSpec)))
         .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 

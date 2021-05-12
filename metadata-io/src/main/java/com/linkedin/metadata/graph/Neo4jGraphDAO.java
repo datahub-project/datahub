@@ -1,32 +1,40 @@
 package com.linkedin.metadata.graph;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.utils.Statement;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.dao.exception.RetryLimitReached;
+import com.linkedin.metadata.dao.utils.Statement;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
+import java.util.function.Function;
+
+import static com.linkedin.metadata.dao.utils.ModelUtils.getAllEntities;
 
 
 public class Neo4jGraphDAO {
@@ -44,25 +52,33 @@ public class Neo4jGraphDAO {
     this._sessionConfig = sessionConfig;
   }
 
-  public void addAbstractEdge(@Nonnull Urn source, @Nonnull Urn destination, @Nonnull String relationshipType)
-      throws URISyntaxException {
-    final String sourceType = source.getEntityType();
-    final String destinationType = destination.getEntityType();
+  @Data
+  @AllArgsConstructor
+  public static class Edge {
+    private Urn source;
+    private Urn destination;
+    private String relationshipType;
+  }
+
+  public void addEdge(Edge edge) {
+    final String sourceType = edge.getSource().getEntityType();
+    final String destinationType = edge.getDestination().getEntityType();
 
     final List<Statement> statements = new ArrayList<>();
 
     // Add/Update source & destination node first
-    statements.add(getOrInsertNode(source));
-    statements.add(getOrInsertNode(destination));
+    statements.add(getOrInsertNode(edge.getSource()));
+    statements.add(getOrInsertNode(edge.getDestination()));
 
     // Add/Update relationship
     final String mergeRelationshipTemplate =
         "MATCH (source:%s {urn: $sourceUrn}),(destination:%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
-    final String statement = String.format(mergeRelationshipTemplate, sourceType, destinationType, relationshipType);
+    final String statement =
+        String.format(mergeRelationshipTemplate, sourceType, destinationType, edge.getRelationshipType());
 
     final Map<String, Object> paramsMerge = new HashMap<>();
-    paramsMerge.put("sourceUrn", source.toString());
-    paramsMerge.put("destinationUrn", destination.toString());
+    paramsMerge.put("sourceUrn", edge.getSource().toString());
+    paramsMerge.put("destinationUrn", edge.getDestination().toString());
     paramsMerge.put("properties", new HashMap<>());
 
     statements.add(buildStatement(statement, paramsMerge));
@@ -202,9 +218,7 @@ public class Neo4jGraphDAO {
    */
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
-    try (final Session session = _driver.session()) {
-      return session.run(statement.getCommandText(), statement.getParams());
-    }
+    return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it
