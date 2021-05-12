@@ -43,6 +43,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
 | oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
+| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source            |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
 | superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
@@ -270,6 +271,26 @@ Extracts:
 ```yml
 source:
   type: postgres
+  config:
+    username: user
+    password: pass
+    host_port: localhost:5432
+    database: DemoDatabase
+    # table_pattern/schema_pattern is same as above
+    # options is same as above
+```
+
+### Redshift `redshift`
+
+Extracts:
+
+- List of databases, schema, and tables
+- Column types associated with each table
+- Also supports PostGIS extensions
+
+```yml
+source:
+  type: redshift
   config:
     username: user
     password: pass
