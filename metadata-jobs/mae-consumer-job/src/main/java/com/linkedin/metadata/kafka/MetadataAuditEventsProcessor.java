@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.EntitySpecUtils;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
@@ -12,7 +13,6 @@ import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.index_builder.IndexBuilder;
@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.jute.Record;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -52,6 +53,7 @@ public class MetadataAuditEventsProcessor {
 
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
+  private SnapshotEntityRegistry entityRegistry;
 
   public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
       ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
@@ -69,6 +71,7 @@ public class MetadataAuditEventsProcessor {
     } catch (IOException e) {
       e.printStackTrace();
     }
+    this.entityRegistry = new SnapshotEntityRegistry();
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
@@ -80,12 +83,14 @@ public class MetadataAuditEventsProcessor {
     try {
       final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
       if (event.hasNewSnapshot()) {
-        final Snapshot snapshot = event.getNewSnapshot();
+        final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot())
 
         log.info(snapshot.toString());
 
-        updateElasticsearch(snapshot);
-        updateNeo4j(RecordUtils.getSelectedRecordTemplateFromUnion(snapshot));
+        final EntitySpec entitySpec =
+            entityRegistry.getEntitySpec(EntitySpecUtils.getEntityNameFromSchema(snapshot.schema()));
+        updateElasticsearch(snapshot, entitySpec);
+        updateNeo4j(snapshot, entitySpec);
       }
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -98,9 +103,8 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateNeo4j(final RecordTemplate snapshot) {
+  private void updateNeo4j(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     // TODO(Gabe): memoize this
-    final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
     Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
         .entrySet()
         .stream()
@@ -123,7 +127,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateElasticsearch(final Snapshot snapshot) {
+  private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     List<RecordTemplate> docs = new ArrayList<>();
     try {
       docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
