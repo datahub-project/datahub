@@ -1,12 +1,10 @@
 import logging
-from collections import defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, DefaultDict, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
 
 import bson
 import pymongo
-from ete3 import Tree
-from mypy_extensions import TypedDict
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -91,299 +89,186 @@ def get_type_string(value: Any) -> str:
     return type_string
 
 
-###
-# Define and use type_string_tree,
-# to get the least common parent type_string from a list of type_string
-
-NEWICK_TYPES_STRING_TREE = """
-(
-    (
-        (
-            float,
-            ((boolean) integer) biginteger
-        ) number,
-        (
-            oid,
-            dbref
-        ) string,
-        date,
-        timestamp,
-        unknown
-    ) general_scalar,
-    OBJECT
-) mixed_scalar_object
-;"""
-
-TYPES_STRING_TREE = Tree(NEWICK_TYPES_STRING_TREE, format=8)
-
-
-def common_parent_type(list_of_type_string: List[str]) -> str:
+def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
     """
-    Get the common parent type from a list of types.
+    Check if a nested field is nullable in a document from a collection.
 
     Parameters
     ----------
-        list_of_type_string: list of Mongo type strings
+        doc:
+            ocument to check nullability for
+        field_path:
+            path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
     """
-    if not list_of_type_string:
-        return "null"
-    # avoid duplicates as get_common_ancestor('integer', 'integer') -> 'number'
-    list_of_type_string = list(set(list_of_type_string))
-    if len(list_of_type_string) == 1:
-        return list_of_type_string[0]
-    return TYPES_STRING_TREE.get_common_ancestor(*list_of_type_string).name
+
+    field = field_path[0]
+
+    # if field is inside
+    if field in doc:
+
+        value = doc[field]
+
+        if value is None:
+            return True
+
+        # if no fields left, must be non-nullable
+        if len(field_path) == 1:
+            return False
+
+        # otherwise, keep checking the nested fields
+        remaining_fields = field_path[1:]
+
+        # if dictionary, check additional level of nesting
+        if isinstance(value, dict):
+            return is_nullable_doc(doc[field], remaining_fields)
+
+        # if list, check if any member is missing field
+        if isinstance(value, list):
+
+            # TODO: figure out how to resolve empty lists
+            if len(value) == 0:
+                return False
+
+            return any(is_nullable_doc(x, remaining_fields) for x in doc[field])
+
+        # any other types to check?
+        raise ValueError("Nested type not 'list' or 'dict' encountered")
+
+    return True
 
 
-# TODO: figure out correct types for schemas
-def extract_collection_schema(
-    pymongo_collection: pymongo.collection.Collection, sample_size: int = 0
-) -> Dict[str, Any]:
+def is_nullable_collection(
+    collection: Iterable[Dict[str, Any]], field_path: Tuple
+) -> bool:
     """
-    Iterate through all documents of a collection to create its schema:
-        - Init collection schema
-        - Add every document from MongoDB collection to the schema
-        - Post-process schema
+    Check if a nested field is nullable in a collection.
 
     Parameters
     ----------
-        pymongo_collection: pymongo collection to iterate over
-        sample_size: number of samples to check (if 0, checks all)
+        collection:
+            collection to check nullability for
+        field_path:
+            path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
     """
 
-    collection_schema = {
-        "count": 0,
-        "object": init_empty_object_schema(),
-    }
-
-    n = pymongo_collection.count()
-    collection_schema["count"] = n
-    if sample_size:
-        documents = pymongo_collection.aggregate(
-            [{"$sample": {"size": sample_size}}], allowDiskUse=True
-        )
-    else:
-        documents = pymongo_collection.find({})
-    scan_count = sample_size or n
-    for i, document in enumerate(documents, start=1):
-        # TODO: figure out the right types here
-        add_document_to_object_schema(document, collection_schema["object"])  # type: ignore
-        if i % 10 ** 5 == 0 or i == scan_count:
-            logger.info(
-                "   scanned %s documents out of %s (%.2f %%)",
-                i,
-                scan_count,
-                (100.0 * i) / scan_count,
-            )
-
-    post_process_schema(collection_schema)
-    collection_schema = recursive_default_to_regular_dict(collection_schema)
-    return collection_schema
+    return any(is_nullable_doc(doc, field_path) for doc in collection)
 
 
-def recursive_default_to_regular_dict(value: Dict[Any, Any]) -> Dict[Any, Any]:
+class BasicSchemaDescription(TypedDict):
+    types: Counter[type]
+    count: int
+
+
+class SchemaDescription(BasicSchemaDescription):
+    delimited_name: str
+    type: Union[type, str]
+    nullable: bool
+
+
+def construct_schema(
+    collection: Iterable[Dict[str, Any]], delimiter: str
+) -> Dict[Tuple[str], SchemaDescription]:
     """
-    If value is a dictionary, recursively replace defaultdict to regular dict.
+    Construct (infer) a schema from a collection of documents.
 
-    Note that defaultdict are instances of dict.
+    For each field (represented as a tuple to handle nested items), reports the following:
+        - `types`: Python types of field values
+        - `type`: type of the field if `types` is just a single value, otherwise `mixed`
+        - `nullable`: if field is ever null/missing
+        - `delimited_name`: name of the field, joined by a given delimiter
+
 
     Parameters
     ----------
-        value: input defaultdict
-    """
-    if isinstance(value, dict):
-        return {k: recursive_default_to_regular_dict(v) for k, v in value.items()}
-    else:
-        return value
-
-
-def post_process_schema(object_count_schema: dict[str, Any]) -> None:
-    """
-    Clean and add information to schema once it has been built:
-        - compute the main type for each field
-        - compute the proportion of non null values in the parent object
-        - recursively postprocess nested object schemas
-
-    Parameters
-    ----------
-        object_count_schema: dict
-    """
-    object_count = object_count_schema["count"]
-    object_schema = object_count_schema["object"]
-    for field_schema in object_schema.values():
-
-        summarize_types(field_schema)
-        field_schema["prop_in_object"] = round(
-            (field_schema["count"]) / float(object_count), 4
-        )
-        if "object" in field_schema:
-            post_process_schema(field_schema)
-
-
-def summarize_types(field_schema: Dict[str, Any]) -> None:
-    """
-    Summarize types information to one 'type' field.
-
-    Add a 'type' field, compatible with all encountered types in 'types_count'.
-    This is done by taking the least common parent type between types.
-    If 'ARRAY' type count is not null, the main type is 'ARRAY'.
-    An 'array_type' is defined, as the least common parent type between 'types' and 'array_types'
-
-    Parameters
-    ----------
-        field_schema: input schema
+        collection:
+            collection to construct schema over.
+        delimiter:
+            string to concatenate field names by
     """
 
-    type_list = list(field_schema["types_count"])
-    # Only if 'ARRAY' in 'types_count':
-    type_list += list(field_schema.get("array_types_count", {}))
+    schema: Dict[Tuple[str], BasicSchemaDescription] = {}
 
-    cleaned_type_list = [
-        type_name for type_name in type_list if type_name not in ["ARRAY", "null"]
-    ]
+    def append_to_schema(doc, parent_prefix):
 
-    common_type = common_parent_type(cleaned_type_list)
+        for key, value in doc.items():
 
-    if "ARRAY" in field_schema["types_count"]:
-        field_schema["type"] = "ARRAY"
-        field_schema["array_type"] = common_type
-    else:
-        field_schema["type"] = common_type
+            new_parent_prefix = parent_prefix + (key,)
 
+            # if nested value, look at the types within
+            if isinstance(value, dict):
 
-def init_empty_object_schema() -> DefaultDict:
-    """
-    Generate an empty object schema.
+                append_to_schema(value, new_parent_prefix)
 
-    We use a defaultdict of empty fields schema. This avoid to test for the presence of fields.
-    """
+            # if array of values, check what types are within
+            if isinstance(value, list):
 
-    def empty_field_schema():
-        return {
-            "types_count": defaultdict(int),
-            "count": 0,
+                for item in value:
+
+                    # if dictionary, add it as a nested object
+                    if isinstance(item, dict):
+                        append_to_schema(item, new_parent_prefix)
+
+            # don't record None values (counted towards nullable)
+            if value is not None:
+
+                if new_parent_prefix not in schema:
+
+                    schema[new_parent_prefix] = {
+                        "types": Counter([type(value)]),
+                        "count": 1,
+                    }
+
+                else:
+
+                    # update the type count
+                    schema[new_parent_prefix]["types"].update({type(value): 1})
+                    schema[new_parent_prefix]["count"] += 1
+
+    for document in collection:
+        append_to_schema(document, ())
+
+    extended_schema: Dict[Tuple[str], SchemaDescription] = {}
+
+    for field_path in schema.keys():
+
+        field_types = schema[field_path]["types"]
+
+        field_type: Union[str, type] = "mixed"
+
+        # if single type detected, mark that as the type to go with
+        if len(field_types.keys()) == 1:
+            field_type = next(iter(field_types))
+
+        field_extended: SchemaDescription = {
+            "types": schema[field_path]["types"],
+            "count": schema[field_path]["count"],
+            "nullable": is_nullable_collection(collection, field_path),
+            "delimited_name": delimiter.join(field_path),
+            "type": field_type,
         }
 
-    empty_object = defaultdict(
-        empty_field_schema
-    )  # type: defaultdict[str, dict[str, Any]]
-    return empty_object
+        extended_schema[field_path] = field_extended
+
+    return schema
 
 
-def add_document_to_object_schema(
-    document: Dict[Any, Any], object_schema: Dict[str, Any]
-) -> None:
+def construct_schema_pymongo(
+    collection: pymongo.collection.Collection, delimiter: str
+) -> Dict[Tuple[str], SchemaDescription]:
     """
-    Add all fields of a document to a local object_schema.
+    Calls construct_schema on a PyMongo collection.
 
     Parameters
     ----------
-        document: Mongo document
-        object_schema: object schema to update
+        collection:
+            the PyMongo collection
+        delimiter:
+            string to concatenate field names by
+
     """
-    for doc_field, doc_value in document.items():
-        add_value_to_field_schema(doc_value, object_schema[doc_field])
+    documents = collection.find({})
 
-
-def add_value_to_field_schema(value: Any, field_schema: Dict[str, Any]) -> None:
-    """
-    Add a value to a field_schema:
-        - Update count or 'null_count' count.
-        - Define or check the type of value.
-        - Recursively add 'list' and 'dict' value to the schema.
-
-    Parameters
-    ----------
-        value: value corresponding to a field in a MongoDB object
-        field_schema: field schema to update
-    """
-    field_schema["count"] += 1
-    add_value_type(value, field_schema)
-    add_potential_list_to_field_schema(value, field_schema)
-    add_potential_document_to_field_schema(value, field_schema)
-
-
-def add_potential_document_to_field_schema(
-    document: Any, field_schema: Dict[str, Any]
-) -> None:
-    """
-    Add a document to a field_schema, exiting if document is not a dict.
-
-    Parameters
-    ----------
-        document: input document
-        field_schema: field schema to update
-    """
-    if isinstance(document, dict):
-        if "object" not in field_schema:
-            field_schema["object"] = init_empty_object_schema()
-        add_document_to_object_schema(document, field_schema["object"])
-
-
-def add_potential_list_to_field_schema(
-    value_list: List[str], field_schema: Dict[str, Any]
-) -> None:
-    """
-    Add a list of values to a field_schema:
-        - Exit if value_list is not a list
-        - Define or check the type of each value of the list.
-        - Recursively add 'dict' values to the schema.
-
-    Parameters
-    ----------
-        value_list: list of values
-        field_schema: field schema to update
-    """
-    if isinstance(value_list, list):
-        if "array_types_count" not in field_schema:
-            field_schema["array_types_count"] = defaultdict(int)
-
-        if not value_list:
-            add_value_type(None, field_schema, type_str="array_types_count")
-
-        for value in value_list:
-            add_value_type(value, field_schema, type_str="array_types_count")
-            add_potential_document_to_field_schema(value, field_schema)
-
-
-def add_value_type(
-    value: Any, field_schema: Dict[str, Any], type_str: str = "types_count"
-) -> None:
-    """
-    Define the type_str in field_schema, or check if it is equal to the one previously defined.
-
-    Parameters
-    ----------
-        value: value to get type of
-        field_schema: field schema to update
-        type_str: type string (either 'types_count' or 'array_types_count')
-    """
-
-    value_type_str = get_type_string(value)
-    field_schema[type_str][value_type_str] += 1
-
-
-def flatten_schema(
-    nested_schema: Dict[str, Any], parent: str, delimiter: str
-) -> List[str]:
-    """
-    Flatten a nested schema by concatenating keys with a given delimiter.
-    """
-
-    flattened = []
-
-    for key in list(nested_schema):
-        initial = "" if parent == "" else delimiter
-
-        if type(nested_schema[key]) == dict:
-
-            flattened.extend(
-                flatten_schema(
-                    nested_schema[key], initial.join((parent, key)), delimiter
-                )
-            )
-        else:
-            flattened.extend([initial.join((parent, key))])
-    return flattened
+    return construct_schema(documents, delimiter)
 
 
 @dataclass
@@ -459,11 +344,11 @@ class MongoDBSource(Source):
                 # TODO: Guess the schema via sampling
 
                 # code adapted from https://github.com/pajachiet/pymongo-schema
-                collection_schema = extract_collection_schema(database[collection_name])
-                import json
+                collection_schema = construct_schema_pymongo(
+                    database[collection_name], delimiter="."
+                )
                 from pprint import pprint
 
-                print(json.dumps(collection_schema))
                 pprint(collection_schema)
 
                 # TODO: use list_indexes() or index_information() to get index information

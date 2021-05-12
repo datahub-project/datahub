@@ -17,12 +17,14 @@ db.firstCollection.insertMany([
       ingredients: [
         { name: "pasta", from: "italy" },
         { name: "cheese", from: "california" },
-        { name: "tomatoes", from: "whole foods" },
+        { name: "tomatoes", from: "whole foods", color: "red" },
       ],
       servings: 43.2,
       emptyObject: {},
     },
     favoriteColor: "orange",
+    sometimesNull: "not_null_this_time",
+    mixedType: 0,
   },
   {
     name: "odie",
@@ -39,6 +41,7 @@ db.firstCollection.insertMany([
     },
     servings: 1,
     emptyObject: {},
+    mixedType: "a",
   },
   {
     name: "jon",
@@ -52,8 +55,9 @@ db.firstCollection.insertMany([
       name: "who knows",
       calories: null,
       ingredients: [],
+      servings: 1,
     },
-    servings: 1,
+    mixedType: false,
   },
   {
     name: "george",
@@ -67,8 +71,9 @@ db.firstCollection.insertMany([
       name: "crab",
       calories: 500,
       ingredients: [{ name: "crab", from: "the bay" }],
+      servings: 1,
     },
-    servings: 1,
+    mixedType: ["a", 1],
   },
 ]);
 
@@ -79,6 +84,7 @@ db.secondCollection.insertMany([
     varieties: ["honey crisp", "red delicious", "fuji"],
     tasty: true,
     mixedType: 2,
+    nullableMixedType: "a",
   },
   {
     name: "orange",
@@ -86,6 +92,7 @@ db.secondCollection.insertMany([
     varieties: ["clementine", "navel"],
     tasty: true,
     mixedType: "abc",
+    nullableMixedType: true,
   },
   {
     name: "kiwi",
