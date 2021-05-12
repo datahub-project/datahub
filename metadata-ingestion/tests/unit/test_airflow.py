@@ -61,7 +61,9 @@ def test_airflow_provider_info():
 
 
 def test_dags_load_with_no_errors(pytestconfig):
-    airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
+    airflow_examples_folder = (
+        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+    )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
     assert dag_bag.import_errors == {}
