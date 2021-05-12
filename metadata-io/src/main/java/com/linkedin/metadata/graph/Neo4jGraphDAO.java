@@ -58,7 +58,7 @@ public class Neo4jGraphDAO {
     private Statement getOrInsertNode(@Nonnull Urn urn) {
         final String nodeType = urn.getEntityType();
 
-        final String mergeTemplate = "MERGE (node%s {urn: $urn}) RETURN node";
+        final String mergeTemplate = "MERGE (node:%s {urn: $urn}) RETURN node";
         final String statement = String.format(mergeTemplate, nodeType);
 
         final Map<String, Object> params = new HashMap<>();
@@ -70,8 +70,7 @@ public class Neo4jGraphDAO {
     public void addAbstractEdge(
             @Nonnull Urn source,
             @Nonnull Urn destination,
-            @Nonnull String relationshipType,
-            Map<String, Object> params
+            @Nonnull String relationshipType
     ) throws URISyntaxException {
         final String sourceType = source.getEntityType();
         final String destinationType = destination.getEntityType();
@@ -84,14 +83,14 @@ public class Neo4jGraphDAO {
 
         // Add/Update relationship
         final String mergeRelationshipTemplate =
-                "MATCH (source%s {urn: $sourceUrn}),(destination%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
+                "MATCH (source:%s {urn: $sourceUrn}),(destination:%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
         final String statement =
                 String.format(mergeRelationshipTemplate, sourceType, destinationType, relationshipType);
 
         final Map<String, Object> paramsMerge = new HashMap<>();
         paramsMerge.put("sourceUrn", source.toString());
         paramsMerge.put("destinationUrn", destination.toString());
-        paramsMerge.put("properties", params);
+        paramsMerge.put("properties", new HashMap<>());
 
         statements.add(buildStatement(statement, paramsMerge));
 

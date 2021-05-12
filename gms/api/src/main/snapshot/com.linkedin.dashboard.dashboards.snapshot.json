@@ -42,6 +42,35 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "BrowsePath",
+    "namespace" : "com.linkedin.common",
+    "fields" : [ {
+      "name" : "path",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "An array of strings comprising the path",
+      "BrowsePath" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "BrowsePath"
+      },
+      "doc" : "A list of valid browse paths for the entity."
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
+  }, {
+    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -218,7 +247,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -361,7 +394,11 @@
             "items" : "com.linkedin.common.ChartUrn"
           },
           "doc" : "Charts in a dashboard",
-          "default" : [ ]
+          "default" : [ ],
+          "Relationship" : {
+            "entityTypes" : [ "chart" ],
+            "name" : "Contains"
+          }
         }, {
           "name" : "lastModified",
           "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -409,7 +446,7 @@
     "name" : "DashboardAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dashboard",
-    "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
@@ -31,7 +30,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -123,13 +121,13 @@ public class MetadataAuditEventsProcessor {
               .getAspectSpecMap()
               .get(aspectName)
               .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+
       if (matchingAnnotation.isPresent()) {
         try {
           _graphQueryDao.addAbstractEdge(
-                  Urn.createFromString((String) snapshot.data().get("urn")),
-                  Urn.createFromString((String) ((DataMap) next.getValue()).get("entity")),
-                  matchingAnnotation.get().getRelationshipName(),
-                  new HashMap<>()
+                  Urn.createFromString(snapshot.data().get("urn").toString()),
+                  Urn.createFromString((next.getValue()).toString()),
+                  matchingAnnotation.get().getRelationshipName()
           );
         } catch (URISyntaxException e) {
           e.printStackTrace();

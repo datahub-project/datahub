@@ -220,7 +220,36 @@
     "Aspect" : {
       "name" : "chartQuery"
     }
-  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", "com.linkedin.common.ChangeAuditStamps", {
+  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
+    "type" : "record",
+    "name" : "BrowsePath",
+    "namespace" : "com.linkedin.common",
+    "fields" : [ {
+      "name" : "path",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "An array of strings comprising the path",
+      "BrowsePath" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "BrowsePath"
+      },
+      "doc" : "A list of valid browse paths for the entity."
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
+  }, "com.linkedin.common.ChangeAuditStamps", {
     "type" : "typeref",
     "name" : "ChartUrn",
     "namespace" : "com.linkedin.common",
@@ -313,7 +342,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -465,7 +498,7 @@
     "name" : "ChartAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Chart",
-    "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
