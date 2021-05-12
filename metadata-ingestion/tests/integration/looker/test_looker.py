@@ -1,11 +1,11 @@
-import logging
-
+import time
+from datetime import datetime
 from unittest import mock
+
+from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, Query
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
-from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, Query
-import time
 
 
 def test_looker_ingest(pytestconfig, tmp_path, mock_time):
@@ -18,7 +18,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         mocked_client.return_value.dashboard.return_value = Dashboard(
             id="1",
             title="foo",
-            created_at=time.time(),
+            created_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -58,9 +58,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         pipeline.run()
         pipeline.raise_from_status()
 
-        output = mce_helpers.load_json_file(
-            str(tmp_path / "looker_mces.json")
-        )
+        output = mce_helpers.load_json_file(str(tmp_path / "looker_mces.json"))
         expected = mce_helpers.load_json_file(
             str(test_resources_dir / "expected_output.json")
         )
