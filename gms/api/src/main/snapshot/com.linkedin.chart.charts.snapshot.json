@@ -498,8 +498,34 @@
     "name" : "ChartAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Chart",
-    "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "ChartKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Chart",
+      "fields" : [ {
+        "name" : "dashboardTool",
+        "type" : "string",
+        "doc" : "The name of the dashboard tool such as looker, redash etc.",
+        "Searchable" : {
+          "fieldName" : "dashboardTool",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      }, {
+        "name" : "chartId",
+        "type" : "string",
+        "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "chartKey"
+      }
+    }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+  }, "com.linkedin.metadata.key.ChartKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

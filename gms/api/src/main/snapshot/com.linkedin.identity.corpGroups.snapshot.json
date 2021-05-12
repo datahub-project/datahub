@@ -127,7 +127,7 @@
     "doc" : "Metadata for a corp group",
     "include" : [ {
       "type" : "record",
-      "name" : "CorpGroupKey",
+      "name" : "CorpGroupResourceKey",
       "doc" : "Key for CorpGroup resource",
       "fields" : [ {
         "name" : "name",
@@ -189,13 +189,27 @@
       "doc" : "Information of the corp group",
       "optional" : true
     } ]
-  }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpGroupKey", {
+  }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpGroupResourceKey", {
     "type" : "typeref",
     "name" : "CorpGroupAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpGroup",
-    "ref" : [ "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "CorpGroupKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a CorpGroup",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "The name of the AD/LDAP group."
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "corpGroupKey"
+      }
+    }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags" ]
+  }, "com.linkedin.metadata.key.CorpGroupKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -420,7 +434,7 @@
     "collection" : {
       "identifier" : {
         "name" : "corpGroup",
-        "type" : "com.linkedin.identity.CorpGroupKey",
+        "type" : "com.linkedin.identity.CorpGroupResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get" ],

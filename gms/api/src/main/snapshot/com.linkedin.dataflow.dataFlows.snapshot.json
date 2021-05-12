@@ -393,8 +393,38 @@
     "name" : "DataFlowAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data flow",
-    "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataFlowKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Flow",
+      "fields" : [ {
+        "name" : "orchestrator",
+        "type" : "string",
+        "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
+        "Searchable" : {
+          "fieldName" : "orchestrator",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      }, {
+        "name" : "flowId",
+        "type" : "string",
+        "doc" : "Unique Identifier of the data flow"
+      }, {
+        "name" : "cluster",
+        "type" : "string",
+        "doc" : "Cluster where the flow is executed"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataFlowKey"
+      }
+    }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+  }, "com.linkedin.metadata.key.DataFlowKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

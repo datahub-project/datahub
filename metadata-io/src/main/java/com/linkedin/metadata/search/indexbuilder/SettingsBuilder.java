@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.index_builder;
+package com.linkedin.metadata.search.indexbuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

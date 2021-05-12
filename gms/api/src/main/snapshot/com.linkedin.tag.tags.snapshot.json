@@ -166,7 +166,27 @@
     "name" : "TagAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a tag",
-    "ref" : [ "com.linkedin.common.Ownership", {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "TagKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Tag",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "The unique tag name",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "PARTIAL_SHORT"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "tagKey"
+      }
+    }, "com.linkedin.common.Ownership", {
       "type" : "record",
       "name" : "TagProperties",
       "namespace" : "com.linkedin.tag",
@@ -185,7 +205,7 @@
         "name" : "tagProperties"
       }
     } ]
-  }, {
+  }, "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

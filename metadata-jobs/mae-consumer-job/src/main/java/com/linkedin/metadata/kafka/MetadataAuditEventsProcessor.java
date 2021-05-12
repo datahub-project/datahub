@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -15,7 +16,7 @@ import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.index_builder.IndexBuilder;
+import com.linkedin.metadata.search.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
@@ -130,7 +131,8 @@ public class MetadataAuditEventsProcessor {
   private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     List<RecordTemplate> docs = new ArrayList<>();
     try {
-      docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
+//      docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
+      docs = ImmutableList.of();
     } catch (Exception e) {
       log.error("Error in getting documents from snapshot: {}", e.toString());
     }

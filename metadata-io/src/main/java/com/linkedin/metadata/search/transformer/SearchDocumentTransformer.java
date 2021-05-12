@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 
 public class SearchDocumentTransformer {
+  private SearchDocumentTransformer() { }
+
   public static JsonNode transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     Map<String, List<SearchableFieldSpec>> searchableFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
         .entrySet()
