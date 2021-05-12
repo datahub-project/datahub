@@ -129,6 +129,11 @@
 .sources_section {
   background-color: var(--ifm-color-emphasis-300);
 }
+
+html[data-theme="dark"] .sources_section {
+  background-color: #303439;
+}
+
 .carousel_container {
   padding: 0px 64px;
 }
