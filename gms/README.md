@@ -255,6 +255,36 @@ curl 'http://localhost:8080/dashboards/($params:(),tool:looker,dashboardId:foo)'
 }
 ```
 
+### Get business-term
+```
+curl 'http://localhost:8080/glossaryTerms/($params:(),name:instruments.FinancialInstrument_v1)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
+  "ownership": {
+    "owners": [
+      {
+        "owner": "urn:li:corpuser:jdoe",
+        "type": "DATAOWNER"
+      }
+    ],
+    "lastModified": {
+      "actor": "urn:li:corpuser:jdoe",
+      "time": 1581407189000
+    }
+  },
+  "glossaryTermInfo": {
+    "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+    "customProperties": {
+      "FQDN": "full"
+    },
+    "sourceRef": "FIBO",
+    "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+    "termSource": "EXTERNAL"
+  }
+}
+```
+
 ### Get all users
 ```
 curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://localhost:8080/corpUsers' | jq
@@ -297,6 +327,45 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://
         "active": true,
         "fullName": "Data Hub",
         "email": "datahub@linkedin.com"
+      }
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "links": []
+  }
+}
+```
+
+### Get all business terms
+```
+curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+
+{
+  "elements": [
+    {
+      "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+        "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+        "customProperties": {
+          "FQDN": "full"
+        },
+        "sourceRef": "FIBO",
+        "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+        "termSource": "EXTERNAL"
       }
     }
   ],
@@ -459,6 +528,92 @@ curl "http://localhost:8080/dashboards?q=search&input=looker" -X GET -H 'X-RestL
 }
 ```
 
+### Search business term
+```
+curl "http://localhost:8080/glossaryTerms?q=search&input=FinancialInstrument_v1&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+
+{
+  "metadata": {
+    "urns": [
+      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
+    ],
+    "searchResultMetadatas": []
+  },
+  "elements": [
+    {
+      "name": "bidTime",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+          "definition": "business term definition",
+          "sourceRef": "FIBO",
+          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "EXTERNAL"
+       }
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "total": 1,
+    "links": []
+  }
+}
+```
+
+### Search business terms owned by a user
+```
+curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+
+{
+  "metadata": {
+    "urns": [
+      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
+    ],
+    "searchResultMetadatas": []
+  },
+  "elements": [
+    {
+      "name": "bidTime",
+      "ownership": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "DATAOWNER"
+          }
+        ],
+        "lastModified": {
+          "actor": "urn:li:corpuser:jdoe",
+          "time": 1581407189000
+        }
+      },
+      "glossaryTermInfo": {
+          "definition": "business term definition",
+          "sourceRef": "FIBO",
+          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
+          "termSource": "EXTERNAL"
+        }
+    }
+  ],
+  "paging": {
+    "count": 10,
+    "start": 0,
+    "total": 1,
+    "links": []
+  }
+}
+```
+
 ### Typeahead for datasets
 ```
 curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "field": "name", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
@@ -469,6 +624,21 @@ curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "
     "suggestions": [
       "bar"
     ]
+  }
+}
+```
+
+ 
+### Typeahead for business term
+```
+curl "http://localhost:8080/glossaryTerms?action=autocomplete" -d '{"query": "defin", "field": "definition", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+
+{
+  "value": {
+    "suggestions": [
+      "business term definition"
+    ],
+    "query": "defin"
   }
 }
 ```

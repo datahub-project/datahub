@@ -8,47 +8,46 @@ import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
-    private static final String SEARCHABLE_ANNOTATION_NAME = "Searchable";
+  private static final String SEARCHABLE_ANNOTATION_NAME = "Searchable";
 
-    private final List<SearchableFieldSpec> _specs = new ArrayList<>();
+  private final List<SearchableFieldSpec> _specs = new ArrayList<>();
 
-    public List<SearchableFieldSpec> getSpecs() {
-        return _specs;
-    }
+  public List<SearchableFieldSpec> getSpecs() {
+    return _specs;
+  }
 
-    @Override
-    public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
-        if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
-            final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
-            if (currentSchema.isPrimitive()) {
-                final RecordDataSchema.Field enclosingField = context.getEnclosingField();
-                final Object annotationObj = enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
+  @Override
+  public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
+    if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
+      final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
+      if (currentSchema.isPrimitive()) {
+        final RecordDataSchema.Field enclosingField = context.getEnclosingField();
+        final Object annotationObj = enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
-                if (annotationObj != null) {
-                    // TOOD: Validate that we are looking at a primitive / array of primitives.
-                    final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-                    final SearchableAnnotation annotation = SearchableAnnotation
-                            .fromPegasusAnnotationObject(annotationObj);
-                    final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
-                    _specs.add(fieldSpec);
-                }
-            }
+        if (annotationObj != null) {
+          // TOOD: Validate that we are looking at a primitive / array of primitives.
+          final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+          final SearchableAnnotation annotation = SearchableAnnotation.fromPegasusAnnotationObject(annotationObj);
+          final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
+          _specs.add(fieldSpec);
         }
+      }
     }
+  }
 
-    @Override
-    public VisitorContext getInitialVisitorContext() {
-        return null;
-    }
+  @Override
+  public VisitorContext getInitialVisitorContext() {
+    return null;
+  }
 
-    @Override
-    public SchemaVisitorTraversalResult getSchemaVisitorTraversalResult() {
-        return new SchemaVisitorTraversalResult();
-    }
+  @Override
+  public SchemaVisitorTraversalResult getSchemaVisitorTraversalResult() {
+    return new SchemaVisitorTraversalResult();
+  }
 }

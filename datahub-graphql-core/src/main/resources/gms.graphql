@@ -56,6 +56,10 @@ enum EntityType {
     """
     CORP_USER
     """
+    The CorpGroup Entity
+    """
+    CORP_GROUP
+    """
     The DataPlatform Entity
     """
     DATA_PLATFORM
@@ -83,6 +87,10 @@ enum EntityType {
     The DATA_JOB Entity
     """
     DATA_JOB
+    """
+    The GlossaryTerm Entity
+    """
+    GLOSSARY_TERM
 }
 
 type Query {
@@ -95,6 +103,11 @@ type Query {
     Fetch a CorpUser by primary key
     """
     corpUser(urn: String!): CorpUser
+
+    """
+    Fetch a CorpGroup by primary key
+    """
+    corpGroup(urn: String!): CorpGroup
 
     """
     Fetch a Dashboard by primary key
@@ -145,6 +158,11 @@ type Query {
     Retrieve the browse path(s) corresponding to an entity
     """
     browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+    """
+    Fetch a GlossaryTerm by primary key
+    """
+    glossaryTerm(urn: String!): GlossaryTerm
 }
 
 type Mutation {
@@ -268,6 +286,55 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags
+}
+
+type GlossaryTerm implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    name: String!
+
+    """
+    Details of the Glossary Term
+    """
+    glossaryTermInfo: GlossaryTermInfo!
+}
+
+type GlossaryTermInfo {
+    """
+    Name of the glossary term
+    """
+    definition: String!
+
+    """
+    Term Source of the glossary term
+    """
+    termSource: String!
+
+    """
+    Source Ref of the glossary term
+    """
+    sourceRef: String
+
+    """
+    Source Url of the glossary term
+    """
+    sourceUrl: String
+
+    """
+    Properties of the glossary term
+    """
+    customProperties: [StringMapEntry!]
 }
 
 type DataPlatform implements Entity {
@@ -674,18 +741,6 @@ type StringMapEntry {
     value: String
 }
 
-type Ownership {
-    """
-    List of owners of the entity
-    """
-    owners: [Owner!]
-
-    """
-      Audit stamp containing who last modified the record and when
-    """
-    lastModified: AuditStamp!
-}
-
 enum OwnershipSourceType {
     """
     Auditing system or audit logs
@@ -763,23 +818,6 @@ enum OwnershipType {
     A person or a group that has direct business interest
     """
     STAKEHOLDER
-}
-
-type Owner {
-    """
-    Owner object - This should be extended to support CorpGroups as well
-    """
-    owner: CorpUser!
-
-    """
-    The type of the ownership
-    """
-    type: OwnershipType!
-
-    """
-    Source information for the ownership
-    """
-    source: OwnershipSource
 }
 
 type CorpUser implements Entity {
@@ -893,7 +931,82 @@ type CorpUserEditableInfo {
     pictureLink: String
 }
 
-type Tag implements Entity{
+type CorpGroup implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group
+    """
+    info: CorpGroupInfo
+}
+
+type CorpGroupInfo {
+    """
+    email of this group
+    """
+    email: String!
+
+    """
+    owners of this group
+    """
+    admins: [CorpUser!]
+
+    """
+    List of ldap urn in this group.
+    """
+    members: [CorpUser!]
+
+    """
+    List of groups in this group.
+    """
+    groups: [String!]
+}
+
+union OwnerType = CorpUser | CorpGroup
+
+type Owner {
+    """
+    Owner object
+    """
+    owner: OwnerType!
+
+    """
+    The type of the ownership
+    """
+    type: OwnershipType!
+
+    """
+    Source information for the ownership
+    """
+    source: OwnershipSource
+}
+
+type Ownership {
+    """
+    List of owners of the entity
+    """
+    owners: [Owner!]
+
+    """
+      Audit stamp containing who last modified the record and when
+    """
+    lastModified: AuditStamp!
+}
+
+type Tag implements Entity {
     urn: String!
     """
     GMS Entity Type

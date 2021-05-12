@@ -1,11 +1,6 @@
 package com.linkedin.metadata.kafka;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.element.DataElement;
-import com.linkedin.data.it.IterationOrder;
-import com.linkedin.data.it.ObjectIterator;
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
@@ -14,18 +9,17 @@ import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
+import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.index_builder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
@@ -34,13 +28,10 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -81,7 +72,7 @@ public class MetadataAuditEventsProcessor {
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
-      + Topics.METADATA_AUDIT_EVENT + "}")
+      + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");

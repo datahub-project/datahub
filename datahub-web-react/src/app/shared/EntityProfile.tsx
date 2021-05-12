@@ -19,6 +19,7 @@ export interface EntityProfileProps {
         content: React.ReactNode;
     }>;
     titleLink?: string;
+    onTabChange?: (selectedTab: string) => void;
 }
 
 const TagsTitle = styled(Typography.Title)`
@@ -60,7 +61,7 @@ const defaultProps = {
 /**
  * A default container view for presenting Entity details.
  */
-export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityProfileProps) => {
+export const EntityProfile = ({ title, tags, header, tabs, titleLink, onTabChange }: EntityProfileProps) => {
     const isCompact = React.useContext(CompactContext);
     const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
 
@@ -98,7 +99,7 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
                     <Divider style={{ marginBottom: '0px' }} />
                     <Row style={{ padding: '0px 0px 10px 0px' }}>
                         <Col span={24}>
-                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} onTabChange={onTabChange} />
                         </Col>
                     </Row>
                 </>

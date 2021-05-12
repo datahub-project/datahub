@@ -10,58 +10,49 @@ import com.linkedin.metadata.kafka.EntityEventProducer;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.config.ServerConfig;
-
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
+
 
 public class EntityDao {
 
-    private final Map<String, BaseLocalDAO> _entityNameToLocalDao;
+  private final Map<String, BaseLocalDAO> _entityNameToLocalDao;
 
-    public EntityDao(@Nonnull final EntityRegistry registry,
-                     @Nonnull final EntityEventProducer producer,
-                     @Nonnull final ServerConfig serverConfig) {
-        _entityNameToLocalDao = new HashMap<>();
-        final List<EntitySpec> entitySpecs = registry.getEntitySpecs();
-        for (final EntitySpec spec : entitySpecs) {
-            // Create a new BaseMetadataEventProducer for Kafka
-            _entityNameToLocalDao.put(
-                    spec.getName().toLowerCase(),
-                    new EbeanLocalDAO(
-                            getDataSchemaClassFromSchema(spec.getAspectTyperefSchema()),
-                            producer.getProducer(spec.getName()),
-                            serverConfig,
-                            Urn.class // Note that the Ebean local dao actually does want a specific urn here.
-                    )
-            );
-        }
+  public EntityDao(@Nonnull final EntityRegistry registry, @Nonnull final EntityEventProducer producer,
+      @Nonnull final ServerConfig serverConfig) {
+    _entityNameToLocalDao = new HashMap<>();
+    final List<EntitySpec> entitySpecs = registry.getEntitySpecs();
+    for (final EntitySpec spec : entitySpecs) {
+      // Create a new BaseMetadataEventProducer for Kafka
+      _entityNameToLocalDao.put(spec.getName().toLowerCase(),
+          new EbeanLocalDAO(getDataSchemaClassFromSchema(spec.getAspectTyperefSchema()),
+              producer.getProducer(spec.getName()), serverConfig, Urn.class
+              // Note that the Ebean local dao actually does want a specific urn here.
+          ));
     }
+  }
 
-    public Map<AspectKey<Urn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
-            @Nonnull String entityName,
-            @Nonnull Set<AspectKey<Urn, ? extends RecordTemplate>> keys) {
-        return _entityNameToLocalDao.get(entityName.toLowerCase()).get(keys);
-    }
+  public Map<AspectKey<Urn, ? extends RecordTemplate>, Optional<? extends RecordTemplate>> get(
+      @Nonnull String entityName, @Nonnull Set<AspectKey<Urn, ? extends RecordTemplate>> keys) {
+    return _entityNameToLocalDao.get(entityName.toLowerCase()).get(keys);
+  }
 
-    public RecordTemplate add(@Nonnull String entityName,
-                              @Nonnull Urn urn,
-                              @Nonnull RecordTemplate aspect,
-                              @Nonnull AuditStamp auditStamp) {
-        return _entityNameToLocalDao.get(entityName.toLowerCase()).add(urn, aspect, auditStamp);
-    }
+  public RecordTemplate add(@Nonnull String entityName, @Nonnull Urn urn, @Nonnull RecordTemplate aspect,
+      @Nonnull AuditStamp auditStamp) {
+    return _entityNameToLocalDao.get(entityName.toLowerCase()).add(urn, aspect, auditStamp);
+  }
 
-    private Class<? extends DataTemplate> getDataSchemaClassFromSchema(final NamedDataSchema schema) {
-        Class<? extends DataTemplate> clazz;
-        try {
-            clazz = Class.forName(schema.getFullName()).asSubclass(DataTemplate.class);
-        } catch (ClassNotFoundException e) {
-            throw new ModelConversionException("Unable to find class " + schema.getFullName(), e);
-        }
-        return clazz;
+  private Class<? extends DataTemplate> getDataSchemaClassFromSchema(final NamedDataSchema schema) {
+    Class<? extends DataTemplate> clazz;
+    try {
+      clazz = Class.forName(schema.getFullName()).asSubclass(DataTemplate.class);
+    } catch (ClassNotFoundException e) {
+      throw new ModelConversionException("Unable to find class " + schema.getFullName(), e);
     }
+    return clazz;
+  }
 }
