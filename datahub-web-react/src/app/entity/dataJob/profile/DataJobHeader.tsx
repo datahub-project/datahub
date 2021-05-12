@@ -1,6 +1,6 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { DataJob } from '../../../../types.generated';
+import { DataJob, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
