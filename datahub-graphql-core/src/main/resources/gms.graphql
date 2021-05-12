@@ -56,6 +56,10 @@ enum EntityType {
     """
     CORP_USER
     """
+    The CorpGroup Entity
+    """
+    CORP_GROUP
+    """
     The DataPlatform Entity
     """
     DATA_PLATFORM
@@ -99,6 +103,11 @@ type Query {
     Fetch a CorpUser by primary key
     """
     corpUser(urn: String!): CorpUser
+
+    """
+    Fetch a CorpGroup by primary key
+    """
+    corpGroup(urn: String!): CorpGroup
 
     """
     Fetch a Dashboard by primary key
@@ -732,18 +741,6 @@ type StringMapEntry {
     value: String
 }
 
-type Ownership {
-    """
-    List of owners of the entity
-    """
-    owners: [Owner!]
-
-    """
-      Audit stamp containing who last modified the record and when
-    """
-    lastModified: AuditStamp!
-}
-
 enum OwnershipSourceType {
     """
     Auditing system or audit logs
@@ -821,23 +818,6 @@ enum OwnershipType {
     A person or a group that has direct business interest
     """
     STAKEHOLDER
-}
-
-type Owner {
-    """
-    Owner object - This should be extended to support CorpGroups as well
-    """
-    owner: CorpUser!
-
-    """
-    The type of the ownership
-    """
-    type: OwnershipType!
-
-    """
-    Source information for the ownership
-    """
-    source: OwnershipSource
 }
 
 type CorpUser implements Entity {
@@ -951,7 +931,82 @@ type CorpUserEditableInfo {
     pictureLink: String
 }
 
-type Tag implements Entity{
+type CorpGroup implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group
+    """
+    info: CorpGroupInfo
+}
+
+type CorpGroupInfo {
+    """
+    email of this group
+    """
+    email: String!
+
+    """
+    owners of this group
+    """
+    admins: [CorpUser!]
+
+    """
+    List of ldap urn in this group.
+    """
+    members: [CorpUser!]
+
+    """
+    List of groups in this group.
+    """
+    groups: [String!]
+}
+
+union OwnerType = CorpUser | CorpGroup
+
+type Owner {
+    """
+    Owner object
+    """
+    owner: OwnerType!
+
+    """
+    The type of the ownership
+    """
+    type: OwnershipType!
+
+    """
+    Source information for the ownership
+    """
+    source: OwnershipSource
+}
+
+type Ownership {
+    """
+    List of owners of the entity
+    """
+    owners: [Owner!]
+
+    """
+      Audit stamp containing who last modified the record and when
+    """
+    lastModified: AuditStamp!
+}
+
+type Tag implements Entity {
     urn: String!
     """
     GMS Entity Type

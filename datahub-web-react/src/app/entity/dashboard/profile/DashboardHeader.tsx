@@ -1,9 +1,9 @@
-import { Avatar, Button, Divider, Row, Space, Typography } from 'antd';
+import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
+import { AuditStamp, Ownership } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { AvatarsGroup } from '../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
@@ -45,16 +45,7 @@ export default function DashboardHeader({ urn, platform, description, ownership,
                 </Space>
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Avatar.Group maxCount={6} size="large">
-                {ownership?.owners?.map((owner: any) => (
-                    <CustomAvatar
-                        key={owner.owner.urn}
-                        name={owner.owner.info?.fullName}
-                        url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
-                        photoUrl={owner.owner.editableInfo?.pictureLink}
-                    />
-                ))}
-            </Avatar.Group>
+            <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             {lastModified && (
                 <Typography.Text type="secondary">
                     Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}

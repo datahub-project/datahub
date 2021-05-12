@@ -21,13 +21,17 @@ import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
+import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
@@ -71,6 +75,7 @@ public class GmsGraphQLEngine {
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getDatasetsClient());
     public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getCorpUsersClient());
+    public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getCorpGroupsClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getChartsClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
@@ -92,6 +97,7 @@ public class GmsGraphQLEngine {
     public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
             DATASET_TYPE,
             CORP_USER_TYPE,
+            CORP_GROUP_TYPE,
             DATA_PLATFORM_TYPE,
             CHART_TYPE,
             DASHBOARD_TYPE,
@@ -115,7 +121,13 @@ public class GmsGraphQLEngine {
      */
     public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(ENTITY_TYPES.stream(), RELATIONSHIP_TYPES.stream()).collect(Collectors.toList());
 
-
+    /**
+     * Configures the graph objects for owner
+     */
+    public static final List<LoadableType<?>> OWNER_TYPES = ImmutableList.of(
+        CORP_USER_TYPE,
+        CORP_GROUP_TYPE
+    );
 
     /**
      * Configures the graph objects that can be searched.
@@ -163,6 +175,7 @@ public class GmsGraphQLEngine {
         configureMutationResolvers(builder);
         configureDatasetResolvers(builder);
         configureCorpUserResolvers(builder);
+        configureCorpGroupResolvers(builder);
         configureDashboardResolvers(builder);
         configureChartResolvers(builder);
         configureTypeResolvers(builder);
@@ -206,6 +219,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("corpUser", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
                                 CORP_USER_TYPE,
+                                (env) -> env.getArgument(URN_FIELD_NAME))))
+                .dataFetcher("corpGroup", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                CORP_GROUP_TYPE,
                                 (env) -> env.getArgument(URN_FIELD_NAME))))
                 .dataFetcher("dashboard", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
@@ -269,9 +286,9 @@ public class GmsGraphQLEngine {
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
-                                    CORP_USER_TYPE,
-                                    (env) -> ((Owner) env.getSource()).getOwner().getUrn()))
+                            new OwnerTypeResolver<>(
+                                    OWNER_TYPES,
+                                    (env) -> ((Owner) env.getSource()).getOwner()))
                     )
             )
             .type("RelatedDataset", typeWiring -> typeWiring
@@ -285,8 +302,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entity", new AuthenticatedResolver<>(
                         new EntityTypeResolver(
                                 ENTITY_TYPES.stream().collect(Collectors.toList()),
-                                (env) -> ((EntityRelationship) env.getSource()).getEntity())
-                    )
+                                (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
             );
     }
@@ -301,6 +317,28 @@ public class GmsGraphQLEngine {
                             CORP_USER_TYPE,
                             (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn()))
             )
+        );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.CorpGroup} type.
+     */
+    private static void configureCorpGroupResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("CorpGroupInfo", typeWiring -> typeWiring
+                .dataFetcher("admins", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CORP_USER_TYPE,
+                                (env) -> ((CorpGroupInfo) env.getSource()).getAdmins().stream()
+                                        .map(CorpUser::getUrn)
+                                        .collect(Collectors.toList())))
+                )
+                .dataFetcher("members", new AuthenticatedResolver<>(
+                        new LoadableTypeBatchResolver<>(
+                                CORP_USER_TYPE,
+                                (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
+                                        .map(CorpUser::getUrn)
+                                        .collect(Collectors.toList())))
+                )
         );
     }
 
@@ -379,12 +417,18 @@ public class GmsGraphQLEngine {
                             .map(graphType -> (EntityType<?>) graphType)
                             .collect(Collectors.toList())
                     )))
-                .type("EntityWithRelationships", typeWiring -> typeWiring
-                        .typeResolver(new EntityInterfaceTypeResolver(LOADABLE_TYPES.stream()
-                                .filter(graphType -> graphType instanceof EntityType)
-                                .map(graphType -> (EntityType<?>) graphType)
-                                .collect(Collectors.toList())
-                        )))
+            .type("EntityWithRelationships", typeWiring -> typeWiring
+                    .typeResolver(new EntityInterfaceTypeResolver(LOADABLE_TYPES.stream()
+                            .filter(graphType -> graphType instanceof EntityType)
+                            .map(graphType -> (EntityType<?>) graphType)
+                            .collect(Collectors.toList())
+                    )))
+            .type("OwnerType", typeWiring -> typeWiring
+                .typeResolver(new EntityInterfaceTypeResolver(OWNER_TYPES.stream()
+                    .filter(graphType -> graphType instanceof EntityType)
+                    .map(graphType -> (EntityType<?>) graphType)
+                    .collect(Collectors.toList())
+                )))
             .type("PlatformSchema", typeWiring -> typeWiring
                     .typeResolver(new PlatformSchemaUnionTypeResolver())
             )
