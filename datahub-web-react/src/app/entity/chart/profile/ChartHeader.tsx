@@ -1,6 +1,6 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, ChartType, Ownership } from '../../../../types.generated';
+import { AuditStamp, ChartType, Ownership, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
