@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -56,10 +57,10 @@ public class MappingsBuilder {
         .stream()
         .collect(Collectors.partitioningBy(setting -> setting.getOverrideFieldName().isPresent()));
     // Set the mappings for fields with overrides
-    indexSettingsHasOverride.get(true)
+    indexSettingsHasOverride.getOrDefault(true, ImmutableList.of())
         .forEach(setting -> mappingsBuilder.put(setting.getOverrideFieldName().get(), getMappingByType(setting)));
 
-    List<IndexSetting> indexSettingsWithoutOverrides = indexSettingsHasOverride.get(false);
+    List<IndexSetting> indexSettingsWithoutOverrides = indexSettingsHasOverride.getOrDefault(false, ImmutableList.of());
     if (indexSettingsWithoutOverrides.isEmpty()) {
       return mappingsBuilder;
     }
