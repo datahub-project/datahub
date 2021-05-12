@@ -3,7 +3,7 @@ package com.linkedin.metadata.resources.identity;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.identity.CorpGroup;
 import com.linkedin.identity.CorpGroupInfo;
-import com.linkedin.identity.CorpGroupKey;
+import com.linkedin.identity.CorpGroupResourceKey;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -44,7 +44,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "corpGroups", namespace = "com.linkedin.identity", keyName = "corpGroup")
 public final class CorpGroups extends BaseSearchableEntityResource<
     // @formatter:off
-    ComplexResourceKey<CorpGroupKey, EmptyRecord>,
+    ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>,
     CorpGroup,
     CorpGroupUrn,
     CorpGroupSnapshot,
@@ -84,14 +84,14 @@ public final class CorpGroups extends BaseSearchableEntityResource<
 
   @Override
   @Nonnull
-  protected CorpGroupUrn toUrn(@Nonnull ComplexResourceKey<CorpGroupKey, EmptyRecord> corpGroupKey) {
+  protected CorpGroupUrn toUrn(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> corpGroupKey) {
     return new CorpGroupUrn(corpGroupKey.getKey().getName());
   }
 
   @Override
   @Nonnull
-  protected ComplexResourceKey<CorpGroupKey, EmptyRecord> toKey(@Nonnull CorpGroupUrn urn) {
-    return new ComplexResourceKey<>(new CorpGroupKey().setName(urn.getGroupNameEntity()), new EmptyRecord());
+  protected ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> toKey(@Nonnull CorpGroupUrn urn) {
+    return new ComplexResourceKey<>(new CorpGroupResourceKey().setName(urn.getGroupNameEntity()), new EmptyRecord());
   }
 
   @Override
@@ -119,7 +119,7 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @RestMethod.Get
   @Override
   @Nonnull
-  public Task<CorpGroup> get(@Nonnull ComplexResourceKey<CorpGroupKey, EmptyRecord> key,
+  public Task<CorpGroup> get(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.get(key, aspectNames);
   }
@@ -127,8 +127,8 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @RestMethod.BatchGet
   @Override
   @Nonnull
-  public Task<Map<ComplexResourceKey<CorpGroupKey, EmptyRecord>, CorpGroup>> batchGet(
-      @Nonnull Set<ComplexResourceKey<CorpGroupKey, EmptyRecord>> keys,
+  public Task<Map<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>, CorpGroup>> batchGet(
+      @Nonnull Set<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     return super.batchGet(keys, aspectNames);
   }

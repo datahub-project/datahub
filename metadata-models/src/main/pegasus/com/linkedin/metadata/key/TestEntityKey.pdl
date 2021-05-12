@@ -1,10 +1,10 @@
-namespace com.linkedin.experimental
+namespace com.linkedin.metadata.key
 
 /**
  * Key for a TestEntity
  */
 @Aspect = {
-    "name": "key",
+    "name": "testEntityKey",
     "isKey": true
 }
 record TestEntityKey {

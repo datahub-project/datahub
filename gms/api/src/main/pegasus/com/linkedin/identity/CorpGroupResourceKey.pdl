@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 /**
  * Key for CorpGroup resource
  */
-record CorpGroupKey {
+record CorpGroupResourceKey {
 
   /**
    * group name e.g. wherehows-dev, ask_metadata

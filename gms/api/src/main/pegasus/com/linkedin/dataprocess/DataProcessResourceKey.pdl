@@ -5,7 +5,7 @@ import com.linkedin.common.FabricType
 /**
  * Key for process resource
  */
-record DataProcessKey {
+record DataProcessResourceKey {
 
   /**
    * Standardized orchestration platform where process is running. It can be Azure Data Factory or Sqoop script

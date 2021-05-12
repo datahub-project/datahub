@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a CorpUser
+ */
+@Aspect = {
+    "name": "corpUserKey",
+    "isKey": true
+}
+record CorpUserKey {
+    /**
+    * The name of the AD/LDAP user.
+    */
+    username: string
+}
