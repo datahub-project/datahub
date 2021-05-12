@@ -26,13 +26,22 @@ public class KafkaConfig {
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
   private String kafkaSchemaRegistryUrl;
 
-  @Bean
-  public KafkaListenerContainerFactory<?> kafkaListenerContainerFactory(KafkaProperties properties) {
+  @Bean(name = "avroSerializedKafkaListener")
+  public KafkaListenerContainerFactory<?> avroSerializedKafkaListenerContainerFactory(KafkaProperties properties) {
+    return createKafkaListenerContainerFactory(properties, KafkaAvroDeserializer.class);
+  }
+
+  @Bean(name = "stringSerializedKafkaListener")
+  public KafkaListenerContainerFactory<?> stringSerializedKafkaListenerContainerFactory(KafkaProperties properties) {
+    return createKafkaListenerContainerFactory(properties, StringDeserializer.class);
+  }
+
+  public KafkaListenerContainerFactory<?> createKafkaListenerContainerFactory(KafkaProperties properties, Class<?> valueDeserializer) {
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
     // Specify (de)serializers for record keys and for record values.
     consumerProps.setKeyDeserializer(StringDeserializer.class);
-    consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
+    consumerProps.setValueDeserializer(valueDeserializer);
     // Records will be flushed every 10 seconds.
     consumerProps.setEnableAutoCommit(true);
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));

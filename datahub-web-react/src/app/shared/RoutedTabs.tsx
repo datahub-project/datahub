@@ -13,13 +13,14 @@ interface Props extends TabsProps {
         path: string;
         content: React.ReactNode;
     }>;
+    onTabChange?: (selectedTab: string) => void;
 }
 
 /**
  * A tab view where each tab is associated with a route mounted on top of the current path.
  * This permits direct navigation to a particular tab via URL.
  */
-export const RoutedTabs = ({ defaultPath, tabs, ...props }: Props) => {
+export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) => {
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
@@ -35,6 +36,7 @@ export const RoutedTabs = ({ defaultPath, tabs, ...props }: Props) => {
             <Tabs
                 defaultActiveKey={activePath}
                 size="large"
+                onTabClick={(tab: string) => onTabChange && onTabChange(tab)}
                 onChange={(newPath) => history.push(`${url}/${newPath}`)}
                 {...props}
             >
