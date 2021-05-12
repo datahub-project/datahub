@@ -10,6 +10,7 @@ import TagGroup from '../shared/tags/TagGroup';
 interface Props {
     name: string;
     logoUrl?: string;
+    logoComponent?: JSX.Element;
     url: string;
     description: string;
     type?: string;
@@ -46,6 +47,7 @@ const styles = {
 export default function DefaultPreviewCard({
     name,
     logoUrl,
+    logoComponent,
     url,
     description,
     type,
@@ -67,11 +69,13 @@ export default function DefaultPreviewCard({
                             <Typography.Text strong style={styles.name}>
                                 {name}
                             </Typography.Text>
-                            <Space split={<Divider type="vertical" />} size={16}>
-                                <Typography.Text>{type}</Typography.Text>
-                                <Typography.Text strong>{platform}</Typography.Text>
-                                {qualifier && <Tag>{qualifier}</Tag>}
-                            </Space>
+                            {(type || platform || qualifier) && (
+                                <Space split={<Divider type="vertical" />} size={16}>
+                                    <Typography.Text>{type}</Typography.Text>
+                                    <Typography.Text strong>{platform}</Typography.Text>
+                                    {qualifier && <Tag>{qualifier}</Tag>}
+                                </Space>
+                            )}
                         </Space>
                     </Space>
                 </Link>
