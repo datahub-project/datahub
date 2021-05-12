@@ -460,7 +460,29 @@
     "name" : "MLModelAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a ML Model",
-    "ref" : [ "com.linkedin.common.Ownership", {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "MLModelKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for an ML model",
+      "fields" : [ {
+        "name" : "platform",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Standardized platform urn for the model"
+      }, {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Name of the MLModel"
+      }, {
+        "name" : "origin",
+        "type" : "com.linkedin.common.FabricType",
+        "doc" : "Fabric type where model belongs to or where it was generated"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "mlModelKey"
+      }
+    }, "com.linkedin.common.Ownership", {
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
@@ -815,7 +837,7 @@
         "doc" : "Source Code along with types"
       } ]
     }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
-  }, {
+  }, "com.linkedin.metadata.key.MLModelKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

@@ -229,7 +229,7 @@
     } ]
   }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", {
     "type" : "record",
-    "name" : "CorpUserKey",
+    "name" : "CorpUserResourceKey",
     "namespace" : "com.linkedin.identity",
     "doc" : "Key for CorpUser resource",
     "fields" : [ {
@@ -248,8 +248,22 @@
     "name" : "CorpUserAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpUser",
-    "ref" : [ "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "CorpUserKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a CorpUser",
+      "fields" : [ {
+        "name" : "username",
+        "type" : "string",
+        "doc" : "The name of the AD/LDAP user."
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "corpUserKey"
+      }
+    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags" ]
+  }, "com.linkedin.metadata.key.CorpUserKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -474,7 +488,7 @@
     "collection" : {
       "identifier" : {
         "name" : "corpUser",
-        "type" : "com.linkedin.identity.CorpUserKey",
+        "type" : "com.linkedin.identity.CorpUserResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get", "get_all" ],

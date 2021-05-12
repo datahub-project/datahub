@@ -15,7 +15,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.index_builder.IndexBuilder;
+import com.linkedin.metadata.search.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;

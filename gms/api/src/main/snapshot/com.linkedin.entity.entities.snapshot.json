@@ -634,6 +634,18 @@
     "namespace" : "com.linkedin.common",
     "ref" : "string"
   }, "com.linkedin.common.ExternalReference", {
+    "type" : "enum",
+    "name" : "FabricType",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Fabric group type",
+    "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+    "symbolDocs" : {
+      "CORP" : "Designates corporation fabrics",
+      "DEV" : "Designates development fabrics",
+      "EI" : "Designates early-integration (staging) fabrics",
+      "PROD" : "Designates production fabrics"
+    }
+  }, {
     "type" : "record",
     "name" : "GlobalTags",
     "namespace" : "com.linkedin.common",
@@ -685,6 +697,86 @@
     "Aspect" : {
       "name" : "globalTags"
     }
+  }, {
+    "type" : "typeref",
+    "name" : "GlossaryNodeUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Business Node",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.GlossaryNodeUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "constructable" : true,
+        "doc" : "Standardized business node identifier",
+        "entityType" : "glossaryNode",
+        "fields" : [ {
+          "doc" : "The name of business node with hierarchy.",
+          "name" : "name",
+          "type" : "string"
+        } ],
+        "maxLength" : 56,
+        "name" : "GlossaryNode",
+        "namespace" : "li",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "owningTeam" : "urn:li:internalTeam:datahub"
+      }
+    }
+  }, {
+    "type" : "record",
+    "name" : "GlossaryTermAssociation",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Properties of an applied glossary term.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : {
+        "type" : "typeref",
+        "name" : "GlossaryTermUrn",
+        "doc" : "Business Term",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.GlossaryTermUrn"
+        },
+        "validate" : {
+          "com.linkedin.common.validator.TypedUrnValidator" : {
+            "accessible" : true,
+            "constructable" : true,
+            "doc" : "business term",
+            "entityType" : "glossaryTerm",
+            "fields" : [ {
+              "doc" : "The name of business term with hierarchy.",
+              "name" : "name",
+              "type" : "string"
+            } ],
+            "maxLength" : 56,
+            "name" : "GlossaryTerm",
+            "namespace" : "li",
+            "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+            "owningTeam" : "urn:li:internalTeam:datahub"
+          }
+        }
+      },
+      "doc" : "Urn of the applied glossary term"
+    } ]
+  }, "com.linkedin.common.GlossaryTermUrn", {
+    "type" : "record",
+    "name" : "GlossaryTerms",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Related business terms information",
+    "fields" : [ {
+      "name" : "terms",
+      "type" : {
+        "type" : "array",
+        "items" : "GlossaryTermAssociation"
+      },
+      "doc" : "The related business terms"
+    }, {
+      "name" : "auditStamp",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the related business term"
+    } ]
   }, {
     "type" : "record",
     "name" : "InstitutionalMemory",
@@ -1207,7 +1299,7 @@
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
-    "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
+    "doc" : "Schema field path. TODO: Add formal documentation on normalization rules.",
     "ref" : "string"
   }, {
     "type" : "record",
@@ -1308,7 +1400,33 @@
                 "name" : "ChartAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Chart",
-                "ref" : [ "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "ChartKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Chart",
+                  "fields" : [ {
+                    "name" : "dashboardTool",
+                    "type" : "string",
+                    "doc" : "The name of the dashboard tool such as looker, redash etc.",
+                    "Searchable" : {
+                      "fieldName" : "dashboardTool",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
+                  }, {
+                    "name" : "chartId",
+                    "type" : "string",
+                    "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "chartKey"
+                  }
+                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1336,6 +1454,20 @@
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a CorpGroup",
                 "ref" : [ {
+                  "type" : "record",
+                  "name" : "CorpGroupKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a CorpGroup",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "The name of the AD/LDAP group."
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "corpGroupKey"
+                  }
+                }, {
                   "type" : "record",
                   "name" : "CorpGroupInfo",
                   "namespace" : "com.linkedin.identity",
@@ -1406,6 +1538,20 @@
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a CorpUser",
                 "ref" : [ {
+                  "type" : "record",
+                  "name" : "CorpUserKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a CorpUser",
+                  "fields" : [ {
+                    "name" : "username",
+                    "type" : "string",
+                    "doc" : "The name of the AD/LDAP user."
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "corpUserKey"
+                  }
+                }, {
                   "type" : "record",
                   "name" : "CorpUserInfo",
                   "namespace" : "com.linkedin.identity",
@@ -1535,7 +1681,33 @@
                 "name" : "DashboardAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Dashboard",
-                "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DashboardKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Dashboard",
+                  "fields" : [ {
+                    "name" : "dashboardTool",
+                    "type" : "string",
+                    "doc" : "The name of the dashboard tool such as looker, redash etc.",
+                    "Searchable" : {
+                      "fieldName" : "dashboardTool",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
+                  }, {
+                    "name" : "dashboardId",
+                    "type" : "string",
+                    "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "dashboardKey"
+                  }
+                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1562,7 +1734,37 @@
                 "name" : "DataFlowAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Data flow",
-                "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DataFlowKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Data Flow",
+                  "fields" : [ {
+                    "name" : "orchestrator",
+                    "type" : "string",
+                    "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
+                    "Searchable" : {
+                      "fieldName" : "orchestrator",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
+                  }, {
+                    "name" : "flowId",
+                    "type" : "string",
+                    "doc" : "Unique Identifier of the data flow"
+                  }, {
+                    "name" : "cluster",
+                    "type" : "string",
+                    "doc" : "Cluster where the flow is executed"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "dataFlowKey"
+                  }
+                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1589,7 +1791,25 @@
                 "name" : "DataJobAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Data job",
-                "ref" : [ "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DataJobKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Data Job",
+                  "fields" : [ {
+                    "name" : "flow",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "Standardized data processing flow urn representing the flow for the job"
+                  }, {
+                    "name" : "jobId",
+                    "type" : "string",
+                    "doc" : "Unique Identifier of the data job"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "dataJobKey"
+                  }
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1616,7 +1836,29 @@
                 "name" : "DatasetAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a Dataset",
-                "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DatasetKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Dataset",
+                  "fields" : [ {
+                    "name" : "platform",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "Data platform urn associated with the dataset"
+                  }, {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>"
+                  }, {
+                    "name" : "origin",
+                    "type" : "com.linkedin.common.FabricType",
+                    "doc" : "Fabric type where dataset belongs to or where it was generated."
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "datasetKey"
+                  }
+                }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
                   "type" : "record",
                   "name" : "SchemaMetadata",
                   "namespace" : "com.linkedin.schema",
@@ -1902,6 +2144,11 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true
+                        }, {
+                          "name" : "glossaryTerms",
+                          "type" : "com.linkedin.common.GlossaryTerms",
+                          "doc" : "Glossary terms associated with the field",
+                          "optional" : true
                         } ]
                       }
                     },
@@ -2000,7 +2247,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2027,7 +2274,29 @@
                 "name" : "DataProcessAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a data process",
-                "ref" : [ "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DataProcessKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Data Process",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Process name i.e. an ETL job name"
+                  }, {
+                    "name" : "orchestrator",
+                    "type" : "string",
+                    "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn"
+                  }, {
+                    "name" : "origin",
+                    "type" : "com.linkedin.common.FabricType",
+                    "doc" : "Fabric type where dataset belongs to or where it was generated."
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "dataProcessKey"
+                  }
+                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2054,7 +2323,29 @@
                 "name" : "MLModelAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a ML Model",
-                "ref" : [ "com.linkedin.common.Ownership", {
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "MLModelKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for an ML model",
+                  "fields" : [ {
+                    "name" : "platform",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "Standardized platform urn for the model"
+                  }, {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Name of the MLModel"
+                  }, {
+                    "name" : "origin",
+                    "type" : "com.linkedin.common.FabricType",
+                    "doc" : "Fabric type where model belongs to or where it was generated"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "mlModelKey"
+                  }
+                }, "com.linkedin.common.Ownership", {
                   "type" : "record",
                   "name" : "MLModelProperties",
                   "namespace" : "com.linkedin.ml.metadata",
@@ -2434,7 +2725,25 @@
                 "name" : "MLFeatureAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a MLFeature",
-                "ref" : [ "com.linkedin.common.Ownership", {
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "MLFeatureKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for an ML model",
+                  "fields" : [ {
+                    "name" : "featureNamespace",
+                    "type" : "string",
+                    "doc" : "Namespace for the feature"
+                  }, {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Name of the feature"
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "mlFeatureKey"
+                  }
+                }, {
                   "type" : "record",
                   "name" : "MLFeatureProperties",
                   "namespace" : "com.linkedin.ml.metadata",
@@ -2458,7 +2767,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureProperties"
                   }
-                }, "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2485,7 +2794,27 @@
                 "name" : "TagAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
                 "doc" : "A union of all supported metadata aspects for a tag",
-                "ref" : [ "com.linkedin.common.Ownership", {
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "TagKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a Tag",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "The unique tag name",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "PARTIAL_SHORT"
+                      } ]
+                    }
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "tagKey"
+                  }
+                }, "com.linkedin.common.Ownership", {
                   "type" : "record",
                   "name" : "TagProperties",
                   "namespace" : "com.linkedin.tag",
@@ -2515,6 +2844,102 @@
           }
         }, {
           "type" : "record",
+          "name" : "GlossaryTermSnapshot",
+          "doc" : "A metadata snapshot for a specific GlossaryTerm entity.",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.GlossaryTermUrn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "GlossaryTermAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a CorpUser",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "GlossaryTermInfo",
+                  "namespace" : "com.linkedin.glossary",
+                  "doc" : "Properties associated with a GlossaryTerm",
+                  "fields" : [ {
+                    "name" : "definition",
+                    "type" : "string",
+                    "doc" : "Definition of business term"
+                  }, {
+                    "name" : "parentNode",
+                    "type" : "com.linkedin.common.GlossaryNodeUrn",
+                    "doc" : "Parent node of the glossary term",
+                    "optional" : true
+                  }, {
+                    "name" : "termSource",
+                    "type" : "string",
+                    "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+                  }, {
+                    "name" : "sourceRef",
+                    "type" : "string",
+                    "doc" : "External Reference to the business-term",
+                    "optional" : true
+                  }, {
+                    "name" : "sourceUrl",
+                    "type" : "com.linkedin.common.Url",
+                    "doc" : "The abstracted URL such as https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument.",
+                    "optional" : true
+                  }, {
+                    "name" : "customProperties",
+                    "type" : {
+                      "type" : "map",
+                      "values" : "string"
+                    },
+                    "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
+                    "default" : { }
+                  } ]
+                }, "com.linkedin.common.Ownership" ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "GlossaryNodeSnapshot",
+          "doc" : "A metadata snapshot for a specific GlossaryNode entity.",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.GlossaryNodeUrn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "GlossaryNodeAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a GlossaryNode",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "GlossaryNodeInfo",
+                  "namespace" : "com.linkedin.glossary",
+                  "doc" : "Properties associated with a GlossaryNode",
+                  "fields" : [ {
+                    "name" : "definition",
+                    "type" : "string",
+                    "doc" : "Definition of business node"
+                  }, {
+                    "name" : "parentNode",
+                    "type" : "com.linkedin.common.GlossaryNodeUrn",
+                    "doc" : "Parent node of the glossary term",
+                    "optional" : true
+                  } ]
+                }, "com.linkedin.common.Ownership" ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
+          } ]
+        }, {
+          "type" : "record",
           "name" : "TestEntitySnapshot",
           "doc" : "A metadata snapshot for a specific Test Entity.",
           "fields" : [ {
@@ -2533,6 +2958,7 @@
                 "ref" : [ {
                   "type" : "record",
                   "name" : "TestEntityKey",
+                  "namespace" : "com.linkedin.metadata.key",
                   "doc" : "Key for a TestEntity",
                   "fields" : [ {
                     "name" : "keyPart1",
@@ -2567,7 +2993,7 @@
                   } ],
                   "Aspect" : {
                     "isKey" : true,
-                    "name" : "key"
+                    "name" : "testEntityKey"
                   }
                 }, {
                   "type" : "record",
@@ -2598,6 +3024,8 @@
                       "fieldName" : "aliases",
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
                       }, {
                         "indexType" : "DELIMITED"
                       }, {
@@ -2703,7 +3131,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.experimental.Input", "com.linkedin.experimental.TestEntityAspect", "com.linkedin.experimental.TestEntityInfo", "com.linkedin.experimental.TestEntityKey", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.metadata.snapshot.TestEntitySnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.experimental.Input", "com.linkedin.experimental.TestEntityAspect", "com.linkedin.experimental.TestEntityInfo", "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.key.TestEntityKey", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.metadata.snapshot.TestEntitySnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",

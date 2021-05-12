@@ -467,8 +467,26 @@
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data job",
-    "ref" : [ "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataJobKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Job",
+      "fields" : [ {
+        "name" : "flow",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Standardized data processing flow urn representing the flow for the job"
+      }, {
+        "name" : "jobId",
+        "type" : "string",
+        "doc" : "Unique Identifier of the data job"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataJobKey"
+      }
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+  }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

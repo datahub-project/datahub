@@ -446,8 +446,34 @@
     "name" : "DashboardAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dashboard",
-    "ref" : [ "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DashboardKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Dashboard",
+      "fields" : [ {
+        "name" : "dashboardTool",
+        "type" : "string",
+        "doc" : "The name of the dashboard tool such as looker, redash etc.",
+        "Searchable" : {
+          "fieldName" : "dashboardTool",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      }, {
+        "name" : "dashboardId",
+        "type" : "string",
+        "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dashboardKey"
+      }
+    }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+  }, "com.linkedin.metadata.key.DashboardKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
