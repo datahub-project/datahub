@@ -58,8 +58,7 @@ logger = logging.getLogger(__name__)
 
 # Default schema!!!! maybe a transformer?
 
-
-class LookMLSourceConfig(ConfigModel):
+class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     base_folder: str
     connection_to_platform_map: Dict[str, str]
     platform_name: str = "looker_views"
@@ -71,7 +70,7 @@ class LookMLSourceConfig(ConfigModel):
 
 
 @dataclass
-class LookMLSourceReport(SourceReport):
+class LookMLSourceReport(SourceReport):  # pragma: no cover
     models_scanned: int = 0
     views_scanned: int = 0
     filtered_models: List[str] = dataclass_field(default_factory=list)
@@ -91,7 +90,7 @@ class LookMLSourceReport(SourceReport):
 
 
 @dataclass
-class LookerModel:
+class LookerModel:  # pragma: no cover
     connection: str
     includes: List[str]
     resolved_includes: List[str]
@@ -120,7 +119,7 @@ class LookerModel:
 
 
 @dataclass
-class LookerViewFile:
+class LookerViewFile:  # pragma: no cover
     absolute_file_path: str
     connection: Optional[str]
     includes: List[str]
@@ -144,7 +143,7 @@ class LookerViewFile:
         )
 
 
-class LookerViewFileLoader:
+class LookerViewFileLoader:  # pragma: no cover
     """
     Loads the looker viewfile at a :path and caches the LookerViewFile in memory
     This is to avoid reloading the same file off of disk many times during the recursive include resolution process
@@ -197,7 +196,7 @@ class ViewField:
 
 
 @dataclass
-class LookerView:
+class LookerView:  # pragma: no cover
     absolute_file_path: str
     connection: str
     view_name: str
@@ -367,7 +366,7 @@ class LookerView:
             return output_looker_view
 
 
-class LookMLSource(Source):
+class LookMLSource(Source):  # pragma: no cover
     source_config: LookMLSourceConfig
     report = LookMLSourceReport()
 
