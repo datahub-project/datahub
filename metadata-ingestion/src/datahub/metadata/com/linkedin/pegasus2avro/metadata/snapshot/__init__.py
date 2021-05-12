@@ -11,6 +11,7 @@ from ......schema_classes import GlossaryTermSnapshotClass
 from ......schema_classes import MLFeatureSnapshotClass
 from ......schema_classes import MLModelSnapshotClass
 from ......schema_classes import TagSnapshotClass
+from ......schema_classes import TestEntitySnapshotClass
 
 
 ChartSnapshot = ChartSnapshotClass
@@ -26,3 +27,4 @@ GlossaryTermSnapshot = GlossaryTermSnapshotClass
 MLFeatureSnapshot = MLFeatureSnapshotClass
 MLModelSnapshot = MLModelSnapshotClass
 TagSnapshot = TagSnapshotClass
+TestEntitySnapshot = TestEntitySnapshotClass
