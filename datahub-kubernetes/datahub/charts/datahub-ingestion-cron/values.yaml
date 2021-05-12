@@ -15,8 +15,12 @@ crons: {}
     ## Daily at midnight (we may want to offset this to not conflict with other processes)
     #schedule: "0 0 * * *"
 
+    #recipe:
+    #  configmapName:
+    #  fileName:
+
     ## Command to be executed
-    #command: ["/bin/sh", "-c", "datahub ingest -c config.yml"]
+    #command: ["/bin/sh", "-c", "datahub ingest -c <recipe.fileName>"]
 
     ## Deployment pod host aliases
     ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
