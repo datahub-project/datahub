@@ -45,6 +45,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import EnumTypeClass, SchemaMetadataClass
 
+assert sys.version_info[1] >= 7  # needed for mypy
+
 logger = logging.getLogger(__name__)
 
 # handle extend?
