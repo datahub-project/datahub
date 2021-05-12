@@ -13,8 +13,6 @@ logging.getLogger("lkml").setLevel(logging.INFO)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
-    print(str(test_resources_dir))
-
     pipeline = Pipeline.create(
         {
             "run_id": "lookml-test",
