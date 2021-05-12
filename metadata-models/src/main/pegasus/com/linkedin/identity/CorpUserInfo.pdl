@@ -35,6 +35,10 @@ record CorpUserInfo {
   /**
    * direct manager of this user
    */
+  @Relationship = {
+    "name": "ReportsTo",
+    "entityTypes": [ "corpUser" ]
+  }
   managerUrn: optional CorpuserUrn
 
   /**

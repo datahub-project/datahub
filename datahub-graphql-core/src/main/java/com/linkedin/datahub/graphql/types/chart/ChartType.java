@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.chart;
 import com.linkedin.chart.client.Charts;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -17,15 +18,19 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartSnapshotMapper;
+import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.snapshot.ChartSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 
@@ -42,10 +47,12 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
 
-    private final Charts _chartsClient;
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
+    private final EntityClient _entityClient;
+    private final Charts _chartsClient; // Currently only used for search, browse, etc.
 
-    public ChartType(final Charts chartsClient) {
+    public ChartType(final EntityClient entityClient, final Charts chartsClient) {
+        _entityClient = entityClient;
         _chartsClient = chartsClient;
     }
 
@@ -66,22 +73,22 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public List<Chart> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-        final List<ChartUrn> chartUrns = urns.stream()
+        final List<Urn> chartUrns = urns.stream()
                 .map(this::getChartUrn)
                 .collect(Collectors.toList());
 
         try {
-            final Map<ChartUrn, com.linkedin.dashboard.Chart> chartMap = _chartsClient.batchGet(chartUrns
+            final Map<Urn, com.linkedin.experimental.Entity> chartMap = _entityClient.batchGet(chartUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.dashboard.Chart> gmsResults = new ArrayList<>();
-            for (ChartUrn urn : chartUrns) {
+            final List<com.linkedin.experimental.Entity> gmsResults = new ArrayList<>();
+            for (Urn urn : chartUrns) {
                 gmsResults.add(chartMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsChart -> gmsChart == null ? null : ChartMapper.map(gmsChart))
+                    .map(gmsChart -> gmsChart == null ? null : ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Charts", e);
@@ -154,10 +161,11 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     public Chart update(@Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dashboard.Chart partialChart = ChartUpdateInputMapper.map(input, actor);
+        final ChartSnapshot chartSnapshot = ChartUpdateInputSnapshotMapper.map(input, actor);
+        final Snapshot snapshot = Snapshot.create(chartSnapshot);
 
         try {
-            _chartsClient.update(ChartUrn.createFromString(input.getUrn()), partialChart);
+            _entityClient.update(new com.linkedin.experimental.Entity().setValue(snapshot));
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

@@ -1,9 +1,9 @@
 package com.linkedin.metadata.dao;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.DynamicRecordMetadata;
 import com.linkedin.data.template.FieldDef;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.experimental.Entity;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.ActionRequestBuilder;
@@ -19,15 +19,15 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 
-public class EntityRemoteWriterDao {
+public class RemoteEntityDao {
 
     protected final Client _restliClient;
 
-    public EntityRemoteWriterDao(@Nonnull Client restliClient) {
+    public RemoteEntityDao(@Nonnull Client restliClient) {
         _restliClient = restliClient;
     }
 
-    public void create(@Nonnull RecordTemplate entity)
+    public void create(@Nonnull Entity entity)
             throws IllegalArgumentException, RemoteInvocationException {
 
         // TODO: John Refactor this

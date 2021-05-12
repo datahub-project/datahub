@@ -29,6 +29,10 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Charts in a dashboard
    */
+   @Relationship = {
+     "name": "Contains",
+     "entityTypes": [ "chart" ]
+   }
   charts: array[ChartUrn] = [ ]
 
   /**

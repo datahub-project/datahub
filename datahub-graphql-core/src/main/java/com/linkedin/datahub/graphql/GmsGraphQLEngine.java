@@ -71,7 +71,7 @@ public class GmsGraphQLEngine {
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getDatasetsClient());
     public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getCorpUsersClient());
-    public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getChartsClient());
+    public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getEntitiesClient(), GmsClientFactory.getChartsClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(
@@ -86,7 +86,7 @@ public class GmsGraphQLEngine {
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
 
     /**
-     * Configures the graph objects that can be fetched primary key.
+     * Configures the graph objects that can be fetched by primary key.
      */
     public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
             DATASET_TYPE,
@@ -112,7 +112,6 @@ public class GmsGraphQLEngine {
      * Configures all graph objects
      */
     public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(ENTITY_TYPES.stream(), RELATIONSHIP_TYPES.stream()).collect(Collectors.toList());
-
 
 
     /**
@@ -163,10 +162,11 @@ public class GmsGraphQLEngine {
         configureCorpUserResolvers(builder);
         configureDashboardResolvers(builder);
         configureChartResolvers(builder);
-        configureTypeResolvers(builder);
-        configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+
+        configureTypeResolvers(builder);
+        configureTypeExtensions(builder);
     }
 
     public static GraphQLEngine.Builder builder() {

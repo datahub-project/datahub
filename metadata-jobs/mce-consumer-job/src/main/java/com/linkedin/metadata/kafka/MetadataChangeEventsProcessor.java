@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.EntityRemoteWriterDao;
+import com.linkedin.metadata.dao.RemoteEntityDao;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -27,13 +27,13 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-    private EntityRemoteWriterDao entityRemoteWriterDao;
+    private RemoteEntityDao entityRemoteWriterDao;
     private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
     @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
     private String fmceTopicName;
 
-    public MetadataChangeEventsProcessor(@Nonnull final EntityRemoteWriterDao entityRemoteWriterDao,
+    public MetadataChangeEventsProcessor(@Nonnull final RemoteEntityDao entityRemoteWriterDao,
                                          @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
         this.entityRemoteWriterDao = entityRemoteWriterDao;
         this.kafkaTemplate = kafkaTemplate;

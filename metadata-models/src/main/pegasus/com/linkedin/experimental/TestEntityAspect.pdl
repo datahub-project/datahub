@@ -1,6 +1,8 @@
 namespace com.linkedin.experimental
 
+import com.linkedin.common.BrowsePaths
+
 /**
  * A union of all supported metadata aspects for a TestEntity
  */
-typeref TestEntityAspect = union[TestEntityKey, TestEntityInfo]
+typeref TestEntityAspect = union[TestEntityKey, TestEntityInfo, BrowsePaths]

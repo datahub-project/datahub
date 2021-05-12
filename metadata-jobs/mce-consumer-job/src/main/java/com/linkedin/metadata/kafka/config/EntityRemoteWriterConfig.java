@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka.config;
 
-import com.linkedin.metadata.dao.EntityRemoteWriterDao;
+import com.linkedin.metadata.dao.RemoteEntityDao;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,8 +21,8 @@ public class EntityRemoteWriterConfig {
     private String gmsSslProtocol;
 
     @Bean
-    public EntityRemoteWriterDao entityRemoteWriterDao() {
+    public RemoteEntityDao entityRemoteWriterDao() {
         Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-        return new EntityRemoteWriterDao(restClient);
+        return new RemoteEntityDao(restClient);
     }
 }
