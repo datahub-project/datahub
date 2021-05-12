@@ -2,6 +2,7 @@ import json
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import dateutil.parser
+from airflow.configuration import conf
 from airflow.lineage.backend import LineageBackend
 
 import datahub.emitter.mce_builder as builder
@@ -9,17 +10,9 @@ import datahub.metadata.schema_classes as models
 
 if TYPE_CHECKING:
     from airflow import DAG
+    from airflow.models.baseoperator import BaseOperator
 
-    # from airflow.taskinstance import TaskInstance
-    from airflow.models.baseoperator import (
-        BaseOperator,
-    )  # pylint: disable=cyclic-import
-
-    from datahub.integrations.airflow.hooks import (
-        DatahubGenericHook,
-    )  # pylint: disable=cyclic-import
-
-from airflow.configuration import conf
+    from datahub_provider.hooks.datahub import DatahubGenericHook
 
 
 def _entities_to_urn_list(iolets: List) -> List[str]:
@@ -28,13 +21,13 @@ def _entities_to_urn_list(iolets: List) -> List[str]:
 
 def make_emitter_hook() -> "DatahubGenericHook":
     # This is necessary to avoid issues with circular imports.
-    from datahub.integrations.airflow.hooks import DatahubGenericHook
+    from datahub_provider.hooks.datahub import DatahubGenericHook
 
     _datahub_conn_id = conf.get("lineage", "datahub_conn_id")
     return DatahubGenericHook(_datahub_conn_id)
 
 
-class DatahubAirflowLineageBackend(LineageBackend):
+class DatahubLineageBackend(LineageBackend):
     # With Airflow 2.0, this can be an instance method. However, with Airflow 1.10.x, this
     # method is used statically, even though LineageBackend declares it as an instance variable.
     @staticmethod
@@ -51,7 +44,7 @@ class DatahubAirflowLineageBackend(LineageBackend):
             SerializedDAG,
         )
 
-        from datahub.integrations.airflow.hooks import AIRFLOW_1
+        from datahub_provider.hooks.datahub import AIRFLOW_1
 
         # Detect Airflow 1.10.x inlet/outlet configurations in Airflow 2.x, and
         # convert to the newer version. This code path will only be triggered

@@ -10,7 +10,7 @@ from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 from airflow.utils.dates import days_ago
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.operators import DatahubEmitterOperator
+from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 default_args = {
     "owner": "airflow",
