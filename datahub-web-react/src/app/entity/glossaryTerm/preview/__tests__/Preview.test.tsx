@@ -7,7 +7,7 @@ describe('Preview', () => {
     it('renders', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <Preview urn="urn:li:tag:abc-sample-tag" name="name" definition="definition" owners={null} />
+                <Preview urn="urn:li:glossaryTerm:instruments.FinancialInstrument_v1" name="name" definition="definition" owners={null} />
             </TestPageContainer>,
         );
         expect(getByText('definition')).toBeInTheDocument();

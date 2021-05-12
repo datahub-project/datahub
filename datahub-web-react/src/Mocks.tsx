@@ -8,7 +8,7 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, DataFlow, DataJob, GlossaryTerm EntityType, PlatformType } from './types.generated';
+import { Dataset, DataFlow, DataJob, GlossaryTerm, EntityType, PlatformType } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 
 const user1 = {
