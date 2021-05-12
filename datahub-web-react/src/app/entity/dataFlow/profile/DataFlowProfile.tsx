@@ -13,6 +13,7 @@ import TagGroup from '../../../shared/tags/TagGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
     // Tasks = 'Tasks',
@@ -59,7 +60,13 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                         owners={(ownership && ownership.owners) || []}
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
                         updateOwnership={(update) => {
-                            updateDataFlow({ variables: { input: { urn, ownership: update } } });
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.DataFlow,
+                                entityUrn: urn,
+                            });
+                            return updateDataFlow({ variables: { input: { urn, ownership: update } } });
                         }}
                     />
                 ),
@@ -82,13 +89,29 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                             editableTags={data.dataFlow?.globalTags as GlobalTags}
                             canAdd
                             canRemove
-                            updateTags={(globalTags) => updateDataFlow({ variables: { input: { urn, globalTags } } })}
+                            updateTags={(globalTags) => {
+                                analytics.event({
+                                    type: EventType.EntityActionEvent,
+                                    actionType: EntityActionType.UpdateTags,
+                                    entityType: EntityType.DataFlow,
+                                    entityUrn: urn,
+                                });
+                                return updateDataFlow({ variables: { input: { urn, globalTags } } });
+                            }}
                         />
                     }
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
                     title={data.dataFlow.info?.name || ''}
                     tabs={getTabs(data.dataFlow)}
                     header={getHeader(data.dataFlow as DataFlow)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.DataFlow,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

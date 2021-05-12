@@ -6,6 +6,7 @@ import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.lineage.client.Lineages;
+import com.linkedin.identity.client.CorpGroups;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
@@ -13,7 +14,7 @@ import com.linkedin.tag.client.Tags;
 import com.linkedin.util.Configuration;
 import com.linkedin.datajob.client.DataFlows;
 import com.linkedin.datajob.client.DataJobs;
-
+import com.linkedin.glossary.client.GlossaryTerms;
 
 /**
  * Provides access to clients for use in fetching data from downstream GMS services.
@@ -38,6 +39,7 @@ public class GmsClientFactory {
             Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR));
 
     private static CorpUsers _corpUsers;
+    private static CorpGroups _corpGroups;
     private static Datasets _datasets;
     private static Dashboards _dashboards;
     private static Charts _charts;
@@ -47,6 +49,7 @@ public class GmsClientFactory {
     private static Tags _tags;
     private static DataFlows _dataFlows;
     private static DataJobs _dataJobs;
+    private static GlossaryTerms _glossaryTerms;
 
 
     private GmsClientFactory() { }
@@ -60,6 +63,17 @@ public class GmsClientFactory {
             }
         }
         return _corpUsers;
+    }
+
+    public static CorpGroups getCorpGroupsClient() {
+        if (_corpGroups == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_corpGroups == null) {
+                    _corpGroups = new CorpGroups(REST_CLIENT);
+                }
+            }
+        }
+        return _corpGroups;
     }
 
     public static Datasets getDatasetsClient() {
@@ -159,5 +173,16 @@ public class GmsClientFactory {
             }
         }
         return _tags;
+    }
+
+    public static GlossaryTerms getGlossaryTermsClient() {
+        if (_glossaryTerms == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_glossaryTerms == null) {
+                    _glossaryTerms = new GlossaryTerms(REST_CLIENT);
+                }
+            }
+        }
+        return _glossaryTerms;
     }
 }

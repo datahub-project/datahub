@@ -66,6 +66,44 @@
     {
         "auditHeader": null,
         "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+                "urn": "urn:li:corpGroup:jdoe",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                            "email": "jdoe@linkedin.com",
+                            "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+                            "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+                            "groups": []
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+                "urn": "urn:li:corpGroup:bfoo",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                            "email": "bfoo@linkedin.com",
+                            "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+                            "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+                            "groups": ["urn:li:corpGroup:jdoe"]
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                 "aspects": [
@@ -1177,6 +1215,22 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
                 "urn": "urn:li:dashboard:(looker,baz)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpGroup:bfoo",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1581407189000,
+                                "actor": "urn:li:corpuser:jdoe",
+                                "impersonator": null
+                            }
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                             "title": "Baz Dashboard",

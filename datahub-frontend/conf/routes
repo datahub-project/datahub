@@ -55,5 +55,8 @@ POST          /api/*path                                                      co
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                   controllers.Assets.at(path="/public", file)
 
+# Analytics route
+POST          /track                                                          react.controllers.TrackingController.track()
+
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
 GET           /*path                                                          controllers.Application.index(path)

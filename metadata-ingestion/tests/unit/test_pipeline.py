@@ -31,6 +31,7 @@ class PipelineTest(unittest.TestCase):
         )
         pipeline.run()
         pipeline.raise_from_status()
+        pipeline.pretty_print_summary()
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
