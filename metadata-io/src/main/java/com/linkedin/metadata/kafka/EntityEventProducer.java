@@ -2,7 +2,6 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.template.DataTemplate;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.BaseMetadataEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaMetadataEventProducer;
@@ -36,6 +35,7 @@ public class EntityEventProducer {
                             getDataSchemaClassFromSchema(spec.getAspectTyperefSchema()),
                             producer,
                             topicConvention,
+                            spec,
                             new KafkaProducerCallback()
                     )
             );

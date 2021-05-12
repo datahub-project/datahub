@@ -13,10 +13,18 @@ record DataProcessInfo {
   /**
    * the inputs of the data process
    */
+  @Relationship = {
+    "name": "Consumes",
+    "entityTypes": [ "dataset" ]
+  }
   inputs: optional array[DatasetUrn]
 
   /**
    * the outputs of the data process
    */
+   @Relationship = {
+     "name": "Consumes",
+     "entityTypes": [ "dataset" ]
+   }
   outputs: optional array[DatasetUrn]
 }

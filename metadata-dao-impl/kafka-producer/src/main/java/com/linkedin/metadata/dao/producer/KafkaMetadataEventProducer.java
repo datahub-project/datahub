@@ -2,12 +2,16 @@ package com.linkedin.metadata.dao.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
@@ -17,8 +21,8 @@ import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -45,6 +49,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
   private final TopicConvention _topicConvention;
+  private final EntitySpec _entitySpec;
 
   /**
    * Constructor.
@@ -55,9 +60,26 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param topicConvention the convention to use to get kafka topic names
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention) {
-    this(snapshotClass, aspectUnionClass, producer, topicConvention, null);
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention) {
+    this(snapshotClass, aspectUnionClass, producer, topicConvention, null, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param snapshotClass The snapshot class for the produced events
+   * @param aspectUnionClass The aspect union in the snapshot
+   * @param producer The Kafka {@link Producer} to use
+   * @param topicConvention the convention to use to get kafka topic names
+   */
+  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention,
+                                    @Nonnull EntitySpec entitySpec) {
+    this(snapshotClass, aspectUnionClass, producer, topicConvention, entitySpec, null);
   }
 
   /**
@@ -70,17 +92,39 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param callback The {@link Callback} to invoke when the request is completed
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention, @Nullable Callback callback) {
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention,
+                                    @Nullable Callback callback) {
+
+    this(snapshotClass, aspectUnionClass, producer, topicConvention, null, callback);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param snapshotClass The snapshot class for the produced events
+   * @param aspectUnionClass The aspect union in the snapshot
+   * @param producer The Kafka {@link Producer} to use
+   * @param topicConvention the convention to use to get kafka topic names
+   * @param callback The {@link Callback} to invoke when the request is completed
+   */
+  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention,
+                                    @Nonnull EntitySpec entitySpec,
+                                    @Nullable Callback callback) {
     super(snapshotClass, aspectUnionClass);
     _producer = producer;
     _callback = Optional.ofNullable(callback);
     _topicConvention = topicConvention;
+    _entitySpec = entitySpec;
   }
 
   @Override
   public <ASPECT extends RecordTemplate> void produceSnapshotBasedMetadataChangeEvent(@Nonnull URN urn,
-      @Nonnull ASPECT newValue) {
+                                                                                      @Nonnull ASPECT newValue) {
     MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
     metadataChangeEvent.setProposedSnapshot(makeSnapshot(urn, newValue));
 
@@ -172,7 +216,23 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   @Nonnull
   private Snapshot makeSnapshot(@Nonnull URN urn, @Nonnull RecordTemplate value) {
     Snapshot snapshot = new Snapshot();
-    List<ASPECT_UNION> aspects = Collections.singletonList(ModelUtils.newAspectUnion(_aspectUnionClass, value));
+
+    List<ASPECT_UNION> aspects = new ArrayList<>();
+    aspects.add(ModelUtils.newAspectUnion(_aspectUnionClass, value));
+
+    if (_entitySpec != null) {
+      // We are using the Generic Dao :) --> Eventually this should just be required. It is duplicated with other information.
+      final Optional<AspectSpec> maybeKeySpec = _entitySpec.getAspectSpecs().stream().filter(spec -> spec.isKey()).findFirst();
+
+      // Currently for backwards compat: If there is a key spec, then add the key aspect.
+      if (maybeKeySpec.isPresent()) {
+        final AspectSpec keySpec = maybeKeySpec.get();
+        final RecordDataSchema keySchema = keySpec.getPegasusSchema();
+        final RecordTemplate keyRecord = EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+        aspects.add(ModelUtils.newAspectUnion(_aspectUnionClass, keyRecord));
+      }
+    }
+
     RecordUtils.setSelectedRecordTemplateInUnion(snapshot, ModelUtils.newSnapshot(_snapshotClass, urn, aspects));
     return snapshot;
   }

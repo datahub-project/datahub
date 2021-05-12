@@ -74,18 +74,26 @@ public class EntitySpecBuilder {
 
             final AspectAnnotation aspectAnnotation = AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, ((RecordDataSchema) aspect).getBindingName());
 
+            // Extract Searchable Field Specs
             final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
             final DataSchemaRichContextTraverser searchableFieldSpecTraverser = new DataSchemaRichContextTraverser(searchableFieldSpecExtractor);
             searchableFieldSpecTraverser.traverse(aspectRecordSchema);
 
+            // Extract Relationship Field Specs
             final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor = new RelationshipFieldSpecExtractor();
             final DataSchemaRichContextTraverser relationshipFieldSpecTraverser = new DataSchemaRichContextTraverser(relationshipFieldSpecExtractor);
             relationshipFieldSpecTraverser.traverse(aspectRecordSchema);
+
+            // Extract Browsable Field Specs
+            final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor();
+            final DataSchemaRichContextTraverser browsePathFieldSpecTraverser = new DataSchemaRichContextTraverser(browsePathFieldSpecExtractor);
+            browsePathFieldSpecTraverser.traverse(aspectRecordSchema);
 
             return new AspectSpec(
                     aspectAnnotation,
                     searchableFieldSpecExtractor.getSpecs(),
                     relationshipFieldSpecExtractor.getSpecs(),
+                    browsePathFieldSpecExtractor.getSpecs(),
                     aspectRecordSchema);
         }
         // TODO: Replace with exception once we are ready.
