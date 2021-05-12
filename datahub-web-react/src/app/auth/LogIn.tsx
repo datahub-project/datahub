@@ -7,6 +7,7 @@ import { Redirect } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
+import analytics, { EventType } from '../analytics';
 
 type FormValues = {
     username: string;
@@ -36,6 +37,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     return Promise.reject(error);
                 }
                 isLoggedInVar(true);
+                analytics.event({ type: EventType.LogInEvent });
                 return Promise.resolve();
             })
             .catch((error) => {

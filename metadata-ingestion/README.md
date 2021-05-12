@@ -16,7 +16,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
 
-```sh
+```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
@@ -56,13 +56,13 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 These plugins can be mixed and matched as desired. For example:
 
-```sh
+```shell
 pip install 'acryl-datahub[bigquery,datahub-rest]'
 ```
 
 You can check the active plugins:
 
-```sh
+```shell
 datahub check plugins
 ```
 
@@ -70,7 +70,7 @@ datahub check plugins
 
 #### Basic Usage
 
-```sh
+```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
@@ -85,7 +85,7 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
-```sh
+```shell
 ./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
@@ -125,7 +125,7 @@ https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitut
 
 Running a recipe is quite easy.
 
-```sh
+```shell
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
@@ -499,7 +499,8 @@ can produce such files, and a number of samples are included in the
 ```yml
 source:
   type: file
-  filename: ./path/to/mce/file.json
+  config:
+    filename: ./path/to/mce/file.json
 ```
 
 ### DBT `dbt`
@@ -595,37 +596,36 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 - [DataHub emitter via REST](./src/datahub/emitter/rest_emitter.py) (same requirements as `datahub-rest`). Basic usage [example](./examples/library/lineage_emitter_rest.py).
 - [DataHub emitter via Kafka](./src/datahub/emitter/kafka_emitter.py) (same requirements as `datahub-kafka`). Basic usage [example](./examples/library/lineage_emitter_kafka.py).
 
-## Usage with Airflow
+## Lineage with Airflow
 
-There's a couple ways to integrate DataHub with Airflow.
+There's a couple ways to get lineage information from Airflow into DataHub.
 
-### Running ingestion on a schedule
+:::note Running ingestion on a schedule
 
-Take a look at these sample DAGs:
+If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
 
-- [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - a simple Airflow DAG that picks up a DataHub ingestion recipe configuration and runs it.
-- [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - an Airflow DAG that runs a MySQL metadata ingestion pipeline using an inlined configuration.
+- [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it
+- [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration.
 
-### Emitting lineage via a separate operator
+:::
 
-Take a look at this sample DAG:
+### Using Datahub's Airflow lineage backend (recommended)
 
-- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
+:::caution
 
-In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook.
+The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
-```sh
-# For REST-based:
-airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
-# For Kafka-based (standard Kafka sink config can be passed via extras):
-airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
-```
+:::
 
-### Using Datahub's Airflow lineage backend
+1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
-_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
+   ```shell
+   # For REST-based:
+   airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
+   # For Kafka-based (standard Kafka sink config can be passed via extras):
+   airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
+   ```
 
-1. First, you must configure the Airflow hooks. See above for details.
 2. Add the following lines to your `airflow.cfg` file. You might need to
    ```ini
    [lineage]
@@ -634,6 +634,14 @@ _Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0
    ```
 3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./examples/airflow/lineage_backend_demo.py).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
+
+### Emitting lineage via a separate operator
+
+Take a look at this sample DAG:
+
+- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
+
+In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
 
 ## Developing
 

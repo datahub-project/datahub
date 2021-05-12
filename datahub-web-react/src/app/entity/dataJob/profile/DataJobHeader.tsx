@@ -4,14 +4,25 @@ import { DataJob } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export type Props = {
     dataJob: DataJob;
 };
 
-export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }: Props) {
+export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlow } }: Props) {
     const entityRegistry = useEntityRegistry();
     const platformName = capitalizeFirstLetter(dataFlow.orchestrator);
+
+    const openExternalUrl = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType: EntityType.DataJob,
+            entityUrn: urn,
+        });
+        window.open(info?.externalUrl || undefined, '_blank');
+    };
 
     return (
         <>
@@ -20,11 +31,7 @@ export default function DataJobHeader({ dataJob: { ownership, info, dataFlow } }
                     <Space split={<Divider type="vertical" />}>
                         <Typography.Text>Data Task</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
-                        {info?.externalUrl && (
-                            <Button onClick={() => window.open(info?.externalUrl || undefined, '_blank')}>
-                                View in {platformName}
-                            </Button>
-                        )}
+                        {info?.externalUrl && <Button onClick={openExternalUrl}>View in {platformName}</Button>}
                     </Space>
                 </Row>
                 <Typography.Paragraph>{info?.description}</Typography.Paragraph>
