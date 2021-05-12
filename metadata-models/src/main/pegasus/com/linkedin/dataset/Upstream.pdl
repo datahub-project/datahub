@@ -16,6 +16,10 @@ record Upstream {
   /**
    * The upstream dataset the lineage points to
    */
+  @Relationship = {
+    "name": "DownstreamOf",
+    "entityTypes": [ "dataset" ]
+  }
   dataset: DatasetUrn
 
   /**

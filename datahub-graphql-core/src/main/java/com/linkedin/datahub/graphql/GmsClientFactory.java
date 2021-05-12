@@ -4,6 +4,7 @@ import com.linkedin.chart.client.Charts;
 import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.dataset.client.Datasets;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.lineage.client.Lineages;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
@@ -47,6 +48,8 @@ public class GmsClientFactory {
     private static Tags _tags;
     private static DataFlows _dataFlows;
     private static DataJobs _dataJobs;
+
+    private static EntityClient _entities;
 
 
     private GmsClientFactory() { }
@@ -159,5 +162,16 @@ public class GmsClientFactory {
             }
         }
         return _tags;
+    }
+
+    public static EntityClient getEntitiesClient() {
+        if (_entities == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_entities == null) {
+                    _entities = new EntityClient(REST_CLIENT);
+                }
+            }
+        }
+        return _entities;
     }
 }

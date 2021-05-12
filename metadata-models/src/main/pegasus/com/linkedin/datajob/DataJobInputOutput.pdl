@@ -14,10 +14,18 @@ record DataJobInputOutput {
   /**
    * Input datasets consumed by the data job during processing
    */
+   @Relationship = {
+     "name": "Consumes",
+     "entityTypes": [ "dataset" ]
+   }
   inputDatasets: array[DatasetUrn]
 
   /**
    * Output datasets produced by the data job during processing
    */
+   @Relationship = {
+     "name": "Consumes",
+     "entityTypes": [ "dataset" ]
+   }
   outputDatasets: array[DatasetUrn]
 }
