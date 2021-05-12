@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.dao.Neo4jQueryDAO;
-import com.linkedin.metadata.dao.internal.Neo4jGraphWriterDAO;
+import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -12,14 +11,14 @@ import org.springframework.context.annotation.DependsOn;
 import javax.annotation.Nonnull;
 
 @Configuration
-public class DatasetWriterDaoFactory {
+public class GraphQueryDaoFactory {
     @Autowired
     ApplicationContext applicationContext;
 
     @Nonnull
     @DependsOn({"neo4jDriver"})
-    @Bean(name = "graphWriterDao")
-    protected Neo4jGraphWriterDAO createInstance() {
-        return new Neo4jGraphWriterDAO(applicationContext.getBean(Driver.class));
+    @Bean(name = "graphQueryDao")
+    protected Neo4jGraphDAO createInstance() {
+        return new Neo4jGraphDAO(applicationContext.getBean(Driver.class));
     }
 }

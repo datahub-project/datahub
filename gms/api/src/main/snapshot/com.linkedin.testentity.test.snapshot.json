@@ -198,13 +198,15 @@
       "name" : "name",
       "type" : "string",
       "Searchable" : {
-        "fieldName" : "alias",
+        "fieldName" : "aliasRecords",
         "indexSettings" : [ {
-          "addToDefaultQuery" : false,
-          "boostScore" : 3,
           "indexType" : "KEYWORD"
-        } ],
-        "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "DELIMITED"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasAliasRecords"
+        } ]
       }
     } ]
   }, {
@@ -247,11 +249,29 @@
       "fields" : [ {
         "name" : "keyPart1",
         "type" : "string",
-        "doc" : "Title of the chart"
+        "doc" : "Title of the chart",
+        "Searchable" : {
+          "fieldName" : "key",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
       }, {
         "name" : "keyPart2",
         "type" : "string",
-        "doc" : "Title of the chart"
+        "doc" : "Title of the chart",
+        "Searchable" : {
+          "fieldName" : "keyParts",
+          "indexSettings" : [ {
+            "indexType" : "PATTERN"
+          }, {
+            "indexType" : "PARTIAL_PATTERN"
+          } ]
+        }
       }, {
         "name" : "keyPart3",
         "type" : "string",
@@ -273,9 +293,11 @@
         "Searchable" : {
           "fieldName" : "title",
           "indexSettings" : [ {
-            "addToDefaultQuery" : false,
-            "boostScore" : 3,
             "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "PARTIAL"
           } ]
         }
       }, {
@@ -287,11 +309,16 @@
         "Searchable" : {
           "fieldName" : "aliases",
           "indexSettings" : [ {
-            "addToDefaultQuery" : false,
-            "boostScore" : 3,
             "indexType" : "KEYWORD"
-          } ],
-          "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "DELIMITED"
+          }, {
+            "indexType" : "BOOLEAN",
+            "overrideFieldName" : "hasAliases"
+          }, {
+            "indexType" : "COUNT",
+            "overrideFieldName" : "numAliases"
+          } ]
         }
       }, {
         "name" : "recordAliases",
@@ -319,7 +346,12 @@
       }, {
         "name" : "description",
         "type" : "string",
-        "doc" : "Detailed description about the test entity"
+        "Searchable" : {
+          "fieldName" : "description",
+          "indexSettings" : [ {
+            "indexType" : "DELIMITED"
+          } ]
+        }
       }, {
         "name" : "lastModified",
         "type" : "com.linkedin.common.ChangeAuditStamps",
@@ -341,7 +373,13 @@
         "name" : "type",
         "type" : "ChartTypeOption",
         "doc" : "Type of the chart",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldName" : "chartType",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          } ]
+        }
       }, {
         "name" : "lastRefreshed",
         "type" : "com.linkedin.common.Time",

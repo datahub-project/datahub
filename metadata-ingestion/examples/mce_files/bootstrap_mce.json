@@ -44,6 +44,8 @@
                             "recordAliases": [{
                             	"name": "alias_three"
                             }],
+                            "foreignKeyArray": ["urn:li:chart:100"],
+                            "foreignKey": "urn:li:chart:200",
                             "description": "some descript",
                             "lastModified": {
                                 "time": 1581407189000,
@@ -51,7 +53,7 @@
                                 "impersonator": null
                             },
                             "inputs": [{
-                            	"entity": "urn:li:chart:12",
+                            	"entity": "urn:li:chart:300",
                             	"myEdgeProp": "extra prop"
                             }]
                         }
