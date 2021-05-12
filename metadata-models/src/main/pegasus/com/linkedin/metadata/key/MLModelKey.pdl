@@ -1,0 +1,28 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for an ML model
+ */
+@Aspect = {
+    "name": "mlModelKey",
+    "isKey": true
+}
+record MLModelKey {
+    /**
+    * Standardized platform urn for the model
+    */
+    platform: Urn
+
+    /**
+    * Name of the MLModel
+    */
+    name: string
+
+    /**
+    * Fabric type where model belongs to or where it was generated
+    */
+    origin: FabricType
+}

@@ -1,0 +1,17 @@
+{
+  "properties": {
+    "definition": {
+      "type": "text",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "delimit_edgengram"
+        }
+      }
+    },
+    "urn": {
+      "type": "keyword",
+      "normalizer": "custom_normalizer"
+    }
+  }
+}

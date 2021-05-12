@@ -3,7 +3,7 @@ package com.linkedin.metadata.resources.dataprocess;
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.dataprocess.DataProcess;
 import com.linkedin.dataprocess.DataProcessInfo;
-import com.linkedin.dataprocess.DataProcessKey;
+import com.linkedin.dataprocess.DataProcessResourceKey;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -44,7 +44,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 @RestLiCollection(name = "dataProcesses", namespace = "com.linkedin.dataprocess", keyName = "dataprocess")
 public class DataProcesses extends BaseSearchableEntityResource<
     // @formatter:off
-    ComplexResourceKey<DataProcessKey, EmptyRecord>,
+    ComplexResourceKey<DataProcessResourceKey, EmptyRecord>,
     DataProcess,
     DataProcessUrn,
     DataProcessSnapshot,
@@ -86,15 +86,15 @@ public class DataProcesses extends BaseSearchableEntityResource<
 
     @Nonnull
     @Override
-    protected DataProcessUrn toUrn(@Nonnull ComplexResourceKey<DataProcessKey, EmptyRecord> key) {
+    protected DataProcessUrn toUrn(@Nonnull ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key) {
         return new DataProcessUrn(key.getKey().getOrchestrator(), key.getKey().getName(), key.getKey().getOrigin());
     }
 
     @Nonnull
     @Override
-    protected ComplexResourceKey<DataProcessKey, EmptyRecord> toKey(@Nonnull DataProcessUrn urn) {
+    protected ComplexResourceKey<DataProcessResourceKey, EmptyRecord> toKey(@Nonnull DataProcessUrn urn) {
         return new ComplexResourceKey<>(
-            new DataProcessKey()
+            new DataProcessResourceKey()
                 .setOrchestrator(urn.getOrchestratorEntity())
                 .setName(urn.getNameEntity())
                 .setOrigin(urn.getOriginEntity()),
@@ -141,7 +141,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @RestMethod.Get
     @Override
     @Nonnull
-    public Task<DataProcess> get(@Nonnull ComplexResourceKey<DataProcessKey, EmptyRecord> key,
+    public Task<DataProcess> get(@Nonnull ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key,
                                  @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.get(key, aspectNames);
     }
@@ -149,8 +149,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @RestMethod.BatchGet
     @Override
     @Nonnull
-    public Task<Map<ComplexResourceKey<DataProcessKey, EmptyRecord>, DataProcess>> batchGet(
-            @Nonnull Set<ComplexResourceKey<DataProcessKey, EmptyRecord>> keys,
+    public Task<Map<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>, DataProcess>> batchGet(
+            @Nonnull Set<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>> keys,
             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         return super.batchGet(keys, aspectNames);
     }

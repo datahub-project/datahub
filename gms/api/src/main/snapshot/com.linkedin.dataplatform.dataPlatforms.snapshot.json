@@ -108,8 +108,22 @@
     "name" : "DataPlatformAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data Platform",
-    "ref" : [ "com.linkedin.dataplatform.DataPlatformInfo" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataPlatformKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Platform",
+      "fields" : [ {
+        "name" : "platformName",
+        "type" : "string",
+        "doc" : "Data platform name i.e. hdfs, oracle, espresso"
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataPlatformKey"
+      }
+    }, "com.linkedin.dataplatform.DataPlatformInfo" ]
+  }, "com.linkedin.metadata.key.DataPlatformKey", {
     "type" : "record",
     "name" : "DataPlatformSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",

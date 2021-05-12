@@ -1,17 +1,16 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.element.DataElement;
-import com.linkedin.data.it.IterationOrder;
-import com.linkedin.data.it.ObjectIterator;
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
+import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -19,14 +18,11 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.index_builder.IndexBuilder;
+import com.linkedin.metadata.search.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
@@ -35,13 +31,11 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -65,8 +59,8 @@ public class MetadataAuditEventsProcessor {
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
-  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient, ElasticsearchConnector elasticSearchConnector,
-      SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
+  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
+      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
@@ -76,14 +70,15 @@ public class MetadataAuditEventsProcessor {
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
     try {
-      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"), "testentity").buildIndex();
+      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"),
+          "testentity").buildIndex();
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
-      + Topics.METADATA_AUDIT_EVENT + "}")
+      + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
@@ -112,38 +107,28 @@ public class MetadataAuditEventsProcessor {
   private void updateNeo4j(final RecordTemplate snapshot) throws URISyntaxException {
     // TODO(Gabe): memoize this
     final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
-    ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
-            snapshot.schema(),
-            IterationOrder.PRE_ORDER);
-
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     List<Neo4jGraphDAO.Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrn = snapshot.data().get("urn").toString();
 
-    while (true) {
-      final DataElement next = dataElement.next();
-      if (next == null) {
-        break;
-      }
-      final PathSpec pathSpec = next.getSchemaPathSpec();
-      List<String> pathComponents = pathSpec.getPathComponents();
-      if (pathComponents.size() < 4) {
-        continue;
-      }
-      final String aspectName = pathComponents.get(2);
-      final String suffix = "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
-      final Optional<RelationshipFieldSpec> matchingAnnotation = entitySpec
-              .getAspectSpecMap()
-              .get(aspectName)
-              .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+    Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
+    Map<RelationshipFieldSpec, Object> extractedFields =
+        FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
 
-      if (matchingAnnotation.isPresent()) {
-        relationshipTypesBeingAdded.add(matchingAnnotation.get().getRelationshipName());
+    for (Map.Entry<RelationshipFieldSpec, Object> entry : extractedFields.entrySet()) {
+      try {
+        relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
         edgesToAdd.add(new Neo4jGraphDAO.Edge(
                 Urn.createFromString(sourceUrn),
-                Urn.createFromString((next.getValue()).toString()),
-                matchingAnnotation.get().getRelationshipName()
+                Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName()
         ));
+        _graphQueryDao.addAbstractEdge(Urn.createFromString(snapshot.data().get("urn").toString()),
+            Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName());
+      } catch (URISyntaxException e) {
+        log.info("Invalid urn: {}", e.getLocalizedMessage());
       }
     }
     _graphQueryDao.removeEdgeTypesFromNode(

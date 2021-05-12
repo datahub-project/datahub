@@ -32,7 +32,9 @@
                 "fieldDescriptions^0.125",
                 "fieldTags.ngram^0.0125",
                 "editedFieldDescriptions^0.125",
-                "editedFieldTags.ngram^0.0125"
+                "editedFieldTags.ngram^0.0125",
+                "glossaryTerms",
+                "glossaryTerms.ngram^0.0625"
               ],
               "default_operator": "and",
               "analyzer": "whitespace_lowercase"

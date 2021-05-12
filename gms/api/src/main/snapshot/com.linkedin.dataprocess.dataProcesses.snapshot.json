@@ -206,7 +206,7 @@
     "doc" : "Spec. for a process. A collection of data conforming to a single schema that can evolve over time.",
     "include" : [ {
       "type" : "record",
-      "name" : "DataProcessKey",
+      "name" : "DataProcessResourceKey",
       "doc" : "Key for process resource",
       "fields" : [ {
         "name" : "orchestrator",
@@ -272,13 +272,35 @@
       "doc" : "Metadata associated with a data process including input and output datasets",
       "optional" : true
     } ]
-  }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessKey", {
+  }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessResourceKey", {
     "type" : "typeref",
     "name" : "DataProcessAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a data process",
-    "ref" : [ "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataProcessKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Process",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Process name i.e. an ETL job name"
+      }, {
+        "name" : "orchestrator",
+        "type" : "string",
+        "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn"
+      }, {
+        "name" : "origin",
+        "type" : "com.linkedin.common.FabricType",
+        "doc" : "Fabric type where dataset belongs to or where it was generated."
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataProcessKey"
+      }
+    }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
+  }, "com.linkedin.metadata.key.DataProcessKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -503,7 +525,7 @@
     "collection" : {
       "identifier" : {
         "name" : "dataprocess",
-        "type" : "com.linkedin.dataprocess.DataProcessKey",
+        "type" : "com.linkedin.dataprocess.DataProcessResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get", "get_all" ],

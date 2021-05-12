@@ -1,11 +1,11 @@
 apply plugin: 'pegasus'
 
 dependencies {
-    compile spec.product.pegasus.data
-    compile spec.product.pegasus.generator
-    compile project(path: ':metadata-models')
-    compile externalDependency.lombok
+  compile spec.product.pegasus.data
+  compile spec.product.pegasus.generator
+  compile project(path: ':metadata-models')
+  compile externalDependency.lombok
 
-    implementation gradleApi()
-    annotationProcessor externalDependency.lombok
+  implementation gradleApi()
+  annotationProcessor externalDependency.lombok
 }

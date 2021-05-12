@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an ML model
+ */
+@Aspect = {
+    "name": "mlFeatureKey",
+    "isKey": true
+}
+record MLFeatureKey {
+
+  /**
+   * Namespace for the feature
+   */
+   featureNamespace: string
+
+  /**
+   * Name of the feature
+   */
+   name: string
+}
