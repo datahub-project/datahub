@@ -50,29 +50,34 @@ public class Neo4jGraphDAO {
         this._driver = driver;
         this._sessionConfig = sessionConfig;
     }
-    public void addAbstractEdge(
-            @Nonnull Urn source,
-            @Nonnull Urn destination,
-            @Nonnull String relationshipType
-    ) throws URISyntaxException {
-        final String sourceType = source.getEntityType();
-        final String destinationType = destination.getEntityType();
+
+    @Data
+    @AllArgsConstructor
+    public static class Edge {
+        private Urn source;
+        private Urn destination;
+        private String relationshipType;
+    }
+
+    public void addEdge(Edge edge) {
+        final String sourceType = edge.getSource().getEntityType();
+        final String destinationType = edge.getDestination().getEntityType();
 
         final List<Statement> statements = new ArrayList<>();
 
         // Add/Update source & destination node first
-        statements.add(getOrInsertNode(source));
-        statements.add(getOrInsertNode(destination));
+        statements.add(getOrInsertNode(edge.getSource()));
+        statements.add(getOrInsertNode(edge.getDestination()));
 
         // Add/Update relationship
         final String mergeRelationshipTemplate =
                 "MATCH (source:%s {urn: $sourceUrn}),(destination:%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
         final String statement =
-                String.format(mergeRelationshipTemplate, sourceType, destinationType, relationshipType);
+                String.format(mergeRelationshipTemplate, sourceType, destinationType, edge.getRelationshipType());
 
         final Map<String, Object> paramsMerge = new HashMap<>();
-        paramsMerge.put("sourceUrn", source.toString());
-        paramsMerge.put("destinationUrn", destination.toString());
+        paramsMerge.put("sourceUrn", edge.getSource().toString());
+        paramsMerge.put("destinationUrn", edge.getDestination().toString());
         paramsMerge.put("properties", new HashMap<>());
 
         statements.add(buildStatement(statement, paramsMerge));
@@ -223,9 +228,7 @@ public class Neo4jGraphDAO {
      */
     @Nonnull
     private Result runQuery(@Nonnull Statement statement) {
-        try (final Session session = _driver.session()) {
-            return session.run(statement.getCommandText(), statement.getParams());
-        }
+        return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
     }
 
     // Returns "key:value" String, if value is not primitive, then use toString() and double quote it

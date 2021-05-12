@@ -16,6 +16,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.index_builder.IndexBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
@@ -30,9 +33,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -42,6 +47,8 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+
+import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 
 @Slf4j
@@ -102,14 +109,22 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateNeo4j(final RecordTemplate snapshot) {
+  private void updateNeo4j(final RecordTemplate snapshot) throws URISyntaxException {
     // TODO(Gabe): memoize this
     final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
     ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
             snapshot.schema(),
             IterationOrder.PRE_ORDER);
+
+    final Set<String> relationshipTypesBeingAdded = new HashSet<>();
+    List<Neo4jGraphDAO.Edge> edgesToAdd = new ArrayList<>();
+    final String sourceUrn = snapshot.data().get("urn").toString();
+
     while (true) {
       final DataElement next = dataElement.next();
+      if (next == null) {
+        break;
+      }
       final PathSpec pathSpec = next.getSchemaPathSpec();
       List<String> pathComponents = pathSpec.getPathComponents();
       if (pathComponents.size() < 4) {
@@ -123,20 +138,20 @@ public class MetadataAuditEventsProcessor {
               .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
 
       if (matchingAnnotation.isPresent()) {
-        try {
-          _graphQueryDao.addAbstractEdge(
-                  Urn.createFromString(snapshot.data().get("urn").toString()),
-                  Urn.createFromString((next.getValue()).toString()),
-                  matchingAnnotation.get().getRelationshipName()
-          );
-        } catch (URISyntaxException e) {
-          e.printStackTrace();
-        }
-      }
-      if (next == null) {
-        break;
+        relationshipTypesBeingAdded.add(matchingAnnotation.get().getRelationshipName());
+        edgesToAdd.add(new Neo4jGraphDAO.Edge(
+                Urn.createFromString(sourceUrn),
+                Urn.createFromString((next.getValue()).toString()),
+                matchingAnnotation.get().getRelationshipName()
+        ));
       }
     }
+    _graphQueryDao.removeEdgeTypesFromNode(
+            Urn.createFromString(sourceUrn),
+            relationshipTypesBeingAdded.stream().collect(Collectors.toList()),
+            createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING)
+    );
+    edgesToAdd.forEach(edge -> _graphQueryDao.addEdge(edge));
   }
 
   /**
