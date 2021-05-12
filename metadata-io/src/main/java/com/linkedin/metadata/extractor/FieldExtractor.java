@@ -27,21 +27,21 @@ public class FieldExtractor {
     private static <T extends FieldSpec> Map<String, T> getPathToFieldSpecMap(
             Map<String, List<T>> fieldSpecsPerAspect) {
         return fieldSpecsPerAspect.entrySet().stream().flatMap(entry -> entry.getValue().stream()
-                .map(fieldSpec -> entry.getKey() + "/" + fieldSpec.getPath().toString()))
+                .map(fieldSpec -> (entry.getKey() + "/" + fieldSpec.getPath().toString()))
                 .collect(Collectors.toMap(spec -> spec.getPath().toString(), Function.identity()));
     }
 
     /**
      * Function to extract the fields that match the input fieldSpecs
      */
-    public static <T extends FieldSpec> Map<T, DataMap> extractFields(RecordTemplate snapshot,
-                                                                      Map<String, List<T>> fieldSpecsPerAspect) {
+    public static <T extends FieldSpec> Map<T, Object> extractFields(RecordTemplate snapshot,
+                                                                     Map<String, List<T>> fieldSpecsPerAspect) {
         final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
         ObjectIterator dataElement = new ObjectIterator(snapshot.data(),
                 snapshot.schema(),
                 IterationOrder.PRE_ORDER);
         Map<String, T> pathToFieldSpec = getPathToFieldSpecMap(fieldSpecsPerAspect);
-        final Map<T, DataMap> result = new HashMap<>();
+        final Map<T, Object> result = new HashMap<>();
         while (true) {
             final DataElement next = dataElement.next();
             final PathSpec pathSpec = next.getSchemaPathSpec();
@@ -52,10 +52,7 @@ public class FieldExtractor {
             final String path = StringUtils.join(pathComponents.subList(2, pathComponents.size()), "/");
             final Optional<T> matchingSpec = Optional.ofNullable(pathToFieldSpec.get(suffix));
             matchingSpec.get().getPegasusSchema().getType()
-            matchingSpec.ifPresent(spec -> result.put(spec, ));
-            if (matchingSpec.isPresent()) {
-                result.put(matc)
-            }
+            matchingSpec.ifPresent(spec -> result.put(spec, next.getValue()));
             if (next == null) {
                 break;
             }

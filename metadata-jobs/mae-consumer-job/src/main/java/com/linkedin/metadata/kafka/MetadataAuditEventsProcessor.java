@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
@@ -117,19 +118,20 @@ public class MetadataAuditEventsProcessor {
       if (pathComponents.size() < 4) {
         continue;
       }
-      final String path = StringUtils.join(pathComponents.subList(2, pathComponents.size()), "/");
-
+      final String aspectName = pathComponents.get(2);
+      final String suffix = "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
       final Optional<RelationshipFieldSpec> matchingAnnotation = entitySpec
               .getAspectSpecMap()
               .get(aspectName)
               .getRelationshipFieldSpecs().stream().filter(fieldSpec -> fieldSpec.getPath().toString().equals(suffix)).findAny();
+
       if (matchingAnnotation.isPresent()) {
         try {
           _graphQueryDao.addAbstractEdge(
-                  Urn.createFromString((String) snapshot.data().get("urn")),
-                  Urn.createFromString((String) ((DataMap) next.getValue()).get("entity")),
+                  Urn.createFromString(snapshot.data().get("urn").toString()),
+                  Urn.createFromString((next.getValue()).toString()),
                   matchingAnnotation.get().getRelationshipName(),
-                  new HashMap<>()
+                  ImmutableMap.of()
           );
         } catch (URISyntaxException e) {
           e.printStackTrace();
