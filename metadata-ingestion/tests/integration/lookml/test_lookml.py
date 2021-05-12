@@ -1,6 +1,8 @@
 import logging
-import pytest
 import sys
+
+import pytest
+
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 

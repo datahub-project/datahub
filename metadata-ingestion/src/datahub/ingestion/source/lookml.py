@@ -1,6 +1,7 @@
 import glob
 import logging
 import re
+import sys
 import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
@@ -8,8 +9,6 @@ from dataclasses import replace
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
-
-import sys
 
 if sys.version_info[1] >= 7:
     import lkml
