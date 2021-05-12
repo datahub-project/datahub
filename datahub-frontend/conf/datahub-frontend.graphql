@@ -1,4 +1,5 @@
 extend type Query {
+    isAnalyticsEnabled: Boolean!
     getAnalyticsCharts: [AnalyticsChartGroup!]!
     getHighlights: [Highlight!]!
 }

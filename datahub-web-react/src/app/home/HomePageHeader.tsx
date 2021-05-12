@@ -8,6 +8,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
@@ -110,6 +111,9 @@ export const HomePageHeader = () => {
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
     const themeConfig = useTheme();
 
+    const { data } = useIsAnalyticsEnabledQuery();
+    const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
+
     const onSearch = (query: string) => {
         analytics.event({
             type: EventType.SearchEvent,
@@ -175,7 +179,7 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
-                    <AnalyticsLink />
+                    {isAnalyticsEnabled && <AnalyticsLink />}
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableInfo?.pictureLink || ''}

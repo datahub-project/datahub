@@ -1,5 +1,5 @@
 import { grey } from '@ant-design/colors';
-import { Alert, Avatar, Button, Card, Typography } from 'antd';
+import { Alert, Button, Card, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useParams } from 'react-router';
 import styled from 'styled-components';
@@ -9,7 +9,7 @@ import { EntityType } from '../../../types.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { Message } from '../../shared/Message';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import { AvatarsGroup } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const PageContainer = styled.div`
@@ -119,19 +119,11 @@ export default function TagProfile() {
                                 <div>
                                     <CreatedByLabel>Created by</CreatedByLabel>
                                 </div>
-                                <Avatar.Group maxCount={6} size="large">
-                                    {data?.tag?.ownership?.owners?.map((owner) => (
-                                        <div data-testid={`avatar-tag-${owner.owner.urn}`} key={owner.owner.urn}>
-                                            <CustomAvatar
-                                                name={owner.owner.info?.fullName || undefined}
-                                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
-                                                    owner.owner.urn
-                                                }`}
-                                                photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
-                                            />
-                                        </div>
-                                    ))}
-                                </Avatar.Group>
+                                <AvatarsGroup
+                                    owners={data?.tag?.ownership?.owners}
+                                    entityRegistry={entityRegistry}
+                                    size="large"
+                                />
                             </div>
                         </div>
                         <StatsBox>

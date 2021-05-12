@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:
     from airflow.operators.bash_operator import BashOperator
 
-from datahub.integrations.airflow.entities import Dataset
+from datahub_provider.entities import Dataset
 
 default_args = {
     "owner": "airflow",
