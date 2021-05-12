@@ -40,6 +40,7 @@ import LogoMssql from "./logos/mssql.svg";
 import LogoMysql from "./logos/mysql.svg";
 import LogoOracle from "./logos/oracle.svg";
 import LogoPostgres from "./logos/postgres.png";
+import LogoRedshift from "./logos/redshift.svg";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
@@ -197,6 +198,10 @@ const sourceLogos = [
   { name: "MySQL", image: svgFormatter(LogoMysql) },
   { name: "Oracle", image: svgFormatter(LogoOracle) },
   { name: "PostgreSQL", image: pngFormatter(LogoPostgres) },
+  {
+    name: "Redshift",
+    image: svgFormatter(LogoRedshift, clsx(styles.logo_image_large)),
+  },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
   { name: "Spark", image: svgFormatter(LogoSpark) },
   {
