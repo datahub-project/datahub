@@ -78,7 +78,7 @@ export default function EntitySearchResult({ ownerships, subview, item, urn, ent
                     </Menu.SubMenu>
                 </Menu>
             </MenuWrapper>
-             <Content>
+            <Content>
                 {ownershipMenuOptions && ownershipMenuOptions.length > 0 ? (
                     subview === Subview.Ownership && <EntityOwnership ownerships={ownerships} entityPath={item} />
                 ) : (
