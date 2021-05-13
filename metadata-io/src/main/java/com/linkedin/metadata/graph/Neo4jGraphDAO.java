@@ -25,16 +25,11 @@ import org.neo4j.driver.exceptions.Neo4jException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.StringJoiner;
-import java.util.function.Function;
-
-import static com.linkedin.metadata.dao.utils.ModelUtils.getAllEntities;
 
 
 public class Neo4jGraphDAO {
