@@ -54,7 +54,7 @@ export default function TagGroup({
     let renderedTags = 0;
 
     return (
-        <div>
+        <>
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -104,6 +104,6 @@ export default function TagGroup({
                     )}
                 </>
             )}
-        </div>
+        </>
     );
 }

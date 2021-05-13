@@ -16,12 +16,14 @@ import {
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
     EntityType,
+    GlossaryTerms,
 } from '../../../../../types.generated';
 import TagGroup from '../../../../shared/tags/TagGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import GlossaryTermGroup from '../../../../shared/glossaryTerms/GlossaryTermGroup';
 
 const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
@@ -208,21 +210,24 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         );
     };
 
-    const tagGroupRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
+    const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         );
         return (
-            <TagGroup
-                uneditableTags={tags}
-                editableTags={relevantEditableFieldInfo?.globalTags}
-                canRemove
-                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
-                onOpenModal={() => setTagHoveredIndex(undefined)}
-                updateTags={(update) =>
-                    onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
-                }
-            />
+            <>
+                <GlossaryTermGroup glossaryTerms={record.glossaryTerms as GlossaryTerms} />
+                <TagGroup
+                    uneditableTags={tags}
+                    editableTags={relevantEditableFieldInfo?.globalTags}
+                    canRemove
+                    canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
+                    onOpenModal={() => setTagHoveredIndex(undefined)}
+                    updateTags={(update) =>
+                        onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
+                    }
+                />
+            </>
         );
     };
 
@@ -242,12 +247,12 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         }),
     };
 
-    const tagColumn = {
+    const tagAndTermColumn = {
         width: 400,
-        title: 'Tags',
+        title: 'Tags & Terms',
         dataIndex: 'globalTags',
         key: 'tag',
-        render: tagGroupRender,
+        render: tagAndTermRender,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
                 setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
@@ -277,7 +282,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             ) : (
                 rows.length > 0 && (
                     <Table
-                        columns={[...defaultColumns, descriptionColumn, tagColumn]}
+                        columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
                         dataSource={rows}
                         rowKey="fieldPath"
                         expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
