@@ -36,7 +36,7 @@ const ownershipResult = {
                                 __typename: 'CorpUser',
                                 urn: 'urn:li:corpuser:shtr',
                                 type: 'CORP_USER',
-                                username: 'shtr',
+                                username: 'shtrs',
                                 info: {
                                     __typename: 'CorpUserInfo',
                                     active: true,
