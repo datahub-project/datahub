@@ -31,29 +31,31 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 We use a plugin architecture so that you can install only the dependencies you actually need.
 
-| Plugin Name   | Install Command                                            | Provides                   |
-| ------------- | ---------------------------------------------------------- | -------------------------- |
-| file          | _included by default_                                      | File source and sink       |
-| console       | _included by default_                                      | Console sink               |
-| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source          |
-| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source            |
-| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source            |
-| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                |
-| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source          |
-| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
-| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
+| Plugin Name   | Install Command                                            | Provides                            |
+| ------------- | ---------------------------------------------------------- | ----------------------------------- |
+| file          | _included by default_                                      | File source and sink                |
+| console       | _included by default_                                      | Console sink                        |
+| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source            |
-| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
-| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source               |
-| dbt           | _no additional dependencies_                               | DBT source                 |
-| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API |
-| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka    |
+| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
+| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| dbt           | _no additional dependencies_                               | DBT source                          |
+| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
+| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
 These plugins can be mixed and matched as desired. For example:
 
@@ -512,6 +514,57 @@ source:
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
     filter: "(objectClass=*)" # optional field
+```
+
+### LookML `lookml`
+
+Note! This plugin uses a package that requires Python 3.7+!
+
+Extracts:
+
+- LookML views from model files
+- Name, upstream table names, dimensions, measures, and dimension groups
+
+```yml
+source:
+  type: "lookml"
+  config:
+    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
+    connection_to_platform_map: # mapping between connection names in the model files to platform names.
+      my_snowflake_conn: snowflake
+    platform_name: looker_views # Optional, default is "looker_views"
+    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    model_pattern: {}
+    view_pattern: {}
+    env: "PROD" # Optional, default is "PROD"
+    parse_table_names_from_sql: False # See note below.
+```
+
+Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
+views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
+Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+`parse_table_names_from_sql: True`.
+
+### Looker dashboards `looker`
+
+Extracts:
+
+- Looker dashboards and dashboard elements (charts)
+- Names, descriptions, URLs, chart types, input view for the charts
+
+```yml
+source:
+  type: "looker"
+  config:
+    client_id: str # Your Looker API client ID. As your Looker admin
+    client_secret: str # Your Looker API client secret. As your Looker admin
+    base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+    platform_name: str = "looker" # Optional, default is "looker"
+    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
+    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    env: str = "PROD" # Optional, default is "PROD"
 ```
 
 ### File `file`
