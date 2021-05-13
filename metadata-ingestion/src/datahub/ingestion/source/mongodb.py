@@ -1,10 +1,11 @@
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, TypedDict, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import bson
 import pymongo
+from mypy_extensions import TypedDict
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
