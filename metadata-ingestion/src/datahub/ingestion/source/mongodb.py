@@ -51,7 +51,7 @@ class MongoDBConfig(ConfigModel):
     authMechanism: Optional[str] = None
     options: dict = {}
     enableSchemaInference: bool = True
-    schemaSamplingSize: PositiveInt = 1000
+    schemaSamplingSize: Optional[PositiveInt] = 1000
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -66,7 +66,7 @@ class MongoDBSourceReport(SourceReport):
 
 
 # map PyMongo types to canonical MongoDB strings
-PYMONGO_TYPE_TO_TYPE_STRING = {
+PYMONGO_TYPE_TO_MONGO_TYPE = {
     list: "ARRAY",
     dict: "OBJECT",
     type(None): "null",
@@ -358,12 +358,12 @@ class MongoDBSource(Source):
                 name of collection (for logging)
         """
         try:
-            type_string = PYMONGO_TYPE_TO_TYPE_STRING[field_type]
+            type_string = PYMONGO_TYPE_TO_MONGO_TYPE[field_type]
         except KeyError:
             self.report.report_warning(
                 collection_name, f"unable to map type {field_type} to metadata schema"
             )
-            PYMONGO_TYPE_TO_TYPE_STRING[field_type] = "unknown"
+            PYMONGO_TYPE_TO_MONGO_TYPE[field_type] = "unknown"
             type_string = "unknown"
 
         return type_string
