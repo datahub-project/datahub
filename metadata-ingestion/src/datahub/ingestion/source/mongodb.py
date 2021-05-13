@@ -1,7 +1,9 @@
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any
+from typing import Counter as CounterType
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import bson
 import pymongo
@@ -166,7 +168,7 @@ def is_nullable_collection(
 
 
 class BasicSchemaDescription(TypedDict):
-    types: Counter[type]  # field types and times seen
+    types: CounterType[type]  # field types and times seen
     count: int  # times the field was seen
 
 
