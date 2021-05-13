@@ -490,6 +490,8 @@ source:
     options: {}
     database_pattern: {}
     collection_pattern: {}
+    enableSchemaInference: True
+    schemaSamplingSize: 1000
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 

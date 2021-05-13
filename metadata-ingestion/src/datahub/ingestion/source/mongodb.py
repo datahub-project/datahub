@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import bson
 import pymongo
 from mypy_extensions import TypedDict
+from pydantic import PositiveInt
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -47,6 +48,8 @@ class MongoDBConfig(ConfigModel):
     password: Optional[str] = None
     authMechanism: Optional[str] = None
     options: dict = {}
+    enableSchemaInference: bool = True
+    schemaSamplingSize: PositiveInt = 1000
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -139,7 +142,8 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
             return any(is_nullable_doc(x, remaining_fields) for x in doc[field])
 
         # any other types to check?
-        raise ValueError("Nested type not 'list' or 'dict' encountered")
+        # raise ValueError("Nested type not 'list' or 'dict' encountered")
+        return True
 
     return True
 
@@ -290,7 +294,6 @@ def construct_schema_pymongo(
         sample_size:
             number of items in the collection to sample
             (reads entire collection if not provided)
-
     """
 
     if sample_size:
@@ -302,7 +305,7 @@ def construct_schema_pymongo(
         # if sample_size is not provided, just take all items in the collection
         documents = collection.find({})
 
-    return construct_schema(documents, delimiter)
+    return construct_schema(list(documents), delimiter)
 
 
 @dataclass
@@ -422,42 +425,50 @@ class MongoDBSource(Source):
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
 
-                collection_schema = construct_schema_pymongo(
-                    database[collection_name], delimiter="."
-                )
+                if self.config.enableSchemaInference:
 
-                # initialize the schema for the collection
-                canonical_schema: List[SchemaField] = []
-
-                # append each schema field
-                for schema_field in collection_schema.values():
-                    field = SchemaField(
-                        fieldPath=schema_field["delimited_name"],
-                        nativeDataType=self.get_pymongo_type_string(
-                            schema_field["type"], dataset_name
-                        ),
-                        type=self.get_field_type(schema_field["type"], dataset_name),
-                        description=None,
-                        nullable=schema_field["nullable"],
-                        recursive=False,
+                    collection_schema = construct_schema_pymongo(
+                        database[collection_name],
+                        delimiter=".",
+                        sample_size=self.config.schemaSamplingSize,
                     )
-                    canonical_schema.append(field)
 
-                # create schema metadata object for collection
-                actor = "urn:li:corpuser:etl"
-                sys_time = int(time.time() * 1000)
-                schema_metadata = SchemaMetadata(
-                    schemaName=collection_name,
-                    platform=f"urn:li:dataPlatform:{platform}",
-                    version=0,
-                    hash="",
-                    platformSchema=SchemalessClass(),
-                    created=AuditStamp(time=sys_time, actor=actor),
-                    lastModified=AuditStamp(time=sys_time, actor=actor),
-                    fields=canonical_schema,
-                )
+                    # initialize the schema for the collection
+                    canonical_schema: List[SchemaField] = []
 
-                dataset_snapshot.aspects.append(schema_metadata)
+                    # append each schema field (sort so output is consistent)
+                    for schema_field in sorted(
+                        collection_schema.values(), key=lambda x: x["delimited_name"]
+                    ):
+                        field = SchemaField(
+                            fieldPath=schema_field["delimited_name"],
+                            nativeDataType=self.get_pymongo_type_string(
+                                schema_field["type"], dataset_name
+                            ),
+                            type=self.get_field_type(
+                                schema_field["type"], dataset_name
+                            ),
+                            description=None,
+                            nullable=schema_field["nullable"],
+                            recursive=False,
+                        )
+                        canonical_schema.append(field)
+
+                    # create schema metadata object for collection
+                    actor = "urn:li:corpuser:etl"
+                    sys_time = int(time.time() * 1000)
+                    schema_metadata = SchemaMetadata(
+                        schemaName=collection_name,
+                        platform=f"urn:li:dataPlatform:{platform}",
+                        version=0,
+                        hash="",
+                        platformSchema=SchemalessClass(),
+                        created=AuditStamp(time=sys_time, actor=actor),
+                        lastModified=AuditStamp(time=sys_time, actor=actor),
+                        fields=canonical_schema,
+                    )
+
+                    dataset_snapshot.aspects.append(schema_metadata)
 
                 # TODO: use list_indexes() or index_information() to get index information
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
