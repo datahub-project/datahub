@@ -28,17 +28,20 @@ public class SearchDocumentTransformer {
   private SearchDocumentTransformer() {
   }
 
-  public static JsonNode transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  public static Optional<JsonNode> transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Map<String, List<SearchableFieldSpec>> searchableFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getSearchableFieldSpecs()));
     final Map<SearchableFieldSpec, Optional<Object>> extractedFields =
         FieldExtractor.extractFields(snapshot, searchableFieldSpecsPerAspect);
+    if(extractedFields.isEmpty()) {
+      return Optional.empty();
+    }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
     extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
-    return searchDocument;
+    return Optional.of(searchDocument);
   }
 
   public static void setValue(final SearchableFieldSpec fieldSpec, final Optional<Object> fieldValueOpt,

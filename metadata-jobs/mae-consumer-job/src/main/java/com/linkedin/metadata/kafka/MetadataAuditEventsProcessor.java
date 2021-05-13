@@ -147,7 +147,11 @@ public class MetadataAuditEventsProcessor {
    * @param snapshot Snapshot
    */
   private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
-    JsonNode searchDocument;
+    // If entity is not searchable nor browsable do not update ES
+    if(!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
+      return;
+    }
+    Optional<JsonNode> searchDocument;
     try {
       searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec);
     } catch (Exception e) {
@@ -155,9 +159,12 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.asText());
+    if(!searchDocument.isPresent()) {
+      return;
+    }
+    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.get().asText());
     try {
-      elasticEvent.setId(URLEncoder.encode(searchDocument.get("urn").asText(), "UTF-8"));
+      elasticEvent.setId(URLEncoder.encode(searchDocument.get().get("urn").asText(), "UTF-8"));
     } catch (UnsupportedEncodingException e) {
       log.error("Failed to encode the urn with error: {}", e.toString());
       return;
