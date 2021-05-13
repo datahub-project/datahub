@@ -295,6 +295,11 @@ type GlossaryTerm implements Entity {
     urn: String!
 
     """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
     GMS Entity Type
     """
     type: EntityType!
