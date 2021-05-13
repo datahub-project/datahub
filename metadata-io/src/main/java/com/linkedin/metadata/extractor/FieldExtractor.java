@@ -67,7 +67,7 @@ public class FieldExtractor {
         .collect(Collectors.toSet());
     pathToFieldSpec.values()
         .stream()
-        .filter(spec -> requiredFieldSpec.contains(spec))
+        .filter(spec -> !fieldSpecToValues.containsKey(spec) && requiredFieldSpec.contains(spec))
         .forEach(spec -> fieldSpecToValues.put(spec, ImmutableList.of()));
     return fieldSpecToValues;
   }

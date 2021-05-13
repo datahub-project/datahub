@@ -32,7 +32,7 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(EntitySpec entitySpec) {
-    return this.getIndexName(entitySpec.getName());
+    return this.getIndexName(entitySpec.getName() + "document_v2");
   }
 
   @Nonnull
