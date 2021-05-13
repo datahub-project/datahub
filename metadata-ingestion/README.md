@@ -147,9 +147,12 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
       schema_registry_url: http://localhost:8081
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
+      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
 
 ### MySQL Metadata `mysql`
 
