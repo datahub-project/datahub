@@ -1,47 +1,37 @@
 package com.linkedin.metadata.graph;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.dao.exception.RetryLimitReached;
+import com.linkedin.metadata.dao.utils.Statement;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.dao.exception.RetryLimitReached;
-import com.linkedin.metadata.dao.utils.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.Driver;
-import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringJoiner;
-import java.util.function.Function;
-
-import static com.linkedin.metadata.dao.utils.ModelUtils.getAllEntities;
 
 
 public class Neo4jGraphDAO {
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
-  private static Map<String, String> _urnToEntityMap = null;
 
   public Neo4jGraphDAO(@Nonnull Driver driver) {
     this(driver, SessionConfig.defaultConfig());

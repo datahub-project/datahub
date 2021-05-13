@@ -64,6 +64,7 @@ public class SearchDocumentTransformer {
             break;
           default:
             valueNode = JsonNodeFactory.instance.booleanNode(fieldValueOpt.isPresent());
+            break;
         }
       } else if (indexSetting.getIndexType() == IndexType.COUNT) {
         switch (valueType) {
@@ -80,6 +81,7 @@ public class SearchDocumentTransformer {
             break;
           default:
             log.info("Non-countable fields are not supported for count index: {}", valueType);
+            break;
         }
       }
       String overrideFieldName = indexSetting.getOverrideFieldName().get();
