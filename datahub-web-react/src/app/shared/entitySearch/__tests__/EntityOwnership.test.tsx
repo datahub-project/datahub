@@ -33,7 +33,7 @@ const ownerships = {
     ],
 };
 
-describe('UserOwnership', () => {
+describe('EntityOwnership', () => {
     it('renders a list container', () => {
         const { getByText } = render(
             <TestPageContainer>
