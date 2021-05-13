@@ -3,11 +3,11 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import UserHeader from './UserHeader';
-import UserDetails from './UserDetails';
-import useUserParams from './routingUtils/useUserParams';
+import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
+import UserDetails from './UserDetails';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
@@ -21,7 +21,6 @@ const messageStyle = { marginTop: '10%' };
 export default function UserProfile() {
     const { urn, subview, item } = useUserParams();
     const { loading, error, data } = useGetUserQuery({ variables: { urn } });
-
     const username = data?.corpUser?.username;
 
     const ownershipResult = useGetAllEntitySearchResults({

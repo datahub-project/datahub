@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useLocation, useParams } from 'react-router';
-import { Subview } from '../Subview';
+import { Subview } from '../../../entity/user/Subview';
 
 type UserPageParams = {
     urn: string;

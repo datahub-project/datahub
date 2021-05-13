@@ -1,9 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import UserDetails from '../UserDetails';
 import { EntityType, PlatformNativeType } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import { Subview } from '../Subview';
+import EntitySearchResult from '../EntitySearchResult';
+import { Subview } from '../../../entity/user/Subview';
 
 const ownerships = {
     [EntityType.Dataset]: [
@@ -34,11 +34,11 @@ const ownerships = {
     ],
 };
 
-describe('UserDetails', () => {
+describe('EntitySearchDetails', () => {
     it('renders a menu with the ownership submenu and datasets option', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} />;
+                <EntitySearchResult urn="some:urn" ownerships={ownerships} entityType={EntityType.CorpUser} />;
             </TestPageContainer>,
         );
         expect(getByText('Ownership')).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('UserDetails', () => {
     it('will not the show the ownership details by default', () => {
         const { queryByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} />;
+                <EntitySearchResult urn="some:urn" ownerships={ownerships} entityType={EntityType.CorpUser} />;
             </TestPageContainer>,
         );
         expect(queryByText('Datasets owned')).not.toBeInTheDocument();
@@ -57,7 +57,14 @@ describe('UserDetails', () => {
     it('will the show the ownership details when selected', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserDetails urn="some:urn" ownerships={ownerships} subview={Subview.Ownership} item="dataset" />;
+                <EntitySearchResult
+                    urn="some:urn"
+                    ownerships={ownerships}
+                    subview={Subview.Ownership}
+                    item="dataset"
+                    entityType={EntityType.CorpUser}
+                />
+                ;
             </TestPageContainer>,
         );
         expect(getByText('Datasets owned')).toBeInTheDocument();

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { PreviewType } from '../Entity';
+import { PreviewType } from '../../entity/Entity';
 
 type Props = {
     ownerships: { [key in EntityType]?: any[] };
@@ -44,7 +44,7 @@ export default ({ ownerships, entityPath }: Props) => {
                 renderItem={(item) => {
                     return (
                         <ListItem>
-                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item.entity)}
+                            {entityRegistry.renderPreview(entityType, PreviewType.PREVIEW, item)}
                             <Divider />
                         </ListItem>
                     );

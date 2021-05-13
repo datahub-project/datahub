@@ -1,8 +1,8 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import UserOwnership from '../UserOwnership';
 import { EntityType, PlatformNativeType } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import EntityOwnership from '../EntityOwnership';
 
 const ownerships = {
     [EntityType.Dataset]: [
@@ -37,7 +37,7 @@ describe('UserOwnership', () => {
     it('renders a list container', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserOwnership ownerships={ownerships} entityPath="dataset" />
+                <EntityOwnership ownerships={ownerships} entityPath="dataset" />
             </TestPageContainer>,
         );
         expect(getByText('Datasets owned')).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('UserOwnership', () => {
     it('renders the entity rows', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserOwnership ownerships={ownerships} entityPath="dataset" />
+                <EntityOwnership ownerships={ownerships} entityPath="dataset" />
             </TestPageContainer>,
         );
         expect(getByText('this is a dataset')).toBeInTheDocument();
