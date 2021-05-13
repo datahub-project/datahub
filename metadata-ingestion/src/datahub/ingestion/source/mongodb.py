@@ -108,7 +108,7 @@ def is_nullable_doc(doc: Dict[str, Any], field_path: Tuple) -> bool:
     Parameters
     ----------
         doc:
-            ocument to check nullability for
+            document to check nullability for
         field_path:
             path to nested field to check, ex. ('first_field', 'nested_child', '2nd_nested_child')
     """
