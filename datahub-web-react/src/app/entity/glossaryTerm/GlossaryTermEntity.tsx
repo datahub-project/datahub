@@ -29,9 +29,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         );
     };
 
-    isSearchEnabled = () => true;
+    isSearchEnabled = () => false;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     getAutoCompleteFieldName = () => 'name';
 
