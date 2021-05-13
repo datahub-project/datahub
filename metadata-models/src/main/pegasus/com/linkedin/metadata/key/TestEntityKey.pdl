@@ -13,7 +13,7 @@ record TestEntityKey {
     */
     @Searchable = {
         "fieldName": "key",
-        "indexSettings": [{"indexType": "KEYWORD" }, {"indexType": "DELIMITED"}, {"indexType": "PARTIAL"}]
+        "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
     }
     keyPart1: string
 
@@ -22,7 +22,7 @@ record TestEntityKey {
     */
     @Searchable = {
         "fieldName": "keyParts",
-        "indexSettings": [{"indexType": "PATTERN" }, {"indexType": "PARTIAL_PATTERN"}]
+        "indexSettings": [{ "indexType": "PATTERN" }, { "indexType": "PARTIAL_PATTERN" }]
     }
     keyPart2: string
 

@@ -33,9 +33,9 @@ public class SearchDocumentTransformer {
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getSearchableFieldSpecs()));
-    final Map<SearchableFieldSpec, Optional<Object>> extractedFields =
+    final Map<SearchableFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(snapshot, searchableFieldSpecsPerAspect);
-    if(extractedFields.isEmpty()) {
+    if (extractedFields.isEmpty()) {
       return Optional.empty();
     }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -44,70 +44,72 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument);
   }
 
-  public static void setValue(final SearchableFieldSpec fieldSpec, final Optional<Object> fieldValueOpt,
-      ObjectNode searchDocument) {
+  public static void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,
+      final ObjectNode searchDocument) {
     // Separate the settings with override and settings without
     Map<Boolean, List<IndexSetting>> indexSettingsHasOverride = fieldSpec.getIndexSettings()
         .stream()
         .collect(Collectors.partitioningBy(setting -> setting.getOverrideFieldName().isPresent()));
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
+    Optional<Object> firstValue = fieldValues.stream().findFirst();
+    boolean isArray = fieldSpec.isArray();
 
-    //
+    // Deal with settings with overrides first
     for (IndexSetting indexSetting : indexSettingsHasOverride.getOrDefault(true, ImmutableList.of())) {
       JsonNode valueNode = null;
       if (indexSetting.getIndexType() == IndexType.BOOLEAN) {
-        switch (valueType) {
-          case BOOLEAN:
-            valueNode = JsonNodeFactory.instance.booleanNode((Boolean) fieldValueOpt.orElse(false));
-            break;
-          case ARRAY:
-            // If array, check if array is set and is not empty
-            valueNode = JsonNodeFactory.instance.booleanNode(
-                fieldValueOpt.isPresent() && !((List<?>) fieldValueOpt.get()).isEmpty());
-            break;
-          default:
-            valueNode = JsonNodeFactory.instance.booleanNode(fieldValueOpt.isPresent());
-            break;
+        if (valueType == DataSchema.Type.BOOLEAN) {
+          valueNode = JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false));
+        } else {
+          valueNode = JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty());
         }
       } else if (indexSetting.getIndexType() == IndexType.COUNT) {
         switch (valueType) {
           case INT:
-            valueNode = JsonNodeFactory.instance.numberNode((Integer) fieldValueOpt.orElse(0));
+            valueNode = JsonNodeFactory.instance.numberNode((Integer) firstValue.orElse(0));
             break;
           case LONG:
-            valueNode = JsonNodeFactory.instance.numberNode((Long) fieldValueOpt.orElse(0L));
-            break;
-          case ARRAY:
-            // If array, check length of array
-            valueNode =
-                JsonNodeFactory.instance.numberNode(((List<?>) fieldValueOpt.orElse(ImmutableList.of())).size());
+            valueNode = JsonNodeFactory.instance.numberNode((Long) firstValue.orElse(0L));
             break;
           default:
-            log.info("Non-countable fields are not supported for count index: {}", valueType);
-            break;
+            valueNode = JsonNodeFactory.instance.numberNode(fieldValues.size());
+        }
+      } else {
+        Optional<JsonNode> valueNodeOpt = getNodeForValue(valueType, fieldValues, isArray);
+        if (valueNodeOpt.isPresent()) {
+          valueNode = valueNodeOpt.get();
         }
       }
       String overrideFieldName = indexSetting.getOverrideFieldName().get();
       // If any of the above special cases matched, set the overriden field name
       if (valueNode != null) {
         searchDocument.set(overrideFieldName, valueNode);
-      } else {
-        fieldValueOpt.ifPresent(
-            fieldValue -> searchDocument.set(overrideFieldName, getNodeForValue(valueType, fieldValue)));
       }
     }
 
-    if (!indexSettingsHasOverride.containsKey(false) || indexSettingsHasOverride.get(false).isEmpty()
-        || !fieldValueOpt.isPresent()) {
+    if (!indexSettingsHasOverride.containsKey(false) || indexSettingsHasOverride.get(false).isEmpty()) {
       return;
     }
     // For fields with an index setting without an override, set key to fieldName
     final String fieldName = fieldSpec.getFieldName();
-    JsonNode valueNode = getNodeForValue(valueType, fieldValueOpt.get());
-    searchDocument.set(fieldName, valueNode);
+    Optional<JsonNode> valueNode = getNodeForValue(valueType, fieldValues, isArray);
+    valueNode.ifPresent(node -> searchDocument.set(fieldName, node));
   }
 
-  public static JsonNode getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue) {
+  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final List<Object> fieldValues,
+      final boolean isArray) {
+    if (isArray) {
+      ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+      fieldValues.forEach(value -> arrayNode.add(getNodeForValue(fieldType, value)));
+      return Optional.of(arrayNode);
+    }
+    if (!fieldValues.isEmpty()) {
+      return Optional.of(getNodeForValue(fieldType, fieldValues.get(0)));
+    }
+    return Optional.empty();
+  }
+
+  private static JsonNode getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue) {
     switch (fieldType) {
       case BOOLEAN:
         return JsonNodeFactory.instance.booleanNode((Boolean) fieldValue);
@@ -115,11 +117,6 @@ public class SearchDocumentTransformer {
         return JsonNodeFactory.instance.numberNode((Integer) fieldValue);
       case LONG:
         return JsonNodeFactory.instance.numberNode((Long) fieldValue);
-      case ARRAY:
-        List<Object> valueList = (List<Object>) fieldValue;
-        ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-        valueList.forEach(value -> arrayNode.add(value.toString()));
-        return arrayNode;
       // By default run toString
       default:
         return JsonNodeFactory.instance.textNode(fieldValue.toString());

@@ -20,6 +20,10 @@ record Upstream {
     "name": "DownstreamOf",
     "entityTypes": [ "dataset" ]
   }
+  @Searchable = {
+    "fieldName": "upstreams",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+  }
   dataset: DatasetUrn
 
   /**

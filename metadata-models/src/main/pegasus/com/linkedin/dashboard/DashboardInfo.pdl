@@ -19,20 +19,28 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Title of the dashboard
    */
+  @Searchable = {
+    "fieldName": "title",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   title: string
 
   /**
    * Detailed description about the dashboard
    */
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   description: string
 
   /**
    * Charts in a dashboard
    */
-   @Relationship = {
-     "name": "Contains",
-     "entityTypes": [ "chart" ]
-   }
+  @Relationship = {
+    "name": "Contains",
+    "entityTypes": [ "chart" ]
+  }
   charts: array[ChartUrn] = [ ]
 
   /**
@@ -48,6 +56,10 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Access level for the dashboard
    */
+  @Searchable = {
+    "fieldName": "access",
+    "indexSettings": [{ "indexType": "BOOLEAN" }]
+  }
   access: optional AccessLevel
 
   /**

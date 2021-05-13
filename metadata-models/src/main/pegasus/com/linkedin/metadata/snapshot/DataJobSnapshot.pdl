@@ -8,8 +8,8 @@ import com.linkedin.metadata.aspect.DataJobAspect
  */
 @Entity = {
   "name": "dataJob",
-  "searchable": false,
-  "browsable": false
+  "searchable": true,
+  "browsable": true
 }
 record DataJobSnapshot {
 

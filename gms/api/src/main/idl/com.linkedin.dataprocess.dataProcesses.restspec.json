@@ -7,7 +7,7 @@
   "collection" : {
     "identifier" : {
       "name" : "dataprocess",
-      "type" : "com.linkedin.dataprocess.DataProcessResourceKey",
+      "type" : "com.linkedin.dataprocess.DataProcessKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get", "get_all" ],

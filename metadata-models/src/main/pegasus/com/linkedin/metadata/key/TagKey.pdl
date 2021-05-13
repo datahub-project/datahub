@@ -13,7 +13,7 @@ record TagKey {
     */
     @Searchable = {
         "fieldName": "name",
-        "indexSettings": [{"indexType": "PARTIAL_SHORT"}]
+        "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL_SHORT" }]
     }
     name: string
 }

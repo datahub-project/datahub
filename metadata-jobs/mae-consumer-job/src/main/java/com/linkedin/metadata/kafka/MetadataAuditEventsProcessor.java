@@ -71,10 +71,12 @@ public class MetadataAuditEventsProcessor {
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
     for (EntitySpec entitySpec : SnapshotEntityRegistry.getInstance().getEntitySpecs()) {
-      try {
-        new IndexBuilder(elasticSearchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
-      } catch (IOException e) {
-        e.printStackTrace();
+      if(entitySpec.isSearchable() || entitySpec.isBrowsable()) {
+        try {
+          new IndexBuilder(elasticSearchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
       }
     }
   }
@@ -92,8 +94,8 @@ public class MetadataAuditEventsProcessor {
 
         log.info(snapshot.toString());
 
-        final EntitySpec entitySpec =
-            SnapshotEntityRegistry.getInstance().getEntitySpec(EntitySpecUtils.getEntityNameFromSchema(snapshot.schema()));
+        final EntitySpec entitySpec = SnapshotEntityRegistry.getInstance()
+            .getEntitySpec(EntitySpecUtils.getEntityNameFromSchema(snapshot.schema()));
         updateElasticsearch(snapshot, entitySpec);
         updateNeo4j(snapshot, entitySpec);
       }
@@ -124,16 +126,18 @@ public class MetadataAuditEventsProcessor {
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
-    Map<RelationshipFieldSpec, Optional<Object>> extractedFields =
+    Map<RelationshipFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
 
-    for (Map.Entry<RelationshipFieldSpec, Optional<Object>> entry : extractedFields.entrySet()) {
-      try {
-        relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
-        edgesToAdd.add(new Neo4jGraphDAO.Edge(sourceUrn, Urn.createFromString(entry.getValue().get().toString()),
-            entry.getKey().getRelationshipName()));
-      } catch (URISyntaxException e) {
-        log.info("Invalid destination urn: {}", e.getLocalizedMessage());
+    for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
+      relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
+      for (Object fieldValue : entry.getValue()) {
+        try {
+          edgesToAdd.add(new Neo4jGraphDAO.Edge(sourceUrn, Urn.createFromString(fieldValue.toString()),
+              entry.getKey().getRelationshipName()));
+        } catch (URISyntaxException e) {
+          log.info("Invalid destination urn: {}", e.getLocalizedMessage());
+        }
       }
     }
     _graphQueryDao.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
@@ -148,7 +152,7 @@ public class MetadataAuditEventsProcessor {
    */
   private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     // If entity is not searchable nor browsable do not update ES
-    if(!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
+    if (!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
       return;
     }
     Optional<JsonNode> searchDocument;
@@ -159,10 +163,10 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    if(!searchDocument.isPresent()) {
+    if (!searchDocument.isPresent()) {
       return;
     }
-    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.get().asText());
+    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.get().toString());
     try {
       elasticEvent.setId(URLEncoder.encode(searchDocument.get().get("urn").asText(), "UTF-8"));
     } catch (UnsupportedEncodingException e) {

@@ -92,11 +92,7 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-      "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
-        "name" : "OwnedBy"
-      }
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
     }, {
       "name" : "type",
       "type" : {
@@ -164,10 +160,7 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ],
-    "Aspect" : {
-      "name" : "ownership"
-    }
+    } ]
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", "com.linkedin.common.Time", {
     "type" : "typeref",
     "name" : "Url",

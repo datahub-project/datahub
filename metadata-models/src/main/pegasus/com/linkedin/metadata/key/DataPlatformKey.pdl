@@ -4,12 +4,12 @@ namespace com.linkedin.metadata.key
  * Key for a Data Platform
  */
 @Aspect = {
-    "name": "dataPlatformKey",
-    "isKey": true
+  "name": "dataPlatformKey",
+  "isKey": true
 }
 record DataPlatformKey {
-    /**
-    * Data platform name i.e. hdfs, oracle, espresso
-    */
-    platformName: string
+  /**
+  * Data platform name i.e. hdfs, oracle, espresso
+  */
+  platformName: string
 }

@@ -11,6 +11,10 @@ record GlossaryTermInfo {
   /**
    * Definition of business term
    */
+  @Searchable = {
+    "fieldName": "definition",
+    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   definition: string
 
   /**
@@ -21,11 +25,19 @@ record GlossaryTermInfo {
   /**
    * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
    */
+  @Searchable = {
+    "fieldName": "termSource",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+  }
   termSource: string
 
   /**
    * External Reference to the business-term
    */
+  @Searchable = {
+    "fieldName": "sourceRef",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+  }
   sourceRef: optional string
 
   /**

@@ -7,9 +7,9 @@ import com.linkedin.metadata.aspect.MLModelAspect
  * MLModel Snapshot entity details.
  */
 @Entity = {
-"name": "mlModel",
-"searchable": false,
-"browsable": false
+  "name": "mlModel",
+  "searchable": true,
+  "browsable": true
 }
 record MLModelSnapshot {
 

@@ -20,7 +20,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "title",
-    "indexSettings": [{"indexType": "KEYWORD" }, {"indexType": "DELIMITED"}, {"indexType": "PARTIAL"}]
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
   }
   title: string
 
@@ -29,14 +29,14 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    */
    @Searchable = {
      "fieldName": "aliases"
-     "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "PARTIAL"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliases"}, {"indexType": "COUNT", "overrideFieldName": "numAliases"}]
+     "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }, { "indexType": "TEXT" }, { "indexType": "BOOLEAN", "overrideFieldName": "hasAliases" }, { "indexType": "COUNT", "overrideFieldName": "numAliases" }]
    }
    aliases: array[string]
 
    recordAliases: array[record AliasRecord {
      @Searchable = {
        "fieldName": "aliasRecords",
-       "indexSettings": [{"indexType": "KEYWORD"}, {"indexType": "DELIMITED"}, {"indexType": "BOOLEAN", "overrideFieldName": "hasAliasRecords"}]
+       "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "TEXT" }, { "indexType": "BOOLEAN", "overrideFieldName": "hasAliasRecords" }]
      }
      name: string
    }]
@@ -55,7 +55,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
 
   @Searchable = {
     "fieldName": "description",
-    "indexSettings": [{"indexType": "DELIMITED"}]
+    "indexSettings": [{ "indexType": "TEXT" }]
   }
   description: string
 
@@ -79,7 +79,7 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "chartType",
-    "indexSettings": [{"indexType": "KEYWORD"}]
+    "indexSettings": [{ "indexType": "KEYWORD" }]
   }
   type: optional enum ChartTypeOption {
     TYPE_1

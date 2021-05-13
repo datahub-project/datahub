@@ -57,11 +57,7 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-      "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
-        "name" : "OwnedBy"
-      }
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
     }, {
       "name" : "type",
       "type" : {
@@ -129,10 +125,7 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ],
-    "Aspect" : {
-      "name" : "ownership"
-    }
+    } ]
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "typeref",
     "name" : "TagUrn",
@@ -166,27 +159,7 @@
     "name" : "TagAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a tag",
-    "ref" : [ {
-      "type" : "record",
-      "name" : "TagKey",
-      "namespace" : "com.linkedin.metadata.key",
-      "doc" : "Key for a Tag",
-      "fields" : [ {
-        "name" : "name",
-        "type" : "string",
-        "doc" : "The unique tag name",
-        "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "indexType" : "PARTIAL_SHORT"
-          } ]
-        }
-      } ],
-      "Aspect" : {
-        "isKey" : true,
-        "name" : "tagKey"
-      }
-    }, "com.linkedin.common.Ownership", {
+    "ref" : [ "com.linkedin.common.Ownership", {
       "type" : "record",
       "name" : "TagProperties",
       "namespace" : "com.linkedin.tag",
@@ -200,12 +173,9 @@
         "type" : "string",
         "doc" : "Documentation of the tag",
         "optional" : true
-      } ],
-      "Aspect" : {
-        "name" : "tagProperties"
-      }
+      } ]
     } ]
-  }, "com.linkedin.metadata.key.TagKey", {
+  }, {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -405,12 +375,7 @@
         "items" : "com.linkedin.metadata.aspect.TagAspect"
       },
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ],
-    "Entity" : {
-      "browsable" : false,
-      "name" : "tag",
-      "searchable" : false
-    }
+    } ]
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

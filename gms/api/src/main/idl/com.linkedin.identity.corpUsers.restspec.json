@@ -7,7 +7,7 @@
   "collection" : {
     "identifier" : {
       "name" : "corpUser",
-      "type" : "com.linkedin.identity.CorpUserResourceKey",
+      "type" : "com.linkedin.identity.CorpUserKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get", "get_all" ],

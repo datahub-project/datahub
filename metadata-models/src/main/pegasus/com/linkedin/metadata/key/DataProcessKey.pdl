@@ -6,23 +6,35 @@ import com.linkedin.common.FabricType
  * Key for a Data Process
  */
 @Aspect = {
-    "name": "dataProcessKey",
-    "isKey": true
+  "name": "dataProcessKey",
+  "isKey": true
 }
 record DataProcessKey {
-    /**
-    * Process name i.e. an ETL job name
-    */
-    name: string
+  /**
+  * Process name i.e. an ETL job name
+  */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [{ "indexType": "KEYWORD" }]
+  }
+  name: string
 
-    /**
-    * Standardized Orchestrator where data process is defined.
-    * TODO: Migrate towards something that can be validated like DataPlatform urn
-    */
-    orchestrator: string
+  /**
+  * Standardized Orchestrator where data process is defined.
+  * TODO: Migrate towards something that can be validated like DataPlatform urn
+  */
+  @Searchable = {
+    "fieldName": "orchestrator",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+  }
+  orchestrator: string
 
-    /**
-    * Fabric type where dataset belongs to or where it was generated.
-    */
-    origin: FabricType
+  /**
+  * Fabric type where dataset belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldName": "origin",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+  }
+  origin: FabricType
 }

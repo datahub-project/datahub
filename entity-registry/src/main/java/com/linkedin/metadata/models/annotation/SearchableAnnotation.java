@@ -5,9 +5,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
+import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
 /**
@@ -29,7 +31,17 @@ public class SearchableAnnotation {
    * Each type maps to a different analyzer/normalizer
    */
   public enum IndexType {
-    KEYWORD, BOOLEAN, COUNT, BROWSE_PATH, DELIMITED, PATTERN, PARTIAL, PARTIAL_SHORT, PARTIAL_LONG, PARTIAL_PATTERN
+    KEYWORD,
+    KEYWORD_LOWERCASE,
+    BOOLEAN,
+    COUNT,
+    BROWSE_PATH,
+    TEXT,
+    PATTERN,
+    PARTIAL,
+    PARTIAL_SHORT,
+    PARTIAL_LONG,
+    PARTIAL_PATTERN
   }
 
   @Value
@@ -43,6 +55,9 @@ public class SearchableAnnotation {
     // (Optional) Override fieldName (If set, creates a new search field with the specified name)
     Optional<String> overrideFieldName;
   }
+
+  private static final Set<IndexType> FILTERABLE_INDEX_TYPES =
+      ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE);
 
   private static IndexSetting getIndexSettingFromObject(@Nonnull final Object indexSettingObj) {
     if (!Map.class.isAssignableFrom(indexSettingObj.getClass())) {

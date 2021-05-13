@@ -8,8 +8,8 @@ import com.linkedin.metadata.aspect.DashboardAspect
  */
 @Entity = {
   "name": "dashboard",
-  "searchable": false,
-  "browsable": false
+  "searchable": true,
+  "browsable": true
 }
 record DashboardSnapshot {
 

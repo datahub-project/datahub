@@ -7,9 +7,9 @@ import com.linkedin.metadata.aspect.DataProcessAspect
  * A metadata snapshot for a specific Data process entity.
  */
 @Entity = {
- "name": "dataProcess",
- "searchable": false,
- "browsable": false
+  "name": "dataProcess",
+  "searchable": true,
+  "browsable": true
 }
 record DataProcessSnapshot {
 

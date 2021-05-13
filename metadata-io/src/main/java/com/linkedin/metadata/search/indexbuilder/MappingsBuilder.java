@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexType;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,8 +15,9 @@ import java.util.stream.Collectors;
 public class MappingsBuilder {
   private static final Map<IndexType, String> SUBFIELD_BY_TYPE =
       ImmutableMap.<IndexType, String>builder().put(IndexType.KEYWORD, "keyword")
+          .put(IndexType.KEYWORD_LOWERCASE, "keyword")
           .put(IndexType.BOOLEAN, "boolean")
-          .put(IndexType.DELIMITED, "delimited")
+          .put(IndexType.TEXT, "delimited")
           .put(IndexType.PATTERN, "pattern")
           .put(IndexType.PARTIAL, "ngram")
           .put(IndexType.PARTIAL_SHORT, "ngram")
@@ -27,14 +29,14 @@ public class MappingsBuilder {
   }
 
   public static Map<String, Object> getMappings(final EntitySpec entitySpec) {
-    ImmutableMap.Builder<String, Object> mappingsBuilder = ImmutableMap.builder();
+    Map<String, Object> mappings = new HashMap<>();
     if (entitySpec.isBrowsable()) {
-      mappingsBuilder.put("browsePaths", getMappingsForBrowsePaths());
+      mappings.put("browsePaths", getMappingsForBrowsePaths());
     }
-    mappingsBuilder.put("urn", getMappingsForUrn());
+    mappings.put("urn", getMappingsForUrn());
     entitySpec.getSearchableFieldSpecs()
-        .forEach(searchableFieldSpec -> setMappingsForField(searchableFieldSpec, mappingsBuilder));
-    return ImmutableMap.of("properties", mappingsBuilder.build());
+        .forEach(searchableFieldSpec -> mappings.putAll(setMappingsForField(searchableFieldSpec)));
+    return ImmutableMap.of("properties", mappings);
   }
 
   private static Map<String, Object> getMappingsForBrowsePaths() {
@@ -50,19 +52,19 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
   }
 
-  private static ImmutableMap.Builder<String, Object> setMappingsForField(final SearchableFieldSpec searchableFieldSpec,
-      ImmutableMap.Builder<String, Object> mappingsBuilder) {
+  private static Map<String, Object> setMappingsForField(final SearchableFieldSpec searchableFieldSpec) {
+    Map<String, Object> mappingsForField = new HashMap<>();
     // Separate the settings with override and settings without
     Map<Boolean, List<IndexSetting>> indexSettingsHasOverride = searchableFieldSpec.getIndexSettings()
         .stream()
         .collect(Collectors.partitioningBy(setting -> setting.getOverrideFieldName().isPresent()));
     // Set the mappings for fields with overrides
     indexSettingsHasOverride.getOrDefault(true, ImmutableList.of())
-        .forEach(setting -> mappingsBuilder.put(setting.getOverrideFieldName().get(), getMappingByType(setting)));
+        .forEach(setting -> mappingsForField.put(setting.getOverrideFieldName().get(), getMappingByType(setting)));
 
     List<IndexSetting> indexSettingsWithoutOverrides = indexSettingsHasOverride.getOrDefault(false, ImmutableList.of());
     if (indexSettingsWithoutOverrides.isEmpty()) {
-      return mappingsBuilder;
+      return mappingsForField;
     }
 
     // Use the first index setting without override as the default mapping
@@ -77,18 +79,21 @@ public class MappingsBuilder {
               getMappingByType(setting)));
       mapping.put("fields", subFields.build());
     }
-    return mappingsBuilder.put(searchableFieldSpec.getFieldName(), mapping.build());
+    mappingsForField.put(searchableFieldSpec.getFieldName(), mapping.build());
+    return mappingsForField;
   }
 
   private static Map<String, Object> getMappingByType(IndexSetting indexSetting) {
     switch (indexSetting.getIndexType()) {
       case KEYWORD:
+        return ImmutableMap.of("type", "keyword");
+      case KEYWORD_LOWERCASE:
         return ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
       case BOOLEAN:
         return ImmutableMap.of("type", "boolean");
       case COUNT:
         return ImmutableMap.of("type", "long");
-      case DELIMITED:
+      case TEXT:
         return ImmutableMap.of("type", "text", "analyzer", "word_delimited");
       case PATTERN:
         return ImmutableMap.of("type", "text", "analyzer", "pattern");

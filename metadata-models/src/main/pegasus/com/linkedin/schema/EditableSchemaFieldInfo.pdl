@@ -9,11 +9,19 @@ record EditableSchemaFieldInfo {
   /**
    * FieldPath uniquely identifying the SchemaField this metadata is associated with
    */
+  @Searchable = {
+    "fieldName": "editedFieldPaths",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   fieldPath: string
 
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "editedFieldDescriptions",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   description: optional string
 
   /**

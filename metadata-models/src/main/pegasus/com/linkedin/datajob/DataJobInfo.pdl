@@ -15,11 +15,19 @@ record DataJobInfo includes CustomProperties, ExternalReference {
   /**
    * Job name
    */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   name: string
 
   /**
    * Job description
    */
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   description: optional string
 
   /**

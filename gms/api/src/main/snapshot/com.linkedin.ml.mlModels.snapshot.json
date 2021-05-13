@@ -32,35 +32,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "BrowsePath",
-    "namespace" : "com.linkedin.common",
-    "fields" : [ {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "string"
-      },
-      "doc" : "An array of strings comprising the path",
-      "BrowsePath" : true
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "BrowsePaths",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
-    "fields" : [ {
-      "name" : "paths",
-      "type" : {
-        "type" : "array",
-        "items" : "BrowsePath"
-      },
-      "doc" : "A list of valid browse paths for the entity."
-    } ],
-    "Aspect" : {
-      "name" : "browsePaths"
-    }
-  }, {
-    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -222,10 +193,7 @@
       "name" : "actor",
       "type" : "CorpuserUrn",
       "doc" : "The corpuser URN which will be credited for modifying this deprecation content."
-    } ],
-    "Aspect" : {
-      "name" : "deprecation"
-    }
+    } ]
   }, {
     "type" : "enum",
     "name" : "FabricType",
@@ -275,10 +243,7 @@
         }
       },
       "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
-    } ],
-    "Aspect" : {
-      "name" : "institutionalMemory"
-    }
+    } ]
   }, "com.linkedin.common.InstitutionalMemoryMetadata", {
     "type" : "typeref",
     "name" : "MLFeatureUrn",
@@ -355,11 +320,7 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-      "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
-        "name" : "OwnedBy"
-      }
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
     }, {
       "name" : "type",
       "type" : {
@@ -427,10 +388,7 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ],
-    "Aspect" : {
-      "name" : "ownership"
-    }
+    } ]
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -441,10 +399,7 @@
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
       "default" : false
-    } ],
-    "Aspect" : {
-      "name" : "status"
-    }
+    } ]
   }, "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "VersionTag",
@@ -460,29 +415,7 @@
     "name" : "MLModelAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a ML Model",
-    "ref" : [ {
-      "type" : "record",
-      "name" : "MLModelKey",
-      "namespace" : "com.linkedin.metadata.key",
-      "doc" : "Key for an ML model",
-      "fields" : [ {
-        "name" : "platform",
-        "type" : "com.linkedin.common.Urn",
-        "doc" : "Standardized platform urn for the model"
-      }, {
-        "name" : "name",
-        "type" : "string",
-        "doc" : "Name of the MLModel"
-      }, {
-        "name" : "origin",
-        "type" : "com.linkedin.common.FabricType",
-        "doc" : "Fabric type where model belongs to or where it was generated"
-      } ],
-      "Aspect" : {
-        "isKey" : true,
-        "name" : "mlModelKey"
-      }
-    }, "com.linkedin.common.Ownership", {
+    "ref" : [ "com.linkedin.common.Ownership", {
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
@@ -836,8 +769,8 @@
         },
         "doc" : "Source Code along with types"
       } ]
-    }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
-  }, "com.linkedin.metadata.key.MLModelKey", {
+    }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation" ]
+  }, {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -1037,12 +970,7 @@
         "items" : "com.linkedin.metadata.aspect.MLModelAspect"
       },
       "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ],
-    "Entity" : {
-      "browsable" : false,
-      "name" : "mlModel",
-      "searchable" : false
-    }
+    } ]
   }, {
     "type" : "record",
     "name" : "MLModel",

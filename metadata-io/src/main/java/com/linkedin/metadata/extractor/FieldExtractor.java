@@ -1,5 +1,6 @@
 package com.linkedin.metadata.extractor;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
@@ -7,6 +8,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.FieldSpec;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,13 +35,13 @@ public class FieldExtractor {
   /**
    * Function to extract the fields that match the input fieldSpecs
    */
-  public static <T extends FieldSpec> Map<T, Optional<Object>> extractFields(RecordTemplate snapshot,
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(RecordTemplate snapshot,
       Map<String, List<T>> fieldSpecsPerAspect) {
 
     final ObjectIterator iterator = new ObjectIterator(snapshot.data(), snapshot.schema(), IterationOrder.PRE_ORDER);
     final Map<String, T> pathToFieldSpec = getPathToFieldSpecMap(fieldSpecsPerAspect);
-    final Map<T, Optional<Object>> result = new HashMap<>();
     final Set<String> aspectsInSnapshot = new HashSet<>();
+    final Map<T, List<Object>> fieldSpecToValues = new HashMap<>();
     for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
       final PathSpec pathSpec = dataElement.getSchemaPathSpec();
       List<String> pathComponents = pathSpec.getPathComponents();
@@ -50,7 +52,9 @@ public class FieldExtractor {
       final String path = StringUtils.join(pathComponents.subList(2, pathComponents.size()), "/");
       final Optional<T> matchingSpec = Optional.ofNullable(pathToFieldSpec.get(path));
       if (matchingSpec.isPresent()) {
-        result.put(matchingSpec.get(), Optional.of(dataElement.getValue()));
+        List<Object> originalValues = fieldSpecToValues.computeIfAbsent(matchingSpec.get(), key -> new ArrayList<>());
+        originalValues.add(dataElement.getValue());
+        fieldSpecToValues.put(matchingSpec.get(), originalValues);
       }
     }
 
@@ -63,8 +67,8 @@ public class FieldExtractor {
         .collect(Collectors.toSet());
     pathToFieldSpec.values()
         .stream()
-        .filter(spec -> !requiredFieldSpec.contains(spec))
-        .forEach(spec -> result.put(spec, Optional.empty()));
-    return result;
+        .filter(spec -> requiredFieldSpec.contains(spec))
+        .forEach(spec -> fieldSpecToValues.put(spec, ImmutableList.of()));
+    return fieldSpecToValues;
   }
 }
