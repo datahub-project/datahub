@@ -110,8 +110,10 @@ class DatahubRestEmitter:
 
         raw_mce_obj = mce.proposedSnapshot.to_obj()
         mce_obj = _rest_li_ify(raw_mce_obj)
-        snapshot_fqn = f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
-        snapshot = {"entity": { "value": { snapshot_fqn: mce_obj } }}
+        snapshot_fqn = (
+            f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
+        )
+        snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}}
         payload = json.dumps(snapshot)
 
         curl_command = _make_curl_command(self._session, "POST", url, payload)
