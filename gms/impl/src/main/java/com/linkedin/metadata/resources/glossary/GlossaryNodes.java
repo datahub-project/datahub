@@ -186,7 +186,9 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
             new GlossaryNodeUrn(key.getKey().getName()),
             projectedAspects);
 
-        entities.put(key, toValue(entity.getValue().getGlossaryNodeSnapshot()));
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getGlossaryNodeSnapshot()));
+        }
       }
       return entities;
     });

@@ -212,7 +212,9 @@ public class Dashboards extends BaseBrowsableEntityResource<
             new DashboardUrn(key.getKey().getTool(), key.getKey().getDashboardId()),
             projectedAspects);
 
-        entities.put(key, toValue(entity.getValue().getDashboardSnapshot()));
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getDashboardSnapshot()));
+        }
       }
       return entities;
     });

@@ -218,7 +218,9 @@ public class Charts extends BaseBrowsableEntityResource<
               new ChartUrn(key.getKey().getTool(), key.getKey().getChartId()),
               projectedAspects);
 
-          entities.put(key, toValue(entity.getValue().getChartSnapshot()));
+          if (entity != null) {
+            entities.put(key, toValue(entity.getValue().getChartSnapshot()));
+          }
         }
         return entities;
       });
@@ -277,7 +279,8 @@ public class Charts extends BaseBrowsableEntityResource<
             field,
             filter,
             limit)
-    );  }
+    );
+  }
 
   @Action(name = ACTION_BROWSE)
   @Override

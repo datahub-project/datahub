@@ -219,10 +219,13 @@ public class DataJobs extends BaseBrowsableEntityResource<
             new DataJobUrn(key.getKey().getDataFlow(), key.getKey().getJobId()),
             projectedAspects);
 
-        entities.put(key, toValue(entity.getValue().getDataJobSnapshot()));
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getDataJobSnapshot()));
+        }
       }
       return entities;
-    });  }
+    });
+  }
 
   @RestMethod.GetAll
   @Nonnull

@@ -215,7 +215,9 @@ public class DataFlows extends BaseBrowsableEntityResource<
             new DataFlowUrn(key.getKey().getOrchestrator(), key.getKey().getFlowId(), key.getKey().getCluster()),
             projectedAspects);
 
-        entities.put(key, toValue(entity.getValue().getDataFlowSnapshot()));
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getDataFlowSnapshot()));
+        }
       }
       return entities;
     });
