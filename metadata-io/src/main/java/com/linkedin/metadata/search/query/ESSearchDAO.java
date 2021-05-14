@@ -231,7 +231,7 @@ public class ESSearchDAO {
     try {
       SearchRequest req = constructAutoCompleteQuery(entityName, query, field, requestParams, limit);
       SearchResponse searchResponse = _client.search(req, RequestOptions.DEFAULT);
-      return AutocompleteQueryBuilder.getBuilder(entityName).extractResult(searchResponse, query, field, limit);
+      return AutocompleteQueryBuilder.getBuilder(entityName).extractResult(searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
       throw new ESQueryException("Auto complete query failed:", e);
@@ -243,12 +243,12 @@ public class ESSearchDAO {
       @Nullable String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest(getIndexName(entityName));
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-
+    AutocompleteQueryBuilder builder = AutocompleteQueryBuilder.getBuilder(entityName);
     searchSourceBuilder.size(limit);
-    searchSourceBuilder.query(AutocompleteQueryBuilder.getBuilder(entityName).getQuery(input, field));
+    searchSourceBuilder.query(builder.getQuery(input, field));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
+    searchSourceBuilder.highlighter(builder.getHighlights(field));
     searchRequest.source(searchSourceBuilder);
-
     return searchRequest;
   }
 
