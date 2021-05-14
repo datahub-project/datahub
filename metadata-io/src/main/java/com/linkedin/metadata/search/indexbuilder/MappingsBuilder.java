@@ -95,6 +95,8 @@ public class MappingsBuilder {
         return ImmutableMap.of("type", "text", "analyzer", "partial_long");
       case PARTIAL_PATTERN:
         return ImmutableMap.of("type", "text", "analyzer", "partial_pattern");
+      case URN:
+        return ImmutableMap.of("type", "text", "analyzer", "urn_component");
       default:
         return ImmutableMap.of();
     }

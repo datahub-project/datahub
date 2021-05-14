@@ -44,7 +44,8 @@ public class SearchableAnnotation {
     PARTIAL,
     PARTIAL_SHORT,
     PARTIAL_LONG,
-    PARTIAL_PATTERN
+    PARTIAL_PATTERN,
+    URN
   }
 
   public static final Map<IndexType, String> SUBFIELD_BY_TYPE =
@@ -57,6 +58,7 @@ public class SearchableAnnotation {
           .put(IndexType.PARTIAL_SHORT, "ngram")
           .put(IndexType.PARTIAL_LONG, "ngram")
           .put(IndexType.PARTIAL_PATTERN, "pattern_ngram")
+          .put(IndexType.URN, "urn_components")
           .build();
 
   @Value

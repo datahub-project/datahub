@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.indexbuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import java.util.Map;
 import java.util.Optional;
 
@@ -49,6 +50,15 @@ public class SettingsBuilder {
         .put("preserve_original", true)
         .build());
 
+    // Filter to process URNs
+    ImmutableList.Builder<String> stopWords = ImmutableList.<String>builder().add("urn").add("li");
+    // Add all entity names to stop word list
+    SnapshotEntityRegistry.getInstance()
+        .getEntitySpecs()
+        .forEach(entitySpec -> stopWords.add(entitySpec.getName().toLowerCase()));
+    filters.put("urn_stop_filter",
+        ImmutableMap.<String, Object>builder().put("type", "stop").put("stopwords", stopWords).build());
+
     return filters.build();
   }
 
@@ -67,6 +77,11 @@ public class SettingsBuilder {
     // Tokenize by slash and period (i.e. for tokenizing dataset name / field name)
     tokenizers.put("pattern_tokenizer",
         ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[./]").build());
+
+    // Tokenize for urns
+    tokenizers.put("urn_char_group",
+        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(),]").build());
+
     return tokenizers.build();
   }
 
@@ -116,6 +131,11 @@ public class SettingsBuilder {
     // Analyzer for partial matching on fields delimited by periods and slashes
     analyzers.put("custom_keyword", ImmutableMap.<String, Object>builder().put("tokenizer", "keyword")
         .put("filter", ImmutableList.of("lowercase", "asciifolding"))
+        .build());
+
+    // Analyzer for urns
+    analyzers.put("urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
+        .put("filter", ImmutableList.of("urn_stop_filter"))
         .build());
 
     return analyzers.build();
