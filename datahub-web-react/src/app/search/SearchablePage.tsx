@@ -38,6 +38,9 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const search = (query: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
         analytics.event({
             type: EventType.SearchEvent,
             query,
