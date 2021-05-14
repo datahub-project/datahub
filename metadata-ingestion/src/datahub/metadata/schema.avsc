@@ -125,9 +125,12 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "tool",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD"
                             },
                             {
@@ -183,15 +186,22 @@
                           "fieldName": "title",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "TEXT"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.5,
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -202,6 +212,8 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 1.0,
                               "indexType": "TEXT"
                             },
                             {
@@ -331,6 +343,7 @@
                         "doc": "Type of the chart",
                         "default": null,
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "type",
                           "indexSettings": [
                             {
@@ -361,6 +374,7 @@
                         "doc": "Access level for the chart",
                         "default": null,
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "access",
                           "indexSettings": [
                             {
@@ -413,6 +427,7 @@
                         },
                         "doc": "Chart query type",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "queryType",
                           "indexSettings": [
                             {
@@ -451,6 +466,18 @@
                                     "corpGroup"
                                   ],
                                   "name": "OwnedBy"
+                                },
+                                "Searchable": {
+                                  "fieldName": "owners",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "URN"
+                                    },
+                                    {
+                                      "indexType": "BOOLEAN",
+                                      "overrideFieldName": "hasOwners"
+                                    }
+                                  ]
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -596,10 +623,13 @@
                                   "fieldName": "tags",
                                   "indexSettings": [
                                     {
-                                      "indexType": "KEYWORD_LOWERCASE"
+                                      "addToDefaultQuery": true,
+                                      "indexType": "URN"
                                     },
                                     {
-                                      "indexType": "PARTIAL"
+                                      "addToDefaultQuery": true,
+                                      "boostScore": 0.1,
+                                      "indexType": "PARTIAL_URN"
                                     },
                                     {
                                       "indexType": "BOOLEAN",
@@ -802,6 +832,8 @@
                           "fieldName": "ldap",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 2.0,
                               "indexType": "TEXT"
                             },
                             {
@@ -832,7 +864,10 @@
                             {
                               "indexType": "BOOLEAN"
                             }
-                          ]
+                          ],
+                          "weightsPerFieldValue": {
+                            "true": 2.0
+                          }
                         }
                       },
                       {
@@ -869,6 +904,7 @@
                           "fieldName": "title",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "KEYWORD_LOWERCASE"
                             }
                           ]
@@ -887,6 +923,15 @@
                             "corpUser"
                           ],
                           "name": "ReportsTo"
+                        },
+                        "Searchable": {
+                          "fieldName": "managerLdap",
+                          "indexSettings": [
+                            {
+                              "addToDefaultQuery": true,
+                              "indexType": "URN"
+                            }
+                          ]
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.CorpuserUrn"
@@ -940,12 +985,15 @@
                           "fieldName": "fullName",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "TEXT"
                             },
                             {
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -992,6 +1040,7 @@
                           "fieldName": "teams",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             }
                           ]
@@ -1009,6 +1058,7 @@
                           "fieldName": "teams",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             }
                           ]
@@ -1075,9 +1125,12 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "tool",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD"
                             },
                             {
@@ -1133,15 +1186,22 @@
                           "fieldName": "title",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "KEYWORD"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "TEXT"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.5,
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -1152,7 +1212,13 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 1.0,
                               "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "BOOLEAN",
+                              "overrideFieldName": "hasDescription"
                             }
                           ]
                         }
@@ -1199,6 +1265,7 @@
                         "doc": "Access level for the dashboard",
                         "default": null,
                         "Searchable": {
+                          "addToFilters": true,
                           "fieldName": "access",
                           "indexSettings": [
                             {
@@ -1269,6 +1336,7 @@
                           "fieldName": "orchestrator",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
@@ -1285,12 +1353,15 @@
                           "fieldName": "flowId",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD"
                             },
                             {
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -1301,6 +1372,7 @@
                           "fieldName": "cluster",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "KEYWORD"
                             },
                             {
@@ -1351,15 +1423,21 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.5,
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -1374,6 +1452,7 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             }
                           ]
@@ -1448,6 +1527,17 @@
                         "name": "flow",
                         "type": "string",
                         "doc": "Standardized data processing flow urn representing the flow for the job",
+                        "Searchable": {
+                          "fieldName": "dataFlow",
+                          "indexSettings": [
+                            {
+                              "indexType": "URN"
+                            },
+                            {
+                              "indexType": "PARTIAL_URN"
+                            }
+                          ]
+                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -1460,12 +1550,15 @@
                           "fieldName": "project",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD"
                             },
                             {
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       }
                     ],
@@ -1510,15 +1603,21 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.5,
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -1533,6 +1632,7 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             }
                           ]
@@ -1594,7 +1694,7 @@
                           "fieldName": "inputs",
                           "indexSettings": [
                             {
-                              "indexType": "KEYWORD_LOWERCASE"
+                              "indexType": "URN"
                             },
                             {
                               "indexType": "COUNT",
@@ -1620,7 +1720,7 @@
                           "fieldName": "outputs",
                           "indexSettings": [
                             {
-                              "indexType": "KEYWORD_LOWERCASE"
+                              "indexType": "URN"
                             },
                             {
                               "indexType": "COUNT",
@@ -1689,18 +1789,26 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 1000.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "PATTERN"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "PARTIAL_PATTERN"
                             },
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "PARTIAL_LONG"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -1833,7 +1941,10 @@
                             {
                               "indexType": "BOOLEAN"
                             }
-                          ]
+                          ],
+                          "weightsPerFieldValue": {
+                            "true": 0.5
+                          }
                         }
                       },
                       {
@@ -1982,7 +2093,7 @@
                                   "fieldName": "upstreams",
                                   "indexSettings": [
                                     {
-                                      "indexType": "KEYWORD_LOWERCASE"
+                                      "indexType": "URN"
                                     }
                                   ]
                                 },
@@ -2287,9 +2398,12 @@
                                   "fieldName": "fieldPaths",
                                   "indexSettings": [
                                     {
+                                      "addToDefaultQuery": true,
                                       "indexType": "KEYWORD_LOWERCASE"
                                     },
                                     {
+                                      "addToDefaultQuery": true,
+                                      "boostScore": 0.2,
                                       "indexType": "PATTERN"
                                     },
                                     {
@@ -2328,6 +2442,8 @@
                                   "fieldName": "fieldDescriptions",
                                   "indexSettings": [
                                     {
+                                      "addToDefaultQuery": true,
+                                      "boostScore": 0.125,
                                       "indexType": "TEXT"
                                     }
                                   ]
@@ -2659,15 +2775,7 @@
                               {
                                 "name": "fieldPath",
                                 "type": "string",
-                                "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with",
-                                "Searchable": {
-                                  "fieldName": "editedFieldPaths",
-                                  "indexSettings": [
-                                    {
-                                      "indexType": "TEXT"
-                                    }
-                                  ]
-                                }
+                                "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with"
                               },
                               {
                                 "name": "description",
@@ -2681,6 +2789,8 @@
                                   "fieldName": "editedFieldDescriptions",
                                   "indexSettings": [
                                     {
+                                      "addToDefaultQuery": true,
+                                      "boostScore": 0.125,
                                       "indexType": "TEXT"
                                     }
                                   ]
@@ -2752,6 +2862,8 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 4.0,
                               "indexType": "KEYWORD"
                             }
                           ]
@@ -2765,12 +2877,14 @@
                           "fieldName": "orchestrator",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
                               "indexType": "PARTIAL"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -2908,6 +3022,16 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Standardized platform urn for the model",
+                        "Searchable": {
+                          "fieldName": "platform",
+                          "indexSettings": [
+                            {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.055,
+                              "indexType": "URN"
+                            }
+                          ]
+                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         }
@@ -2920,18 +3044,27 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 1000.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "PATTERN"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "PARTIAL_PATTERN"
                             },
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.125,
                               "indexType": "PARTIAL_LONG"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       },
                       {
@@ -2975,6 +3108,8 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.035,
                               "indexType": "TEXT"
                             },
                             {
@@ -3029,6 +3164,8 @@
                           "fieldName": "type",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 0.01,
                               "indexType": "KEYWORD"
                             },
                             {
@@ -3594,7 +3731,10 @@
                             {
                               "indexType": "BOOLEAN"
                             }
-                          ]
+                          ],
+                          "weightsPerFieldValue": {
+                            "true": 0.5
+                          }
                         }
                       },
                       {
@@ -3800,15 +3940,19 @@
                           "fieldName": "name",
                           "indexSettings": [
                             {
+                              "addToDefaultQuery": true,
+                              "boostScore": 8.0,
                               "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
+                              "addToDefaultQuery": true,
                               "indexType": "TEXT"
                             },
                             {
                               "indexType": "PARTIAL_SHORT"
                             }
-                          ]
+                          ],
+                          "isDefaultAutocomplete": true
                         }
                       }
                     ],

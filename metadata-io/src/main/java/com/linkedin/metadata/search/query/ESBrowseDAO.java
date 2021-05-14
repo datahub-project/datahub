@@ -73,7 +73,7 @@ public class ESBrowseDAO {
     try {
       final String indexName = _indexConvention.getIndexName(_entityRegistry.getEntitySpec(entityName));
       final SearchResponse groupsResponse =
-          _client.search(constructGroupsSearchRequest(indexName, path, requestMap, from, size), RequestOptions.DEFAULT);
+          _client.search(constructGroupsSearchRequest(indexName, path, requestMap, 0, 1000), RequestOptions.DEFAULT);
       final SearchResponse entitiesResponse =
           _client.search(constructEntitiesSearchRequest(indexName, path, requestMap, from, size),
               RequestOptions.DEFAULT);
