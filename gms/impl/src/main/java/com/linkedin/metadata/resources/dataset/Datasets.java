@@ -1,9 +1,11 @@
 package com.linkedin.metadata.resources.dataset;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -13,21 +15,28 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.dao.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.IndexFilter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.DatasetDocument;
+import com.linkedin.metadata.search.query.ESBrowseDAO;
+import com.linkedin.metadata.search.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -43,10 +52,17 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -65,38 +81,41 @@ public final class Datasets extends BaseBrowsableEntityResource<
         DatasetDocument> {
     // @formatter:on
 
+  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+  private final Clock _clock = Clock.systemUTC();
+
   public Datasets() {
     super(DatasetSnapshot.class, DatasetAspect.class, DatasetUrn.class);
   }
 
   @Inject
-  @Named("datasetDao")
-  private BaseLocalDAO _localDAO;
+  @Named("entityService")
+  private EntityService _entityService;
 
   @Inject
-  @Named("datasetSearchDao")
-  private BaseSearchDAO _searchDAO;
+  @Named("esSearchDao")
+  private ESSearchDAO _entitySearchDao;
 
   @Inject
-  @Named("datasetBrowseDao")
-  private BaseBrowseDAO _browseDAO;
+  @Named("esBrowseDao")
+  private ESBrowseDAO _entityBrowseDao;
 
   @Override
   @Nonnull
   protected BaseLocalDAO getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
   protected BaseSearchDAO getSearchDAO() {
-    return _searchDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
   protected BaseBrowseDAO getBrowseDAO() {
-    return _browseDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
@@ -231,7 +250,15 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   public Task<Dataset> get(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.get(key, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(new DatasetUrn(
+          key.getKey().getPlatform(),
+          key.getKey().getName(),
+          key.getKey().getOrigin()), projectedAspects);
+      return toValue(entity.getValue().getDatasetSnapshot());
+    });
   }
 
   @RestMethod.BatchGet
@@ -240,18 +267,51 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<Map<ComplexResourceKey<DatasetKey, EmptyRecord>, Dataset>> batchGet(
       @Nonnull Set<ComplexResourceKey<DatasetKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.batchGet(keys, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+
+      final Map<ComplexResourceKey<DatasetKey, EmptyRecord>, Dataset> entities = new HashMap<>();
+      for (final ComplexResourceKey<DatasetKey, EmptyRecord> key : keys) {
+        final Entity entity = _entityService.getEntity(
+            new DatasetUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin()),
+            projectedAspects);
+
+        entities.put(key, toValue(entity.getValue().getDatasetSnapshot()));
+      }
+      return entities;
+    });
   }
 
   @Finder(FINDER_SEARCH)
   @Override
   @Nonnull
-  public Task<CollectionResult<Dataset, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
+  public Task<CollectionResult<Dataset, SearchResultMetadata>> search(
+      @QueryParam(PARAM_INPUT) @Nonnull String input,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    return RestliUtils.toTask(() -> {
+
+      final SearchResult searchResult = _entitySearchDao.search(
+          "dataset",
+          input,
+          filter,
+          sortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getDatasetSnapshot())).collect(Collectors.toList()),
+          searchResult.getNumEntities(),
+          searchResult.getMetadata().setUrns(new UrnArray(urns))
+      );
+    });
   }
 
   /**
@@ -283,7 +343,14 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return super.autocomplete(query, field, filter, limit);
+    return RestliUtils.toTask(() ->
+        _entitySearchDao.autoComplete(
+          "dataset",
+          query,
+          field,
+          filter,
+          limit)
+    );
   }
 
   @Action(name = ACTION_BROWSE)
@@ -292,7 +359,14 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return super.browse(path, filter, start, limit);
+    return RestliUtils.toTask(() ->
+        _entityBrowseDao.browse(
+            "dataset",
+            path,
+            filter,
+            start,
+            limit)
+    );
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
@@ -300,14 +374,27 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    return super.getBrowsePaths(urn);
+    return RestliUtils.toTask(() ->
+        new StringArray(_entityBrowseDao.getBrowsePaths(
+            "dataset",
+            urn))
+    );
   }
 
   @Action(name = ACTION_INGEST)
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull DatasetSnapshot snapshot) {
-    return super.ingest(snapshot);
+    return RestliUtils.toTask(() -> {
+          try {
+            final AuditStamp auditStamp =
+                new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+            _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+          } catch (URISyntaxException e) {
+            throw new RuntimeException("Failed to create Audit Urn");
+          }
+          return null;
+    });
   }
 
   @Action(name = ACTION_GET_SNAPSHOT)
