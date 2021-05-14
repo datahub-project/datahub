@@ -18,7 +18,6 @@ public class SettingsBuilder {
     maxNgramDiff.ifPresent(diff -> settings.put("max_ngram_diff", diff));
     settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters())
         .put("tokenizer", buildTokenizers())
-        .put("normalizer", buildNormalizers())
         .put("analyzer", buildAnalyzers())
         .build());
     return ImmutableMap.of("index", settings.build());
@@ -71,14 +70,6 @@ public class SettingsBuilder {
     return tokenizers.build();
   }
 
-  // Normalizers are for keyword mappings - always returns one token
-  private static Map<String, Object> buildNormalizers() {
-    ImmutableMap.Builder<String, Object> normalizers = ImmutableMap.builder();
-    normalizers.put("keyword_normalizer",
-        ImmutableMap.<String, Object>builder().put("filter", ImmutableList.of("lowercase", "asciifolding")).build());
-    return normalizers.build();
-  }
-
   // Analyzers turn fields into multiple tokens
   private static Map<String, Object> buildAnalyzers() {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
@@ -120,6 +111,11 @@ public class SettingsBuilder {
     // Analyzer for partial matching on fields delimited by periods and slashes
     analyzers.put("partial_pattern", ImmutableMap.<String, Object>builder().put("tokenizer", "pattern_tokenizer")
         .put("filter", ImmutableList.of("lowercase", "partial_filter"))
+        .build());
+
+    // Analyzer for partial matching on fields delimited by periods and slashes
+    analyzers.put("custom_keyword", ImmutableMap.<String, Object>builder().put("tokenizer", "keyword")
+        .put("filter", ImmutableList.of("lowercase", "asciifolding"))
         .build());
 
     return analyzers.build();

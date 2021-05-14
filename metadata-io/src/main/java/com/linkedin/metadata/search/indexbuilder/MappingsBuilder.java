@@ -4,8 +4,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexType;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,17 +13,6 @@ import java.util.stream.Collectors;
 
 
 public class MappingsBuilder {
-  private static final Map<IndexType, String> SUBFIELD_BY_TYPE =
-      ImmutableMap.<IndexType, String>builder().put(IndexType.KEYWORD, "keyword")
-          .put(IndexType.KEYWORD_LOWERCASE, "keyword")
-          .put(IndexType.BOOLEAN, "boolean")
-          .put(IndexType.TEXT, "delimited")
-          .put(IndexType.PATTERN, "pattern")
-          .put(IndexType.PARTIAL, "ngram")
-          .put(IndexType.PARTIAL_SHORT, "ngram")
-          .put(IndexType.PARTIAL_LONG, "ngram")
-          .put(IndexType.PARTIAL_PATTERN, "pattern_ngram")
-          .build();
 
   private MappingsBuilder() {
   }
@@ -75,7 +64,8 @@ public class MappingsBuilder {
       ImmutableMap.Builder<String, Object> subFields = ImmutableMap.builder();
       indexSettingsWithoutOverrides.stream()
           .skip(1)
-          .forEach(setting -> subFields.put(SUBFIELD_BY_TYPE.getOrDefault(setting.getIndexType(), "default"),
+          .forEach(setting -> subFields.put(
+              SearchableAnnotation.SUBFIELD_BY_TYPE.getOrDefault(setting.getIndexType(), "default"),
               getMappingByType(setting)));
       mapping.put("fields", subFields.build());
     }
@@ -88,7 +78,7 @@ public class MappingsBuilder {
       case KEYWORD:
         return ImmutableMap.of("type", "keyword");
       case KEYWORD_LOWERCASE:
-        return ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
+        return ImmutableMap.of("type", "keyword", "analyzer", "custom_keyword");
       case BOOLEAN:
         return ImmutableMap.of("type", "boolean");
       case COUNT:

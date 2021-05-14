@@ -9,6 +9,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
+import org.gradle.internal.impldep.com.google.common.collect.ImmutableMap;
 import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
@@ -25,6 +26,8 @@ public class SearchableAnnotation {
   boolean addToFilters;
   // List of settings for indexing the field. The first setting is used as default.
   List<IndexSetting> indexSettings;
+  // (Optional) Weights to apply to score for a given value
+  Map<Object, Double> weightsPerFieldValue;
 
   /**
    * Type of indexing to be done for the field
@@ -44,6 +47,18 @@ public class SearchableAnnotation {
     PARTIAL_PATTERN
   }
 
+  public static final Map<IndexType, String> SUBFIELD_BY_TYPE =
+      ImmutableMap.<IndexType, String>builder().put(IndexType.KEYWORD, "keyword")
+          .put(IndexType.KEYWORD_LOWERCASE, "keyword")
+          .put(IndexType.BOOLEAN, "boolean")
+          .put(IndexType.TEXT, "delimited")
+          .put(IndexType.PATTERN, "pattern")
+          .put(IndexType.PARTIAL, "ngram")
+          .put(IndexType.PARTIAL_SHORT, "ngram")
+          .put(IndexType.PARTIAL_LONG, "ngram")
+          .put(IndexType.PARTIAL_PATTERN, "pattern_ngram")
+          .build();
+
   @Value
   public static class IndexSetting {
     // Type of index
@@ -51,7 +66,7 @@ public class SearchableAnnotation {
     // (Optional) Whether the field is queryable without specifying the field in the query
     boolean addToDefaultQuery;
     // (Optional) Boost score for ranking
-    double boostScore;
+    Optional<Double> boostScore;
     // (Optional) Override fieldName (If set, creates a new search field with the specified name)
     Optional<String> overrideFieldName;
   }
@@ -77,7 +92,7 @@ public class SearchableAnnotation {
     final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
     final Optional<String> overrideFieldName = AnnotationUtils.getField(map, "overrideFieldName", String.class);
 
-    return new IndexSetting(IndexType.valueOf(indexType.get()), addToDefaultQuery.orElse(false), boostScore.orElse(1.0),
+    return new IndexSetting(IndexType.valueOf(indexType.get()), addToDefaultQuery.orElse(false), boostScore,
         overrideFieldName);
   }
 
@@ -113,7 +128,10 @@ public class SearchableAnnotation {
             + "set to true, must have a setting of type KEYWORD as it's first index setting");
       }
     }
+
+    final Optional<Map> weightsPerFieldValueMap =
+        AnnotationUtils.getField(map, "overrideFieldName", Map.class).map(m -> (Map<Object, Double>) m);
     return new SearchableAnnotation(fieldName.get(), isDefaultAutocomplete.orElse(false), addToFilters.orElse(false),
-        indexSettings);
+        indexSettings, weightsPerFieldValueMap.orElse(ImmutableMap.of()));
   }
 }
