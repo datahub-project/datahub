@@ -480,7 +480,11 @@ source:
 Extracts:
 
 - List of databases
-- List of collections in each database
+- List of collections in each database and infers schemas for each collection
+
+By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+
+Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
 ```yml
 source:
@@ -495,6 +499,8 @@ source:
     options: {}
     database_pattern: {}
     collection_pattern: {}
+    enableSchemaInference: True
+    schemaSamplingSize: 1000
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 
