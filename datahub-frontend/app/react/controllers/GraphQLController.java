@@ -26,6 +26,7 @@ import play.mvc.Security;
 import react.resolver.AnalyticsChartTypeResolver;
 import react.resolver.GetChartsResolver;
 import react.resolver.GetHighlightsResolver;
+import react.resolver.IsAnalyticsEnabledResolver;
 
 public class GraphQLController extends Controller {
 
@@ -33,6 +34,8 @@ public class GraphQLController extends Controller {
 
     private static final String QUERY_TYPE = "Query";
     private static final String ANALYTICS_CHART_TYPE = "AnalyticsChart";
+
+    private static final String IS_ANALYTICS_ENABLED_QUERY = "isAnalyticsEnabled";
     private static final String GET_ANALYTICS_CHARTS_QUERY = "getAnalyticsCharts";
     private static final String GET_HIGHLIGHTS_QUERY = "getHighlights";
 
@@ -49,10 +52,8 @@ public class GraphQLController extends Controller {
         /*
          * Initialize GraphQL Engine
          */
-        _engine = isAnalyticsEnabled(config)
-                ? buildExtendedEngine(environment, analyticsService)
-                : GmsGraphQLEngine.get();
         _config = config;
+        _engine = buildExtendedEngine(environment, analyticsService);
     }
 
     @Security.Authenticated(Authenticator.class)
@@ -114,6 +115,7 @@ public class GraphQLController extends Controller {
                 .addSchema(schemaString)
                 .configureRuntimeWiring(builder -> builder
                         .type(QUERY_TYPE, typeWiring -> typeWiring
+                                .dataFetcher(IS_ANALYTICS_ENABLED_QUERY, new IsAnalyticsEnabledResolver(isAnalyticsEnabled(_config)))
                                 .dataFetcher(GET_ANALYTICS_CHARTS_QUERY, new GetChartsResolver(analyticsService))
                                 .dataFetcher(GET_HIGHLIGHTS_QUERY, new GetHighlightsResolver(analyticsService)))
                         .type(ANALYTICS_CHART_TYPE, typeWiring -> typeWiring

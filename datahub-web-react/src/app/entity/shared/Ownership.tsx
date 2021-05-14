@@ -1,6 +1,13 @@
 import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
-import { EntityType, Owner, OwnershipSourceType, OwnershipType, OwnershipUpdate } from '../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    Owner,
+    OwnershipSourceType,
+    OwnershipType,
+    OwnershipUpdate,
+} from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -57,7 +64,15 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         type: EntityType.CorpGroup,
                     };
                 }
-                return {};
+                return {
+                    key: index,
+                    urn: owner.owner.urn,
+                    ldap: (owner.owner as CorpUser).username,
+                    fullName: (owner.owner as CorpUser).info?.fullName || (owner.owner as CorpUser).username,
+                    role: owner.type,
+                    pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
+                    type: EntityType.CorpUser,
+                };
             }),
         [stagedOwners],
     );
@@ -78,6 +93,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                 type: EntityType.CorpUser,
                 urn: '',
                 username: '',
+                __typename: 'CorpUser' as const,
             },
             type: OwnershipType.Stakeholder,
             source: {
@@ -295,7 +311,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                 Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
             </Typography.Paragraph>
             <Form form={form} component={false}>
-                <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} />
+                <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} rowKey="urn" />
             </Form>
             {editingIndex < 0 && (
                 <Button type="link" onClick={onAdd}>
