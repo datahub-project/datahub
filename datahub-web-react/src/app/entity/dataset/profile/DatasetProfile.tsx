@@ -14,12 +14,11 @@ import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-import GlossaryTermGroup from '../../../shared/glossaryTerms/GlossaryTermGroup';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -152,8 +151,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     )}/${urn}?is_lineage_mode=${isLineageMode}`}
                     title={data.dataset.name}
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataset?.globalTags as GlobalTags}
+                            glossaryTerms={data.dataset?.glossaryTerms as GlossaryTerms}
                             canAdd
                             canRemove
                             updateTags={(globalTags) => {
@@ -167,7 +167,6 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                             }}
                         />
                     }
-                    glossaryTerms={<GlossaryTermGroup glossaryTerms={data.dataset?.glossaryTerms as GlossaryTerms} />}
                     tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
                     tabs={getTabs(data.dataset as Dataset)}
                     header={getHeader(data.dataset as Dataset)}

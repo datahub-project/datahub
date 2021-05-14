@@ -12,7 +12,6 @@ import CompactContext from './CompactContext';
 export interface EntityProfileProps {
     title: string;
     tags?: React.ReactNode;
-    glossaryTerms?: React.ReactNode;
     tagCardHeader?: string;
     header: React.ReactNode;
     tabs?: Array<{
@@ -58,7 +57,6 @@ const LayoutDiv = styled(({ isCompact: _, ...props }: LayoutProps & LayoutPropsE
 const defaultProps = {
     tags: [],
     tabs: [],
-    glossaryTerms: [],
     tagCardHeader: 'Tags',
 };
 
@@ -72,7 +70,6 @@ export const EntityProfile = ({
     tabs,
     titleLink,
     onTabChange,
-    glossaryTerms,
     tagCardHeader,
 }: EntityProfileProps) => {
     const isCompact = React.useContext(CompactContext);
@@ -103,7 +100,6 @@ export const EntityProfile = ({
                         <TagsTitle type="secondary" level={4}>
                             <TagIcon /> {tagCardHeader}
                         </TagsTitle>
-                        {glossaryTerms}
                         {tags}
                     </TagCard>
                 </Col>

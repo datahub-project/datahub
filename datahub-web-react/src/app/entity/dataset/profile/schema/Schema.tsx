@@ -18,12 +18,11 @@ import {
     EntityType,
     GlossaryTerms,
 } from '../../../../../types.generated';
-import TagGroup from '../../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
-import GlossaryTermGroup from '../../../../shared/glossaryTerms/GlossaryTermGroup';
 
 const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
@@ -215,19 +214,17 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         );
         return (
-            <>
-                <GlossaryTermGroup glossaryTerms={record.glossaryTerms as GlossaryTerms} />
-                <TagGroup
-                    uneditableTags={tags}
-                    editableTags={relevantEditableFieldInfo?.globalTags}
-                    canRemove
-                    canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
-                    onOpenModal={() => setTagHoveredIndex(undefined)}
-                    updateTags={(update) =>
-                        onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
-                    }
-                />
-            </>
+            <TagTermGroup
+                uneditableTags={tags}
+                editableTags={relevantEditableFieldInfo?.globalTags}
+                glossaryTerms={record.glossaryTerms as GlossaryTerms}
+                canRemove
+                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
+                onOpenModal={() => setTagHoveredIndex(undefined)}
+                updateTags={(update) =>
+                    onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
+                }
+            />
         );
     };
 
