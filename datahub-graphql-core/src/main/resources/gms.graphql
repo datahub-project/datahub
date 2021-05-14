@@ -2293,7 +2293,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The associated data flow
     """
-    dataFlow: DataFlow!
+    dataFlow: DataFlow
 
     """
     Id of the job

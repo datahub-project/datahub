@@ -28,6 +28,7 @@ query getDataFlow($urn: String!) {
         dataJobs {
             urn
             type
+            jobId
         }
     }
 }

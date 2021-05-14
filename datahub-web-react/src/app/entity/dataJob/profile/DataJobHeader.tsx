@@ -12,7 +12,7 @@ export type Props = {
 
 export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlow } }: Props) {
     const entityRegistry = useEntityRegistry();
-    const platformName = capitalizeFirstLetter(dataFlow.orchestrator);
+    const platformName = dataFlow?.orchestrator ? capitalizeFirstLetter(dataFlow.orchestrator) : '';
 
     const openExternalUrl = () => {
         analytics.event({
