@@ -14,7 +14,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Install from PyPI
 
-The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
+The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
 
 ```shell
 # Requires Python 3.6+
@@ -43,7 +43,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source            |
+| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
@@ -732,8 +732,18 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend
-   datahub_conn_id = datahub_rest_default  # or datahub_kafka_default - whatever you named the connection in step 1
+   datahub_kwargs = {
+       "datahub_conn_id": "datahub_rest_default",
+       "capture_ownership_info": true,
+       "capture_tags_info": true,
+       "graceful_exceptions": true }
+   # The above indentation is important!
    ```
+   Configuration options:
+   - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
+   - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
+   - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
+   - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
 3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
