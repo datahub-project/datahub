@@ -56,7 +56,7 @@ import static com.linkedin.metadata.dao.utils.SearchUtils.getQueryBuilderFromCri
 public class SearchRequestHandler {
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
-  private final List<String> _defaultQueryFieldNames;
+  private final Set<String> _defaultQueryFieldNames;
   private final int _maxTermBucketSize = 100;
 
   private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
@@ -79,12 +79,12 @@ public class SearchRequestHandler {
         .collect(Collectors.toSet());
   }
 
-  public List<String> getDefaultQueryFieldNames() {
+  public Set<String> getDefaultQueryFieldNames() {
     return _entitySpec.getSearchableFieldSpecs()
         .stream()
         .filter(fieldSpec -> fieldSpec.getIndexSettings().stream().anyMatch(IndexSetting::isAddToDefaultQuery))
         .map(SearchableFieldSpec::getFieldName)
-        .collect(Collectors.toList());
+        .collect(Collectors.toSet());
   }
 
   /**
