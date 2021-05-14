@@ -115,6 +115,9 @@ export const HomePageHeader = () => {
     const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
 
     const onSearch = (query: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
         analytics.event({
             type: EventType.SearchEvent,
             query,

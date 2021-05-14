@@ -54,7 +54,7 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
     };
 
     if (!subview && Object.keys(ownerships).length > 0) {
-        const firstEntityType = Object.keys(ownerships)[0].toLowerCase();
+        const firstEntityType = entityRegistry.getPathName(Object.keys(ownerships)[0] as EntityType);
         const key = toMenuKey(Subview.Ownership, firstEntityType);
         setSelectedEntityType(key);
     }
