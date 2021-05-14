@@ -1,7 +1,10 @@
 package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 
 
@@ -17,6 +20,12 @@ public class EntitySpecUtils {
     }
     throw new IllegalArgumentException(
         String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
+  }
+
+  public static String getAspectNameFromFullyQualifiedName(final String fullyQualifiedRecordTemplateName) {
+    final RecordTemplate template = RecordUtils.toRecordTemplate(fullyQualifiedRecordTemplateName, new DataMap());
+    final RecordDataSchema aspectSchema = template.schema();
+    return getAspectNameFromSchema(aspectSchema);
   }
 
   public static String getAspectNameFromSchema(final RecordDataSchema aspectSchema) {
