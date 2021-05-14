@@ -1,5 +1,9 @@
 apply plugin: 'java'
 
+configurations {
+  enhance
+}
+
 dependencies {
   compile project(':entity-registry')
   compile project(':metadata-utils')
@@ -9,6 +13,7 @@ dependencies {
   compile project(':metadata-events:mxe-utils-avro-1.7')
   compile project(path: ':metadata-models')
 
+  compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
@@ -20,7 +25,17 @@ dependencies {
 
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
+  enhance externalDependency.ebeanAgent
 
   implementation gradleApi()
   annotationProcessor externalDependency.lombok
+}
+
+project.compileJava {
+  doLast {
+    ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
+        classpath: project.configurations.enhance.asPath)
+    ant.ebean(classSource: "${project.buildDir}/classes/java/main", packages: 'com.linkedin.metadata.dao.ebean',
+        transformArgs: 'debug=1')
+  }
 }

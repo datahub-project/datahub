@@ -21,10 +21,13 @@ public class EntityEventProducer {
 
   private final Map<String, BaseMetadataEventProducer> _entityNameToProducer;
 
-  public EntityEventProducer(@Nonnull final EntityRegistry registry,
+  public EntityEventProducer(
+      @Nonnull final EntityRegistry registry,
       @Nonnull final Producer<String, ? extends IndexedRecord> producer,
       @Nonnull final TopicConvention topicConvention) {
+
     _entityNameToProducer = new HashMap<>();
+
     final List<EntitySpec> entitySpecs = registry.getEntitySpecs();
     for (final EntitySpec spec : entitySpecs) {
       // Create a new BaseMetadataEventProducer for Kafka

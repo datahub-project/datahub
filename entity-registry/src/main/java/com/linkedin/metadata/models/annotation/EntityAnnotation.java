@@ -29,15 +29,8 @@ public class EntityAnnotation {
     }
 
     final Optional<Boolean> searchable = AnnotationUtils.getField(map, "searchable", Boolean.class);
-    if (!searchable.isPresent()) {
-      throw new IllegalArgumentException(
-          "Failed to validate required @Entity field 'searchable' field of type Boolean");
-    }
-
     final Optional<Boolean> browsable = AnnotationUtils.getField(map, "browsable", Boolean.class);
-    if (!browsable.isPresent()) {
-      throw new IllegalArgumentException("Failed to validate required @Entity field 'browsable' field of type Boolean");
-    }
-    return new EntityAnnotation(name.get(), searchable.get(), browsable.get());
+
+    return new EntityAnnotation(name.get(), searchable.orElse(false), browsable.orElse(false));
   }
 }
