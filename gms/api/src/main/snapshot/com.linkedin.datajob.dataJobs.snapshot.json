@@ -231,12 +231,26 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "indexSettings" : [ {
+                "indexType" : "KEYWORD_LOWERCASE"
+              }, {
+                "indexType" : "PARTIAL"
+              }, {
+                "indexType" : "BOOLEAN",
+                "overrideFieldName" : "hasTags"
+              } ]
+            }
           } ]
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -245,7 +259,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -313,7 +331,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -323,8 +344,17 @@
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
-      "default" : false
-    } ]
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataJob",
@@ -367,12 +397,28 @@
         "fields" : [ {
           "name" : "name",
           "type" : "string",
-          "doc" : "Job name"
+          "doc" : "Job name",
+          "Searchable" : {
+            "fieldName" : "name",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            }, {
+              "indexType" : "TEXT"
+            }, {
+              "indexType" : "PARTIAL"
+            } ]
+          }
         }, {
           "name" : "description",
           "type" : "string",
           "doc" : "Job description",
-          "optional" : true
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "description",
+            "indexSettings" : [ {
+              "indexType" : "TEXT"
+            } ]
+          }
         }, {
           "name" : "type",
           "type" : [ {
@@ -391,7 +437,10 @@
             }
           } ],
           "doc" : "Datajob type"
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "dataJobInfo"
+        }
       },
       "doc" : "Optional additional metadata about the job",
       "optional" : true
@@ -412,15 +461,44 @@
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Input datasets consumed by the data job during processing"
+          "doc" : "Input datasets consumed by the data job during processing",
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          },
+          "Searchable" : {
+            "fieldName" : "inputs",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            }, {
+              "indexType" : "COUNT",
+              "overrideFieldName" : "numInputDatasets"
+            } ]
+          }
         }, {
           "name" : "outputDatasets",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Output datasets produced by the data job during processing"
-        } ]
+          "doc" : "Output datasets produced by the data job during processing",
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          },
+          "Searchable" : {
+            "fieldName" : "outputs",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            }, {
+              "indexType" : "COUNT",
+              "overrideFieldName" : "numOutputDatasets"
+            } ]
+          }
+        } ],
+        "Aspect" : {
+          "name" : "dataJobInputOutput"
+        }
       },
       "doc" : "Input and output datasets of job",
       "optional" : true
@@ -440,8 +518,34 @@
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data job",
-    "ref" : [ "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataJobKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Job",
+      "fields" : [ {
+        "name" : "flow",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Standardized data processing flow urn representing the flow for the job"
+      }, {
+        "name" : "jobId",
+        "type" : "string",
+        "doc" : "Unique Identifier of the data job",
+        "Searchable" : {
+          "fieldName" : "project",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataJobKey"
+      }
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+  }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -717,7 +821,12 @@
         "items" : "com.linkedin.metadata.aspect.DataJobAspect"
       },
       "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "dataJob",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

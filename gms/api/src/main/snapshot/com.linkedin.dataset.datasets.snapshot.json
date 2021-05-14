@@ -66,6 +66,35 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "BrowsePath",
+    "namespace" : "com.linkedin.common",
+    "fields" : [ {
+      "name" : "path",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "An array of strings comprising the path",
+      "BrowsePath" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "BrowsePath"
+      },
+      "doc" : "A list of valid browse paths for the entity."
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
+  }, {
+    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -267,12 +296,26 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "indexSettings" : [ {
+                "indexType" : "KEYWORD_LOWERCASE"
+              }, {
+                "indexType" : "PARTIAL"
+              }, {
+                "indexType" : "BOOLEAN",
+                "overrideFieldName" : "hasTags"
+              } ]
+            }
           } ]
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
   }, {
     "type" : "record",
     "name" : "GlossaryTermAssociation",
@@ -355,7 +398,10 @@
         }
       },
       "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "institutionalMemory"
+    }
   }, "com.linkedin.common.InstitutionalMemoryMetadata", {
     "type" : "record",
     "name" : "Owner",
@@ -364,7 +410,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -432,7 +482,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -442,8 +495,17 @@
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
-      "default" : false
-    } ]
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
     "type" : "typeref",
     "name" : "Uri",
@@ -560,7 +622,13 @@
         "fields" : [ {
           "name" : "deprecated",
           "type" : "boolean",
-          "doc" : "Whether the dataset is deprecated by owner."
+          "doc" : "Whether the dataset is deprecated by owner.",
+          "Searchable" : {
+            "fieldName" : "deprecated",
+            "indexSettings" : [ {
+              "indexType" : "BOOLEAN"
+            } ]
+          }
         }, {
           "name" : "decommissionTime",
           "type" : "long",
@@ -575,7 +643,10 @@
           "type" : "com.linkedin.common.Urn",
           "doc" : "The corpuser URN which will be credited for modifying this deprecation content.",
           "optional" : true
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "datasetDeprecation"
+        }
       },
       "doc" : "The dataset deprecation status",
       "optional" : true
@@ -746,10 +817,22 @@
                   "type" : "typeref",
                   "name" : "SchemaFieldPath",
                   "namespace" : "com.linkedin.dataset",
-                  "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
+                  "doc" : "Schema field path. TODO: Add formal documentation on normalization rules.",
                   "ref" : "string"
                 },
-                "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+                "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
+                "Searchable" : {
+                  "fieldName" : "fieldPaths",
+                  "indexSettings" : [ {
+                    "indexType" : "KEYWORD_LOWERCASE"
+                  }, {
+                    "indexType" : "PATTERN"
+                  }, {
+                    "indexType" : "PARTIAL_PATTERN"
+                  }, {
+                    "indexType" : "PARTIAL_LONG"
+                  } ]
+                }
               }, {
                 "name" : "jsonPath",
                 "type" : "string",
@@ -764,7 +847,13 @@
                 "name" : "description",
                 "type" : "string",
                 "doc" : "Description",
-                "optional" : true
+                "optional" : true,
+                "Searchable" : {
+                  "fieldName" : "fieldDescriptions",
+                  "indexSettings" : [ {
+                    "indexType" : "TEXT"
+                  } ]
+                }
               }, {
                 "name" : "type",
                 "type" : {
@@ -946,7 +1035,10 @@
           },
           "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
           "optional" : true
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "schemaMetadata"
+        }
       },
       "doc" : "Schema metadata of the dataset",
       "optional" : true
@@ -969,12 +1061,24 @@
               "fields" : [ {
                 "name" : "fieldPath",
                 "type" : "string",
-                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with",
+                "Searchable" : {
+                  "fieldName" : "editedFieldPaths",
+                  "indexSettings" : [ {
+                    "indexType" : "TEXT"
+                  } ]
+                }
               }, {
                 "name" : "description",
                 "type" : "string",
                 "doc" : "Description",
-                "optional" : true
+                "optional" : true,
+                "Searchable" : {
+                  "fieldName" : "editedFieldDescriptions",
+                  "indexSettings" : [ {
+                    "indexType" : "TEXT"
+                  } ]
+                }
               }, {
                 "name" : "globalTags",
                 "type" : "com.linkedin.common.GlobalTags",
@@ -984,7 +1088,10 @@
             }
           },
           "doc" : "Client provided a list of fields from document schema."
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "editableSchemaMetadata"
+        }
       },
       "doc" : "Editable schema metadata of the dataset",
       "optional" : true
@@ -1014,7 +1121,17 @@
               }, {
                 "name" : "dataset",
                 "type" : "com.linkedin.common.DatasetUrn",
-                "doc" : "The upstream dataset the lineage points to"
+                "doc" : "The upstream dataset the lineage points to",
+                "Relationship" : {
+                  "entityTypes" : [ "dataset" ],
+                  "name" : "DownstreamOf"
+                },
+                "Searchable" : {
+                  "fieldName" : "upstreams",
+                  "indexSettings" : [ {
+                    "indexType" : "KEYWORD_LOWERCASE"
+                  } ]
+                }
               }, {
                 "name" : "type",
                 "type" : {
@@ -1033,7 +1150,10 @@
             }
           },
           "doc" : "List of upstream dataset lineage information"
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "upstreamLineage"
+        }
       },
       "doc" : "Upstream lineage metadata of the dataset",
       "optional" : true
@@ -1086,7 +1206,16 @@
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasDescription"
+        } ]
+      }
     }, {
       "name" : "uri",
       "type" : "com.linkedin.common.Uri",
@@ -1100,7 +1229,10 @@
       },
       "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
       "default" : [ ]
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "datasetProperties"
+    }
   }, {
     "type" : "record",
     "name" : "DatasetUpstreamLineage",
@@ -1113,7 +1245,10 @@
         "items" : "DatasetFieldMapping"
       },
       "doc" : "Upstream to downstream field level lineage mappings"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "datasetUpstreamLineage"
+    }
   }, {
     "type" : "record",
     "name" : "Downstream",
@@ -1163,8 +1298,50 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DatasetKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Dataset",
+      "fields" : [ {
+        "name" : "platform",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Data platform urn associated with the dataset"
+      }, {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD_LOWERCASE"
+          }, {
+            "indexType" : "PATTERN"
+          }, {
+            "indexType" : "PARTIAL_PATTERN"
+          }, {
+            "indexType" : "PARTIAL_LONG"
+          } ]
+        }
+      }, {
+        "name" : "origin",
+        "type" : "com.linkedin.common.FabricType",
+        "doc" : "Fabric type where dataset belongs to or where it was generated.",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD_LOWERCASE"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "datasetKey"
+      }
+    }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
+  }, "com.linkedin.metadata.key.DatasetKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -1491,7 +1668,12 @@
         "items" : "com.linkedin.metadata.aspect.DatasetAspect"
       },
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "dataset",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

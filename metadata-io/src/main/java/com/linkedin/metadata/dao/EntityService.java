@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
+import static com.linkedin.metadata.EntitySpecUtils.*;
 import static com.linkedin.metadata.dao.EbeanAspectDao.*;
 
 
@@ -128,6 +129,13 @@ public class EntityService {
       urnToAspects.get(urn).add(aspectRecord);
     });
     return urnToAspects;
+  }
+
+  public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+    // TODO: Make this more efficient.
+    for (final Entity entity : entities) {
+      ingestSnapshot(entity.getValue(), auditStamp);
+    }
   }
 
   public void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
@@ -225,10 +233,6 @@ public class EntityService {
     } catch (URISyntaxException e) {
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
-  }
-
-  private String urnToEntityName(final Urn urn) {
-    return urn.getEntityType();
   }
 
   private Entity toEntity(@Nonnull final Snapshot snapshot) {

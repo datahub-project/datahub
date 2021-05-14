@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.MatchMetadata;
 import com.linkedin.metadata.query.MatchMetadataArray;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.query.builder.AutocompleteQueryBuilder;
@@ -56,7 +57,7 @@ public class ESSearchDAO {
   }
 
   @Nonnull
-  private SearchResult executeAndExtract(@Nonnull String entityName, @Nonnull SearchRequest searchRequest, int from,
+  private SearchResultObject executeAndExtract(@Nonnull String entityName, @Nonnull SearchRequest searchRequest, int from,
       int size) {
     try {
       final SearchResponse searchResponse = _client.search(searchRequest, RequestOptions.DEFAULT);
@@ -68,13 +69,36 @@ public class ESSearchDAO {
     }
   }
 
+  @Nonnull
+  public SearchResult search(
+      @Nonnull String entityName,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size) {
+
+    final SearchResultObject searchResultObject = searchInternal(entityName, input, postFilters, sortCriterion, from, size);
+    return new SearchResult()
+        .setEntities(new UrnArray(searchResultObject.getResultList()))
+        .setMetadata(searchResultObject.getSearchResultMetadata())
+        .setFrom(searchResultObject.getFrom())
+        .setPageSize(searchResultObject.getPageSize())
+        .setNumEntities(searchResultObject.getTotalCount());
+  }
+
   /**
    * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
-    return search(entityName, input, postFilters, sortCriterion, null, from, size);
+  private SearchResultObject searchInternal(
+      @Nonnull String entityName,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size) {
+    return searchInternal(entityName, input, postFilters, sortCriterion, null, from, size);
   }
 
   /**
@@ -95,10 +119,10 @@ public class ESSearchDAO {
    * @param preference controls a preference of the shard copy on which to execute the search
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
+   * @return a {@link SearchResultObject} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  private SearchResultObject searchInternal(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, @Nullable String preference, int from, int size) {
     // Step 1: construct the query
     final SearchRequest req =
@@ -108,7 +132,7 @@ public class ESSearchDAO {
   }
 
   @Nonnull
-  public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
+  public SearchResultObject filter(@Nonnull String entityName, @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
 
     final SearchRequest searchRequest = getFilteredSearchQuery(entityName, filters, sortCriterion, from, size);
@@ -192,7 +216,7 @@ public class ESSearchDAO {
    * @return collection of a list of documents and related search result metadata
    */
   @Nonnull
-  public SearchResult extractQueryResult(@Nonnull String entityName, @Nonnull SearchResponse searchResponse, int from,
+  public SearchResultObject extractQueryResult(@Nonnull String entityName, @Nonnull SearchResponse searchResponse, int from,
       int size) {
 
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
@@ -201,7 +225,7 @@ public class ESSearchDAO {
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(entityName, searchResponse);
     searchResultMetadata.setUrns(new UrnArray(resultList));
 
-    return SearchResult.builder()
+    return SearchResultObject.builder()
         .resultList(resultList)
         .searchResultMetadata(searchResultMetadata)
         .from(from)
@@ -226,8 +250,12 @@ public class ESSearchDAO {
   }
 
   @Nonnull
-  public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
-      @Nullable Filter requestParams, int limit) {
+  public AutoCompleteResult autoComplete(
+      @Nonnull String entityName,
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter requestParams,
+      int limit) {
     try {
       SearchRequest req = constructAutoCompleteQuery(entityName, query, field, requestParams, limit);
       SearchResponse searchResponse = _client.search(req, RequestOptions.DEFAULT);

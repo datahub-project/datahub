@@ -57,7 +57,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -125,8 +129,31 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
+  }, {
     "type" : "typeref",
     "name" : "TagUrn",
     "namespace" : "com.linkedin.common",
@@ -159,7 +186,31 @@
     "name" : "TagAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a tag",
-    "ref" : [ "com.linkedin.common.Ownership", {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "TagKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Tag",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "The unique tag name",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD_LOWERCASE"
+          }, {
+            "indexType" : "TEXT"
+          }, {
+            "indexType" : "PARTIAL_SHORT"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "tagKey"
+      }
+    }, "com.linkedin.common.Ownership", {
       "type" : "record",
       "name" : "TagProperties",
       "namespace" : "com.linkedin.tag",
@@ -173,9 +224,12 @@
         "type" : "string",
         "doc" : "Documentation of the tag",
         "optional" : true
-      } ]
-    } ]
-  }, {
+      } ],
+      "Aspect" : {
+        "name" : "tagProperties"
+      }
+    }, "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -375,7 +429,12 @@
         "items" : "com.linkedin.metadata.aspect.TagAspect"
       },
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "tag",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
