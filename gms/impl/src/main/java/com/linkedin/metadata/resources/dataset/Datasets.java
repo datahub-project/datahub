@@ -257,7 +257,10 @@ public final class Datasets extends BaseBrowsableEntityResource<
           key.getKey().getPlatform(),
           key.getKey().getName(),
           key.getKey().getOrigin()), projectedAspects);
-      return toValue(entity.getValue().getDatasetSnapshot());
+      if (entity != null) {
+        return toValue(entity.getValue().getDatasetSnapshot());
+      }
+      throw RestliUtils.resourceNotFoundException();
     });
   }
 
@@ -402,7 +405,22 @@ public final class Datasets extends BaseBrowsableEntityResource<
   @Nonnull
   public Task<DatasetSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getDatasetSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });
   }
 
   @Action(name = ACTION_BACKFILL)
