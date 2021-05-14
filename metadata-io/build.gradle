@@ -20,6 +20,7 @@ dependencies {
 
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
+  compile externalDependency.gmaElasticsearchDao
 
   implementation gradleApi()
   annotationProcessor externalDependency.lombok

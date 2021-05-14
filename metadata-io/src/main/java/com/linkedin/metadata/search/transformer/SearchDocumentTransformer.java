@@ -73,6 +73,7 @@ public class SearchDocumentTransformer {
             break;
           default:
             valueNode = JsonNodeFactory.instance.numberNode(fieldValues.size());
+            break;
         }
       } else {
         Optional<JsonNode> valueNodeOpt = getNodeForValue(valueType, fieldValues, isArray);
@@ -100,26 +101,28 @@ public class SearchDocumentTransformer {
       final boolean isArray) {
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-      fieldValues.forEach(value -> arrayNode.add(getNodeForValue(fieldType, value)));
+      fieldValues.forEach(value -> getNodeForValue(fieldType, value).ifPresent(arrayNode::add));
       return Optional.of(arrayNode);
     }
     if (!fieldValues.isEmpty()) {
-      return Optional.of(getNodeForValue(fieldType, fieldValues.get(0)));
+      return getNodeForValue(fieldType, fieldValues.get(0));
     }
     return Optional.empty();
   }
 
-  private static JsonNode getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue) {
+  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue) {
     switch (fieldType) {
       case BOOLEAN:
-        return JsonNodeFactory.instance.booleanNode((Boolean) fieldValue);
+        return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
       case INT:
-        return JsonNodeFactory.instance.numberNode((Integer) fieldValue);
+        return Optional.of(JsonNodeFactory.instance.numberNode((Integer) fieldValue));
       case LONG:
-        return JsonNodeFactory.instance.numberNode((Long) fieldValue);
+        return Optional.of(JsonNodeFactory.instance.numberNode((Long) fieldValue));
       // By default run toString
       default:
-        return JsonNodeFactory.instance.textNode(fieldValue.toString());
+        String value = fieldValue.toString();
+        return value.isEmpty() ? Optional.empty()
+            : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
     }
   }
 }
