@@ -480,7 +480,7 @@ Extracts:
 - List of databases
 - List of collections in each database and infers schemas for each collection
 
-By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: 0` will scan the entire collection.
+By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
