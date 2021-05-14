@@ -66,7 +66,7 @@ public class AutocompleteRequestHandler {
   private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     // Search for exact matches with higher boost and ngram matches
     List<String> fieldNames = getAutocompleteFields(field).stream()
-        .flatMap(fieldName -> Stream.of(fieldName + "^4", fieldName + ".ngram"))
+        .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".ngram"))
         .collect(Collectors.toList());
     MultiMatchQueryBuilder queryBuilder = QueryBuilders.multiMatchQuery(query, fieldNames.toArray(new String[0]));
     queryBuilder.analyzer(ANALYZER);
