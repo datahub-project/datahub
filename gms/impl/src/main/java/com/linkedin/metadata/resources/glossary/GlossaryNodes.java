@@ -1,5 +1,8 @@
 package com.linkedin.metadata.resources.glossary;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
+import com.linkedin.experimental.Entity;
 import com.linkedin.glossary.GlossaryNode;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryNodeKey;
@@ -9,15 +12,20 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.GlossaryNodeAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.dao.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.GlossaryNodeInfoDocument;
+import com.linkedin.metadata.search.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.GlossaryNodeSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -32,6 +40,13 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 
+import java.net.URISyntaxException;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -67,28 +82,31 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
     GlossaryNodeInfoDocument> {
     // @formatter:on
 
+  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+  private final Clock _clock = Clock.systemUTC();
+
   public GlossaryNodes() {
     super(GlossaryNodeSnapshot.class, GlossaryNodeAspect.class);
   }
 
   @Inject
-  @Named("glossaryNodeDao")
-  private BaseLocalDAO<GlossaryNodeAspect, GlossaryNodeUrn> _localDAO;
+  @Named("entityService")
+  private EntityService _entityService;
 
   @Inject
-  @Named("glossaryNodeSearchDAO")
-  private BaseSearchDAO _esSearchDAO;
+  @Named("esSearchDao")
+  private ESSearchDAO _entitySearchDao;
 
   @Override
   @Nonnull
   protected BaseLocalDAO getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
   protected BaseSearchDAO getSearchDAO() {
-    return _esSearchDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
@@ -143,7 +161,13 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   @Nonnull
   public Task<GlossaryNode> get(@Nonnull ComplexResourceKey<GlossaryNodeKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.get(key, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(new GlossaryNodeUrn(
+          key.getKey().getName()), projectedAspects);
+      return toValue(entity.getValue().getGlossaryNodeSnapshot());
+    });
   }
 
   @RestMethod.BatchGet
@@ -152,7 +176,22 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   public Task<Map<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>, GlossaryNode>> batchGet(
       @Nonnull Set<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.batchGet(keys, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+
+      final Map<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>, GlossaryNode> entities = new HashMap<>();
+      for (final ComplexResourceKey<GlossaryNodeKey, EmptyRecord> key : keys) {
+        final Entity entity = _entityService.getEntity(
+            new GlossaryNodeUrn(key.getKey().getName()),
+            projectedAspects);
+
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getGlossaryNodeSnapshot()));
+        }
+      }
+      return entities;
+    });
   }
 
   @RestMethod.GetAll
@@ -168,20 +207,48 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull GlossaryNodeSnapshot snapshot) {
-    System.out.println("Snapshot :: " + snapshot);
-    return super.ingest(snapshot);
+    return RestliUtils.toTask(() -> {
+      try {
+        final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+        _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException("Failed to create Audit Urn");
+      }
+      return null;
+    });
   }
 
   @Finder(FINDER_SEARCH)
   @Override
   @Nonnull
-  public Task<CollectionResult<GlossaryNode, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-                                                                       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
-                                                                       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-                                                                       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-                                                                       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
-  }
+  public Task<CollectionResult<GlossaryNode, SearchResultMetadata>> search(
+      @QueryParam(PARAM_INPUT) @Nonnull String input,
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @PagingContextParam @Nonnull PagingContext pagingContext) {
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    return RestliUtils.toTask(() -> {
+
+      final SearchResult searchResult = _entitySearchDao.search(
+          "glossaryNode",
+          input,
+          filter,
+          sortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getGlossaryNodeSnapshot())).collect(
+              Collectors.toList()),
+          searchResult.getNumEntities(),
+          searchResult.getMetadata().setUrns(new UrnArray(urns))
+      );
+    });  }
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Override
@@ -189,15 +256,36 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
                                                @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
                                                @ActionParam(PARAM_LIMIT) int limit) {
-    return super.autocomplete(query, field, filter, limit);
-  }
+    return RestliUtils.toTask(() ->
+        _entitySearchDao.autoComplete(
+            "glossaryNode",
+            query,
+            field,
+            filter,
+            limit)
+    );  }
 
   @Action(name = ACTION_GET_SNAPSHOT)
   @Override
   @Nonnull
   public Task<GlossaryNodeSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getGlossaryNodeSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });
   }
 
   @Action(name = ACTION_BACKFILL)
