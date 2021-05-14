@@ -1,10 +1,11 @@
 {{- $baseName := include "datahub-ingestion-cron.fullname" .}}
 {{- $labels := include "datahub-ingestion-cron.labels" .}}
-{{- range $job, $val := .Values.crons }}
+{{- range $jobName, $val := .Values.crons }}
+{{- $defaultCommand := printf "datahub ingest -c /etc/recipe/%s" $val.recipe.fileName }}
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: "{{ $baseName }}-{{ .name }}"
+  name: "{{ $baseName }}-{{ $jobName }}"
   labels: {{- $labels | nindent 4 }}
 spec:
   schedule: {{ default "0 0 * * *" .schedule | quote}}
@@ -24,17 +25,16 @@ spec:
           hostAliases: {{- include "common.tplvalues.render" (dict "value" .hostAliases "context" $) | nindent 10 }}
         {{- end }}
           containers:
-          - name: {{ default "crawler" .name }}
+          - name: {{ $jobName }}-crawler
             image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
             imagePullPolicy: {{ $.Values.image.pullPolicy }}
             {{- if .extraVolumeMounts }}
             volumeMounts:
+              - name: recipe
+                mountPath: /etc/recipe
               {{- toYaml .extraVolumeMounts | nindent 14 }}
             {{- end }}
-            command:
-            - /bin/sh
-            - -c
-            - datahub ingest -c {{ required "Path to configuration file is required" .crawlerConfigPath }}
+            command: ["/bin/sh", "-c", {{ default $defaultCommand .command }} ]
             env:
               {{- if .env }}
               {{- range $key,$value := .env }}
@@ -52,8 +52,11 @@ spec:
               {{- end }}
               {{- end }}
           restartPolicy: OnFailure
-          {{- if .extraVolumes }}
           volumes:
+            - name: recipe
+              configMap:
+                name: {{ required "A valid .recipe.configmapName entry is required!" $val.recipe.configmapName }}
+          {{- if .extraVolumes }}
             {{- toYaml .extraVolumes | nindent 12 }}
           {{- end }}
 ---

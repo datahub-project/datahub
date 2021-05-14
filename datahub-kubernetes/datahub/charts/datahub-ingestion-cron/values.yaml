@@ -9,34 +9,44 @@ image:
 
 imagePullSecrets: []
 
-crons: []
+crons: {}
   #### Example data
-  ## Metadata ingestion name
-  ##
-  #name: "crawler"
+  #hive:
+    ## Daily at midnight (we may want to offset this to not conflict with other processes)
+    #schedule: "0 0 * * *"
 
-  ## Daily at midnight (we may want to offset this to not conflict with other processes)
-  #schedule: "0 0 * * *"
+    #recipe:
+    #  configmapName:
+    #  fileName:
 
-  ## Deployment pod host aliases
-  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
-  ##
-  #hostAliases: []
+    ## Command to be executed
+    #command: ["/bin/sh", "-c", "datahub ingest -c <recipe.fileName>"]
 
-  ## Environment variables.
-  #env: {}
+    ## Deployment pod host aliases
+    ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+    ##
+    #hostAliases: []
 
-  ## Environment variables from Secret resources.
-  #envFromSecrets: {}
+    ## Environment variables.
+    #env: {}
 
-  ## Additional primary volume mounts
-  ##
-  #extraVolumeMounts: []
+    ## Environment variables from Secret resources.
+    #envFromSecrets: {}
 
-  ## Additional primary volumes
-  ##
-  #extraVolumes: []
+    ## Additional primary volume mounts
+    ##
+    #extraVolumeMounts:
+    #- name: configmap-volume
+    #  mountPath: config.yml
+    #  subPath: config.yml
 
-  ## Add your own init container or uncomment and modify the given example.
-  ##
-  #extraInitContainers: {}
+    ## Additional primary volumes
+    ##
+    #extraVolumes:
+    #- name: configmap-volume
+    #  configMap:
+    #    name: crawler-config
+
+    ## Add your own init container or uncomment and modify the given example.
+    ##
+    #extraInitContainers: {}
