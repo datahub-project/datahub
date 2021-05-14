@@ -6,6 +6,11 @@ import com.linkedin.metadata.aspect.GlossaryNodeAspect
 /**
  * A metadata snapshot for a specific GlossaryNode entity.
  */
+@Entity = {
+  "name": "glossaryNode",
+  "searchable": true,
+  "browsable": true
+}
 record GlossaryNodeSnapshot {
 
   /**

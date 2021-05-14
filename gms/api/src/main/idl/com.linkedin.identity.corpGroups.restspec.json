@@ -7,7 +7,7 @@
   "collection" : {
     "identifier" : {
       "name" : "corpGroup",
-      "type" : "com.linkedin.identity.CorpGroupResourceKey",
+      "type" : "com.linkedin.identity.CorpGroupKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get" ],

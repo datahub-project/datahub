@@ -7,22 +7,38 @@ import com.linkedin.common.FabricType
  * Key for a Dataset
  */
 @Aspect = {
-    "name": "datasetKey",
-    "isKey": true
+  "name": "datasetKey",
+  "isKey": true
 }
 record DatasetKey {
-    /**
-    * Data platform urn associated with the dataset
-    */
-    platform: Urn
+  /**
+  * Data platform urn associated with the dataset
+  */
+  platform: Urn
 
-    /**
-    * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
-    */
-    name: string
+  /**
+  * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
+  */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "PATTERN" },
+      { "indexType": "PARTIAL_PATTERN" },
+      { "indexType": "PARTIAL_LONG" }
+    ]
+  }
+  name: string
 
-    /**
-    * Fabric type where dataset belongs to or where it was generated.
-    */
-    origin: FabricType
+  /**
+  * Fabric type where dataset belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "PARTIAL" }
+    ]
+  }
+  origin: FabricType
 }

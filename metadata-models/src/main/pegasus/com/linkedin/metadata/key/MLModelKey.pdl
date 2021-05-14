@@ -7,22 +7,38 @@ import com.linkedin.common.FabricType
  * Key for an ML model
  */
 @Aspect = {
-    "name": "mlModelKey",
-    "isKey": true
+  "name": "mlModelKey",
+  "isKey": true
 }
 record MLModelKey {
-    /**
-    * Standardized platform urn for the model
-    */
-    platform: Urn
+  /**
+  * Standardized platform urn for the model
+  */
+  platform: Urn
 
-    /**
-    * Name of the MLModel
-    */
-    name: string
+  /**
+  * Name of the MLModel
+  */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "PATTERN" },
+      { "indexType": "PARTIAL_PATTERN" },
+      { "indexType": "PARTIAL_LONG" }
+    ]
+  }
+  name: string
 
-    /**
-    * Fabric type where model belongs to or where it was generated
-    */
-    origin: FabricType
+  /**
+  * Fabric type where model belongs to or where it was generated
+  */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "PARTIAL" }
+    ]
+  }
+  origin: FabricType
 }

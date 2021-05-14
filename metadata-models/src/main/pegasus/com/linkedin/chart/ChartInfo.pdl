@@ -18,11 +18,26 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Title of the chart
    */
+  @Searchable = {
+    "fieldName": "title",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "TEXT" },
+      { "indexType": "PARTIAL" }
+    ]
+  }
   title: string
 
   /**
    * Detailed description about the chart
    */
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [
+      { "indexType": "TEXT" },
+      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
+    ]
+  }
   description: string
 
   /**
@@ -43,11 +58,19 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Type of the chart
    */
+  @Searchable = {
+    "fieldName": "type",
+    "indexSettings": [{ "indexType": "KEYWORD" }]
+  }
   type: optional ChartType
 
   /**
    * Access level for the chart
    */
+  @Searchable = {
+    "fieldName": "access",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+  }
   access: optional AccessLevel
 
   /**

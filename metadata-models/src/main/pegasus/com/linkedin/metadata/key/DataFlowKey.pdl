@@ -4,26 +4,34 @@ namespace com.linkedin.metadata.key
  * Key for a Data Flow
  */
 @Aspect = {
-    "name": "dataFlowKey",
-    "isKey": true
+  "name": "dataFlowKey",
+  "isKey": true
 }
 record DataFlowKey {
-    /**
-    * Workflow manager like azkaban, airflow which orchestrates the flow
-    */
-    @Searchable = {
-        "fieldName": "orchestrator",
-        "indexSettings": [{"indexType": "KEYWORD" }, {"indexType": "PARTIAL"}]
-    }
-    orchestrator: string
+  /**
+  * Workflow manager like azkaban, airflow which orchestrates the flow
+  */
+  @Searchable = {
+    "fieldName": "orchestrator",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+  }
+  orchestrator: string
 
-    /**
-    * Unique Identifier of the data flow
-    */
-    flowId: string
+  /**
+  * Unique Identifier of the data flow
+  */
+  @Searchable = {
+    "fieldName": "flowId",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+  }
+  flowId: string
 
-    /**
-    * Cluster where the flow is executed
-    */
-    cluster: string
+  /**
+  * Cluster where the flow is executed
+  */
+  @Searchable = {
+    "fieldName": "cluster",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+  }
+  cluster: string
 }

@@ -8,4 +8,4 @@ import com.linkedin.common.Status
 /**
  * A union of all supported metadata aspects for a data process
  */
-typeref DataProcessAspect = union[DataProcessKey, Ownership, DataProcessInfo]
+typeref DataProcessAspect = union[DataProcessKey, Ownership, DataProcessInfo, Status]

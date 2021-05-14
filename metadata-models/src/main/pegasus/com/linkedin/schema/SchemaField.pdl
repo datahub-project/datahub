@@ -12,6 +12,15 @@ record SchemaField {
   /**
    * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
    */
+  @Searchable = {
+    "fieldName": "fieldPaths",
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "PATTERN" },
+      { "indexType": "PARTIAL_PATTERN" },
+      { "indexType": "PARTIAL_LONG" }
+    ]
+  }
   fieldPath: SchemaFieldPath
 
   /**
@@ -27,6 +36,10 @@ record SchemaField {
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "fieldDescriptions",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   description: optional string
 
   /**

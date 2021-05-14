@@ -6,11 +6,11 @@ import com.linkedin.metadata.aspect.DataFlowAspect
 /**
  * A metadata snapshot for a specific DataFlow entity.
  */
- @Entity = {
-   "name": "dataFlow",
-   "searchable": false,
-   "browsable": false
- }
+@Entity = {
+  "name": "dataFlow",
+  "searchable": true,
+  "browsable": true
+}
 record DataFlowSnapshot {
 
   /**

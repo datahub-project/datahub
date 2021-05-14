@@ -10,6 +10,10 @@ record GlossaryNodeInfo {
   /**
    * Definition of business node
    */
+  @Searchable = {
+    "fieldName": "definition",
+    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   definition: string
 
   /**

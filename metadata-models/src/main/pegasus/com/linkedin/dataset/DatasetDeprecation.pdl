@@ -13,6 +13,10 @@ record DatasetDeprecation {
   /**
    * Whether the dataset is deprecated by owner.
    */
+  @Searchable = {
+    "fieldName": "deprecated",
+    "indexSettings": [{ "indexType": "BOOLEAN" }]
+  }
   deprecated: boolean
 
   /**

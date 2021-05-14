@@ -11,6 +11,10 @@ record Deprecation {
   /**
    * Whether the entity is deprecated.
    */
+  @Searchable = {
+    "fieldName": "deprecated",
+    "indexSettings": [{ "indexType": "BOOLEAN" }]
+  }
   deprecated: boolean
 
   /**

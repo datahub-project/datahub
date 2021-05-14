@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.models.EntitySpec;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -19,13 +20,19 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private String createIndexName(String baseName) {
-    return _prefix.map(prefix -> prefix + "_").orElse("") + baseName;
+    return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
   }
 
   @Nonnull
   @Override
   public String getIndexName(Class<? extends RecordTemplate> documentClass) {
-    return this.getIndexName(documentClass.getSimpleName().toLowerCase());
+    return this.getIndexName(documentClass.getSimpleName());
+  }
+
+  @Nonnull
+  @Override
+  public String getIndexName(EntitySpec entitySpec) {
+    return this.getIndexName(entitySpec.getName() + "document_v2");
   }
 
   @Nonnull

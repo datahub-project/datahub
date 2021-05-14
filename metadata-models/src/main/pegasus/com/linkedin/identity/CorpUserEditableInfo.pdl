@@ -19,11 +19,19 @@ record CorpUserEditableInfo {
   /**
    * Teams that the user belongs to e.g. Metadata
    */
+  @Searchable = {
+    "fieldName": "teams",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   teams: array[string] = [ ]
 
   /**
    * Skills that the user possesses e.g. Machine Learning
    */
+  @Searchable = {
+    "fieldName": "teams",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   skills: array[string] = [ ]
 
   /**

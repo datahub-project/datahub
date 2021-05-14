@@ -6,17 +6,21 @@ import com.linkedin.common.Urn
  * Key for a Data Job
  */
 @Aspect = {
-    "name": "dataJobKey",
-    "isKey": true
+  "name": "dataJobKey",
+  "isKey": true
 }
 record DataJobKey {
-    /**
-    * Standardized data processing flow urn representing the flow for the job
-    */
-    flow: Urn
+  /**
+  * Standardized data processing flow urn representing the flow for the job
+  */
+  flow: Urn
 
-    /**
-    * Unique Identifier of the data job
-    */
-    jobId: string
+  /**
+  * Unique Identifier of the data job
+  */
+  @Searchable = {
+    "fieldName": "project",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+  }
+  jobId: string
 }

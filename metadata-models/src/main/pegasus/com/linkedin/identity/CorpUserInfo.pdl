@@ -15,6 +15,10 @@ record CorpUserInfo {
   /**
    * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
    */
+  @Searchable = {
+    "fieldName": "active",
+    "indexSettings": [{ "indexType": "BOOLEAN" }]
+  }
   active: boolean
 
   /**
@@ -25,11 +29,19 @@ record CorpUserInfo {
   /**
    * email address of this user
    */
+  @Searchable = {
+    "fieldName": "emails",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+  }
   email: EmailAddress
 
   /**
    * title of this user
    */
+  @Searchable = {
+    "fieldName": "title",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+  }
   title: optional string
 
   /**
@@ -64,6 +76,10 @@ record CorpUserInfo {
   /**
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
+  @Searchable = {
+    "fieldName": "fullName",
+    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   fullName: optional string
 
   /**

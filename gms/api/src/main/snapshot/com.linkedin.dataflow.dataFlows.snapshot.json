@@ -32,35 +32,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "BrowsePath",
-    "namespace" : "com.linkedin.common",
-    "fields" : [ {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "string"
-      },
-      "doc" : "An array of strings comprising the path",
-      "BrowsePath" : true
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "BrowsePaths",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
-    "fields" : [ {
-      "name" : "paths",
-      "type" : {
-        "type" : "array",
-        "items" : "BrowsePath"
-      },
-      "doc" : "A list of valid browse paths for the entity."
-    } ],
-    "Aspect" : {
-      "name" : "browsePaths"
-    }
-  }, {
-    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -197,10 +168,7 @@
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ],
-    "Aspect" : {
-      "name" : "globalTags"
-    }
+    } ]
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -209,11 +177,7 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-      "Relationship" : {
-        "entityTypes" : [ "corpUser", "corpGroup" ],
-        "name" : "OwnedBy"
-      }
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
     }, {
       "name" : "type",
       "type" : {
@@ -281,10 +245,7 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ],
-    "Aspect" : {
-      "name" : "ownership"
-    }
+    } ]
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -295,10 +256,7 @@
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
       "default" : false
-    } ],
-    "Aspect" : {
-      "name" : "status"
-    }
+    } ]
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataFlow",
@@ -365,10 +323,7 @@
           "type" : "string",
           "doc" : "Optional project/namespace associated with the flow",
           "optional" : true
-        } ],
-        "Aspect" : {
-          "name" : "dataFlowInfo"
-        }
+        } ]
       },
       "doc" : "Optional additional metadata about the data flow",
       "optional" : true
@@ -393,38 +348,8 @@
     "name" : "DataFlowAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data flow",
-    "ref" : [ {
-      "type" : "record",
-      "name" : "DataFlowKey",
-      "namespace" : "com.linkedin.metadata.key",
-      "doc" : "Key for a Data Flow",
-      "fields" : [ {
-        "name" : "orchestrator",
-        "type" : "string",
-        "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
-        "Searchable" : {
-          "fieldName" : "orchestrator",
-          "indexSettings" : [ {
-            "indexType" : "KEYWORD"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
-        }
-      }, {
-        "name" : "flowId",
-        "type" : "string",
-        "doc" : "Unique Identifier of the data flow"
-      }, {
-        "name" : "cluster",
-        "type" : "string",
-        "doc" : "Cluster where the flow is executed"
-      } ],
-      "Aspect" : {
-        "isKey" : true,
-        "name" : "dataFlowKey"
-      }
-    }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
-  }, "com.linkedin.metadata.key.DataFlowKey", {
+    "ref" : [ "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+  }, {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -700,12 +625,7 @@
         "items" : "com.linkedin.metadata.aspect.DataFlowAspect"
       },
       "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ],
-    "Entity" : {
-      "browsable" : false,
-      "name" : "dataFlow",
-      "searchable" : false
-    }
+    } ]
   }, {
     "type" : "record",
     "name" : "EmptyRecord",

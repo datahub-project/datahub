@@ -1,8 +1,10 @@
 package com.linkedin.metadata.kafka;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.EntitySpecUtils;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
@@ -10,28 +12,27 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
+import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.indexbuilder.IndexBuilder;
-import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -69,11 +70,14 @@ public class MetadataAuditEventsProcessor {
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
-    try {
-      new IndexBuilder(elasticSearchClient, new SnapshotEntityRegistry().getEntitySpec("testEntity"),
-          "testentity").buildIndex();
-    } catch (IOException e) {
-      e.printStackTrace();
+    for (EntitySpec entitySpec : SnapshotEntityRegistry.getInstance().getEntitySpecs()) {
+      if(entitySpec.isSearchable() || entitySpec.isBrowsable()) {
+        try {
+          new IndexBuilder(elasticSearchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
     }
   }
 
@@ -86,12 +90,14 @@ public class MetadataAuditEventsProcessor {
     try {
       final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
       if (event.hasNewSnapshot()) {
-        final Snapshot snapshot = event.getNewSnapshot();
+        final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot());
 
         log.info(snapshot.toString());
 
-        updateElasticsearch(snapshot);
-        updateNeo4j(RecordUtils.getSelectedRecordTemplateFromUnion(snapshot));
+        final EntitySpec entitySpec = SnapshotEntityRegistry.getInstance()
+            .getEntitySpec(EntitySpecUtils.getEntityNameFromSchema(snapshot.schema()));
+        updateElasticsearch(snapshot, entitySpec);
+        updateNeo4j(snapshot, entitySpec);
       }
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -104,38 +110,38 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateNeo4j(final RecordTemplate snapshot) throws URISyntaxException {
-    // TODO(Gabe): memoize this
-    final EntitySpec entitySpec = EntitySpecBuilder.buildEntitySpec(snapshot.schema());
+  private void updateNeo4j(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
-    List<Neo4jGraphDAO.Edge> edgesToAdd = new ArrayList<>();
-    final String sourceUrn = snapshot.data().get("urn").toString();
+    final List<Neo4jGraphDAO.Edge> edgesToAdd = new ArrayList<>();
+    final String sourceUrnStr = snapshot.data().get("urn").toString();
+    Urn sourceUrn;
+    try {
+      sourceUrn = Urn.createFromString(sourceUrnStr);
+    } catch (URISyntaxException e) {
+      log.info("Invalid source urn: {}", e.getLocalizedMessage());
+      return;
+    }
 
     Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
-    Map<RelationshipFieldSpec, Object> extractedFields =
+    Map<RelationshipFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
 
-    for (Map.Entry<RelationshipFieldSpec, Object> entry : extractedFields.entrySet()) {
-      try {
-        relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
-        edgesToAdd.add(new Neo4jGraphDAO.Edge(
-                Urn.createFromString(sourceUrn),
-                Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName()
-        ));
-        _graphQueryDao.addAbstractEdge(Urn.createFromString(snapshot.data().get("urn").toString()),
-            Urn.createFromString(entry.getValue().toString()), entry.getKey().getRelationshipName());
-      } catch (URISyntaxException e) {
-        log.info("Invalid urn: {}", e.getLocalizedMessage());
+    for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
+      relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
+      for (Object fieldValue : entry.getValue()) {
+        try {
+          edgesToAdd.add(new Neo4jGraphDAO.Edge(sourceUrn, Urn.createFromString(fieldValue.toString()),
+              entry.getKey().getRelationshipName()));
+        } catch (URISyntaxException e) {
+          log.info("Invalid destination urn: {}", e.getLocalizedMessage());
+        }
       }
     }
-    _graphQueryDao.removeEdgeTypesFromNode(
-            Urn.createFromString(sourceUrn),
-            relationshipTypesBeingAdded.stream().collect(Collectors.toList()),
-            createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING)
-    );
+    _graphQueryDao.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
     edgesToAdd.forEach(edge -> _graphQueryDao.addEdge(edge));
   }
 
@@ -144,37 +150,31 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateElasticsearch(final Snapshot snapshot) {
-    List<RecordTemplate> docs = new ArrayList<>();
+  private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+    // If entity is not searchable nor browsable do not update ES
+    if (!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
+      return;
+    }
+    Optional<JsonNode> searchDocument;
     try {
-      docs = snapshotProcessor.getDocumentsToUpdate(snapshot);
+      searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec);
     } catch (Exception e) {
-      log.error("Error in getting documents from snapshot: {}", e.toString());
+      log.error("Error in getting documents from snapshot: {} for snapshot {}", e, snapshot);
+      return;
     }
 
-    for (RecordTemplate doc : docs) {
-      MCEElasticEvent elasticEvent = new MCEElasticEvent(doc);
-      BaseIndexBuilder indexBuilderForDoc = null;
-      for (BaseIndexBuilder indexBuilder : indexBuilders) {
-        Class docType = indexBuilder.getDocumentType();
-        if (docType.isInstance(doc)) {
-          indexBuilderForDoc = indexBuilder;
-          break;
-        }
-      }
-      if (indexBuilderForDoc == null) {
-        continue;
-      }
-      elasticEvent.setIndex(indexConvention.getIndexName(indexBuilderForDoc.getDocumentType()));
-      try {
-        String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
-        elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));
-      } catch (UnsupportedEncodingException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-        log.error("Failed to encode the urn with error: {}", e.toString());
-        continue;
-      }
-      elasticEvent.setActionType(ChangeType.UPDATE);
-      elasticSearchConnector.feedElasticEvent(elasticEvent);
+    if (!searchDocument.isPresent()) {
+      return;
     }
+    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.get().toString());
+    try {
+      elasticEvent.setId(URLEncoder.encode(searchDocument.get().get("urn").asText(), "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
+      log.error("Failed to encode the urn with error: {}", e.toString());
+      return;
+    }
+    elasticEvent.setIndex(indexConvention.getIndexName(entitySpec));
+    elasticEvent.setActionType(ChangeType.UPDATE);
+    elasticSearchConnector.feedElasticEvent(elasticEvent);
   }
 }

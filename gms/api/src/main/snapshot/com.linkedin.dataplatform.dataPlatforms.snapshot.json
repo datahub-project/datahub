@@ -95,10 +95,7 @@
           "type" : "com.linkedin.common.Url",
           "doc" : "The URL for a logo associated with the platform",
           "optional" : true
-        } ],
-        "Aspect" : {
-          "name" : "dataPlatformInfo"
-        }
+        } ]
       },
       "doc" : "Metadata associated with a dataplatform information",
       "optional" : true
@@ -108,22 +105,8 @@
     "name" : "DataPlatformAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data Platform",
-    "ref" : [ {
-      "type" : "record",
-      "name" : "DataPlatformKey",
-      "namespace" : "com.linkedin.metadata.key",
-      "doc" : "Key for a Data Platform",
-      "fields" : [ {
-        "name" : "platformName",
-        "type" : "string",
-        "doc" : "Data platform name i.e. hdfs, oracle, espresso"
-      } ],
-      "Aspect" : {
-        "isKey" : true,
-        "name" : "dataPlatformKey"
-      }
-    }, "com.linkedin.dataplatform.DataPlatformInfo" ]
-  }, "com.linkedin.metadata.key.DataPlatformKey", {
+    "ref" : [ "com.linkedin.dataplatform.DataPlatformInfo" ]
+  }, {
     "type" : "record",
     "name" : "DataPlatformSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
@@ -139,12 +122,7 @@
         "items" : "com.linkedin.metadata.aspect.DataPlatformAspect"
       },
       "doc" : "The list of metadata aspects associated with the data platform. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ],
-    "Entity" : {
-      "browsable" : false,
-      "name" : "dataPlatform",
-      "searchable" : false
-    }
+    } ]
   } ],
   "schema" : {
     "name" : "dataPlatforms",

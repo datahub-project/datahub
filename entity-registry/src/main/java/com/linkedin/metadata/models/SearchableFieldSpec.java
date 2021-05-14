@@ -30,4 +30,8 @@ public class SearchableFieldSpec implements FieldSpec {
   public List<SearchableAnnotation.IndexSetting> getIndexSettings() {
     return searchableAnnotation.getIndexSettings();
   }
+
+  public boolean isArray() {
+    return path.getPathComponents().contains("*");
+  }
 }

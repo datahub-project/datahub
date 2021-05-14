@@ -4,9 +4,9 @@ import com.linkedin.common.MLFeatureUrn
 import com.linkedin.metadata.aspect.MLFeatureAspect
 
 @Entity = {
- "name": "mlFeature",
- "searchable": false,
- "browsable": false
+  "name": "mlFeature",
+  "searchable": true,
+  "browsable": true
 }
 record MLFeatureSnapshot {
 

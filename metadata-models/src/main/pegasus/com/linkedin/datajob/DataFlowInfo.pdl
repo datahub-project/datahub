@@ -6,23 +6,35 @@ import com.linkedin.common.ExternalReference
 /**
  * Information about a Data processing flow
  */
- @Aspect = {
-   "name": "dataFlowInfo"
- }
+@Aspect = {
+  "name": "dataFlowInfo"
+}
 record DataFlowInfo includes CustomProperties, ExternalReference {
 
   /**
    * Flow name
    */
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
   name: string
 
   /**
    * Flow description
    */
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [{ "indexType": "TEXT" }]
+  }
   description: optional string
 
   /**
    * Optional project/namespace associated with the flow
    */
+  @Searchable = {
+    "fieldName": "project",
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+  }
   project: optional string
 }

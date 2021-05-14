@@ -18,7 +18,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
   private final Map<String, EntitySpec> entityNameToSpec;
 
-  public SnapshotEntityRegistry() {
+  private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
+
+  private SnapshotEntityRegistry() {
     entityNameToSpec = EntitySpecBuilder.buildEntitySpecs(new Snapshot().schema())
         .stream()
         .collect(Collectors.toMap(EntitySpec::getName, spec -> spec));
@@ -36,5 +38,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   @Override
   public List<EntitySpec> getEntitySpecs() {
     return new ArrayList<>(entityNameToSpec.values());
+  }
+
+  public static SnapshotEntityRegistry getInstance() {
+    return INSTANCE;
   }
 }

@@ -7,9 +7,9 @@ import com.linkedin.experimental.TestEntityAspect
  * A metadata snapshot for a specific Test Entity.
  */
 @Entity = {
-    "name": "testEntity",
-    "searchable": true,
-    "browsable": true
+  "name": "testEntity",
+  "searchable": true,
+  "browsable": true
 }
 record TestEntitySnapshot {
 

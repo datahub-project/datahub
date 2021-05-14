@@ -25,6 +25,7 @@ dependencies {
 
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
+  compile externalDependency.gmaElasticsearchDao
   enhance externalDependency.ebeanAgent
 
   implementation gradleApi()

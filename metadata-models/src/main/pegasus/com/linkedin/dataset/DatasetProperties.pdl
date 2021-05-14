@@ -15,6 +15,13 @@ record DatasetProperties includes CustomProperties, ExternalReference {
   /**
    * Documentation of the dataset
    */
+  @Searchable = {
+    "fieldName": "description",
+    "indexSettings": [
+      { "indexType": "TEXT" },
+      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
+    ]
+  }
   description: optional string
 
   /**

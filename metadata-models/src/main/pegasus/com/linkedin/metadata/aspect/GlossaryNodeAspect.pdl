@@ -2,8 +2,9 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.glossary.GlossaryNodeInfo
 import com.linkedin.common.Ownership
+import com.linkedin.common.Status
 
 /**
  * A union of all supported metadata aspects for a GlossaryNode
  */
-typeref GlossaryNodeAspect = union[GlossaryNodeInfo, Ownership]
+typeref GlossaryNodeAspect = union[GlossaryNodeInfo, Ownership, Status]
