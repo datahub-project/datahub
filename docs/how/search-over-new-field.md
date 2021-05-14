@@ -57,7 +57,7 @@ record CorpUserInfoDocument includes BaseDocument {
 
 Now, we will modify the mapping of corp user search index. Use the following Elasticsearch command to add new field to an existing index.
 
-```sh
+```shell
 curl http://localhost:9200/corpuserinfodocument/doc/_mapping? --data '
 {
   "properties": {
@@ -246,7 +246,7 @@ curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protoc
 
 Once the ingestion is done, you can test your changes by issuing search queries. Here is an example query with response.
 
-```sh
+```shell
 curl "http://localhost:8080/corpUsers?q=search&input=ai100" -H 'X-RestLi-Protocol-Version: 2.0.0' -s | jq
 
 Response:
