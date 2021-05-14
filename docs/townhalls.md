@@ -1,11 +1,11 @@
 # DataHub Town Halls
 
 We hold regular virtual town hall meetings to meet with DataHub community. 
-Currently it's held on the fourth Friday of every month.
+Currently it's held on the fourth Friday of every month (with some exceptions such as holiday weekends).
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-## Coming up - April 23rd, 2021 @ 9 AM US Pacific
+## Coming up - May 27th, 2021 @ 9 AM US Pacific
 
 ## Meeting Invite
 
@@ -16,16 +16,7 @@ You can join with this link https://zoom.datahubproject.io, or signup to get a c
 
 ## Agenda
 
-- Welcome - 5 mins
-- Project Updates by Shirshanka - 10 mins
-   - 0.7.1 Release and callouts (dbt by Gary Lucas)
-   - Product Analytics design sprint announcement (Maggie Hayes)
-- Deep Dive + Demo: Lineage! Airflow, Superset integration by Harshal Sheth and Gabe Lyons - 10 mins
-- Use-Case: DataHub at DefinedCrowd by Pedro Silva - 15 mins 
-- Use-Case: DataHub Hackathon at Depop by John Cragg - 10 mins
-- Observability Feedback share out - 5 mins
-- General Q&A and closing remarks - 5 mins
-
+- Stay tuned!
 
 ## Past Meetings
 
