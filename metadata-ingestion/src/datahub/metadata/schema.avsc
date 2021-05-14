@@ -125,7 +125,7 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "fieldName": "dashboardTool",
+                          "fieldName": "tool",
                           "indexSettings": [
                             {
                               "indexType": "KEYWORD"
@@ -178,12 +178,38 @@
                       {
                         "name": "title",
                         "type": "string",
-                        "doc": "Title of the chart"
+                        "doc": "Title of the chart",
+                        "Searchable": {
+                          "fieldName": "title",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "description",
                         "type": "string",
-                        "doc": "Detailed description about the chart"
+                        "doc": "Detailed description about the chart",
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "BOOLEAN",
+                              "overrideFieldName": "hasDescription"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "lastModified",
@@ -303,7 +329,15 @@
                           }
                         ],
                         "doc": "Type of the chart",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "type",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "access",
@@ -325,7 +359,18 @@
                           }
                         ],
                         "doc": "Access level for the chart",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "access",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "lastRefreshed",
@@ -366,7 +411,15 @@
                             "SQL": "SQL type queries"
                           }
                         },
-                        "doc": "Chart query type"
+                        "doc": "Chart query type",
+                        "Searchable": {
+                          "fieldName": "queryType",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -505,7 +558,15 @@
                         "name": "removed",
                         "type": "boolean",
                         "doc": "whether the entity is removed or not",
-                        "default": false
+                        "default": false,
+                        "Searchable": {
+                          "fieldName": "removed",
+                          "indexSettings": [
+                            {
+                              "indexType": "BOOLEAN"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -531,6 +592,21 @@
                                 "name": "tag",
                                 "type": "string",
                                 "doc": "Urn of the applied tag",
+                                "Searchable": {
+                                  "fieldName": "tags",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "KEYWORD_LOWERCASE"
+                                    },
+                                    {
+                                      "indexType": "PARTIAL"
+                                    },
+                                    {
+                                      "indexType": "BOOLEAN",
+                                      "overrideFieldName": "hasTags"
+                                    }
+                                  ]
+                                },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
                                 }
@@ -680,16 +756,17 @@
                       "name": "corpGroupInfo"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ],
           "Entity": {
-            "browsable": true,
+            "browsable": false,
             "name": "corpGroup",
-            "searchable": true
+            "searchable": false
           }
         },
         {
@@ -720,7 +797,18 @@
                       {
                         "name": "username",
                         "type": "string",
-                        "doc": "The name of the AD/LDAP user."
+                        "doc": "The name of the AD/LDAP user.",
+                        "Searchable": {
+                          "fieldName": "ldap",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -737,7 +825,15 @@
                       {
                         "name": "active",
                         "type": "boolean",
-                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                        "Searchable": {
+                          "fieldName": "active",
+                          "indexSettings": [
+                            {
+                              "indexType": "BOOLEAN"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "displayName",
@@ -751,7 +847,15 @@
                       {
                         "name": "email",
                         "type": "string",
-                        "doc": "email address of this user"
+                        "doc": "email address of this user",
+                        "Searchable": {
+                          "fieldName": "emails",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "title",
@@ -760,7 +864,15 @@
                           "string"
                         ],
                         "doc": "title of this user",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "title",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "managerUrn",
@@ -823,7 +935,18 @@
                           "string"
                         ],
                         "doc": "Common name of this user, format is firstName + lastName (split by a whitespace)",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "fullName",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "countryCode",
@@ -864,7 +987,15 @@
                           "items": "string"
                         },
                         "doc": "Teams that the user belongs to e.g. Metadata",
-                        "default": []
+                        "default": [],
+                        "Searchable": {
+                          "fieldName": "teams",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "skills",
@@ -873,7 +1004,15 @@
                           "items": "string"
                         },
                         "doc": "Skills that the user possesses e.g. Machine Learning",
-                        "default": []
+                        "default": [],
+                        "Searchable": {
+                          "fieldName": "teams",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "pictureLink",
@@ -893,7 +1032,8 @@
                       "name": "corpUserEditableInfo"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -935,7 +1075,7 @@
                         "type": "string",
                         "doc": "The name of the dashboard tool such as looker, redash etc.",
                         "Searchable": {
-                          "fieldName": "dashboardTool",
+                          "fieldName": "tool",
                           "indexSettings": [
                             {
                               "indexType": "KEYWORD"
@@ -988,12 +1128,34 @@
                       {
                         "name": "title",
                         "type": "string",
-                        "doc": "Title of the dashboard"
+                        "doc": "Title of the dashboard",
+                        "Searchable": {
+                          "fieldName": "title",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "description",
                         "type": "string",
-                        "doc": "Detailed description about the dashboard"
+                        "doc": "Detailed description about the dashboard",
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "charts",
@@ -1035,7 +1197,15 @@
                           "com.linkedin.pegasus2avro.common.AccessLevel"
                         ],
                         "doc": "Access level for the dashboard",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "access",
+                          "indexSettings": [
+                            {
+                              "indexType": "BOOLEAN"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "lastRefreshed",
@@ -1061,9 +1231,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "dashboard",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -1099,7 +1269,7 @@
                           "fieldName": "orchestrator",
                           "indexSettings": [
                             {
-                              "indexType": "KEYWORD"
+                              "indexType": "KEYWORD_LOWERCASE"
                             },
                             {
                               "indexType": "PARTIAL"
@@ -1110,12 +1280,34 @@
                       {
                         "name": "flowId",
                         "type": "string",
-                        "doc": "Unique Identifier of the data flow"
+                        "doc": "Unique Identifier of the data flow",
+                        "Searchable": {
+                          "fieldName": "flowId",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "cluster",
                         "type": "string",
-                        "doc": "Cluster where the flow is executed"
+                        "doc": "Cluster where the flow is executed",
+                        "Searchable": {
+                          "fieldName": "cluster",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1154,7 +1346,21 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Flow name"
+                        "doc": "Flow name",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "description",
@@ -1163,7 +1369,15 @@
                           "string"
                         ],
                         "doc": "Flow description",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "project",
@@ -1172,7 +1386,18 @@
                           "string"
                         ],
                         "doc": "Optional project/namespace associated with the flow",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "project",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1189,9 +1414,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "dataFlow",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -1230,7 +1455,18 @@
                       {
                         "name": "jobId",
                         "type": "string",
-                        "doc": "Unique Identifier of the data job"
+                        "doc": "Unique Identifier of the data job",
+                        "Searchable": {
+                          "fieldName": "project",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1269,7 +1505,21 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Job name"
+                        "doc": "Job name",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "description",
@@ -1278,7 +1528,15 @@
                           "string"
                         ],
                         "doc": "Job description",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "type",
@@ -1331,6 +1589,18 @@
                             "dataset"
                           ],
                           "name": "Consumes"
+                        },
+                        "Searchable": {
+                          "fieldName": "inputs",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "COUNT",
+                              "overrideFieldName": "numInputDatasets"
+                            }
+                          ]
                         }
                       },
                       {
@@ -1345,6 +1615,18 @@
                             "dataset"
                           ],
                           "name": "Consumes"
+                        },
+                        "Searchable": {
+                          "fieldName": "outputs",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "COUNT",
+                              "overrideFieldName": "numOutputDatasets"
+                            }
+                          ]
                         }
                       }
                     ],
@@ -1361,9 +1643,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "dataJob",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -1402,7 +1684,24 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>"
+                        "doc": "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PATTERN"
+                            },
+                            {
+                              "indexType": "PARTIAL_PATTERN"
+                            },
+                            {
+                              "indexType": "PARTIAL_LONG"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "origin",
@@ -1424,7 +1723,18 @@
                             "PROD": "Designates production fabrics"
                           }
                         },
-                        "doc": "Fabric type where dataset belongs to or where it was generated."
+                        "doc": "Fabric type where dataset belongs to or where it was generated.",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1467,7 +1777,19 @@
                           "string"
                         ],
                         "doc": "Documentation of the dataset",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "BOOLEAN",
+                              "overrideFieldName": "hasDescription"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "uri",
@@ -1504,7 +1826,15 @@
                       {
                         "name": "deprecated",
                         "type": "boolean",
-                        "doc": "Whether the dataset is deprecated by owner."
+                        "doc": "Whether the dataset is deprecated by owner.",
+                        "Searchable": {
+                          "fieldName": "deprecated",
+                          "indexSettings": [
+                            {
+                              "indexType": "BOOLEAN"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "decommissionTime",
@@ -1647,6 +1977,14 @@
                                     "dataset"
                                   ],
                                   "name": "DownstreamOf"
+                                },
+                                "Searchable": {
+                                  "fieldName": "upstreams",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "KEYWORD_LOWERCASE"
+                                    }
+                                  ]
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
@@ -1944,7 +2282,24 @@
                               {
                                 "name": "fieldPath",
                                 "type": "string",
-                                "doc": "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+                                "doc": "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
+                                "Searchable": {
+                                  "fieldName": "fieldPaths",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "KEYWORD_LOWERCASE"
+                                    },
+                                    {
+                                      "indexType": "PATTERN"
+                                    },
+                                    {
+                                      "indexType": "PARTIAL_PATTERN"
+                                    },
+                                    {
+                                      "indexType": "PARTIAL_LONG"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "jsonPath",
@@ -1968,7 +2323,15 @@
                                   "string"
                                 ],
                                 "doc": "Description",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "fieldName": "fieldDescriptions",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "TEXT"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "type",
@@ -2296,7 +2659,15 @@
                               {
                                 "name": "fieldPath",
                                 "type": "string",
-                                "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                                "doc": "FieldPath uniquely identifying the SchemaField this metadata is associated with",
+                                "Searchable": {
+                                  "fieldName": "editedFieldPaths",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "TEXT"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "description",
@@ -2305,7 +2676,15 @@
                                   "string"
                                 ],
                                 "doc": "Description",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "fieldName": "editedFieldDescriptions",
+                                  "indexSettings": [
+                                    {
+                                      "indexType": "TEXT"
+                                    }
+                                  ]
+                                }
                               },
                               {
                                 "name": "globalTags",
@@ -2335,9 +2714,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "dataset",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -2368,17 +2747,47 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Process name i.e. an ETL job name"
+                        "doc": "Process name i.e. an ETL job name",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "orchestrator",
                         "type": "string",
-                        "doc": "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn"
+                        "doc": "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
+                        "Searchable": {
+                          "fieldName": "orchestrator",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "origin",
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
-                        "doc": "Fabric type where dataset belongs to or where it was generated."
+                        "doc": "Fabric type where dataset belongs to or where it was generated.",
+                        "Searchable": {
+                          "fieldName": "origin",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -2409,6 +2818,18 @@
                             "dataset"
                           ],
                           "name": "Consumes"
+                        },
+                        "Searchable": {
+                          "fieldName": "inputs",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "COUNT",
+                              "overrideFieldName": "numInputDatasets"
+                            }
+                          ]
                         }
                       },
                       {
@@ -2427,22 +2848,35 @@
                             "dataset"
                           ],
                           "name": "Consumes"
+                        },
+                        "Searchable": {
+                          "fieldName": "outputs",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "COUNT",
+                              "overrideFieldName": "numOutputDatasets"
+                            }
+                          ]
                         }
                       }
                     ],
                     "Aspect": {
                       "name": "dataProcessInfo"
                     }
-                  }
+                  },
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "dataProcess",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -2481,12 +2915,40 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Name of the MLModel"
+                        "doc": "Name of the MLModel",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PATTERN"
+                            },
+                            {
+                              "indexType": "PARTIAL_PATTERN"
+                            },
+                            {
+                              "indexType": "PARTIAL_LONG"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "origin",
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
-                        "doc": "Fabric type where model belongs to or where it was generated"
+                        "doc": "Fabric type where model belongs to or where it was generated",
+                        "Searchable": {
+                          "fieldName": "name",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "Aspect": {
@@ -2508,7 +2970,19 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLModel",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "description",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "BOOLEAN",
+                              "overrideFieldName": "hasDescription"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "date",
@@ -2550,7 +3024,21 @@
                           "string"
                         ],
                         "doc": "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "type",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "hyperParameters",
@@ -3099,7 +3587,15 @@
                       {
                         "name": "deprecated",
                         "type": "boolean",
-                        "doc": "Whether the entity is deprecated."
+                        "doc": "Whether the entity is deprecated.",
+                        "Searchable": {
+                          "fieldName": "deprecated",
+                          "indexSettings": [
+                            {
+                              "indexType": "BOOLEAN"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "decommissionTime",
@@ -3135,9 +3631,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "mlModel",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -3266,9 +3762,9 @@
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "mlFeature",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -3303,6 +3799,12 @@
                         "Searchable": {
                           "fieldName": "name",
                           "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            },
+                            {
+                              "indexType": "TEXT"
+                            },
                             {
                               "indexType": "PARTIAL_SHORT"
                             }
@@ -3340,16 +3842,17 @@
                     "Aspect": {
                       "name": "tagProperties"
                     }
-                  }
+                  },
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ],
           "Entity": {
-            "browsable": false,
+            "browsable": true,
             "name": "tag",
-            "searchable": false
+            "searchable": true
           }
         },
         {
@@ -3380,7 +3883,18 @@
                       {
                         "name": "definition",
                         "type": "string",
-                        "doc": "Definition of business term"
+                        "doc": "Definition of business term",
+                        "Searchable": {
+                          "fieldName": "definition",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "parentNode",
@@ -3397,7 +3911,15 @@
                       {
                         "name": "termSource",
                         "type": "string",
-                        "doc": "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+                        "doc": "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL",
+                        "Searchable": {
+                          "fieldName": "termSource",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "sourceRef",
@@ -3406,7 +3928,15 @@
                           "string"
                         ],
                         "doc": "External Reference to the business-term",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "sourceRef",
+                          "indexSettings": [
+                            {
+                              "indexType": "KEYWORD_LOWERCASE"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "sourceUrl",
@@ -3432,12 +3962,18 @@
                       }
                     ]
                   },
-                  "com.linkedin.pegasus2avro.common.Ownership"
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
-          ]
+          ],
+          "Entity": {
+            "browsable": true,
+            "name": "glossaryTerm",
+            "searchable": true
+          }
         },
         {
           "type": "record",
@@ -3467,7 +4003,18 @@
                       {
                         "name": "definition",
                         "type": "string",
-                        "doc": "Definition of business node"
+                        "doc": "Definition of business node",
+                        "Searchable": {
+                          "fieldName": "definition",
+                          "indexSettings": [
+                            {
+                              "indexType": "TEXT"
+                            },
+                            {
+                              "indexType": "PARTIAL"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "parentNode",
@@ -3483,12 +4030,18 @@
                       }
                     ]
                   },
-                  "com.linkedin.pegasus2avro.common.Ownership"
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status"
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
-          ]
+          ],
+          "Entity": {
+            "browsable": true,
+            "name": "glossaryNode",
+            "searchable": true
+          }
         },
         {
           "type": "record",
@@ -3526,7 +4079,7 @@
                               "indexType": "KEYWORD"
                             },
                             {
-                              "indexType": "DELIMITED"
+                              "indexType": "TEXT"
                             },
                             {
                               "indexType": "PARTIAL"
@@ -3600,7 +4153,7 @@
                               "indexType": "KEYWORD"
                             },
                             {
-                              "indexType": "DELIMITED"
+                              "indexType": "TEXT"
                             },
                             {
                               "indexType": "PARTIAL"
@@ -3624,7 +4177,7 @@
                               "indexType": "PARTIAL"
                             },
                             {
-                              "indexType": "DELIMITED"
+                              "indexType": "TEXT"
                             },
                             {
                               "indexType": "BOOLEAN",
@@ -3655,7 +4208,7 @@
                                       "indexType": "KEYWORD"
                                     },
                                     {
-                                      "indexType": "DELIMITED"
+                                      "indexType": "TEXT"
                                     },
                                     {
                                       "indexType": "BOOLEAN",
@@ -3702,7 +4255,7 @@
                           "fieldName": "description",
                           "indexSettings": [
                             {
-                              "indexType": "DELIMITED"
+                              "indexType": "TEXT"
                             }
                           ]
                         }

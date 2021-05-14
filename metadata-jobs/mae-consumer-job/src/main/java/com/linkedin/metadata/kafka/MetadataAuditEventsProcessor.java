@@ -71,7 +71,7 @@ public class MetadataAuditEventsProcessor {
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
     for (EntitySpec entitySpec : SnapshotEntityRegistry.getInstance().getEntitySpecs()) {
-      if(entitySpec.isSearchable() || entitySpec.isBrowsable()) {
+      if (entitySpec.isSearchable() || entitySpec.isBrowsable()) {
         try {
           new IndexBuilder(elasticSearchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
         } catch (IOException e) {

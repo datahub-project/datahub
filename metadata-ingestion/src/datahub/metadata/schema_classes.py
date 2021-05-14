@@ -3877,7 +3877,7 @@ class CorpGroupSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass"]],
+        aspects: List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -3909,13 +3909,13 @@ class CorpGroupSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass"]]:
+    def aspects(self) -> List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass"]]) -> None:
+    def aspects(self, value: List[Union["CorpGroupKeyClass", "CorpGroupInfoClass", "GlobalTagsClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -3926,7 +3926,7 @@ class CorpUserSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass"]],
+        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -3958,13 +3958,13 @@ class CorpUserSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass"]]:
+    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass"]]) -> None:
+    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4122,7 +4122,7 @@ class DataProcessSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass"]],
+        aspects: List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4154,13 +4154,13 @@ class DataProcessSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass"]]:
+    def aspects(self) -> List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass"]]) -> None:
+    def aspects(self, value: List[Union["DataProcessKeyClass", "OwnershipClass", "DataProcessInfoClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4220,7 +4220,7 @@ class GlossaryNodeSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["GlossaryNodeInfoClass", "OwnershipClass"]],
+        aspects: List[Union["GlossaryNodeInfoClass", "OwnershipClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4252,13 +4252,13 @@ class GlossaryNodeSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["GlossaryNodeInfoClass", "OwnershipClass"]]:
+    def aspects(self) -> List[Union["GlossaryNodeInfoClass", "OwnershipClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["GlossaryNodeInfoClass", "OwnershipClass"]]) -> None:
+    def aspects(self, value: List[Union["GlossaryNodeInfoClass", "OwnershipClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4269,7 +4269,7 @@ class GlossaryTermSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["GlossaryTermInfoClass", "OwnershipClass"]],
+        aspects: List[Union["GlossaryTermInfoClass", "OwnershipClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4301,13 +4301,13 @@ class GlossaryTermSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["GlossaryTermInfoClass", "OwnershipClass"]]:
+    def aspects(self) -> List[Union["GlossaryTermInfoClass", "OwnershipClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["GlossaryTermInfoClass", "OwnershipClass"]]) -> None:
+    def aspects(self, value: List[Union["GlossaryTermInfoClass", "OwnershipClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4416,7 +4416,7 @@ class TagSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass"]],
+        aspects: List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4448,13 +4448,13 @@ class TagSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass"]]:
+    def aspects(self) -> List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass"]]) -> None:
+    def aspects(self, value: List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
