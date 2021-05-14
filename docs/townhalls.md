@@ -9,7 +9,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 ## Meeting Invite
 
-You can join with this link https://zoom.datahubproject.io, or signup to get a calendar invite. 
+You can join with this link https://zoom.datahubproject.io, or [signup](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/) to get a calendar invite. 
 
 - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 - Signup to get an invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
