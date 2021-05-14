@@ -6,6 +6,7 @@ import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.EntitySpecUtils;
 import com.linkedin.metadata.models.FieldSpec;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
@@ -48,8 +49,9 @@ public class FieldExtractor {
       if (pathComponents.size() < 4) {
         continue;
       }
-      aspectsInSnapshot.add(pathComponents.get(2));
-      final String path = StringUtils.join(pathComponents.subList(2, pathComponents.size()), "/");
+      String aspectName = EntitySpecUtils.getAspectNameFromFullyQualifiedName(pathComponents.get(2));
+      aspectsInSnapshot.add(aspectName);
+      final String path = aspectName + "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
       final Optional<T> matchingSpec = Optional.ofNullable(pathToFieldSpec.get(path));
       if (matchingSpec.isPresent()) {
         List<Object> originalValues = fieldSpecToValues.computeIfAbsent(matchingSpec.get(), key -> new ArrayList<>());
