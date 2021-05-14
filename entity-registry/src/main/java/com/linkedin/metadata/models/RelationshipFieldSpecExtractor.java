@@ -25,7 +25,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
   @Override
   public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
-    if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
+    if (DataSchemaTraverse.Order.POST_ORDER.equals(order)) {
       final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
 
       if (currentSchema.isComplex()) {

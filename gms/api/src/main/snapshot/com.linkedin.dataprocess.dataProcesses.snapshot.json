@@ -123,7 +123,11 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -191,15 +195,38 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
-  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
+  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataProcess",
     "namespace" : "com.linkedin.dataprocess",
     "doc" : "Spec. for a process. A collection of data conforming to a single schema that can evolve over time.",
     "include" : [ {
       "type" : "record",
-      "name" : "DataProcessKey",
+      "name" : "DataProcessResourceKey",
       "doc" : "Key for process resource",
       "fields" : [ {
         "name" : "orchestrator",
@@ -240,7 +267,20 @@
             "items" : "com.linkedin.common.DatasetUrn"
           },
           "doc" : "the inputs of the data process",
-          "optional" : true
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          },
+          "Searchable" : {
+            "fieldName" : "inputs",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            }, {
+              "indexType" : "COUNT",
+              "overrideFieldName" : "numInputDatasets"
+            } ]
+          }
         }, {
           "name" : "outputs",
           "type" : {
@@ -248,19 +288,79 @@
             "items" : "com.linkedin.common.DatasetUrn"
           },
           "doc" : "the outputs of the data process",
-          "optional" : true
-        } ]
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "Consumes"
+          },
+          "Searchable" : {
+            "fieldName" : "outputs",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            }, {
+              "indexType" : "COUNT",
+              "overrideFieldName" : "numOutputDatasets"
+            } ]
+          }
+        } ],
+        "Aspect" : {
+          "name" : "dataProcessInfo"
+        }
       },
       "doc" : "Metadata associated with a data process including input and output datasets",
       "optional" : true
     } ]
-  }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessKey", {
+  }, "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.dataprocess.DataProcessResourceKey", {
     "type" : "typeref",
     "name" : "DataProcessAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a data process",
-    "ref" : [ "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataProcessKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Process",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Process name i.e. an ETL job name",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD"
+          } ]
+        }
+      }, {
+        "name" : "orchestrator",
+        "type" : "string",
+        "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
+        "Searchable" : {
+          "fieldName" : "orchestrator",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD_LOWERCASE"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      }, {
+        "name" : "origin",
+        "type" : "com.linkedin.common.FabricType",
+        "doc" : "Fabric type where dataset belongs to or where it was generated.",
+        "Searchable" : {
+          "fieldName" : "origin",
+          "indexSettings" : [ {
+            "indexType" : "KEYWORD_LOWERCASE"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "dataProcessKey"
+      }
+    }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.DataProcessKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -460,7 +560,12 @@
         "items" : "com.linkedin.metadata.aspect.DataProcessAspect"
       },
       "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "dataProcess",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
@@ -480,7 +585,7 @@
     "collection" : {
       "identifier" : {
         "name" : "dataprocess",
-        "type" : "com.linkedin.dataprocess.DataProcessKey",
+        "type" : "com.linkedin.dataprocess.DataProcessResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get", "get_all" ],

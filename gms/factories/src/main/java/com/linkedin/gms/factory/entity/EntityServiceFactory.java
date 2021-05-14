@@ -1,0 +1,39 @@
+package com.linkedin.gms.factory.entity;
+
+import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.metadata.dao.EbeanAspectDao;
+import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.mxe.TopicConvention;
+import javax.annotation.Nonnull;
+import org.apache.kafka.clients.producer.Producer;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+
+
+@Configuration
+public class EntityServiceFactory {
+    @Autowired
+    ApplicationContext applicationContext;
+
+    @Bean(name = "entityService")
+    @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
+    @Nonnull
+    protected EntityService createInstance() {
+        final EntityRegistry registry = SnapshotEntityRegistry.getInstance();
+
+        final EntityKafkaMetadataEventProducer producer = new EntityKafkaMetadataEventProducer(
+            applicationContext.getBean(Producer.class),
+            applicationContext.getBean(TopicConvention.class),
+            registry
+        );
+
+        return new EntityService(applicationContext.getBean(EbeanAspectDao.class), producer, registry);
+    }
+}

@@ -83,11 +83,30 @@
     "fields" : [ {
       "name" : "title",
       "type" : "string",
-      "doc" : "Title of the chart"
+      "doc" : "Title of the chart",
+      "Searchable" : {
+        "fieldName" : "title",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     }, {
       "name" : "description",
       "type" : "string",
-      "doc" : "Detailed description about the chart"
+      "doc" : "Detailed description about the chart",
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasDescription"
+        } ]
+      }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -170,7 +189,13 @@
         }
       },
       "doc" : "Type of the chart",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "type",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        } ]
+      }
     }, {
       "name" : "access",
       "type" : {
@@ -185,7 +210,15 @@
         }
       },
       "doc" : "Access level for the chart",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "access",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     }, {
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
@@ -215,7 +248,13 @@
           "SQL" : "SQL type queries"
         }
       },
-      "doc" : "Chart query type"
+      "doc" : "Chart query type",
+      "Searchable" : {
+        "fieldName" : "queryType",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        } ]
+      }
     } ],
     "Aspect" : {
       "name" : "chartQuery"
@@ -610,7 +649,13 @@
     "fields" : [ {
       "name" : "deprecated",
       "type" : "boolean",
-      "doc" : "Whether the entity is deprecated."
+      "doc" : "Whether the entity is deprecated.",
+      "Searchable" : {
+        "fieldName" : "deprecated",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
     }, {
       "name" : "decommissionTime",
       "type" : "Time",
@@ -688,7 +733,18 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "indexSettings" : [ {
+                "indexType" : "KEYWORD_LOWERCASE"
+              }, {
+                "indexType" : "PARTIAL"
+              }, {
+                "indexType" : "BOOLEAN",
+                "overrideFieldName" : "hasTags"
+              } ]
+            }
           } ]
         }
       },
@@ -993,7 +1049,13 @@
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
-      "default" : false
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
     } ],
     "Aspect" : {
       "name" : "status"
@@ -1025,11 +1087,27 @@
     "fields" : [ {
       "name" : "title",
       "type" : "string",
-      "doc" : "Title of the dashboard"
+      "doc" : "Title of the dashboard",
+      "Searchable" : {
+        "fieldName" : "title",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     }, {
       "name" : "description",
       "type" : "string",
-      "doc" : "Detailed description about the dashboard"
+      "doc" : "Detailed description about the dashboard",
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        } ]
+      }
     }, {
       "name" : "charts",
       "type" : {
@@ -1055,7 +1133,13 @@
       "name" : "access",
       "type" : "com.linkedin.common.AccessLevel",
       "doc" : "Access level for the dashboard",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "access",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
     }, {
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
@@ -1074,17 +1158,41 @@
     "fields" : [ {
       "name" : "name",
       "type" : "string",
-      "doc" : "Flow name"
+      "doc" : "Flow name",
+      "Searchable" : {
+        "fieldName" : "name",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Flow description",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        } ]
+      }
     }, {
       "name" : "project",
       "type" : "string",
       "doc" : "Optional project/namespace associated with the flow",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "project",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1098,12 +1206,28 @@
     "fields" : [ {
       "name" : "name",
       "type" : "string",
-      "doc" : "Job name"
+      "doc" : "Job name",
+      "Searchable" : {
+        "fieldName" : "name",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "PARTIAL"
+        } ]
+      }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Job description",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        } ]
+      }
     }, {
       "name" : "type",
       "type" : [ {
@@ -1141,6 +1265,15 @@
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
         "name" : "Consumes"
+      },
+      "Searchable" : {
+        "fieldName" : "inputs",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "COUNT",
+          "overrideFieldName" : "numInputDatasets"
+        } ]
       }
     }, {
       "name" : "outputDatasets",
@@ -1152,6 +1285,15 @@
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
         "name" : "Consumes"
+      },
+      "Searchable" : {
+        "fieldName" : "outputs",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "COUNT",
+          "overrideFieldName" : "numOutputDatasets"
+        } ]
       }
     } ],
     "Aspect" : {
@@ -1173,6 +1315,15 @@
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
         "name" : "Consumes"
+      },
+      "Searchable" : {
+        "fieldName" : "inputs",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "COUNT",
+          "overrideFieldName" : "numInputDatasets"
+        } ]
       }
     }, {
       "name" : "outputs",
@@ -1185,6 +1336,15 @@
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
         "name" : "Consumes"
+      },
+      "Searchable" : {
+        "fieldName" : "outputs",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        }, {
+          "indexType" : "COUNT",
+          "overrideFieldName" : "numOutputDatasets"
+        } ]
       }
     } ],
     "Aspect" : {
@@ -1198,7 +1358,13 @@
     "fields" : [ {
       "name" : "deprecated",
       "type" : "boolean",
-      "doc" : "Whether the dataset is deprecated by owner."
+      "doc" : "Whether the dataset is deprecated by owner.",
+      "Searchable" : {
+        "fieldName" : "deprecated",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
     }, {
       "name" : "decommissionTime",
       "type" : "long",
@@ -1261,7 +1427,16 @@
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "description",
+        "indexSettings" : [ {
+          "indexType" : "TEXT"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasDescription"
+        } ]
+      }
     }, {
       "name" : "uri",
       "type" : "com.linkedin.common.Uri",
@@ -1317,6 +1492,12 @@
       "Relationship" : {
         "entityTypes" : [ "dataset" ],
         "name" : "DownstreamOf"
+      },
+      "Searchable" : {
+        "fieldName" : "upstreams",
+        "indexSettings" : [ {
+          "indexType" : "KEYWORD_LOWERCASE"
+        } ]
       }
     }, {
       "name" : "type",
@@ -1351,7 +1532,7 @@
         "indexSettings" : [ {
           "indexType" : "KEYWORD"
         }, {
-          "indexType" : "DELIMITED"
+          "indexType" : "TEXT"
         }, {
           "indexType" : "BOOLEAN",
           "overrideFieldName" : "hasAliasRecords"
@@ -1410,7 +1591,7 @@
                     "type" : "string",
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
-                      "fieldName" : "dashboardTool",
+                      "fieldName" : "tool",
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD"
                       }, {
@@ -1510,15 +1691,15 @@
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
                     "name" : "corpGroupInfo"
                   }
-                }, "com.linkedin.common.GlobalTags" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : true,
+            "browsable" : false,
             "name" : "corpGroup",
-            "searchable" : true
+            "searchable" : false
           }
         }, {
           "type" : "record",
@@ -1545,7 +1726,15 @@
                   "fields" : [ {
                     "name" : "username",
                     "type" : "string",
-                    "doc" : "The name of the AD/LDAP user."
+                    "doc" : "The name of the AD/LDAP user.",
+                    "Searchable" : {
+                      "fieldName" : "ldap",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
@@ -1559,7 +1748,13 @@
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
-                    "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+                    "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                    "Searchable" : {
+                      "fieldName" : "active",
+                      "indexSettings" : [ {
+                        "indexType" : "BOOLEAN"
+                      } ]
+                    }
                   }, {
                     "name" : "displayName",
                     "type" : "string",
@@ -1568,12 +1763,24 @@
                   }, {
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
-                    "doc" : "email address of this user"
+                    "doc" : "email address of this user",
+                    "Searchable" : {
+                      "fieldName" : "emails",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      } ]
+                    }
                   }, {
                     "name" : "title",
                     "type" : "string",
                     "doc" : "title of this user",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "title",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      } ]
+                    }
                   }, {
                     "name" : "managerUrn",
                     "type" : "com.linkedin.common.CorpuserUrn",
@@ -1607,7 +1814,15 @@
                     "name" : "fullName",
                     "type" : "string",
                     "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "fullName",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "countryCode",
                     "type" : "string",
@@ -1635,7 +1850,13 @@
                       "items" : "string"
                     },
                     "doc" : "Teams that the user belongs to e.g. Metadata",
-                    "default" : [ ]
+                    "default" : [ ],
+                    "Searchable" : {
+                      "fieldName" : "teams",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      } ]
+                    }
                   }, {
                     "name" : "skills",
                     "type" : {
@@ -1643,7 +1864,13 @@
                       "items" : "string"
                     },
                     "doc" : "Skills that the user possesses e.g. Machine Learning",
-                    "default" : [ ]
+                    "default" : [ ],
+                    "Searchable" : {
+                      "fieldName" : "teams",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      } ]
+                    }
                   }, {
                     "name" : "pictureLink",
                     "type" : "com.linkedin.common.Url",
@@ -1654,7 +1881,7 @@
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
                     "name" : "corpUserEditableInfo"
                   }
-                }, "com.linkedin.common.GlobalTags" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1691,7 +1918,7 @@
                     "type" : "string",
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
-                      "fieldName" : "dashboardTool",
+                      "fieldName" : "tool",
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD"
                       }, {
@@ -1713,9 +1940,9 @@
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "dashboard",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -1746,7 +1973,7 @@
                     "Searchable" : {
                       "fieldName" : "orchestrator",
                       "indexSettings" : [ {
-                        "indexType" : "KEYWORD"
+                        "indexType" : "KEYWORD_LOWERCASE"
                       }, {
                         "indexType" : "PARTIAL"
                       } ]
@@ -1754,11 +1981,27 @@
                   }, {
                     "name" : "flowId",
                     "type" : "string",
-                    "doc" : "Unique Identifier of the data flow"
+                    "doc" : "Unique Identifier of the data flow",
+                    "Searchable" : {
+                      "fieldName" : "flowId",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "cluster",
                     "type" : "string",
-                    "doc" : "Cluster where the flow is executed"
+                    "doc" : "Cluster where the flow is executed",
+                    "Searchable" : {
+                      "fieldName" : "cluster",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
@@ -1770,9 +2013,9 @@
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "dataFlow",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -1803,7 +2046,15 @@
                   }, {
                     "name" : "jobId",
                     "type" : "string",
-                    "doc" : "Unique Identifier of the data job"
+                    "doc" : "Unique Identifier of the data job",
+                    "Searchable" : {
+                      "fieldName" : "project",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
@@ -1815,9 +2066,9 @@
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "dataJob",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -1848,11 +2099,31 @@
                   }, {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>"
+                    "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PATTERN"
+                      }, {
+                        "indexType" : "PARTIAL_PATTERN"
+                      }, {
+                        "indexType" : "PARTIAL_LONG"
+                      } ]
+                    }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
-                    "doc" : "Fabric type where dataset belongs to or where it was generated."
+                    "doc" : "Fabric type where dataset belongs to or where it was generated.",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
@@ -2010,7 +2281,19 @@
                         "fields" : [ {
                           "name" : "fieldPath",
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
-                          "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+                          "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
+                          "Searchable" : {
+                            "fieldName" : "fieldPaths",
+                            "indexSettings" : [ {
+                              "indexType" : "KEYWORD_LOWERCASE"
+                            }, {
+                              "indexType" : "PATTERN"
+                            }, {
+                              "indexType" : "PARTIAL_PATTERN"
+                            }, {
+                              "indexType" : "PARTIAL_LONG"
+                            } ]
+                          }
                         }, {
                           "name" : "jsonPath",
                           "type" : "string",
@@ -2025,7 +2308,13 @@
                           "name" : "description",
                           "type" : "string",
                           "doc" : "Description",
-                          "optional" : true
+                          "optional" : true,
+                          "Searchable" : {
+                            "fieldName" : "fieldDescriptions",
+                            "indexSettings" : [ {
+                              "indexType" : "TEXT"
+                            } ]
+                          }
                         }, {
                           "name" : "type",
                           "type" : {
@@ -2228,12 +2517,24 @@
                         "fields" : [ {
                           "name" : "fieldPath",
                           "type" : "string",
-                          "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
+                          "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with",
+                          "Searchable" : {
+                            "fieldName" : "editedFieldPaths",
+                            "indexSettings" : [ {
+                              "indexType" : "TEXT"
+                            } ]
+                          }
                         }, {
                           "name" : "description",
                           "type" : "string",
                           "doc" : "Description",
-                          "optional" : true
+                          "optional" : true,
+                          "Searchable" : {
+                            "fieldName" : "editedFieldDescriptions",
+                            "indexSettings" : [ {
+                              "indexType" : "TEXT"
+                            } ]
+                          }
                         }, {
                           "name" : "globalTags",
                           "type" : "com.linkedin.common.GlobalTags",
@@ -2253,9 +2554,9 @@
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "dataset",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -2282,29 +2583,51 @@
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Process name i.e. an ETL job name"
+                    "doc" : "Process name i.e. an ETL job name",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      } ]
+                    }
                   }, {
                     "name" : "orchestrator",
                     "type" : "string",
-                    "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn"
+                    "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
+                    "Searchable" : {
+                      "fieldName" : "orchestrator",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
-                    "doc" : "Fabric type where dataset belongs to or where it was generated."
+                    "doc" : "Fabric type where dataset belongs to or where it was generated.",
+                    "Searchable" : {
+                      "fieldName" : "origin",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
                     "name" : "dataProcessKey"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "dataProcess",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -2335,11 +2658,31 @@
                   }, {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Name of the MLModel"
+                    "doc" : "Name of the MLModel",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PATTERN"
+                      }, {
+                        "indexType" : "PARTIAL_PATTERN"
+                      }, {
+                        "indexType" : "PARTIAL_LONG"
+                      } ]
+                    }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
-                    "doc" : "Fabric type where model belongs to or where it was generated"
+                    "doc" : "Fabric type where model belongs to or where it was generated",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   } ],
                   "Aspect" : {
                     "isKey" : true,
@@ -2354,7 +2697,16 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLModel",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "description",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "BOOLEAN",
+                        "overrideFieldName" : "hasDescription"
+                      } ]
+                    }
                   }, {
                     "name" : "date",
                     "type" : "com.linkedin.common.Time",
@@ -2369,7 +2721,17 @@
                     "name" : "type",
                     "type" : "string",
                     "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "type",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD"
+                      }, {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "hyperParameters",
                     "type" : {
@@ -2705,9 +3067,9 @@
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "mlModel",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -2773,9 +3135,9 @@
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "mlFeature",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -2806,6 +3168,10 @@
                     "Searchable" : {
                       "fieldName" : "name",
                       "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      }, {
+                        "indexType" : "TEXT"
+                      }, {
                         "indexType" : "PARTIAL_SHORT"
                       } ]
                     }
@@ -2832,15 +3198,15 @@
                   "Aspect" : {
                     "name" : "tagProperties"
                   }
-                } ]
+                }, "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
           } ],
           "Entity" : {
-            "browsable" : false,
+            "browsable" : true,
             "name" : "tag",
-            "searchable" : false
+            "searchable" : true
           }
         }, {
           "type" : "record",
@@ -2867,7 +3233,15 @@
                   "fields" : [ {
                     "name" : "definition",
                     "type" : "string",
-                    "doc" : "Definition of business term"
+                    "doc" : "Definition of business term",
+                    "Searchable" : {
+                      "fieldName" : "definition",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -2876,12 +3250,24 @@
                   }, {
                     "name" : "termSource",
                     "type" : "string",
-                    "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL"
+                    "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL",
+                    "Searchable" : {
+                      "fieldName" : "termSource",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      } ]
+                    }
                   }, {
                     "name" : "sourceRef",
                     "type" : "string",
                     "doc" : "External Reference to the business-term",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "sourceRef",
+                      "indexSettings" : [ {
+                        "indexType" : "KEYWORD_LOWERCASE"
+                      } ]
+                    }
                   }, {
                     "name" : "sourceUrl",
                     "type" : "com.linkedin.common.Url",
@@ -2896,11 +3282,16 @@
                     "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
                     "default" : { }
                   } ]
-                }, "com.linkedin.common.Ownership" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
-          } ]
+          } ],
+          "Entity" : {
+            "browsable" : true,
+            "name" : "glossaryTerm",
+            "searchable" : true
+          }
         }, {
           "type" : "record",
           "name" : "GlossaryNodeSnapshot",
@@ -2926,18 +3317,31 @@
                   "fields" : [ {
                     "name" : "definition",
                     "type" : "string",
-                    "doc" : "Definition of business node"
+                    "doc" : "Definition of business node",
+                    "Searchable" : {
+                      "fieldName" : "definition",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
                     "doc" : "Parent node of the glossary term",
                     "optional" : true
                   } ]
-                }, "com.linkedin.common.Ownership" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
-          } ]
+          } ],
+          "Entity" : {
+            "browsable" : true,
+            "name" : "glossaryNode",
+            "searchable" : true
+          }
         }, {
           "type" : "record",
           "name" : "TestEntitySnapshot",
@@ -2969,7 +3373,7 @@
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD"
                       }, {
-                        "indexType" : "DELIMITED"
+                        "indexType" : "TEXT"
                       }, {
                         "indexType" : "PARTIAL"
                       } ]
@@ -3009,7 +3413,7 @@
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD"
                       }, {
-                        "indexType" : "DELIMITED"
+                        "indexType" : "TEXT"
                       }, {
                         "indexType" : "PARTIAL"
                       } ]
@@ -3027,7 +3431,7 @@
                       }, {
                         "indexType" : "PARTIAL"
                       }, {
-                        "indexType" : "DELIMITED"
+                        "indexType" : "TEXT"
                       }, {
                         "indexType" : "BOOLEAN",
                         "overrideFieldName" : "hasAliases"
@@ -3065,7 +3469,7 @@
                     "Searchable" : {
                       "fieldName" : "description",
                       "indexSettings" : [ {
-                        "indexType" : "DELIMITED"
+                        "indexType" : "TEXT"
                       } ]
                     }
                   }, {
@@ -3131,7 +3535,267 @@
         } ]
       }
     } ]
-  }, "com.linkedin.experimental.Input", "com.linkedin.experimental.TestEntityAspect", "com.linkedin.experimental.TestEntityInfo", "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.key.TestEntityKey", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.metadata.snapshot.TestEntitySnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.experimental.Input", "com.linkedin.experimental.TestEntityAspect", "com.linkedin.experimental.TestEntityInfo", "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", "com.linkedin.metadata.key.TestEntityKey", {
+    "type" : "record",
+    "name" : "AggregationMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "The name of the aggregation, e.g, platform, origin"
+    }, {
+      "name" : "aggregations",
+      "type" : {
+        "type" : "map",
+        "values" : "long"
+      },
+      "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AutoCompleteResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the auto complete result",
+    "fields" : [ {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "The original chars typed by user"
+    }, {
+      "name" : "suggestions",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of typeahead suggestions"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowseResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the result of a browse query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BrowseResultEntity",
+          "doc" : "Data model for an entity returned as part of a browse query",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Name of the entity",
+            "optional" : true
+          }, {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN of the entity"
+          } ]
+        }
+      },
+      "doc" : "A list of entities under the queried path"
+    }, {
+      "name" : "metadata",
+      "type" : {
+        "type" : "record",
+        "name" : "BrowseResultMetadata",
+        "doc" : "The model for browse result metadata",
+        "fields" : [ {
+          "name" : "path",
+          "type" : "string",
+          "doc" : "Path that is being browsed"
+        }, {
+          "name" : "groups",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "BrowseResultGroup",
+              "fields" : [ {
+                "name" : "name",
+                "type" : "string",
+                "doc" : "Name of the group"
+              }, {
+                "name" : "count",
+                "type" : "long",
+                "doc" : "Number of entities that can be reached from this path"
+              } ]
+            }
+          },
+          "doc" : "A list of groups and total number of entities inside those groups under the queried path",
+          "default" : [ ]
+        }, {
+          "name" : "totalNumEntities",
+          "type" : "long",
+          "doc" : "Total number of entities we can reach from path"
+        } ]
+      },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under queried path"
+    } ]
+  }, "com.linkedin.metadata.query.BrowseResultEntity", "com.linkedin.metadata.query.BrowseResultGroup", "com.linkedin.metadata.query.BrowseResultMetadata", {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbolDocs" : {
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
+      "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
+      "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Criterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "A criterion for matching a field with given value",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that the criterion refers to"
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "The value of the intended field"
+    }, {
+      "name" : "condition",
+      "type" : "Condition",
+      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+      "default" : "EQUAL"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The filter for finding an record or a collection of records",
+    "fields" : [ {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "Criterion"
+      },
+      "doc" : "A list of criteria the filter applies to the query"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "MatchMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "matchedFields",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "MatchedField",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Matched field name"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "Matched field value"
+          } ]
+        }
+      },
+      "doc" : "Matched field name and values"
+    } ]
+  }, "com.linkedin.metadata.query.MatchedField", {
+    "type" : "record",
+    "name" : "SearchResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the result of a search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : {
+        "type" : "record",
+        "name" : "SearchResultMetadata",
+        "doc" : "The model for the search result",
+        "fields" : [ {
+          "name" : "searchResultMetadatas",
+          "type" : {
+            "type" : "array",
+            "items" : "AggregationMetadata"
+          },
+          "doc" : "A list of search result metadata such as aggregations"
+        }, {
+          "name" : "urns",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
+        }, {
+          "name" : "matches",
+          "type" : {
+            "type" : "array",
+            "items" : "MatchMetadata"
+          },
+          "doc" : "A list of match metadata for each search result, containing the list of fields in the search document that matched the query",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.query.SearchResultMetadata", {
+    "type" : "record",
+    "name" : "SortCriterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that sorting has to be applied to"
+    }, {
+      "name" : "order",
+      "type" : {
+        "type" : "enum",
+        "name" : "SortOrder",
+        "doc" : "The order used to sort the results",
+        "symbols" : [ "ASCENDING", "DESCENDING" ],
+        "symbolDocs" : {
+          "ASCENDING" : "If results need to be sorted in ascending order",
+          "DESCENDING" : "If results need to be sorted in descending order"
+        }
+      },
+      "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
+    } ]
+  }, "com.linkedin.metadata.query.SortOrder", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.metadata.snapshot.TestEntitySnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
@@ -3161,11 +3825,87 @@
         } ]
       } ],
       "actions" : [ {
+        "name" : "autocomplete",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "query",
+          "type" : "string"
+        }, {
+          "name" : "field",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter"
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+      }, {
+        "name" : "batchIngest",
+        "parameters" : [ {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.experimental.Entity\" }"
+        } ]
+      }, {
+        "name" : "browse",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "path",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.BrowseResult"
+      }, {
+        "name" : "getBrowsePaths",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "com.linkedin.common.Urn"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
         "name" : "ingest",
         "parameters" : [ {
           "name" : "entity",
           "type" : "com.linkedin.experimental.Entity"
         } ]
+      }, {
+        "name" : "search",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.SearchResult"
       } ],
       "entity" : {
         "path" : "/entities/{entitiesId}"

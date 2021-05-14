@@ -23,7 +23,7 @@ public class EntitySpecBuilder {
     final List<UnionDataSchema.Member> unionMembers = snapshotUnionSchema.getMembers();
 
     final List<EntitySpec> entitySpecs = new ArrayList<>();
-    for (UnionDataSchema.Member member : unionMembers) {
+    for (final UnionDataSchema.Member member : unionMembers) {
       final EntitySpec entitySpec = buildEntitySpec(member.getType());
       if (entitySpec != null) {
         entitySpecs.add(buildEntitySpec(member.getType()));
@@ -73,7 +73,7 @@ public class EntitySpecBuilder {
     if (aspectAnnotationObj != null) {
 
       final AspectAnnotation aspectAnnotation =
-          AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, ((RecordDataSchema) aspect).getBindingName());
+          AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
 
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();

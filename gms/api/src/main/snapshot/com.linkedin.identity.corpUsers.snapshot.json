@@ -75,12 +75,46 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "indexSettings" : [ {
+                "indexType" : "KEYWORD_LOWERCASE"
+              }, {
+                "indexType" : "PARTIAL"
+              }, {
+                "indexType" : "BOOLEAN",
+                "overrideFieldName" : "hasTags"
+              } ]
+            }
           } ]
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false,
+      "Searchable" : {
+        "fieldName" : "removed",
+        "indexSettings" : [ {
+          "indexType" : "BOOLEAN"
+        } ]
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", {
     "type" : "typeref",
     "name" : "Url",
@@ -116,7 +150,13 @@
         "fields" : [ {
           "name" : "active",
           "type" : "boolean",
-          "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+          "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+          "Searchable" : {
+            "fieldName" : "active",
+            "indexSettings" : [ {
+              "indexType" : "BOOLEAN"
+            } ]
+          }
         }, {
           "name" : "displayName",
           "type" : "string",
@@ -125,17 +165,33 @@
         }, {
           "name" : "email",
           "type" : "com.linkedin.common.EmailAddress",
-          "doc" : "email address of this user"
+          "doc" : "email address of this user",
+          "Searchable" : {
+            "fieldName" : "emails",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            } ]
+          }
         }, {
           "name" : "title",
           "type" : "string",
           "doc" : "title of this user",
-          "optional" : true
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "title",
+            "indexSettings" : [ {
+              "indexType" : "KEYWORD_LOWERCASE"
+            } ]
+          }
         }, {
           "name" : "managerUrn",
           "type" : "com.linkedin.common.CorpuserUrn",
           "doc" : "direct manager of this user",
-          "optional" : true
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "corpUser" ],
+            "name" : "ReportsTo"
+          }
         }, {
           "name" : "departmentId",
           "type" : "long",
@@ -160,7 +216,15 @@
           "name" : "fullName",
           "type" : "string",
           "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
-          "optional" : true
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "fullName",
+            "indexSettings" : [ {
+              "indexType" : "TEXT"
+            }, {
+              "indexType" : "PARTIAL"
+            } ]
+          }
         }, {
           "name" : "countryCode",
           "type" : "string",
@@ -168,7 +232,8 @@
           "optional" : true
         } ],
         "Aspect" : {
-          "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ]
+          "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
+          "name" : "corpUserInfo"
         }
       },
       "doc" : "Information of the corp user",
@@ -191,7 +256,13 @@
             "items" : "string"
           },
           "doc" : "Teams that the user belongs to e.g. Metadata",
-          "default" : [ ]
+          "default" : [ ],
+          "Searchable" : {
+            "fieldName" : "teams",
+            "indexSettings" : [ {
+              "indexType" : "TEXT"
+            } ]
+          }
         }, {
           "name" : "skills",
           "type" : {
@@ -199,7 +270,13 @@
             "items" : "string"
           },
           "doc" : "Skills that the user possesses e.g. Machine Learning",
-          "default" : [ ]
+          "default" : [ ],
+          "Searchable" : {
+            "fieldName" : "teams",
+            "indexSettings" : [ {
+              "indexType" : "TEXT"
+            } ]
+          }
         }, {
           "name" : "pictureLink",
           "type" : "com.linkedin.common.Url",
@@ -207,7 +284,8 @@
           "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
         } ],
         "Aspect" : {
-          "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ]
+          "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
+          "name" : "corpUserEditableInfo"
         }
       },
       "doc" : "Editable information of the corp user",
@@ -220,7 +298,7 @@
     } ]
   }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", {
     "type" : "record",
-    "name" : "CorpUserKey",
+    "name" : "CorpUserResourceKey",
     "namespace" : "com.linkedin.identity",
     "doc" : "Key for CorpUser resource",
     "fields" : [ {
@@ -239,8 +317,30 @@
     "name" : "CorpUserAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpUser",
-    "ref" : [ "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "CorpUserKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a CorpUser",
+      "fields" : [ {
+        "name" : "username",
+        "type" : "string",
+        "doc" : "The name of the AD/LDAP user.",
+        "Searchable" : {
+          "fieldName" : "ldap",
+          "indexSettings" : [ {
+            "indexType" : "TEXT"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "corpUserKey"
+      }
+    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.CorpUserKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -440,7 +540,12 @@
         "items" : "com.linkedin.metadata.aspect.CorpUserAspect"
       },
       "doc" : "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "browsable" : true,
+      "name" : "corpUser",
+      "searchable" : true
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
@@ -460,7 +565,7 @@
     "collection" : {
       "identifier" : {
         "name" : "corpUser",
-        "type" : "com.linkedin.identity.CorpUserKey",
+        "type" : "com.linkedin.identity.CorpUserResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get", "get_all" ],

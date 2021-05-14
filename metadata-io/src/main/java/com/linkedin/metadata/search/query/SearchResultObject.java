@@ -9,7 +9,7 @@ import lombok.Value;
 
 @Builder
 @Value
-public class SearchResult {
+public class SearchResultObject {
   // A single page of results
   List<Urn> resultList;
 
