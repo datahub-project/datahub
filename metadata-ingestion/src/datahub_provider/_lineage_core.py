@@ -86,31 +86,39 @@ def send_lineage_to_datahub(
     # operator.log.info(f"{flow_property_bag=}")
     # operator.log.info(f"{job_property_bag=}")
 
-    timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
-    ownership = models.OwnershipClass(
-        owners=[
-            models.OwnerClass(
-                owner=builder.make_user_urn(dag.owner),
-                type=models.OwnershipTypeClass.DEVELOPER,
-                source=models.OwnershipSourceClass(
-                    type=models.OwnershipSourceTypeClass.SERVICE,
-                    url=dag.filepath,
-                ),
-            )
-        ],
-        lastModified=models.AuditStampClass(
-            time=timestamp, actor=builder.make_user_urn("airflow")
-        ),
-    )
-    # operator.log.info(f"{ownership=}")
+    if config.capture_ownership_info:
+        timestamp = int(dateutil.parser.parse(context["ts"]).timestamp() * 1000)
+        ownership = models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=builder.make_user_urn(dag.owner),
+                    type=models.OwnershipTypeClass.DEVELOPER,
+                    source=models.OwnershipSourceClass(
+                        type=models.OwnershipSourceTypeClass.SERVICE,
+                        url=dag.filepath,
+                    ),
+                )
+            ],
+            lastModified=models.AuditStampClass(
+                time=timestamp, actor=builder.make_user_urn("airflow")
+            ),
+        )
+        # operator.log.info(f"{ownership=}")
+        ownership_aspect = [ownership]
+    else:
+        ownership_aspect = []
 
-    tags = models.GlobalTagsClass(
-        tags=[
-            models.TagAssociationClass(tag=builder.make_tag_urn(f"airflow_{tag}"))
-            for tag in (dag.tags or [])
-        ]
-    )
-    # operator.log.info(f"{tags=}")
+    if config.capture_tags_info:
+        tags = models.GlobalTagsClass(
+            tags=[
+                models.TagAssociationClass(tag=builder.make_tag_urn(tag))
+                for tag in (dag.tags or [])
+            ]
+        )
+        # operator.log.info(f"{tags=}")
+        tags_aspect = [tags]
+    else:
+        tags_aspect = []
 
     flow_mce = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataFlowSnapshotClass(
@@ -122,8 +130,8 @@ def send_lineage_to_datahub(
                     customProperties=flow_property_bag,
                     externalUrl=flow_url,
                 ),
-                ownership,
-                tags,
+                *ownership_aspect,
+                *tags_aspect,
             ],
         )
     )
@@ -143,8 +151,8 @@ def send_lineage_to_datahub(
                     inputDatasets=_entities_to_urn_list(inlets or []),
                     outputDatasets=_entities_to_urn_list(outlets or []),
                 ),
-                ownership,
-                tags,
+                *ownership_aspect,
+                *tags_aspect,
             ],
         )
     )
