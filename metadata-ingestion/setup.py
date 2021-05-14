@@ -71,7 +71,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "hive": sql_common
     | {
-        # Acryl maintains a fork of PyHive, which adds support for table comments
+        # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.6"
     },
@@ -174,12 +174,7 @@ entry_points = {
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
     ],
-    "apache_airflow_provider": [
-        "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
-    ],
-    "airflow.plugins": [
-        "datahub = datahub.integrations.airflow.get_provider_info:DatahubAirflowPlugin"
-    ],
+    "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
 if is_py37_or_newer:

@@ -16,3 +16,6 @@ indent = '    '
 profile = 'black'
 sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'
 skip_glob = 'src/datahub/metadata'
+
+[tool.pyright]
+extraPaths = ['tests']
