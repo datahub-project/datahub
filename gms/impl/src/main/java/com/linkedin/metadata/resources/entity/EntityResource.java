@@ -57,12 +57,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     @Named("entityService")
     private EntityService _entityService;
 
-    // TODO Comment these out.
     @Inject
     @Named("esSearchDao")
     private ESSearchDAO _entitySearchDao;
 
-    // TODO Comment these out.
     @Inject
     @Named("esBrowseDao")
     private ESBrowseDAO _entityBrowseDao;
