@@ -484,6 +484,7 @@ export const dataFlow1 = {
             },
         ],
     },
+    dataJobs: [],
 } as DataFlow;
 
 export const dataJob1 = {
