@@ -279,8 +279,9 @@ public final class Datasets extends BaseBrowsableEntityResource<
         final Entity entity = _entityService.getEntity(
             new DatasetUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin()),
             projectedAspects);
-
-        entities.put(key, toValue(entity.getValue().getDatasetSnapshot()));
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getDatasetSnapshot()));
+        }
       }
       return entities;
     });
