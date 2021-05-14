@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import attr
 
 import datahub.emitter.mce_builder as builder
@@ -11,6 +13,11 @@ class _Entity:
     def as_dict(self):
         # Required for compat with Airflow 1.10.x
         return attr.asdict(self)
+
+    @property
+    @abstractmethod
+    def urn(self) -> str:
+        pass
 
 
 @attr.s(auto_attribs=True, str=True)
