@@ -471,9 +471,11 @@ public class GmsGraphQLEngine {
             )
             .type("DataFlow", typeWiring -> typeWiring
                     .dataFetcher("dataJobs", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
+                            new LoadableTypeBatchResolver<>(
                                     DATA_JOB_TYPE,
-                                    (env) -> ((DataFlow) env.getSource()).getUrn()))
+                                    (env) -> ((DataFlow) env.getSource()).getDataJobs().stream()
+                                            .map(DataJob::getUrn)
+                                            .collect(Collectors.toList())))
                     )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring

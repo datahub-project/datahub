@@ -25,6 +25,10 @@ fragment dataFlowFields on DataFlow {
 query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
+        dataJobs {
+            urn
+            type
+        }
     }
 }
 

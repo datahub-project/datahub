@@ -35,4 +35,8 @@ record DataFlow includes DataFlowKey, ChangeAuditStamps {
    */
   globalTags: optional GlobalTags
 
+  /**
+   * List of datajobs
+   */
+  dataJobs: array[DataJob] = []
 }

@@ -1027,7 +1027,7 @@
                             "name": "User Creations",
                             "description": "Constructs the fct_users_created from logging_events",
                             "type": "SQL",
-                            "parentFlow": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
+                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
                         }
                     },
                     {
@@ -1038,7 +1038,7 @@
                             "outputDatasets": [
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
                             ]
-                                         }
+                        }
                     }
                 ]
             }
@@ -1072,7 +1072,7 @@
                             "name": "User Deletions",
                             "description": "Constructs the fct_users_deleted from logging_events",
                             "type": "SQL",
-                            "parentFlow": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
+                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
                         }
                     },
                     {
