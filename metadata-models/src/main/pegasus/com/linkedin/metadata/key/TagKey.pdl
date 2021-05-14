@@ -12,8 +12,13 @@ record TagKey {
     * The unique tag name
     */
     @Searchable = {
-        "fieldName": "name",
-        "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL_SHORT" }]
+      "fieldName": "name",
+      "indexSettings": [
+        { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 8.0 },
+        { "indexType": "TEXT", "addToDefaultQuery": true },
+        { "indexType": "PARTIAL_SHORT" }
+      ],
+      "isDefaultAutocomplete": true
     }
     name: string
 }

@@ -13,7 +13,11 @@ record ChartKey {
   */
   @Searchable = {
     "fieldName": "tool",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL" }
+    ],
+    "addToFilters": true
   }
   dashboardTool: string
 

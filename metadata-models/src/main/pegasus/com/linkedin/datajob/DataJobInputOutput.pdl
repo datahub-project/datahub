@@ -21,7 +21,7 @@ record DataJobInputOutput {
   @Searchable = {
     "fieldName": "inputs",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "URN" },
       { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
     ]
   }
@@ -37,7 +37,7 @@ record DataJobInputOutput {
   @Searchable = {
     "fieldName": "outputs",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
+      { "indexType": "URN" },
       { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
     ]
   }

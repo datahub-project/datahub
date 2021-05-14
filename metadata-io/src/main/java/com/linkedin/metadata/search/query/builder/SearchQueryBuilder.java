@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
@@ -31,33 +32,38 @@ public class SearchQueryBuilder {
 
     // Key word queries do exact matching between document value and query
     QueryStringQueryBuilder keywordQuery = QueryBuilders.queryStringQuery(query);
+    keywordQuery.defaultOperator(Operator.AND);
     // Key word lowercase queries do case agnostic exact matching between document value and query
     QueryStringQueryBuilder keywordLowercaseQuery = QueryBuilders.queryStringQuery(query);
     keywordLowercaseQuery.analyzer(KEYWORD_LOWERCASE_ANALYZER);
+    keywordLowercaseQuery.defaultOperator(Operator.AND);
     // Text queries tokenize input query and document value into words before checking for matches
     QueryStringQueryBuilder textQuery = QueryBuilders.queryStringQuery(query);
     textQuery.analyzer(TEXT_ANALYZER);
+    textQuery.defaultOperator(Operator.AND);
 
     for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
       boolean isFirst = true;
       for (IndexSetting setting : fieldSpec.getIndexSettings()) {
-        // First setting uses the original field name unless overridden
-        String fieldName = isFirst ? fieldSpec.getFieldName()
-            : fieldSpec.getFieldName() + "." + SearchableAnnotation.SUBFIELD_BY_TYPE.get(setting.getIndexType());
-        // Override name if the overrideFieldName is set
-        String finalFieldName = setting.getOverrideFieldName().orElse(fieldName);
-        switch (setting.getIndexType()) {
-          case BOOLEAN:
-          case COUNT:
-          case KEYWORD:
-            addField(keywordQuery, finalFieldName, setting.getBoostScore());
-            break;
-          case KEYWORD_LOWERCASE:
-            addField(keywordLowercaseQuery, finalFieldName, setting.getBoostScore());
-            break;
-          default:
-            addField(textQuery, finalFieldName, setting.getBoostScore());
-            break;
+        if (setting.isAddToDefaultQuery()) {
+          // First setting uses the original field name unless overridden
+          String fieldName = isFirst ? fieldSpec.getFieldName()
+              : fieldSpec.getFieldName() + "." + SearchableAnnotation.SUBFIELD_BY_TYPE.get(setting.getIndexType());
+          // Override name if the overrideFieldName is set
+          String finalFieldName = setting.getOverrideFieldName().orElse(fieldName);
+          switch (setting.getIndexType()) {
+            case BOOLEAN:
+            case COUNT:
+            case KEYWORD:
+              addField(keywordQuery, finalFieldName, setting.getBoostScore());
+              break;
+            case KEYWORD_LOWERCASE:
+              addField(keywordLowercaseQuery, finalFieldName, setting.getBoostScore());
+              break;
+            default:
+              addField(textQuery, finalFieldName, setting.getBoostScore());
+              break;
+          }
         }
         isFirst = false;
       }

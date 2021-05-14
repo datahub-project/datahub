@@ -19,6 +19,7 @@ public class SettingsBuilder {
     maxNgramDiff.ifPresent(diff -> settings.put("max_ngram_diff", diff));
     settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters())
         .put("tokenizer", buildTokenizers())
+        .put("normalizer", buildNormalizers())
         .put("analyzer", buildAnalyzers())
         .build());
     return ImmutableMap.of("index", settings.build());
@@ -57,7 +58,7 @@ public class SettingsBuilder {
         .getEntitySpecs()
         .forEach(entitySpec -> stopWords.add(entitySpec.getName().toLowerCase()));
     filters.put("urn_stop_filter",
-        ImmutableMap.<String, Object>builder().put("type", "stop").put("stopwords", stopWords).build());
+        ImmutableMap.<String, Object>builder().put("type", "stop").put("stopwords", stopWords.build()).build());
 
     return filters.build();
   }
@@ -83,6 +84,17 @@ public class SettingsBuilder {
         ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[:\\s(),]").build());
 
     return tokenizers.build();
+  }
+
+  // Normalizers return a single token for a given string. Suitable for keywords
+  private static Map<String, Object> buildNormalizers() {
+    ImmutableMap.Builder<String, Object> normalizers = ImmutableMap.builder();
+    // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
+    normalizers.put("keyword_normalizer", ImmutableMap.<String, Object>builder()
+        .put("filter", ImmutableList.of("lowercase", "asciifolding"))
+        .build());
+
+    return normalizers.build();
   }
 
   // Analyzers turn fields into multiple tokens
@@ -135,7 +147,12 @@ public class SettingsBuilder {
 
     // Analyzer for urns
     analyzers.put("urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
-        .put("filter", ImmutableList.of("urn_stop_filter"))
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter"))
+        .build());
+
+    // Analyzer for urns
+    analyzers.put("partial_urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
+        .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "partial_filter"))
         .build());
 
     return analyzers.build();

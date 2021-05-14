@@ -15,7 +15,7 @@ record MLModelProperties {
   @Searchable = {
     "fieldName": "description",
     "indexSettings": [
-      { "indexType": "TEXT" },
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 0.035 },
       { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
     ]
   }
@@ -37,7 +37,7 @@ record MLModelProperties {
   @Searchable = {
     "fieldName": "type",
     "indexSettings": [
-      { "indexType": "KEYWORD" },
+      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 0.01 },
       { "indexType": "TEXT" },
       { "indexType": "PARTIAL" }
     ]

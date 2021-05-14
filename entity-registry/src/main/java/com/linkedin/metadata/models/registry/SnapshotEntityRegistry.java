@@ -23,16 +23,17 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private SnapshotEntityRegistry() {
     entityNameToSpec = EntitySpecBuilder.buildEntitySpecs(new Snapshot().schema())
         .stream()
-        .collect(Collectors.toMap(EntitySpec::getName, spec -> spec));
+        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }
 
   @Override
   public EntitySpec getEntitySpec(@Nonnull final String entityName) {
-    if (!entityNameToSpec.containsKey(entityName)) {
+    String lowercaseEntityName = entityName.toLowerCase();
+    if (!entityNameToSpec.containsKey(lowercaseEntityName)) {
       throw new IllegalArgumentException(
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
-    return entityNameToSpec.get(entityName);
+    return entityNameToSpec.get(lowercaseEntityName);
   }
 
   @Override

@@ -21,7 +21,12 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "title",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 8.0 },
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
+    ],
+    "isDefaultAutocomplete": true
   }
   title: string
 
@@ -30,7 +35,10 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "description",
-    "indexSettings": [{ "indexType": "TEXT" }]
+    "indexSettings": [
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 1.0 },
+      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
+    ]
   }
   description: string
 
@@ -58,7 +66,8 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "access",
-    "indexSettings": [{ "indexType": "BOOLEAN" }]
+    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "addToFilters": true
   }
   access: optional AccessLevel
 

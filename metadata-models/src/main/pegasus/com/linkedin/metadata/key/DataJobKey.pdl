@@ -13,6 +13,13 @@ record DataJobKey {
   /**
   * Standardized data processing flow urn representing the flow for the job
   */
+  @Searchable = {
+    "fieldName": "dataFlow",
+    "indexSettings": [
+      { "indexType": "URN" },
+      { "indexType": "PARTIAL_URN" }
+    ]
+  }
   flow: Urn
 
   /**
@@ -20,7 +27,11 @@ record DataJobKey {
   */
   @Searchable = {
     "fieldName": "project",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL" }
+    ],
+    "isDefaultAutocomplete": true
   }
   jobId: string
 }

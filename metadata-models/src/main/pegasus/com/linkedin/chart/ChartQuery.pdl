@@ -18,7 +18,8 @@ record ChartQuery {
    */
   @Searchable = {
     "fieldName": "queryType",
-    "indexSettings": [{ "indexType": "KEYWORD" }]
+    "indexSettings": [{ "indexType": "KEYWORD" }],
+    "addToFilters": true
   }
   type: ChartQueryType
 }

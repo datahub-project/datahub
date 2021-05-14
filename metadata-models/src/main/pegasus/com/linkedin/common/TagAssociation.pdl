@@ -11,8 +11,8 @@ record TagAssociation {
   @Searchable = {
     "fieldName": "tags",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "PARTIAL" },
+      { "indexType": "URN", "addToDefaultQuery": true },
+      { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 },
       { "indexType": "BOOLEAN", "overrideFieldName": "hasTags" }
     ]
   }

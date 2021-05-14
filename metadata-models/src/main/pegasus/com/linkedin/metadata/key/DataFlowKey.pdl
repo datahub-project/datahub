@@ -13,7 +13,10 @@ record DataFlowKey {
   */
   @Searchable = {
     "fieldName": "orchestrator",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
+      { "indexType": "PARTIAL" }
+    ]
   }
   orchestrator: string
 
@@ -22,7 +25,11 @@ record DataFlowKey {
   */
   @Searchable = {
     "fieldName": "flowId",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL" }
+    ],
+    "isDefaultAutocomplete": true
   }
   flowId: string
 
@@ -31,7 +38,10 @@ record DataFlowKey {
   */
   @Searchable = {
     "fieldName": "cluster",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD", "addToDefaultQuery": true },
+      { "indexType": "PARTIAL" }
+    ]
   }
   cluster: string
 }

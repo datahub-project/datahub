@@ -22,11 +22,12 @@ record DatasetKey {
   @Searchable = {
     "fieldName": "name",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "PATTERN" },
-      { "indexType": "PARTIAL_PATTERN" },
-      { "indexType": "PARTIAL_LONG" }
-    ]
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 1000.0 },
+      { "indexType": "PATTERN", "addToDefaultQuery": true, "boostScore": 8.0 },
+      { "indexType": "PARTIAL_PATTERN", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL_LONG", "addToDefaultQuery": true }
+    ],
+    "isDefaultAutocomplete": true
   }
   name: string
 

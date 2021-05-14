@@ -17,7 +17,12 @@ record DataJobInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "name",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "TEXT", "addToDefaultQuery": true },
+      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
+    ],
+    "isDefaultAutocomplete": true
   }
   name: string
 
@@ -26,7 +31,7 @@ record DataJobInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "description",
-    "indexSettings": [{ "indexType": "TEXT" }]
+    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
   }
   description: optional string
 

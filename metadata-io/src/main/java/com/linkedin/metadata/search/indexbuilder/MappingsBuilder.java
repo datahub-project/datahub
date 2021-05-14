@@ -78,7 +78,7 @@ public class MappingsBuilder {
       case KEYWORD:
         return ImmutableMap.of("type", "keyword");
       case KEYWORD_LOWERCASE:
-        return ImmutableMap.of("type", "keyword", "analyzer", "custom_keyword");
+        return ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
       case BOOLEAN:
         return ImmutableMap.of("type", "boolean");
       case COUNT:
@@ -87,6 +87,8 @@ public class MappingsBuilder {
         return ImmutableMap.of("type", "text", "analyzer", "word_delimited");
       case PATTERN:
         return ImmutableMap.of("type", "text", "analyzer", "pattern");
+      case URN:
+        return ImmutableMap.of("type", "text", "analyzer", "urn_component");
       case PARTIAL:
         return ImmutableMap.of("type", "text", "analyzer", "partial");
       case PARTIAL_SHORT:
@@ -95,8 +97,8 @@ public class MappingsBuilder {
         return ImmutableMap.of("type", "text", "analyzer", "partial_long");
       case PARTIAL_PATTERN:
         return ImmutableMap.of("type", "text", "analyzer", "partial_pattern");
-      case URN:
-        return ImmutableMap.of("type", "text", "analyzer", "urn_component");
+      case PARTIAL_URN:
+        return ImmutableMap.of("type", "text", "analyzer", "partial_urn_component");
       default:
         return ImmutableMap.of();
     }

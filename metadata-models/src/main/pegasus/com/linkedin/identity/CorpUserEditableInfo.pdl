@@ -21,7 +21,7 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "fieldName": "teams",
-    "indexSettings": [{ "indexType": "TEXT" }]
+    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
   }
   teams: array[string] = [ ]
 
@@ -30,7 +30,7 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "fieldName": "teams",
-    "indexSettings": [{ "indexType": "TEXT" }]
+    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
   }
   skills: array[string] = [ ]
 

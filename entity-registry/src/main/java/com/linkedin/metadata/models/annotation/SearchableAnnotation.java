@@ -41,11 +41,12 @@ public class SearchableAnnotation {
     BROWSE_PATH,
     TEXT,
     PATTERN,
+    URN,
     PARTIAL,
     PARTIAL_SHORT,
     PARTIAL_LONG,
     PARTIAL_PATTERN,
-    URN
+    PARTIAL_URN
   }
 
   public static final Map<IndexType, String> SUBFIELD_BY_TYPE =
@@ -54,11 +55,12 @@ public class SearchableAnnotation {
           .put(IndexType.BOOLEAN, "boolean")
           .put(IndexType.TEXT, "delimited")
           .put(IndexType.PATTERN, "pattern")
+          .put(IndexType.URN, "urn_components")
           .put(IndexType.PARTIAL, "ngram")
           .put(IndexType.PARTIAL_SHORT, "ngram")
           .put(IndexType.PARTIAL_LONG, "ngram")
           .put(IndexType.PARTIAL_PATTERN, "pattern_ngram")
-          .put(IndexType.URN, "urn_components")
+          .put(IndexType.PARTIAL_URN, "urn_components_ngram")
           .build();
 
   @Value

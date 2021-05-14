@@ -17,7 +17,8 @@ record CorpUserInfo {
    */
   @Searchable = {
     "fieldName": "active",
-    "indexSettings": [{ "indexType": "BOOLEAN" }]
+    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "weightsPerFieldValue": { "true": 2.0 }
   }
   active: boolean
 
@@ -40,7 +41,7 @@ record CorpUserInfo {
    */
   @Searchable = {
     "fieldName": "title",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true }]
   }
   title: optional string
 
@@ -50,6 +51,10 @@ record CorpUserInfo {
   @Relationship = {
     "name": "ReportsTo",
     "entityTypes": [ "corpUser" ]
+  }
+  @Searchable = {
+    "fieldName": "managerLdap",
+    "indexSettings": [{ "indexType": "URN", "addToDefaultQuery": true }]
   }
   managerUrn: optional CorpuserUrn
 
@@ -78,7 +83,11 @@ record CorpUserInfo {
    */
   @Searchable = {
     "fieldName": "fullName",
-    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL" }
+    ],
+    "isDefaultAutocomplete": true
   }
   fullName: optional string
 

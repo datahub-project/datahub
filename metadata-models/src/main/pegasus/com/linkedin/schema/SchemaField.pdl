@@ -15,8 +15,8 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldPaths",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "PATTERN" },
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
+      { "indexType": "PATTERN", "addToDefaultQuery": true, "boostScore": 0.2 },
       { "indexType": "PARTIAL_PATTERN" },
       { "indexType": "PARTIAL_LONG" }
     ]
@@ -38,7 +38,7 @@ record SchemaField {
    */
   @Searchable = {
     "fieldName": "fieldDescriptions",
-    "indexSettings": [{ "indexType": "TEXT" }]
+    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 0.125 }]
   }
   description: optional string
 

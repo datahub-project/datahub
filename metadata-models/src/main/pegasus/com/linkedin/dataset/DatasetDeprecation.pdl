@@ -15,7 +15,8 @@ record DatasetDeprecation {
    */
   @Searchable = {
     "fieldName": "deprecated",
-    "indexSettings": [{ "indexType": "BOOLEAN" }]
+    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "weightsPerFieldValue": { "true": 0.5 }
   }
   deprecated: boolean
 

@@ -13,6 +13,13 @@ record Owner {
     "name": "OwnedBy",
     "entityTypes": [ "corpUser", "corpGroup" ]
   }
+  @Searchable = {
+    "fieldName": "owners",
+    "indexSettings": [
+      { "indexType": "URN" },
+      { "indexType": "BOOLEAN", "overrideFieldName": "hasOwners" }
+    ]
+  }
   owner: Urn
 
   /**

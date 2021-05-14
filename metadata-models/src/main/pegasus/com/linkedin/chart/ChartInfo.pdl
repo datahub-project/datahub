@@ -21,10 +21,11 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldName": "title",
     "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "TEXT" },
-      { "indexType": "PARTIAL" }
-    ]
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 8.0 },
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
+      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
+    ],
+    "isDefaultAutocomplete": true
   }
   title: string
 
@@ -34,7 +35,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldName": "description",
     "indexSettings": [
-      { "indexType": "TEXT" },
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 1.0 },
       { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
     ]
   }
@@ -60,7 +61,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "type",
-    "indexSettings": [{ "indexType": "KEYWORD" }]
+    "indexSettings": [{ "indexType": "KEYWORD" }],
+    "addToFilters": true
   }
   type: optional ChartType
 
@@ -69,7 +71,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "access",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }],
+    "addToFilters": true
   }
   access: optional AccessLevel
 

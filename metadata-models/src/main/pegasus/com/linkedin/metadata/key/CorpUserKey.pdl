@@ -13,7 +13,10 @@ record CorpUserKey {
   */
   @Searchable = {
     "fieldName": "ldap",
-    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 2.0 },
+      { "indexType": "PARTIAL" }
+    ]
   }
   username: string
 }

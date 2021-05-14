@@ -15,7 +15,7 @@ record DataProcessKey {
   */
   @Searchable = {
     "fieldName": "name",
-    "indexSettings": [{ "indexType": "KEYWORD" }]
+    "indexSettings": [{ "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 }]
   }
   name: string
 
@@ -25,7 +25,11 @@ record DataProcessKey {
   */
   @Searchable = {
     "fieldName": "orchestrator",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+    "indexSettings": [
+      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
+      { "indexType": "PARTIAL" }
+    ],
+    "isDefaultAutocomplete": true
   }
   orchestrator: string
 
