@@ -222,7 +222,9 @@ class KafkaConnectSource(Source):
                 debezium_source_lineages = DebeziumSourceConnectorLineages(
                     connector_manifest=connector_manifest
                 )
-                connector_manifest.lineages.extend(debezium_source_lineages.get_lineages())
+                connector_manifest.lineages.extend(
+                    debezium_source_lineages.get_lineages()
+                )
 
             if connector_manifest.type == "sink":
                 # TODO: Sink Connector not yet implemented
