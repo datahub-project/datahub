@@ -158,6 +158,7 @@ entry_points = {
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
