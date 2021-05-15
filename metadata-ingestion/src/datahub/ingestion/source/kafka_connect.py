@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
@@ -318,6 +319,48 @@ class KafkaConnectSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
+    def construct_lineage_workunits(
+        self, connector: ConnectorManifest
+    ) -> Iterable[MetadataWorkUnit]:
+
+        lineages = connector.lineages
+        if lineages:
+            for lineage in lineages:
+                source_dataset = lineage.source_dataset
+                source_platform = lineage.source_platform
+                target_dataset = lineage.target_dataset
+                target_platform = lineage.target_platform
+
+                mce = models.MetadataChangeEventClass(
+                    proposedSnapshot=models.DatasetSnapshotClass(
+                        urn=builder.make_dataset_urn(
+                            target_platform, target_dataset, self.config.env
+                        ),
+                        aspects=[
+                            models.UpstreamLineageClass(
+                                upstreams=[
+                                    models.UpstreamClass(
+                                        dataset=builder.make_dataset_urn(
+                                            source_platform,
+                                            source_dataset,
+                                            self.config.env,
+                                        ),
+                                        type=models.DatasetLineageTypeClass.TRANSFORMED,
+                                        auditStamp=models.AuditStampClass(
+                                            time=int(time.time() * 1000),
+                                            actor="urn:li:corpuser:datahub",
+                                        ),
+                                    )
+                                ]
+                            )
+                        ],
+                    )
+                )
+
+                wu = MetadataWorkUnit(id=source_dataset, mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         connectors_manifest = self.get_connectors_manifest()
@@ -327,6 +370,7 @@ class KafkaConnectSource(Source):
             if self.config.connector_patterns.allowed(name):
                 yield from self.construct_flow_workunit(connector)
                 yield from self.construct_job_workunits(connector)
+                yield from self.construct_lineage_workunits(connector)
 
                 self.report.report_connector_scanned(name)
 
