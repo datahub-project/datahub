@@ -14,9 +14,9 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Install from PyPI
 
-The folks over at [Acryl](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
+The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion.
 
-```sh
+```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
@@ -31,38 +31,41 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 We use a plugin architecture so that you can install only the dependencies you actually need.
 
-| Plugin Name   | Install Command                                            | Provides                   |
-| ------------- | ---------------------------------------------------------- | -------------------------- |
-| file          | _included by default_                                      | File source and sink       |
-| console       | _included by default_                                      | Console sink               |
-| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source          |
-| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source            |
-| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source            |
-| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                |
-| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source          |
-| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source               |
-| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source              |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source            |
-| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source  |
-| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source           |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source           |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source             |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source               |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source               |
-| dbt           | _no additional dependencies_                               | DBT source                 |
-| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API |
-| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka    |
+| Plugin Name   | Install Command                                            | Provides                            |
+| ------------- | ---------------------------------------------------------- | ----------------------------------- |
+| file          | _included by default_                                      | File source and sink                |
+| console       | _included by default_                                      | Console sink                        |
+| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
+| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| dbt           | _no additional dependencies_                               | DBT source                          |
+| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
+| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
 These plugins can be mixed and matched as desired. For example:
 
-```sh
+```shell
 pip install 'acryl-datahub[bigquery,datahub-rest]'
 ```
 
 You can check the active plugins:
 
-```sh
+```shell
 datahub check plugins
 ```
 
@@ -70,7 +73,7 @@ datahub check plugins
 
 #### Basic Usage
 
-```sh
+```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
@@ -85,7 +88,7 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
-```sh
+```shell
 ./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
@@ -125,7 +128,7 @@ https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitut
 
 Running a recipe is quite easy.
 
-```sh
+```shell
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
@@ -146,9 +149,12 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
       schema_registry_url: http://localhost:8081
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
+      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
 
 ### MySQL Metadata `mysql`
 
@@ -270,6 +276,26 @@ Extracts:
 ```yml
 source:
   type: postgres
+  config:
+    username: user
+    password: pass
+    host_port: localhost:5432
+    database: DemoDatabase
+    # table_pattern/schema_pattern is same as above
+    # options is same as above
+```
+
+### Redshift `redshift`
+
+Extracts:
+
+- List of databases, schema, and tables
+- Column types associated with each table
+- Also supports PostGIS extensions
+
+```yml
+source:
+  type: redshift
   config:
     username: user
     password: pass
@@ -454,7 +480,11 @@ source:
 Extracts:
 
 - List of databases
-- List of collections in each database
+- List of collections in each database and infers schemas for each collection
+
+By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+
+Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
 ```yml
 source:
@@ -469,6 +499,8 @@ source:
     options: {}
     database_pattern: {}
     collection_pattern: {}
+    enableSchemaInference: True
+    schemaSamplingSize: 1000
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 
@@ -488,6 +520,57 @@ source:
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
     filter: "(objectClass=*)" # optional field
+```
+
+### LookML `lookml`
+
+Note! This plugin uses a package that requires Python 3.7+!
+
+Extracts:
+
+- LookML views from model files
+- Name, upstream table names, dimensions, measures, and dimension groups
+
+```yml
+source:
+  type: "lookml"
+  config:
+    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
+    connection_to_platform_map: # mapping between connection names in the model files to platform names.
+      my_snowflake_conn: snowflake
+    platform_name: looker_views # Optional, default is "looker_views"
+    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    model_pattern: {}
+    view_pattern: {}
+    env: "PROD" # Optional, default is "PROD"
+    parse_table_names_from_sql: False # See note below.
+```
+
+Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
+views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
+Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+`parse_table_names_from_sql: True`.
+
+### Looker dashboards `looker`
+
+Extracts:
+
+- Looker dashboards and dashboard elements (charts)
+- Names, descriptions, URLs, chart types, input view for the charts
+
+```yml
+source:
+  type: "looker"
+  config:
+    client_id: str # Your Looker API client ID. As your Looker admin
+    client_secret: str # Your Looker API client secret. As your Looker admin
+    base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+    platform_name: str = "looker" # Optional, default is "looker"
+    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
+    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    env: str = "PROD" # Optional, default is "PROD"
 ```
 
 ### File `file`
@@ -586,8 +669,27 @@ transformers:
       some_property: "some.value"
 ```
 
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py)
-At the moment there are no built-in transformers.
+A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py).
+
+### `simple_add_dataset_ownership`
+
+Adds a set of owners to every dataset.
+
+```yml
+transformers:
+  - type: "simple_add_dataset_ownership"
+    config:
+      owner_urns:
+        - "urn:li:corpuser:username1"
+        - "urn:li:corpuser:username2"
+        - "urn:li:corpGroup:groupname"
+```
+
+:::tip
+
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`AddDatasetOwnership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+
+:::
 
 ## Using as a library
 
@@ -600,15 +702,26 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 
 There's a couple ways to get lineage information from Airflow into DataHub.
 
-_Note: if you're simply looking to run ingestion on a schedule, take a look at these sample DAGs: (1) [`generic_recipe_sample_dag.py`](./examples/airflow/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it; and (2) [`mysql_sample_dag.py`](./examples/airflow/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration._
+:::note Running ingestion on a schedule
+
+If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
+
+- [`generic_recipe_sample_dag.py`](./src/datahub_provider/example_dags/generic_recipe_sample_dag.py) - reads a DataHub ingestion recipe file and runs it
+- [`mysql_sample_dag.py`](./src/datahub_provider/example_dags/mysql_sample_dag.py) - runs a MySQL metadata ingestion pipeline using an inlined configuration.
+
+:::
 
 ### Using Datahub's Airflow lineage backend (recommended)
 
-_Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+._
+:::caution
+
+The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
+
+:::
 
 1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
-   ```sh
+   ```shell
    # For REST-based:
    airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
    # For Kafka-based (standard Kafka sink config can be passed via extras):
@@ -618,17 +731,27 @@ _Note: The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0
 2. Add the following lines to your `airflow.cfg` file. You might need to
    ```ini
    [lineage]
-   backend = datahub.integrations.airflow.DatahubAirflowLineageBackend
-   datahub_conn_id = datahub_rest_default  # or datahub_kafka_default - whatever you named the connection in step 1
+   backend = datahub_provider.lineage.datahub.DatahubLineageBackend
+   datahub_kwargs = {
+       "datahub_conn_id": "datahub_rest_default",
+       "capture_ownership_info": true,
+       "capture_tags_info": true,
+       "graceful_exceptions": true }
+   # The above indentation is important!
    ```
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./examples/airflow/lineage_backend_demo.py).
+   Configuration options:
+   - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
+   - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
+   - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
+   - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
+3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
 
 Take a look at this sample DAG:
 
-- [`lineage_emission_dag.py`](./examples/airflow/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
+- [`lineage_emission_dag.py`](./src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
 In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
 

@@ -110,6 +110,13 @@
       } ],
       "returns" : "com.linkedin.metadata.query.BrowseResult"
     }, {
+      "name" : "getBrowsePaths",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "com.linkedin.common.Urn"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
       "name" : "getSnapshot",
       "parameters" : [ {
         "name" : "urn",

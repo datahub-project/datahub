@@ -36,6 +36,8 @@ HOSTED_DOCS_ONLY-->
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/docs/CONTRIBUTING.md)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/linkedin/datahub)](https://github.com/linkedin/datahub/pulls?q=is%3Apr)
 [![License](https://img.shields.io/github/license/linkedin/datahub)](https://github.com/linkedin/datahub/blob/master/LICENSE)
+[![YouTube](https://img.shields.io/youtube/channel/subscribers/UC3qFQC5IiwR5fvWEqi_tJ5w?style=social)](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
+[![Medium](https://img.shields.io/badge/Medium-12100E?style=for-the-badge&logo=medium&logoColor=white)](https://medium.com/datahub-project)
 [![Follow](https://img.shields.io/twitter/follow/datahubproject?label=Follow&style=social)](https://twitter.com/datahubproject)
 
 ---
@@ -51,17 +53,17 @@ HOSTED_DOCS_ONLY-->
 
 ---
 
-> 📣 Next DataHub town hall meeting on Apr 23rd, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on May 27th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 > - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 
 > ✨ Latest Update: 
-> - Monthly project update: [Mar 2021 Edition](https://medium.com/datahub-project/linkedin-datahub-project-updates-697f0faddd10?source=friends_link&sk=9888633c5c7219b875125e87a703ec4d).
+> - Monthly project update: [Apr 2021 Edition](https://medium.com/datahub-project/linkedin-datahub-project-updates-2b0d26066b8f?source=friends_link&sk=686c47219ed294e0838ae3e2fe29084d).
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog. 
-> - We've released v0.7.0. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.7.0)
+> - We've released v0.7.1. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.7.1)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 

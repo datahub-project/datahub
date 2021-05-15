@@ -2,6 +2,7 @@ import logging
 import re
 import requests
 from dataclasses import dataclass, field
+from pydantic import BaseModel, Extra
 from typing import Dict, Iterable, List, Optional
 
 import datahub.emitter.mce_builder as builder
@@ -45,6 +46,71 @@ class KafkaConnectLineage:
     target_dataset: str
     target_platform: str
 
+class DebeziumConfig(BaseModel):
+    config: dict
+
+    
+
+
+@dataclass
+class DebeziumLineages:
+    connector_config: Dict
+    topic_names: Iterable[str]
+
+    def __init__(self, connector_config: Dict, topic_names: Iterable[str]) -> None:
+        self.connector_config = DebeziumConfig(connector_config)
+        self.topic_names = topic_names
+        self.lineages: List[str] = field(default_factory=list)
+        self.source_platform: str = None
+        self.parser = {
+            "io.debezium.connector.mysql.MySqlConnector": {
+                "source_platform": "mysql",
+            },
+            "MySqlConnector": {
+                "source_platform": "mysql",
+            },
+            "io.debezium.connector.mongodb.MongoDbConnector": {
+                "source_platform": "mongodb",
+            },
+            "io.debezium.connector.postgresql.PostgresConnector": {
+                "source_platform": "postgres",
+            },
+            "io.debezium.connector.oracle.OracleConnector": {
+                "source_platform": "oracle",
+            },
+            "io.debezium.connector.sqlserver.SqlServerConnector": {
+                "source_platform": "mssql",
+            },
+            "io.debezium.connector.db2.Db2Connector": {
+                "source_platform": "db2",
+            },
+            "io.debezium.connector.vitess.VitessConnector": {
+                "source_platform": "vitess",
+        },
+        }
+        self.connector_class= self.connector_config.get('connector.class')
+
+    # def get_
+
+    def get_lineages(self):
+        lineages = list()
+        parser = self.parser.get(self.connector_class)
+        # print(parser)
+        for topic in self.topic_names:
+            found = re.search(re.compile(topic_name_pattern), topic)
+            if found:
+                table = database + re.search(topic_name_pattern, topic).group(2)
+                lineage = KafkaConnectLineage(
+                    source_dataset=table,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform='kafka',
+                )
+                lineages.append(lineage)
+
+        return lineages
+
+"""
 def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iterable[KafkaConnectLineage]:
     connector_class = connector_config.get('connector.class')
     database = ''
@@ -52,36 +118,51 @@ def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iter
     source_platform = None
 
     if connector_class in ('io.debezium.connector.mysql.MySqlConnector', 'MySqlConnector'):
-        serverName = connector_config.get("database.server.name")
+        # https://debezium.io/documentation/reference/connectors/mysql.html#mysql-topic-names
+        # Kafka topic naming convention: serverName.databaseName.tableName
         source_platform = 'mysql'
+        serverName = connector_config.get("database.server.name")
 
     if connector_class in ("io.debezium.connector.mongodb.MongoDbConnector"):
-        serverName = connector_config.get("mongodb.name")
+        # https://debezium.io/documentation/reference/connectors/mongodb.html#mongodb-topic-names
+        # Kafka topic naming convention: logicalName.databaseName.collectionName
         source_platform = 'mongodb'
+        serverName = connector_config.get("mongodb.name")
 
     if connector_class in ('io.debezium.connector.postgresql.PostgresConnector'):
+        # https://debezium.io/documentation/reference/connectors/postgresql.html#postgresql-topic-names
+        # Kafka topic naming convention: serverName.schemaName.tableName
+        source_platform = 'postgres'
         database = connector_config.get("database.dbname") + "."
         serverName = connector_config.get("database.server.name")
-        source_platform = 'postgres'
 
     if connector_class in ('io.debezium.connector.oracle.OracleConnector'):
+        # https://debezium.io/documentation/reference/connectors/oracle.html#oracle-topic-names
+        # Kafka topic naming convention: <database.server.name>.schemaName.tableName
+        source_platform = 'oracle'
         database = connector_config.get("database.dbname") + "."
         serverName = connector_config.get("database.server.name")
-        source_platform = 'oracle'
 
     if connector_class in ('io.debezium.connector.sqlserver.SqlServerConnector'):
+        # https://debezium.io/documentation/reference/connectors/sqlserver.html#sqlserver-topic-names
+        # Kafka topic naming convention: serverName.schemaName.tableName
+        # serverName=database.server.name
+        source_platform = 'mssql'
         database = connector_config.get("database.dbname") + "."
         serverName = connector_config.get("database.server.name")
-        source_platform = 'mssql'
 
     if connector_class in ('io.debezium.connector.db2.Db2Connector'):
+        # 
+        # Kafka topic naming convention: 
+        source_platform = 'db2'
         database = connector_config.get("database.dbname") + "."
         serverName = connector_config.get("database.server.name")
-        source_platform = 'db2'
 
     if connector_class in ('io.debezium.connector.vitess.VitessConnector'):
-        serverName = connector_config.get("database.server.name")
+        # 
+        # Kafka topic naming convention: 
         source_platform = 'vitess'
+        serverName = connector_config.get("database.server.name")
 
     topic_name_pattern = f"({serverName})\.(\w+\.\w+)"
 
@@ -98,7 +179,7 @@ def get_debezium_lineages(connector_config: Dict, topic_names: Iterable) -> Iter
             lineages.append(lineage)
 
     return lineages
-
+"""
 
 @dataclass
 class KafkaConnectSource(Source):
@@ -164,6 +245,7 @@ class KafkaConnectSource(Source):
             # Populate Source Connector metadata
             if connector_type == 'source':
                 connector_config = manifest.get('config', {})
+                print(connector_config)
                 topics_response = self.session.get(
                     f"{self.config.connect_uri}/connectors/{c}/topics",
                 )
@@ -172,8 +254,11 @@ class KafkaConnectSource(Source):
                 topic_names = topics[c]["topics"]
 
                 # Currently we only support Debezium Source Connector lineages
-                debezium_lineages = get_debezium_lineages(connector_config=connector_config, topic_names=topic_names)
-                manifest['lineages'].extend(debezium_lineages)
+                # debezium_lineages = get_debezium_lineages(connector_config=connector_config, topic_names=topic_names)
+                # manifest['lineages'].extend(debezium_lineages)
+
+                debezium_lineages = DebeziumLineages(connector_config=connector_config, topic_names=topic_names)
+                manifest['lineages'].extend(debezium_lineages.get_lineages())
 
             if connector_type == 'sink':
                 # TODO: Sink Connector not yet implemented
@@ -263,6 +348,7 @@ class KafkaConnectSource(Source):
 
         for connector in connectors_manifest:
             name = connector.get('name')
+            print(connector.get('config'))
             if self.config.connector_patterns.allowed(name):
                 yield from self.construct_flow_workunit(connector)
                 yield from self.construct_job_workunits(connector)

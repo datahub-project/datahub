@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import analytics, { EventType } from '../analytics';
 
 const styles = {
     children: { marginTop: 80 },
@@ -37,6 +38,15 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
 
     const search = (query: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
+        analytics.event({
+            type: EventType.SearchEvent,
+            query,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
         navigateToSearchUrl({
             query,
             history,

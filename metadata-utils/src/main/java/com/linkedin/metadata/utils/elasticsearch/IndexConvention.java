@@ -10,4 +10,7 @@ import javax.annotation.Nonnull;
 public interface IndexConvention {
   @Nonnull
   String getIndexName(Class<? extends RecordTemplate> documentClass);
+
+  @Nonnull
+  String getIndexName(String baseIndexName);
 }
