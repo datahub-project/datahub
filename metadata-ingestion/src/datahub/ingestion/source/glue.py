@@ -1,7 +1,8 @@
 import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Dict, Iterable, List, Optional
+from functools import reduce
+from typing import Dict, Iterable, List, Optional, Union
 
 import boto3
 
@@ -38,6 +39,23 @@ from datahub.metadata.schema_classes import (
 )
 
 
+def assume_role(role_arn: str, aws_region: str, credentials: Optional[dict] = None) -> dict:
+    credentials = credentials or {}
+    sts_client = boto3.client(
+        'sts',
+        region_name=aws_region,
+        aws_access_key_id=credentials.get('AccessKeyId'),
+        aws_secret_access_key=credentials.get('SecretAccessKey'),
+        aws_session_token=credentials.get('SessionToken'),
+    )
+
+    assumed_role_object = sts_client.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName="DatahubIngestionSourceGlue"
+    )
+    return assumed_role_object['Credentials']
+
+
 class GlueSourceConfig(ConfigModel):
     env: str = "PROD"
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -45,15 +63,12 @@ class GlueSourceConfig(ConfigModel):
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
+    aws_role: Optional[Union[str, List[str]]] = None
     aws_region: str
 
     @property
     def glue_client(self):
-        if (
-            self.aws_access_key_id
-            and self.aws_secret_access_key
-            and self.aws_session_token
-        ):
+        if self.aws_access_key_id and self.aws_secret_access_key and self.aws_session_token:
             return boto3.client(
                 "glue",
                 aws_access_key_id=self.aws_access_key_id,
@@ -66,6 +81,22 @@ class GlueSourceConfig(ConfigModel):
                 "glue",
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
+                region_name=self.aws_region,
+            )
+        elif self.aws_role:
+            if isinstance(self.aws_role, str):
+                credentials = assume_role(self.aws_role, self.aws_region)
+            else:
+                credentials = reduce(
+                    lambda new_credentials, role_arn: assume_role(role_arn, self.aws_region, new_credentials),
+                    self.aws_role,
+                    None
+                )
+            return boto3.client(
+                "glue",
+                aws_access_key_id=credentials['AccessKeyId'],
+                aws_secret_access_key=credentials['SecretAccessKey'],
+                aws_session_token=credentials['SessionToken'],
                 region_name=self.aws_region,
             )
         else:
@@ -103,7 +134,7 @@ class GlueSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         def get_all_tables() -> List[dict]:
             def get_tables_from_database(
-                database_name: str, tables: List
+                    database_name: str, tables: List
             ) -> List[dict]:
                 kwargs = {"DatabaseName": database_name}
                 while True:
@@ -144,7 +175,7 @@ class GlueSource(Source):
             full_table_name = f"{database_name}.{table_name}"
             self.report.report_table_scanned()
             if not self.source_config.database_pattern.allowed(
-                database_name
+                    database_name
             ) or not self.source_config.table_pattern.allowed(full_table_name):
                 self.report.report_table_dropped(full_table_name)
                 continue
@@ -237,7 +268,7 @@ class GlueSource(Source):
 
 
 def get_column_type(
-    glue_source: GlueSource, field_type: str, table_name: str, field_name: str
+        glue_source: GlueSource, field_type: str, table_name: str, field_name: str
 ) -> SchemaFieldDataType:
     field_type_mapping = {
         "array": ArrayTypeClass,
