@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -7,9 +8,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow, DataFlow> {
@@ -38,7 +39,13 @@ public class DataFlowMapper implements ModelMapper<com.linkedin.datajob.DataFlow
             result.setGlobalTags(GlobalTagsMapper.map(dataflow.getGlobalTags()));
         }
         if (dataflow.hasDataJobs()) {
-            result.setDataJobs(dataflow.getDataJobs().stream().map(DataJobMapper::map).collect(Collectors.toList()));
+            result.setDataJobs(dataflow.getDataJobs().stream().map(urn -> {
+                final DataJob dataJob = new DataJob();
+                dataJob.setUrn(urn.toString());
+                return dataJob;
+            }).collect(Collectors.toList()));
+        } else {
+            result.setDataJobs(new ArrayList<>());
         }
         return result;
     }

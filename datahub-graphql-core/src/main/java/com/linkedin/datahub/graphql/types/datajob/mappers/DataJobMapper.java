@@ -81,7 +81,6 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
             }).collect(Collectors.toList()));
         }
 
-
         return result;
     }
 }

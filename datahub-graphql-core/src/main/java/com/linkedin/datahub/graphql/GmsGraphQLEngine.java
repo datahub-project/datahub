@@ -475,7 +475,8 @@ public class GmsGraphQLEngine {
                                     DATA_JOB_TYPE,
                                     (env) -> ((DataFlow) env.getSource()).getDataJobs().stream()
                                             .map(DataJob::getUrn)
-                                            .collect(Collectors.toList())))
+                                            .collect(Collectors.toList()))
+                            )
                     )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
