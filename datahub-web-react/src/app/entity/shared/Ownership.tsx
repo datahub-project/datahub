@@ -105,9 +105,9 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         setStagedOwners(newStagedOwners);
     };
 
-    const onDelete = (urn: string, type: OwnershipType) => {
+    const onDelete = (urn: string, role: OwnershipType) => {
         const updatedOwners = owners
-            .filter((owner) => !(owner.owner.urn === urn && owner.type === type))
+            .filter((owner) => !(owner.owner.urn === urn && owner.type === role))
             .map((owner) => ({
                 owner: owner.owner.urn,
                 type: owner.type,
@@ -295,7 +295,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                             <Button
                                 type="link"
                                 style={{ color: 'red' }}
-                                onClick={() => onDelete(record.urn, record.type)}
+                                onClick={() => onDelete(record.urn, record.role)}
                             >
                                 Remove
                             </Button>
