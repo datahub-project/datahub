@@ -113,7 +113,6 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                 type: owner.type,
             }));
 
-        console.log(updatedOwners);
         updateOwnership({ owners: updatedOwners });
     };
 
