@@ -1,21 +1,32 @@
 package com.linkedin.metadata.resources.dataprocess;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataProcessUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dataprocess.DataProcess;
 import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.dataprocess.DataProcessResourceKey;
+import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.dao.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.DataProcessDocument;
+import com.linkedin.metadata.search.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.DataProcessSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -30,6 +41,13 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 
+import java.net.URISyntaxException;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -55,30 +73,31 @@ public class DataProcesses extends BaseSearchableEntityResource<
     DataProcessDocument> {
     // @formatter:on
 
+    private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+    private final Clock _clock = Clock.systemUTC();
 
     public DataProcesses() {
         super(DataProcessSnapshot.class, DataProcessAspect.class);
     }
 
     @Inject
-    @Named("dataProcessDAO")
-    private BaseLocalDAO<DataProcessAspect, DataProcessUrn> _localDAO;
+    @Named("entityService")
+    private EntityService _entityService;
 
     @Inject
-    @Named("dataProcessSearchDAO")
-    private BaseSearchDAO _esSearchDAO;
-
+    @Named("esSearchDao")
+    private ESSearchDAO _entitySearchDao;
 
     @Nonnull
     @Override
     protected BaseSearchDAO<DataProcessDocument> getSearchDAO() {
-        return _esSearchDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
     @Override
     protected BaseLocalDAO<DataProcessAspect, DataProcessUrn> getLocalDAO() {
-        return _localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -146,7 +165,18 @@ public class DataProcesses extends BaseSearchableEntityResource<
     @Nonnull
     public Task<DataProcess> get(@Nonnull ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key,
                                  @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.get(key, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            final Entity entity = _entityService.getEntity(new DataProcessUrn(
+                key.getKey().getOrchestrator(),
+                key.getKey().getName(),
+                key.getKey().getOrigin()), projectedAspects);
+            if (entity != null) {
+                return toValue(entity.getValue().getDataProcessSnapshot());
+            }
+            throw RestliUtils.resourceNotFoundException();
+        });
     }
 
     @RestMethod.BatchGet
@@ -155,7 +185,24 @@ public class DataProcesses extends BaseSearchableEntityResource<
     public Task<Map<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>, DataProcess>> batchGet(
             @Nonnull Set<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>> keys,
             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.batchGet(keys, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+
+            final Map<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>, DataProcess> entities = new HashMap<>();
+            for (final ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key : keys) {
+                final Entity entity = _entityService.getEntity(
+                    new DataProcessUrn(
+                        key.getKey().getOrchestrator(),
+                        key.getKey().getName(),
+                        key.getKey().getOrigin()),
+                    projectedAspects);
+                if (entity != null) {
+                    entities.put(key, toValue(entity.getValue().getDataProcessSnapshot()));
+                }
+            }
+            return entities;
+        });
     }
 
     @RestMethod.GetAll
@@ -164,7 +211,30 @@ public class DataProcesses extends BaseSearchableEntityResource<
         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
-        return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+
+            final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
+            final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
+                : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
+            final SearchResult filterResults = _entitySearchDao.filter(
+                "dataProcess",
+                searchFilter,
+                searchSortCriterion,
+                pagingContext.getStart(),
+                pagingContext.getCount());
+
+            final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
+            final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+
+            return new CollectionResult<>(
+                entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getDataProcessSnapshot())).collect(
+                    Collectors.toList()),
+                filterResults.getNumEntities(),
+                filterResults.getMetadata().setUrns(new UrnArray(urns))
+            ).getElements();
+        });
     }
 
     @Finder(FINDER_SEARCH)
@@ -175,7 +245,27 @@ public class DataProcesses extends BaseSearchableEntityResource<
                                                                             @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
                                                                             @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                             @PagingContextParam @Nonnull PagingContext pagingContext) {
-        return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+        return RestliUtils.toTask(() -> {
+
+            final SearchResult searchResult = _entitySearchDao.search(
+                "dataProcess",
+                input,
+                filter,
+                sortCriterion,
+                pagingContext.getStart(),
+                pagingContext.getCount());
+
+            final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+            final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+
+            return new CollectionResult<>(
+                entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getDataProcessSnapshot())).collect(
+                    Collectors.toList()),
+                searchResult.getNumEntities(),
+                searchResult.getMetadata().setUrns(new UrnArray(urns))
+            );
+        });
     }
 
     @Action(name = ACTION_AUTOCOMPLETE)
@@ -184,21 +274,51 @@ public class DataProcesses extends BaseSearchableEntityResource<
     public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
         @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
         @ActionParam(PARAM_LIMIT) int limit) {
-        return super.autocomplete(query, field, filter, limit);
+        return RestliUtils.toTask(() ->
+            _entitySearchDao.autoComplete(
+                "dataProcess",
+                query,
+                field,
+                filter,
+                limit)
+        );
     }
 
     @Action(name = ACTION_INGEST)
     @Override
     @Nonnull
     public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull DataProcessSnapshot snapshot) {
-        return super.ingest(snapshot);
+        return RestliUtils.toTask(() -> {
+            try {
+                final AuditStamp auditStamp =
+                    new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+                _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException("Failed to create Audit Urn", e);
+            }
+            return null;
+        });
     }
     @Action(name = ACTION_GET_SNAPSHOT)
     @Override
     @Nonnull
     public Task<DataProcessSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
                                                  @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.getSnapshot(urnString, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            try {
+                final Entity entity = _entityService.getEntity(
+                    Urn.createFromString(urnString), projectedAspects);
+
+                if (entity != null) {
+                    return entity.getValue().getDataProcessSnapshot();
+                }
+                throw RestliUtils.resourceNotFoundException();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+            }
+        });
     }
 
     @Action(name = ACTION_BACKFILL)

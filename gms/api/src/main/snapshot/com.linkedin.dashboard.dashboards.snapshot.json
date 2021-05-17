@@ -234,9 +234,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -262,6 +265,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -403,12 +415,19 @@
           "Searchable" : {
             "fieldName" : "title",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "boostScore" : 8.0,
               "indexType" : "KEYWORD"
             }, {
+              "addToDefaultQuery" : true,
+              "boostScore" : 4.0,
               "indexType" : "TEXT"
             }, {
+              "addToDefaultQuery" : true,
+              "boostScore" : 0.5,
               "indexType" : "PARTIAL"
-            } ]
+            } ],
+            "isDefaultAutocomplete" : true
           }
         }, {
           "name" : "description",
@@ -417,7 +436,12 @@
           "Searchable" : {
             "fieldName" : "description",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "boostScore" : 1.0,
               "indexType" : "TEXT"
+            }, {
+              "indexType" : "BOOLEAN",
+              "overrideFieldName" : "hasDescription"
             } ]
           }
         }, {
@@ -447,6 +471,7 @@
           "doc" : "Access level for the dashboard",
           "optional" : true,
           "Searchable" : {
+            "addToFilters" : true,
             "fieldName" : "access",
             "indexSettings" : [ {
               "indexType" : "BOOLEAN"
@@ -495,8 +520,11 @@
         "type" : "string",
         "doc" : "The name of the dashboard tool such as looker, redash etc.",
         "Searchable" : {
+          "addToFilters" : true,
           "fieldName" : "tool",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "PARTIAL"
@@ -809,7 +837,7 @@
     "namespace" : "com.linkedin.dashboard",
     "path" : "/dashboards",
     "schema" : "com.linkedin.dashboard.Dashboard",
-    "doc" : "generated from: com.linkedin.metadata.resources.dashboard.Dashboards",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dashboard.Dashboards",
     "collection" : {
       "identifier" : {
         "name" : "key",

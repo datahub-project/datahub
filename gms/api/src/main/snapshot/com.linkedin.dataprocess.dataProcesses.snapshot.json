@@ -127,6 +127,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -327,6 +336,8 @@
         "Searchable" : {
           "fieldName" : "name",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "KEYWORD"
           } ]
         }
@@ -337,10 +348,12 @@
         "Searchable" : {
           "fieldName" : "orchestrator",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
             "indexType" : "KEYWORD_LOWERCASE"
           }, {
             "indexType" : "PARTIAL"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       }, {
         "name" : "origin",
@@ -581,7 +594,7 @@
     "namespace" : "com.linkedin.dataprocess",
     "path" : "/dataProcesses",
     "schema" : "com.linkedin.dataprocess.DataProcess",
-    "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
     "collection" : {
       "identifier" : {
         "name" : "dataprocess",
@@ -695,7 +708,7 @@
           "namespace" : "com.linkedin.dataprocess",
           "path" : "/dataProcesses/{dataprocess}/dataProcessInfo",
           "schema" : "com.linkedin.dataprocess.DataProcessInfo",
-          "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
           "collection" : {
             "identifier" : {
               "name" : "dataProcessInfoId",

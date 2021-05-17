@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
-import sun.security.ssl.Record;
 
 import static com.linkedin.metadata.EntitySpecUtils.*;
 import static com.linkedin.metadata.dao.EbeanAspectDao.*;
@@ -96,8 +95,7 @@ public class EntityService {
   }
 
   @Nonnull
-
-  private Map<Urn, List<UnionTemplate>> batchGetAspectUnionLists(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+  public Map<Urn, List<UnionTemplate>> batchGetAspectUnionLists(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     return batchGetAspectRecordLists(urns, aspectNames).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
           final EntitySpec entitySpec = _entityRegistry.getEntitySpec(urnToEntityName(entry.getKey()));
@@ -107,7 +105,7 @@ public class EntityService {
   }
 
   @Nonnull
-  private Map<Urn, List<RecordTemplate>> batchGetAspectRecordLists(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+  public Map<Urn, List<RecordTemplate>> batchGetAspectRecordLists(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     // Create DB keys
     final Set<EbeanAspect.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> {

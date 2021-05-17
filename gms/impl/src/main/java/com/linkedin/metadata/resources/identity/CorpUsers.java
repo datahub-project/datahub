@@ -15,11 +15,13 @@ import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
@@ -200,7 +202,30 @@ public final class CorpUsers extends BaseSearchableEntityResource<
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
-    return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames));
+    return RestliUtils.toTask(() -> {
+
+      final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
+      final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
+          : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
+      final SearchResult filterResults = _entitySearchDao.filter(
+          "corpUser",
+          searchFilter,
+          searchSortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
+      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getCorpUserSnapshot())).collect(
+              Collectors.toList()),
+          filterResults.getNumEntities(),
+          filterResults.getMetadata().setUrns(new UrnArray(urns))
+      ).getElements();
+    });
   }
 
   @Finder(FINDER_SEARCH)

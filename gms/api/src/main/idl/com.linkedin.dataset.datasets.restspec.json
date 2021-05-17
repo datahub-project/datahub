@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.dataset",
   "path" : "/datasets",
   "schema" : "com.linkedin.dataset.Dataset",
-  "doc" : "generated from: com.linkedin.metadata.resources.dataset.Datasets",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataset.Datasets",
   "collection" : {
     "identifier" : {
       "name" : "dataset",

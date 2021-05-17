@@ -61,6 +61,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -198,12 +207,16 @@
         "Searchable" : {
           "fieldName" : "name",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 8.0,
             "indexType" : "KEYWORD_LOWERCASE"
           }, {
+            "addToDefaultQuery" : true,
             "indexType" : "TEXT"
           }, {
             "indexType" : "PARTIAL_SHORT"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       } ],
       "Aspect" : {
@@ -486,7 +499,7 @@
     "namespace" : "com.linkedin.tag",
     "path" : "/tags",
     "schema" : "com.linkedin.tag.Tag",
-    "doc" : "generated from: com.linkedin.metadata.resources.tag.Tags",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.tag.Tags",
     "collection" : {
       "identifier" : {
         "name" : "tag",

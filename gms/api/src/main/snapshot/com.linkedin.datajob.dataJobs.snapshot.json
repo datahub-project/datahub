@@ -235,9 +235,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -263,6 +266,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -401,12 +413,18 @@
           "Searchable" : {
             "fieldName" : "name",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "boostScore" : 4.0,
               "indexType" : "KEYWORD_LOWERCASE"
             }, {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             }, {
+              "addToDefaultQuery" : true,
+              "boostScore" : 0.5,
               "indexType" : "PARTIAL"
-            } ]
+            } ],
+            "isDefaultAutocomplete" : true
           }
         }, {
           "name" : "description",
@@ -416,6 +434,7 @@
           "Searchable" : {
             "fieldName" : "description",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             } ]
           }
@@ -469,7 +488,7 @@
           "Searchable" : {
             "fieldName" : "inputs",
             "indexSettings" : [ {
-              "indexType" : "KEYWORD_LOWERCASE"
+              "indexType" : "URN"
             }, {
               "indexType" : "COUNT",
               "overrideFieldName" : "numInputDatasets"
@@ -489,7 +508,7 @@
           "Searchable" : {
             "fieldName" : "outputs",
             "indexSettings" : [ {
-              "indexType" : "KEYWORD_LOWERCASE"
+              "indexType" : "URN"
             }, {
               "indexType" : "COUNT",
               "overrideFieldName" : "numOutputDatasets"
@@ -526,7 +545,15 @@
       "fields" : [ {
         "name" : "flow",
         "type" : "com.linkedin.common.Urn",
-        "doc" : "Standardized data processing flow urn representing the flow for the job"
+        "doc" : "Standardized data processing flow urn representing the flow for the job",
+        "Searchable" : {
+          "fieldName" : "dataFlow",
+          "indexSettings" : [ {
+            "indexType" : "URN"
+          }, {
+            "indexType" : "PARTIAL_URN"
+          } ]
+        }
       }, {
         "name" : "jobId",
         "type" : "string",
@@ -534,10 +561,13 @@
         "Searchable" : {
           "fieldName" : "project",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "PARTIAL"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       } ],
       "Aspect" : {
@@ -842,7 +872,7 @@
     "namespace" : "com.linkedin.datajob",
     "path" : "/dataJobs",
     "schema" : "com.linkedin.datajob.DataJob",
-    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataJobs",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobs",
     "collection" : {
       "identifier" : {
         "name" : "key",

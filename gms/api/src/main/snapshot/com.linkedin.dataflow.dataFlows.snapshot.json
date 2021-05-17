@@ -196,9 +196,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -224,6 +227,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -375,12 +387,18 @@
           "Searchable" : {
             "fieldName" : "name",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "boostScore" : 4.0,
               "indexType" : "KEYWORD_LOWERCASE"
             }, {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             }, {
+              "addToDefaultQuery" : true,
+              "boostScore" : 0.5,
               "indexType" : "PARTIAL"
-            } ]
+            } ],
+            "isDefaultAutocomplete" : true
           }
         }, {
           "name" : "description",
@@ -390,6 +408,7 @@
           "Searchable" : {
             "fieldName" : "description",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             } ]
           }
@@ -446,6 +465,7 @@
         "Searchable" : {
           "fieldName" : "orchestrator",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
             "indexType" : "KEYWORD_LOWERCASE"
           }, {
             "indexType" : "PARTIAL"
@@ -458,10 +478,13 @@
         "Searchable" : {
           "fieldName" : "flowId",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "PARTIAL"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       }, {
         "name" : "cluster",
@@ -470,6 +493,7 @@
         "Searchable" : {
           "fieldName" : "cluster",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "PARTIAL"
@@ -778,7 +802,7 @@
     "namespace" : "com.linkedin.dataflow",
     "path" : "/dataFlows",
     "schema" : "com.linkedin.datajob.DataFlow",
-    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataFlows",
     "collection" : {
       "identifier" : {
         "name" : "key",

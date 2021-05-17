@@ -213,7 +213,10 @@
         "fieldName" : "deprecated",
         "indexSettings" : [ {
           "indexType" : "BOOLEAN"
-        } ]
+        } ],
+        "weightsPerFieldValue" : {
+          "true" : 0.5
+        }
       }
     }, {
       "name" : "decommissionTime",
@@ -365,6 +368,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -480,7 +492,15 @@
       "fields" : [ {
         "name" : "platform",
         "type" : "com.linkedin.common.Urn",
-        "doc" : "Standardized platform urn for the model"
+        "doc" : "Standardized platform urn for the model",
+        "Searchable" : {
+          "fieldName" : "platform",
+          "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 0.055,
+            "indexType" : "URN"
+          } ]
+        }
       }, {
         "name" : "name",
         "type" : "string",
@@ -488,14 +508,23 @@
         "Searchable" : {
           "fieldName" : "name",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 1000.0,
             "indexType" : "KEYWORD_LOWERCASE"
           }, {
+            "addToDefaultQuery" : true,
+            "boostScore" : 8.0,
             "indexType" : "PATTERN"
           }, {
+            "addToDefaultQuery" : true,
+            "boostScore" : 8.0,
             "indexType" : "PARTIAL_PATTERN"
           }, {
+            "addToDefaultQuery" : true,
+            "boostScore" : 0.125,
             "indexType" : "PARTIAL_LONG"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       }, {
         "name" : "origin",
@@ -527,6 +556,8 @@
         "Searchable" : {
           "fieldName" : "description",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 0.035,
             "indexType" : "TEXT"
           }, {
             "indexType" : "BOOLEAN",
@@ -551,6 +582,8 @@
         "Searchable" : {
           "fieldName" : "type",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 0.01,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "TEXT"

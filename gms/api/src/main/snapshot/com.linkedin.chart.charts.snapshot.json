@@ -87,12 +87,19 @@
       "Searchable" : {
         "fieldName" : "title",
         "indexSettings" : [ {
+          "addToDefaultQuery" : true,
+          "boostScore" : 8.0,
           "indexType" : "KEYWORD_LOWERCASE"
         }, {
+          "addToDefaultQuery" : true,
+          "boostScore" : 4.0,
           "indexType" : "TEXT"
         }, {
+          "addToDefaultQuery" : true,
+          "boostScore" : 0.5,
           "indexType" : "PARTIAL"
-        } ]
+        } ],
+        "isDefaultAutocomplete" : true
       }
     }, {
       "name" : "description",
@@ -101,6 +108,8 @@
       "Searchable" : {
         "fieldName" : "description",
         "indexSettings" : [ {
+          "addToDefaultQuery" : true,
+          "boostScore" : 1.0,
           "indexType" : "TEXT"
         }, {
           "indexType" : "BOOLEAN",
@@ -191,6 +200,7 @@
       "doc" : "Type of the chart",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "type",
         "indexSettings" : [ {
           "indexType" : "KEYWORD"
@@ -212,6 +222,7 @@
       "doc" : "Access level for the chart",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "access",
         "indexSettings" : [ {
           "indexType" : "KEYWORD"
@@ -250,6 +261,7 @@
       },
       "doc" : "Chart query type",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "queryType",
         "indexSettings" : [ {
           "indexType" : "KEYWORD"
@@ -368,9 +380,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -396,6 +411,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -564,8 +588,11 @@
         "type" : "string",
         "doc" : "The name of the dashboard tool such as looker, redash etc.",
         "Searchable" : {
+          "addToFilters" : true,
           "fieldName" : "tool",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "KEYWORD"
           }, {
             "indexType" : "PARTIAL"
@@ -878,7 +905,7 @@
     "namespace" : "com.linkedin.chart",
     "path" : "/charts",
     "schema" : "com.linkedin.dashboard.Chart",
-    "doc" : "generated from: com.linkedin.metadata.resources.dashboard.Charts",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dashboard.Charts",
     "collection" : {
       "identifier" : {
         "name" : "key",

@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.identity",
   "path" : "/corpUsers",
   "schema" : "com.linkedin.identity.CorpUser",
-  "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpUsers",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpUsers",
   "collection" : {
     "identifier" : {
       "name" : "corpUser",

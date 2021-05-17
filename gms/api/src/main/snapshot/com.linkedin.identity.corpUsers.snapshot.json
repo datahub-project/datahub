@@ -79,9 +79,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -155,7 +158,10 @@
             "fieldName" : "active",
             "indexSettings" : [ {
               "indexType" : "BOOLEAN"
-            } ]
+            } ],
+            "weightsPerFieldValue" : {
+              "true" : 2.0
+            }
           }
         }, {
           "name" : "displayName",
@@ -180,6 +186,7 @@
           "Searchable" : {
             "fieldName" : "title",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
               "indexType" : "KEYWORD_LOWERCASE"
             } ]
           }
@@ -191,6 +198,13 @@
           "Relationship" : {
             "entityTypes" : [ "corpUser" ],
             "name" : "ReportsTo"
+          },
+          "Searchable" : {
+            "fieldName" : "managerLdap",
+            "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "indexType" : "URN"
+            } ]
           }
         }, {
           "name" : "departmentId",
@@ -220,10 +234,13 @@
           "Searchable" : {
             "fieldName" : "fullName",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
+              "boostScore" : 4.0,
               "indexType" : "TEXT"
             }, {
               "indexType" : "PARTIAL"
-            } ]
+            } ],
+            "isDefaultAutocomplete" : true
           }
         }, {
           "name" : "countryCode",
@@ -260,6 +277,7 @@
           "Searchable" : {
             "fieldName" : "teams",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             } ]
           }
@@ -274,6 +292,7 @@
           "Searchable" : {
             "fieldName" : "teams",
             "indexSettings" : [ {
+              "addToDefaultQuery" : true,
               "indexType" : "TEXT"
             } ]
           }
@@ -329,6 +348,8 @@
         "Searchable" : {
           "fieldName" : "ldap",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 2.0,
             "indexType" : "TEXT"
           }, {
             "indexType" : "PARTIAL"
@@ -561,7 +582,7 @@
     "namespace" : "com.linkedin.identity",
     "path" : "/corpUsers",
     "schema" : "com.linkedin.identity.CorpUser",
-    "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpUsers",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpUsers",
     "collection" : {
       "identifier" : {
         "name" : "corpUser",

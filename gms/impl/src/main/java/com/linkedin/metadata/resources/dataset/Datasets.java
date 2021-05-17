@@ -398,7 +398,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
                 new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
             _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
           } catch (URISyntaxException e) {
-            throw new RuntimeException("Failed to create Audit Urn");
+            throw new RuntimeException("Failed to create Audit Urn", e);
           }
           return null;
     });
@@ -412,9 +412,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
         Arrays.asList(aspectNames));
     return RestliUtils.toTask(() -> {
-      final Entity entity;
       try {
-        entity = _entityService.getEntity(
+        final Entity entity = _entityService.getEntity(
             Urn.createFromString(urnString), projectedAspects);
 
         if (entity != null) {

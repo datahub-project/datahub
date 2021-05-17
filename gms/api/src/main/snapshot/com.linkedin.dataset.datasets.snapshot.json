@@ -300,9 +300,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -414,6 +417,15 @@
       "Relationship" : {
         "entityTypes" : [ "corpUser", "corpGroup" ],
         "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "indexSettings" : [ {
+          "indexType" : "URN"
+        }, {
+          "indexType" : "BOOLEAN",
+          "overrideFieldName" : "hasOwners"
+        } ]
       }
     }, {
       "name" : "type",
@@ -627,7 +639,10 @@
             "fieldName" : "deprecated",
             "indexSettings" : [ {
               "indexType" : "BOOLEAN"
-            } ]
+            } ],
+            "weightsPerFieldValue" : {
+              "true" : 0.5
+            }
           }
         }, {
           "name" : "decommissionTime",
@@ -824,8 +839,11 @@
                 "Searchable" : {
                   "fieldName" : "fieldPaths",
                   "indexSettings" : [ {
+                    "addToDefaultQuery" : true,
                     "indexType" : "KEYWORD_LOWERCASE"
                   }, {
+                    "addToDefaultQuery" : true,
+                    "boostScore" : 0.2,
                     "indexType" : "PATTERN"
                   }, {
                     "indexType" : "PARTIAL_PATTERN"
@@ -851,6 +869,8 @@
                 "Searchable" : {
                   "fieldName" : "fieldDescriptions",
                   "indexSettings" : [ {
+                    "addToDefaultQuery" : true,
+                    "boostScore" : 0.125,
                     "indexType" : "TEXT"
                   } ]
                 }
@@ -1061,13 +1081,7 @@
               "fields" : [ {
                 "name" : "fieldPath",
                 "type" : "string",
-                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with",
-                "Searchable" : {
-                  "fieldName" : "editedFieldPaths",
-                  "indexSettings" : [ {
-                    "indexType" : "TEXT"
-                  } ]
-                }
+                "doc" : "FieldPath uniquely identifying the SchemaField this metadata is associated with"
               }, {
                 "name" : "description",
                 "type" : "string",
@@ -1076,6 +1090,8 @@
                 "Searchable" : {
                   "fieldName" : "editedFieldDescriptions",
                   "indexSettings" : [ {
+                    "addToDefaultQuery" : true,
+                    "boostScore" : 0.125,
                     "indexType" : "TEXT"
                   } ]
                 }
@@ -1129,7 +1145,7 @@
                 "Searchable" : {
                   "fieldName" : "upstreams",
                   "indexSettings" : [ {
-                    "indexType" : "KEYWORD_LOWERCASE"
+                    "indexType" : "URN"
                   } ]
                 }
               }, {
@@ -1314,14 +1330,22 @@
         "Searchable" : {
           "fieldName" : "name",
           "indexSettings" : [ {
+            "addToDefaultQuery" : true,
+            "boostScore" : 1000.0,
             "indexType" : "KEYWORD_LOWERCASE"
           }, {
+            "addToDefaultQuery" : true,
+            "boostScore" : 8.0,
             "indexType" : "PATTERN"
           }, {
+            "addToDefaultQuery" : true,
+            "boostScore" : 4.0,
             "indexType" : "PARTIAL_PATTERN"
           }, {
+            "addToDefaultQuery" : true,
             "indexType" : "PARTIAL_LONG"
-          } ]
+          } ],
+          "isDefaultAutocomplete" : true
         }
       }, {
         "name" : "origin",
@@ -1689,7 +1713,7 @@
     "namespace" : "com.linkedin.dataset",
     "path" : "/datasets",
     "schema" : "com.linkedin.dataset.Dataset",
-    "doc" : "generated from: com.linkedin.metadata.resources.dataset.Datasets",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataset.Datasets",
     "collection" : {
       "identifier" : {
         "name" : "dataset",

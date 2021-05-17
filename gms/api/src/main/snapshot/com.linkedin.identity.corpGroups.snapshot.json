@@ -107,9 +107,12 @@
             "Searchable" : {
               "fieldName" : "tags",
               "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
+                "addToDefaultQuery" : true,
+                "indexType" : "URN"
               }, {
-                "indexType" : "PARTIAL"
+                "addToDefaultQuery" : true,
+                "boostScore" : 0.1,
+                "indexType" : "PARTIAL_URN"
               }, {
                 "indexType" : "BOOLEAN",
                 "overrideFieldName" : "hasTags"
@@ -461,7 +464,7 @@
     "namespace" : "com.linkedin.identity",
     "path" : "/corpGroups",
     "schema" : "com.linkedin.identity.CorpGroup",
-    "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpGroups",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpGroups",
     "collection" : {
       "identifier" : {
         "name" : "corpGroup",

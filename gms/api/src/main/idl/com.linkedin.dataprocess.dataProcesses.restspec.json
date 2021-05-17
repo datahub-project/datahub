@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.dataprocess",
   "path" : "/dataProcesses",
   "schema" : "com.linkedin.dataprocess.DataProcess",
-  "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
   "collection" : {
     "identifier" : {
       "name" : "dataprocess",
@@ -117,7 +117,7 @@
         "namespace" : "com.linkedin.dataprocess",
         "path" : "/dataProcesses/{dataprocess}/dataProcessInfo",
         "schema" : "com.linkedin.dataprocess.DataProcessInfo",
-        "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
+        "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
         "collection" : {
           "identifier" : {
             "name" : "dataProcessInfoId",
