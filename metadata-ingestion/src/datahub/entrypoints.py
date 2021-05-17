@@ -77,3 +77,12 @@ def ingest(config: str) -> None:
 
 
 datahub.add_command(check)
+
+
+def main(**kwargs):
+    # This wrapper prevents click from suppressing errors.
+    try:
+        sys.exit(datahub(standalone_mode=False, **kwargs))
+    except click.ClickException as error:
+        error.show()
+        sys.exit(1)
