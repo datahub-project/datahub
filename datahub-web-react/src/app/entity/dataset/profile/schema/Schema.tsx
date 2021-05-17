@@ -258,6 +258,14 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         }),
     };
 
+    const getRawSchema = (schemaValue) => {
+        try {
+            return JSON.stringify(JSON.parse(schemaValue), null, 2);
+        } catch (e) {
+            return schemaValue;
+        }
+    };
+
     return (
         <>
             {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
@@ -270,7 +278,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
                     <pre>
                         <code>
                             {schema?.platformSchema?.__typename === 'TableSchema' &&
-                                JSON.stringify(JSON.parse(schema.platformSchema.schema), null, 2)}
+                                getRawSchema(schema.platformSchema.schema)}
                         </code>
                     </pre>
                 </Typography.Text>
