@@ -22,6 +22,7 @@ public class EntitySpecUtils {
         String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
   }
 
+  // TODO: Figure out a better iteration strategy.
   public static String getAspectNameFromFullyQualifiedName(final String fullyQualifiedRecordTemplateName) {
     final RecordTemplate template = RecordUtils.toRecordTemplate(fullyQualifiedRecordTemplateName, new DataMap());
     final RecordDataSchema aspectSchema = template.schema();

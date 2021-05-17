@@ -18,34 +18,41 @@ import java.util.HashMap;
 import javax.annotation.Nonnull;
 
 
+/**
+ * Dao that fetches entities from the Entity Resource
+ */
 public class RemoteEntityDao {
+
+  private static final String ACTION_INGEST = "ingest";
+  private static final String PARAM_ENTITY = "entity";
+  private static final String RESOURCE_NAME = "entities";
 
   protected final Client _restliClient;
 
-  public RemoteEntityDao(@Nonnull Client restliClient) {
+  public RemoteEntityDao(@Nonnull final Client restliClient) {
     _restliClient = restliClient;
   }
 
-  public void create(@Nonnull Entity entity) throws IllegalArgumentException, RemoteInvocationException {
+  public void create(@Nonnull final Entity entity) throws IllegalArgumentException, RemoteInvocationException {
 
-    // TODO: John Refactor this
+    // Replace with EntitiesDoIngestActionBuilder.
 
-    final FieldDef<?> entityFieldDef = new FieldDef<>("entity", Entity.class, DataTemplateUtil.getSchema(String.class));
+    final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));
+
     final HashMap<String, DynamicRecordMetadata> actionRequestMetadata = new HashMap<>();
-
-    actionRequestMetadata.put("ingest", new DynamicRecordMetadata("ingest", Arrays.asList(entityFieldDef)));
+    actionRequestMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Arrays.asList(entityFieldDef)));
 
     final HashMap<java.lang.String, DynamicRecordMetadata> actionResponseMetadata = new HashMap<>();
-    actionResponseMetadata.put("ingest", new DynamicRecordMetadata("ingest", Collections.emptyList()));
+    actionResponseMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Collections.emptyList()));
 
     final ResourceSpec resourceSpec =
         new ResourceSpecImpl(Collections.emptySet(), actionRequestMetadata, actionResponseMetadata, String.class,
             EmptyRecord.class, EmptyRecord.class, EmptyRecord.class, Collections.emptyMap());
 
     final ActionRequestBuilder builder =
-        new ActionRequestBuilder("entities", Void.class, resourceSpec, RestliRequestOptions.DEFAULT_OPTIONS);
+        new ActionRequestBuilder(RESOURCE_NAME, Void.class, resourceSpec, RestliRequestOptions.DEFAULT_OPTIONS);
 
-    builder.name("ingest");
+    builder.name(ACTION_INGEST);
     builder.addParam(entityFieldDef, entity);
 
     final Request request = builder.build();
