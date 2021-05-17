@@ -11,5 +11,11 @@ record GlobalTags {
   /**
    * Tags associated with a given entity
    */
+  @Searchable = {
+      "/*/tag": {
+        "fieldName": "tags_override",
+        "indexSettings": [{"indexType": "PARTIAL_LONG"}]
+      }
+  }
   tags: array[TagAssociation]
 }
