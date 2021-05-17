@@ -48,7 +48,7 @@ import javax.inject.Named;
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
 
-@RestLiCollection(name = "dataFlows", namespace = "com.linkedin.dataflow", keyName = "key")
+@RestLiCollection(name = "dataFlows", namespace = "com.linkedin.datajob", keyName = "key")
 public class DataFlows extends BaseBrowsableEntityResource<
     // @formatter:off
     ComplexResourceKey<DataFlowKey, EmptyRecord>,

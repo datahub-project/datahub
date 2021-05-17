@@ -541,7 +541,19 @@
       "doc" : "List of datajobs",
       "default" : [ ]
     } ]
-  }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", "com.linkedin.datajob.DataJob", "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", "com.linkedin.datajob.DataJob", "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", {
+    "type" : "record",
+    "name" : "DataJobsLineage",
+    "namespace" : "com.linkedin.datajob",
+    "doc" : "Fine Grained dataJobs lineage for a dataFlow",
+    "fields" : [ {
+      "name" : "dataJobs",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.DataJobUrn"
+      }
+    } ]
+  }, "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "typeref",
     "name" : "DataFlowAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -836,7 +848,7 @@
   } ],
   "schema" : {
     "name" : "dataFlows",
-    "namespace" : "com.linkedin.dataflow",
+    "namespace" : "com.linkedin.datajob",
     "path" : "/dataFlows",
     "schema" : "com.linkedin.datajob.DataFlow",
     "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
@@ -971,7 +983,23 @@
         } ]
       } ],
       "entity" : {
-        "path" : "/dataFlows/{key}"
+        "path" : "/dataFlows/{key}",
+        "subresources" : [ {
+          "name" : "dataJobs",
+          "namespace" : "com.linkedin.datajob",
+          "path" : "/dataFlows/{key}/dataJobs",
+          "schema" : "com.linkedin.datajob.DataJobsLineage",
+          "doc" : "Rest.li entry point: /dataFlows/{dataFlowKey}/dataJobs\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobsResource",
+          "simple" : {
+            "supports" : [ "get" ],
+            "methods" : [ {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/dataFlows/{key}/dataJobs"
+            }
+          }
+        } ]
       }
     }
   }

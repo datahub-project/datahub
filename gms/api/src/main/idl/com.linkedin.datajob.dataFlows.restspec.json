@@ -1,6 +1,6 @@
 {
   "name" : "dataFlows",
-  "namespace" : "com.linkedin.dataflow",
+  "namespace" : "com.linkedin.datajob",
   "path" : "/dataFlows",
   "schema" : "com.linkedin.datajob.DataFlow",
   "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
@@ -135,7 +135,23 @@
       } ]
     } ],
     "entity" : {
-      "path" : "/dataFlows/{key}"
+      "path" : "/dataFlows/{key}",
+      "subresources" : [ {
+        "name" : "dataJobs",
+        "namespace" : "com.linkedin.datajob",
+        "path" : "/dataFlows/{key}/dataJobs",
+        "schema" : "com.linkedin.datajob.DataJobsLineage",
+        "doc" : "Rest.li entry point: /dataFlows/{dataFlowKey}/dataJobs\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobsResource",
+        "simple" : {
+          "supports" : [ "get" ],
+          "methods" : [ {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/dataFlows/{key}/dataJobs"
+          }
+        }
+      } ]
     }
   }
 }
