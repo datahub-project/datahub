@@ -37,9 +37,16 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
         // Case 1: Relationship Annotation on BaseRelationship Object.
         Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
 
+        ArrayDeque<String> clonedPath = context.getSchemaPathSpec().clone();
         try {
-          resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(context.getSchemaPathSpec()).toString(),
-              _processedSchema.getResultSchema());
+          if (context.getSchemaPathSpec().size() != 0) {
+            if (context.getSchemaPathSpec().getLast().equals("string")) {
+              clonedPath.removeLast();
+            }
+            resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(
+                new PathSpec(clonedPath).toString(),
+                _processedSchema.getResultSchema());
+          }
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -59,9 +66,15 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
         Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
 
+        ArrayDeque<String> clonedPath = context.getSchemaPathSpec().clone();
         try {
-          resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(context.getSchemaPathSpec()).toString(),
-              _processedSchema.getResultSchema());
+          if (context.getSchemaPathSpec().size() != 0) {
+            if (context.getSchemaPathSpec().getLast().equals("string")) {
+              clonedPath.removeLast();
+            }
+            resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(clonedPath).toString(),
+                _processedSchema.getResultSchema());
+          }
         } catch (Exception e) {
           e.printStackTrace();
         }
