@@ -97,7 +97,7 @@ class GlueSourceConfig(ConfigModel):
                         role_arn, self.aws_region, new_credentials
                     ),
                     self.aws_role,
-                    None,
+                    {},
                 )
             return boto3.client(
                 "glue",
