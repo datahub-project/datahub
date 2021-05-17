@@ -102,74 +102,6 @@
       }
     }
   }, {
-    "type" : "typeref",
-    "name" : "DataJobUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized data processing job identifier.",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.DataJobUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized data processing job identifier.",
-        "entityType" : "dataJob",
-        "fields" : [ {
-          "doc" : "Standardized data processing flow urn representing the flow for the job",
-          "name" : "flow",
-          "type" : "com.linkedin.common.urn.DataFlowUrn"
-        }, {
-          "doc" : "Unique identifier of the data job",
-          "maxLength" : 200,
-          "name" : "jobID",
-          "type" : "string"
-        } ],
-        "maxLength" : 594,
-        "name" : "DataJob",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
-  }, {
-    "type" : "typeref",
-    "name" : "DatasetUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized dataset identifier.",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.DatasetUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized dataset identifier.",
-        "entityType" : "dataset",
-        "fields" : [ {
-          "doc" : "Standardized platform urn where dataset is defined.",
-          "name" : "platform",
-          "type" : "com.linkedin.common.urn.DataPlatformUrn"
-        }, {
-          "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
-          "maxLength" : 210,
-          "name" : "datasetName",
-          "type" : "string"
-        }, {
-          "doc" : "Fabric type where dataset belongs to or where it was generated.",
-          "name" : "origin",
-          "type" : "com.linkedin.common.FabricType"
-        } ],
-        "maxLength" : 284,
-        "name" : "Dataset",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
-  }, {
     "type" : "record",
     "name" : "ExternalReference",
     "namespace" : "com.linkedin.common",
@@ -410,150 +342,8 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the chart",
       "optional" : true
-    }, {
-      "name" : "dataJobs",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "DataJob",
-          "doc" : "Metadata bout DataJob",
-          "include" : [ {
-            "type" : "record",
-            "name" : "DataJobKey",
-            "doc" : "Key for data job resource",
-            "fields" : [ {
-              "name" : "dataFlow",
-              "type" : "com.linkedin.common.DataFlowUrn",
-              "doc" : "Standardized dataflow urn where flow is defined. The data flow Urn (urn:li:dataflow:{orchestrator,flow_id, cluster})",
-              "validate" : {
-                "com.linkedin.datajob.rest.validator.DataFlowValidator" : { }
-              }
-            }, {
-              "name" : "jobId",
-              "type" : "string",
-              "doc" : "The Id of the data job",
-              "validate" : {
-                "strlen" : {
-                  "max" : 200,
-                  "min" : 1
-                }
-              }
-            } ]
-          }, "com.linkedin.common.ChangeAuditStamps" ],
-          "fields" : [ {
-            "name" : "urn",
-            "type" : "com.linkedin.common.DataJobUrn",
-            "doc" : "DataJob urn"
-          }, {
-            "name" : "info",
-            "type" : {
-              "type" : "record",
-              "name" : "DataJobInfo",
-              "doc" : "Information about a Data processing job",
-              "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
-              "fields" : [ {
-                "name" : "name",
-                "type" : "string",
-                "doc" : "Job name"
-              }, {
-                "name" : "description",
-                "type" : "string",
-                "doc" : "Job description",
-                "optional" : true
-              }, {
-                "name" : "type",
-                "type" : [ {
-                  "type" : "enum",
-                  "name" : "AzkabanJobType",
-                  "namespace" : "com.linkedin.datajob.azkaban",
-                  "doc" : "The various types of support azkaban jobs",
-                  "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL" ],
-                  "symbolDocs" : {
-                    "COMMAND" : "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
-                    "HADOOP_JAVA" : "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
-                    "HADOOP_SHELL" : "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
-                    "HIVE" : "Hive type is for running Hive jobs.",
-                    "PIG" : "Pig type is for running Pig jobs.",
-                    "SQL" : "SQL is for running Presto, mysql queries etc"
-                  }
-                } ],
-                "doc" : "Datajob type"
-              }, {
-                "name" : "flowUrn",
-                "type" : "com.linkedin.common.DataFlowUrn",
-                "doc" : "DataFlow urn that this job is part of",
-                "optional" : true
-              } ]
-            },
-            "doc" : "Optional additional metadata about the job",
-            "optional" : true
-          }, {
-            "name" : "ownership",
-            "type" : "com.linkedin.common.Ownership",
-            "doc" : "Ownership Info",
-            "optional" : true
-          }, {
-            "name" : "inputOutput",
-            "type" : {
-              "type" : "record",
-              "name" : "DataJobInputOutput",
-              "doc" : "Information about the inputs and outputs of a Data processing job",
-              "fields" : [ {
-                "name" : "inputDatasets",
-                "type" : {
-                  "type" : "array",
-                  "items" : "com.linkedin.common.DatasetUrn"
-                },
-                "doc" : "Input datasets consumed by the data job during processing"
-              }, {
-                "name" : "outputDatasets",
-                "type" : {
-                  "type" : "array",
-                  "items" : "com.linkedin.common.DatasetUrn"
-                },
-                "doc" : "Output datasets produced by the data job during processing"
-              }, {
-                "name" : "inputDatajobs",
-                "type" : {
-                  "type" : "array",
-                  "items" : "com.linkedin.common.DataJobUrn"
-                },
-                "doc" : "Input datajobs that this data job depends on",
-                "optional" : true
-              } ]
-            },
-            "doc" : "Input and output datasets of job",
-            "optional" : true
-          }, {
-            "name" : "status",
-            "type" : "com.linkedin.common.Status",
-            "doc" : "Status information for the chart such as removed or not",
-            "optional" : true
-          }, {
-            "name" : "globalTags",
-            "type" : "com.linkedin.common.GlobalTags",
-            "doc" : "List of global tags applied to the chart",
-            "optional" : true
-          } ]
-        }
-      },
-      "doc" : "List of datajobs",
-      "default" : [ ]
     } ]
-  }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", "com.linkedin.datajob.DataJob", "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", {
-    "type" : "record",
-    "name" : "DataJobsLineage",
-    "namespace" : "com.linkedin.datajob",
-    "doc" : "Fine Grained dataJobs lineage for a dataFlow",
-    "fields" : [ {
-      "name" : "dataJobs",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.DataJobUrn"
-      }
-    } ]
-  }, "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.DataFlowKey", {
     "type" : "typeref",
     "name" : "DataFlowAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -848,7 +638,7 @@
   } ],
   "schema" : {
     "name" : "dataFlows",
-    "namespace" : "com.linkedin.datajob",
+    "namespace" : "com.linkedin.dataflow",
     "path" : "/dataFlows",
     "schema" : "com.linkedin.datajob.DataFlow",
     "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
@@ -983,23 +773,7 @@
         } ]
       } ],
       "entity" : {
-        "path" : "/dataFlows/{key}",
-        "subresources" : [ {
-          "name" : "dataJobs",
-          "namespace" : "com.linkedin.datajob",
-          "path" : "/dataFlows/{key}/dataJobs",
-          "schema" : "com.linkedin.datajob.DataJobsLineage",
-          "doc" : "Rest.li entry point: /dataFlows/{dataFlowKey}/dataJobs\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobsResource",
-          "simple" : {
-            "supports" : [ "get" ],
-            "methods" : [ {
-              "method" : "get"
-            } ],
-            "entity" : {
-              "path" : "/dataFlows/{key}/dataJobs"
-            }
-          }
-        } ]
+        "path" : "/dataFlows/{key}"
       }
     }
   }
