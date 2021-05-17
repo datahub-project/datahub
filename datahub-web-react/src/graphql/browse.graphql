@@ -23,6 +23,9 @@ query getBrowseResults($input: BrowseInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                globalTags {
+                    ...globalTagsFields
+                }
             }
             ... on Dashboard {
                 urn
@@ -40,6 +43,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 ownership {
                     ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
             ... on Chart {
@@ -60,6 +66,9 @@ query getBrowseResults($input: BrowseInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                globalTags {
+                    ...globalTagsFields
+                }
             }
             ... on DataFlow {
                 urn
@@ -74,6 +83,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 ownership {
                     ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
         }
