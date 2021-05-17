@@ -146,7 +146,7 @@ dev_requirements_airflow_2 = {
 
 
 entry_points = {
-    "console_scripts": ["datahub = datahub.entrypoints:datahub"],
+    "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
         "file = datahub.ingestion.source.mce_file:MetadataFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
