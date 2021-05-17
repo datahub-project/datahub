@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -62,12 +63,14 @@ public final class DataJobsResource extends SimpleResourceTemplate<DataJobsLinea
     final DataFlowUrn dataFlowUrn = getUrn(keys);
 
     return RestliUtils.toTask(() -> {
+      System.out.println("DataJobsResource----: " + dataFlowUrn.toString());
       final List<DataJobUrn> dataJobUrns = _queryDAO
           .findEntities(DataJobEntity.class, newFilter("dataFlow", dataFlowUrn.toString()),
               DataJobEntity.class, EMPTY_FILTER,
               IsPartOf.class, createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
             0, MAX_JOBS_CNT)
           .stream().map(entity -> ((DataJobEntity) entity).getUrn()).collect(Collectors.toList());
+      System.out.println("DataJobsResource----: " + Arrays.toString(dataJobUrns.toArray()));
       final DataJobUrnArray dataJobUrnArray = new DataJobUrnArray(new ArrayList<>(dataJobUrns));
       return new DataJobsLineage().setDataJobs(dataJobUrnArray);
     });

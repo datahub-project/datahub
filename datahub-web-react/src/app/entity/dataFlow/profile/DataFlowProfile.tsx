@@ -8,6 +8,7 @@ import {
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
+import DataFlowDataJobs from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
 import TagGroup from '../../../shared/tags/TagGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
@@ -50,7 +51,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
 
-    const getTabs = ({ ownership, info }: DataFlow) => {
+    const getTabs = ({ ownership, info, dataJobs }: DataFlow) => {
         return [
             {
                 name: TabType.Ownership,
@@ -79,7 +80,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Tasks,
                 path: TabType.Tasks.toLowerCase(),
-                content: <PropertiesView properties={info?.customProperties || []} />,
+                content: <DataFlowDataJobs dataJobs={dataJobs} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
