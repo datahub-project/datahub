@@ -138,6 +138,20 @@ public class EntityService {
     return urnToAspects;
   }
 
+  @Nullable
+  public RecordTemplate getLatestAspectRecord(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    return getAspectRecord(urn, aspectName, LATEST_VERSION);
+  }
+
+  @Nullable
+  public RecordTemplate getAspectRecord(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    final EbeanAspect.PrimaryKey primaryKey = new EbeanAspect.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<EbeanAspect> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
+    return maybeAspect
+        .map(ebeanAspect -> toAspectRecord(urnToEntityName(urn), aspectName, ebeanAspect.getMetadata()))
+        .orElse(null);
+  }
+
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
     // TODO: Make this more efficient.
     for (final Entity entity : entities) {

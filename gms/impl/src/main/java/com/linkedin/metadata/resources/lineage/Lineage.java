@@ -89,7 +89,7 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     @RestMethod.Get
     public Task<EntityRelationships> get(
         @QueryParam("urn") @Nonnull String rawUrn,
-            @QueryParam("direction") @Optional @Nullable String rawDirection
+        @QueryParam("direction") @Optional @Nullable String rawDirection
     ) throws URISyntaxException {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
         return RestliUtils.toTask(() -> {

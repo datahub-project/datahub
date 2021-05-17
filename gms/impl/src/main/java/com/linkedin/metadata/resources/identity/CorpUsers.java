@@ -64,6 +64,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "corpUsers", namespace = "com.linkedin.identity", keyName = "corpUser")
 public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:off

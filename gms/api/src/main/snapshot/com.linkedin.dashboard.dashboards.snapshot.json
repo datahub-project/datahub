@@ -833,6 +833,9 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "dashboards",
     "namespace" : "com.linkedin.dashboard",
     "path" : "/dashboards",

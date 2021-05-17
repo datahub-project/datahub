@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "glossaryTerms",
   "namespace" : "com.linkedin.glossary",
   "path" : "/glossaryTerms",

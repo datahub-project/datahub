@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.dataset;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.urn.Urn;
@@ -13,16 +12,17 @@ import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.CreateResponse;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
-import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 
 /**
+ * Deprecated! Use {@link EntityResource} instead.
+ *
  * Rest.li entry point: /datasets/{datasetKey}/institutionalMemory
  */
 @Slf4j
+@Deprecated
 @RestLiCollection(name = "institutionalMemory", namespace = "com.linkedin.dataset", parent = Datasets.class)
 public class InstitutionalMemoryResource extends BaseDatasetVersionedAspectResource<InstitutionalMemory> {
     public InstitutionalMemoryResource() {
@@ -37,21 +37,17 @@ public class InstitutionalMemoryResource extends BaseDatasetVersionedAspectResou
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new InstitutionalMemory().schema();
 
-            final Map<Urn, List<RecordTemplate>> urnToAspectsMap = getEntityService().batchGetAspectRecordLists(
-                ImmutableSet.of(urn),
-                ImmutableSet.of(EntitySpecUtils.getAspectNameFromSchema(aspectSchema))
+            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+                urn,
+                EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+                version
             );
-
-            if (urnToAspectsMap.containsKey(urn)) {
-                // Aspect does exist.
-                final RecordTemplate aspect = urnToAspectsMap.get(urn).stream()
-                    .filter(aspectRecord -> aspectRecord.schema().getFullName().equals(aspectSchema.getFullName()))
-                    .findFirst()
-                    .get();
-                return new InstitutionalMemory(aspect.data());
+            if (maybeAspect != null) {
+                return new InstitutionalMemory(maybeAspect.data());
             }
             throw RestliUtils.resourceNotFoundException();
-        });    }
+        });
+    }
 
     @RestMethod.Create
     @Nonnull

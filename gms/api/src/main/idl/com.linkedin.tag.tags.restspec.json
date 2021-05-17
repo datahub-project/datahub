@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "tags",
   "namespace" : "com.linkedin.tag",
   "path" : "/tags",

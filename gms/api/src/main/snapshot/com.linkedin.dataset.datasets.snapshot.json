@@ -1709,6 +1709,9 @@
     }
   }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "datasets",
     "namespace" : "com.linkedin.dataset",
     "path" : "/datasets",
@@ -1851,11 +1854,14 @@
       "entity" : {
         "path" : "/datasets/{dataset}",
         "subresources" : [ {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "deprecation",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/deprecation",
           "schema" : "com.linkedin.dataset.DatasetDeprecation",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.dataset.DeprecationResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.dataset.DeprecationResource",
           "collection" : {
             "identifier" : {
               "name" : "deprecationId",
@@ -1887,11 +1893,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "institutionalMemory",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/institutionalMemory",
           "schema" : "com.linkedin.common.InstitutionalMemory",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.dataset.InstitutionalMemoryResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.dataset.InstitutionalMemoryResource",
           "collection" : {
             "identifier" : {
               "name" : "institutionalMemoryId",
@@ -1908,11 +1917,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "rawOwnership",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/rawOwnership",
           "schema" : "com.linkedin.common.Ownership",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.metadata.resources.dataset.OwnershipResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.metadata.resources.dataset.OwnershipResource",
           "collection" : {
             "identifier" : {
               "name" : "rawOwnershipId",
@@ -1929,11 +1941,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "schema",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/schema",
           "schema" : "com.linkedin.schema.SchemaMetadata",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.metadata.resources.dataset.SchemaResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.metadata.resources.dataset.SchemaResource",
           "collection" : {
             "identifier" : {
               "name" : "schemaId",
@@ -1950,11 +1965,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "upstreamLineage",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/upstreamLineage",
           "schema" : "com.linkedin.dataset.UpstreamLineage",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.UpstreamLineageResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.UpstreamLineageResource",
           "collection" : {
             "identifier" : {
               "name" : "upstreamLineageId",

@@ -29,7 +29,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 
 /**
- *
  * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}. If
  * none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
  */
@@ -47,8 +46,8 @@ public class EntityKafkaMetadataEventProducer {
    * @param topicConvention the convention to use to get kafka topic names
    */
   public EntityKafkaMetadataEventProducer(
-      @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention) {
+      @Nonnull final Producer<String, ? extends IndexedRecord> producer,
+      @Nonnull final TopicConvention topicConvention) {
     this(producer, topicConvention, null);
   }
 
@@ -60,17 +59,17 @@ public class EntityKafkaMetadataEventProducer {
    * @param callback The {@link Callback} to invoke when the request is completed
    */
   public EntityKafkaMetadataEventProducer(
-      @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention,
-      @Nullable Callback callback) {
+      @Nonnull final Producer<String, ? extends IndexedRecord> producer,
+      @Nonnull final TopicConvention topicConvention,
+      @Nullable final Callback callback) {
     _producer = producer;
     _callback = Optional.ofNullable(callback);
     _topicConvention = topicConvention;
   }
 
   public void produceSnapshotBasedMetadataChangeEvent(
-      @Nonnull Urn urn,
-      @Nonnull Snapshot newSnapshot) {
+      @Nonnull final Urn urn,
+      @Nonnull final Snapshot newSnapshot) {
     MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
     metadataChangeEvent.setProposedSnapshot(newSnapshot);
 
@@ -116,7 +115,7 @@ public class EntityKafkaMetadataEventProducer {
   }
 
   public void produceAspectSpecificMetadataAuditEvent(
-      @Nonnull Urn urn,
+      @Nonnull final Urn urn,
       @Nullable final RecordTemplate oldValue,
       @Nonnull final RecordTemplate newValue) {
     // TODO switch to convention once versions are annotated in the schema

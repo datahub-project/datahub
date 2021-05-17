@@ -69,6 +69,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "dataJobs", namespace = "com.linkedin.datajob", keyName = "key")
 public class DataJobs extends BaseBrowsableEntityResource<
     // @formatter:off

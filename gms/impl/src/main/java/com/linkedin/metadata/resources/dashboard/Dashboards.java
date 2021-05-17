@@ -68,6 +68,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "dashboards", namespace = "com.linkedin.dashboard", keyName = "key")
 public class Dashboards extends BaseBrowsableEntityResource<
     // @formatter:off
