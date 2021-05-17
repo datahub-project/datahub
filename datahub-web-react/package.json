@@ -117,7 +117,7 @@
         "eslint-plugin-react": "^7.21.5",
         "prettier": "^2.2.1"
     },
-    "proxy": "https://demo.datahubproject.io/",
+    "proxy": "http://localhost:9002",
     "resolutions": {
         "@ant-design/colors": "5.0.0"
     }
