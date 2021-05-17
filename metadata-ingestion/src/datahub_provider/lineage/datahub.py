@@ -36,6 +36,26 @@ def get_lineage_config() -> DatahubLineageConfig:
 
 
 class DatahubLineageBackend(LineageBackend):
+    """
+    Sends lineage data from tasks to DataHub.
+
+    Configurable via ``airflow.cfg`` as follows: ::
+
+        # For REST-based:
+        airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
+        # For Kafka-based (standard Kafka sink config can be passed via extras):
+        airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
+
+        [lineage]
+        backend = datahub_provider.lineage.datahub.DatahubLineageBackend
+        datahub_kwargs = {
+            "datahub_conn_id": "datahub_rest_default",
+            "capture_ownership_info": true,
+            "capture_tags_info": true,
+            "graceful_exceptions": true }
+        # The above indentation is important!
+    """
+
     def __init__(self) -> None:
         super().__init__()
 
