@@ -1,0 +1,9 @@
+source:
+  type: glue
+  config:
+    aws_region: "us-east-1"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

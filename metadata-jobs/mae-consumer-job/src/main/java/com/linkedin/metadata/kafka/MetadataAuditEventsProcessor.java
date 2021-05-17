@@ -13,6 +13,7 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.MCEElasticEvent;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -39,18 +41,21 @@ public class MetadataAuditEventsProcessor {
   private SnapshotProcessor snapshotProcessor;
   private BaseGraphWriterDAO graphWriterDAO;
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
+  private IndexConvention indexConvention;
 
   public MetadataAuditEventsProcessor(ElasticsearchConnector elasticSearchConnector,
       SnapshotProcessor snapshotProcessor, BaseGraphWriterDAO graphWriterDAO,
-      Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders) {
+      Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchConnector = elasticSearchConnector;
     this.snapshotProcessor = snapshotProcessor;
     this.graphWriterDAO = graphWriterDAO;
     this.indexBuilders = indexBuilders;
+    this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
   }
 
-  @KafkaListener(id = "mae-consumer-job-client", topics = "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}")
+  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
+      + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");
@@ -78,15 +83,18 @@ public class MetadataAuditEventsProcessor {
    */
   private void updateNeo4j(final RecordTemplate snapshot) {
     try {
-      final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
-      final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
+      final Optional<BaseGraphBuilder> graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass());
 
-      if (!updates.getEntities().isEmpty()) {
-        graphWriterDAO.addEntities(updates.getEntities());
-      }
+      if (graphBuilder.isPresent()) {
+        final GraphBuilder.GraphUpdates updates = graphBuilder.get().build(snapshot);
 
-      for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
-        graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
+        if (!updates.getEntities().isEmpty()) {
+          graphWriterDAO.addEntities(updates.getEntities());
+        }
+
+        for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
+          graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
+        }
       }
     } catch (Exception ex) {
       log.error(ex.toString() + " " + Arrays.toString(ex.getStackTrace()));
@@ -119,7 +127,7 @@ public class MetadataAuditEventsProcessor {
       if (indexBuilderForDoc == null) {
         continue;
       }
-      elasticEvent.setIndex(indexBuilderForDoc.getDocumentType().getSimpleName().toLowerCase());
+      elasticEvent.setIndex(indexConvention.getIndexName(indexBuilderForDoc.getDocumentType()));
       try {
         String urn = indexBuilderForDoc.getDocumentType().getMethod("getUrn").invoke(doc).toString();
         elasticEvent.setId(URLEncoder.encode(urn.toLowerCase(), "UTF-8"));

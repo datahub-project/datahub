@@ -84,6 +84,20 @@
       "optional" : true
     } ]
   }, {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -180,6 +194,25 @@
       }
     }
   }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
+  }, {
     "type" : "enum",
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
@@ -242,6 +275,59 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "GlossaryTermAssociation",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Properties of an applied glossary term.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : {
+        "type" : "typeref",
+        "name" : "GlossaryTermUrn",
+        "doc" : "Business Term",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.urn.GlossaryTermUrn"
+        },
+        "validate" : {
+          "com.linkedin.common.validator.TypedUrnValidator" : {
+            "accessible" : true,
+            "constructable" : true,
+            "doc" : "business term",
+            "entityType" : "glossaryTerm",
+            "fields" : [ {
+              "doc" : "The name of business term with hierarchy.",
+              "name" : "name",
+              "type" : "string"
+            } ],
+            "maxLength" : 56,
+            "name" : "GlossaryTerm",
+            "namespace" : "li",
+            "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+            "owningTeam" : "urn:li:internalTeam:datahub"
+          }
+        }
+      },
+      "doc" : "Urn of the applied glossary term"
+    } ]
+  }, "com.linkedin.common.GlossaryTermUrn", {
+    "type" : "record",
+    "name" : "GlossaryTerms",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Related business terms information",
+    "fields" : [ {
+      "name" : "terms",
+      "type" : {
+        "type" : "array",
+        "items" : "GlossaryTermAssociation"
+      },
+      "doc" : "The related business terms"
+    }, {
+      "name" : "auditStamp",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who reported the related business term"
+    } ]
+  }, {
+    "type" : "record",
     "name" : "InstitutionalMemory",
     "namespace" : "com.linkedin.common",
     "doc" : "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.",
@@ -255,15 +341,7 @@
           "doc" : "Metadata corresponding to a record of institutional memory.",
           "fields" : [ {
             "name" : "url",
-            "type" : {
-              "type" : "typeref",
-              "name" : "Url",
-              "ref" : "string",
-              "java" : {
-                "class" : "com.linkedin.common.url.Url",
-                "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-              }
-            },
+            "type" : "Url",
             "doc" : "Link to an engineering design document or a wiki page."
           }, {
             "name" : "description",
@@ -805,6 +883,11 @@
                 "type" : "com.linkedin.common.GlobalTags",
                 "doc" : "Tags associated with the field",
                 "optional" : true
+              }, {
+                "name" : "glossaryTerms",
+                "type" : "com.linkedin.common.GlossaryTerms",
+                "doc" : "Glossary terms associated with the field",
+                "optional" : true
               } ]
             }
           },
@@ -850,7 +933,7 @@
                 }, {
                   "type" : "record",
                   "name" : "UrnForeignKey",
-                  "doc" : "If SchemaMetadata fields make any external references and references are of type com.linkeidn.common.Urn or any children, this models can be used to mark it.",
+                  "doc" : "If SchemaMetadata fields make any external references and references are of type com.linkedin.common.Urn or any children, this models can be used to mark it.",
                   "fields" : [ {
                     "name" : "currentFieldPath",
                     "type" : "com.linkedin.dataset.SchemaFieldPath",
@@ -959,6 +1042,16 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the dataset",
       "optional" : true
+    }, {
+      "name" : "externalUrl",
+      "type" : "com.linkedin.common.Url",
+      "doc" : "External URL associated with the dataset",
+      "optional" : true
+    }, {
+      "name" : "glossaryTerms",
+      "type" : "com.linkedin.common.GlossaryTerms",
+      "doc" : "Related business terms of the dataset",
+      "optional" : true
     } ]
   }, "com.linkedin.dataset.DatasetDeprecation", {
     "type" : "record",
@@ -988,6 +1081,7 @@
     "name" : "DatasetProperties",
     "namespace" : "com.linkedin.dataset",
     "doc" : "Properties associated with a Dataset",
+    "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
     "fields" : [ {
       "name" : "description",
       "type" : "string",
@@ -1006,14 +1100,6 @@
       },
       "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
       "default" : [ ]
-    }, {
-      "name" : "customProperties",
-      "type" : {
-        "type" : "map",
-        "values" : "string"
-      },
-      "doc" : "A key-value map to capture any other non-standardized properties for the dataset",
-      "default" : { }
     } ]
   }, {
     "type" : "record",
@@ -1077,7 +1163,7 @@
     "name" : "DatasetAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Dataset",
-    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags" ]
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms" ]
   }, {
     "type" : "record",
     "name" : "AggregationMetadata",
@@ -1288,6 +1374,30 @@
     } ]
   }, "com.linkedin.metadata.query.IndexPathParams", "com.linkedin.metadata.query.IndexValue", {
     "type" : "record",
+    "name" : "MatchMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "matchedFields",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "MatchedField",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Matched field name"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "Matched field value"
+          } ]
+        }
+      },
+      "doc" : "Matched field name and values"
+    } ]
+  }, "com.linkedin.metadata.query.MatchedField", {
+    "type" : "record",
     "name" : "SearchResultMetadata",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The model for the search result",
@@ -1305,6 +1415,14 @@
         "items" : "com.linkedin.common.Urn"
       },
       "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
+    }, {
+      "name" : "matches",
+      "type" : {
+        "type" : "array",
+        "items" : "MatchMetadata"
+      },
+      "doc" : "A list of match metadata for each search result, containing the list of fields in the search document that matched the query",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

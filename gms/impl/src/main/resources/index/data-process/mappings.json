@@ -27,10 +27,10 @@
     "name": {
       "type": "keyword"
     },
-    "num_inputs": {
+    "numInputDatasets": {
       "type": "long"
     },
-    "num_outputs": {
+    "numOutputDatasets": {
       "type": "long"
     },
     "owners": {

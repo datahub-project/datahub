@@ -13,7 +13,10 @@ import EntityRegistry from './app/entity/EntityRegistry';
 import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
 import { UserEntity } from './app/entity/user/User';
+import { UserGroupEntity } from './app/entity/userGroup/UserGroup';
 import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
+import { DataFlowEntity } from './app/entity/dataFlow/DataFlowEntity';
+import { DataJobEntity } from './app/entity/dataJob/DataJobEntity';
 import { TagEntity } from './app/entity/tag/Tag';
 import { EntityRegistryContext } from './entityRegistryContext';
 import { Theme } from './conf/theme/types';
@@ -21,6 +24,7 @@ import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
+import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -57,6 +61,15 @@ const client = new ApolloClient({
             Chart: {
                 keyFields: ['urn'],
             },
+            DataFlow: {
+                keyFields: ['urn'],
+            },
+            DataJob: {
+                keyFields: ['urn'],
+            },
+        },
+        possibleTypes: {
+            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob'],
         },
     }),
     credentials: 'include',
@@ -77,7 +90,11 @@ const App: React.VFC = () => {
         register.register(new DashboardEntity());
         register.register(new ChartEntity());
         register.register(new UserEntity());
+        register.register(new UserGroupEntity());
         register.register(new TagEntity());
+        register.register(new DataFlowEntity());
+        register.register(new DataJobEntity());
+        register.register(new GlossaryTermEntity());
         return register;
     }, []);
 
@@ -87,7 +104,14 @@ const App: React.VFC = () => {
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     {/* Temporary: For local testing during development. */}
                     {MOCK_MODE ? (
-                        <MockedProvider mocks={mocks} addTypename={false}>
+                        <MockedProvider
+                            mocks={mocks}
+                            addTypename={false}
+                            defaultOptions={{
+                                watchQuery: { fetchPolicy: 'no-cache' },
+                                query: { fetchPolicy: 'no-cache' },
+                            }}
+                        >
                             <Routes />
                         </MockedProvider>
                     ) : (

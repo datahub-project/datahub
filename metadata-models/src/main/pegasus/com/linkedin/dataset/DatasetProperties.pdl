@@ -1,11 +1,13 @@
 namespace com.linkedin.dataset
 
 import com.linkedin.common.Uri
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with a Dataset
  */
-record DatasetProperties {
+record DatasetProperties includes CustomProperties, ExternalReference {
 
   /**
    * Documentation of the dataset
@@ -21,9 +23,4 @@ record DatasetProperties {
    * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
    */
   tags: array[string] = [ ]
-
-  /**
-   * A key-value map to capture any other non-standardized properties for the dataset
-   */
-  customProperties: map[string, string] = { }
 }

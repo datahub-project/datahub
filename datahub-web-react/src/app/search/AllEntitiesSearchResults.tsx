@@ -1,8 +1,9 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import { List } from 'antd';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../shared/Message';
 import { EntityGroupSearchResults } from './EntityGroupSearchResults';
+import analytics, { EventType } from '../analytics';
 
 interface Props {
     query: string;
@@ -24,7 +25,8 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
 
     const noResults = Object.keys(allSearchResultsByType).every((type) => {
         return (
-            !allSearchResultsByType[type].loading && allSearchResultsByType[type].data?.search?.entities.length === 0
+            !allSearchResultsByType[type].loading &&
+            allSearchResultsByType[type].data?.search?.searchResults.length === 0
         );
     });
 
@@ -36,14 +38,33 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
         />
     );
 
+    useEffect(() => {
+        if (!loading) {
+            let resultCount = 0;
+            Object.keys(allSearchResultsByType).forEach((key) => {
+                if (allSearchResultsByType[key].loading) {
+                    resultCount += 0;
+                } else {
+                    resultCount += allSearchResultsByType[key].data?.search?.total;
+                }
+            });
+
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                query,
+                total: resultCount,
+            });
+        }
+    }, [query, allSearchResultsByType, loading]);
+
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {noResults && noResultsView}
             {Object.keys(allSearchResultsByType).map((type: any) => {
-                const entities = allSearchResultsByType[type].data?.search?.entities;
-                if (entities && entities.length > 0) {
-                    return <EntityGroupSearchResults type={type} query={query} entities={entities} />;
+                const searchResults = allSearchResultsByType[type].data?.search?.searchResults;
+                if (searchResults && searchResults.length > 0) {
+                    return <EntityGroupSearchResults type={type} query={query} searchResults={searchResults} />;
                 }
                 return null;
             })}

@@ -1,0 +1,1930 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_base,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "model.sample_dbt.payments_base",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "model",
+                                "materialization": "view",
+                                "dbt_file_path": "models/base/payments_base.sql"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "model.sample_dbt.payments_base",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_by_customer_by_month,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "model.sample_dbt.payments_by_customer_by_month",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "model",
+                                "materialization": "table",
+                                "dbt_file_path": "models/transform/payments_by_customer_by_month.sql"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_base,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.customer_details,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "model.sample_dbt.payments_by_customer_by_month",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "billing_month",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.customer_details,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "model.sample_dbt.customer_details",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "model",
+                                "materialization": "ephemeral",
+                                "dbt_file_path": "models/transform/customer_details.sql"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "model.sample_dbt.customer_details",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.monthly_billing_with_cust,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "model.sample_dbt.monthly_billing_with_cust",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "model",
+                                "materialization": "table",
+                                "dbt_file_path": "models/billing/monthly_billing_with_cust.sql"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_by_customer_by_month,PROD)",
+                                    "type": "TRANSFORMED"
+                                },
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.customer_details,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "model.sample_dbt.monthly_billing_with_cust",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "billing_month",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "email",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_01",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_01",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_02",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_02",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_03",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_03",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_04",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_04",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_05",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_05",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.payment_p2020_06",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.payment_p2020_06",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "payment_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "staff_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "rental_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "amount",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "numeric(5,2)",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "payment_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.customer",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.customer",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "customer_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "store_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "first_name",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "last_name",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "email",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "address_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "activebool",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "boolean",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "create_date",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "date",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "last_update",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "active",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.address",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.pagila_dev.payments_base,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.address",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "address_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "address",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "address2",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "district",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "city_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "postal_code",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "phone",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "last_update",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "description": "source.sample_dbt.pagila.city",
+                            "uri": null,
+                            "tags": [],
+                            "customProperties": {
+                                "dbt_node_type": "source",
+                                "materialization": "BASE TABLE",
+                                "dbt_file_path": "models/base.yml"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:dbt_executor",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "source.sample_dbt.pagila.city",
+                            "platform": "urn:li:dataPlatform:dbt",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:dbt_executor",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                    "tableSchema": ""
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "city_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "city",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "text",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "country_id",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "integer",
+                                    "recursive": false,
+                                    "globalTags": null
+                                },
+                                {
+                                    "fieldPath": "last_update",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": null,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamp with time zone",
+                                    "recursive": false,
+                                    "globalTags": null
+                                }
+                            ],
+                            "primaryKeys": null,
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+]

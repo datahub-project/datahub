@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Downstream lineage of a dataset
+ */
+record EntityRelationships {
+
+  /**
+   * List of related entities
+   */
+  entities: array[EntityRelationship]
+}

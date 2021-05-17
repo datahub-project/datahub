@@ -52,37 +52,12 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param snapshotClass The snapshot class for the produced events
    * @param aspectUnionClass The aspect union in the snapshot
    * @param producer The Kafka {@link Producer} to use
-   */
-  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer) {
-    this(snapshotClass, aspectUnionClass, producer, new TopicConventionImpl(), null);
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param snapshotClass The snapshot class for the produced events
-   * @param aspectUnionClass The aspect union in the snapshot
-   * @param producer The Kafka {@link Producer} to use
    * @param topicConvention the convention to use to get kafka topic names
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
       @Nonnull TopicConvention topicConvention) {
     this(snapshotClass, aspectUnionClass, producer, topicConvention, null);
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param snapshotClass The snapshot class for the produced events
-   * @param aspectUnionClass The aspect union in the snapshot
-   * @param producer The Kafka {@link Producer} to use
-   */
-  public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nullable Callback callback) {
-    this(snapshotClass, aspectUnionClass, producer, new TopicConventionImpl(), callback);
   }
 
   /**

@@ -1,16 +1,26 @@
 package com.linkedin.metadata.configs;
 
-import com.linkedin.metadata.dao.search.BaseSearchConfig;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.search.DatasetDocument;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
-public class DatasetSearchConfig extends BaseSearchConfig<DatasetDocument> {
+public class DatasetSearchConfig extends BaseSearchConfigWithConvention<DatasetDocument> {
+  public DatasetSearchConfig() {
+  }
+
+  public DatasetSearchConfig(IndexConvention indexConvention) {
+    super(indexConvention);
+  }
+
   @Override
   @Nonnull
   public Set<String> getFacetFields() {
@@ -38,5 +48,12 @@ public class DatasetSearchConfig extends BaseSearchConfig<DatasetDocument> {
   @Nonnull
   public String getAutocompleteQueryTemplate() {
     return SearchUtils.readResourceFile(getClass(), "datasetESAutocompleteQueryTemplate.json");
+  }
+
+  @Override
+  @Nullable
+  public List<String> getFieldsToHighlightMatch() {
+    return ImmutableList.of("name", "fieldPaths", "description", "tags", "fieldDescriptions", "fieldTags",
+        "editedFieldDescriptions", "editedFieldTags");
   }
 }

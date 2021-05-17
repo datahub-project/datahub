@@ -25,7 +25,7 @@ you need to make two small edits (don't check these changes in!).
 
 For example, to debug `datahub-gms`:
 
-```sh
+```shell
 # Add this line to docker/datahub-gms/env/docker.env. You can change the port and/or change suspend=n to y.
 JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
 ```
@@ -66,7 +66,7 @@ applies.
 running. If you, for some reason, wish to change this behavior, check out these example commands.
 
 ```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.overrides.yml -f docker-compose.dev.yml up datahub-gms
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up datahub-gms
 ```
 Will only start `datahub-gms` and its dependencies.
 

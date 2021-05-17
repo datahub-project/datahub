@@ -1,0 +1,263 @@
+fragment globalTagsFields on GlobalTags {
+    tags {
+        tag {
+            urn
+            name
+            description
+        }
+    }
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        owner {
+            ... on CorpUser {
+                urn
+                type
+                username
+                info {
+                    active
+                    displayName
+                    title
+                    email
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+
+            ... on CorpGroup {
+                urn
+                type
+                name
+                info {
+                    email
+                    admins {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    members {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            email
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableInfo {
+                            pictureLink
+                            teams
+                            skills
+                        }
+                    }
+                    groups
+                }
+            }
+        }
+        type
+    }
+    lastModified {
+        time
+    }
+}
+
+fragment nonRecursiveDatasetFields on Dataset {
+    urn
+    name
+    type
+    origin
+    description
+    uri
+    platform {
+        name
+        info {
+            logoUrl
+        }
+    }
+    platformNativeType
+    tags
+    properties {
+        key
+        value
+    }
+    ownership {
+        ...ownershipFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+    schema {
+        datasetUrn
+        name
+        platformUrn
+        version
+        hash
+        platformSchema {
+            ... on TableSchema {
+                schema
+            }
+            ... on KeyValueSchema {
+                keySchema
+                valueSchema
+            }
+        }
+        fields {
+            fieldPath
+            jsonPath
+            nullable
+            description
+            type
+            nativeDataType
+            recursive
+            globalTags {
+                ...globalTagsFields
+            }
+        }
+        primaryKeys
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+fragment nonRecursiveDataFlowFields on DataFlow {
+    urn
+    type
+    orchestrator
+    flowId
+    cluster
+    info {
+        name
+        description
+        project
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+}
+
+fragment dataJobFields on DataJob {
+    urn
+    type
+    dataFlow {
+        ...nonRecursiveDataFlowFields
+    }
+    jobId
+    ownership {
+        ...ownershipFields
+    }
+    inputOutput {
+        inputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+        outputDatasets {
+            ...nonRecursiveDatasetFields
+        }
+    }
+    info {
+        name
+        description
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+fragment dashboardFields on Dashboard {
+    urn
+    type
+    tool
+    dashboardId
+    info {
+        name
+        description
+        charts {
+            urn
+            tool
+            type
+            info {
+                name
+                description
+                inputs {
+                    urn
+                }
+            }
+            ownership {
+                ...ownershipFields
+            }
+        }
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        access
+        lastRefreshed
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}

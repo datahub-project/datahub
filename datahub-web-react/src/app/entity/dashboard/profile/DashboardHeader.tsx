@@ -1,45 +1,51 @@
-import { Avatar, Button, Divider, Row, Space, Tooltip, Typography } from 'antd';
+import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { AuditStamp, EntityType, Ownership } from '../../../../types.generated';
+import { AuditStamp, Ownership, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import defaultAvatar from '../../../../images/default_avatar.png';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import { AvatarsGroup } from '../../../shared/avatar';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
     content: { width: '100%' },
 };
 
 export type Props = {
+    urn: string;
     platform: string;
-    description?: string;
+    description?: string | null;
     ownership?: Ownership | null;
     lastModified?: AuditStamp;
-    url?: string | null;
+    externalUrl?: string | null;
 };
 
-export default function DashboardHeader({ platform, description, ownership, url, lastModified }: Props) {
+export default function DashboardHeader({ urn, platform, description, ownership, externalUrl, lastModified }: Props) {
     const entityRegistry = useEntityRegistry();
+    const capitalizedPlatform = capitalizeFirstLetter(platform);
+
+    const openExternalUrl = () => {
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.ClickExternalUrl,
+            entityType: EntityType.Dashboard,
+            entityUrn: urn,
+        });
+        window.open(externalUrl || undefined, '_blank');
+    };
+
     return (
         <Space direction="vertical" size={16} style={styles.content}>
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text type="secondary">Dashboard</Typography.Text>
                     <Typography.Text strong type="secondary">
-                        {platform}
+                        {capitalizedPlatform}
                     </Typography.Text>
+                    {externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
                 </Space>
-                {url && <Button href={url}>View in {platform}</Button>}
             </Row>
             <Typography.Paragraph>{description}</Typography.Paragraph>
-            <Avatar.Group maxCount={6} size="large">
-                {ownership?.owners?.map((owner: any) => (
-                    <Tooltip title={owner.owner.info?.fullName}>
-                        <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}>
-                            <Avatar src={owner.owner.editableInfo.pictureLink || defaultAvatar} />
-                        </Link>
-                    </Tooltip>
-                ))}
-            </Avatar.Group>
+            <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             {lastModified && (
                 <Typography.Text type="secondary">
                     Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}

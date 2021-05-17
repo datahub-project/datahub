@@ -18,7 +18,6 @@ dependencies {
   } else {
     assets project(path: ':datahub-web-react', configuration: 'assets')
   }
-
   play project(":datahub-dao")
   play project(":datahub-graphql-core")
 
@@ -34,9 +33,12 @@ dependencies {
   play externalDependency.shiroCore
   play externalDependency.playCache
 
+  play externalDependency.kafkaClients
+
   playTest externalDependency.mockito
   playTest externalDependency.playTest
 
+  playRun externalDependency.lombok
   playRun externalDependency.guice
   playRun externalDependency.playDocs
   playRun externalDependency.playGuice

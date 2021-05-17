@@ -1,17 +1,17 @@
 package com.linkedin.tag.client;
 
+import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
-import com.linkedin.metadata.dao.TagActionRequestBuilders;
+import com.linkedin.metadata.dao.TagActionRequestBuilder;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BaseSearchableClient;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetAllRequest;
 import com.linkedin.restli.client.GetRequest;
@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -39,7 +38,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 public class Tags extends BaseSearchableClient<Tag>  {
 
     private static final TagsRequestBuilders TAGS_REQUEST_BUILDERS = new TagsRequestBuilders();
-    private static final TagActionRequestBuilders TAGS_ACTION_REQUEST_BUILDERS = new TagActionRequestBuilders();
+    private static final TagActionRequestBuilder TAGS_ACTION_REQUEST_BUILDERS = new TagActionRequestBuilder();
     private static final TagSearchConfig TAGS_SEARCH_CONFIG = new TagSearchConfig();
 
     public Tags(@Nonnull Client restliClient) {
@@ -74,16 +73,13 @@ public class Tags extends BaseSearchableClient<Tag>  {
     @Nonnull
     public Map<TagUrn, Tag> batchGet(@Nonnull Set<TagUrn> urns)
             throws RemoteInvocationException {
-        BatchGetEntityRequest<ComplexResourceKey<TagKey, EmptyRecord>, Tag> batchGetRequest
-                = TAGS_REQUEST_BUILDERS.batchGet()
-                .ids(urns.stream().map(this::getKeyFromUrn).collect(Collectors.toSet()))
-                .build();
-
-        return _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-                .entrySet().stream().collect(Collectors.toMap(
-                        entry -> getUrnFromKey(entry.getKey()),
-                        entry -> entry.getValue().getEntity())
-                );
+        return BatchGetUtils.batchGet(
+                urns,
+                (Void v) -> TAGS_REQUEST_BUILDERS.batchGet(),
+                this::getKeyFromUrn,
+                this::getUrnFromKey,
+                _client
+        );
     }
 
     @Nonnull

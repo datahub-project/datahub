@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 function list_ids_in_directory(directory) {
-  const files = fs.readdirSync(`../${directory}`);
+  const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
     if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
@@ -10,12 +10,15 @@ function list_ids_in_directory(directory) {
       ids = ids.concat(inner_ids);
     } else {
       if (name.endsWith(".md")) {
-        const id = `${directory}/${name}`.replace(/\.md$/, "");
+        const slug = name.replace(/\.md$/, "");
+        let id = `${directory}/${slug}`;
+        if (id.match(/\/\d+-.+/)) {
+          id = id.replace(/\/\d+-/, "/");
+        }
         ids.push(id);
       }
     }
   }
-  ids.sort();
   return ids;
 }
 
@@ -39,7 +42,7 @@ module.exports = {
       // Serves as user guides.
       "docs/quickstart",
       "docs/debugging",
-      // TODO "docs/how/data-source-onboarding",
+      "metadata-ingestion/README",
     ],
     Architecture: [
       "docs/architecture/architecture",
@@ -49,8 +52,6 @@ module.exports = {
       //"docs/what/gms",
       "datahub-web-react/README",
     ],
-    // },
-    // developerGuideSidebar: {
     "Metadata Modeling": [
       // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
       "docs/what/entity",
@@ -66,6 +67,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
+      "metadata-ingestion/README",
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",
@@ -80,6 +82,7 @@ module.exports = {
       "docs/how/configure-oidc-react",
       "docs/how/sso/configure-oidc-react-google",
       "docs/how/sso/configure-oidc-react-okta",
+      "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
       "datahub-web-react/README",
@@ -90,7 +93,7 @@ module.exports = {
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/README",
+      "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
       "docs/advanced/aspect-versioning",
@@ -103,12 +106,10 @@ module.exports = {
       // WIP "docs/advanced/partial-update",
       // WIP "docs/advanced/pdl-best-practices",
     ],
-    // },
-    // operatorGuideSidebar: {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
-      "contrib/kubernetes/README",
+      "datahub-kubernetes/README",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",
@@ -124,7 +125,6 @@ module.exports = {
       // - "docker/neo4j/README",
       // - "docker/postgres/README",
     ],
-    // },
     Community: [
       "docs/slack",
       "docs/links",

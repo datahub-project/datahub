@@ -78,7 +78,7 @@ Refer to [CorpUsers] rest.li resource implementation as an example.
 [mae]: ../what/mxe.md#metadata-audit-event-mae
 [baseindexbuilder]: ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/BaseIndexBuilder.java
 [datasetindexbuilder]: ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/DatasetIndexBuilder.java
-[index builder registry]: ../../metadata-builders/src/main/java/com/linkedin/metadata/builders/search/RegisteredIndexBuilders.java
+[index builder registry]: ../../metadata-jobs/mae-consumer-job/src/main/java/com/linkedin/metadata/kafka/config/IndexBuildersConfig.java
 [search index]: ../what/search-index.md
 [search dao]: ../architecture/metadata-serving.md#search-dao
 [essearchdao]: ../../metadata-dao-impl/elasticsearch-dao/src/main/java/com/linkedin/metadata/dao/search/ESSearchDAO.java

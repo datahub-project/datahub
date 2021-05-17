@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.data.template.StringArray;
@@ -150,7 +151,9 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
 
     @Override
     public Dashboard update(@Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        final com.linkedin.dashboard.Dashboard partialDashboard = DashboardUpdateInputMapper.map(input);
+
+        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+        final com.linkedin.dashboard.Dashboard partialDashboard = DashboardUpdateInputMapper.map(input, actor);
 
         try {
             _dashboardsClient.update(DashboardUrn.createFromString(input.getUrn()), partialDashboard);

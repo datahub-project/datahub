@@ -26,50 +26,26 @@ public class RelationshipBuilderFromDataJobInputOutputTest {
     List<GraphBuilder.RelationshipUpdates> operations =
         new RelationshipBuilderFromDataJobInputOutput().buildRelationships(job, inputOutput);
 
-    assertEquals(operations.size(), 3);
+    assertEquals(operations.size(), 2);
 
-    assertEquals(operations.get(0).getRelationships().size(), 4);
+    assertEquals(operations.get(0).getRelationships().size(), 2);
     assertEquals(
       operations.get(0).getRelationships().get(0),
-      makeDownstreamOf(
-        makeDatasetUrn("output1"),
-        makeDatasetUrn("input1")));
+      makeConsumes(job, makeDatasetUrn("input1")));
     assertEquals(
       operations.get(0).getRelationships().get(1),
-      makeDownstreamOf(
-        makeDatasetUrn("output2"),
-        makeDatasetUrn("input1")));
-    assertEquals(
-      operations.get(0).getRelationships().get(2),
-      makeDownstreamOf(
-        makeDatasetUrn("output1"),
-        makeDatasetUrn("input2")));
-    assertEquals(
-      operations.get(0).getRelationships().get(3),
-      makeDownstreamOf(
-        makeDatasetUrn("output2"),
-        makeDatasetUrn("input2")));
+      makeConsumes(job, makeDatasetUrn("input2")));
     assertEquals(operations.get(0).getPreUpdateOperation(),
         BaseGraphWriterDAO.RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE);
 
     assertEquals(operations.get(1).getRelationships().size(), 2);
     assertEquals(
       operations.get(1).getRelationships().get(0),
-      makeConsumes(job, makeDatasetUrn("input1")));
-    assertEquals(
-      operations.get(1).getRelationships().get(1),
-      makeConsumes(job, makeDatasetUrn("input2")));
-    assertEquals(operations.get(1).getPreUpdateOperation(),
-        BaseGraphWriterDAO.RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE);
-
-    assertEquals(operations.get(2).getRelationships().size(), 2);
-    assertEquals(
-      operations.get(2).getRelationships().get(0),
       makeProduces(job, makeDatasetUrn("output1")));
     assertEquals(
-      operations.get(2).getRelationships().get(1),
+      operations.get(1).getRelationships().get(1),
       makeProduces(job, makeDatasetUrn("output2")));
-    assertEquals(operations.get(2).getPreUpdateOperation(),
+    assertEquals(operations.get(1).getPreUpdateOperation(),
         BaseGraphWriterDAO.RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE);
 
   }
@@ -93,4 +69,3 @@ public class RelationshipBuilderFromDataJobInputOutputTest {
   }
 
 }
-

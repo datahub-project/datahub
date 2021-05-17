@@ -6,13 +6,10 @@ import sys
 import click
 from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigurationError, ConfigurationMechanism
-from datahub.configuration.toml import TomlConfigurationMechanism
-from datahub.configuration.yaml import YamlConfigurationMechanism
+import datahub as datahub_package
+from datahub.check.check_cli import check
+from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.sink.sink_registry import sink_registry
-from datahub.ingestion.source.mce_file import check_mce_file
-from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +27,10 @@ logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 @click.group()
 @click.option("--debug/--no-debug", default=False)
+@click.version_option(
+    version=datahub_package.nice_version_name(),
+    prog_name=datahub_package.__package_name__,
+)
 def datahub(debug: bool) -> None:
     if debug or os.getenv("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
@@ -40,6 +41,13 @@ def datahub(debug: bool) -> None:
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
     # breakpoint()
+
+
+@datahub.command()
+def version() -> None:
+    """Print version number and exit"""
+    click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
+    click.echo(f"Python version: {sys.version}")
 
 
 @datahub.command()
@@ -54,23 +62,7 @@ def ingest(config: str) -> None:
     """Main command for ingesting metadata into DataHub"""
 
     config_file = pathlib.Path(config)
-    if not config_file.is_file():
-        raise ConfigurationError(f"Cannot open config file {config}")
-
-    config_mech: ConfigurationMechanism
-    if config_file.suffix in [".yaml", ".yml"]:
-        config_mech = YamlConfigurationMechanism()
-    elif config_file.suffix == ".toml":
-        config_mech = TomlConfigurationMechanism()
-    else:
-        raise ConfigurationError(
-            "Only .toml and .yml are supported. Cannot process file type {}".format(
-                config_file.suffix
-            )
-        )
-
-    with config_file.open() as fp:
-        pipeline_config = config_mech.load_config(fp)
+    pipeline_config = load_config_file(config_file)
 
     try:
         logger.info(f"Using config: {pipeline_config}")
@@ -84,28 +76,4 @@ def ingest(config: str) -> None:
     sys.exit(ret)
 
 
-@datahub.command()
-def ingest_list_plugins() -> None:
-    """List enabled ingestion plugins"""
-
-    click.secho("Sources:", bold=True)
-    click.echo(str(source_registry))
-    click.echo()
-    click.secho("Sinks:", bold=True)
-    click.echo(str(sink_registry))
-    click.echo()
-    click.echo('If a plugin is disabled, try running: pip install ".[<plugin>]"')
-
-
-@datahub.group()
-def check() -> None:
-    pass
-
-
-@check.command()
-@click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
-def mce_file(json_file: str) -> None:
-    """Check the schema of a MCE JSON file"""
-
-    report = check_mce_file(json_file)
-    click.echo(report)
+datahub.add_command(check)
