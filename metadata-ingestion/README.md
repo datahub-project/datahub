@@ -428,6 +428,7 @@ source:
     # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
     aws_secret_access_key # Optional.
     aws_session_token # Optional.
+    aws_role # Optional (Role chaining supported by using a sorted list).
 ```
 
 ### Druid `druid`
