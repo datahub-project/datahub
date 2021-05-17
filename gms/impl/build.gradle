@@ -26,6 +26,7 @@ dependencies {
   compile project(':li-utils')
   compile project(':metadata-models')
   compile project(':metadata-testing:metadata-test-utils')
+  compile project(':metadata-utils')
   compile spec.product.pegasus.restliServer
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaDaoApiDataTemplate

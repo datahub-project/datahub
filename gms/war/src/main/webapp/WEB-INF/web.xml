@@ -24,6 +24,12 @@
   </listener>
 
   <!-- servlet definitions -->
+  <servlet>
+    <display-name>Healch Check Servlet</display-name>
+    <servlet-name>healthCheck</servlet-name>
+    <servlet-class>com.linkedin.gms.servlet.HealthCheck</servlet-class>
+    <async-supported>true</async-supported>
+  </servlet>
   <!--
     HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
     http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html
@@ -36,7 +42,10 @@
   </servlet>
 
   <!-- servlet mappings -->
-
+  <servlet-mapping>
+    <servlet-name>healthCheck</servlet-name>
+    <url-pattern>/health</url-pattern>
+  </servlet-mapping>
   <servlet-mapping>
     <servlet-name>restliRequestHandler</servlet-name>
     <url-pattern>/*</url-pattern>

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-
 import TypeIcon from './TypeIcon';
 import {
     Schema,
@@ -16,18 +15,27 @@ import {
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
+    EntityType,
 } from '../../../../../types.generated';
 import TagGroup from '../../../../shared/tags/TagGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
+import DescriptionField from './SchemaDescriptionField';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
+const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
     padding-bottom: 16px;
 `;
 
+const LighterText = styled(Typography.Text)`
+    color: rgba(0, 0, 0, 0.45);
+`;
+
 export type Props = {
+    urn: string;
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
@@ -35,13 +43,17 @@ export type Props = {
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
 };
 
+interface ExtendedSchemaFields extends SchemaField {
+    children?: Array<SchemaField>;
+}
+
 const defaultColumns = [
     {
-        width: 96,
+        width: 288,
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
-        align: 'center' as AlignType,
+        align: 'left' as AlignType,
         render: (type: SchemaFieldDataType) => {
             return <TypeIcon type={type} />;
         },
@@ -50,14 +62,33 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
+        width: 192,
         render: (fieldPath: string) => {
-            return <Typography.Text strong>{fieldPath}</Typography.Text>;
+            if (!fieldPath.includes('.')) {
+                return <Typography.Text strong>{fieldPath}</Typography.Text>;
+            }
+            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
+            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
+            if (isOverflow) {
+                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
+                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
+                    firstPath = '';
+                } else {
+                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
+                    if (firstPath.includes('.')) {
+                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
+                    } else {
+                        firstPath = '..';
+                    }
+                }
+            }
+            return (
+                <>
+                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
+                    {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
+                </>
+            );
         },
-    },
-    {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
     },
 ];
 
@@ -74,17 +105,44 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
-    const [hoveredIndex, setHoveredIndex] = useState<number | undefined>(undefined);
+export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
+    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
+    const [showRaw, setShowRaw] = useState(false);
+    const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
 
-    const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
-        if (!record) return Promise.resolve();
-        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
-            fieldPath: record?.fieldPath,
-            description: record?.description,
-            globalTags: update,
-        };
+    useEffect(() => {
+        const fields = [...(schema?.fields || [])] as Array<ExtendedSchemaFields>;
+        if (fields.length > 1) {
+            // eslint-disable-next-line no-nested-ternary
+            fields.sort((a, b) => (a.fieldPath > b.fieldPath ? 1 : b.fieldPath > a.fieldPath ? -1 : 0));
+            for (let rowIndex = fields.length; rowIndex--; rowIndex >= 0) {
+                const field = fields[rowIndex];
+                if (field.fieldPath.slice(1, -1).includes('.')) {
+                    const fieldPaths = field.fieldPath.split(/\.(?=[^.]+$)/);
+                    const parentFieldIndex = fields.findIndex((f) => f.fieldPath === fieldPaths[0]);
+                    if (parentFieldIndex > -1) {
+                        if ('children' in fields[parentFieldIndex]) {
+                            fields[parentFieldIndex].children?.unshift(field);
+                        } else {
+                            fields[parentFieldIndex] = { ...fields[parentFieldIndex], children: [field] };
+                        }
+                        fields.splice(rowIndex, 1);
+                    } else if (rowIndex > 0 && fieldPaths[0].includes(fields[rowIndex - 1].fieldPath)) {
+                        if ('children' in fields[rowIndex - 1]) {
+                            fields[rowIndex - 1].children?.unshift(field);
+                        } else {
+                            fields[rowIndex - 1] = { ...fields[rowIndex - 1], children: [field] };
+                        }
+                        fields.splice(rowIndex, 1);
+                    }
+                }
+            }
+        }
+        setRows(fields);
+    }, [schema?.fields]);
 
+    const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
         if (existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) => field.fieldPath === record?.fieldPath)) {
@@ -104,6 +162,52 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         return updateEditableSchema(existingMetadataAsUpdate);
     };
 
+    const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
+        if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaTags,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
+        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
+            fieldPath: record?.fieldPath,
+            description: record?.description,
+            globalTags: update,
+        };
+        return updateSchema(newFieldInfo, record);
+    };
+
+    const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
+        if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaDescription,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
+        const newFieldInfo: EditableSchemaFieldInfoUpdate = {
+            fieldPath: record?.fieldPath,
+            description: updatedDescription,
+            globalTags: { tags: convertTagsForUpdate(record?.globalTags?.tags || []) },
+        };
+        return updateSchema(newFieldInfo, record);
+    };
+
+    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+        ) || { fieldPath: record.fieldPath };
+        return (
+            <DescriptionField
+                description={description}
+                updatedDescription={relevantEditableFieldInfo.description}
+                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
+                onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
+            />
+        );
+    };
+
     const tagGroupRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
@@ -113,8 +217,8 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
                 canRemove
-                canAdd={hoveredIndex === rowIndex}
-                onOpenModal={() => setHoveredIndex(undefined)}
+                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
+                onOpenModal={() => setTagHoveredIndex(undefined)}
                 updateTags={(update) =>
                     onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
                 }
@@ -122,23 +226,38 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         );
     };
 
+    const descriptionColumn = {
+        title: 'Description',
+        dataIndex: 'description',
+        key: 'description',
+        render: descriptionRender,
+        width: 700,
+        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
+            onMouseEnter: () => {
+                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+            },
+            onMouseLeave: () => {
+                setDescHoveredIndex(undefined);
+            },
+        }),
+    };
+
     const tagColumn = {
-        width: 450,
+        width: 400,
         title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagGroupRender,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
-                setHoveredIndex(rowIndex);
+                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
             },
             onMouseLeave: () => {
-                setHoveredIndex(undefined);
+                setTagHoveredIndex(undefined);
             },
         }),
     };
 
-    const [showRaw, setShowRaw] = useState(false);
     const getRawSchema = (schemaValue) => {
         try {
             return JSON.stringify(JSON.parse(schemaValue), null, 2);
@@ -164,12 +283,17 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                     </pre>
                 </Typography.Text>
             ) : (
-                <Table
-                    pagination={false}
-                    dataSource={schema?.fields}
-                    columns={[...defaultColumns, tagColumn]}
-                    rowKey="fieldPath"
-                />
+                rows.length > 0 && (
+                    <Table
+                        columns={[...defaultColumns, descriptionColumn, tagColumn]}
+                        dataSource={rows}
+                        rowKey="fieldPath"
+                        expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
+                        defaultExpandAllRows
+                        expandRowByClick
+                        pagination={false}
+                    />
+                )
             )}
         </>
     );

@@ -1,4 +1,4 @@
-import { Menu } from 'antd';
+import { Menu, Empty } from 'antd';
 import { MenuProps } from 'antd/lib/menu';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
@@ -45,11 +45,19 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
     const ownershipMenuOptions: Array<EntityType> = Object.keys(ownerships) as Array<EntityType>;
     const history = useHistory();
 
-    const onMenuClick: MenuProps['onClick'] = ({ key }) => {
+    const setSelectedEntityType = (key: string) => {
         const { subview: nextSubview, item: nextItem } = fromMenuKey(String(key));
         navigateToUserUrl({ urn, subview: nextSubview, item: nextItem, history, entityRegistry });
     };
+    const onMenuClick: MenuProps['onClick'] = ({ key }) => {
+        setSelectedEntityType(String(key));
+    };
 
+    if (!subview && Object.keys(ownerships).length > 0) {
+        const firstEntityType = entityRegistry.getPathName(Object.keys(ownerships)[0] as EntityType);
+        const key = toMenuKey(Subview.Ownership, firstEntityType);
+        setSelectedEntityType(key);
+    }
     const subviews = Object.values(Subview);
 
     const selectedKey = toMenuKey(subview, item);
@@ -75,7 +83,11 @@ export default function UserDetails({ ownerships, subview, item, urn }: Props) {
                 </Menu>
             </MenuWrapper>
             <Content>
-                {subview === Subview.Ownership && <UserOwnership ownerships={ownerships} entityPath={item} />}
+                {ownershipMenuOptions && ownershipMenuOptions.length > 0 ? (
+                    subview === Subview.Ownership && <UserOwnership ownerships={ownerships} entityPath={item} />
+                ) : (
+                    <Empty description="Looks like you don't own any datasets" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
             </Content>
         </DetailWrapper>
     );

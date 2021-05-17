@@ -1,0 +1,9 @@
+source:
+    type: file
+    config:
+        filename: mce.json
+
+sink:
+    type: "datahub-rest"
+    config:
+        server: "http://localhost:8080"

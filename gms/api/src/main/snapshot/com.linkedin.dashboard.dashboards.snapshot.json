@@ -93,6 +93,20 @@
       }
     }
   }, {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DashboardUrn",
     "namespace" : "com.linkedin.common",
@@ -125,6 +139,25 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
+  }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
   }, {
     "type" : "record",
     "name" : "GlobalTags",
@@ -262,16 +295,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false
     } ]
-  }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
-    "type" : "typeref",
-    "name" : "Url",
-    "namespace" : "com.linkedin.common",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.url.Url",
-      "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-    }
-  }, "com.linkedin.common.Urn", {
+  }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "Dashboard",
     "namespace" : "com.linkedin.dashboard",
@@ -312,6 +336,7 @@
         "type" : "record",
         "name" : "DashboardInfo",
         "doc" : "Information about a dashboard",
+        "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
         "fields" : [ {
           "name" : "title",
           "type" : "string",
@@ -532,6 +557,30 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "MatchMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "matchedFields",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "MatchedField",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Matched field name"
+          }, {
+            "name" : "value",
+            "type" : "string",
+            "doc" : "Matched field value"
+          } ]
+        }
+      },
+      "doc" : "Matched field name and values"
+    } ]
+  }, "com.linkedin.metadata.query.MatchedField", {
+    "type" : "record",
     "name" : "SearchResultMetadata",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The model for the search result",
@@ -549,6 +598,14 @@
         "items" : "com.linkedin.common.Urn"
       },
       "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
+    }, {
+      "name" : "matches",
+      "type" : {
+        "type" : "array",
+        "items" : "MatchMetadata"
+      },
+      "doc" : "A list of match metadata for each search result, containing the list of fields in the search document that matched the query",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

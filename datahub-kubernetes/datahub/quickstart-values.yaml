@@ -1,0 +1,88 @@
+# Values to start up datahub after starting up the datahub-prerequisites chart with "prerequisites" release name
+# Copy this chart and change configuration as needed.
+datahub-gms:
+  enabled: true
+  image:
+    repository: linkedin/datahub-gms
+    tag: "latest"
+
+datahub-frontend:
+  enabled: true
+  image:
+    repository: linkedin/datahub-frontend-react
+    tag: "latest"
+  # Set up ingress to expose react front-end
+  ingress:
+    enabled: false
+
+datahub-mae-consumer:
+  enabled: true
+  image:
+    repository: linkedin/datahub-mae-consumer
+    tag: "latest"
+
+datahub-mce-consumer:
+  enabled: true
+  image:
+    repository: linkedin/datahub-mce-consumer
+    tag: "latest"
+
+elasticsearchSetupJob:
+  enabled: true
+  image:
+    repository: linkedin/datahub-elasticsearch-setup
+    tag: "latest"
+
+kafkaSetupJob:
+  enabled: true
+  image:
+    repository: linkedin/datahub-kafka-setup
+    tag: "latest"
+
+mysqlSetupJob:
+  enabled: true
+  image:
+    repository: acryldata/datahub-mysql-setup
+    tag: "latest"
+
+datahub-ingestion-cron:
+  enabled: false
+
+global:
+  elasticsearch:
+    host: "elasticsearch-master"
+    port: "9200"
+    indexPrefix: demo
+
+  kafka:
+    bootstrap:
+      server: "prerequisites-kafka:9092"
+    zookeeper:
+      server: "prerequisites-zookeeper:2181"
+    schemaregistry:
+      url: "http://prerequisites-cp-schema-registry:8081"
+
+  neo4j:
+    host: "prerequisites-neo4j-community:7474"
+    uri: "bolt://prerequisites-neo4j-community"
+    username: "neo4j"
+    password:
+      secretRef: neo4j-secrets
+      secretKey: neo4j-password
+
+  sql:
+    datasource:
+      host: "prerequisites-mysql:3306"
+      hostForMysqlClient: "prerequisites-mysql"
+      port: "3306"
+      url: "jdbc:mysql://prerequisites-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      driver: "com.mysql.jdbc.Driver"
+      username: "root"
+      password:
+        secretRef: mysql-secrets
+        secretKey: mysql-root-password
+
+  datahub:
+    gms:
+      port: "8080"
+    appVersion: "1.0"

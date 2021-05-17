@@ -20,7 +20,7 @@ def suppress_checks_in_file(filepath: str) -> None:
 @click.command()
 @click.argument("schema_file", type=click.Path(exists=True))
 @click.argument("outdir", type=click.Path())
-def generate(schema_file: str, outdir: str):
+def generate(schema_file: str, outdir: str) -> None:
     # print(f'using {schema_file}')
     with open(schema_file) as f:
         raw_schema_text = f.read()
@@ -34,7 +34,9 @@ def generate(schema_file: str, outdir: str):
 
     write_schema_files(redo_spaces, outdir)
     suppress_checks_in_file(f"{outdir}/schema_classes.py")
-    suppress_checks_in_file(f"{outdir}/__init__.py")
+    with open(f"{outdir}/__init__.py", "w"):
+        # Truncate this file.
+        pass
 
 
 if __name__ == "__main__":

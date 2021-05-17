@@ -7,7 +7,6 @@ services:
     hostname: mariadb
     image: mariadb:10.5
     env_file: env/docker.env
-    restart: always
     ports:
       - '3306:3306'
     volumes:

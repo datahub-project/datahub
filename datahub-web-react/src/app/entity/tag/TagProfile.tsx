@@ -1,16 +1,15 @@
 import { grey } from '@ant-design/colors';
-import { Alert, Avatar, Button, Card, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useParams } from 'react-router';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGetTagQuery } from '../../../graphql/tag.generated';
-import defaultAvatar from '../../../images/default_avatar.png';
 import { EntityType } from '../../../types.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { navigateToSearchUrl } from '../../search/utils/navigateToSearchUrl';
 import { Message } from '../../shared/Message';
+import { AvatarsGroup } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const PageContainer = styled.div`
@@ -98,7 +97,7 @@ export default function TagProfile() {
     const someStats =
         !statsLoading &&
         Object.keys(allSearchResultsByType).some((type) => {
-            return allSearchResultsByType[type]?.data.search.total > 0;
+            return allSearchResultsByType[type]?.data?.search.total > 0;
         });
 
     if (error || (!loading && !error && !data)) {
@@ -120,22 +119,11 @@ export default function TagProfile() {
                                 <div>
                                     <CreatedByLabel>Created by</CreatedByLabel>
                                 </div>
-                                <Avatar.Group maxCount={6} size="large">
-                                    {data?.tag?.ownership?.owners?.map((owner) => (
-                                        <Tooltip title={owner.owner.info?.fullName} key={owner.owner.urn}>
-                                            <Link
-                                                to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${
-                                                    owner.owner.urn
-                                                }`}
-                                            >
-                                                <Avatar
-                                                    src={owner.owner?.editableInfo?.pictureLink || defaultAvatar}
-                                                    data-testid={`avatar-tag-${owner.owner.urn}`}
-                                                />
-                                            </Link>
-                                        </Tooltip>
-                                    ))}
-                                </Avatar.Group>
+                                <AvatarsGroup
+                                    owners={data?.tag?.ownership?.owners}
+                                    entityRegistry={entityRegistry}
+                                    size="large"
+                                />
                             </div>
                         </div>
                         <StatsBox>
@@ -153,7 +141,7 @@ export default function TagProfile() {
                             {!statsLoading &&
                                 someStats &&
                                 Object.keys(allSearchResultsByType).map((type) => {
-                                    if (allSearchResultsByType[type].data.search.total === 0) {
+                                    if (allSearchResultsByType[type]?.data?.search.total === 0) {
                                         return null;
                                     }
                                     return (
@@ -171,7 +159,7 @@ export default function TagProfile() {
                                                 }
                                             >
                                                 <StatText data-testid={`stats-${type}`}>
-                                                    {allSearchResultsByType[type].data.search.total}{' '}
+                                                    {allSearchResultsByType[type]?.data?.search.total}{' '}
                                                     {entityRegistry.getCollectionName(type as EntityType)}
                                                 </StatText>
                                             </TagSearchButton>

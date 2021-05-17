@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import Properties from '../Properties';
+import { Properties } from '../../../shared/Properties';
 import { sampleProperties } from '../stories/properties';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 

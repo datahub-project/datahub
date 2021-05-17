@@ -41,4 +41,17 @@ describe('HomePage', () => {
         await waitFor(() => expect(queryByTitle('The Great Test Dataset')).toBeInTheDocument());
         await waitFor(() => expect(queryByTitle('Some other test')).toBeInTheDocument());
     });
+
+    it('renders search suggestions', async () => {
+        const { getByText, queryAllByText } = render(
+            <MockedProvider mocks={mocks} addTypename>
+                <TestPageContainer>
+                    <HomePage />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        await waitFor(() => expect(getByText('Try searching for...')).toBeInTheDocument());
+        expect(queryAllByText('Yet Another Dataset').length).toBeGreaterThanOrEqual(1);
+        expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
+    });
 });

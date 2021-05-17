@@ -104,7 +104,9 @@ public final class Tags extends BaseSearchableEntityResource<
         final Tag value = new Tag().setName(snapshot.getUrn().getName());
         ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
             if (aspect instanceof TagProperties) {
-                value.setDescription(TagProperties.class.cast(aspect).getDescription());
+                if (TagProperties.class.cast(aspect).hasDescription()) {
+                    value.setDescription(TagProperties.class.cast(aspect).getDescription());
+                }
                 value.setName(TagProperties.class.cast(aspect).getName());
             } else if (aspect instanceof Ownership) {
                 value.setOwnership((Ownership) aspect);

@@ -21,6 +21,28 @@ interface Entity {
     type: EntityType!
 }
 
+interface EntityWithRelationships implements Entity {
+    """
+    GMS Entity urn
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+    """
+
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+}
+
 """
 Top-level GMS Entity Type
 """
@@ -33,6 +55,10 @@ enum EntityType {
     The CorpUser Entity
     """
     CORP_USER
+    """
+    The CorpGroup Entity
+    """
+    CORP_GROUP
     """
     The DataPlatform Entity
     """
@@ -53,6 +79,18 @@ enum EntityType {
     The MLModel Entity
     """
     MLMODEL
+    """
+    The DATA_FLOW Entity
+    """
+    DATA_FLOW
+    """
+    The DATA_JOB Entity
+    """
+    DATA_JOB
+    """
+    The GlossaryTerm Entity
+    """
+    GLOSSARY_TERM
 }
 
 type Query {
@@ -67,6 +105,11 @@ type Query {
     corpUser(urn: String!): CorpUser
 
     """
+    Fetch a CorpGroup by primary key
+    """
+    corpGroup(urn: String!): CorpGroup
+
+    """
     Fetch a Dashboard by primary key
     """
     dashboard(urn: String!): Dashboard
@@ -75,6 +118,7 @@ type Query {
     Fetch a Chart by primary key
     """
     chart(urn: String!): Chart
+
     """
     Fetch a Tag by primary key
     """
@@ -84,6 +128,16 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a DataFlow by primary key
+    """
+    dataFlow(urn: String!): DataFlow
+
+    """
+    Fetch a DataJob by primary key
+    """
+    dataJob(urn: String!): DataJob
 
     """
     Search DataHub entities
@@ -104,12 +158,19 @@ type Query {
     Retrieve the browse path(s) corresponding to an entity
     """
     browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+    """
+    Fetch a GlossaryTerm by primary key
+    """
+    glossaryTerm(urn: String!): GlossaryTerm
 }
 
 type Mutation {
     updateDataset(input: DatasetUpdateInput!): Dataset
     updateChart(input: ChartUpdateInput!): Chart
     updateDashboard(input: DashboardUpdateInput!): Dashboard
+    updateDataFlow(input: DataFlowUpdateInput!): DataFlow
+    updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
 }
 
@@ -125,7 +186,7 @@ type AuditStamp {
     actor: String
 }
 
-type Dataset implements Entity {
+type Dataset implements EntityWithRelationships & Entity {
     """
     The unique Dataset URN
     """
@@ -177,6 +238,11 @@ type Dataset implements Entity {
     properties: [StringMapEntry!]
 
     """
+    External URL associated with the Dataset
+    """
+    externalUrl: String
+
+    """
     Ownership metadata of the dataset
     """
     ownership: Ownership
@@ -207,19 +273,73 @@ type Dataset implements Entity {
     status: Status
 
     """
-    Upstream Lineage metadata of the dataset
+    Entities upstream of the given entity
     """
-    upstreamLineage: UpstreamLineage
+    upstreamLineage: UpstreamEntityRelationships
 
     """
-    Downstream Lineage metadata of the dataset
+    Entities downstream of the given entity
     """
-    downstreamLineage: DownstreamLineage
+    downstreamLineage: DownstreamEntityRelationships
 
     """
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags
+}
+
+type GlossaryTerm implements Entity {
+    """
+    Urn of the data platform
+    """
+    urn: String!
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Name of the data platform
+    """
+    name: String!
+
+    """
+    Details of the Glossary Term
+    """
+    glossaryTermInfo: GlossaryTermInfo!
+}
+
+type GlossaryTermInfo {
+    """
+    Name of the glossary term
+    """
+    definition: String!
+
+    """
+    Term Source of the glossary term
+    """
+    termSource: String!
+
+    """
+    Source Ref of the glossary term
+    """
+    sourceRef: String
+
+    """
+    Source Url of the glossary term
+    """
+    sourceUrl: String
+
+    """
+    Properties of the glossary term
+    """
+    customProperties: [StringMapEntry!]
 }
 
 type DataPlatform implements Entity {
@@ -523,6 +643,26 @@ enum SchemaFieldDataType {
     STRUCT
 }
 
+type EntityRelationship {
+    """
+    An AuditStamp corresponding to the last modification of this relationship
+    """
+    created: AuditStamp
+
+    """
+    Entity that is related via lineage
+    """
+    entity: EntityWithRelationships
+}
+
+type UpstreamEntityRelationships {
+    entities: [EntityRelationship]
+}
+
+type DownstreamEntityRelationships {
+    entities: [EntityRelationship]
+}
+
 type UpstreamLineage {
     """
     List of upstream datasets
@@ -606,18 +746,6 @@ type StringMapEntry {
     value: String
 }
 
-type Ownership {
-    """
-    List of owners of the entity
-    """
-    owners: [Owner!]
-
-    """
-      Audit stamp containing who last modified the record and when
-    """
-    lastModified: AuditStamp!
-}
-
 enum OwnershipSourceType {
     """
     Auditing system or audit logs
@@ -695,23 +823,6 @@ enum OwnershipType {
     A person or a group that has direct business interest
     """
     STAKEHOLDER
-}
-
-type Owner {
-    """
-    Owner object - This should be extended to support CorpGroups as well
-    """
-    owner: CorpUser!
-
-    """
-    The type of the ownership
-    """
-    type: OwnershipType!
-
-    """
-    Source information for the ownership
-    """
-    source: OwnershipSource
 }
 
 type CorpUser implements Entity {
@@ -825,7 +936,82 @@ type CorpUserEditableInfo {
     pictureLink: String
 }
 
-type Tag implements Entity{
+type CorpGroup implements Entity {
+    """
+    The unique user URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    group name e.g. wherehows-dev, ask_metadata
+    """
+    name: String
+
+    """
+    Information of the corp group
+    """
+    info: CorpGroupInfo
+}
+
+type CorpGroupInfo {
+    """
+    email of this group
+    """
+    email: String!
+
+    """
+    owners of this group
+    """
+    admins: [CorpUser!]
+
+    """
+    List of ldap urn in this group.
+    """
+    members: [CorpUser!]
+
+    """
+    List of groups in this group.
+    """
+    groups: [String!]
+}
+
+union OwnerType = CorpUser | CorpGroup
+
+type Owner {
+    """
+    Owner object
+    """
+    owner: OwnerType!
+
+    """
+    The type of the ownership
+    """
+    type: OwnershipType!
+
+    """
+    Source information for the ownership
+    """
+    source: OwnershipSource
+}
+
+type Ownership {
+    """
+    List of owners of the entity
+    """
+    owners: [Owner!]
+
+    """
+      Audit stamp containing who last modified the record and when
+    """
+    lastModified: AuditStamp!
+}
+
+type Tag implements Entity {
     urn: String!
     """
     GMS Entity Type
@@ -891,6 +1077,30 @@ input FacetFilterInput {
 	value: String!
 }
 
+type MatchedField {
+    """
+    Name of the field that matched
+    """
+    name: String!
+
+    """
+    Value of the field that matched
+    """
+    value: String!
+}
+
+type SearchResult {
+    """
+    Searched entity
+    """
+    entity: Entity!
+
+    """
+    Matched field names and their values
+    """
+    matchedFields: [MatchedField!]!
+}
+
 type SearchResults {
     """
     The starting point of paginated results
@@ -910,7 +1120,7 @@ type SearchResults {
     """
     The search results
     """
-    entities: [Entity!]!
+    searchResults: [SearchResult!]!
 
     """
     Field aggregations used for faceted search
@@ -1088,6 +1298,11 @@ input ChartUpdateInput {
    urn: String!
 
    """
+   Update to ownership
+   """
+   ownership: OwnershipUpdate
+
+   """
    Update to global tags
    """
    globalTags: GlobalTagsUpdate
@@ -1098,6 +1313,45 @@ input DashboardUpdateInput {
    The dashboard urn
    """
    urn: String!
+
+   """
+   Update to ownership
+   """
+   ownership: OwnershipUpdate
+
+   """
+   Update to global tags
+   """
+   globalTags: GlobalTagsUpdate
+}
+
+input DataFlowUpdateInput {
+   """
+   The dataFlow urn
+   """
+   urn: String!
+
+   """
+   Update to ownership
+   """
+   ownership: OwnershipUpdate
+
+   """
+   Update to global tags
+   """
+   globalTags: GlobalTagsUpdate
+}
+
+input DataJobUpdateInput {
+   """
+   The dataJob urn
+   """
+   urn: String!
+
+   """
+   Update to ownership
+   """
+   ownership: OwnershipUpdate
 
    """
    Update to global tags
@@ -1234,7 +1488,7 @@ input InstitutionalMemoryMetadataUpdate {
     """
     Description of the resource
     """
-    description: String!
+    description: String
 
     """
     The corp user urn of the author of the metadata
@@ -1247,7 +1501,7 @@ input InstitutionalMemoryMetadataUpdate {
     createdAt: Long
 }
 
-type Dashboard implements Entity {
+type Dashboard implements EntityWithRelationships & Entity {
     """
     The unique dashboard URN
     """
@@ -1287,6 +1541,16 @@ type Dashboard implements Entity {
     The structured tags associated with the dashboard
     """
     globalTags: GlobalTags
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type DashboardInfo {
@@ -1298,7 +1562,7 @@ type DashboardInfo {
     """
     Description of the dashboard
     """
-    description: String!
+    description: String
 
     """
     Charts that comprise the dashboard
@@ -1308,12 +1572,17 @@ type DashboardInfo {
     """
     Native platform URL of the dashboard
     """
-    url: String
+    externalUrl: String
 
     """
     Access level for the dashboard
     """
     access: AccessLevel
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -1348,7 +1617,7 @@ enum AccessLevel {
     PRIVATE
 }
 
-type Chart implements Entity {
+type Chart implements EntityWithRelationships & Entity {
     """
     The unique user URN
     """
@@ -1393,6 +1662,16 @@ type Chart implements Entity {
     The structured tags associated with the chart
     """
     globalTags: GlobalTags
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type ChartInfo {
@@ -1404,7 +1683,7 @@ type ChartInfo {
     """
     Description of the chart
     """
-    description: String!
+    description: String
 
     """
     Data sources for the chart
@@ -1414,7 +1693,7 @@ type ChartInfo {
     """
     Native platform URL of the chart
     """
-    url: String
+    externalUrl: String
 
     """
     Access level for the chart
@@ -1425,6 +1704,11 @@ type ChartInfo {
     Access level for the chart
     """
     access: AccessLevel
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
 
     """
     The time when this chart last refreshed
@@ -1472,6 +1756,11 @@ enum ChartType {
     Markdown formatted text
     """
     TEXT
+
+    LINE
+    AREA
+    HISTOGRAM
+    BOX_PLOT
 }
 
 type ChartQuery {
@@ -1914,4 +2203,170 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+}
+
+type DataFlow implements Entity {
+    """
+    The unique flow URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    Workflow orchestrator ex: Azkaban, Airflow
+    """
+    orchestrator: String!
+
+    """
+    Id of the flow
+    """
+    flowId: String!
+
+    """
+    Cluster of the flow
+    """
+    cluster: String!
+
+    """
+    Information about a Data processing flow
+    """
+    info: DataFlowInfo
+
+    """
+    Ownership metadata of the flow
+    """
+    ownership: Ownership
+
+    """
+    The structured tags associated with the dataflow
+    """
+    globalTags: GlobalTags
+
+    """
+    Status metadata of the dataflow
+    """
+    status: Status
+}
+
+type DataFlowInfo {
+    """
+    Name of the flow
+    """
+    name: String!
+
+    """
+    Description of the flow
+    """
+    description: String
+
+    """
+    Optional project/namespace associated with the flow
+    """
+    project: String
+
+    """
+    External URL associated with the DataFlow
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+type DataJob implements EntityWithRelationships & Entity {
+    """
+    The unique job URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    The associated data flow
+    """
+    dataFlow: DataFlow!
+
+    """
+    Id of the job
+    """
+    jobId: String!
+
+    """
+    Information about a Data processing job
+    """
+    info: DataJobInfo
+
+    """
+    Ownership metadata of the job
+    """
+    ownership: Ownership
+
+    """
+    Information about the inputs and outputs of a Data processing job
+    """
+    inputOutput: DataJobInputOutput
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+
+    """
+    The structured tags associated with the DataJob
+    """
+    globalTags: GlobalTags
+
+    """
+    Status metadata of the DataJob
+    """
+    status: Status
+
+}
+
+type DataJobInfo {
+    """
+    Job name
+    """
+    name: String!
+
+    """
+    Job description
+    """
+    description: String
+
+    """
+    External URL associated with the DataJob
+    """
+    externalUrl: String
+
+    """
+    A list of platform-specific metadata tuples
+    """
+    customProperties: [StringMapEntry!]
+}
+
+type DataJobInputOutput {
+    """
+    Input datasets produced by the data job during processing
+    """
+    inputDatasets: [Dataset!]
+
+    """
+    Output datasets produced by the data job during processing
+    """
+    outputDatasets: [Dataset!]
 }

@@ -9,7 +9,7 @@ def load_json_file(filename: str) -> object:
     return a
 
 
-def assert_mces_equal(output, golden) -> None:
+def assert_mces_equal(output: dict, golden: dict) -> None:
     # This method assumes we're given a list of MCE json objects.
 
     ignore_paths = {

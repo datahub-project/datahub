@@ -1,7 +1,8 @@
-import { UserOutlined } from '@ant-design/icons';
+// import { UserOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React from 'react';
-import { Space, Badge, Typography, Avatar } from 'antd';
+import { Space, Badge, Typography } from 'antd';
+import CustomAvatar from '../../shared/avatar/CustomAvatar';
 
 type Props = {
     profileSrc?: string | null;
@@ -10,6 +11,7 @@ type Props = {
     skills?: string[] | null;
     teams?: string[] | null;
     email?: string | null;
+    isGroup?: boolean;
 };
 
 const Row = styled.div`
@@ -29,11 +31,16 @@ const Skills = styled.div`
     margin-right: 32px;
 `;
 
-export default function UserHeader({ profileSrc, name, title, skills, teams, email }: Props) {
+export default function UserHeader({ profileSrc, name, title, skills, teams, email, isGroup = false }: Props) {
     return (
         <Row>
             <AvatarWrapper>
-                <Avatar icon={<UserOutlined />} src={profileSrc} size={100} />
+                <CustomAvatar
+                    size={100}
+                    photoUrl={profileSrc || undefined}
+                    name={name || undefined}
+                    isGroup={isGroup}
+                />
             </AvatarWrapper>
             <div>
                 <Typography.Title level={3}>{name}</Typography.Title>

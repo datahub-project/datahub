@@ -29,7 +29,7 @@ class FileSink(Sink):
         self.wrote_something = False
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "FileSink":
         config = FileSinkConfig.parse_obj(config_dict)
         return cls(ctx, config)
 

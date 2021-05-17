@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Col, Divider, List, Pagination, Row } from 'antd';
+import { Col, Divider, List, Pagination, Row, Empty } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
 import BrowseResultCard from './BrowseResultCard';
 import { useEntityRegistry } from '../useEntityRegistry';
+import analytics, { EventType } from '../analytics';
 
 const EntityList = styled(List)`
     && {
@@ -43,14 +44,36 @@ export const BrowseResults = ({
     onChangePage,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    const onGroupClick = (group: BrowseResultGroup) => {
+        analytics.event({
+            type: EventType.BrowseResultClickEvent,
+            browsePath: rootPath,
+            entityType: type,
+            resultType: 'Group',
+            groupName: group.name,
+        });
+    };
+
+    const onEntityClick = (entity: Entity) => {
+        analytics.event({
+            type: EventType.BrowseResultClickEvent,
+            browsePath: rootPath,
+            entityType: type,
+            resultType: 'Entity',
+            entityUrn: entity.urn,
+        });
+    };
+
     return (
         <div>
             <Content style={{ padding: '25px 100px' }}>
                 <h1 className="ant-typography">{title}</h1>
                 <Row gutter={[4, 8]}>
                     {groups.map((group) => (
-                        <Col span={24}>
+                        <Col span={24} key={`${group.name}_key`}>
                             <BrowseResultCard
+                                onClick={() => onGroupClick(group)}
                                 name={group.name}
                                 count={group.count}
                                 url={`${rootPath}/${group.name}`}
@@ -58,17 +81,22 @@ export const BrowseResults = ({
                             />
                         </Col>
                     ))}
-                    {entities.length > 0 && (
+                    {(!(groups && groups.length > 0) || (entities && entities.length > 0)) && (
                         <EntityList
                             dataSource={entities}
                             split={false}
                             renderItem={(item, index) => (
                                 <>
-                                    <List.Item>{entityRegistry.renderBrowse(type, item)}</List.Item>
+                                    <List.Item onClick={() => onEntityClick(item as Entity)}>
+                                        {entityRegistry.renderBrowse(type, item)}
+                                    </List.Item>
                                     {index < entities.length - 1 && <Divider />}
                                 </>
                             )}
                             bordered
+                            locale={{
+                                emptyText: <Empty description="No Entities" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                            }}
                         />
                     )}
                     <Col span={24}>
@@ -80,6 +108,7 @@ export const BrowseResults = ({
                             showTitle
                             showLessItems
                             onChange={onChangePage}
+                            showSizeChanger={false}
                         />
                     </Col>
                 </Row>

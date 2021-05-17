@@ -1,4 +1,5 @@
-import { EntityType } from '../../types.generated';
+import { EntityType, SearchResult } from '../../types.generated';
+import { FetchedEntity } from '../lineage/types';
 
 export enum PreviewType {
     /**
@@ -28,6 +29,10 @@ export enum IconStyleType {
      * Rendered in a Tab pane header
      */
     TAB_VIEW,
+    /**
+     * Rendered in Lineage as default
+     */
+    SVG,
 }
 
 /**
@@ -58,6 +63,11 @@ export interface Entity<T> {
     isBrowseEnabled: () => boolean;
 
     /**
+     * Returns whether the entity browse is enabled
+     */
+    isLineageEnabled: () => boolean;
+
+    /**
      * Returns the name of the entity as it appears in a URL, e.g. '/dataset/:urn'.
      */
     getPathName: () => string;
@@ -76,4 +86,14 @@ export interface Entity<T> {
      * Renders a preview of the entity across different use cases like search, browse, etc.
      */
     renderPreview: (type: PreviewType, data: T) => JSX.Element;
+
+    /**
+     * Renders a search result
+     */
+    renderSearch: (result: SearchResult) => JSX.Element;
+
+    /**
+     * Constructs config to add entity to lineage viz
+     */
+    getLineageVizConfig?: (entity: T) => FetchedEntity;
 }

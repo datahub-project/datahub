@@ -46,6 +46,13 @@
     "type": "FILE_SYSTEM",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
   },
+  "urn:li:dataPlatform:s3": {
+    "datasetNameDelimiter": "/",
+    "name": "s3",
+    "displayName": "AWS S3",
+    "type": "FILE_SYSTEM",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
+  },
   "urn:li:dataPlatform:kafka": {
     "datasetNameDelimiter": ".",
     "name": "kafka",
@@ -142,5 +149,12 @@
     "displayName": "BigQuery",
     "type": "RELATIONAL_DB",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
+  },
+  "urn:li:dataPlatform:druid": {
+    "datasetNameDelimiter": ".",
+    "name": "druid",
+    "displayName": "Druid",
+    "type": "OLAP_DATASTORE",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
   }
 }
