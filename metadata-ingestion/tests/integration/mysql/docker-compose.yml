@@ -7,7 +7,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: example
     ports:
-      - 53306:3306
+      - 53307:3306
     volumes:
       - ./setup:/setup
       - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
