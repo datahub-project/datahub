@@ -520,7 +520,12 @@ source:
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
     filter: "(objectClass=*)" # optional field
+    drop_missing_first_last_name: False # optional
 ```
+
+The `drop_missing_first_last_name` should be set to true if you've got many "headless" LDAP accounts
+for devices, services, or other non-person accounts that should be excluded when they do not contain
+a first and last name.
 
 ### LookML `lookml`
 
