@@ -510,6 +510,7 @@ Extracts:
 
 - List of people
 - Names, emails, titles, and manager information for each person
+- List of groups
 
 ```yml
 source:
@@ -523,9 +524,9 @@ source:
     drop_missing_first_last_name: False # optional
 ```
 
-The `drop_missing_first_last_name` should be set to true if you've got many "headless" LDAP accounts
-for devices, services, or other non-person accounts that should be excluded when they do not contain
-a first and last name.
+The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
+for devices or services should be excluded when they do not contain a first and last name. This will only
+impact the ingestion of LDAP users, while LDAP groups will be unaffected by this config option.
 
 ### LookML `lookml`
 
