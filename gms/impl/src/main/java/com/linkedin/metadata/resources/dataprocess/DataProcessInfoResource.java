@@ -10,6 +10,9 @@ import com.linkedin.restli.server.annotations.RestMethod;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "dataProcessInfo", namespace = "com.linkedin.dataprocess", parent = DataProcesses.class)
 public class DataProcessInfoResource extends BaseDataProcessesAspectResource<DataProcessInfo> {
 

@@ -2,18 +2,10 @@ package com.linkedin.metadata.dao.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.NamedDataSchema;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntityKeyUtils;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
@@ -23,9 +15,7 @@ import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +29,6 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 
 /**
- * A Kafka implementation of {@link BaseMetadataEventProducer}.
  *
  * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}. If
  * none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
@@ -50,7 +39,6 @@ public class EntityKafkaMetadataEventProducer {
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
   private final TopicConvention _topicConvention;
-  private final EntityRegistry _entityRegistry;
 
   /**
    * Constructor.
@@ -61,20 +49,7 @@ public class EntityKafkaMetadataEventProducer {
   public EntityKafkaMetadataEventProducer(
       @Nonnull Producer<String, ? extends IndexedRecord> producer,
       @Nonnull TopicConvention topicConvention) {
-    this(producer, topicConvention, null, null);
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param producer The Kafka {@link Producer} to use
-   * @param topicConvention the convention to use to get kafka topic names
-   */
-  public EntityKafkaMetadataEventProducer(
-      @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention,
-      @Nonnull EntityRegistry entityRegistry) {
-    this(producer, topicConvention, entityRegistry, null);
+    this(producer, topicConvention, null);
   }
 
   /**
@@ -87,34 +62,17 @@ public class EntityKafkaMetadataEventProducer {
   public EntityKafkaMetadataEventProducer(
       @Nonnull Producer<String, ? extends IndexedRecord> producer,
       @Nonnull TopicConvention topicConvention,
-      @Nullable Callback callback) {
-
-    this(producer, topicConvention, null, callback);
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param producer The Kafka {@link Producer} to use
-   * @param topicConvention the convention to use to get kafka topic names
-   * @param callback The {@link Callback} to invoke when the request is completed
-   */
-  public EntityKafkaMetadataEventProducer(
-      @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention,
-      @Nonnull EntityRegistry entityRegistry,
       @Nullable Callback callback) {
     _producer = producer;
     _callback = Optional.ofNullable(callback);
     _topicConvention = topicConvention;
-    _entityRegistry = entityRegistry;
   }
 
   public void produceSnapshotBasedMetadataChangeEvent(
       @Nonnull Urn urn,
-      @Nonnull RecordTemplate newValue) {
+      @Nonnull Snapshot newSnapshot) {
     MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
-    metadataChangeEvent.setProposedSnapshot(makeSnapshot(urn, newValue));
+    metadataChangeEvent.setProposedSnapshot(newSnapshot);
 
     GenericRecord record;
     try {
@@ -132,14 +90,14 @@ public class EntityKafkaMetadataEventProducer {
   }
 
   public void produceMetadataAuditEvent(
-      @Nonnull Urn urn,
-      @Nullable RecordTemplate oldValue,
-      @Nonnull RecordTemplate newValue) {
+      @Nonnull final Urn urn,
+      @Nullable final Snapshot oldSnapshot,
+      @Nonnull final Snapshot newSnapshot) {
 
-    MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
-    metadataAuditEvent.setNewSnapshot(makeSnapshot(urn, newValue));
-    if (oldValue != null) {
-      metadataAuditEvent.setOldSnapshot(makeSnapshot(urn, oldValue));
+    final MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
+    metadataAuditEvent.setNewSnapshot(newSnapshot);
+    if (oldSnapshot != null) {
+      metadataAuditEvent.setOldSnapshot(oldSnapshot);
     }
 
     GenericRecord record;
@@ -159,8 +117,8 @@ public class EntityKafkaMetadataEventProducer {
 
   public void produceAspectSpecificMetadataAuditEvent(
       @Nonnull Urn urn,
-      @Nullable RecordTemplate oldValue,
-      @Nonnull RecordTemplate newValue) {
+      @Nullable final RecordTemplate oldValue,
+      @Nonnull final RecordTemplate newValue) {
     // TODO switch to convention once versions are annotated in the schema
     final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
     if (!isValidAspectSpecificTopic(topicKey)) {
@@ -200,50 +158,6 @@ public class EntityKafkaMetadataEventProducer {
       _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
     } else {
       _producer.send(new ProducerRecord(topic, urn.toString(), record));
-    }
-  }
-
-  @Nonnull
-  private Snapshot makeSnapshot(@Nonnull Urn urn, @Nonnull RecordTemplate value) {
-
-    final EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
-    final Class<? extends UnionTemplate> aspectUnionClass = getUnionTemplateClass(entitySpec.getAspectTyperefSchema());
-
-    final Snapshot snapshot = new Snapshot();
-    final List<UnionTemplate> aspects = new ArrayList<>();
-
-    aspects.add(ModelUtils.newAspectUnion(aspectUnionClass, value));
-
-    // We are using the Generic Dao :) --> Eventually this should just be required. It is duplicated with other information.
-    final Optional<AspectSpec> maybeKeySpec = entitySpec.getAspectSpecs().stream().filter(spec -> spec.isKey()).findFirst();
-
-    // Currently for backwards compat: If there is a key spec, then add the key aspect.
-    if (maybeKeySpec.isPresent()) {
-      final AspectSpec keySpec = maybeKeySpec.get();
-      final RecordDataSchema keySchema = keySpec.getPegasusSchema();
-      final RecordTemplate keyRecord = EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
-      aspects.add(ModelUtils.newAspectUnion(aspectUnionClass, keyRecord));
-    }
-
-    RecordUtils.setSelectedRecordTemplateInUnion(snapshot, ModelUtils.newSnapshot(getRecordTemplateClass(entitySpec.getSnapshotSchema()), urn, aspects));
-    return snapshot;
-  }
-
-  private Class<? extends UnionTemplate> getUnionTemplateClass(final NamedDataSchema schema) {
-    try {
-      return Class.forName(schema.getFullName()).asSubclass(UnionTemplate.class);
-    } catch (ClassNotFoundException e) {
-      throw new ModelConversionException(
-          String.format("Failed to find union template associated with schema named %s", schema.getFullName()));
-    }
-  }
-
-  private Class<? extends RecordTemplate> getRecordTemplateClass(final RecordDataSchema schema) {
-    try {
-      return Class.forName(schema.getFullName()).asSubclass(RecordTemplate.class);
-    } catch (ClassNotFoundException e) {
-      throw new ModelConversionException(
-          String.format("Failed to find record template associated with aspect schema named %s", schema.getFullName()));
     }
   }
 

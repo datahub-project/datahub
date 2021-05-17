@@ -63,7 +63,9 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
-
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "dashboards", namespace = "com.linkedin.dashboard", keyName = "key")
 public class Dashboards extends BaseBrowsableEntityResource<
     // @formatter:off

@@ -63,7 +63,9 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
-
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "dataFlows", namespace = "com.linkedin.dataflow", keyName = "key")
 public class DataFlows extends BaseBrowsableEntityResource<
     // @formatter:off

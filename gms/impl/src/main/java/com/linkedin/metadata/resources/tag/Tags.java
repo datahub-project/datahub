@@ -58,6 +58,9 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "tags", namespace = "com.linkedin.tag", keyName = "tag")
 public final class Tags extends BaseSearchableEntityResource<
         // @formatter:off

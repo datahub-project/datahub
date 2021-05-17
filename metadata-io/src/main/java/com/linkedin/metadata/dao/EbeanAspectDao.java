@@ -75,16 +75,16 @@ public class EbeanAspectDao {
   }
 
   public long saveLatestAspect(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      @Nullable String oldAspectMetadata,
-      @Nullable String oldActor,
-      @Nullable String oldImpersonator,
-      @Nullable Timestamp oldTime,
-      @Nonnull String newAspectMetadata,
-      @Nonnull String newActor,
-      @Nullable String newImpersonator,
-      @Nonnull Timestamp newTime) {
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      @Nullable final String oldAspectMetadata,
+      @Nullable final String oldActor,
+      @Nullable final String oldImpersonator,
+      @Nullable final Timestamp oldTime,
+      @Nonnull final String newAspectMetadata,
+      @Nonnull final String newActor,
+      @Nullable final String newImpersonator,
+      @Nonnull final Timestamp newTime) {
     // Save oldValue as the largest version + 1
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
@@ -102,14 +102,14 @@ public class EbeanAspectDao {
   }
 
   protected void saveAspect(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      @Nonnull String aspectMetadata,
-      @Nonnull String actor,
-      @Nullable String impersonator,
-      @Nonnull Timestamp timestamp,
-      long version,
-      boolean insert) {
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      @Nonnull final String aspectMetadata,
+      @Nonnull final String actor,
+      @Nullable final String impersonator,
+      @Nonnull final Timestamp timestamp,
+      final long version,
+      final boolean insert) {
 
     final EbeanAspect aspect = new EbeanAspect();
     aspect.setKey(new EbeanAspect.PrimaryKey(urn, aspectName, version));
@@ -123,7 +123,7 @@ public class EbeanAspectDao {
     saveAspect(aspect, insert);
   }
 
-  protected void saveAspect(final @Nonnull EbeanAspect ebeanAspect, final boolean insert) {
+  protected void saveAspect(@Nonnull final EbeanAspect ebeanAspect, final boolean insert) {
     if (insert) {
       _server.insert(ebeanAspect);
     } else {
@@ -132,23 +132,23 @@ public class EbeanAspectDao {
   }
 
   @Nullable
-  protected EbeanAspect getLatestAspect(@Nonnull String urn, @Nonnull String aspectName) {
+  protected EbeanAspect getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
     final EbeanAspect.PrimaryKey key = new EbeanAspect.PrimaryKey(urn, aspectName, 0L);
     return _server.find(EbeanAspect.class, key);
   }
 
   @Nullable
-  public EbeanAspect getAspect(@Nonnull String urn, @Nonnull String aspectName, long version) {
+  public EbeanAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
     return getAspect(new EbeanAspect.PrimaryKey(urn, aspectName, version));
   }
 
   @Nullable
-  public EbeanAspect getAspect(@Nonnull EbeanAspect.PrimaryKey primaryKey) {
+  public EbeanAspect getAspect(@Nonnull final EbeanAspect.PrimaryKey primaryKey) {
     return _server.find(EbeanAspect.class, primaryKey);
   }
 
   @Nonnull
-  public Map<EbeanAspect.PrimaryKey, EbeanAspect> batchGet(@Nonnull Set<EbeanAspect.PrimaryKey> keys) {
+  public Map<EbeanAspect.PrimaryKey, EbeanAspect> batchGet(@Nonnull final Set<EbeanAspect.PrimaryKey> keys) {
     if (keys.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -170,7 +170,7 @@ public class EbeanAspectDao {
    * @param keysCount the max number of keys for each sub query
    */
   @Nonnull
-  private List<EbeanAspect> batchGet(@Nonnull Set<EbeanAspect.PrimaryKey> keys, int keysCount) {
+  private List<EbeanAspect> batchGet(@Nonnull final Set<EbeanAspect.PrimaryKey> keys, final int keysCount) {
 
     int position = 0;
 
@@ -191,11 +191,11 @@ public class EbeanAspectDao {
    * statements.
    */
   private String batchGetSelect(
-      int selectId,
-      @Nonnull String urn,
-      @Nonnull String aspect,
-      long version,
-      @Nonnull Map<String, Object> outputParamsToValues) {
+      final int selectId,
+      @Nonnull final String urn,
+      @Nonnull final String aspect,
+      final long version,
+      @Nonnull final Map<String, Object> outputParamsToValues) {
 
     final String urnArg = "urn" + selectId;
     final String aspectArg = "aspect" + selectId;
@@ -211,7 +211,10 @@ public class EbeanAspectDao {
   }
 
   @Nonnull
-  private List<EbeanAspect> batchGetUnion(@Nonnull List<EbeanAspect.PrimaryKey> keys, int keysCount, int position) {
+  private List<EbeanAspect> batchGetUnion(
+      @Nonnull final List<EbeanAspect.PrimaryKey> keys,
+      final int keysCount,
+      final int position) {
 
     // Build one SELECT per key and then UNION ALL the results. This can be much more performant than OR'ing the
     // conditions together. Our query will look like:
@@ -255,10 +258,10 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<Long> listVersions(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      int start,
-      int pageSize) {
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
         .select(KEY_ID)
@@ -277,9 +280,9 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listUrns(
-      @Nonnull String aspectName,
-      int start,
-      int pageSize) {
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
         .select(KEY_ID)
@@ -303,10 +306,10 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listAspectMetadata(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      int start,
-      int pageSize) {
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
         .select(ALL_COLUMNS)
@@ -320,25 +323,25 @@ public class EbeanAspectDao {
         .findPagedList();
 
     final List<String> aspects = pagedList.getList().stream().map(EbeanAspect::getMetadata).collect(Collectors.toList());
-    final ListResultMetadata listResultMetadata = makeListResultMetadata(pagedList.getList().stream().map(
+    final ListResultMetadata listResultMetadata = toListResultMetadata(pagedList.getList().stream().map(
         EbeanAspectDao::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
-      @Nonnull String aspectName,
-      int start,
-      int pageSize) {
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
     return listAspectMetadata(aspectName, LATEST_VERSION, start, pageSize);
   }
 
   @Nonnull
   public ListResult<String> listAspectMetadata(
-      @Nonnull String aspectName,
-      long version,
-      int start,
-      int pageSize) {
+      @Nonnull final String aspectName,
+      final long version,
+      final int start,
+      final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
         .select(ALL_COLUMNS)
@@ -352,22 +355,22 @@ public class EbeanAspectDao {
         .findPagedList();
 
     final List<String> aspects = pagedList.getList().stream().map(EbeanAspect::getMetadata).collect(Collectors.toList());
-    final ListResultMetadata listResultMetadata = makeListResultMetadata(pagedList.getList().stream().map(
+    final ListResultMetadata listResultMetadata = toListResultMetadata(pagedList.getList().stream().map(
         EbeanAspectDao::toExtraInfo).collect(Collectors.toList()));
     return toListResult(aspects, listResultMetadata, pagedList, start);
   }
 
   @Nonnull
-  public Retention getRetention(@Nonnull String aspectName) {
+  public Retention getRetention(@Nonnull final String aspectName) {
     return _aspectRetentionMap.getOrDefault(aspectName, INDEFINITE_RETENTION);
   }
 
-  public void setRetention(@Nonnull String aspectName, @Nonnull Retention retention) {
+  public void setRetention(@Nonnull final String aspectName, @Nonnull final Retention retention) {
     _aspectRetentionMap.put(aspectName, retention);
   }
 
   @Nonnull
-  public <T> T runInTransactionWithRetry(@Nonnull Supplier<T> block, int maxTransactionRetry) {
+  public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
     int retryCount = 0;
     Exception lastException;
 
@@ -392,9 +395,9 @@ public class EbeanAspectDao {
 
 
   private void applyRetention(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      @Nonnull Retention retention,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      @Nonnull final Retention retention,
       long largestVersion) {
     if (retention instanceof IndefiniteRetention) {
       return;
@@ -412,9 +415,9 @@ public class EbeanAspectDao {
   }
 
   protected void applyVersionBasedRetention(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      @Nonnull VersionBasedRetention retention,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      @Nonnull final VersionBasedRetention retention,
       long largestVersion) {
     _server.find(EbeanAspect.class)
         .where()
@@ -426,9 +429,9 @@ public class EbeanAspectDao {
   }
 
   protected void applyTimeBasedRetention(
-      @Nonnull String urn,
-      @Nonnull String aspectName,
-      @Nonnull TimeBasedRetention retention,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName,
+      @Nonnull final TimeBasedRetention retention,
       long currentTime) {
 
     _server.find(EbeanAspect.class)
@@ -439,7 +442,7 @@ public class EbeanAspectDao {
         .delete();
   }
 
-  private long getNextVersion(@Nonnull String urn, @Nonnull String aspectName) {
+  private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     final List<PrimaryKey> result = _server.find(EbeanAspect.class)
         .where()
         .eq(URN_COLUMN, urn.toString())
@@ -453,8 +456,11 @@ public class EbeanAspectDao {
   }
 
   @Nonnull
-  private <T> ListResult<T> toListResult(@Nonnull List<T> values, @Nullable ListResultMetadata listResultMetadata,
-      @Nonnull PagedList<?> pagedList, @Nullable Integer start) {
+  private <T> ListResult<T> toListResult(
+      @Nonnull final List<T> values,
+      @Nullable final ListResultMetadata listResultMetadata,
+      @Nonnull final PagedList<?> pagedList,
+      @Nullable final Integer start) {
     final int nextStart =
         (start != null && pagedList.hasNext()) ? start + pagedList.getList().size() : ListResult.INVALID_NEXT_START;
     return ListResult.<T>builder()
@@ -473,7 +479,7 @@ public class EbeanAspectDao {
   private static ExtraInfo toExtraInfo(@Nonnull final EbeanAspect aspect) {
     final ExtraInfo extraInfo = new ExtraInfo();
     extraInfo.setVersion(aspect.getKey().getVersion());
-    extraInfo.setAudit(makeAuditStamp(aspect));
+    extraInfo.setAudit(toAuditStamp(aspect));
     try {
       extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
     } catch (URISyntaxException e) {
@@ -484,7 +490,7 @@ public class EbeanAspectDao {
   }
 
   @Nonnull
-  private static AuditStamp makeAuditStamp(@Nonnull EbeanAspect aspect) {
+  private static AuditStamp toAuditStamp(@Nonnull final EbeanAspect aspect) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(aspect.getCreatedOn().getTime());
 
@@ -500,14 +506,14 @@ public class EbeanAspectDao {
   }
 
   @Nonnull
-  private ListResultMetadata makeListResultMetadata(@Nonnull List<ExtraInfo> extraInfos) {
+  private ListResultMetadata toListResultMetadata(@Nonnull final List<ExtraInfo> extraInfos) {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
   }
 
   @Nonnull
-  private static EbeanServer createServer(@Nonnull ServerConfig serverConfig) {
+  private static EbeanServer createServer(@Nonnull final ServerConfig serverConfig) {
     // Make sure that the serverConfig includes the package that contains DAO's Ebean model.
     if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
       serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);

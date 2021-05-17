@@ -1,8 +1,8 @@
 package com.linkedin.metadata.dao;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -16,6 +16,7 @@ import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
+import sun.security.ssl.Record;
 
 import static com.linkedin.metadata.EntitySpecUtils.*;
 import static com.linkedin.metadata.dao.EbeanAspectDao.*;
@@ -128,6 +130,13 @@ public class EntityService {
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
       urnToAspects.get(urn).add(aspectRecord);
     });
+
+    // Add "key" aspects to any non null keys.
+    urnToAspects.keySet().forEach(key -> {
+      final RecordTemplate keyAspect = buildKeyAspect(key);
+      urnToAspects.get(key).add(keyAspect);
+    });
+
     return urnToAspects;
   }
 
@@ -171,7 +180,7 @@ public class EntityService {
       @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp,
-      int maxTransactionRetry) {
+      final int maxTransactionRetry) {
 
     final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
@@ -210,14 +219,27 @@ public class EntityService {
 
     // 4. Produce MAE after a successful update
     if (oldValue != newValue) {
-      _kafkaProducer.produceMetadataAuditEvent(urn, oldValue, newValue);
-
-      // 4.1 Produce aspect specific MAE after a successful update
-      if (_emitAspectSpecificAuditEvent) {
-        _kafkaProducer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
-      }
+      produceMetadataAuditEvent(urn, oldValue, newValue);
     }
+
     return newValue;
+  }
+
+  private void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
+
+    // First, try to create a new and an old snapshot.
+    final Snapshot newSnapshot = buildSnapshot(urn, newValue);
+    Snapshot oldSnapshot = null;
+    if (oldValue != null) {
+      oldSnapshot = buildSnapshot(urn, oldValue);
+    }
+
+    _kafkaProducer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
+
+    // 4.1 Produce aspect specific MAE after a successful update
+    if (_emitAspectSpecificAuditEvent) {
+      _kafkaProducer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
+    }
   }
 
   @Value
@@ -225,6 +247,25 @@ public class EntityService {
     Urn urn;
     RecordTemplate oldValue;
     RecordTemplate newValue;
+  }
+
+  private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
+
+    return toSnapshotUnion(
+        toSnapshotRecord(
+            urn,
+            ImmutableList.of(toAspectUnion(spec.getAspectTyperefSchema(), keyAspectValue), toAspectUnion(spec.getAspectTyperefSchema(), aspectValue))
+        )
+    );
+  }
+
+  private RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getAspectSpecs().stream().filter(AspectSpec::isKey).findFirst().get();
+    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
+    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
   }
 
   private Urn toUrn(final String urnStr) {
@@ -278,14 +319,6 @@ public class EntityService {
     final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     final RecordDataSchema aspectSchema = aspectSpec.getPegasusSchema();
     return RecordUtils.toRecordTemplate(getDataTemplateClassFromSchema(aspectSchema, RecordTemplate.class), jsonAspect);
-  }
-
-  private static <T> Class<? extends T> getDataTemplateClassFromSchema(final NamedDataSchema schema, final Class<T> clazz) {
-    try {
-      return Class.forName(schema.getFullName()).asSubclass(clazz);
-    } catch (ClassNotFoundException e) {
-      throw new ModelConversionException("Unable to find class for RecordDataSchema named " + schema.getFullName(), e);
-    }
   }
 
   @Nonnull

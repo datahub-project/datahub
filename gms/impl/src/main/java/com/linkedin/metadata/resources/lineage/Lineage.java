@@ -34,8 +34,9 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
-
 /**
+ * Deprecated! Use {@link EntityResource} instead.
+ *
  * Rest.li entry point: /lineage/{entityKey}?type={entityType}direction={direction}
  */
 @RestLiSimpleResource(name = "lineage", namespace = "com.linkedin.lineage")

@@ -27,8 +27,9 @@ import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
 
-
+// TODO: Should we rename this? Should we use any interfaces at all?
 public class Neo4jGraphDAO {
+
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
@@ -50,7 +51,7 @@ public class Neo4jGraphDAO {
     private String relationshipType;
   }
 
-  public void addEdge(Edge edge) {
+  public void addEdge(final Edge edge) {
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();
 
@@ -77,9 +78,16 @@ public class Neo4jGraphDAO {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(@Nullable String sourceType, @Nonnull Filter sourceEntityFilter,
-      @Nullable String destinationType, @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter, int offset, int count) {
+  public List<String> findRelatedUrns(
+      @Nullable final String sourceType,
+      @Nonnull final Filter sourceEntityFilter,
+      @Nullable final String destinationType,
+      @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter,
+      final int offset,
+      final int count) {
+
     final String srcCriteria = filterToCriteria(sourceEntityFilter);
     final String destCriteria = filterToCriteria(destinationEntityFilter);
     final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
@@ -104,8 +112,7 @@ public class Neo4jGraphDAO {
     return runQuery(statement).list(record -> record.values().get(0).asNode().get("urn").asString());
   }
 
-  @Nonnull
-  public void removeNode(@Nonnull Urn urn) {
+  public void removeNode(@Nonnull final Urn urn) {
     // also delete any relationship going to or from it
     final String matchTemplate = "MATCH (node {urn: $urn}) DETACH DELETE node";
     final String statement = String.format(matchTemplate);
@@ -116,9 +123,10 @@ public class Neo4jGraphDAO {
     runQuery(buildStatement(statement, params));
   }
 
-  @Nonnull
-  public void removeEdgeTypesFromNode(@Nonnull Urn urn, @Nonnull List<String> relationshipTypes,
-      @Nonnull RelationshipFilter relationshipFilter) {
+  public void removeEdgeTypesFromNode(
+      @Nonnull final Urn urn,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter) {
 
     // also delete any relationship going to or from it
     final String nodeType = urn.getEntityType();

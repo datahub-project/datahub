@@ -61,6 +61,9 @@ import com.linkedin.data.template.StringArray;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "glossaryTerms", namespace = "com.linkedin.glossary", keyName = "glossaryTerm")
 public final class GlossaryTerms extends BaseBrowsableEntityResource<
     // @formatter:off

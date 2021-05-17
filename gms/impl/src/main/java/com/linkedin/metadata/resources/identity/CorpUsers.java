@@ -59,6 +59,9 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
 @RestLiCollection(name = "corpUsers", namespace = "com.linkedin.identity", keyName = "corpUser")
 public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:off

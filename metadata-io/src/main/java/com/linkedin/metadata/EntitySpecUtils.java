@@ -2,8 +2,10 @@ package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 
@@ -36,6 +38,14 @@ public class EntitySpecUtils {
     }
     throw new IllegalArgumentException(
         String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
+  }
+
+  public static <T> Class<? extends T> getDataTemplateClassFromSchema(final NamedDataSchema schema, final Class<T> clazz) {
+    try {
+      return Class.forName(schema.getFullName()).asSubclass(clazz);
+    } catch (ClassNotFoundException e) {
+      throw new ModelConversionException("Unable to find class for RecordDataSchema named " + schema.getFullName(), e);
+    }
   }
 
   public static String urnToEntityName(final Urn urn) {
