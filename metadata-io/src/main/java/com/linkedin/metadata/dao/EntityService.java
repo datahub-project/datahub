@@ -139,6 +139,11 @@ public class EntityService {
   }
 
   @Nullable
+  public RecordTemplate getLatestAspectRecord(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    return getAspectRecord(urn, aspectName, LATEST_VERSION);
+  }
+
+  @Nullable
   public RecordTemplate getAspectRecord(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
     final EbeanAspect.PrimaryKey primaryKey = new EbeanAspect.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspect> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
