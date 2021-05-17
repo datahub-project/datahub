@@ -798,6 +798,9 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "dataFlows",
     "namespace" : "com.linkedin.dataflow",
     "path" : "/dataFlows",

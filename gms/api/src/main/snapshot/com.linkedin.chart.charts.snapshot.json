@@ -901,6 +901,9 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "charts",
     "namespace" : "com.linkedin.chart",
     "path" : "/charts",

@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "corpUsers",
   "namespace" : "com.linkedin.identity",
   "path" : "/corpUsers",
@@ -113,6 +116,9 @@
     "entity" : {
       "path" : "/corpUsers/{corpUser}",
       "subresources" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "editableInfo",
         "namespace" : "com.linkedin.identity",
         "path" : "/corpUsers/{corpUser}/editableInfo",

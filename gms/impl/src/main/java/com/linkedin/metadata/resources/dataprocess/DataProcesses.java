@@ -62,6 +62,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "dataProcesses", namespace = "com.linkedin.dataprocess", keyName = "dataprocess")
 public class DataProcesses extends BaseSearchableEntityResource<
     // @formatter:off

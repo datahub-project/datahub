@@ -76,6 +76,7 @@ import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "glossaryNodes", namespace = "com.linkedin.glossary", keyName = "glossaryNode")
 public final class GlossaryNodes extends BaseSearchableEntityResource<
     // @formatter:off

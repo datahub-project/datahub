@@ -1273,11 +1273,14 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "mlModels",
     "namespace" : "com.linkedin.ml",
     "path" : "/mlModels",
     "schema" : "com.linkedin.ml.MLModel",
-    "doc" : "generated from: com.linkedin.metadata.resources.ml.MLModels",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.ml.MLModels",
     "collection" : {
       "identifier" : {
         "name" : "mlmodel",
@@ -1387,11 +1390,14 @@
       "entity" : {
         "path" : "/mlModels/{mlmodel}",
         "subresources" : [ {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "caveatsAndRecommendations",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/caveatsAndRecommendations",
           "schema" : "com.linkedin.ml.metadata.CaveatsAndRecommendations",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/caveatsAndRecommendations\n\ngenerated from: com.linkedin.metadata.resources.ml.CaveatsAndRecommendationsResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/caveatsAndRecommendations\n\ngenerated from: com.linkedin.metadata.resources.ml.CaveatsAndRecommendationsResource",
           "collection" : {
             "identifier" : {
               "name" : "caveatsAndRecommendationsId",
@@ -1408,11 +1414,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "cost",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/cost",
           "schema" : "com.linkedin.common.Cost",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/cost\n\ngenerated from: com.linkedin.metadata.resources.ml.CostResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/cost\n\ngenerated from: com.linkedin.metadata.resources.ml.CostResource",
           "collection" : {
             "identifier" : {
               "name" : "costId",
@@ -1429,11 +1438,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "deprecation",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/deprecation",
           "schema" : "com.linkedin.common.Deprecation",
-          "doc" : "Rest.li entry point: /mlmodels/{mlModelKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.ml.DeprecationResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlmodels/{mlModelKey}/deprecation\n\ngenerated from: com.linkedin.metadata.resources.ml.DeprecationResource",
           "collection" : {
             "identifier" : {
               "name" : "deprecationId",
@@ -1450,11 +1462,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "ethicalConsiderations",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/ethicalConsiderations",
           "schema" : "com.linkedin.ml.metadata.EthicalConsiderations",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/ethicalConsiderations\n\ngenerated from: com.linkedin.metadata.resources.ml.EthicalConsiderationsResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/ethicalConsiderations\n\ngenerated from: com.linkedin.metadata.resources.ml.EthicalConsiderationsResource",
           "collection" : {
             "identifier" : {
               "name" : "ethicalConsiderationsId",
@@ -1471,11 +1486,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "evaluationData",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/evaluationData",
           "schema" : "com.linkedin.ml.metadata.EvaluationData",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/evaluationData\n\ngenerated from: com.linkedin.metadata.resources.ml.EvaluationDataResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/evaluationData\n\ngenerated from: com.linkedin.metadata.resources.ml.EvaluationDataResource",
           "collection" : {
             "identifier" : {
               "name" : "evaluationDataId",
@@ -1492,11 +1510,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "institutionalMemory",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/institutionalMemory",
           "schema" : "com.linkedin.common.InstitutionalMemory",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.ml.InstitutionalMemoryResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/institutionalMemory\n\ngenerated from: com.linkedin.metadata.resources.ml.InstitutionalMemoryResource",
           "collection" : {
             "identifier" : {
               "name" : "institutionalMemoryId",
@@ -1513,11 +1534,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "intendedUse",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/intendedUse",
           "schema" : "com.linkedin.ml.metadata.IntendedUse",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/intendedUse\n\ngenerated from: com.linkedin.metadata.resources.ml.IntendedUseResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/intendedUse\n\ngenerated from: com.linkedin.metadata.resources.ml.IntendedUseResource",
           "collection" : {
             "identifier" : {
               "name" : "intendedUseId",
@@ -1534,11 +1558,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "metrics",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/metrics",
           "schema" : "com.linkedin.ml.metadata.Metrics",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/metrics\n\ngenerated from: com.linkedin.metadata.resources.ml.MetricsResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/metrics\n\ngenerated from: com.linkedin.metadata.resources.ml.MetricsResource",
           "collection" : {
             "identifier" : {
               "name" : "metricsId",
@@ -1555,11 +1582,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "mlModelFactorPrompts",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/mlModelFactorPrompts",
           "schema" : "com.linkedin.ml.metadata.MLModelFactorPrompts",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/mlModelFactorPrompts\n\ngenerated from: com.linkedin.metadata.resources.ml.MLModelFactorPromptsResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/mlModelFactorPrompts\n\ngenerated from: com.linkedin.metadata.resources.ml.MLModelFactorPromptsResource",
           "collection" : {
             "identifier" : {
               "name" : "mlModelFactorPromptsId",
@@ -1576,11 +1606,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "ownership",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/ownership",
           "schema" : "com.linkedin.common.Ownership",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/ownership\n\ngenerated from: com.linkedin.metadata.resources.ml.OwnershipResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/ownership\n\ngenerated from: com.linkedin.metadata.resources.ml.OwnershipResource",
           "collection" : {
             "identifier" : {
               "name" : "ownershipId",
@@ -1597,11 +1630,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "quantitativeAnalyses",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/quantitativeAnalyses",
           "schema" : "com.linkedin.ml.metadata.QuantitativeAnalyses",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/quantitativeAnalyses\n\ngenerated from: com.linkedin.metadata.resources.ml.QuantitativeAnalysesResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/quantitativeAnalyses\n\ngenerated from: com.linkedin.metadata.resources.ml.QuantitativeAnalysesResource",
           "collection" : {
             "identifier" : {
               "name" : "quantitativeAnalysesId",
@@ -1618,11 +1654,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "sourceCode",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/sourceCode",
           "schema" : "com.linkedin.ml.metadata.SourceCode",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/sourceCode\n\ngenerated from: com.linkedin.metadata.resources.ml.SourceCodeResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/sourceCode\n\ngenerated from: com.linkedin.metadata.resources.ml.SourceCodeResource",
           "collection" : {
             "identifier" : {
               "name" : "sourceCodeId",
@@ -1639,11 +1678,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "trainingData",
           "namespace" : "com.linkedin.ml",
           "path" : "/mlModels/{mlmodel}/trainingData",
           "schema" : "com.linkedin.ml.metadata.TrainingData",
-          "doc" : "Rest.li entry point: /mlModels/{mlModelKey}/trainingData\n\ngenerated from: com.linkedin.metadata.resources.ml.TrainingDataResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /mlModels/{mlModelKey}/trainingData\n\ngenerated from: com.linkedin.metadata.resources.ml.TrainingDataResource",
           "collection" : {
             "identifier" : {
               "name" : "trainingDataId",

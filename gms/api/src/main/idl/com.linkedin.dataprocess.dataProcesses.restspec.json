@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dataProcesses",
   "namespace" : "com.linkedin.dataprocess",
   "path" : "/dataProcesses",
@@ -113,6 +116,9 @@
     "entity" : {
       "path" : "/dataProcesses/{dataprocess}",
       "subresources" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "dataProcessInfo",
         "namespace" : "com.linkedin.dataprocess",
         "path" : "/dataProcesses/{dataprocess}/dataProcessInfo",

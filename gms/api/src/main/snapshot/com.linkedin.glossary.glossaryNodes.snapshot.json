@@ -450,6 +450,9 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "glossaryNodes",
     "namespace" : "com.linkedin.glossary",
     "path" : "/glossaryNodes",

@@ -73,6 +73,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "datasets", namespace = "com.linkedin.dataset", keyName = "dataset")
 public final class Datasets extends BaseBrowsableEntityResource<
     // @formatter:off
@@ -341,7 +342,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_URN) @Optional @Nullable String lastUrn,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.filter(indexFilter, aspectNames, lastUrn, pagingContext);
+    throw new UnsupportedOperationException();
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)

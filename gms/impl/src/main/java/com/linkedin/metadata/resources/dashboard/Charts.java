@@ -70,6 +70,7 @@ import static com.linkedin.metadata.restli.RestliConstants.*;
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "charts", namespace = "com.linkedin.chart", keyName = "key")
 public class Charts extends BaseBrowsableEntityResource<
     // @formatter:off

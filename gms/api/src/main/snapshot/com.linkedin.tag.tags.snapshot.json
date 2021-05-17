@@ -495,6 +495,9 @@
     } ]
   }, "com.linkedin.tag.TagKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "tags",
     "namespace" : "com.linkedin.tag",
     "path" : "/tags",

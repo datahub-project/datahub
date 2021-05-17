@@ -4,6 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.dao.EntityService;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
@@ -15,7 +16,6 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-
 public class BaseCorpUsersAspectResource<ASPECT extends RecordTemplate>
     extends BaseVersionedAspectResource<CorpuserUrn, CorpUserAspect, ASPECT> {
 
@@ -26,18 +26,23 @@ public class BaseCorpUsersAspectResource<ASPECT extends RecordTemplate>
   }
 
   @Inject
-  @Named("corpUserDao")
-  private BaseLocalDAO localDAO;
+  @Named("entityService")
+  private EntityService _entityService;
 
   @Nonnull
   @Override
   protected BaseLocalDAO<CorpUserAspect, CorpuserUrn> getLocalDAO() {
-    return localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
   @Override
   protected CorpuserUrn getUrn(@PathKeysParam @Nonnull PathKeys keys) {
     return new CorpuserUrn(keys.<ComplexResourceKey<CorpUserKey, EmptyRecord>>get(CORPUSER_KEY).getKey().getUsername());
+  }
+
+  @Nonnull
+  protected EntityService getEntityService() {
+    return _entityService;
   }
 }

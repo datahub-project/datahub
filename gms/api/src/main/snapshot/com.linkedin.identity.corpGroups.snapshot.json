@@ -460,6 +460,9 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "corpGroups",
     "namespace" : "com.linkedin.identity",
     "path" : "/corpGroups",

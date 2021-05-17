@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.dataprocess;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -16,13 +15,12 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 
-import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 
 /**
  * Deprecated! Use {@link EntityResource} instead.
  */
+@Deprecated
 @RestLiCollection(name = "dataProcessInfo", namespace = "com.linkedin.dataprocess", parent = DataProcesses.class)
 public class DataProcessInfoResource extends BaseDataProcessesAspectResource<DataProcessInfo> {
 
@@ -54,18 +52,13 @@ public class DataProcessInfoResource extends BaseDataProcessesAspectResource<Dat
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new DataProcessInfo().schema();
 
-            final Map<Urn, List<RecordTemplate>> urnToAspectsMap = getEntityService().batchGetAspectRecordLists(
-                ImmutableSet.of(urn),
-                ImmutableSet.of(EntitySpecUtils.getAspectNameFromSchema(aspectSchema))
+            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+                urn,
+                EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+                version
             );
-
-            if (urnToAspectsMap.containsKey(urn)) {
-                // Aspect does exist.
-                final RecordTemplate aspect = urnToAspectsMap.get(urn).stream()
-                    .filter(aspectRecord -> aspectRecord.schema().getFullName().equals(aspectSchema.getFullName()))
-                    .findFirst()
-                    .get();
-                return new DataProcessInfo(aspect.data());
+            if (maybeAspect != null) {
+                return new DataProcessInfo(maybeAspect.data());
             }
             throw RestliUtils.resourceNotFoundException();
         });

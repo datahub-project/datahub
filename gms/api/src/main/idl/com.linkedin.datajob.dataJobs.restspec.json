@@ -1,4 +1,7 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dataJobs",
   "namespace" : "com.linkedin.datajob",
   "path" : "/dataJobs",
