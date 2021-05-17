@@ -4,13 +4,16 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class RelationshipFieldSpecExtractor implements SchemaVisitor {
@@ -23,6 +26,8 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
     return _specs;
   }
 
+  SchemaAnnotationProcessor.SchemaAnnotationProcessResult _processedSchema;
+
   @Override
   public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
     if (DataSchemaTraverse.Order.POST_ORDER.equals(order)) {
@@ -30,7 +35,17 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
       if (currentSchema.isComplex()) {
         // Case 1: Relationship Annotation on BaseRelationship Object.
-        final Object annotationObj = currentSchema.getProperties().get(RELATIONSHIP_ANNOTATION_NAME);
+        Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
+
+        try {
+          resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(context.getSchemaPathSpec()).toString(),
+              _processedSchema.getResultSchema());
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+
+        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME); //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
+
         if (annotationObj != null) {
           final ArrayDeque<String> modifiedPath = new ArrayDeque<>(context.getSchemaPathSpec());
           modifiedPath.add("entity"); // TODO: Validate that this field exists!
@@ -41,8 +56,17 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
         }
       } else {
         // Case 2: Relationship Annotation on Primitive or Array of Primitives
-        final RecordDataSchema.Field enclosingField = context.getEnclosingField();
-        final Object annotationObj = enclosingField.getProperties().get(RELATIONSHIP_ANNOTATION_NAME);
+
+        Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
+
+        try {
+          resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(context.getSchemaPathSpec()).toString(),
+              _processedSchema.getResultSchema());
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+
+        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME); //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
         if (annotationObj != null) {
           // TOOD: Validate that we are looking at a primitive / array of primitives.
@@ -53,6 +77,10 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
         }
       }
     }
+  }
+
+  public RelationshipFieldSpecExtractor(SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSchema) {
+    _processedSchema = processedSchema;
   }
 
   @Override

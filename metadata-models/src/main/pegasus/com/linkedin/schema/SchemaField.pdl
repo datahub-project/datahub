@@ -60,6 +60,12 @@ record SchemaField {
   /**
    * Tags associated with the field
    */
+  @Searchable = {
+      "/tags/*/tag": {
+        "fieldName": "field_tags",
+        "indexSettings": [{"indexType": "PARTIAL_SHORT"}]
+      }
+  }
   globalTags: optional GlobalTags
 
   /**

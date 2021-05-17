@@ -6,15 +6,31 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
+import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
+import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
 public class EntitySpecBuilder {
 
+  public static List<SchemaAnnotationHandler> _searchHandler = Arrays.asList(
+      new AspectSchemaAnnotationHandler("Searchable")
+  );
+
+  public static List<SchemaAnnotationHandler> _browseHandler = Arrays.asList(
+      new AspectSchemaAnnotationHandler("BrowsePath")
+  );
+
+  public static List<SchemaAnnotationHandler> _relationshipHandler = Arrays.asList(
+      new AspectSchemaAnnotationHandler("Relationship")
+  );
+
   private EntitySpecBuilder() {
+
   }
 
   public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema) {
@@ -75,26 +91,36 @@ public class EntitySpecBuilder {
       final AspectAnnotation aspectAnnotation =
           AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
 
+      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
+          SchemaAnnotationProcessor.process(_searchHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedRelationshipResult =
+          SchemaAnnotationProcessor.process(_relationshipHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedBrowseResult =
+          SchemaAnnotationProcessor.process(_browseHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+
       // Extract Searchable Field Specs
-      final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
+      final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor(processedSearchResult);
       final DataSchemaRichContextTraverser searchableFieldSpecTraverser =
           new DataSchemaRichContextTraverser(searchableFieldSpecExtractor);
       searchableFieldSpecTraverser.traverse(aspectRecordSchema);
 
       // Extract Relationship Field Specs
-      final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor = new RelationshipFieldSpecExtractor();
+      final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor = new RelationshipFieldSpecExtractor(processedRelationshipResult);
       final DataSchemaRichContextTraverser relationshipFieldSpecTraverser =
           new DataSchemaRichContextTraverser(relationshipFieldSpecExtractor);
       relationshipFieldSpecTraverser.traverse(aspectRecordSchema);
 
       // Extract Browsable Field Specs
-      final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor();
+      final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor(processedBrowseResult);
       final DataSchemaRichContextTraverser browsePathFieldSpecTraverser =
           new DataSchemaRichContextTraverser(browsePathFieldSpecExtractor);
       browsePathFieldSpecTraverser.traverse(aspectRecordSchema);
 
       return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
           relationshipFieldSpecExtractor.getSpecs(), browsePathFieldSpecExtractor.getSpecs(), aspectRecordSchema);
+
     }
     // TODO: Replace with exception once we are ready.
     System.out.println(
