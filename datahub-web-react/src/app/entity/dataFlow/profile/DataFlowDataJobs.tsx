@@ -1,7 +1,7 @@
 import { List, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DataJob, EntityType } from '../../../../types.generated';
+import { EntityType, DataJobEntityRelationship } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
@@ -14,16 +14,16 @@ const DataJobItem = styled(List.Item)`
 `;
 
 export type Props = {
-    dataJobs?: DataJob[] | null;
+    dataJobs?: (DataJobEntityRelationship | null)[] | null;
 };
 
 export default function DataFlowDataJobs({ dataJobs }: Props) {
     const entityRegistry = useEntityRegistry();
-
+    const dataJobsSource = dataJobs?.filter((d) => !!d?.entity).map((d) => d?.entity);
     return (
         <DataJobsList
             bordered
-            dataSource={dataJobs || []}
+            dataSource={dataJobsSource || []}
             header={<Typography.Title level={3}>DataJobs</Typography.Title>}
             renderItem={(item) => (
                 <DataJobItem>{entityRegistry.renderPreview(EntityType.DataJob, PreviewType.PREVIEW, item)}</DataJobItem>

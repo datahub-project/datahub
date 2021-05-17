@@ -51,17 +51,17 @@ dependencies {
   integTestCompile externalDependency.junitJupiterParams
 }
 
-task integrationTest(type: Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-  useJUnitPlatform()
-
-  testClassesDirs = sourceSets.integTest.output.classesDirs
-  classpath = sourceSets.integTest.runtimeClasspath
-  shouldRunAfter test
-}
-
-check.dependsOn integrationTest
+//task integrationTest(type: Test) {
+//  description = 'Runs integration tests.'
+//  group = 'verification'
+//  useJUnitPlatform()
+//
+//  testClassesDirs = sourceSets.integTest.output.classesDirs
+//  classpath = sourceSets.integTest.runtimeClasspath
+//  shouldRunAfter test
+//}
+//
+//check.dependsOn integrationTest
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

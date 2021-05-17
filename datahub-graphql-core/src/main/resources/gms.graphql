@@ -658,8 +658,20 @@ type DownstreamEntityRelationships {
     entities: [EntityRelationship]
 }
 
+type DataJobEntityRelationship {
+    """
+    An AuditStamp corresponding to the last modification of this relationship
+    """
+    created: AuditStamp
+
+    """
+    Entity that is related via lineage
+    """
+    entity: DataJob
+}
+
 type DataFlowDataJobsRelationships {
-    entities: [EntityRelationship]
+    entities: [DataJobEntityRelationship]
 }
 
 type UpstreamLineage {

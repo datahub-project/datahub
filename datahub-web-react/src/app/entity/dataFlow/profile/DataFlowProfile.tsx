@@ -80,7 +80,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Tasks,
                 path: TabType.Tasks.toLowerCase(),
-                content: <DataFlowDataJobs dataJobs={dataJobs} />,
+                content: <DataFlowDataJobs dataJobs={dataJobs?.entities || []} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
