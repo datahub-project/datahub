@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
+import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import graphql.schema.idl.RuntimeWiring;
@@ -90,6 +91,9 @@ public class GmsGraphQLEngine {
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
+    public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
+            GmsClientFactory.getRelationshipsClient()
+    );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
 
     /**
@@ -114,7 +118,8 @@ public class GmsGraphQLEngine {
      */
     public static final List<LoadableType<?>> RELATIONSHIP_TYPES = ImmutableList.of(
             DOWNSTREAM_LINEAGE_TYPE,
-            UPSTREAM_LINEAGE_TYPE
+            UPSTREAM_LINEAGE_TYPE,
+            DATAFLOW_DATAJOBS_TYPE
     );
 
     /**
@@ -471,11 +476,9 @@ public class GmsGraphQLEngine {
             )
             .type("DataFlow", typeWiring -> typeWiring
                     .dataFetcher("dataJobs", new AuthenticatedResolver<>(
-                            new LoadableTypeBatchResolver<>(
-                                    DATA_JOB_TYPE,
-                                    (env) -> ((DataFlow) env.getSource()).getDataJobs().stream()
-                                            .map(DataJob::getUrn)
-                                            .collect(Collectors.toList()))
+                            new LoadableTypeResolver<>(
+                                    DATAFLOW_DATAJOBS_TYPE,
+                                    (env) -> ((Entity) env.getSource()).getUrn())
                             )
                     )
             )

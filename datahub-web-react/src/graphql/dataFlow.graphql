@@ -26,9 +26,12 @@ query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
         dataJobs {
-            urn
-            type
-            jobId
+            entities {
+                entity {
+                    urn
+                    type
+                }
+            }
         }
     }
 }

@@ -658,6 +658,10 @@ type DownstreamEntityRelationships {
     entities: [EntityRelationship]
 }
 
+type DataFlowDataJobsRelationships {
+    entities: [EntityRelationship]
+}
+
 type UpstreamLineage {
     """
     List of upstream datasets
@@ -2249,7 +2253,7 @@ type DataFlow implements Entity {
     """
     DataJobs
     """
-    dataJobs: [DataJob!]
+    dataJobs: DataFlowDataJobsRelationships
 }
 
 type DataFlowInfo {
