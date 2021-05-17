@@ -12,6 +12,10 @@ from datahub_provider.hooks.datahub import (
 
 
 class DatahubBaseOperator(BaseOperator):
+    """
+    The DatahubBaseOperator is used as a base operator all DataHub operators.
+    """
+
     ui_color = "#4398c8"
 
     hook: Union[DatahubRestHook, DatahubKafkaHook]
@@ -33,6 +37,14 @@ class DatahubBaseOperator(BaseOperator):
 
 
 class DatahubEmitterOperator(DatahubBaseOperator):
+    """
+    Emits a Metadata Change Event to DataHub using either a DataHub
+    Rest or Kafka connection.
+
+    :param datahub_conn_id: Reference to the DataHub Rest or Kafka Connection.
+    :type datahub_conn_id: str
+    """
+
     # See above for why these mypy type issues are ignored here.
     @apply_defaults  # type: ignore[misc]
     def __init__(  # type: ignore[no-untyped-def]
