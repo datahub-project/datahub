@@ -1,12 +1,11 @@
 import { List, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType, DataJobEntityRelationship } from '../../../../types.generated';
+import { EntityType, EntityRelationship } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
 const DataJobsList = styled(List)`
-    margin-top: 12px;
     padding: 16px 32px;
 `;
 const DataJobItem = styled(List.Item)`
@@ -14,7 +13,7 @@ const DataJobItem = styled(List.Item)`
 `;
 
 export type Props = {
-    dataJobs?: (DataJobEntityRelationship | null)[] | null;
+    dataJobs?: (EntityRelationship | null)[] | null;
 };
 
 export default function DataFlowDataJobs({ dataJobs }: Props) {

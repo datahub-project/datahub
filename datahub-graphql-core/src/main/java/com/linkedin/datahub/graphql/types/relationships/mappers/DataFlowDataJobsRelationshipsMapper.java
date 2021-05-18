@@ -20,7 +20,7 @@ public class DataFlowDataJobsRelationshipsMapper implements
     public DataFlowDataJobsRelationships apply(@Nonnull final com.linkedin.common.EntityRelationships input) {
         final DataFlowDataJobsRelationships result = new DataFlowDataJobsRelationships();
         result.setEntities(input.getEntities().stream().map(
-            DataJobEntityRelationshipMapper::map
+            EntityRelationshipMapper::map
         ).collect(Collectors.toList()));
         return result;
     }

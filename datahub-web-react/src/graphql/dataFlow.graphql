@@ -30,32 +30,9 @@ query getDataFlow($urn: String!) {
                 entity {
                     urn
                     type
-                    jobId
-                    ownership {
-                        ...ownershipFields
-                    }
-                    inputOutput {
-                        inputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                        outputDatasets {
-                            ...nonRecursiveDatasetFields
-                        }
-                        inputDatajobs {
-                            urn
-                        }
-                    }
-                    info {
-                        name
-                        description
-                        externalUrl
-                        customProperties {
-                            key
-                            value
-                        }
-                    }
-                    globalTags {
-                        ...globalTagsFields
+                    ... on DataJob {
+                        ...dataJobFields
+                        ...shallowLineageFields
                     }
                 }
             }
