@@ -8,6 +8,7 @@ import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,8 +35,14 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
         Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
 
         try {
-          resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(context.getSchemaPathSpec()).toString(),
-              _processedSchema.getResultSchema());
+          if (context.getSchemaPathSpec().size() != 0) {
+            ArrayDeque<String> clonedPath = context.getSchemaPathSpec().clone();
+            if (context.getSchemaPathSpec().getLast().equals("string")) {
+              clonedPath.removeLast();
+            }
+            resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(clonedPath).toString(),
+                _processedSchema.getResultSchema());
+          }
         } catch (Exception e) {
           e.printStackTrace();
         }

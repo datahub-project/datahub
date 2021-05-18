@@ -1,10 +1,22 @@
 package com.linkedin.entity.client;
 
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
+import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
+import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
+import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
+import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.dao.RemoteEntityDao;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
@@ -19,6 +31,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
 
 public class EntityClient {
@@ -74,10 +89,104 @@ public class EntityClient {
         return response;
     }
 
+    /**
+     * Gets browse snapshot of a given path
+     *
+     * @param query search query
+     * @param field field of the dataset
+     * @param requestFilters autocomplete filters
+     * @param limit max number of autocomplete results
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public AutoCompleteResult autoComplete(@Nonnull String query, @Nonnull String field,
+        @Nonnull Map<String, String> requestFilters,
+        @Nonnull int limit) throws RemoteInvocationException {
+        EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
+            .actionAutocomplete()
+            .queryParam(query)
+            .fieldParam(field)
+            .filterParam(newFilter(requestFilters))
+            .limitParam(limit);
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Gets browse snapshot of a given path
+     *
+     * @param path path being browsed
+     * @param requestFilters browse filters
+     * @param start start offset of first dataset
+     * @param limit max number of datasets
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
+        int start, int limit) throws RemoteInvocationException {
+        EntitiesDoBrowseRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
+            .actionBrowse()
+            .pathParam(path)
+            .startParam(start)
+            .limitParam(limit);
+        if (requestFilters != null) {
+            requestBuilder.filterParam(newFilter(requestFilters));
+        }
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
     public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
         // TODO: Consolidate Dao and Client --> Why have 2?
         _writeDao.create(entity);
     }
-    // TODO: Add Search, Browse here also.
-}
 
+    /**
+     * Searches for datasets matching to a given query and filters
+     *
+     * @param input search query
+     * @param requestFilters search filters
+     * @param start start offset for search results
+     * @param count max number of search results requested
+     * @return Snapshot key
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nonnull Map<String, String> requestFilters,
+        int start, int count) throws RemoteInvocationException {
+
+        // TODO(Gabe): Remove this because search is supposed to take an optional sort criterion
+        SortCriterion sortCriterion = new SortCriterion();
+        sortCriterion.setOrder(SortOrder.ASCENDING);
+        sortCriterion.setField("name");
+        return search(entity, input, null, requestFilters, sortCriterion, start, count);
+    }
+
+    @Nonnull
+    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable StringArray aspectNames,
+        @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+        throws RemoteInvocationException {
+
+        final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
+            .entityParam(entity)
+            .inputParam(input)
+            .filterParam(newFilter(requestFilters))
+            .sortParam(sortCriterion)
+            .startParam(start)
+            .countParam(count);
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+
+    /**
+     * Gets browse path(s) given dataset urn
+     *
+     * @param urn urn for the entity
+     * @return list of paths given urn
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+        EntitiesDoGetBrowsePathsRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
+            .actionGetBrowsePaths()
+            .urnParam(urn);
+        return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    }
+}
