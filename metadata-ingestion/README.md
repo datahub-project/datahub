@@ -37,8 +37,16 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                                      | Console sink                        |
 | athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| dbt           | _no additional dependencies_                               | DBT source                          |
+| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
@@ -47,13 +55,6 @@ We use a plugin architecture so that you can install only the dependencies you a
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt           | _no additional dependencies_                               | DBT source                          |
 | datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
 | datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 

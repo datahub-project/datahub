@@ -69,25 +69,25 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
+    "feast": {"feast>=0.10.4"},
+    "glue": {"boto3"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.6"
     },
+    "ldap": {"python-ldap>=2.4"},
+    "looker": {"looker-sdk==21.6.0"},
+    "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
+    "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "oracle": sql_common | {"cx_Oracle"},
-    "ldap": {"python-ldap>=2.4"},
-    "looker": {"looker-sdk==21.6.0"},
-    "druid": sql_common | {"pydruid>=0.6.2"},
-    "mongodb": {"pymongo>=3.11"},
-    "feast": {"feast>=0.10.4"},
     "superset": {"requests"},
-    "glue": {"boto3"},
 }
 if is_py37_or_newer:
     plugins["lookml"] = {"lkml>=1.1.0", "sql-metadata==1.12.0"}
@@ -156,13 +156,13 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
-        "feast = datahub.ingestion.source.feast:FeastSource",
         "mssql = datahub.ingestion.source.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.mysql:MySQLSource",
         "oracle = datahub.ingestion.source.oracle:OracleSource",
