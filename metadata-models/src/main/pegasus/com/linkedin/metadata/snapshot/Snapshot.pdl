@@ -12,6 +12,7 @@ typeref Snapshot = union[
   DataJobSnapshot,
   DatasetSnapshot,
   DataProcessSnapshot,
+  DataPlatformSnapshot,
   MLModelSnapshot,
   MLFeatureSnapshot,
   TagSnapshot,

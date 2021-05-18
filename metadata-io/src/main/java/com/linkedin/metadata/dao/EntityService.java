@@ -152,6 +152,29 @@ public class EntityService {
         .orElse(null);
   }
 
+  @Nonnull
+  public ListResult<RecordTemplate> listAspects(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final int start,
+      @Nonnull int count) {
+
+    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(aspectName, start, count);
+    final List<RecordTemplate> aspects = aspectMetadataList.getValues()
+        .stream()
+        .map(aspectMetadata -> toAspectRecord(entityName, aspectName, aspectMetadata))
+        .collect(Collectors.toList());
+    return new ListResult<>(
+        aspects,
+        aspectMetadataList.getMetadata(),
+        aspectMetadataList.getNextStart(),
+        aspectMetadataList.isHavingMore(),
+        aspectMetadataList.getTotalCount(),
+        aspectMetadataList.getTotalPageCount(),
+        aspectMetadataList.getPageSize()
+    );
+  }
+
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
     // TODO: Make this more efficient.
     for (final Entity entity : entities) {
@@ -237,8 +260,14 @@ public class EntityService {
     return newValue;
   }
 
-  private void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
+  @Value
+  private static class AddAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
+  }
 
+  private void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
     // First, try to create a new and an old snapshot.
     final Snapshot newSnapshot = buildSnapshot(urn, newValue);
     Snapshot oldSnapshot = null;
@@ -252,13 +281,6 @@ public class EntityService {
     if (_emitAspectSpecificAuditEvent) {
       _kafkaProducer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
     }
-  }
-
-  @Value
-  private static class AddAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
@@ -336,22 +358,6 @@ public class EntityService {
   @Nonnull
   private static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
     return RecordUtils.toJsonString(aspectRecord);
-  }
-
-  @Nonnull
-  private static AuditStamp toAuditStamp(@Nonnull final EbeanAspect aspect) {
-    final AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(aspect.getCreatedOn().getTime());
-
-    try {
-      auditStamp.setActor(new Urn(aspect.getCreatedBy()));
-      if (aspect.getCreatedFor() != null) {
-        auditStamp.setImpersonator(new Urn(aspect.getCreatedFor()));
-      }
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-    return auditStamp;
   }
 
   private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {

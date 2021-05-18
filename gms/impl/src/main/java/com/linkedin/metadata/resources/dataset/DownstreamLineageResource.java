@@ -76,8 +76,8 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
           EMPTY_FILTER,
           ImmutableList.of("DownstreamOf"),
           createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-          0, MAX_DOWNSTREAM_CNT
-
+          0,
+          MAX_DOWNSTREAM_CNT
       ).stream().map(urnStr -> {
         try {
           return DatasetUrn.createFromString(urnStr);
