@@ -11,7 +11,7 @@ test_client = Client(core_url="localhost:6565")
 # create dummy entity since Feast demands it
 entity = Entity(
     name="dummy_entity",
-    description="Driver entity for car rides",
+    description="Dummy entity",
     value_type=ValueType.STRING,
     labels={"key": "val"},
 )
@@ -27,8 +27,8 @@ batch_source = FileSource(
     date_partition_column="date_partition_col",
 )
 
-ft1 = FeatureTable(
-    name="my_feature_table_1",
+table = FeatureTable(
+    name="test_feature_table",
     features=[
         Feature(name="test_BYTES_feature", dtype=ValueType.BYTES),
         Feature(name="test_STRING_feature", dtype=ValueType.STRING),
@@ -50,7 +50,7 @@ ft1 = FeatureTable(
     batch_source=batch_source,
 )
 
-test_client.apply(ft1)
+test_client.apply(table)
 
 for table in test_client.list_feature_tables():
 
