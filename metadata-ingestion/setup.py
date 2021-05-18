@@ -85,6 +85,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": {"looker-sdk==21.6.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "feast": {"feast>=0.10.4"},
     "superset": {"requests"},
     "glue": {"boto3"},
 }
@@ -117,6 +118,7 @@ base_dev_requirements = {
             "mysql",
             "mssql",
             "mongodb",
+            "feast",
             "ldap",
             "looker",
             "glue",
@@ -160,6 +162,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
         "mssql = datahub.ingestion.source.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.mysql:MySQLSource",
         "oracle = datahub.ingestion.source.oracle:OracleSource",
