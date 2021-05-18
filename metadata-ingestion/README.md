@@ -596,7 +596,7 @@ Pull metadata from DBT output files:
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
   - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-- target_platform: 
+- target_platform:
   - The data platform you are enriching with DBT metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schema:
@@ -608,7 +608,7 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
-    target_platform: "postgres" # optional eg postgres, snowflake etc. 
+    target_platform: "postgres" # optional eg postgres, snowflake etc.
     load_schema: True / False
 ```
 
@@ -765,4 +765,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md).
+See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).
