@@ -1,0 +1,118 @@
+version: "3.7"
+
+services:
+  core:
+    image: gcr.io/kf-feast/feast-core:${FEAST_VERSION}
+    volumes:
+      - ${FEAST_CORE_CONFIG}:/etc/feast/application.yml
+    environment:
+      DB_HOST: db
+    restart: on-failure
+    depends_on:
+      - db
+    ports:
+      - 6565:6565
+    command:
+      - java
+      - -jar
+      - /opt/feast/feast-core.jar
+      - --spring.config.location=classpath:/application.yml,file:/etc/feast/application.yml
+
+  jobservice:
+    image: gcr.io/kf-feast/feast-jobservice:${FEAST_VERSION}
+    depends_on:
+      - core
+    ports:
+      - 6568:6568
+    volumes:
+      - $PWD:/shared
+    environment:
+      FEAST_CORE_URL: core:6565
+      FEAST_SERVING_URL: online_serving:6566
+      FEAST_SPARK_LAUNCHER: standalone
+      FEAST_SPARK_STANDALONE_MASTER: local
+      FEAST_SPARK_HOME: /usr/local/spark
+      FEAST_SPARK_STAGING_LOCATION: file:///shared/staging
+      FEAST_HISTORICAL_FEATURE_OUTPUT_LOCATION: file:///shared/historical_feature_output
+      FEAST_HISTORICAL_FEATURE_OUTPUT_FORMAT: parquet
+      FEAST_REDIS_HOST: redis
+      FEAST_SPARK_INGESTION_JAR: ${INGESTION_JAR_PATH}
+      FEAST_STATSD_ENABLED: "true"
+      FEAST_STATSD_HOST: prometheus_statsd
+      FEAST_STATSD_PORT: 9125
+
+  jupyter:
+    image: gcr.io/kf-feast/feast-jupyter:${FEAST_VERSION}
+    volumes:
+      - ${GCP_SERVICE_ACCOUNT}:/etc/gcloud/service-accounts/key.json
+      - $PWD:/shared
+    depends_on:
+      - core
+    environment:
+      FEAST_CORE_URL: core:6565
+      FEAST_SERVING_URL: online_serving:6566
+      FEAST_SPARK_LAUNCHER: standalone
+      FEAST_SPARK_STANDALONE_MASTER: local
+      FEAST_SPARK_HOME: /usr/local/spark
+      FEAST_SPARK_STAGING_LOCATION: file:///shared/staging
+      FEAST_HISTORICAL_FEATURE_OUTPUT_LOCATION: file:///shared/historical_feature_output
+      FEAST_HISTORICAL_FEATURE_OUTPUT_FORMAT: parquet
+      FEAST_REDIS_HOST: redis
+      GOOGLE_APPLICATION_CREDENTIALS: /etc/gcloud/service-accounts/key.json
+    ports:
+      - 8888:8888
+
+  kafka:
+    image: confluentinc/cp-kafka:5.2.1
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+
+    depends_on:
+      - zookeeper
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.2.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  db:
+    image: postgres:12-alpine
+    environment:
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  online_serving:
+    image: gcr.io/kf-feast/feast-serving:${FEAST_VERSION}
+    volumes:
+      - ${FEAST_ONLINE_SERVING_CONFIG}:/etc/feast/application.yml
+    depends_on:
+      - core
+      - redis
+    ports:
+      - 6566:6566
+    restart: on-failure
+    command:
+      - java
+      - -jar
+      - /opt/feast/feast-serving.jar
+      - --spring.config.location=classpath:/application.yml,file:/etc/feast/application.yml
+
+  redis:
+    image: redis:5-alpine
+    ports:
+      - "6379:6379"
+
+  prometheus_statsd:
+    image: prom/statsd-exporter:v0.12.1
+    ports:
+      - "9125:9125"
+      - "9102:9102"
