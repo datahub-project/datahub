@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { GlobalTags, Owner } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
-import TagGroup from '../shared/tags/TagGroup';
+import TagTermGroup from '../shared/tags/TagTermGroup';
 
 interface Props {
     name: string;
@@ -94,7 +94,7 @@ export default function DefaultPreviewCard({
                     <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
                     <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                 </Space>
-                <TagGroup editableTags={tags} maxShow={3} />
+                <TagTermGroup editableTags={tags} maxShow={3} />
             </Space>
         </Row>
     );

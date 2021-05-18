@@ -286,6 +286,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 type GlossaryTerm implements Entity {
@@ -604,6 +609,10 @@ type SchemaField {
     Tags associated with the field
     """
     globalTags: GlobalTags
+    """
+    Glossary terms associated with the field
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 type EditableSchemaMetadata {
@@ -1036,6 +1045,14 @@ type TagAssociation {
 
 type GlobalTags {
     tags: [TagAssociation!]
+}
+
+type GlossaryTerms {
+    terms: [GlossaryTermAssociation!]
+}
+
+type GlossaryTermAssociation {
+    term: GlossaryTerm!
 }
 
 input SearchInput {

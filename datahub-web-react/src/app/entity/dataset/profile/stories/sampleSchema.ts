@@ -116,6 +116,21 @@ export const sampleSchemaWithTags: Schema = {
                     },
                 ],
             },
+            glossaryTerms: {
+                terms: [
+                    {
+                        term: {
+                            type: EntityType.GlossaryTerm,
+                            urn: 'urn:li:glossaryTerm:sample-glossary-term',
+                            name: 'sample-glossary-term',
+                            glossaryTermInfo: {
+                                definition: 'sample definition',
+                                termSource: 'sample term source',
+                            },
+                        },
+                    },
+                ],
+            },
         },
         {
             fieldPath: 'name',
