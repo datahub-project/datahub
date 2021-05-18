@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
@@ -25,9 +27,14 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataset.client.Datasets;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 
@@ -47,9 +54,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
 
-    private final Datasets _datasetsClient;
+    private final EntityClient _datasetsClient;
 
-    public DatasetType(final Datasets datasetsClient) {
+    public DatasetType(final EntityClient datasetsClient) {
         _datasetsClient = datasetsClient;
     }
 
@@ -76,17 +83,18 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 .collect(Collectors.toList());
 
         try {
-            final Map<DatasetUrn, com.linkedin.dataset.Dataset> datasetMap = _datasetsClient.batchGet(datasetUrns
+            final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.dataset.Dataset> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {
                 gmsResults.add(datasetMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
+                    .map(gmsDataset -> gmsDataset == null ? null : DatasetSnapshotMapper.map(
+                        gmsDataset.getValue().getDatasetSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
@@ -100,8 +108,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.dataset.Dataset> searchResult = _datasetsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, DatasetMapper::map);
+        final SearchResult searchResult = _datasetsClient.search("dataset", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -154,6 +162,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
 
+
         // TODO: Migrate inner mappers to InputModelMappers & remove
         // Create Audit Stamp
         final AuditStamp auditStamp = new AuditStamp();
@@ -174,7 +183,9 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         partialDataset.setLastModified(auditStamp);
 
         try {
-            _datasetsClient.update(DatasetUtils.getDatasetUrn(input.getUrn()), partialDataset);
+            Entity entity = new Entity();
+            entity.setValue(Snapshot.create(Datasets.toSnapshot(partialDataset.getUrn(), partialDataset)));
+            _datasetsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

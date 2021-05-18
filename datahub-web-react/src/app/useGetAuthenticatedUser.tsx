@@ -12,7 +12,7 @@ export function useGetAuthenticatedUser() {
     }
     const { data, error } = useGetUserQuery({ variables: { urn: userUrn } });
     if (error) {
-        throw new Error(`Could not fetch logged in user from cache. + ${error.message}`);
+        // throw new Error(`Could not fetch logged in user from cache. + ${error.message}`);
     }
     return data?.corpUser;
 }

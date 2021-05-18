@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
+import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
@@ -73,8 +74,8 @@ public class GmsGraphQLEngine {
 
     private static GraphQLEngine _engine;
 
-    public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getDatasetsClient());
-    public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getCorpUsersClient());
+    public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getEntitiesClient());
+    public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getEntitiesClient());
     public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getCorpGroupsClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getEntitiesClient(), GmsClientFactory.getChartsClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
@@ -303,6 +304,13 @@ public class GmsGraphQLEngine {
                         new EntityTypeResolver(
                                 ENTITY_TYPES.stream().collect(Collectors.toList()),
                                 (env) -> ((EntityRelationship) env.getSource()).getEntity()))
+                )
+            )
+            .type("SearchResult", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((SearchResult) env.getSource()).getEntity()))
                 )
             );
     }

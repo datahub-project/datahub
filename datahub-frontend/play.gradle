@@ -10,6 +10,7 @@ tasks.withType(PlayRun) {
 
 configurations {
   assets
+  all*.exclude group : 'ch.qos.logback'
 }
 
 dependencies {

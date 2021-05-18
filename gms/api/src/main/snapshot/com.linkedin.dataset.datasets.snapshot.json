@@ -314,7 +314,15 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "Searchable" : {
+        "/*/tag" : {
+          "fieldName" : "tags_override",
+          "indexSettings" : [ {
+            "indexType" : "PARTIAL_LONG"
+          } ]
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -991,7 +999,15 @@
                 "name" : "globalTags",
                 "type" : "com.linkedin.common.GlobalTags",
                 "doc" : "Tags associated with the field",
-                "optional" : true
+                "optional" : true,
+                "Searchable" : {
+                  "/tags/*/tag" : {
+                    "fieldName" : "field_tags",
+                    "indexSettings" : [ {
+                      "indexType" : "PARTIAL_SHORT"
+                    } ]
+                  }
+                }
               }, {
                 "name" : "glossaryTerms",
                 "type" : "com.linkedin.common.GlossaryTerms",
@@ -1099,7 +1115,15 @@
                 "name" : "globalTags",
                 "type" : "com.linkedin.common.GlobalTags",
                 "doc" : "Tags associated with the field",
-                "optional" : true
+                "optional" : true,
+                "Searchable" : {
+                  "/tags/tag" : {
+                    "fieldName" : "editable_field_tags",
+                    "indexSettings" : [ {
+                      "indexType" : "PARTIAL_SHORT"
+                    } ]
+                  }
+                }
               } ]
             }
           },
@@ -1878,11 +1902,14 @@
             }
           }
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "downstreamLineage",
           "namespace" : "com.linkedin.dataset",
           "path" : "/datasets/{dataset}/downstreamLineage",
           "schema" : "com.linkedin.dataset.DownstreamLineage",
-          "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.DownstreamLineageResource",
+          "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.DownstreamLineageResource",
           "simple" : {
             "supports" : [ "get" ],
             "methods" : [ {

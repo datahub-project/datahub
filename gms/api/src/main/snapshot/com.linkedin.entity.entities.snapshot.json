@@ -766,7 +766,15 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "Searchable" : {
+        "/*/tag" : {
+          "fieldName" : "tags_override",
+          "indexSettings" : [ {
+            "indexType" : "PARTIAL_LONG"
+          } ]
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -2542,7 +2550,15 @@
                           "name" : "globalTags",
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
-                          "optional" : true
+                          "optional" : true,
+                          "Searchable" : {
+                            "/tags/*/tag" : {
+                              "fieldName" : "field_tags",
+                              "indexSettings" : [ {
+                                "indexType" : "PARTIAL_SHORT"
+                              } ]
+                            }
+                          }
                         }, {
                           "name" : "glossaryTerms",
                           "type" : "com.linkedin.common.GlossaryTerms",
@@ -2645,7 +2661,15 @@
                           "name" : "globalTags",
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
-                          "optional" : true
+                          "optional" : true,
+                          "Searchable" : {
+                            "/tags/tag" : {
+                              "fieldName" : "editable_field_tags",
+                              "indexSettings" : [ {
+                                "indexType" : "PARTIAL_SHORT"
+                              } ]
+                            }
+                          }
                         } ]
                       }
                     },
