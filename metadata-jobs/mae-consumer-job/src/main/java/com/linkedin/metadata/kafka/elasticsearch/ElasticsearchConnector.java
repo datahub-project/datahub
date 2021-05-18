@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.elasticsearch;
 import com.linkedin.events.metadata.ChangeType;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequest;
@@ -14,6 +15,7 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 
+
 @Slf4j
 public class ElasticsearchConnector {
 
@@ -22,12 +24,12 @@ public class ElasticsearchConnector {
   private static final long DEFAULT_RETRY_INTERVAL = 1L;
 
   public ElasticsearchConnector(RestHighLevelClient elasticSearchRestClient, Integer bulkRequestsLimit,
-                                Integer bulkFlushPeriod) {
+      Integer bulkFlushPeriod) {
     initBulkProcessor(elasticSearchRestClient, bulkRequestsLimit, bulkFlushPeriod);
   }
 
   private void initBulkProcessor(RestHighLevelClient elasticSearchRestClient, Integer bulkRequestsLimit,
-                                 Integer bulkFlushPeriod) {
+      Integer bulkFlushPeriod) {
     BulkProcessor.Listener listener = new BulkProcessor.Listener() {
       @Override
       public void beforeBulk(long executionId, BulkRequest request) {
@@ -47,7 +49,8 @@ public class ElasticsearchConnector {
     };
 
     _bulkProcessor = BulkProcessor.builder(
-        (request, bulkListener) -> elasticSearchRestClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener), listener)
+        (request, bulkListener) -> elasticSearchRestClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
+        listener)
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(DEFAULT_RETRY_INTERVAL),
@@ -67,7 +70,9 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private static IndexRequest createIndexRequest(@Nonnull ElasticEvent event) {
-    return new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
+    return new IndexRequest(event.getIndex()).id(event.getId())
+        .source(event.buildJson())
+        .opType(DocWriteRequest.OpType.CREATE);
   }
 
   @Nonnull

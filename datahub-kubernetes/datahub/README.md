@@ -37,6 +37,7 @@ helm install datahub datahub/
 | mysqlSetupJob.enabled | bool | `false` | Enable setup job for mysql |
 | mysqlSetupJob.image.repository | string | `""` | Image repository for mysqlSetupJob |
 | mysqlSetupJob.image.tag | string | `""` | Image repository for mysqlSetupJob |
+| global.datahub_analytics_enabled | boolean | true | Enable datahub usage analytics |
 | global.datahub.appVersion | string | `"1.0"` | App version for annotation |
 | global.datahub.gms.port | string | `"8080"` | Port of GMS service |
 | global.elasticsearch.host | string | `"elasticsearch"` | Elasticsearch host name (endpoint) |

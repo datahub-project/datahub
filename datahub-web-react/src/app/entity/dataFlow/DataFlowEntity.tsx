@@ -55,6 +55,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
+                globalTags={data.globalTags}
             />
         );
     };
@@ -70,6 +71,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.orchestrator)}
                 owners={data.ownership?.owners}
+                globalTags={data.globalTags}
             />
         );
     };

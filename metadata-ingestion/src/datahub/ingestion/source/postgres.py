@@ -1,5 +1,6 @@
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
+import sqlalchemy.dialects.postgresql as custom_types
 
 # GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
 # activate it, we must import it so that it can hook into SQLAlchemy. While
@@ -8,7 +9,18 @@ import psycopg2  # noqa: F401
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BytesTypeClass,
+    MapTypeClass,
+)
+
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource, register_custom_type
+
+register_custom_type(custom_types.ARRAY, ArrayTypeClass)
+register_custom_type(custom_types.JSON, BytesTypeClass)
+register_custom_type(custom_types.JSONB, BytesTypeClass)
+register_custom_type(custom_types.HSTORE, MapTypeClass)
 
 
 class PostgresConfig(BasicSQLAlchemyConfig):
@@ -24,7 +36,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
 
 class PostgresSource(SQLAlchemySource):
     def __init__(self, config, ctx):
-        super().__init__(config, ctx, "postgresql")
+        super().__init__(config, ctx, "postgres")
 
     @classmethod
     def create(cls, config_dict, ctx):

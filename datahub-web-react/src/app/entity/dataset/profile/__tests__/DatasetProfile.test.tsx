@@ -42,4 +42,25 @@ describe('DatasetProfile', () => {
             'http://localhost/tag/urn:li:tag:abc-sample-tag',
         );
     });
+
+    it('renders business terms', async () => {
+        const { queryByText } = render(
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
+                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+                    <DatasetProfile urn="urn:li:dataset:3" />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(queryByText('sample-glossary-term')).toBeInTheDocument());
+
+        expect(queryByText('Tags & Terms')).toBeInTheDocument();
+    });
 });

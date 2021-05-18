@@ -1,6 +1,25 @@
 # Town Hall History
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
+
+## 4/23/2021
+[Full YouTube video](https://www.youtube.com/watch?v=dlFa4ubJ9ho)
+
+[Medium Digest](https://medium.com/datahub-project/linkedin-datahub-project-updates-2b0d26066b8f?source=friends_link&sk=686c47219ed294e0838ae3e2fe29084d)
+
+### Agenda
+
+- Welcome - 5 mins
+- Project Updates by Shirshanka - 10 mins
+   - 0.7.1 Release and callouts (dbt by Gary Lucas)
+   - Product Analytics design sprint announcement (Maggie Hayes)
+- Use-Case: DataHub at DefinedCrowd ([video](https://www.youtube.com/watch?v=qz5Rpmw8I5E)) by Pedro Silva - 15 mins 
+- Deep Dive + Demo: Lineage! Airflow, Superset integration ([video](https://www.youtube.com/watch?v=3wiaqhb8UR0)) by Harshal Sheth and Gabe Lyons - 10 mins
+- Use-Case: DataHub Hackathon at Depop ([video](https://www.youtube.com/watch?v=SmOMyFc-9J0)) by John Cragg - 10 mins
+- Observability Feedback share out - 5 mins
+- General Q&A and closing remarks - 5 mins
+
+
 ## 3/19/2021
  [YouTube video](https://www.youtube.com/watch?v=xE8Uc27VTG4) 
  

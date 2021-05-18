@@ -38,7 +38,7 @@ function findMin(arr) {
 
     for (let i = 0; i < n - 1; i++) {
         const m = arr[i + 1] - arr[i];
-        if (m < min && m > 0) {
+        if ((m < min && m > 0) || min === 0) {
             min = m;
         }
     }

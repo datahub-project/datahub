@@ -5,20 +5,23 @@ from typing import Iterator
 from unittest import mock
 
 import airflow.configuration
+import airflow.version
 import pytest
+from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag
 from airflow.models import TaskInstance as TI
 from airflow.utils.dates import days_ago
 
 try:
     from airflow.operators.dummy import DummyOperator
-except ImportError:
+except ModuleNotFoundError:
     from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
-from datahub.integrations.airflow.get_provider_info import get_provider_info
-from datahub.integrations.airflow.hooks import DatahubKafkaHook, DatahubRestHook
-from datahub.integrations.airflow.operators import DatahubEmitterOperator
+from datahub_provider import get_provider_info
+from datahub_provider.entities import Dataset
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
+from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -58,7 +61,9 @@ def test_airflow_provider_info():
 
 
 def test_dags_load_with_no_errors(pytestconfig):
-    airflow_examples_folder = pytestconfig.rootpath / "examples/airflow"
+    airflow_examples_folder = (
+        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+    )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
     assert dag_bag.import_errors == {}
@@ -70,23 +75,23 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
     # The return type should really by ContextManager, but mypy doesn't like that.
     # See https://stackoverflow.com/questions/49733699/python-type-hints-and-context-managers#comment106444758_58349659.
     with mock.patch(
-        "datahub.integrations.airflow.hooks.BaseHook.get_connection", return_value=conn
+        "datahub_provider.hooks.datahub.BaseHook.get_connection", return_value=conn
     ):
         yield conn
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host)
+        mock_emitter.assert_called_once_with(config.host, None)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub.integrations.airflow.hooks.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub_provider.hooks.datahub.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)
@@ -98,7 +103,7 @@ def test_datahub_kafka_hook(mock_emitter):
         instance.flush.assert_called_once()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         task = DatahubEmitterOperator(
@@ -134,36 +139,61 @@ def test_hook_airflow_ui(hook):
     hook.get_ui_field_behaviour()
 
 
-@mock.patch("datahub.integrations.airflow.operators.DatahubRestHook.emit_mces")
-def test_lineage_backend(mock_emit):
-    # Airflow 2.x does not have lineage backend support merged back in yet.
-    # As such, we must protect these imports.
-    from airflow.lineage import apply_lineage, prepare_lineage
-
-    from datahub.integrations.airflow.entities import Dataset
-
+@pytest.mark.parametrize(
+    ["inlets", "outlets"],
+    [
+        (
+            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
+            # We want the lineage backend to support this structure for backwards
+            # compatability reasons, so this test is not conditional.
+            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
+            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
+        ),
+        pytest.param(
+            # Airflow 2.x also supports a flattened list for inlets and outlets.
+            # We want to test this capability.
+            [Dataset("snowflake", "mydb.schema.tableConsumed")],
+            [Dataset("snowflake", "mydb.schema.tableProduced")],
+            marks=pytest.mark.skipif(
+                airflow.version.version.startswith("1"),
+                reason="list-style lineage is only supported in Airflow 2.x",
+            ),
+        ),
+    ],
+    ids=[
+        "airflow-1-10-x-decl",
+        "airflow-2-x-decl",
+    ],
+)
+@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
+def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
     with mock.patch.dict(
         os.environ,
         {
-            "AIRFLOW__LINEAGE__BACKEND": "datahub.integrations.airflow.DatahubAirflowLineageBackend",
+            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
             "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
+            "AIRFLOW__LINEAGE__DATAHUB_KWARGS": json.dumps(
+                {"graceful_exceptions": False}
+            ),
         },
-    ), patch_airflow_connection(datahub_rest_connection_config):
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(
+        "airflow.models.BaseOperator.xcom_push", autospec=True
+    ), patch_airflow_connection(
+        datahub_rest_connection_config
+    ):
         func = mock.Mock()
         func.__name__ = "foo"
 
         dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
 
         with dag:
-            op1 = DummyOperator(task_id="task1")
-
-        upstream = Dataset("snowflake", "mydb.schema.tableConsumed")
-        downstream = Dataset("snowflake", "mydb.schema.tableProduced")
-
-        op1.inlets.append(upstream)
-        op1.outlets.append(downstream)
+            op1 = DummyOperator(
+                task_id="task1",
+                inlets=inlets,
+                outlets=outlets,
+            )
 
         ti = TI(task=op1, execution_date=DEFAULT_DATE)
         ctx1 = {
@@ -180,6 +210,14 @@ def test_lineage_backend(mock_emit):
         post = apply_lineage(func)
         post(op1, ctx1)
 
+        # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
+        # or that our lineage backend forces it to.
+        assert len(op1.inlets) == 1
+        assert len(op1.outlets) == 1
+        assert all(map(lambda let: isinstance(let, Dataset), op1.inlets))
+        assert all(map(lambda let: isinstance(let, Dataset), op1.outlets))
+
+        # Check that the right things were emitted.
         mock_emit.assert_called_once()
         assert len(mock_emit.call_args[0][0]) == 4
         assert all(mce.validate() for mce in mock_emit.call_args[0][0])

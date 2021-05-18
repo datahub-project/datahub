@@ -23,6 +23,9 @@ query getBrowseResults($input: BrowseInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                globalTags {
+                    ...globalTagsFields
+                }
             }
             ... on Dashboard {
                 urn
@@ -40,6 +43,25 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 ownership {
                     ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+            ... on GlossaryTerm {
+                name
+                ownership {
+                    ...ownershipFields
+                }
+                glossaryTermInfo {
+                    definition
+                    termSource
+                    sourceRef
+                    sourceUrl
+                    customProperties {
+                        key
+                        value
+                    }
                 }
             }
             ... on Chart {
@@ -60,6 +82,9 @@ query getBrowseResults($input: BrowseInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                globalTags {
+                    ...globalTagsFields
+                }
             }
             ... on DataFlow {
                 urn
@@ -74,6 +99,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 ownership {
                     ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
                 }
             }
         }

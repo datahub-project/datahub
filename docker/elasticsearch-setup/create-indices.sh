@@ -2,6 +2,9 @@
 
 set -e
 
+: ${DATAHUB_ANALYTICS_ENABLED:=true}
+: ${USE_AWS_ELASTICSEARCH:=false}
+
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
@@ -122,13 +125,48 @@ function create_index() {
   fi
 }
 
+function create_datahub_usage_event_datastream() {
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_ilm/policy/datahub_usage_event_policy") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_policy"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_ilm/policy/datahub_usage_event_policy" -H 'Content-Type: application/json' --data @/index/usage-event/policy.json
+  else
+    echo -e "\ndatahub_usage_event_policy exists"
+  fi
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_index_template/datahub_usage_event_index_template") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_index_template"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_index_template/datahub_usage_event_index_template" -H 'Content-Type: application/json' --data @/index/usage-event/index_template.json
+  else
+    echo -e "\ndatahub_usage_event_index_template exists"
+  fi
+}
+
+function create_datahub_usage_event_aws_elasticsearch() {
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_ism/policies/datahub_usage_event_policy") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_policy"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_ism/policies/datahub_usage_event_policy" -H 'Content-Type: application/json' --data @/index/usage-event/aws_es_ism_policy.json
+  else
+    echo -e "\ndatahub_usage_event_policy exists"
+  fi
+  if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_template/datahub_usage_event_index_template") -eq 404 ]
+  then
+    echo -e "\ncreating datahub_usage_event_index_template"
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_template/datahub_usage_event_index_template" -H 'Content-Type: application/json' --data @/index/usage-event/aws_es_index_template.json
+    curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/datahub_usage_event-000001"  -H 'Content-Type: application/json' --data "{\"aliases\":{\"datahub_usage_event\":{\"is_write_index\":true}}}"
+  else
+    echo -e "\ndatahub_usage_event_index_template exists"
+  fi
+}
+
 function create_user() {
   ROLE="${INDEX_PREFIX}_access"
   if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles//$ELASTICSEARCH_USERNAME") -eq 404 ]
   then
     echo -e '\ncreating role' "${ROLE}"
     curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles/${ROLE}" -H 'Content-Type: application/json' \
-      -d "{\"index_permissions\":{\"index_patterns\":[\"${INDEX_PREFIX}*\"], \"allowed_actions\":[\"read\", \"write\"]}}"
+      -d "{\"index_permissions\":{\"index_patterns\":[\"${INDEX_PREFIX}_*\"], \"allowed_actions\":[\"read\", \"write\"]}}"
   else
     echo -e "\nrole exists"
   fi
@@ -142,6 +180,7 @@ function create_user() {
   fi
 }
 
+create_user || exit 1
 create_index $(get_index_name chartdocument) chart/settings.json chart/mappings.json || exit 1
 create_index $(get_index_name corpuserinfodocument) corp-user/settings.json corp-user/mappings.json  || exit 1
 create_index $(get_index_name dashboarddocument) dashboard/settings.json dashboard/mappings.json  || exit 1
@@ -151,4 +190,12 @@ create_index $(get_index_name dataprocessdocument) data-process/settings.json da
 create_index $(get_index_name datasetdocument) dataset/settings.json dataset/mappings.json || exit 1
 create_index $(get_index_name mlmodeldocument) ml-model/settings.json ml-model/mappings.json || exit 1
 create_index $(get_index_name tagdocument) tags/settings.json tags/mappings.json || exit 1
-}
+create_index $(get_index_name glossaryterminfodocument) glossary/term/settings.json glossary/term/mappings.json || exit 1
+create_index $(get_index_name glossarynodeinfodocument) glossary/node/settings.json glossary/node/mappings.json || exit 1
+if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
+  if [[ $USE_AWS_ELASTICSEARCH == false ]]; then
+    create_datahub_usage_event_datastream || exit 1
+  else
+    create_datahub_usage_event_aws_elasticsearch || exit 1
+  fi
+fi

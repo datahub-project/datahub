@@ -1,6 +1,6 @@
 # DataHub Demo Environment
 
-We have a hosted demo environment available, kindly provided by [Acryl](https://acryl.io/).
+We have a hosted demo environment available, kindly provided by [Acryl Data](https://acryl.io/).
 
 <p>
 <a

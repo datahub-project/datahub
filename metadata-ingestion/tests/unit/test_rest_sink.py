@@ -3,7 +3,7 @@ import json
 import pytest
 import requests
 
-import datahub.metadata as models
+import datahub.metadata.schema_classes as models
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
@@ -43,7 +43,7 @@ basicAuditStamp = models.AuditStampClass(
             ),
             "datasets",
             json.loads(
-                '{"snapshot": {"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)", "aspects": [{"com.linkedin.dataset.UpstreamLineage": {"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}}]}}'  # noqa: E501
+                '{"snapshot": {"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)", "aspects": [{"com.linkedin.dataset.UpstreamLineage": {"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}}]}}'
             ),
         ),
         (
@@ -91,7 +91,6 @@ basicAuditStamp = models.AuditStampClass(
                                 lastModified=basicAuditStamp,
                             ),
                             type=models.ChartTypeClass.SCATTER,
-                            customProperties={},
                         ),
                     ],
                 )
@@ -133,7 +132,6 @@ basicAuditStamp = models.AuditStampClass(
                             name="User Deletions",
                             description="Constructs the fct_users_deleted from logging_events",
                             type=models.AzkabanJobTypeClass.SQL,
-                            customProperties={},
                         )
                     ],
                 )

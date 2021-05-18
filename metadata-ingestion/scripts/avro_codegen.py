@@ -34,7 +34,9 @@ def generate(schema_file: str, outdir: str) -> None:
 
     write_schema_files(redo_spaces, outdir)
     suppress_checks_in_file(f"{outdir}/schema_classes.py")
-    suppress_checks_in_file(f"{outdir}/__init__.py")
+    with open(f"{outdir}/__init__.py", "w"):
+        # Truncate this file.
+        pass
 
 
 if __name__ == "__main__":

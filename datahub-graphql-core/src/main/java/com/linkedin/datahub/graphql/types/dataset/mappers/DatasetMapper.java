@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 /**
@@ -73,6 +74,9 @@ public class DatasetMapper implements ModelMapper<com.linkedin.dataset.Dataset, 
         }
         if (dataset.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(dataset.getGlobalTags()));
+        }
+        if (dataset.hasGlossaryTerms()) {
+            result.setGlossaryTerms(GlossaryTermsMapper.map(dataset.getGlossaryTerms()));
         }
         return result;
     }
