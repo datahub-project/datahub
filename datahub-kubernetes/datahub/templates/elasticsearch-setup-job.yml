@@ -56,8 +56,8 @@ spec:
             - name: ELASTICSEARCH_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: "{{ .Values.global.elasticsearch.auth.passwordSecretRef }}"
-                  key: "{{ .Values.global.elasticsearch.auth.passwordSecretKey }}"
+                  name: "{{ .password.secretRef }}"
+                  key: "{{ .password.secretKey }}"
             {{- end }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
