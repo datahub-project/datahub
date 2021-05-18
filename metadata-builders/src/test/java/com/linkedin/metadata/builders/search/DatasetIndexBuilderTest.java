@@ -183,6 +183,7 @@ public class DatasetIndexBuilderTest {
   public void schemaMetadata() {
     // given
     final SchemaFieldArray schemaFieldArray = new SchemaFieldArray(new SchemaField().setFieldPath("foo.bar.baz")
+        .setDescription("test description")
         .setType(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new BooleanType())))
         .setNullable(false)
         .setNativeDataType("boolean")
@@ -191,8 +192,11 @@ public class DatasetIndexBuilderTest {
     final SchemaMetadata schemaMetadata = new SchemaMetadata().setFields(schemaFieldArray);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, schemaMetadata)));
-    final DatasetDocument expectedDocument1 =
-        new DatasetDocument().setUrn(datasetUrn).setHasSchema(true).setFieldPaths(new StringArray("foo.bar.baz"));
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn)
+        .setHasSchema(true)
+        .setFieldPaths(new StringArray("foo.bar.baz"))
+        .setFieldDescriptions(new StringArray("test description"))
+        .setFieldTags(new StringArray());
     final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)
@@ -213,8 +217,7 @@ public class DatasetIndexBuilderTest {
     final Status status = new Status().setRemoved(true);
     final DatasetSnapshot datasetSnapshot = ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn,
         Collections.singletonList(ModelUtils.newAspectUnion(DatasetAspect.class, status)));
-    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn)
-        .setRemoved(true);
+    final DatasetDocument expectedDocument1 = new DatasetDocument().setUrn(datasetUrn).setRemoved(true);
     final DatasetDocument expectedDocument2 = new DatasetDocument().setUrn(datasetUrn)
         .setBrowsePaths(new StringArray("/prod/foo/bar"))
         .setOrigin(FabricType.PROD)

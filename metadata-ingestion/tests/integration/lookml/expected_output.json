@@ -1,0 +1,138 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:looker_views, my_view, PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                            "upstreams": [
+                                {
+                                    "auditStamp": {
+                                        "time": 1615443388000,
+                                        "actor": "urn:li:corpuser:etl",
+                                        "impersonator": null
+                                    },
+                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,my_table,PROD)",
+                                    "type": "TRANSFORMED"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "my_view",
+                            "platform": "looker_views",
+                            "version": 0,
+                            "created": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            },
+                            "deleted": null,
+                            "dataset": null,
+                            "cluster": null,
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                    "rawSchema": "looker-view"
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "country",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": "Dimension. The country",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "string",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null
+                                },
+                                {
+                                    "fieldPath": "city",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": "Dimension. City",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "string",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null
+                                },
+                                {
+                                    "fieldPath": "is_latest",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": "Dimension. Is latest data",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "yesno",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null
+                                },
+                                {
+                                    "fieldPath": "timestamp",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": "Dimension Group. Timestamp of measurement",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "time",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null
+                                },
+                                {
+                                    "fieldPath": "average_measurement",
+                                    "jsonPath": null,
+                                    "nullable": false,
+                                    "description": "Measure. My measurement",
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "average",
+                                    "recursive": false,
+                                    "globalTags": null,
+                                    "glossaryTerms": null
+                                }
+                            ],
+                            "primaryKeys": [],
+                            "foreignKeysSpecs": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+    ]

@@ -37,15 +37,7 @@ export const Preview = ({
             platform={capitalPlatformName}
             qualifier={origin}
             tags={globalTags || undefined}
-            owners={
-                owners?.map((owner) => {
-                    return {
-                        urn: owner.owner.urn,
-                        name: owner.owner.info?.fullName || '',
-                        photoUrl: owner.owner.editableInfo?.pictureLink || '',
-                    };
-                }) || []
-            }
+            owners={owners}
             snippet={snippet}
         />
     );

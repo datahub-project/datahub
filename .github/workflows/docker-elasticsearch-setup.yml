@@ -42,7 +42,7 @@ jobs:
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
   push_to_registries:
-    name: Build and Push Docker Image to dockerhub and github registries
+    name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
     if: ${{ needs.setup.outputs.publish == 'true' }}
     needs: setup

@@ -13,6 +13,8 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "manifest_path": f"{test_resources_dir}/dbt_manifest.json",
                     "catalog_path": f"{test_resources_dir}/dbt_catalog.json",
+                    "target_platform": "dbt",
+                    "load_schemas": True,
                 },
             },
             "sink": {

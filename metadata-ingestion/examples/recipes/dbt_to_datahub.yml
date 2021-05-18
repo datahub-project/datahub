@@ -4,7 +4,8 @@ source:
   config:
     manifest_path: "./your/dbt/manifest.json"
     catalog_path: "./your/dbt/catalog.json"
-
+    target_platform: "[target data platform]"
+    load_schemas: True # or false
 sink:
   type: "datahub-rest"
   config:

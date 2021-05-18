@@ -139,6 +139,19 @@ query getSearchResults($input: SearchInput!) {
                         ...globalTagsFields
                     }
                 }
+                ... on GlossaryTerm {
+                    name
+                    glossaryTermInfo {
+                        definition
+                        termSource
+                        sourceRef
+                        sourceUrl
+                        customProperties {
+                            key
+                            value
+                        }
+                    }
+                }
             }
             matchedFields {
                 name

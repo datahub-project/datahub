@@ -11,6 +11,7 @@ type Props = {
     skills?: string[] | null;
     teams?: string[] | null;
     email?: string | null;
+    isGroup?: boolean;
 };
 
 const Row = styled.div`
@@ -30,11 +31,16 @@ const Skills = styled.div`
     margin-right: 32px;
 `;
 
-export default function UserHeader({ profileSrc, name, title, skills, teams, email }: Props) {
+export default function UserHeader({ profileSrc, name, title, skills, teams, email, isGroup = false }: Props) {
     return (
         <Row>
             <AvatarWrapper>
-                <CustomAvatar size={100} photoUrl={profileSrc || undefined} name={name || undefined} />
+                <CustomAvatar
+                    size={100}
+                    photoUrl={profileSrc || undefined}
+                    name={name || undefined}
+                    isGroup={isGroup}
+                />
             </AvatarWrapper>
             <div>
                 <Typography.Title level={3}>{name}</Typography.Title>
