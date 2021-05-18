@@ -2,7 +2,6 @@ package com.linkedin.metadata.builders.graph.relationship;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datajob.DataJobInfo;
-import com.linkedin.metadata.entity.DataJobEntity;
 import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.relationship.IsPartOf;
 

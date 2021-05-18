@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.relationships.mappers;
 
-import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.generated.DataJob;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.generated.DataJobEntityRelationship;
