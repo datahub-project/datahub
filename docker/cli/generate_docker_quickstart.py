@@ -19,7 +19,7 @@ mem_limits = {
     "datahub-gms": "850m",
     "datahub-mae-consumer": "256m",
     "datahub-mce-consumer": "384m",
-    "elasticsearch": "512m",
+    "elasticsearch": "1g",
 }
 
 

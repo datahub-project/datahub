@@ -53,22 +53,28 @@ def check() -> None:
 
 @docker.command()
 @click.option(
-    "--use-locally-generated-quickstart",
+    "--dev-mode-quickstart-path",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=False,
+    help="Use a local docker-compose file instead of pulling from GitHub",
+)
+@click.option(
+    "--dump-logs-on-failure",
     type=bool,
     is_flag=True,
     default=False,
-    help=f"Use the local {SIMPLE_QUICKSTART_COMPOSE_FILE} instead of pulling from GitHub",
+    help="If true, the docker-compose logs will be printed to console if something fails",
 )
-def quickstart(use_locally_generated_quickstart: bool) -> None:
+def quickstart(
+    dev_mode_quickstart_path: Optional[pathlib.Path], dump_logs_on_failure: bool
+) -> None:
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
         _print_issue_list_and_exit(issues, "Unable to run quickstart:")
 
-    if use_locally_generated_quickstart:
-        path = (
-            pathlib.Path(__file__) / f"../../../../../{SIMPLE_QUICKSTART_COMPOSE_FILE}"
-        ).resolve()
+    if dev_mode_quickstart_path:
+        path = dev_mode_quickstart_path
     else:
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
@@ -86,7 +92,7 @@ def quickstart(use_locally_generated_quickstart: bool) -> None:
     max_wait_time = datetime.timedelta(minutes=5)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
-    up_interval = datetime.timedelta(minutes=1)
+    up_interval = datetime.timedelta(seconds=30)
     up_attempts = 0
     while (datetime.datetime.now() - start_time) < max_wait_time:
         # Attempt to run docker-compose up every minute.
@@ -115,6 +121,12 @@ def quickstart(use_locally_generated_quickstart: bool) -> None:
             )
             log_file.write(ret.stdout)
 
+        if dump_logs_on_failure:
+            with open(log_file.name, "r") as logs:
+                click.echo("Dumping docker-compose logs:")
+                click.echo(logs.read())
+                click.echo()
+
         _print_issue_list_and_exit(
             issues,
             header="Unable to run quickstart - the following issues were detected:",
@@ -128,7 +140,7 @@ def quickstart(use_locally_generated_quickstart: bool) -> None:
     click.secho("✔ DataHub is now running", fg="green")
     click.secho(
         "Ingest some demo data using `datahub docker ingest-sample-data`,\n"
-        "or head to http://localhost:9002 to play around with the frontend.",
+        "or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.",
         fg="green",
     )
 

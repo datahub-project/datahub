@@ -21,6 +21,4 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
-(cd ../metadata-ingestion && ./scripts/codegen.sh)
-
 pytest -vv
