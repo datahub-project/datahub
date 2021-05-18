@@ -602,7 +602,7 @@ Pull metadata from DBT output files:
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
   - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-- target_platform: 
+- target_platform:
   - The data platform you are enriching with DBT metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schema:
@@ -614,7 +614,7 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
-    target_platform: "postgres" # optional eg postgres, snowflake etc. 
+    target_platform: "postgres" # optional eg postgres, snowflake etc.
     load_schema: True / False
 ```
 
@@ -701,7 +701,26 @@ transformers:
 
 :::tip
 
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`AddDatasetOwnership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+
+:::
+
+### `simple_add_dataset_tags`
+
+Adds a set of tags to every dataset.
+
+```yml
+transformers:
+  - type: "simple_add_dataset_tags"
+    config:
+      tag_urns:
+        - "urn:li:tag:NeedsDocumentation"
+        - "urn:li:tag:Legacy"
+```
+
+:::tip
+
+If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
 
 :::
 
