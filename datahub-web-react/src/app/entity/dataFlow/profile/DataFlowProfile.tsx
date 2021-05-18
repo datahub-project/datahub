@@ -9,7 +9,7 @@ import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -85,7 +85,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {data && data.dataFlow && (
                 <EntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataFlow?.globalTags as GlobalTags}
                             canAdd
                             canRemove

@@ -3,14 +3,16 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { BookOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType, GlobalTags, GlobalTagsUpdate } from '../../../types.generated';
+import { EntityType, GlobalTags, GlobalTagsUpdate, GlossaryTerms } from '../../../types.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
 import AddTagModal from './AddTagModal';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
+    glossaryTerms?: GlossaryTerms | null;
     canRemove?: boolean;
     canAdd?: boolean;
     updateTags?: (update: GlobalTagsUpdate) => Promise<any>;
@@ -22,7 +24,7 @@ const AddNewTag = styled(Tag)`
     cursor: pointer;
 `;
 
-export default function TagGroup({
+export default function TagTermGroup({
     uneditableTags,
     editableTags,
     canRemove,
@@ -30,6 +32,7 @@ export default function TagGroup({
     updateTags,
     onOpenModal,
     maxShow,
+    glossaryTerms,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -55,6 +58,12 @@ export default function TagGroup({
 
     return (
         <div>
+            {glossaryTerms?.terms?.map((term) => (
+                <Tag color="blue" closable={false}>
+                    {term.term.name}
+                    <BookOutlined style={{ marginLeft: '2%' }} />
+                </Tag>
+            ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;

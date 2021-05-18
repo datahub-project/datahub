@@ -70,6 +70,9 @@ query getDataset($urn: String!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
             }
             primaryKeys
         }
@@ -93,6 +96,9 @@ query getDataset($urn: String!) {
         }
         downstreamLineage {
             ...downstreamRelationshipFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
         }
         upstreamLineage {
             ...upstreamRelationshipFields
