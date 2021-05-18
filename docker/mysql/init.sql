@@ -52,6 +52,14 @@ insert into metadata_aspect_v1 (urn, aspect, version, metadata, createdon, creat
   '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
   now(),
   'urn:li:principal:datahub'
+),
+(
+  'urn:li:dataPlatform:datahub',
+  'com.linkedin.dataplatform.CorpUserEditableInfo',
+  0,
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  now(),
+  'urn:li:principal:datahub'
 );
 
 -- create metadata index table
