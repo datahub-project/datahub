@@ -51,6 +51,8 @@ mysqlSetupJob:
     tag: "latest"
 
 global:
+  datahub_analytics_enabled: true
+
   elasticsearch:
     host: "elasticsearch"
     port: "9200"

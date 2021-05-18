@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+/**
+ * Related business terms information
+ */
+record GlossaryTerms {
+
+  /**
+   * The related business terms
+   */
+  terms: array[GlossaryTermAssociation]
+
+  /**
+   * Audit stamp containing who reported the related business term
+   */
+  auditStamp: AuditStamp
+}

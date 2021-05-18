@@ -1,10 +1,10 @@
-import { Avatar, Badge, Divider, Popover, Space, Typography } from 'antd';
+import { Badge, Divider, Popover, Space, Typography } from 'antd';
 import { ParagraphProps } from 'antd/lib/typography/Paragraph';
 import React from 'react';
 import styled from 'styled-components';
-import { Dataset, EntityType } from '../../../../types.generated';
+import { Dataset } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+import { AvatarsGroup } from '../../../shared/avatar';
 import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 
@@ -38,16 +38,7 @@ export default function DatasetHeader({ dataset: { description, ownership, depre
                     <Typography.Text strong>{platformName}</Typography.Text>
                 </Space>
                 <DescriptionText isCompact={isCompact}>{description}</DescriptionText>
-                <Avatar.Group maxCount={6} size="large">
-                    {ownership?.owners?.map((owner) => (
-                        <CustomAvatar
-                            key={owner.owner.urn}
-                            name={owner.owner.info?.fullName || undefined}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.owner.urn}`}
-                            photoUrl={owner.owner.editableInfo?.pictureLink || undefined}
-                        />
-                    ))}
-                </Avatar.Group>
+                <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
                 <div>
                     {deprecation?.deprecated && (
                         <Popover

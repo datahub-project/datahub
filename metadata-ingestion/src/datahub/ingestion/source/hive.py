@@ -1,7 +1,21 @@
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
+from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+    register_custom_type,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    DateTypeClass,
+    NumberTypeClass,
+    TimeTypeClass,
+)
+
+register_custom_type(HiveDate, DateTypeClass)
+register_custom_type(HiveTimestamp, TimeTypeClass)
+register_custom_type(HiveDecimal, NumberTypeClass)
 
 
 class HiveConfig(BasicSQLAlchemyConfig):
