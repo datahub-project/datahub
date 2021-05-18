@@ -30,7 +30,7 @@ task installDev(type: Exec, dependsOn: [environmentSetup, codegen]) {
 }
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && black --check src/ tests/ && isort --check-only src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
+    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
