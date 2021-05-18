@@ -18,6 +18,9 @@ import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
  */
 @Value
 public class SearchableAnnotation {
+
+  public static final String ANNOTATION_NAME = "Searchable";
+
   // Name of the field in the search index
   String fieldName;
   // Whether we should use the field for default autocomplete

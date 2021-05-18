@@ -168,11 +168,14 @@
           }
         }
       }, {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "downstreamLineage",
         "namespace" : "com.linkedin.dataset",
         "path" : "/datasets/{dataset}/downstreamLineage",
         "schema" : "com.linkedin.dataset.DownstreamLineage",
-        "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.DownstreamLineageResource",
+        "doc" : "Deprecated! Use {@link EntityResource} instead.\n\n Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.metadata.resources.dataset.DownstreamLineageResource",
         "simple" : {
           "supports" : [ "get" ],
           "methods" : [ {

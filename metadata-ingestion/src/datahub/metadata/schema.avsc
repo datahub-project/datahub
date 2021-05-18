@@ -644,7 +644,17 @@
                             ]
                           }
                         },
-                        "doc": "Tags associated with a given entity"
+                        "doc": "Tags associated with a given entity",
+                        "Searchable": {
+                          "/*/tag": {
+                            "fieldName": "tags_override",
+                            "indexSettings": [
+                              {
+                                "indexType": "PARTIAL_LONG"
+                              }
+                            ]
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
@@ -2607,7 +2617,17 @@
                                   "com.linkedin.pegasus2avro.common.GlobalTags"
                                 ],
                                 "doc": "Tags associated with the field",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "/tags/*/tag": {
+                                    "fieldName": "field_tags",
+                                    "indexSettings": [
+                                      {
+                                        "indexType": "PARTIAL_SHORT"
+                                      }
+                                    ]
+                                  }
+                                }
                               },
                               {
                                 "name": "glossaryTerms",
@@ -2803,7 +2823,17 @@
                                   "com.linkedin.pegasus2avro.common.GlobalTags"
                                 ],
                                 "doc": "Tags associated with the field",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "/tags/tag": {
+                                    "fieldName": "editable_field_tags",
+                                    "indexSettings": [
+                                      {
+                                        "indexType": "PARTIAL_SHORT"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
                             ]
                           }
@@ -2991,6 +3021,132 @@
             "browsable": true,
             "name": "dataProcess",
             "searchable": true
+          }
+        },
+        {
+          "type": "record",
+          "name": "DataPlatformSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "A metadata snapshot for a specific dataplatform entity.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.DataPlatformUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "DataPlatformKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for a Data Platform",
+                    "fields": [
+                      {
+                        "name": "platformName",
+                        "type": "string",
+                        "doc": "Data platform name i.e. hdfs, oracle, espresso"
+                      }
+                    ],
+                    "Aspect": {
+                      "isKey": true,
+                      "name": "dataPlatformKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "DataPlatformInfo",
+                    "namespace": "com.linkedin.pegasus2avro.dataplatform",
+                    "doc": "Information about a data platform",
+                    "fields": [
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the data platform",
+                        "validate": {
+                          "strlen": {
+                            "max": 15
+                          }
+                        }
+                      },
+                      {
+                        "name": "displayName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The name that will be used for displaying a platform type.",
+                        "default": null
+                      },
+                      {
+                        "name": "type",
+                        "type": {
+                          "type": "enum",
+                          "name": "PlatformType",
+                          "doc": "Platform types available at LinkedIn",
+                          "symbols": [
+                            "FILE_SYSTEM",
+                            "KEY_VALUE_STORE",
+                            "MESSAGE_BROKER",
+                            "OBJECT_STORE",
+                            "OLAP_DATASTORE",
+                            "OTHERS",
+                            "QUERY_ENGINE",
+                            "RELATIONAL_DB",
+                            "SEARCH_ENGINE"
+                          ],
+                          "symbolDocs": {
+                            "FILE_SYSTEM": "Value for a file system, e.g. hdfs",
+                            "KEY_VALUE_STORE": "Value for a key value store, e.g. espresso, voldemort",
+                            "MESSAGE_BROKER": "Value for a message broker, e.g. kafka",
+                            "OBJECT_STORE": "Value for an object store, e.g. ambry",
+                            "OLAP_DATASTORE": "Value for an OLAP datastore, e.g. pinot",
+                            "OTHERS": "Value for other platforms, e.g salesforce, dovetail",
+                            "QUERY_ENGINE": "Value for a query engine, e.g. presto",
+                            "RELATIONAL_DB": "Value for a relational database, e.g. oracle, mysql",
+                            "SEARCH_ENGINE": "Value for a search engine, e.g seas"
+                          }
+                        },
+                        "doc": "Platform type this data platform describes"
+                      },
+                      {
+                        "name": "datasetNameDelimiter",
+                        "type": "string",
+                        "doc": "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
+                      },
+                      {
+                        "name": "logoUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The URL for a logo associated with the platform",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "dataPlatformInfo"
+                    }
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the data platform. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "browsable": false,
+            "name": "dataPlatform",
+            "searchable": false
           }
         },
         {

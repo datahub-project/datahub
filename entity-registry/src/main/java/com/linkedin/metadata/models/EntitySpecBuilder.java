@@ -10,95 +10,118 @@ import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class EntitySpecBuilder {
 
-  public static List<SchemaAnnotationHandler> _searchHandler = Arrays.asList(
-      new AspectSchemaAnnotationHandler("Searchable")
-  );
+  private static final String URN_FIELD_NAME = "urn";
+  private static final String ASPECTS_FIELD_NAME = "aspects";
 
-  public static List<SchemaAnnotationHandler> _browseHandler = Arrays.asList(
-      new AspectSchemaAnnotationHandler("BrowsePath")
-  );
+  public static SchemaAnnotationHandler _searchHandler = new AspectSchemaAnnotationHandler(SearchableAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _browseHandler = new AspectSchemaAnnotationHandler("Browsable");
+  public static SchemaAnnotationHandler _relationshipHandler = new AspectSchemaAnnotationHandler(RelationshipAnnotation.ANNOTATION_NAME);
 
-  public static List<SchemaAnnotationHandler> _relationshipHandler = Arrays.asList(
-      new AspectSchemaAnnotationHandler("Relationship")
-  );
+  private EntitySpecBuilder() { }
 
-  private EntitySpecBuilder() {
-
+  public enum ValidationMode {
+    /**
+     * Warn if a model cannot be validated.
+     */
+    WARN,
+    /**
+     * Throw an exception if a model cannot be validated.
+     */
+    THROW,
   }
 
-  public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema) {
+  public static List<EntitySpec> buildEntitySpecs(final DataSchema snapshotSchema, final ValidationMode validationMode) {
 
     final UnionDataSchema snapshotUnionSchema = (UnionDataSchema) snapshotSchema.getDereferencedDataSchema();
     final List<UnionDataSchema.Member> unionMembers = snapshotUnionSchema.getMembers();
 
     final List<EntitySpec> entitySpecs = new ArrayList<>();
     for (final UnionDataSchema.Member member : unionMembers) {
-      final EntitySpec entitySpec = buildEntitySpec(member.getType());
+      final EntitySpec entitySpec = buildEntitySpec(member.getType(), validationMode);
       if (entitySpec != null) {
-        entitySpecs.add(buildEntitySpec(member.getType()));
+        entitySpecs.add(buildEntitySpec(member.getType(), validationMode));
       }
     }
     return entitySpecs;
   }
 
-  public static EntitySpec buildEntitySpec(final DataSchema entitySnapshotSchema) {
+  public static EntitySpec buildEntitySpec(final DataSchema entitySnapshotSchema, final ValidationMode validationMode) {
     // 0. Validate the Snapshot definition
-    final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
+    final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema, validationMode);
+
+    if (entitySnapshotRecordSchema == null) {
+      return null;
+    }
 
     // 1. Parse information about the entity from the "entity" annotation.
-    final Object entityAnnotationObj = entitySnapshotRecordSchema.getProperties().get("Entity");
+    final Object entityAnnotationObj = entitySnapshotRecordSchema.getProperties().get(EntityAnnotation.ANNOTATION_NAME);
 
     if (entityAnnotationObj != null) {
 
       final ArrayDataSchema aspectArraySchema =
-          (ArrayDataSchema) entitySnapshotRecordSchema.getField("aspects").getType().getDereferencedDataSchema();
+          (ArrayDataSchema) entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedDataSchema();
+
       final UnionDataSchema aspectUnionSchema =
           (UnionDataSchema) aspectArraySchema.getItems().getDereferencedDataSchema();
-      final List<UnionDataSchema.Member> unionMembers = aspectUnionSchema.getMembers();
 
+      final List<UnionDataSchema.Member> unionMembers = aspectUnionSchema.getMembers();
       final List<AspectSpec> aspectSpecs = new ArrayList<>();
-      for (UnionDataSchema.Member member : unionMembers) {
-        final AspectSpec spec = getAspectSpec(member.getType());
+      for (final UnionDataSchema.Member member : unionMembers) {
+        final AspectSpec spec = buildAspectSpec(member.getType(), validationMode);
         if (spec != null) {
           aspectSpecs.add(spec);
         }
       }
 
-      return new EntitySpec(aspectSpecs, EntityAnnotation.fromSchemaProperty(entityAnnotationObj),
-          entitySnapshotRecordSchema, (TyperefDataSchema) aspectArraySchema.getItems());
+      return new EntitySpec(
+          aspectSpecs,
+          EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotRecordSchema.getFullName()),
+          entitySnapshotRecordSchema,
+          (TyperefDataSchema) aspectArraySchema.getItems());
     }
-    // TODO: Replace with exception once we are ready.
-    System.out.println(
-        String.format("Warning: Could not build entity spec for entity with name %s. Missing @Entity annotation.",
-            entitySnapshotRecordSchema.getName()));
+
+    failValidation(String.format("Could not build entity spec for entity with name %s. Missing @%s annotation.",
+        entitySnapshotRecordSchema.getName(), EntityAnnotation.ANNOTATION_NAME), validationMode);
     return null;
   }
 
-  private static AspectSpec getAspectSpec(final DataSchema aspect) {
-    final RecordDataSchema aspectRecordSchema = validateAspect(aspect);
-    // #1 Understand whether we should traverse in using the @Aspect annotation.
-    final Object aspectAnnotationObj = aspectRecordSchema.getProperties().get("Aspect");
+  private static AspectSpec buildAspectSpec(final DataSchema aspectDataSchema, final ValidationMode validationMode) {
+
+    final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema, validationMode);
+
+    if (aspectRecordSchema == null) {
+      return null;
+    }
+
+    final Object aspectAnnotationObj = aspectRecordSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
 
     if (aspectAnnotationObj != null) {
 
       final AspectAnnotation aspectAnnotation =
-          AspectAnnotation.fromSchemaProperty(aspectAnnotationObj);
+          AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectRecordSchema.getFullName());
 
-      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
-          SchemaAnnotationProcessor.process(_searchHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
+          SchemaAnnotationProcessor.process(Collections.singletonList(_searchHandler),
+              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedRelationshipResult =
-          SchemaAnnotationProcessor.process(_relationshipHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedRelationshipResult =
+          SchemaAnnotationProcessor.process(Collections.singletonList(_relationshipHandler),
+              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedBrowseResult =
-          SchemaAnnotationProcessor.process(_browseHandler, aspect, new SchemaAnnotationProcessor.AnnotationProcessOption());
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedBrowseResult =
+          SchemaAnnotationProcessor.process(Collections.singletonList(_browseHandler),
+              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor(processedSearchResult);
@@ -118,51 +141,76 @@ public class EntitySpecBuilder {
           new DataSchemaRichContextTraverser(browsePathFieldSpecExtractor);
       browsePathFieldSpecTraverser.traverse(aspectRecordSchema);
 
-      return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
-          relationshipFieldSpecExtractor.getSpecs(), browsePathFieldSpecExtractor.getSpecs(), aspectRecordSchema);
-
+      return new AspectSpec(
+          aspectAnnotation,
+          searchableFieldSpecExtractor.getSpecs(),
+          relationshipFieldSpecExtractor.getSpecs(),
+          browsePathFieldSpecExtractor.getSpecs(),
+          aspectRecordSchema);
     }
-    // TODO: Replace with exception once we are ready.
-    System.out.println(
-        String.format("Warning: Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
-            aspectRecordSchema.getName()));
+
+    failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
+        aspectRecordSchema.getName()), validationMode);
     return null;
   }
 
-  private static RecordDataSchema validateSnapshot(final DataSchema entitySnapshotSchema) {
+  private static RecordDataSchema validateSnapshot(final DataSchema entitySnapshotSchema, final ValidationMode validationMode) {
     // 0. Validate that schema is a Record
     if (entitySnapshotSchema.getType() != DataSchema.Type.RECORD) {
-      throw new IllegalArgumentException(
-          String.format("Failed to validate entity snapshot schema of type %s. Schema must be of record type.",
-              entitySnapshotSchema.getType().toString()));
+      failValidation(String.format("Failed to validate entity snapshot schema of type %s. Schema must be of record type.",
+          entitySnapshotSchema.getType().toString()), validationMode);
+      return null;
     }
+
     final RecordDataSchema entitySnapshotRecordSchema = (RecordDataSchema) entitySnapshotSchema;
 
     // 1. Validate Urn field
-    if (entitySnapshotRecordSchema.getField("urn") == null
-        || entitySnapshotRecordSchema.getField("urn").getType().getDereferencedType() != DataSchema.Type.STRING) {
-      throw new IllegalArgumentException(
-          String.format("Failed to validate entity snapshot schema with name %s. Invalid urn field.",
-              entitySnapshotRecordSchema.getName()));
+    if (entitySnapshotRecordSchema.getField(URN_FIELD_NAME) == null
+        || entitySnapshotRecordSchema.getField(URN_FIELD_NAME).getType().getDereferencedType() != DataSchema.Type.STRING) {
+      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid urn field.",
+          entitySnapshotRecordSchema.getName()), validationMode);
+      return null;
     }
 
-    // 2. Validate Aspect field
-    if (entitySnapshotRecordSchema.getField("aspects") == null
-        || entitySnapshotRecordSchema.getField("aspects").getType().getDereferencedType() != DataSchema.Type.ARRAY) {
-      throw new IllegalArgumentException(
-          String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field.",
-              entitySnapshotRecordSchema.getName()));
+    // 2. Validate Aspect Array
+    if (entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME) == null
+        || entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedType() != DataSchema.Type.ARRAY) {
+
+      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field found. 'aspects' should be an array of union type.",
+          entitySnapshotRecordSchema.getName()), validationMode);
+      return null;
     }
+
+    // 3. Validate Aspect Union
+    final ArrayDataSchema aspectArray = (ArrayDataSchema) entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedDataSchema();
+    if (aspectArray.getItems().getType() != DataSchema.Type.TYPEREF
+       || aspectArray.getItems().getDereferencedType() != DataSchema.Type.UNION) {
+
+      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field field. 'aspects' should be an array of union type.",
+          entitySnapshotRecordSchema.getName()), validationMode);
+      return null;
+    }
+
     return entitySnapshotRecordSchema;
   }
 
-  private static RecordDataSchema validateAspect(final DataSchema aspectSchema) {
+  private static RecordDataSchema validateAspect(final DataSchema aspectSchema, final ValidationMode validationMode) {
     // 0. Validate that schema is a Record
     if (aspectSchema.getType() != DataSchema.Type.RECORD) {
-      throw new IllegalArgumentException(
-          String.format("Failed to validate aspect schema of type %s. Schema must be of record type.",
-              aspectSchema.getType().toString()));
+
+      failValidation(String.format("Failed to validate aspect schema of type %s. Schema must be of record type.",
+          aspectSchema.getType().toString()), validationMode);
+      return null;
+
     }
     return (RecordDataSchema) aspectSchema;
+  }
+
+  private static void failValidation(final String message, final ValidationMode validationMode) {
+    if (ValidationMode.THROW.equals(validationMode)) {
+      throw new ModelValidationException(message);
+    } else {
+      log.warn(message);
+    }
   }
 }

@@ -1,9 +1,7 @@
 package com.linkedin.metadata.models;
 
-import com.linkedin.data.DataComplex;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,19 +9,21 @@ import org.apache.commons.lang3.tuple.Pair;
 
 
 public class AspectSchemaAnnotationHandler implements SchemaAnnotationHandler  {
-  private String _annotationName;
-  private PropertyOverrideComparator _comparator = new PropertyOverrideComparator();
+
+  private final String _annotationName;
+  private final PropertyOverrideComparator _comparator = new PropertyOverrideComparator();
 
   public AspectSchemaAnnotationHandler(final String annotationName) {
     _annotationName = annotationName;
   }
 
   @Override
-  public ResolutionResult resolve(List<Pair<String, Object>> propertiesOverrides,
-      ResolutionMetaData resolutionMetadata) {
-    ResolutionResult result = new ResolutionResult();
-    Map<String, Object> resultMap = new HashMap<>();
-    DataSchema dataSchema = resolutionMetadata.getDataSchemaUnderResolution();
+  public ResolutionResult resolve(
+      final List<Pair<String, Object>> propertiesOverrides,
+      final ResolutionMetaData resolutionMetadata) {
+    final ResolutionResult result = new ResolutionResult();
+    final Map<String, Object> resultMap = new HashMap<>();
+    final DataSchema dataSchema = resolutionMetadata.getDataSchemaUnderResolution();
     if (dataSchema != null) {
       resultMap.putAll(dataSchema.getResolvedProperties());
     }
@@ -46,7 +46,9 @@ public class AspectSchemaAnnotationHandler implements SchemaAnnotationHandler  {
   }
 
   @Override
-  public AnnotationValidationResult validate(Map<String, Object> resolvedProperties, ValidationMetaData metaData) {
+  public AnnotationValidationResult validate(
+      final Map<String, Object> resolvedProperties,
+      final ValidationMetaData metaData) {
     AnnotationValidationResult annotationValidationResult = new AnnotationValidationResult();
     annotationValidationResult.setValid(true);
     return annotationValidationResult;

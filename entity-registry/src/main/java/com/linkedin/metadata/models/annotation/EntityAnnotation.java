@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models.annotation;
 
+import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -12,24 +13,41 @@ import lombok.Value;
 @Value
 public class EntityAnnotation {
 
+  public static final String ANNOTATION_NAME = "Entity";
+  private static final String NAME_FIELD = "name";
+  private static final String SEARCHABLE_FIELD = "searchable";
+  private static final String BROWSABLE_FIELD = "browsable";
+
   String name;
   boolean searchable;
   boolean browsable;
 
-  public static EntityAnnotation fromSchemaProperty(@Nonnull final Object annotationObj) {
+  public static EntityAnnotation fromSchemaProperty(
+      @Nonnull final Object annotationObj,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new IllegalArgumentException(
-          "Failed to validate @Entity annotation object: Invalid value type provided (Expected Map)");
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+              ANNOTATION_NAME,
+              context
+          ));
     }
 
     Map map = (Map) annotationObj;
-    final Optional<String> name = AnnotationUtils.getField(map, "name", String.class);
+    final Optional<String> name = AnnotationUtils.getField(map, NAME_FIELD, String.class);
     if (!name.isPresent()) {
-      throw new IllegalArgumentException("Failed to validate required @Entity field 'name' field of type String");
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid field '%s'. Expected type String",
+              ANNOTATION_NAME,
+              context,
+              NAME_FIELD
+          ));
     }
 
-    final Optional<Boolean> searchable = AnnotationUtils.getField(map, "searchable", Boolean.class);
-    final Optional<Boolean> browsable = AnnotationUtils.getField(map, "browsable", Boolean.class);
+    final Optional<Boolean> searchable = AnnotationUtils.getField(map, SEARCHABLE_FIELD, Boolean.class);
+    final Optional<Boolean> browsable = AnnotationUtils.getField(map, BROWSABLE_FIELD, Boolean.class);
 
     return new EntityAnnotation(name.get(), searchable.orElse(false), browsable.orElse(false));
   }

@@ -1,13 +1,10 @@
 package com.linkedin.metadata.models;
 
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
@@ -25,13 +22,15 @@ public class AspectSpecFromHandlers {
 //  private final Map<PathSpec, RelationshipFieldSpec> _relationshipFieldSpecs;
 //  private final Map<PathSpec, BrowsePathFieldSpec> _browsePathFieldSpec;
 
-  public AspectSpecFromHandlers(@Nonnull final AspectAnnotation aspectAnnotation,
+  public AspectSpecFromHandlers(
+      @Nonnull final AspectAnnotation aspectAnnotation,
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult annotationProcessResult
   ) {
     this(aspectAnnotation, annotationProcessResult, null);
   }
 
-  public AspectSpecFromHandlers(@Nonnull final AspectAnnotation aspectAnnotation,
+  public AspectSpecFromHandlers(
+      @Nonnull final AspectAnnotation aspectAnnotation,
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult annotationProcessResult,
       final RecordDataSchema schema) {
     _aspectAnnotation = aspectAnnotation;

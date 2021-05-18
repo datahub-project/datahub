@@ -3,7 +3,6 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
