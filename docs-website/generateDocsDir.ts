@@ -143,7 +143,7 @@ function markdown_guess_title(
 
   contents.data.title = title;
 
-  let sidebar_label = title
+  let sidebar_label = title;
   if (sidebar_label.startsWith("DataHub ")) {
     sidebar_label = sidebar_label.slice(8).trim();
   }
