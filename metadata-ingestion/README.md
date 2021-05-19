@@ -46,7 +46,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                    |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
