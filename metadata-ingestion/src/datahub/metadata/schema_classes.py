@@ -1683,6 +1683,7 @@ class DataJobInfoClass(DictWrapper):
         customProperties: Optional[Dict[str, str]]=None,
         externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
+        flowUrn: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -1694,6 +1695,7 @@ class DataJobInfoClass(DictWrapper):
         self.name = name
         self.description = description
         self.type = type
+        self.flowUrn = flowUrn
     
     @classmethod
     def construct_with_defaults(cls) -> "DataJobInfoClass":
@@ -1708,6 +1710,7 @@ class DataJobInfoClass(DictWrapper):
         self.name = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.type = AzkabanJobTypeClass.COMMAND
+        self.flowUrn = self.RECORD_SCHEMA.field_map["flowUrn"].default
     
     
     @property
@@ -1770,6 +1773,18 @@ class DataJobInfoClass(DictWrapper):
         self._inner_dict['type'] = value
     
     
+    @property
+    def flowUrn(self) -> Union[None, str]:
+        """Getter: DataFlow urn that this job is part of"""
+        return self._inner_dict.get('flowUrn')  # type: ignore
+    
+    
+    @flowUrn.setter
+    def flowUrn(self, value: Union[None, str]) -> None:
+        """Setter: DataFlow urn that this job is part of"""
+        self._inner_dict['flowUrn'] = value
+    
+    
 class DataJobInputOutputClass(DictWrapper):
     """Information about the inputs and outputs of a Data processing job"""
     
@@ -1777,11 +1792,13 @@ class DataJobInputOutputClass(DictWrapper):
     def __init__(self,
         inputDatasets: List[str],
         outputDatasets: List[str],
+        inputDatajobs: Union[None, List[str]]=None,
     ):
         super().__init__()
         
         self.inputDatasets = inputDatasets
         self.outputDatasets = outputDatasets
+        self.inputDatajobs = inputDatajobs
     
     @classmethod
     def construct_with_defaults(cls) -> "DataJobInputOutputClass":
@@ -1793,6 +1810,7 @@ class DataJobInputOutputClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.inputDatasets = list()
         self.outputDatasets = list()
+        self.inputDatajobs = self.RECORD_SCHEMA.field_map["inputDatajobs"].default
     
     
     @property
@@ -1817,6 +1835,18 @@ class DataJobInputOutputClass(DictWrapper):
     def outputDatasets(self, value: List[str]) -> None:
         """Setter: Output datasets produced by the data job during processing"""
         self._inner_dict['outputDatasets'] = value
+    
+    
+    @property
+    def inputDatajobs(self) -> Union[None, List[str]]:
+        """Getter: Input datajobs that this data job depends on"""
+        return self._inner_dict.get('inputDatajobs')  # type: ignore
+    
+    
+    @inputDatajobs.setter
+    def inputDatajobs(self, value: Union[None, List[str]]) -> None:
+        """Setter: Input datajobs that this data job depends on"""
+        self._inner_dict['inputDatajobs'] = value
     
     
 class AzkabanJobTypeClass(object):

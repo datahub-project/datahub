@@ -217,7 +217,7 @@ public class DataJobs extends BaseBrowsableClient<DataJob, DataJobUrn> {
 
     @Nonnull
     private DataJobUrn getUrnFromKey(@Nonnull ComplexResourceKey<DataJobKey, EmptyRecord> key) {
-        return toFlowUrn(key.getKey());
+        return toJobUrn(key.getKey());
     }
 
     @Nonnull
@@ -228,7 +228,7 @@ public class DataJobs extends BaseBrowsableClient<DataJob, DataJobUrn> {
     }
 
     @Nonnull
-    protected DataJobUrn toFlowUrn(@Nonnull DataJobKey key) {
+    protected DataJobUrn toJobUrn(@Nonnull DataJobKey key) {
         return new DataJobUrn(key.getDataFlow(), key.getJobId());
     }
 }

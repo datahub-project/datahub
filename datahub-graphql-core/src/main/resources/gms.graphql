@@ -672,6 +672,10 @@ type DownstreamEntityRelationships {
     entities: [EntityRelationship]
 }
 
+type DataFlowDataJobsRelationships {
+    entities: [EntityRelationship]
+}
+
 type UpstreamLineage {
     """
     List of upstream datasets
@@ -2267,6 +2271,11 @@ type DataFlow implements Entity {
     Status metadata of the dataflow
     """
     status: Status
+
+    """
+    DataJobs
+    """
+    dataJobs: DataFlowDataJobsRelationships
 }
 
 type DataFlowInfo {
@@ -2310,7 +2319,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The associated data flow
     """
-    dataFlow: DataFlow!
+    dataFlow: DataFlow
 
     """
     Id of the job
@@ -2386,4 +2395,10 @@ type DataJobInputOutput {
     Output datasets produced by the data job during processing
     """
     outputDatasets: [Dataset!]
+
+    """
+    Input datajobs that this data job depends on
+    """
+    inputDatajobs: [DataJob!]
+
 }
