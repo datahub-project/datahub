@@ -36,7 +36,7 @@ const EditIcon = styled(EditOutlined)`
     margin-top: 4px;
 `;
 
-const EditedMessage = styled(Typography.Text)`
+const EditedLabel = styled(Typography.Text)`
     padding-left: 8px;
     color: rgb(150, 150, 150);
     font-style: italic;
@@ -110,7 +110,7 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     </Form>
                 </Modal>
             )}
-            {updatedDescription && <EditedMessage>(edited)</EditedMessage>}
+            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
         </DescriptionContainer>
     );
 }
