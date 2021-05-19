@@ -11,8 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class MappingsBuilder {
 
   private MappingsBuilder() {
@@ -107,6 +109,7 @@ public class MappingsBuilder {
         mappings = getMappingsForBrowsePaths();
         break;
       default:
+        log.info("Unsupported index type: {}", indexSetting.getIndexType());
         break;
     }
     return Optional.ofNullable(mappings);
