@@ -7,8 +7,8 @@ from feast.feature import Feature
 from feast.feature_table import FeatureTable
 from feast.value_type import ValueType
 
-from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+# from datahub.ingestion.run.pipeline import Pipeline
+# from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 

@@ -1,44 +1,16 @@
-import time
-from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any
-from typing import Counter as CounterType
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, List
 
-import bson
 import pymongo
-from feast.value_type import ValueType
-from mypy_extensions import TypedDict
-from pydantic import PositiveInt
-from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    MLFeatureDataType,
-    MLFeaturePropertiesClass,
-    NullTypeClass,
-    NumberTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
-    SchemalessClass,
-    SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
-)
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 
 # map Feast types to DataHub classes
-_field_type_mapping: Dict[str, Type] = {
-    "BYTES": MLFeatureDataType.BYTES,
+_field_type_mapping: Dict[str, str] = {
+    "BYTES": MLFeatureDataType.BYTE,
     "STRING": MLFeatureDataType.TEXT,
     "INT32": MLFeatureDataType.ORDINAL,
     "INT64": MLFeatureDataType.ORDINAL,
@@ -97,7 +69,7 @@ class FeastSource(Source):
         config = FeastConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_field_type(self, field_type: str, table_name: str) -> MLFeatureDataType:
+    def get_field_type(self, field_type: str, table_name: str) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
 
@@ -108,41 +80,42 @@ class FeastSource(Source):
             table_name:
                 name of table (for logging)
         """
-        TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
+        TypeClass = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
             self.report.report_warning(
                 table_name, f"unable to map type {field_type} to metadata schema"
             )
-            TypeClass = NullTypeClass
+            TypeClass = MLFeatureDataType.USELESS
 
-        return MLFeatureDataType(type=TypeClass())
+        return TypeClass
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        env = "PROD"
-        platform = "feast"
+    # def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    # def get_workunits(self) -> None:
+    #     # env = "PROD"
+    #     # platform = "feast"
 
-        tables = self.feast_client.list_feature_tables()
+    #     tables = self.feast_client.list_feature_tables()
 
-        # sort tables by name for consistent outputs
-        tables = sorted(tables, key=lambda x: x.name)
+    #     # sort tables by name for consistent outputs
+    #     tables = sorted(tables, key=lambda x: x.name)
 
-        # initialize the schema for the collection
-        allFeatures: List[MLFeaturePropertiesClass] = []
+    #     # initialize the schema for the collection
+    #     # allFeatures: List[MLFeaturePropertiesClass] = []
 
-        for table in tables:
+    #     for table in tables:
 
-            # sort features by name for consistent outputs
-            features = sorted(table.features, key=lambda x: x.name)
+    #         # sort features by name for consistent outputs
+    #         features = sorted(table.features, key=lambda x: x.name)
 
-            for feature in features:
-                print(feature.name)
+    #         for feature in features:
+    #             print(feature.name)
 
-                featureObject = MLFeaturePropertiesClass(
-                    dataType=self.get_field_type(feature.dtype.name, table.name),
-                )
+    #             # featureObject = MLFeaturePropertiesClass(
+    #             #     dataType=self.get_field_type(feature.dtype.name, table.name),
+    #             # )
 
-            print(table.name)
+    #         print(table.name)
 
     def get_report(self) -> FeastSourceReport:
         return self.report
