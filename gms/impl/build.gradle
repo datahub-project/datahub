@@ -72,10 +72,11 @@ task integrationTest(type: Test) {
 
 task validateModels(type: JavaExec) {
   main = 'com.linkedin.metadata.model.validation.ModelValidationTask'
-  args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus"
+  args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
+      "THROW"
   classpath = project.configurations.modelValidation
   debugOptions {
-    enabled = false
+    enabled = true
     port = 5005
   }
 }

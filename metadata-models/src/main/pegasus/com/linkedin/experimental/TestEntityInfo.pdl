@@ -28,8 +28,10 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    *
    */
    @Searchable = {
-     "fieldName": "aliases"
-     "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }, { "indexType": "TEXT" }, { "indexType": "BOOLEAN", "overrideFieldName": "hasAliases" }, { "indexType": "COUNT", "overrideFieldName": "numAliases" }]
+     "/*": {
+      "fieldName": "aliases"
+      "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }, { "indexType": "TEXT" }, { "indexType": "BOOLEAN", "overrideFieldName": "hasAliases" }, { "indexType": "COUNT", "overrideFieldName": "numAliases" }]
+     }
    }
    aliases: array[string]
 
@@ -42,8 +44,10 @@ record TestEntityInfo includes CustomProperties, ExternalReference {
    }]
 
    @Relationship = {
-     "name": "OwnedBy",
-     "entityTypes": [ "corpUser", "corpGroup" ]
+     "/*": {
+      "name": "OwnedBy",
+      "entityTypes": [ "corpUser", "corpGroup" ]
+     }
    }
    foreignKeyArray: array[Urn]
 

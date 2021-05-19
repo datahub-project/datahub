@@ -24,13 +24,13 @@ public class RelationshipAnnotation {
 
   public static RelationshipAnnotation fromPegasusAnnotationObject(
       @Nonnull final Object annotationObj,
-      @Nonnull final String parentSchemaName
+      @Nonnull final String context
   ) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
           ANNOTATION_NAME,
-          parentSchemaName
+          context
       ));
     }
 
@@ -41,7 +41,7 @@ public class RelationshipAnnotation {
           String.format(
               "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type String",
               ANNOTATION_NAME,
-              parentSchemaName,
+              context,
               NAME_FIELD
           ));
     }
@@ -52,7 +52,7 @@ public class RelationshipAnnotation {
           String.format(
               "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
               ANNOTATION_NAME,
-              parentSchemaName,
+              context,
               ENTITY_TYPES_FIELD
           ));
     }
@@ -63,7 +63,7 @@ public class RelationshipAnnotation {
           String.format(
             "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
             ANNOTATION_NAME,
-            parentSchemaName,
+              context,
             ENTITY_TYPES_FIELD
           ));
       }

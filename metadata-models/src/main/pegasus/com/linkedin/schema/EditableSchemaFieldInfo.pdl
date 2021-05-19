@@ -24,7 +24,7 @@ record EditableSchemaFieldInfo {
    * Tags associated with the field
    */
   @Searchable = {
-      "/tags/tag": {
+      "/tags/*/tag": {
         "fieldName": "editable_field_tags",
         "indexSettings": [{"indexType": "PARTIAL_SHORT"}]
       }

@@ -14,15 +14,19 @@ record DataProcessInfo {
    * the inputs of the data process
    */
   @Relationship = {
-    "name": "Consumes",
-    "entityTypes": [ "dataset" ]
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
   }
   @Searchable = {
-    "fieldName": "inputs",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
-    ]
+    "/*": {
+      "fieldName": "inputs",
+      "indexSettings": [
+        { "indexType": "KEYWORD_LOWERCASE" },
+        { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
+      ]
+    }
   }
   inputs: optional array[DatasetUrn]
 
@@ -30,15 +34,19 @@ record DataProcessInfo {
    * the outputs of the data process
    */
   @Relationship = {
-    "name": "Consumes",
-    "entityTypes": [ "dataset" ]
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
   }
   @Searchable = {
-    "fieldName": "outputs",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
-    ]
+    "/*": {
+      "fieldName": "outputs",
+      "indexSettings": [
+        { "indexType": "KEYWORD_LOWERCASE" },
+        { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
+      ]
+    }
   }
   outputs: optional array[DatasetUrn]
 }

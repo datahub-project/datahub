@@ -5,6 +5,9 @@ import com.linkedin.common.GlossaryNodeUrn
 /**
  * Properties associated with a GlossaryNode
  */
+@Aspect = {
+   "name": "glossaryNodeInfo"
+}
 record GlossaryNodeInfo {
 
   /**

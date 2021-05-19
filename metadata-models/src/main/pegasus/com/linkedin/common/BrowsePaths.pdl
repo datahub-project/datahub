@@ -9,6 +9,14 @@ namespace com.linkedin.common
 record BrowsePaths {
   /**
    * A list of valid browse paths for the entity.
+   *
+   * Browse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'
    */
-  paths: array[BrowsePath]
+  @Searchable = {
+    "/*": {
+      "fieldName": "browsePaths",
+      "indexSettings": [{"indexType": "BROWSE_PATH"}]
+    }
+  }
+  paths: array[string]
 }

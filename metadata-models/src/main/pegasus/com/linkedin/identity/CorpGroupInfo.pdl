@@ -22,8 +22,10 @@ record CorpGroupInfo {
    * owners of this group
    */
   @Relationship = {
-    "name": "OwnedBy",
-    "entityTypes": [ "corpUser" ]
+    "/*": {
+      "name": "OwnedBy",
+      "entityTypes": [ "corpUser" ]
+    }
   }
   admins: array[CorpuserUrn]
 
@@ -31,13 +33,21 @@ record CorpGroupInfo {
    * List of ldap urn in this group.
    */
   @Relationship = {
-    "name": "OwnedBy",
-    "entityTypes": [ "corpUser" ]
+    "/*": {
+      "name": "IsPartOf",
+      "entityTypes": [ "corpUser" ]
+    }
   }
   members: array[CorpuserUrn]
 
   /**
    * List of groups in this group.
    */
+   @Relationship = {
+     "/*": {
+       "name": "IsPartOf",
+       "entityTypes": [ "corpGroup" ]
+     }
+   }
   groups: array[CorpGroupUrn]
 }
