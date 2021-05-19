@@ -28,11 +28,16 @@ import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
+import com.linkedin.tag.TagProperties;
 import com.linkedin.tag.client.Tags;
 
 import javax.annotation.Nonnull;
@@ -102,7 +107,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final SearchResult searchResult = _tagClient.search("tag", query, null, facetFilters, null, start, count);
+        final SearchResult searchResult = _tagClient.search("tag", query, facetFilters, start, count);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -132,6 +137,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         if (partialTag.hasOwnership()) {
             partialTag.getOwnership().setLastModified(auditStamp);
         } else {
+
             final Ownership ownership = new Ownership();
             final Owner owner = new Owner();
             owner.setOwner(actor);
@@ -146,7 +152,9 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         partialTag.setLastModified(auditStamp);
 
         try {
-            _tagClient.update(TagUrn.createFromString(input.getUrn()), partialTag);
+            Entity entity = new Entity();
+            entity.setValue(Snapshot.create(toSnapshot(partialTag, partialTag.getUrn())));
+            _tagClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
@@ -160,5 +168,19 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         } catch (URISyntaxException e) {
             throw new RuntimeException(String.format("Failed to retrieve tag with urn %s, invalid urn", urnStr));
         }
+    }
+
+    private TagSnapshot toSnapshot(@Nonnull com.linkedin.tag.Tag tag, @Nonnull TagUrn tagUrn) {
+        final List<TagAspect> aspects = new ArrayList<>();
+        if (tag.hasDescription()) {
+            TagProperties tagProperties = new TagProperties();
+            tagProperties.setDescription((tag.getDescription()));
+            tagProperties.setName((tag.getName()));
+            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tagProperties));
+        }
+        if (tag.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(TagAspect.class, tag.getOwnership()));
+        }
+        return ModelUtils.newSnapshot(TagSnapshot.class, tagUrn, aspects);
     }
 }

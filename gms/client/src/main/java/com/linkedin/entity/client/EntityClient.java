@@ -156,23 +156,18 @@ public class EntityClient {
     public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nonnull Map<String, String> requestFilters,
         int start, int count) throws RemoteInvocationException {
 
-        // TODO(Gabe): Remove this because search is supposed to take an optional sort criterion
-        SortCriterion sortCriterion = new SortCriterion();
-        sortCriterion.setOrder(SortOrder.ASCENDING);
-        sortCriterion.setField("name");
-        return search(entity, input, null, requestFilters, sortCriterion, start, count);
+        return search(entity, input, null, requestFilters, start, count);
     }
 
     @Nonnull
     public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable StringArray aspectNames,
-        @Nullable Map<String, String> requestFilters, @Nullable SortCriterion sortCriterion, int start, int count)
+        @Nullable Map<String, String> requestFilters, int start, int count)
         throws RemoteInvocationException {
 
         final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
             .entityParam(entity)
             .inputParam(input)
             .filterParam(newFilter(requestFilters))
-            .sortParam(sortCriterion)
             .startParam(start)
             .countParam(count);
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();

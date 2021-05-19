@@ -105,7 +105,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
-        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, null, facetFilters, null, start, count);
+        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

@@ -52,7 +52,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
     private final EntityClient _entityClient;
 
-    public ChartType(final EntityClient entityClient, final Charts chartsClient) {
+    public ChartType(final EntityClient entityClient)  {
         _entityClient = entityClient;
     }
 
@@ -103,7 +103,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
         final SearchResult searchResult = _entityClient.search(
-            "chart", query, null, facetFilters, null, start, count);
+            "chart", query, facetFilters, start, count);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
