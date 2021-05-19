@@ -59,7 +59,7 @@ public class MappingsBuilder {
     }
 
     // Use the first index setting without override as the default mapping
-    ImmutableMap.Builder<String, Object> mapping = ImmutableMap.builder();
+    Map<String, Object> mapping = new HashMap<>();
     getMappingByType(indexSettingsWithoutOverrides.get(0)).ifPresent(mapping::putAll);
     // If there are more settings, set as subField
     if (indexSettingsWithoutOverrides.size() > 1) {
@@ -70,7 +70,9 @@ public class MappingsBuilder {
               SearchableAnnotation.SUBFIELD_BY_TYPE.getOrDefault(setting.getIndexType(), "default"), mappings)));
       mapping.put("fields", subFields.build());
     }
-    mappingsForField.put(searchableFieldSpec.getFieldName(), mapping.build());
+    if (!mapping.isEmpty()) {
+      mappingsForField.put(searchableFieldSpec.getFieldName(), mapping);
+    }
     return mappingsForField;
   }
 
