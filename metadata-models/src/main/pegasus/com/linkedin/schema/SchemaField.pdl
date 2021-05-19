@@ -62,8 +62,11 @@ record SchemaField {
    */
   @Searchable = {
       "/tags/*/tag": {
-        "fieldName": "field_tags",
-        "indexSettings": [{"indexType": "PARTIAL_SHORT"}]
+        "fieldName": "fieldTags",
+        "indexSettings": [
+          { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.5 },
+          { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 }
+        ]
       }
   }
   globalTags: optional GlobalTags
