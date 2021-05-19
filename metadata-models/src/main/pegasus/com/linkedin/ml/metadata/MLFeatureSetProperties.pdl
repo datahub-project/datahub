@@ -1,0 +1,15 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.MLFeatureUrn
+
+/**
+ * Properties associated with a MLFeatureSet
+ */
+record MLFeatureSetProperties {
+
+  /**
+   * List of features contained in the feature set
+   */
+  mlFeatures: optional array[MLFeatureUrn]
+
+}
