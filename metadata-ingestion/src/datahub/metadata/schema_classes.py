@@ -1004,6 +1004,9 @@ class MLFeatureDataTypeClass(object):
     A useless feature has high cardinality. An example would be bank account numbers that were generated randomly."""
     USELESS = "USELESS"
     
+    """Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc."""
+    CONTINUOUS = "CONTINUOUS"
+    
     """Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.
     Animal species is one example. For example, pig is not higher than bird and lower than fish."""
     NOMINAL = "NOMINAL"
@@ -1014,6 +1017,9 @@ class MLFeatureDataTypeClass(object):
     
     """Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc"""
     BINARY = "BINARY"
+    
+    """Bytes data are binary-encoded values that can represent complex objects."""
+    BYTE = "BYTE"
     
     """Count data is discrete whole number data — no negative numbers here.
     Count data often has many small values, such as zero and one."""

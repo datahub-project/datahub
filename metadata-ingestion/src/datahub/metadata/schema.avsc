@@ -2718,9 +2718,11 @@
                             "doc": "MLFeature Data Type",
                             "symbols": [
                               "USELESS",
+                              "CONTINUOUS",
                               "NOMINAL",
                               "ORDINAL",
                               "BINARY",
+                              "BYTE",
                               "COUNT",
                               "TIME",
                               "INTERVAL",
@@ -2735,6 +2737,8 @@
                             "symbolDocs": {
                               "AUDIO": "Audio Data",
                               "BINARY": "Binary data is discrete data that can be in only one of two categories \u2014 either yes or no, 1 or 0, off or on, etc",
+                              "BYTE": "Bytes data are binary-encoded values that can represent complex objects.",
+                              "CONTINUOUS": "Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.",
                               "COUNT": "Count data is discrete whole number data \u2014 no negative numbers here.\nCount data often has many small values, such as zero and one.",
                               "IMAGE": "Image Data",
                               "INTERVAL": "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",

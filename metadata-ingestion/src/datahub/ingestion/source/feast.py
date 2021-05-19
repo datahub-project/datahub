@@ -23,6 +23,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    MLFeatureDataType,
+    MLFeaturePropertiesClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaField,
@@ -35,23 +37,23 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 # map Feast types to DataHub classes
-_field_type_mapping: Dict[Union[ValueType, str], Type] = {
-    ValueType.BYTES: BytesTypeClass,
-    ValueType.STRING: StringTypeClass,
-    ValueType.INT32: NumberTypeClass,
-    ValueType.INT64: NumberTypeClass,
-    ValueType.DOUBLE: NumberTypeClass,
-    ValueType.FLOAT: NumberTypeClass,
-    ValueType.BOOL: BooleanTypeClass,
-    ValueType.UNIX_TIMESTAMP: TimeTypeClass,
-    ValueType.BYTES_LIST: ArrayTypeClass,
-    ValueType.STRING_LIST: ArrayTypeClass,
-    ValueType.INT32_LIST: ArrayTypeClass,
-    ValueType.INT64_LIST: ArrayTypeClass,
-    ValueType.DOUBLE_LIST: ArrayTypeClass,
-    ValueType.FLOAT_LIST: ArrayTypeClass,
-    ValueType.BOOL_LIST: ArrayTypeClass,
-    ValueType.UNIX_TIMESTAMP_LIST: ArrayTypeClass,
+_field_type_mapping: Dict[str, Type] = {
+    "BYTES": BytesTypeClass,
+    "STRING": StringTypeClass,
+    "INT32": NumberTypeClass,
+    "INT64": NumberTypeClass,
+    "DOUBLE": NumberTypeClass,
+    "FLOAT": NumberTypeClass,
+    "BOOL": BooleanTypeClass,
+    "UNIX_TIMESTAMP": TimeTypeClass,
+    "BYTES_LIST": ArrayTypeClass,
+    "STRING_LIST": ArrayTypeClass,
+    "INT32_LIST": ArrayTypeClass,
+    "INT64_LIST": ArrayTypeClass,
+    "DOUBLE_LIST": ArrayTypeClass,
+    "FLOAT_LIST": ArrayTypeClass,
+    "BOOL_LIST": ArrayTypeClass,
+    "UNIX_TIMESTAMP_LIST": ArrayTypeClass,
 }
 
 
@@ -95,9 +97,7 @@ class FeastSource(Source):
         config = FeastConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_field_type(
-        self, field_type: Union[Type, str], collection_name: str
-    ) -> SchemaFieldDataType:
+    def get_field_type(self, field_type: str, table_name: str) -> MLFeatureDataType:
         """
         Maps types encountered in Feast to corresponding schema types.
 
@@ -105,22 +105,44 @@ class FeastSource(Source):
         ----------
             field_type:
                 type of a Python object
-            collection_name:
-                name of collection (for logging)
+            table_name:
+                name of table (for logging)
         """
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
             self.report.report_warning(
-                collection_name, f"unable to map type {field_type} to metadata schema"
+                table_name, f"unable to map type {field_type} to metadata schema"
             )
             TypeClass = NullTypeClass
 
-        return SchemaFieldDataType(type=TypeClass())
+        return MLFeatureDataType(type=TypeClass())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         env = "PROD"
         platform = "feast"
+
+        tables = self.feast_client.list_feature_tables()
+
+        # sort tables by name for consistent outputs
+        tables = sorted(tables, key=lambda x: x.name)
+
+        # initialize the schema for the collection
+        allFeatures: List[MLFeaturePropertiesClass] = []
+
+        for table in tables:
+
+            # sort features by name for consistent outputs
+            features = sorted(table.features, key=lambda x: x.name)
+
+            for feature in features:
+                print(feature.name)
+
+                featureObject = MLFeaturePropertiesClass(
+                    dataType=self.get_field_type(feature.dtype.name, table.name),
+                )
+
+            print(table.name)
 
     def get_report(self) -> FeastSourceReport:
         return self.report
