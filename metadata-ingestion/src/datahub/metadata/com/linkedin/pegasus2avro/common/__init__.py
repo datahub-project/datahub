@@ -1,6 +1,5 @@
 from .....schema_classes import AccessLevelClass
 from .....schema_classes import AuditStampClass
-from .....schema_classes import BrowsePathClass
 from .....schema_classes import BrowsePathsClass
 from .....schema_classes import ChangeAuditStampsClass
 from .....schema_classes import CostClass
@@ -27,7 +26,6 @@ from .....schema_classes import VersionTagClass
 
 AccessLevel = AccessLevelClass
 AuditStamp = AuditStampClass
-BrowsePath = BrowsePathClass
 BrowsePaths = BrowsePathsClass
 ChangeAuditStamps = ChangeAuditStampsClass
 Cost = CostClass
