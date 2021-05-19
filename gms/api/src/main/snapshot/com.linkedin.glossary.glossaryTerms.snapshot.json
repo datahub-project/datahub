@@ -272,7 +272,10 @@
           },
           "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
           "default" : { }
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "glossaryTermInfo"
+        }
       },
       "doc" : "Business Term Info",
       "optional" : true

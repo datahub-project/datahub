@@ -15,15 +15,19 @@ record DataJobInputOutput {
    * Input datasets consumed by the data job during processing
    */
   @Relationship = {
-    "name": "Consumes",
-    "entityTypes": [ "dataset" ]
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
   }
   @Searchable = {
-    "fieldName": "inputs",
-    "indexSettings": [
-      { "indexType": "URN" },
-      { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
-    ]
+    "/*": {
+      "fieldName": "inputs",
+      "indexSettings": [
+        { "indexType": "URN" },
+        { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
+      ]
+    }
   }
   inputDatasets: array[DatasetUrn]
 
@@ -31,15 +35,19 @@ record DataJobInputOutput {
    * Output datasets produced by the data job during processing
    */
   @Relationship = {
-    "name": "Consumes",
-    "entityTypes": [ "dataset" ]
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
   }
   @Searchable = {
-    "fieldName": "outputs",
-    "indexSettings": [
-      { "indexType": "URN" },
-      { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
-    ]
+    "/*": {
+      "fieldName": "outputs",
+      "indexSettings": [
+       { "indexType": "URN" },
+       { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
+      ]
+    }
   }
   outputDatasets: array[DatasetUrn]
 }

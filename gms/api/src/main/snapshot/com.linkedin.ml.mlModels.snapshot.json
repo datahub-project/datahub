@@ -32,19 +32,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "BrowsePath",
-    "namespace" : "com.linkedin.common",
-    "fields" : [ {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "string"
-      },
-      "doc" : "An array of strings comprising the path",
-      "BrowsePath" : true
-    } ]
-  }, {
-    "type" : "record",
     "name" : "BrowsePaths",
     "namespace" : "com.linkedin.common",
     "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
@@ -52,9 +39,17 @@
       "name" : "paths",
       "type" : {
         "type" : "array",
-        "items" : "BrowsePath"
+        "items" : "string"
       },
-      "doc" : "A list of valid browse paths for the entity."
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "browsePaths",
+          "indexSettings" : [ {
+            "indexType" : "BROWSE_PATH"
+          } ]
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "browsePaths"
@@ -135,7 +130,10 @@
           "type" : "string"
         } ]
       }
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "cost"
+    }
   }, "com.linkedin.common.CostType", "com.linkedin.common.CostValue", {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
@@ -620,7 +618,10 @@
         },
         "doc" : "Tags for the MLModel",
         "default" : [ ]
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelProperties"
+      }
     }, {
       "type" : "record",
       "name" : "IntendedUse",
@@ -654,7 +655,10 @@
         },
         "doc" : "Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to.",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "intendedUse"
+      }
     }, {
       "type" : "record",
       "name" : "MLModelFactorPrompts",
@@ -705,7 +709,10 @@
         },
         "doc" : "Which factors are being reported, and why were these chosen?",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelFactorPrompts"
+      }
     }, {
       "type" : "record",
       "name" : "Metrics",
@@ -727,7 +734,10 @@
         },
         "doc" : "Decision Thresholds used (if any)?",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelMetrics"
+      }
     }, {
       "type" : "record",
       "name" : "EvaluationData",
@@ -762,7 +772,10 @@
           }
         },
         "doc" : "Details on the dataset(s) used for the quantitative analyses in the MLModel"
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelEvaluationData"
+      }
     }, {
       "type" : "record",
       "name" : "TrainingData",
@@ -775,7 +788,10 @@
           "items" : "BaseData"
         },
         "doc" : "Details on the dataset(s) used for training the MLModel"
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelTrainingData"
+      }
     }, {
       "type" : "record",
       "name" : "QuantitativeAnalyses",
@@ -796,7 +812,10 @@
         "type" : "ResultsType",
         "doc" : "Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelQuantitativeAnalyses"
+      }
     }, {
       "type" : "record",
       "name" : "EthicalConsiderations",
@@ -842,7 +861,10 @@
         },
         "doc" : "Are there any known MLModel use cases that are especially fraught? This may connect directly to the intended use section",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelEthicalConsiderations"
+      }
     }, {
       "type" : "record",
       "name" : "CaveatsAndRecommendations",
@@ -889,7 +911,10 @@
         },
         "doc" : "Ideal characteristics of an evaluation dataset for this MLModel",
         "optional" : true
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "mlModelCaveatsAndRecommendations"
+      }
     }, "com.linkedin.common.InstitutionalMemory", {
       "type" : "record",
       "name" : "SourceCode",
@@ -919,7 +944,10 @@
           }
         },
         "doc" : "Source Code along with types"
-      } ]
+      } ],
+      "Aspect" : {
+        "name" : "sourceCode"
+      }
     }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.MLModelKey", {
     "type" : "record",

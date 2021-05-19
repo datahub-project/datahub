@@ -50,7 +50,7 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
             } else if (aspect.isGlobalTags()) {
                 result.setGlobalTags(GlobalTagsMapper.map(aspect.getGlobalTags()));
             } else {
-                throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
+                // throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
             }
         }
 

@@ -7,6 +7,9 @@ import com.linkedin.common.VersionTag
 /**
  * Properties associated with a ML Model
  */
+@Aspect = {
+  "name": "mlModelProperties"
+}
 record MLModelProperties {
 
   /**

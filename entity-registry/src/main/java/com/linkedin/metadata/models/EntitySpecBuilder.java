@@ -6,6 +6,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
+import com.linkedin.data.schema.annotation.PegasusSchemaAnnotationHandlerImpl;
 import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
@@ -24,9 +25,9 @@ public class EntitySpecBuilder {
   private static final String URN_FIELD_NAME = "urn";
   private static final String ASPECTS_FIELD_NAME = "aspects";
 
-  public static SchemaAnnotationHandler _searchHandler = new AspectSchemaAnnotationHandler(SearchableAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _browseHandler = new AspectSchemaAnnotationHandler("Browsable");
-  public static SchemaAnnotationHandler _relationshipHandler = new AspectSchemaAnnotationHandler(RelationshipAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _searchHandler = new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _browseHandler = new PegasusSchemaAnnotationHandlerImpl("BrowsePath");
+  public static SchemaAnnotationHandler _relationshipHandler = new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
 
   private EntitySpecBuilder() { }
 
@@ -124,22 +125,22 @@ public class EntitySpecBuilder {
               aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
       // Extract Searchable Field Specs
-      final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor(processedSearchResult);
+      final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
       final DataSchemaRichContextTraverser searchableFieldSpecTraverser =
           new DataSchemaRichContextTraverser(searchableFieldSpecExtractor);
-      searchableFieldSpecTraverser.traverse(aspectRecordSchema);
+      searchableFieldSpecTraverser.traverse(processedSearchResult.getResultSchema());
 
       // Extract Relationship Field Specs
-      final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor = new RelationshipFieldSpecExtractor(processedRelationshipResult);
+      final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor = new RelationshipFieldSpecExtractor();
       final DataSchemaRichContextTraverser relationshipFieldSpecTraverser =
           new DataSchemaRichContextTraverser(relationshipFieldSpecExtractor);
-      relationshipFieldSpecTraverser.traverse(aspectRecordSchema);
+      relationshipFieldSpecTraverser.traverse(processedRelationshipResult.getResultSchema());
 
       // Extract Browsable Field Specs
-      final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor(processedBrowseResult);
+      final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor();
       final DataSchemaRichContextTraverser browsePathFieldSpecTraverser =
           new DataSchemaRichContextTraverser(browsePathFieldSpecExtractor);
-      browsePathFieldSpecTraverser.traverse(aspectRecordSchema);
+      browsePathFieldSpecTraverser.traverse(processedBrowseResult.getResultSchema());
 
       return new AspectSpec(
           aspectAnnotation,
@@ -176,17 +177,21 @@ public class EntitySpecBuilder {
     if (entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME) == null
         || entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedType() != DataSchema.Type.ARRAY) {
 
-      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field found. 'aspects' should be an array of union type.",
+      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field found. "
+              + "'aspects' should be an array of union type.",
           entitySnapshotRecordSchema.getName()), validationMode);
       return null;
     }
 
     // 3. Validate Aspect Union
-    final ArrayDataSchema aspectArray = (ArrayDataSchema) entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedDataSchema();
+    final ArrayDataSchema aspectArray = (ArrayDataSchema) entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME)
+        .getType()
+        .getDereferencedDataSchema();
     if (aspectArray.getItems().getType() != DataSchema.Type.TYPEREF
        || aspectArray.getItems().getDereferencedType() != DataSchema.Type.UNION) {
 
-      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field field. 'aspects' should be an array of union type.",
+      failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field field. "
+              + "'aspects' should be an array of union type.",
           entitySnapshotRecordSchema.getName()), validationMode);
       return null;
     }

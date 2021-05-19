@@ -490,17 +490,21 @@
           },
           "doc" : "Input datasets consumed by the data job during processing",
           "Relationship" : {
-            "entityTypes" : [ "dataset" ],
-            "name" : "Consumes"
+            "/*" : {
+              "entityTypes" : [ "dataset" ],
+              "name" : "Consumes"
+            }
           },
           "Searchable" : {
-            "fieldName" : "inputs",
-            "indexSettings" : [ {
-              "indexType" : "URN"
-            }, {
-              "indexType" : "COUNT",
-              "overrideFieldName" : "numInputDatasets"
-            } ]
+            "/*" : {
+              "fieldName" : "inputs",
+              "indexSettings" : [ {
+                "indexType" : "URN"
+              }, {
+                "indexType" : "COUNT",
+                "overrideFieldName" : "numInputDatasets"
+              } ]
+            }
           }
         }, {
           "name" : "outputDatasets",
@@ -510,17 +514,21 @@
           },
           "doc" : "Output datasets produced by the data job during processing",
           "Relationship" : {
-            "entityTypes" : [ "dataset" ],
-            "name" : "Consumes"
+            "/*" : {
+              "entityTypes" : [ "dataset" ],
+              "name" : "Consumes"
+            }
           },
           "Searchable" : {
-            "fieldName" : "outputs",
-            "indexSettings" : [ {
-              "indexType" : "URN"
-            }, {
-              "indexType" : "COUNT",
-              "overrideFieldName" : "numOutputDatasets"
-            } ]
+            "/*" : {
+              "fieldName" : "outputs",
+              "indexSettings" : [ {
+                "indexType" : "URN"
+              }, {
+                "indexType" : "COUNT",
+                "overrideFieldName" : "numOutputDatasets"
+              } ]
+            }
           }
         } ],
         "Aspect" : {

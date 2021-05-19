@@ -202,7 +202,10 @@
           "type" : "com.linkedin.common.GlossaryNodeUrn",
           "doc" : "Parent node of the glossary term",
           "optional" : true
-        } ]
+        } ],
+        "Aspect" : {
+          "name" : "glossaryNodeInfo"
+        }
       },
       "doc" : "Business node info",
       "optional" : true

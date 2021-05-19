@@ -1,5 +1,11 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.query.SearchResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,9 +36,9 @@ public class MLModelType implements SearchableEntityType<MLModel> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
-    private final MLModels _mlModelsClient;
+    private final EntityClient _mlModelsClient;
 
-    public MLModelType(final MLModels mlModelsClient) {
+    public MLModelType(final EntityClient mlModelsClient) {
         _mlModelsClient = mlModelsClient;
     }
 
@@ -53,16 +59,17 @@ public class MLModelType implements SearchableEntityType<MLModel> {
             .collect(Collectors.toList());
 
         try {
-            final Map<MLModelUrn, com.linkedin.ml.MLModel> mlModelMap = _mlModelsClient.batchGet(mlModelUrns
+            final Map<Urn, Entity> mlModelMap = _mlModelsClient.batchGet(mlModelUrns
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
 
-            final List<com.linkedin.ml.MLModel> gmsResults = mlModelUrns.stream()
+            final List<Entity> gmsResults = mlModelUrns.stream()
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsMlModel -> gmsMlModel == null ? null : MLModelMapper.map(gmsMlModel))
+                .map(gmsMlModel -> gmsMlModel == null ? null : MLModelSnapshotMapper.map(
+                    gmsMlModel.getValue().getMLModelSnapshot()))
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load MLModels", e);
@@ -76,8 +83,8 @@ public class MLModelType implements SearchableEntityType<MLModel> {
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.ml.MLModel> searchResult = _mlModelsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, MLModelMapper::map);
+        final SearchResult searchResult = _mlModelsClient.search("mlModel", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -88,7 +95,7 @@ public class MLModelType implements SearchableEntityType<MLModel> {
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _mlModelsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 }

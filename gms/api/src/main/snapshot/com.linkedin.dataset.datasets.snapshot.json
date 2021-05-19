@@ -66,19 +66,6 @@
     } ]
   }, {
     "type" : "record",
-    "name" : "BrowsePath",
-    "namespace" : "com.linkedin.common",
-    "fields" : [ {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "string"
-      },
-      "doc" : "An array of strings comprising the path",
-      "BrowsePath" : true
-    } ]
-  }, {
-    "type" : "record",
     "name" : "BrowsePaths",
     "namespace" : "com.linkedin.common",
     "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
@@ -86,9 +73,17 @@
       "name" : "paths",
       "type" : {
         "type" : "array",
-        "items" : "BrowsePath"
+        "items" : "string"
       },
-      "doc" : "A list of valid browse paths for the entity."
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "browsePaths",
+          "indexSettings" : [ {
+            "indexType" : "BROWSE_PATH"
+          } ]
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "browsePaths"
@@ -379,7 +374,10 @@
       "name" : "auditStamp",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who reported the related business term"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "glossaryTerms"
+    }
   }, {
     "type" : "record",
     "name" : "InstitutionalMemory",
@@ -1117,7 +1115,7 @@
                 "doc" : "Tags associated with the field",
                 "optional" : true,
                 "Searchable" : {
-                  "/tags/tag" : {
+                  "/tags/*/tag" : {
                     "fieldName" : "editable_field_tags",
                     "indexSettings" : [ {
                       "indexType" : "PARTIAL_SHORT"

@@ -1,16 +1,16 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.ComplexDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.schema.PrimitiveDataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
-import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,50 +25,38 @@ public class BrowsePathFieldSpecExtractor implements SchemaVisitor {
     return _specs;
   }
 
-  SchemaAnnotationProcessor.SchemaAnnotationProcessResult _processedSchema;
-
   @Override
   public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
+
+    if (context.getEnclosingField() == null) {
+      return;
+    }
+
     if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
 
       final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
 
-      if (currentSchema.isComplex()) {
-        // Case 1: BrowsePath Annotation on Array of string
-        // TODO: Validate that it is array[string]
-        final RecordDataSchema.Field enclosingField = context.getEnclosingField();
-        if (enclosingField != null) {
-          Map<String, Object> resolvedPropertiesByPath = new HashMap<>();
+      // Note: We do NOT support overrides on the @BrowsePath annotation due to the annotation being on
+      // a non-leaf field. (Array<String>)
+      final Map<String, Object> resolvedProperties = getResolvedProperties(context.getEnclosingField());
 
-          try {
-            ArrayDeque<String> clonedPath = context.getSchemaPathSpec().clone();
-            if (context.getSchemaPathSpec().size() != 0) {
-              if (context.getSchemaPathSpec().getLast().equals("string")) {
-                clonedPath.removeLast();
-              }
-              resolvedPropertiesByPath = SchemaAnnotationProcessor.getResolvedPropertiesByPath(new PathSpec(clonedPath).toString(),
-                  _processedSchema.getResultSchema());
+      if (currentSchema.getDereferencedDataSchema().isComplex()) {
+        final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
+        if (isValidComplexType(complexSchema)) {
+          final ArrayDataSchema arraySchema = (ArrayDataSchema) complexSchema;
+          final DataSchema itemSchema = arraySchema.getItems().getDereferencedDataSchema();
+          if (itemSchema.isPrimitive() && isValidPrimitiveType((PrimitiveDataSchema) itemSchema)) {
+
+            final Object annotationObj = resolvedProperties.get(BROWSE_PATH_ANNOTATION_NAME);
+            if (annotationObj != null) {
+              final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+              final BrowsePathFieldSpec fieldSpec = new BrowsePathFieldSpec(path);
+              _specs.add(fieldSpec);
             }
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
-
-          final Object annotationObj = resolvedPropertiesByPath.get(BROWSE_PATH_ANNOTATION_NAME);
-          //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
-
-          if (annotationObj != null) {
-            // TOOD: Validate that we are looking at a primitive / array of primitives.
-            final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-            final BrowsePathFieldSpec fieldSpec = new BrowsePathFieldSpec(path);
-            _specs.add(fieldSpec);
           }
         }
       }
     }
-  }
-
-  public BrowsePathFieldSpecExtractor(SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSchema) {
-    _processedSchema = processedSchema;
   }
 
   @Override
@@ -79,5 +67,17 @@ public class BrowsePathFieldSpecExtractor implements SchemaVisitor {
   @Override
   public SchemaVisitorTraversalResult getSchemaVisitorTraversalResult() {
     return new SchemaVisitorTraversalResult();
+  }
+
+  private  Map<String, Object> getResolvedProperties(final RecordDataSchema.Field schema) {
+    return !schema.getResolvedProperties().isEmpty() ? schema.getResolvedProperties() : schema.getProperties();
+  }
+
+  private Boolean isValidComplexType(final ComplexDataSchema schema) {
+    return DataSchema.Type.ARRAY.equals(schema.getDereferencedDataSchema().getDereferencedType());
+  }
+
+  private Boolean isValidPrimitiveType(final PrimitiveDataSchema schema) {
+    return DataSchema.Type.STRING.equals(schema.getDereferencedDataSchema().getDereferencedType());
   }
 }

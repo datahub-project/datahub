@@ -24,13 +24,13 @@ record EditableSchemaFieldInfo {
    * Tags associated with the field
    */
   @Searchable = {
-      "/tags/*/tag": {
-        "fieldName": "editedFieldTags",
-        "indexSettings": [
-          { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.5 },
-          { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 }
-        ]
-      }
+    "/tags/*/tag": {
+      "fieldName": "editedFieldTags",
+      "indexSettings": [
+        { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.5 },
+        { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 }
+      ]
+    }
   }
   globalTags: optional GlobalTags
 }

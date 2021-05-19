@@ -201,8 +201,10 @@
           },
           "doc" : "owners of this group",
           "Relationship" : {
-            "entityTypes" : [ "corpUser" ],
-            "name" : "OwnedBy"
+            "/*" : {
+              "entityTypes" : [ "corpUser" ],
+              "name" : "OwnedBy"
+            }
           }
         }, {
           "name" : "members",
@@ -212,8 +214,10 @@
           },
           "doc" : "List of ldap urn in this group.",
           "Relationship" : {
-            "entityTypes" : [ "corpUser" ],
-            "name" : "OwnedBy"
+            "/*" : {
+              "entityTypes" : [ "corpUser" ],
+              "name" : "IsPartOf"
+            }
           }
         }, {
           "name" : "groups",
@@ -221,7 +225,13 @@
             "type" : "array",
             "items" : "com.linkedin.common.CorpGroupUrn"
           },
-          "doc" : "List of groups in this group."
+          "doc" : "List of groups in this group.",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "corpGroup" ],
+              "name" : "IsPartOf"
+            }
+          }
         } ],
         "Aspect" : {
           "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],

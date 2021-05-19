@@ -20,8 +20,10 @@ record CorpUserEditableInfo {
    * Teams that the user belongs to e.g. Metadata
    */
   @Searchable = {
-    "fieldName": "teams",
-    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
+    "/*": {
+      "fieldName": "teams",
+      "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
+    }
   }
   teams: array[string] = [ ]
 
@@ -29,8 +31,10 @@ record CorpUserEditableInfo {
    * Skills that the user possesses e.g. Machine Learning
    */
   @Searchable = {
-    "fieldName": "teams",
-    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
+    "/*": {
+      "fieldName": "teams",
+      "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
+    }
   }
   skills: array[string] = [ ]
 

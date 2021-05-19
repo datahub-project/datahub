@@ -283,11 +283,13 @@
           "doc" : "Teams that the user belongs to e.g. Metadata",
           "default" : [ ],
           "Searchable" : {
-            "fieldName" : "teams",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "indexType" : "TEXT"
-            } ]
+            "/*" : {
+              "fieldName" : "teams",
+              "indexSettings" : [ {
+                "addToDefaultQuery" : true,
+                "indexType" : "TEXT"
+              } ]
+            }
           }
         }, {
           "name" : "skills",
@@ -298,11 +300,13 @@
           "doc" : "Skills that the user possesses e.g. Machine Learning",
           "default" : [ ],
           "Searchable" : {
-            "fieldName" : "teams",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "indexType" : "TEXT"
-            } ]
+            "/*" : {
+              "fieldName" : "teams",
+              "indexSettings" : [ {
+                "addToDefaultQuery" : true,
+                "indexType" : "TEXT"
+              } ]
+            }
           }
         }, {
           "name" : "pictureLink",
@@ -572,7 +576,7 @@
     } ],
     "Entity" : {
       "browsable" : true,
-      "name" : "corpUser",
+      "name" : "corpuser",
       "searchable" : true
     }
   }, {

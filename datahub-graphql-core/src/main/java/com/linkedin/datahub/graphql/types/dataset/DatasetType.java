@@ -120,7 +120,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _datasetsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -133,6 +133,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _datasetsClient.browse(
+                "dataset",
                 pathStr,
                 facetFilters,
                 start,
@@ -161,6 +162,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
+        partialDataset.setUrn(DatasetUrn.createFromString(input.getUrn()));
 
 
         // TODO: Migrate inner mappers to InputModelMappers & remove
