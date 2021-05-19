@@ -7,6 +7,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 
 
@@ -16,9 +17,9 @@ public class EntitySpecUtils {
   }
 
   public static String getEntityNameFromSchema(final RecordDataSchema entitySnapshotSchema) {
-    final Object entityAnnotationObj = entitySnapshotSchema.getProperties().get("Entity");
+    final Object entityAnnotationObj = entitySnapshotSchema.getProperties().get(EntityAnnotation.ANNOTATION_NAME);
     if (entityAnnotationObj != null) {
-      return EntityAnnotation.fromSchemaProperty(entityAnnotationObj).getName();
+      return EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotSchema.getFullName()).getName();
     }
     throw new IllegalArgumentException(
         String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
@@ -32,9 +33,9 @@ public class EntitySpecUtils {
   }
 
   public static String getAspectNameFromSchema(final RecordDataSchema aspectSchema) {
-    final Object aspectAnnotationObj = aspectSchema.getProperties().get("Aspect");
+    final Object aspectAnnotationObj = aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
     if (aspectAnnotationObj != null) {
-      return EntityAnnotation.fromSchemaProperty(aspectAnnotationObj).getName();
+      return EntityAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
     }
     throw new IllegalArgumentException(
         String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));

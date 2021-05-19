@@ -4,6 +4,7 @@ from ......schema_classes import CorpUserKeyClass
 from ......schema_classes import DashboardKeyClass
 from ......schema_classes import DataFlowKeyClass
 from ......schema_classes import DataJobKeyClass
+from ......schema_classes import DataPlatformKeyClass
 from ......schema_classes import DataProcessKeyClass
 from ......schema_classes import DatasetKeyClass
 from ......schema_classes import MLFeatureKeyClass
@@ -18,6 +19,7 @@ CorpUserKey = CorpUserKeyClass
 DashboardKey = DashboardKeyClass
 DataFlowKey = DataFlowKeyClass
 DataJobKey = DataJobKeyClass
+DataPlatformKey = DataPlatformKeyClass
 DataProcessKey = DataProcessKeyClass
 DatasetKey = DatasetKeyClass
 MLFeatureKey = MLFeatureKeyClass

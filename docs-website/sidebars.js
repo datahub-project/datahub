@@ -96,6 +96,7 @@ module.exports = {
       "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
+      "docs/advanced/no-code-modeling",
       "docs/advanced/aspect-versioning",
       "docs/advanced/es-7-upgrade",
       "docs/advanced/high-cardinality",

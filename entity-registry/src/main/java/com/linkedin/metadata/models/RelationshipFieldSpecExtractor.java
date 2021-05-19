@@ -3,7 +3,6 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
 import com.linkedin.data.schema.PathSpec;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
@@ -51,13 +50,16 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
           e.printStackTrace();
         }
 
-        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME); //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
+        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME);
+        //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
         if (annotationObj != null) {
           final ArrayDeque<String> modifiedPath = new ArrayDeque<>(context.getSchemaPathSpec());
           modifiedPath.add("entity"); // TODO: Validate that this field exists!
           final PathSpec path = new PathSpec(modifiedPath);
-          final RelationshipAnnotation annotation = RelationshipAnnotation.fromPegasusAnnotationObject(annotationObj);
+          final RelationshipAnnotation annotation = RelationshipAnnotation.fromPegasusAnnotationObject(
+              annotationObj,
+              context.getSchemaPathSpec().toString());
           final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, annotation, currentSchema);
           _specs.add(fieldSpec);
         }
@@ -79,12 +81,16 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
           e.printStackTrace();
         }
 
-        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME); //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
+        final Object annotationObj = resolvedPropertiesByPath.get(RELATIONSHIP_ANNOTATION_NAME);
+        //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
         if (annotationObj != null) {
           // TOOD: Validate that we are looking at a primitive / array of primitives.
           final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-          final RelationshipAnnotation annotation = RelationshipAnnotation.fromPegasusAnnotationObject(annotationObj);
+          final RelationshipAnnotation annotation = RelationshipAnnotation.fromPegasusAnnotationObject(
+              annotationObj,
+              context.getSchemaPathSpec().toString()
+            );
           final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, annotation, currentSchema);
           _specs.add(fieldSpec);
         }

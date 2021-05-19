@@ -27,7 +27,8 @@ public class AspectSpec {
     this(aspectAnnotation, searchableFieldSpecs, relationshipFieldSpec, browsePathFieldSpecs, null);
   }
 
-  public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
+  public AspectSpec(
+      @Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
       @Nonnull final List<BrowsePathFieldSpec> browsePathFieldSpecs, final RecordDataSchema schema) {

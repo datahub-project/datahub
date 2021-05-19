@@ -53,7 +53,8 @@ public class BrowsePathFieldSpecExtractor implements SchemaVisitor {
             e.printStackTrace();
           }
 
-          final Object annotationObj = resolvedPropertiesByPath.get(BROWSE_PATH_ANNOTATION_NAME); //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
+          final Object annotationObj = resolvedPropertiesByPath.get(BROWSE_PATH_ANNOTATION_NAME);
+          //enclosingField.getProperties().get(SEARCHABLE_ANNOTATION_NAME);
 
           if (annotationObj != null) {
             // TOOD: Validate that we are looking at a primitive / array of primitives.
