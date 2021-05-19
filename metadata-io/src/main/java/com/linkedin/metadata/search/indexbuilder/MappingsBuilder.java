@@ -20,23 +20,10 @@ public class MappingsBuilder {
 
   public static Map<String, Object> getMappings(final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
-    if (entitySpec.isBrowsable()) {
-      mappings.put("browsePaths", getMappingsForBrowsePaths());
-    }
     mappings.put("urn", getMappingsForUrn());
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(setMappingsForField(searchableFieldSpec)));
     return ImmutableMap.of("properties", mappings);
-  }
-
-  private static Map<String, Object> getMappingsForBrowsePaths() {
-    return ImmutableMap.<String, Object>builder()
-        .put("type", "text")
-        .put("fields", ImmutableMap.of("length",
-            ImmutableMap.<String, Object>builder().put("type", "token_count").put("analyzer", "slash_pattern").build()))
-        .put("analyzer", "browse_path")
-        .put("fielddata", true)
-        .build();
   }
 
   private static Map<String, Object> getMappingsForUrn() {
@@ -116,9 +103,22 @@ public class MappingsBuilder {
       case PARTIAL_URN:
         mappings = ImmutableMap.of("type", "text", "analyzer", "partial_urn_component");
         break;
+      case BROWSE_PATH:
+        mappings = getMappingsForBrowsePaths();
+        break;
       default:
         break;
     }
     return Optional.ofNullable(mappings);
   }
+
+  private static Map<String, Object> getMappingsForBrowsePaths() {
+    return ImmutableMap.<String, Object>builder().put("type", "text")
+        .put("fields", ImmutableMap.of("length",
+            ImmutableMap.<String, Object>builder().put("type", "token_count").put("analyzer", "slash_pattern").build()))
+        .put("analyzer", "browse_path")
+        .put("fielddata", true)
+        .build();
+  }
+
 }
