@@ -99,11 +99,12 @@ public class EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public AutoCompleteResult autoComplete(@Nonnull String query, @Nonnull String field,
+    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query, @Nonnull String field,
         @Nonnull Map<String, String> requestFilters,
         @Nonnull int limit) throws RemoteInvocationException {
         EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionAutocomplete()
+            .entityParam(entityType)
             .queryParam(query)
             .fieldParam(field)
             .filterParam(newFilter(requestFilters))
@@ -114,6 +115,7 @@ public class EntityClient {
     /**
      * Gets browse snapshot of a given path
      *
+     * @param entityType entity type being browse
      * @param path path being browsed
      * @param requestFilters browse filters
      * @param start start offset of first dataset
@@ -121,11 +123,12 @@ public class EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public BrowseResult browse(@Nonnull String path, @Nullable Map<String, String> requestFilters,
+    public BrowseResult browse(@Nonnull String entityType, @Nonnull String path, @Nullable Map<String, String> requestFilters,
         int start, int limit) throws RemoteInvocationException {
         EntitiesDoBrowseRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionBrowse()
             .pathParam(path)
+            .entityParam(entityType)
             .startParam(start)
             .limitParam(limit);
         if (requestFilters != null) {
@@ -183,7 +186,7 @@ public class EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull DatasetUrn urn) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull Urn urn) throws RemoteInvocationException {
         EntitiesDoGetBrowsePathsRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);

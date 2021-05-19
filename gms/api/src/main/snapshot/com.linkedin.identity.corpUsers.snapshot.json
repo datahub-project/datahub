@@ -572,7 +572,7 @@
     } ],
     "Entity" : {
       "browsable" : true,
-      "name" : "corpUser",
+      "name" : "corpuser",
       "searchable" : true
     }
   }, {

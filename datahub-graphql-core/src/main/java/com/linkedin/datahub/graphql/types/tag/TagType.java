@@ -9,6 +9,7 @@ import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -21,10 +22,15 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.configs.TagSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.tag.client.Tags;
@@ -43,9 +49,9 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
     private static final TagSearchConfig TAG_SEARCH_CONFIG = new TagSearchConfig();
 
-    private final Tags _tagClient;
+    private final EntityClient _tagClient;
 
-    public TagType(final Tags tagClient) {
+    public TagType(final EntityClient tagClient) {
         _tagClient = tagClient;
     }
 
@@ -72,17 +78,17 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                 .collect(Collectors.toList());
 
         try {
-            final Map<TagUrn, com.linkedin.tag.Tag> tagMap = _tagClient.batchGet(tagUrns
+            final Map<Urn, Entity> tagMap = _tagClient.batchGet(tagUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.tag.Tag> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (TagUrn urn : tagUrns) {
                 gmsResults.add(tagMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsTag -> gmsTag == null ? null : TagMapper.map(gmsTag))
+                    .map(gmsTag -> gmsTag == null ? null : TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Tags", e);
@@ -96,8 +102,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final CollectionResponse<com.linkedin.tag.Tag> searchResult = _tagClient.search(query, null, facetFilters, null, start, count);
-        return SearchResultsMapper.map(searchResult, TagMapper::map);
+        final SearchResult searchResult = _tagClient.search("tag", query, null, facetFilters, null, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -107,7 +113,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _tagClient.autocomplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

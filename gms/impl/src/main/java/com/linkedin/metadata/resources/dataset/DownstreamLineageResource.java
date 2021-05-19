@@ -88,7 +88,11 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
 
       final DownstreamArray downstreamArray = new DownstreamArray(downstreamUrns.stream()
           .map(ds -> {
-            final RecordTemplate upstreamLineageRecord = _entityService.getLatestAspectRecord(ds, EntitySpecUtils.getAspectNameFromSchema(new UpstreamLineage().schema()));
+            final RecordTemplate upstreamLineageRecord =
+                _entityService.getLatestAspectRecord(
+                    ds,
+                    EntitySpecUtils.getAspectNameFromSchema(new UpstreamLineage().schema())
+                );
             if (upstreamLineageRecord != null) {
               final UpstreamLineage upstreamLineage = new UpstreamLineage(upstreamLineageRecord.data());
               final List<Upstream> upstreams = upstreamLineage.getUpstreams().stream()

@@ -76,9 +76,9 @@ public class GmsGraphQLEngine {
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getEntitiesClient());
     public static final CorpUserType CORP_USER_TYPE = new CorpUserType(GmsClientFactory.getEntitiesClient());
-    public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getCorpGroupsClient());
+    public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getEntitiesClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getEntitiesClient(), GmsClientFactory.getChartsClient());
-    public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getDashboardsClient());
+    public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getEntitiesClient());
     public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(
             GmsClientFactory.getLineagesClient()
@@ -86,10 +86,10 @@ public class GmsGraphQLEngine {
     public static final UpstreamLineageType UPSTREAM_LINEAGE_TYPE = new UpstreamLineageType(
             GmsClientFactory.getLineagesClient()
     );
-    public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getTagsClient());
+    public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getMLModelsClient());
-    public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getDataFlowsClient());
-    public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getDataJobsClient());
+    public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getEntitiesClient());
+    public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getEntitiesClient());
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
 
     /**
