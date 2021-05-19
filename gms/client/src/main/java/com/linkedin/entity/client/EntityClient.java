@@ -1,27 +1,33 @@
 package com.linkedin.entity.client;
 
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
+import com.linkedin.data.template.DynamicRecordMetadata;
+import com.linkedin.data.template.FieldDef;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.dataset.DatasetsDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.dao.RemoteEntityDao;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.restli.client.ActionRequestBuilder;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 
+import com.linkedin.restli.client.Request;
+import com.linkedin.restli.client.RestliRequestOptions;
+import com.linkedin.restli.common.EmptyRecord;
+import com.linkedin.restli.common.ResourceSpec;
+import com.linkedin.restli.common.ResourceSpecImpl;
+import java.util.Arrays;
+import java.util.Collections;
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -40,12 +46,14 @@ public class EntityClient {
 
     private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
 
+    private static final String ACTION_INGEST = "ingest";
+    private static final String PARAM_ENTITY = "entity";
+    private static final String RESOURCE_NAME = "entities";
+
     private final Client _client;
-    private final RemoteEntityDao _writeDao;
 
     public EntityClient(@Nonnull final Client restliClient) {
         _client = restliClient;
-        _writeDao = new RemoteEntityDao(restliClient);
     }
 
     @Nonnull
@@ -138,8 +146,33 @@ public class EntityClient {
     }
 
     public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
-        // TODO: Consolidate Dao and Client --> Why have 2?
-        _writeDao.create(entity);
+        // TODO: Replace with EntitiesDoIngestActionBuilder.
+
+        final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));
+
+        final HashMap<String, DynamicRecordMetadata> actionRequestMetadata = new HashMap<>();
+        actionRequestMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Arrays.asList(entityFieldDef)));
+
+        final HashMap<java.lang.String, DynamicRecordMetadata> actionResponseMetadata = new HashMap<>();
+        actionResponseMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Collections.emptyList()));
+
+        final ResourceSpec resourceSpec =
+            new ResourceSpecImpl(Collections.emptySet(), actionRequestMetadata, actionResponseMetadata, String.class,
+                EmptyRecord.class, EmptyRecord.class, EmptyRecord.class, Collections.emptyMap());
+
+        final ActionRequestBuilder builder =
+            new ActionRequestBuilder(RESOURCE_NAME, Void.class, resourceSpec, RestliRequestOptions.DEFAULT_OPTIONS);
+
+        builder.name(ACTION_INGEST);
+        builder.addParam(entityFieldDef, entity);
+
+        final Request request = builder.build();
+
+        try {
+            _client.sendRequest(request).getResponse();
+        } catch (RemoteInvocationException e) {
+            throw new RemoteInvocationException(e);
+        }
     }
 
     /**

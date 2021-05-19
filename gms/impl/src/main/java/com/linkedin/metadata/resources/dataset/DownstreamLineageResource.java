@@ -10,7 +10,7 @@ import com.linkedin.dataset.DownstreamLineage;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.EntitySpecUtils;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.Neo4jGraphDAO;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;

@@ -4,7 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;

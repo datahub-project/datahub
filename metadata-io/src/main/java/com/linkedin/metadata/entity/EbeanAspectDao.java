@@ -1,9 +1,9 @@
-package com.linkedin.metadata.dao;
+package com.linkedin.metadata.entity;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.ebean.EbeanAspect;
+import com.linkedin.metadata.entity.ebean.EbeanAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.retention.IndefiniteRetention;
@@ -39,7 +39,6 @@ import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
 import javax.persistence.Table;
 
-import static com.linkedin.metadata.dao.ebean.EbeanAspect.*;
 
 public class EbeanAspectDao {
 
@@ -242,9 +241,9 @@ public class EbeanAspectDao {
     }
 
     final RawSql rawSql = RawSqlBuilder.parse(sb.toString())
-        .columnMapping(URN_COLUMN, "key.urn")
-        .columnMapping(ASPECT_COLUMN, "key.aspect")
-        .columnMapping(VERSION_COLUMN, "key.version")
+        .columnMapping(EbeanAspect.URN_COLUMN, "key.urn")
+        .columnMapping(EbeanAspect.ASPECT_COLUMN, "key.aspect")
+        .columnMapping(EbeanAspect.VERSION_COLUMN, "key.version")
         .create();
 
     final Query<EbeanAspect> query = _server.find(EbeanAspect.class).setRawSql(rawSql);
@@ -264,14 +263,14 @@ public class EbeanAspectDao {
       final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
-        .select(KEY_ID)
+        .select(EbeanAspect.KEY_ID)
         .where()
-        .eq(URN_COLUMN, urn)
-        .eq(ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspect.URN_COLUMN, urn)
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
-        .asc(VERSION_COLUMN)
+        .asc(EbeanAspect.VERSION_COLUMN)
         .findPagedList();
 
     List<Long> versions = pagedList.getList().stream().map(a -> a.getKey().getVersion()).collect(Collectors.toList());
@@ -285,14 +284,14 @@ public class EbeanAspectDao {
       final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
-        .select(KEY_ID)
+        .select(EbeanAspect.KEY_ID)
         .where()
-        .eq(ASPECT_COLUMN, aspectName)
-        .eq(VERSION_COLUMN, LATEST_VERSION)
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspect.VERSION_COLUMN, LATEST_VERSION)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
-        .asc(URN_COLUMN)
+        .asc(EbeanAspect.URN_COLUMN)
         .findPagedList();
 
     final List<String> urns = pagedList
@@ -312,14 +311,14 @@ public class EbeanAspectDao {
       final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
-        .select(ALL_COLUMNS)
+        .select(EbeanAspect.ALL_COLUMNS)
         .where()
-        .eq(URN_COLUMN, urn.toString())
-        .eq(ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspect.URN_COLUMN, urn.toString())
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
-        .asc(VERSION_COLUMN)
+        .asc(EbeanAspect.VERSION_COLUMN)
         .findPagedList();
 
     final List<String> aspects = pagedList.getList().stream().map(EbeanAspect::getMetadata).collect(Collectors.toList());
@@ -344,14 +343,14 @@ public class EbeanAspectDao {
       final int pageSize) {
 
     final PagedList<EbeanAspect> pagedList = _server.find(EbeanAspect.class)
-        .select(ALL_COLUMNS)
+        .select(EbeanAspect.ALL_COLUMNS)
         .where()
-        .eq(ASPECT_COLUMN, aspectName)
-        .eq(VERSION_COLUMN, version)
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspect.VERSION_COLUMN, version)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
-        .asc(URN_COLUMN)
+        .asc(EbeanAspect.URN_COLUMN)
         .findPagedList();
 
     final List<String> aspects = pagedList.getList().stream().map(EbeanAspect::getMetadata).collect(Collectors.toList());
@@ -421,10 +420,10 @@ public class EbeanAspectDao {
       long largestVersion) {
     _server.find(EbeanAspect.class)
         .where()
-        .eq(URN_COLUMN, urn.toString())
-        .eq(ASPECT_COLUMN, aspectName)
-        .ne(VERSION_COLUMN, LATEST_VERSION)
-        .le(VERSION_COLUMN, largestVersion - retention.getMaxVersionsToRetain() + 1)
+        .eq(EbeanAspect.URN_COLUMN, urn.toString())
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
+        .ne(EbeanAspect.VERSION_COLUMN, LATEST_VERSION)
+        .le(EbeanAspect.VERSION_COLUMN, largestVersion - retention.getMaxVersionsToRetain() + 1)
         .delete();
   }
 
@@ -436,19 +435,19 @@ public class EbeanAspectDao {
 
     _server.find(EbeanAspect.class)
         .where()
-        .eq(URN_COLUMN, urn.toString())
-        .eq(ASPECT_COLUMN, aspectName)
-        .lt(CREATED_ON_COLUMN, new Timestamp(currentTime - retention.getMaxAgeToRetain()))
+        .eq(EbeanAspect.URN_COLUMN, urn.toString())
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
+        .lt(EbeanAspect.CREATED_ON_COLUMN, new Timestamp(currentTime - retention.getMaxAgeToRetain()))
         .delete();
   }
 
   private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    final List<PrimaryKey> result = _server.find(EbeanAspect.class)
+    final List<EbeanAspect.PrimaryKey> result = _server.find(EbeanAspect.class)
         .where()
-        .eq(URN_COLUMN, urn.toString())
-        .eq(ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspect.URN_COLUMN, urn.toString())
+        .eq(EbeanAspect.ASPECT_COLUMN, aspectName)
         .orderBy()
-        .desc(VERSION_COLUMN)
+        .desc(EbeanAspect.VERSION_COLUMN)
         .setMaxRows(1)
         .findIds();
 
