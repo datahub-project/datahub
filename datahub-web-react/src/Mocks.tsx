@@ -569,6 +569,7 @@ export const dataJob1 = {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
         outputDatasets: [dataset3],
+        inputDatajobs: [],
     },
     upstreamLineage: null,
     downstreamLineage: null,
@@ -1304,6 +1305,21 @@ export const mocks = [
     },
     {
         request: {
+            query: GetDataJobDocument,
+            variables: {
+                urn: 'urn:li:dataJob:1',
+            },
+        },
+        result: {
+            data: {
+                dataJob: {
+                    ...dataJob1,
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetSearchResultsDocument,
             variables: {
                 input: {
@@ -1353,21 +1369,6 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsQuery,
-        },
-    },
-    {
-        request: {
-            query: GetDataJobDocument,
-            variables: {
-                urn: 'urn:li:dataJob:1',
-            },
-        },
-        result: {
-            data: {
-                dataJob: {
-                    ...dataJob1,
-                },
-            },
         },
     },
     {
