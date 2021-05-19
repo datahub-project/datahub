@@ -671,23 +671,19 @@
                         "name": "paths",
                         "type": {
                           "type": "array",
-                          "items": {
-                            "type": "record",
-                            "name": "BrowsePath",
-                            "fields": [
+                          "items": "string"
+                        },
+                        "doc": "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+                        "Searchable": {
+                          "/*": {
+                            "fieldName": "browsePaths",
+                            "indexSettings": [
                               {
-                                "name": "path",
-                                "type": {
-                                  "type": "array",
-                                  "items": "string"
-                                },
-                                "doc": "An array of strings comprising the path",
-                                "BrowsePath": true
+                                "indexType": "BROWSE_PATH"
                               }
                             ]
                           }
-                        },
-                        "doc": "A list of valid browse paths for the entity."
+                        }
                       }
                     ],
                     "Aspect": {
@@ -760,10 +756,12 @@
                         },
                         "doc": "owners of this group",
                         "Relationship": {
-                          "entityTypes": [
-                            "corpUser"
-                          ],
-                          "name": "OwnedBy"
+                          "/*": {
+                            "entityTypes": [
+                              "corpUser"
+                            ],
+                            "name": "OwnedBy"
+                          }
                         }
                       },
                       {
@@ -774,10 +772,12 @@
                         },
                         "doc": "List of ldap urn in this group.",
                         "Relationship": {
-                          "entityTypes": [
-                            "corpUser"
-                          ],
-                          "name": "OwnedBy"
+                          "/*": {
+                            "entityTypes": [
+                              "corpUser"
+                            ],
+                            "name": "IsPartOf"
+                          }
                         }
                       },
                       {
@@ -786,7 +786,15 @@
                           "type": "array",
                           "items": "string"
                         },
-                        "doc": "List of groups in this group."
+                        "doc": "List of groups in this group.",
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "corpGroup"
+                            ],
+                            "name": "IsPartOf"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1047,13 +1055,15 @@
                         "doc": "Teams that the user belongs to e.g. Metadata",
                         "default": [],
                         "Searchable": {
-                          "fieldName": "teams",
-                          "indexSettings": [
-                            {
-                              "addToDefaultQuery": true,
-                              "indexType": "TEXT"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "teams",
+                            "indexSettings": [
+                              {
+                                "addToDefaultQuery": true,
+                                "indexType": "TEXT"
+                              }
+                            ]
+                          }
                         }
                       },
                       {
@@ -1065,13 +1075,15 @@
                         "doc": "Skills that the user possesses e.g. Machine Learning",
                         "default": [],
                         "Searchable": {
-                          "fieldName": "teams",
-                          "indexSettings": [
-                            {
-                              "addToDefaultQuery": true,
-                              "indexType": "TEXT"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "teams",
+                            "indexSettings": [
+                              {
+                                "addToDefaultQuery": true,
+                                "indexType": "TEXT"
+                              }
+                            ]
+                          }
                         }
                       },
                       {
@@ -1101,7 +1113,7 @@
           ],
           "Entity": {
             "browsable": true,
-            "name": "corpUser",
+            "name": "corpuser",
             "searchable": true
           }
         },
@@ -1242,10 +1254,12 @@
                         "doc": "Charts in a dashboard",
                         "default": [],
                         "Relationship": {
-                          "entityTypes": [
-                            "chart"
-                          ],
-                          "name": "Contains"
+                          "/*": {
+                            "entityTypes": [
+                              "chart"
+                            ],
+                            "name": "Contains"
+                          }
                         }
                       },
                       {
@@ -1695,22 +1709,26 @@
                         },
                         "doc": "Input datasets consumed by the data job during processing",
                         "Relationship": {
-                          "entityTypes": [
-                            "dataset"
-                          ],
-                          "name": "Consumes"
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "Consumes"
+                          }
                         },
                         "Searchable": {
-                          "fieldName": "inputs",
-                          "indexSettings": [
-                            {
-                              "indexType": "URN"
-                            },
-                            {
-                              "indexType": "COUNT",
-                              "overrideFieldName": "numInputDatasets"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "inputs",
+                            "indexSettings": [
+                              {
+                                "indexType": "URN"
+                              },
+                              {
+                                "indexType": "COUNT",
+                                "overrideFieldName": "numInputDatasets"
+                              }
+                            ]
+                          }
                         }
                       },
                       {
@@ -1721,22 +1739,26 @@
                         },
                         "doc": "Output datasets produced by the data job during processing",
                         "Relationship": {
-                          "entityTypes": [
-                            "dataset"
-                          ],
-                          "name": "Consumes"
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "Consumes"
+                          }
                         },
                         "Searchable": {
-                          "fieldName": "outputs",
-                          "indexSettings": [
-                            {
-                              "indexType": "URN"
-                            },
-                            {
-                              "indexType": "COUNT",
-                              "overrideFieldName": "numOutputDatasets"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "outputs",
+                            "indexSettings": [
+                              {
+                                "indexType": "URN"
+                              },
+                              {
+                                "indexType": "COUNT",
+                                "overrideFieldName": "numOutputDatasets"
+                              }
+                            ]
+                          }
                         }
                       }
                     ],
@@ -2666,7 +2688,10 @@
                                         "type": "AuditStamp",
                                         "doc": "Audit stamp containing who reported the related business term"
                                       }
-                                    ]
+                                    ],
+                                    "Aspect": {
+                                      "name": "glossaryTerms"
+                                    }
                                   }
                                 ],
                                 "doc": "Glossary terms associated with the field",
@@ -2825,7 +2850,7 @@
                                 "doc": "Tags associated with the field",
                                 "default": null,
                                 "Searchable": {
-                                  "/tags/tag": {
+                                  "/tags/*/tag": {
                                     "fieldName": "editable_field_tags",
                                     "indexSettings": [
                                       {
@@ -2958,22 +2983,26 @@
                         "doc": "the inputs of the data process",
                         "default": null,
                         "Relationship": {
-                          "entityTypes": [
-                            "dataset"
-                          ],
-                          "name": "Consumes"
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "Consumes"
+                          }
                         },
                         "Searchable": {
-                          "fieldName": "inputs",
-                          "indexSettings": [
-                            {
-                              "indexType": "KEYWORD_LOWERCASE"
-                            },
-                            {
-                              "indexType": "COUNT",
-                              "overrideFieldName": "numInputDatasets"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "inputs",
+                            "indexSettings": [
+                              {
+                                "indexType": "KEYWORD_LOWERCASE"
+                              },
+                              {
+                                "indexType": "COUNT",
+                                "overrideFieldName": "numInputDatasets"
+                              }
+                            ]
+                          }
                         }
                       },
                       {
@@ -2988,22 +3017,26 @@
                         "doc": "the outputs of the data process",
                         "default": null,
                         "Relationship": {
-                          "entityTypes": [
-                            "dataset"
-                          ],
-                          "name": "Consumes"
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "Consumes"
+                          }
                         },
                         "Searchable": {
-                          "fieldName": "outputs",
-                          "indexSettings": [
-                            {
-                              "indexType": "KEYWORD_LOWERCASE"
-                            },
-                            {
-                              "indexType": "COUNT",
-                              "overrideFieldName": "numOutputDatasets"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "outputs",
+                            "indexSettings": [
+                              {
+                                "indexType": "KEYWORD_LOWERCASE"
+                              },
+                              {
+                                "indexType": "COUNT",
+                                "overrideFieldName": "numOutputDatasets"
+                              }
+                            ]
+                          }
                         }
                       }
                     ],
@@ -3372,7 +3405,10 @@
                         "doc": "Tags for the MLModel",
                         "default": []
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelProperties"
+                    }
                   },
                   {
                     "type": "record",
@@ -3424,7 +3460,10 @@
                         "doc": "Highlight technology that the MLModel might easily be confused with, or related contexts that users could try to apply the MLModel to.",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "intendedUse"
+                    }
                   },
                   {
                     "type": "record",
@@ -3498,7 +3537,10 @@
                         "doc": "Which factors are being reported, and why were these chosen?",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelFactorPrompts"
+                    }
                   },
                   {
                     "type": "record",
@@ -3530,7 +3572,10 @@
                         "doc": "Decision Thresholds used (if any)?",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelMetrics"
+                    }
                   },
                   {
                     "type": "record",
@@ -3581,7 +3626,10 @@
                         },
                         "doc": "Details on the dataset(s) used for the quantitative analyses in the MLModel"
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelEvaluationData"
+                    }
                   },
                   {
                     "type": "record",
@@ -3597,7 +3645,10 @@
                         },
                         "doc": "Details on the dataset(s) used for training the MLModel"
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelTrainingData"
+                    }
                   },
                   {
                     "type": "record",
@@ -3623,7 +3674,10 @@
                         "doc": "Link to a dashboard with results showing how the MLModel performed with respect to the intersection of evaluated factors?",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelQuantitativeAnalyses"
+                    }
                   },
                   {
                     "type": "record",
@@ -3691,7 +3745,10 @@
                         "doc": "Are there any known MLModel use cases that are especially fraught? This may connect directly to the intended use section",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelEthicalConsiderations"
+                    }
                   },
                   {
                     "type": "record",
@@ -3765,7 +3822,10 @@
                         "doc": "Ideal characteristics of an evaluation dataset for this MLModel",
                         "default": null
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlModelCaveatsAndRecommendations"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   {
@@ -3810,7 +3870,10 @@
                         },
                         "doc": "Source Code along with types"
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "sourceCode"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.Status",
                   {
@@ -3869,7 +3932,10 @@
                           ]
                         }
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "cost"
+                    }
                   },
                   {
                     "type": "record",
@@ -4260,7 +4326,10 @@
                         "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
                         "default": {}
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "glossaryTermInfo"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status"
@@ -4328,7 +4397,10 @@
                           "class": "com.linkedin.pegasus2avro.common.urn.GlossaryNodeUrn"
                         }
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "glossaryNodeInfo"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status"
@@ -4468,26 +4540,28 @@
                           "items": "string"
                         },
                         "Searchable": {
-                          "fieldName": "aliases",
-                          "indexSettings": [
-                            {
-                              "indexType": "KEYWORD"
-                            },
-                            {
-                              "indexType": "PARTIAL"
-                            },
-                            {
-                              "indexType": "TEXT"
-                            },
-                            {
-                              "indexType": "BOOLEAN",
-                              "overrideFieldName": "hasAliases"
-                            },
-                            {
-                              "indexType": "COUNT",
-                              "overrideFieldName": "numAliases"
-                            }
-                          ]
+                          "/*": {
+                            "fieldName": "aliases",
+                            "indexSettings": [
+                              {
+                                "indexType": "KEYWORD"
+                              },
+                              {
+                                "indexType": "PARTIAL"
+                              },
+                              {
+                                "indexType": "TEXT"
+                              },
+                              {
+                                "indexType": "BOOLEAN",
+                                "overrideFieldName": "hasAliases"
+                              },
+                              {
+                                "indexType": "COUNT",
+                                "overrideFieldName": "numAliases"
+                              }
+                            ]
+                          }
                         }
                       },
                       {
@@ -4528,11 +4602,13 @@
                           "items": "string"
                         },
                         "Relationship": {
-                          "entityTypes": [
-                            "corpUser",
-                            "corpGroup"
-                          ],
-                          "name": "OwnedBy"
+                          "/*": {
+                            "entityTypes": [
+                              "corpUser",
+                              "corpGroup"
+                            ],
+                            "name": "OwnedBy"
+                          }
                         }
                       },
                       {

@@ -510,46 +510,12 @@ class AuditStampClass(DictWrapper):
         self._inner_dict['impersonator'] = value
     
     
-class BrowsePathClass(DictWrapper):
-    # No docs available.
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.BrowsePath")
-    def __init__(self,
-        path: List[str],
-    ):
-        super().__init__()
-        
-        self.path = path
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "BrowsePathClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.path = list()
-    
-    
-    @property
-    def path(self) -> List[str]:
-        """Getter: An array of strings comprising the path"""
-        return self._inner_dict.get('path')  # type: ignore
-    
-    
-    @path.setter
-    def path(self, value: List[str]) -> None:
-        """Setter: An array of strings comprising the path"""
-        self._inner_dict['path'] = value
-    
-    
 class BrowsePathsClass(DictWrapper):
     """Shared aspect containing Browse Paths to be indexed for an entity."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.BrowsePaths")
     def __init__(self,
-        paths: List["BrowsePathClass"],
+        paths: List[str],
     ):
         super().__init__()
         
@@ -567,14 +533,18 @@ class BrowsePathsClass(DictWrapper):
     
     
     @property
-    def paths(self) -> List["BrowsePathClass"]:
-        """Getter: A list of valid browse paths for the entity."""
+    def paths(self) -> List[str]:
+        """Getter: A list of valid browse paths for the entity.
+    
+    Browse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'"""
         return self._inner_dict.get('paths')  # type: ignore
     
     
     @paths.setter
-    def paths(self, value: List["BrowsePathClass"]) -> None:
-        """Setter: A list of valid browse paths for the entity."""
+    def paths(self, value: List[str]) -> None:
+        """Setter: A list of valid browse paths for the entity.
+    
+    Browse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'"""
         self._inner_dict['paths'] = value
     
     
@@ -7122,7 +7092,6 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.chart.ChartType': ChartTypeClass,
     'com.linkedin.pegasus2avro.common.AccessLevel': AccessLevelClass,
     'com.linkedin.pegasus2avro.common.AuditStamp': AuditStampClass,
-    'com.linkedin.pegasus2avro.common.BrowsePath': BrowsePathClass,
     'com.linkedin.pegasus2avro.common.BrowsePaths': BrowsePathsClass,
     'com.linkedin.pegasus2avro.common.ChangeAuditStamps': ChangeAuditStampsClass,
     'com.linkedin.pegasus2avro.common.Cost': CostClass,
@@ -7256,7 +7225,6 @@ __SCHEMA_TYPES = {
     'ChartType': ChartTypeClass,
     'AccessLevel': AccessLevelClass,
     'AuditStamp': AuditStampClass,
-    'BrowsePath': BrowsePathClass,
     'BrowsePaths': BrowsePathsClass,
     'ChangeAuditStamps': ChangeAuditStampsClass,
     'Cost': CostClass,
