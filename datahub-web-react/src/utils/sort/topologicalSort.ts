@@ -1,5 +1,6 @@
 import { EntityRelationship } from '../../types.generated';
 
+// Sort helper function
 function topologicalSortHelper(
     node: EntityRelationship,
     explored: Set<string>,
@@ -23,6 +24,7 @@ function topologicalSortHelper(
     }
 }
 
+// Topological Sort function with array of EntityRelationship
 export function topologicalSort(input: Array<EntityRelationship | null>) {
     const explored = new Set<string>();
     const result: Array<EntityRelationship> = [];

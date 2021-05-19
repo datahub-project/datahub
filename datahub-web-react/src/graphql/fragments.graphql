@@ -202,26 +202,6 @@ fragment nonRecursiveDataFlowFields on DataFlow {
 
 fragment nonRecursiveDataJobFields on DataJob {
     urn
-    # type
-    # dataFlow {
-    #     ...nonRecursiveDataFlowFields
-    # }
-    # jobId
-    # ownership {
-    #     ...ownershipFields
-    # }
-    # info {
-    #     name
-    #     description
-    #     externalUrl
-    #     customProperties {
-    #         key
-    #         value
-    #     }
-    # }
-    # globalTags {
-    #     ...globalTagsFields
-    # }
 }
 
 fragment dataJobFields on DataJob {
