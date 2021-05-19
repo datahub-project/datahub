@@ -3306,6 +3306,55 @@ class GlossaryTermSnapshotClass(DictWrapper):
         self._inner_dict['aspects'] = value
     
     
+class MLFeatureSetSnapshotClass(DictWrapper):
+    """MLFeatureSet Snapshot entity details."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List["MLFeatureSetPropertiesClass"],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLFeatureSetSnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List["MLFeatureSetPropertiesClass"]:
+        """Getter: The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    
+    @aspects.setter
+    def aspects(self, value: List["MLFeatureSetPropertiesClass"]) -> None:
+        """Setter: The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
 class MLFeatureSnapshotClass(DictWrapper):
     # No docs available.
     
@@ -3911,6 +3960,40 @@ class MLFeaturePropertiesClass(DictWrapper):
         self._inner_dict['version'] = value
     
     
+class MLFeatureSetPropertiesClass(DictWrapper):
+    """Properties associated with a MLFeatureSet"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties")
+    def __init__(self,
+        mlFeatures: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.mlFeatures = mlFeatures
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLFeatureSetPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
+    
+    
+    @property
+    def mlFeatures(self) -> Union[None, List[str]]:
+        """Getter: List of features contained in the feature set"""
+        return self._inner_dict.get('mlFeatures')  # type: ignore
+    
+    
+    @mlFeatures.setter
+    def mlFeatures(self, value: Union[None, List[str]]) -> None:
+        """Setter: List of features contained in the feature set"""
+        self._inner_dict['mlFeatures'] = value
+    
+    
 class MLModelFactorPromptsClass(DictWrapper):
     """Prompts which affect the performance of the MLModel"""
     
@@ -4385,7 +4468,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "MLFeatureSetSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
     ):
@@ -4421,13 +4504,13 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "MLFeatureSetSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "MLFeatureSetSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -5908,6 +5991,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot': DatasetSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot': GlossaryNodeSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot': GlossaryTermSnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot': MLFeatureSetSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot': MLFeatureSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot': MLModelSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot': TagSnapshotClass,
@@ -5919,6 +6003,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUse': IntendedUseClass,
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUserType': IntendedUserTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties': MLFeaturePropertiesClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties': MLFeatureSetPropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactorPrompts': MLModelFactorPromptsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactors': MLModelFactorsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelProperties': MLModelPropertiesClass,
@@ -6018,6 +6103,7 @@ __SCHEMA_TYPES = {
     'DatasetSnapshot': DatasetSnapshotClass,
     'GlossaryNodeSnapshot': GlossaryNodeSnapshotClass,
     'GlossaryTermSnapshot': GlossaryTermSnapshotClass,
+    'MLFeatureSetSnapshot': MLFeatureSetSnapshotClass,
     'MLFeatureSnapshot': MLFeatureSnapshotClass,
     'MLModelSnapshot': MLModelSnapshotClass,
     'TagSnapshot': TagSnapshotClass,
@@ -6029,6 +6115,7 @@ __SCHEMA_TYPES = {
     'IntendedUse': IntendedUseClass,
     'IntendedUserType': IntendedUserTypeClass,
     'MLFeatureProperties': MLFeaturePropertiesClass,
+    'MLFeatureSetProperties': MLFeatureSetPropertiesClass,
     'MLModelFactorPrompts': MLModelFactorPromptsClass,
     'MLModelFactors': MLModelFactorsClass,
     'MLModelProperties': MLModelPropertiesClass,

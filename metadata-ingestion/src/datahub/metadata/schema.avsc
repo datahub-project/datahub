@@ -2779,6 +2779,51 @@
         },
         {
           "type": "record",
+          "name": "MLFeatureSetSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "doc": "MLFeatureSet Snapshot entity details.",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureSetUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLFeatureSetProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a MLFeatureSet",
+                    "fields": [
+                      {
+                        "name": "mlFeatures",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of features contained in the feature set",
+                        "default": null
+                      }
+                    ]
+                  }
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
           "name": "TagSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "doc": "A metadata snapshot for a specific dataset entity.",
