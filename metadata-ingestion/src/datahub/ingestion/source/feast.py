@@ -38,22 +38,22 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 # map Feast types to DataHub classes
 _field_type_mapping: Dict[str, Type] = {
-    "BYTES": BytesTypeClass,
-    "STRING": StringTypeClass,
-    "INT32": NumberTypeClass,
-    "INT64": NumberTypeClass,
-    "DOUBLE": NumberTypeClass,
-    "FLOAT": NumberTypeClass,
-    "BOOL": BooleanTypeClass,
-    "UNIX_TIMESTAMP": TimeTypeClass,
-    "BYTES_LIST": ArrayTypeClass,
-    "STRING_LIST": ArrayTypeClass,
-    "INT32_LIST": ArrayTypeClass,
-    "INT64_LIST": ArrayTypeClass,
-    "DOUBLE_LIST": ArrayTypeClass,
-    "FLOAT_LIST": ArrayTypeClass,
-    "BOOL_LIST": ArrayTypeClass,
-    "UNIX_TIMESTAMP_LIST": ArrayTypeClass,
+    "BYTES": MLFeatureDataType.BYTES,
+    "STRING": MLFeatureDataType.TEXT,
+    "INT32": MLFeatureDataType.ORDINAL,
+    "INT64": MLFeatureDataType.ORDINAL,
+    "DOUBLE": MLFeatureDataType.CONTINUOUS,
+    "FLOAT": MLFeatureDataType.CONTINUOUS,
+    "BOOL": MLFeatureDataType.BINARY,
+    "UNIX_TIMESTAMP": MLFeatureDataType.TIME,
+    "BYTES_LIST": MLFeatureDataType.SEQUENCE,
+    "STRING_LIST": MLFeatureDataType.SEQUENCE,
+    "INT32_LIST": MLFeatureDataType.SEQUENCE,
+    "INT64_LIST": MLFeatureDataType.SEQUENCE,
+    "DOUBLE_LIST": MLFeatureDataType.SEQUENCE,
+    "FLOAT_LIST": MLFeatureDataType.SEQUENCE,
+    "BOOL_LIST": MLFeatureDataType.SEQUENCE,
+    "UNIX_TIMESTAMP_LIST": MLFeatureDataType.SEQUENCE,
 }
 
 
