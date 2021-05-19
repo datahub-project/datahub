@@ -25,10 +25,12 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartMapper;
 import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.configs.ChartSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -49,11 +51,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
     private final EntityClient _entityClient;
-    private final Charts _chartsClient; // Currently only used for search, browse, etc.
 
-    public ChartType(final EntityClient entityClient, final Charts chartsClient) {
+    public ChartType(final EntityClient entityClient)  {
         _entityClient = entityClient;
-        _chartsClient = chartsClient;
     }
 
     @Override
@@ -102,8 +102,9 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
-        final CollectionResponse<com.linkedin.dashboard.Chart> searchResult = _chartsClient.search(query, null, facetFilters, null, start, count);
-        return SearchResultsMapper.map(searchResult, ChartMapper::map);
+        final SearchResult searchResult = _entityClient.search(
+            "chart", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -113,7 +114,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _chartsClient.autocomplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _entityClient.autoComplete("chart", query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -125,7 +126,8 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _chartsClient.browse(
+        final BrowseResult result = _entityClient.browse(
+                "chart",
                 pathStr,
                 facetFilters,
                 start,
@@ -145,7 +147,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _chartsClient.getBrowsePaths(getChartUrn(urn));
+        final StringArray result = _entityClient.getBrowsePaths(getChartUrn(urn));
         return BrowsePathsMapper.map(result);
     }
 

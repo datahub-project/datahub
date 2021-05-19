@@ -92,7 +92,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _corpUsersClient.autoComplete(query, field, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _corpUsersClient.autoComplete("corpuser", query, field, Collections.emptyMap(), limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
