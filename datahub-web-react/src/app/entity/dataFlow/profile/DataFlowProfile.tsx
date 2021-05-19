@@ -15,6 +15,7 @@ import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 
 export enum TabType {
     Tasks = 'Tasks',
@@ -80,7 +81,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Tasks,
                 path: TabType.Tasks.toLowerCase(),
-                content: <DataFlowDataJobs dataJobs={dataJobs?.entities || []} />,
+                content: <DataFlowDataJobs dataJobs={topologicalSort(dataJobs?.entities || [])} />,
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
