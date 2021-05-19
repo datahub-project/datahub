@@ -746,7 +746,7 @@
                   "type" : "typeref",
                   "name" : "SchemaFieldPath",
                   "namespace" : "com.linkedin.dataset",
-                  "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
+                  "doc" : "Schema field path. TODO: Add formal documentation on normalization rules.",
                   "ref" : "string"
                 },
                 "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
