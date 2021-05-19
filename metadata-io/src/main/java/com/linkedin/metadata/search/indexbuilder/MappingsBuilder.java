@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 
@@ -49,7 +50,8 @@ public class MappingsBuilder {
         .collect(Collectors.partitioningBy(setting -> setting.getOverrideFieldName().isPresent()));
     // Set the mappings for fields with overrides
     indexSettingsHasOverride.getOrDefault(true, ImmutableList.of())
-        .forEach(setting -> mappingsForField.put(setting.getOverrideFieldName().get(), getMappingByType(setting)));
+        .forEach(setting -> getMappingByType(setting).ifPresent(
+            mappings -> mappingsForField.put(setting.getOverrideFieldName().get(), mappings)));
 
     List<IndexSetting> indexSettingsWithoutOverrides = indexSettingsHasOverride.getOrDefault(false, ImmutableList.of());
     if (indexSettingsWithoutOverrides.isEmpty()) {
@@ -58,49 +60,62 @@ public class MappingsBuilder {
 
     // Use the first index setting without override as the default mapping
     ImmutableMap.Builder<String, Object> mapping = ImmutableMap.builder();
-    mapping.putAll(getMappingByType(indexSettingsWithoutOverrides.get(0)));
+    getMappingByType(indexSettingsWithoutOverrides.get(0)).ifPresent(mapping::putAll);
     // If there are more settings, set as subField
     if (indexSettingsWithoutOverrides.size() > 1) {
       ImmutableMap.Builder<String, Object> subFields = ImmutableMap.builder();
       indexSettingsWithoutOverrides.stream()
           .skip(1)
-          .forEach(setting -> subFields.put(
-              SearchableAnnotation.SUBFIELD_BY_TYPE.getOrDefault(setting.getIndexType(), "default"),
-              getMappingByType(setting)));
+          .forEach(setting -> getMappingByType(setting).ifPresent(mappings -> subFields.put(
+              SearchableAnnotation.SUBFIELD_BY_TYPE.getOrDefault(setting.getIndexType(), "default"), mappings)));
       mapping.put("fields", subFields.build());
     }
     mappingsForField.put(searchableFieldSpec.getFieldName(), mapping.build());
     return mappingsForField;
   }
 
-  private static Map<String, Object> getMappingByType(IndexSetting indexSetting) {
+  private static Optional<Map<String, Object>> getMappingByType(IndexSetting indexSetting) {
+    Map<String, Object> mappings = null;
     switch (indexSetting.getIndexType()) {
       case KEYWORD:
-        return ImmutableMap.of("type", "keyword");
+        mappings = ImmutableMap.of("type", "keyword");
+        break;
       case KEYWORD_LOWERCASE:
-        return ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
+        mappings = ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
+        break;
       case BOOLEAN:
-        return ImmutableMap.of("type", "boolean");
+        mappings = ImmutableMap.of("type", "boolean");
+        break;
       case COUNT:
-        return ImmutableMap.of("type", "long");
+        mappings = ImmutableMap.of("type", "long");
+        break;
       case TEXT:
-        return ImmutableMap.of("type", "text", "analyzer", "word_delimited");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "word_delimited");
+        break;
       case PATTERN:
-        return ImmutableMap.of("type", "text", "analyzer", "pattern");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "pattern");
+        break;
       case URN:
-        return ImmutableMap.of("type", "text", "analyzer", "urn_component");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "urn_component");
+        break;
       case PARTIAL:
-        return ImmutableMap.of("type", "text", "analyzer", "partial");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "partial");
+        break;
       case PARTIAL_SHORT:
-        return ImmutableMap.of("type", "text", "analyzer", "partial_short");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "partial_short");
+        break;
       case PARTIAL_LONG:
-        return ImmutableMap.of("type", "text", "analyzer", "partial_long");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "partial_long");
+        break;
       case PARTIAL_PATTERN:
-        return ImmutableMap.of("type", "text", "analyzer", "partial_pattern");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "partial_pattern");
+        break;
       case PARTIAL_URN:
-        return ImmutableMap.of("type", "text", "analyzer", "partial_urn_component");
+        mappings = ImmutableMap.of("type", "text", "analyzer", "partial_urn_component");
+        break;
       default:
-        return ImmutableMap.of();
+        break;
     }
+    return Optional.ofNullable(mappings);
   }
 }
