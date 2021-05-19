@@ -29,7 +29,8 @@ public class MappingsBuilder {
   }
 
   private static Map<String, Object> getMappingsForBrowsePaths() {
-    return ImmutableMap.<String, Object>builder().put("type", "text")
+    return ImmutableMap.<String, Object>builder()
+        .put("type", "text")
         .put("fields", ImmutableMap.of("length",
             ImmutableMap.<String, Object>builder().put("type", "token_count").put("analyzer", "slash_pattern").build()))
         .put("analyzer", "browse_path")
