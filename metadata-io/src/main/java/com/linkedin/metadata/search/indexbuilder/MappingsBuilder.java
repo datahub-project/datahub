@@ -119,7 +119,7 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put("type", "text")
         .put("fields", ImmutableMap.of("length",
             ImmutableMap.<String, Object>builder().put("type", "token_count").put("analyzer", "slash_pattern").build()))
-        .put("analyzer", "browse_path")
+        .put("analyzer", "browse_path_hierarchy")
         .put("fielddata", true)
         .build();
   }
