@@ -48,14 +48,16 @@ export class DataJobEntity implements Entity<DataJob> {
     renderProfile = (urn: string) => <DataJobProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: DataJob) => {
-        const platformName = data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1);
+        const platformName = data.dataFlow
+            ? data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1)
+            : '';
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
                 description={data.info?.description}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator)}
+                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
             />
@@ -64,14 +66,16 @@ export class DataJobEntity implements Entity<DataJob> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
-        const platformName = data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1);
+        const platformName = data.dataFlow
+            ? data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1)
+            : '';
         return (
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
                 description={data.info?.description}
                 platformName={platformName}
-                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator)}
+                platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
             />
@@ -89,8 +93,8 @@ export class DataJobEntity implements Entity<DataJob> {
             downstreamChildren: getChildren({ entity, type: EntityType.DataJob }, Direction.Downstream).map(
                 (child) => child.entity.urn,
             ),
-            icon: getLogoFromPlatform(entity.dataFlow.orchestrator),
-            platform: entity.dataFlow.orchestrator,
+            icon: getLogoFromPlatform(entity.dataFlow?.orchestrator || ''),
+            platform: entity.dataFlow?.orchestrator || '',
         };
     };
 }

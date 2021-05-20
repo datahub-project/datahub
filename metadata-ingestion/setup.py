@@ -66,6 +66,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {"apache-airflow >= 1.10.2"},
     # Source plugins
     "kafka": kafka_common,
+    "kafka-connect": {"requests"},
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
@@ -148,7 +149,7 @@ dev_requirements_airflow_2 = {
 
 
 entry_points = {
-    "console_scripts": ["datahub = datahub.entrypoints:datahub"],
+    "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
         "file = datahub.ingestion.source.mce_file:MetadataFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
@@ -160,6 +161,7 @@ entry_points = {
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",

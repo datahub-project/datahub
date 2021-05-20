@@ -8,7 +8,7 @@ import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../.
 import ChartSources from './ChartSources';
 import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
@@ -99,7 +99,7 @@ export default function ChartProfile({ urn }: { urn: string }) {
             {data && data.chart && (
                 <EntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.chart?.globalTags as GlobalTags}
                             canAdd
                             canRemove

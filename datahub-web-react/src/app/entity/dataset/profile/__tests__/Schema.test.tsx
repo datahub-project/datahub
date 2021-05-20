@@ -41,13 +41,14 @@ describe('Schema', () => {
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
     });
 
-    it('renders tags', () => {
+    it('renders tags and terms', () => {
         const { getByText } = render(
             <TestPageContainer>
                 <Schema schema={sampleSchemaWithTags} updateEditableSchema={jest.fn()} />
             </TestPageContainer>,
         );
         expect(getByText('Legacy')).toBeInTheDocument();
+        expect(getByText('sample-glossary-term')).toBeInTheDocument();
     });
 
     it('renders description', () => {

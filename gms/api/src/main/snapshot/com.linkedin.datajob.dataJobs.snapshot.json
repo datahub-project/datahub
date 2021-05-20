@@ -391,6 +391,11 @@
             }
           } ],
           "doc" : "Datajob type"
+        }, {
+          "name" : "flowUrn",
+          "type" : "com.linkedin.common.DataFlowUrn",
+          "doc" : "DataFlow urn that this job is part of",
+          "optional" : true
         } ]
       },
       "doc" : "Optional additional metadata about the job",
@@ -420,6 +425,14 @@
             "items" : "com.linkedin.common.DatasetUrn"
           },
           "doc" : "Output datasets produced by the data job during processing"
+        }, {
+          "name" : "inputDatajobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.DataJobUrn"
+          },
+          "doc" : "Input datajobs that this data job depends on",
+          "optional" : true
         } ]
       },
       "doc" : "Input and output datasets of job",

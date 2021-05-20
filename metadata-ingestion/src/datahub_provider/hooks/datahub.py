@@ -22,6 +22,18 @@ if AIRFLOW_1:
 
 
 class DatahubRestHook(BaseHook):
+    """
+    Creates a DataHub Rest API connection used to send metadata to DataHub.
+    Takes the endpoint for your DataHub Rest API in the Server Endpoint(host) field.
+
+    URI example: ::
+
+        AIRFLOW_CONN_DATAHUB_REST_DEFAULT='datahub-rest://rest-endpoint'
+
+    :param datahub_rest_conn_id: Reference to the DataHub Rest connection.
+    :type datahub_rest_conn_id: str
+    """
+
     conn_name_attr = "datahub_rest_conn_id"
     default_conn_name = "datahub_rest_default"
     conn_type = "datahub_rest"
@@ -63,6 +75,18 @@ class DatahubRestHook(BaseHook):
 
 
 class DatahubKafkaHook(BaseHook):
+    """
+    Creates a DataHub Kafka connection used to send metadata to DataHub.
+    Takes your kafka broker in the Kafka Broker(host) field.
+
+    URI example: ::
+
+        AIRFLOW_CONN_DATAHUB_KAFKA_DEFAULT='datahub-kafka://kafka-broker'
+
+    :param datahub_kafka_conn_id: Reference to the DataHub Kafka connection.
+    :type datahub_kafka_conn_id: str
+    """
+
     conn_name_attr = "datahub_kafka_conn_id"
     default_conn_name = "datahub_kafka_default"
     conn_type = "datahub_kafka"
@@ -121,6 +145,14 @@ class DatahubKafkaHook(BaseHook):
 
 
 class DatahubGenericHook(BaseHook):
+    """
+    Emits Metadata Change Events using either the DatahubRestHook or the
+    DatahubKafkaHook. Set up a DataHub Rest or Kafka connection to use.
+
+    :param datahub_conn_id: Reference to the DataHub connection.
+    :type datahub_conn_id: str
+    """
+
     def __init__(self, datahub_conn_id: str) -> None:
         super().__init__(*_default_hook_args)
         self.datahub_conn_id = datahub_conn_id

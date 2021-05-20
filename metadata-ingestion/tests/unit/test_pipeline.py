@@ -35,7 +35,7 @@ class PipelineTest(unittest.TestCase):
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
-    def test_run_including_transformation(self):
+    def test_run_including_fake_transformation(self):
 
         pipeline = Pipeline.create(
             {
@@ -60,6 +60,23 @@ class PipelineTest(unittest.TestCase):
 
         self.assertEqual(len(sink_report.received_records), 1)
         self.assertEqual(expected_mce, sink_report.received_records[0].record)
+
+    def test_run_including_registered_transformation(self):
+        # This is not testing functionality, but just the transformer registration system.
+
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.test_pipeline.FakeSource"},
+                "transformers": [
+                    {
+                        "type": "simple_add_dataset_ownership",
+                        "config": {"owner_urns": ["urn:li:corpuser:foo"]},
+                    }
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+            }
+        )
+        assert pipeline
 
 
 class AddStatusRemovedTransformer(Transformer):

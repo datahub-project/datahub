@@ -1029,6 +1029,18 @@
                           }
                         ],
                         "doc": "Datajob type"
+                      },
+                      {
+                        "name": "flowUrn",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "DataFlow urn that this job is part of",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.DataFlowUrn"
+                        }
                       }
                     ]
                   },
@@ -1053,6 +1065,18 @@
                           "items": "string"
                         },
                         "doc": "Output datasets produced by the data job during processing"
+                      },
+                      {
+                        "name": "inputDatajobs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Input datajobs that this data job depends on",
+                        "default": null
                       }
                     ]
                   },

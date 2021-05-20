@@ -11,7 +11,7 @@ import { EntityProfile } from '../../../shared/EntityProfile';
 import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
@@ -98,7 +98,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
                 <EntityProfile
                     title={data.dashboard.info?.name || ''}
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dashboard?.globalTags as GlobalTags}
                             canAdd
                             canRemove

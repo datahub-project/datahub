@@ -1,0 +1,27 @@
+{
+  "name" : "relationships",
+  "namespace" : "com.linkedin.lineage",
+  "path" : "/relationships",
+  "schema" : "com.linkedin.common.EntityRelationships",
+  "doc" : "Rest.li entry point: /relationships?type={entityType}&direction={direction}&relationshipTypes={types}\n\ngenerated from: com.linkedin.metadata.resources.lineage.Relationships",
+  "simple" : {
+    "supports" : [ "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "types",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string",
+        "optional" : true
+      } ]
+    } ],
+    "entity" : {
+      "path" : "/relationships"
+    }
+  }
+}
