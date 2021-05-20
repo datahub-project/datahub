@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.query;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
@@ -18,6 +17,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -32,6 +32,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.BucketOrder;
@@ -278,12 +279,30 @@ public class ESBrowseDAO {
   /**
    * Gets a list of paths for a given urn.
    *
-   * @param entityName type of entity to query
    * @param urn urn of the entity
    * @return all paths related to a given urn
    */
   @Nonnull
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
-    return ImmutableList.of();
+    final String indexName = _indexConvention.getIndexName(_entityRegistry.getEntitySpec(entityName));
+    final SearchRequest searchRequest = new SearchRequest(indexName);
+    searchRequest.source(
+        new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
+    final SearchHit[] searchHits;
+    try {
+      searchHits = _client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
+    } catch (Exception e) {
+      log.error("Get paths from urn query failed: " + e.getMessage());
+      throw new ESQueryException("Get paths from urn query failed: ", e);
+    }
+
+    if (searchHits.length == 0) {
+      return Collections.emptyList();
+    }
+    final Map sourceMap = searchHits[0].getSourceAsMap();
+    if (!sourceMap.containsKey(BROWSE_PATH)) {
+      return Collections.emptyList();
+    }
+    return (List<String>) sourceMap.get(BROWSE_PATH);
   }
 }
