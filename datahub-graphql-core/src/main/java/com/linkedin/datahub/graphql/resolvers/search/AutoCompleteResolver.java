@@ -10,14 +10,10 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -30,14 +26,12 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
     private static final int DEFAULT_LIMIT = 5;
 
     private final Map<EntityType, SearchableEntityType<?>> _typeToEntity;
-    private final List<SearchableEntityType<?>> _searchableEntities;
 
     public AutoCompleteResolver(@Nonnull final List<SearchableEntityType<?>> searchableEntities) {
         _typeToEntity = searchableEntities.stream().collect(Collectors.toMap(
                 SearchableEntityType::type,
                 entity -> entity
         ));
-        _searchableEntities = searchableEntities;
     }
 
     @Override
@@ -51,7 +45,6 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
         }
 
         final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
-        if (input.getType() != null) {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     return _typeToEntity.get(input.getType()).autoComplete(
@@ -62,39 +55,14 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                             environment.getContext()
                     );
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    throw new RuntimeException("Failed to execute autocomplete: "
+                            + String.format("entity type %s, field %s, query %s, filters: %s, limit: %s",
+                            input.getType(),
+                            input.getField(),
+                            input.getQuery(),
+                            input.getFilters(),
+                            input.getLimit()), e);
                 }
-                return new AutoCompleteResults(input.getQuery(), new ArrayList<String>());
             });
-        } else {
-            final CompletableFuture<AutoCompleteResults>[] autoCompletesFuture = _searchableEntities.stream().map(entity -> {
-                return CompletableFuture.supplyAsync(() -> {
-                    try {
-                        final AutoCompleteResults searchResult = entity.autoComplete(
-                                sanitizedQuery,
-                                input.getField(),
-                                input.getFilters(),
-                                limit,
-                                environment.getContext()
-                        );
-                        return searchResult;
-                    } catch (Exception e) {
-                        return new AutoCompleteResults();
-                    }
-                });
-            }).toArray(CompletableFuture[]::new);
-            return CompletableFuture.allOf(autoCompletesFuture)
-                .thenApplyAsync((res) -> {
-                    AutoCompleteResults result = new AutoCompleteResults(input.getQuery(), new ArrayList<String>());
-                    AutoCompleteResults[] autoCompleteResultsData = Arrays.stream(autoCompletesFuture).map((resultFuture -> {
-                        AutoCompleteResults resultData = resultFuture.join();
-                        if (resultData.getSuggestions() != null) {
-                            result.setSuggestions(Stream.concat(result.getSuggestions().stream(), resultData.getSuggestions().stream()).collect(Collectors.toList()));
-                        }
-                        return resultData;
-                    })).toArray(AutoCompleteResults[]::new);
-                    return result;
-                });
-        }
     }
 }

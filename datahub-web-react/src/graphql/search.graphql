@@ -5,6 +5,16 @@ query getAutoCompleteResults($input: AutoCompleteInput!) {
     }
 }
 
+query getAutoCompleteAllResults($input: AutoCompleteInput!) {
+    autoCompleteForAll(input: $input) {
+        query
+        suggestions {
+            type
+            suggestions
+        }
+    }
+}
+
 query getSearchResults($input: SearchInput!) {
     search(input: $input) {
         start

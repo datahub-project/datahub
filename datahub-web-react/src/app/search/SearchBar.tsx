@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input, AutoComplete } from 'antd';
+import { AutoCompleteResultForEntity } from '../../types.generated';
 
 const { Search } = Input;
 
@@ -10,7 +11,7 @@ const styles = {
 interface Props {
     initialQuery: string;
     placeholderText: string;
-    suggestions: Array<string>;
+    suggestions: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
@@ -28,7 +29,13 @@ export const SearchBar = ({ initialQuery, placeholderText, suggestions, onSearch
         <div style={style}>
             <AutoComplete
                 style={styles.autoComplete}
-                options={suggestions.map((result: string) => ({ value: result }))}
+                options={suggestions.map((result: AutoCompleteResultForEntity) => ({
+                    label: result.type,
+                    options: result.suggestions.map((suggestion: string) => ({
+                        value: suggestion,
+                        label: suggestion,
+                    })),
+                }))}
                 onSelect={(value: string) => onSearch(value)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery}

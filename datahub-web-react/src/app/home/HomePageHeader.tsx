@@ -7,10 +7,10 @@ import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
-import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
 import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
-import { EntityType } from '../../types.generated';
+import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import AnalyticsLink from '../search/AnalyticsLink';
 
@@ -108,7 +108,7 @@ export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const user = useGetAuthenticatedUser();
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
     const themeConfig = useTheme();
 
     const { data } = useIsAnalyticsEnabledQuery();
@@ -193,9 +193,15 @@ export const HomePageHeader = () => {
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
                 <AutoComplete
                     style={styles.searchBox}
-                    options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({
-                        value: result,
-                    }))}
+                    options={suggestionsData?.autoCompleteForAll?.suggestions.map(
+                        (result: AutoCompleteResultForEntity) => ({
+                            label: result.type,
+                            options: result.suggestions.map((suggestion: string) => ({
+                                value: suggestion,
+                                label: suggestion,
+                            })),
+                        }),
+                    )}
                     onSelect={(value: string) => onSearch(value)}
                     onSearch={(value: string) => onAutoComplete(value)}
                 >

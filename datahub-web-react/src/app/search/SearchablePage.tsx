@@ -5,7 +5,7 @@ import { useTheme } from 'styled-components';
 
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
@@ -35,7 +35,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const themeConfig = useTheme();
 
     const user = useGetAuthenticatedUser();
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
     const search = (query: string) => {
         if (query.trim().length === 0) {
@@ -58,7 +58,6 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
         getAutoCompleteResults({
             variables: {
                 input: {
-                    type: entityRegistry.getDefaultSearchEntityType(),
                     query,
                 },
             },
@@ -71,7 +70,10 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
-                    (suggestionsData && suggestionsData?.autoComplete && suggestionsData.autoComplete.suggestions) || []
+                    (suggestionsData &&
+                        suggestionsData?.autoCompleteForAll &&
+                        suggestionsData.autoCompleteForAll.suggestions) ||
+                    []
                 }
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}

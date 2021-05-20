@@ -6,6 +6,7 @@ import styled, { useTheme } from 'styled-components';
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
 import AnalyticsLink from './AnalyticsLink';
+import { AutoCompleteResultForEntity } from '../../types.generated';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -35,7 +36,7 @@ const styles = {
 type Props = {
     initialQuery: string;
     placeholderText: string;
-    suggestions: Array<string>;
+    suggestions: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     authenticatedUserUrn: string;
