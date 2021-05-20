@@ -6,6 +6,7 @@ import com.linkedin.datajob.DataJobInputOutput
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
+import com.linkedin.common.BrowsePaths
 
 /**
  * A union of all supported metadata aspects for a Data job
@@ -16,5 +17,6 @@ typeref DataJobAspect = union[
     DataJobInputOutput,
     Ownership,
     Status,
-    GlobalTags
+    GlobalTags,
+    BrowsePaths
 ]

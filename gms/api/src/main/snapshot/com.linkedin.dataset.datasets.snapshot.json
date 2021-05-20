@@ -309,15 +309,7 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity",
-      "Searchable" : {
-        "/*/tag" : {
-          "fieldName" : "tags_override",
-          "indexSettings" : [ {
-            "indexType" : "PARTIAL_LONG"
-          } ]
-        }
-      }
+      "doc" : "Tags associated with a given entity"
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -1000,9 +992,15 @@
                 "optional" : true,
                 "Searchable" : {
                   "/tags/*/tag" : {
-                    "fieldName" : "field_tags",
+                    "fieldName" : "fieldTags",
                     "indexSettings" : [ {
-                      "indexType" : "PARTIAL_SHORT"
+                      "addToDefaultQuery" : true,
+                      "boostScore" : 0.5,
+                      "indexType" : "URN"
+                    }, {
+                      "addToDefaultQuery" : true,
+                      "boostScore" : 0.1,
+                      "indexType" : "PARTIAL_URN"
                     } ]
                   }
                 }
@@ -1116,9 +1114,15 @@
                 "optional" : true,
                 "Searchable" : {
                   "/tags/*/tag" : {
-                    "fieldName" : "editable_field_tags",
+                    "fieldName" : "editedFieldTags",
                     "indexSettings" : [ {
-                      "indexType" : "PARTIAL_SHORT"
+                      "addToDefaultQuery" : true,
+                      "boostScore" : 0.5,
+                      "indexType" : "URN"
+                    }, {
+                      "addToDefaultQuery" : true,
+                      "boostScore" : 0.1,
+                      "indexType" : "PARTIAL_URN"
                     } ]
                   }
                 }
@@ -1374,7 +1378,7 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
-          "fieldName" : "name",
+          "fieldName" : "origin",
           "indexSettings" : [ {
             "indexType" : "KEYWORD_LOWERCASE"
           }, {

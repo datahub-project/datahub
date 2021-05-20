@@ -764,15 +764,7 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity",
-      "Searchable" : {
-        "/*/tag" : {
-          "fieldName" : "tags_override",
-          "indexSettings" : [ {
-            "indexType" : "PARTIAL_LONG"
-          } ]
-        }
-      }
+      "doc" : "Tags associated with a given entity"
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -1354,7 +1346,7 @@
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
-          "name" : "Consumes"
+          "name" : "Produces"
         }
       },
       "Searchable" : {
@@ -2250,7 +2242,7 @@
                     "isKey" : true,
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2315,7 +2307,7 @@
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
-                      "fieldName" : "name",
+                      "fieldName" : "origin",
                       "indexSettings" : [ {
                         "indexType" : "KEYWORD_LOWERCASE"
                       }, {
@@ -2638,9 +2630,15 @@
                           "optional" : true,
                           "Searchable" : {
                             "/tags/*/tag" : {
-                              "fieldName" : "field_tags",
+                              "fieldName" : "fieldTags",
                               "indexSettings" : [ {
-                                "indexType" : "PARTIAL_SHORT"
+                                "addToDefaultQuery" : true,
+                                "boostScore" : 0.5,
+                                "indexType" : "URN"
+                              }, {
+                                "addToDefaultQuery" : true,
+                                "boostScore" : 0.1,
+                                "indexType" : "PARTIAL_URN"
                               } ]
                             }
                           }
@@ -2749,9 +2747,15 @@
                           "optional" : true,
                           "Searchable" : {
                             "/tags/*/tag" : {
-                              "fieldName" : "editable_field_tags",
+                              "fieldName" : "editedFieldTags",
                               "indexSettings" : [ {
-                                "indexType" : "PARTIAL_SHORT"
+                                "addToDefaultQuery" : true,
+                                "boostScore" : 0.5,
+                                "indexType" : "URN"
+                              }, {
+                                "addToDefaultQuery" : true,
+                                "boostScore" : 0.1,
+                                "indexType" : "PARTIAL_URN"
                               } ]
                             }
                           }

@@ -389,15 +389,7 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity",
-      "Searchable" : {
-        "/*/tag" : {
-          "fieldName" : "tags_override",
-          "indexSettings" : [ {
-            "indexType" : "PARTIAL_LONG"
-          } ]
-        }
-      }
+      "doc" : "Tags associated with a given entity"
     } ],
     "Aspect" : {
       "name" : "globalTags"

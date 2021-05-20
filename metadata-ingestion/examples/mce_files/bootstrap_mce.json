@@ -1069,9 +1069,6 @@
                             ],
                             "outputDatasets": [
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-                            ],
-                            "inputDatajobs": [
-                                "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
                             ]
                         }
                     }
