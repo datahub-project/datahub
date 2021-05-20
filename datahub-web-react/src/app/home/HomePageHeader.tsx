@@ -135,7 +135,6 @@ export const HomePageHeader = () => {
         getAutoCompleteResults({
             variables: {
                 input: {
-                    type: entityRegistry.getDefaultSearchEntityType(),
                     query,
                 },
             },

@@ -1177,7 +1177,7 @@ input AutoCompleteInput {
     """
     Entity type to be autocompleted against
     """
-	type: EntityType!
+	type: EntityType
 
 	"""
 	The query string
