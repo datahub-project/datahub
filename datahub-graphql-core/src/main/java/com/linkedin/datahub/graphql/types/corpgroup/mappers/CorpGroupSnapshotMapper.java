@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
-import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;

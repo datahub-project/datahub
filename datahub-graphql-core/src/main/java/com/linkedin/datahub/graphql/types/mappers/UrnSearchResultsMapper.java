@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
 import com.google.common.collect.Streams;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -11,13 +12,10 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.query.MatchMetadata;
 import com.linkedin.metadata.query.SearchResultMetadata;
-import com.linkedin.restli.common.CollectionResponse;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 

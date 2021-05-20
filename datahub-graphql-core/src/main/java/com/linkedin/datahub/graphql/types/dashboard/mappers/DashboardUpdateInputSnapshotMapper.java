@@ -1,17 +1,14 @@
 package com.linkedin.datahub.graphql.types.dashboard.mappers;
 
 import com.linkedin.common.GlobalTags;
+
 import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.dashboard.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
-import com.linkedin.metadata.aspect.ChartAspect;
-import com.linkedin.metadata.aspect.ChartAspectArray;
 import com.linkedin.metadata.aspect.DashboardAspect;
 import com.linkedin.metadata.aspect.DashboardAspectArray;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;

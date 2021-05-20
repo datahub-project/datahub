@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
 import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
@@ -16,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
 import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
@@ -24,9 +24,7 @@ import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.aspect.DataJobAspect;
@@ -34,10 +32,8 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.resources.datajob.DataJobs;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.restli.common.CollectionResponse;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;

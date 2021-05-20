@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import com.linkedin.common.Cost;
+
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -9,7 +10,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
-import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.SourceCode;
 import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
 import com.linkedin.common.GlobalTags;
+
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.datahub.graphql.generated.DataFlow;
@@ -9,7 +10,6 @@ import com.linkedin.datahub.graphql.generated.DataJobInfo;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;

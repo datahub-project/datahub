@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.tag;
 
 import com.linkedin.common.AuditStamp;
+
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -21,9 +22,7 @@ import com.linkedin.datahub.graphql.generated.TagUpdate;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -36,9 +35,7 @@ import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.tag.TagProperties;
-import com.linkedin.tag.client.Tags;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
