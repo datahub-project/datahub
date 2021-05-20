@@ -1733,7 +1733,7 @@
                             "entityTypes": [
                               "dataset"
                             ],
-                            "name": "Consumes"
+                            "name": "Produces"
                           }
                         },
                         "Searchable": {
@@ -1758,7 +1758,8 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.GlobalTags"
+                  "com.linkedin.pegasus2avro.common.GlobalTags",
+                  "com.linkedin.pegasus2avro.common.BrowsePaths"
                 ]
               },
               "doc": "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1855,7 +1856,7 @@
                         },
                         "doc": "Fabric type where dataset belongs to or where it was generated.",
                         "Searchable": {
-                          "fieldName": "name",
+                          "fieldName": "origin",
                           "indexSettings": [
                             {
                               "indexType": "KEYWORD_LOWERCASE"
