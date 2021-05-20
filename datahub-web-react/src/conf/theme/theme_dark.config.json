@@ -18,8 +18,7 @@
         "homepage-background-lower-fade": "#333E4C"
     },
     "assets": {
-        "logoUrl": "/assets/logo.png",
-        "logoAspectRatio": 1.125
+        "logoUrl": "/assets/logo.png"
     },
     "content": {
         "title": "DataHub",
