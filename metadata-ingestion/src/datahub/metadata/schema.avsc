@@ -644,17 +644,7 @@
                             ]
                           }
                         },
-                        "doc": "Tags associated with a given entity",
-                        "Searchable": {
-                          "/*/tag": {
-                            "fieldName": "tags_override",
-                            "indexSettings": [
-                              {
-                                "indexType": "PARTIAL_LONG"
-                              }
-                            ]
-                          }
-                        }
+                        "doc": "Tags associated with a given entity"
                       }
                     ],
                     "Aspect": {
@@ -2642,10 +2632,17 @@
                                 "default": null,
                                 "Searchable": {
                                   "/tags/*/tag": {
-                                    "fieldName": "field_tags",
+                                    "fieldName": "fieldTags",
                                     "indexSettings": [
                                       {
-                                        "indexType": "PARTIAL_SHORT"
+                                        "addToDefaultQuery": true,
+                                        "boostScore": 0.5,
+                                        "indexType": "URN"
+                                      },
+                                      {
+                                        "addToDefaultQuery": true,
+                                        "boostScore": 0.1,
+                                        "indexType": "PARTIAL_URN"
                                       }
                                     ]
                                   }
@@ -2851,10 +2848,17 @@
                                 "default": null,
                                 "Searchable": {
                                   "/tags/*/tag": {
-                                    "fieldName": "editable_field_tags",
+                                    "fieldName": "editedFieldTags",
                                     "indexSettings": [
                                       {
-                                        "indexType": "PARTIAL_SHORT"
+                                        "addToDefaultQuery": true,
+                                        "boostScore": 0.5,
+                                        "indexType": "URN"
+                                      },
+                                      {
+                                        "addToDefaultQuery": true,
+                                        "boostScore": 0.1,
+                                        "indexType": "PARTIAL_URN"
                                       }
                                     ]
                                   }
