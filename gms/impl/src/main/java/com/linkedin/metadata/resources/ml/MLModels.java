@@ -5,7 +5,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.query.ESSearchDAO;

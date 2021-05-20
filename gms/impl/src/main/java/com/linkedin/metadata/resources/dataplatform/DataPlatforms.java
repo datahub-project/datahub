@@ -8,7 +8,7 @@ import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.aspect.DataPlatformAspect;
 import com.linkedin.metadata.aspect.DataPlatformAspectArray;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.restli.BaseEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;

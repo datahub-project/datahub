@@ -1,8 +1,8 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.RemoteEntityDao;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -26,15 +26,16 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private RemoteEntityDao entityRemoteWriterDao;
+  private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String fmceTopicName;
 
-  public MetadataChangeEventsProcessor(@Nonnull final RemoteEntityDao entityRemoteWriterDao,
+  public MetadataChangeEventsProcessor(
+      @Nonnull final EntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.entityRemoteWriterDao = entityRemoteWriterDao;
+    this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
@@ -59,12 +60,6 @@ public class MetadataChangeEventsProcessor {
     }
   }
 
-  /**
-   * Sending Failed MCE Event to Kafka Topic
-   *
-   * @param event
-   * @param throwable
-   */
   private void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
     final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
     try {
@@ -78,13 +73,6 @@ public class MetadataChangeEventsProcessor {
     }
   }
 
-  /**
-   * Populate a FailedMetadataChangeEvent from a MCE
-   *
-   * @param event
-   * @param throwable
-   * @return FailedMetadataChangeEvent
-   */
   @Nonnull
   private FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event,
       @Nonnull Throwable throwable) {
@@ -94,10 +82,9 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
-  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent)
-      throws RemoteInvocationException {
+  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    entityRemoteWriterDao.create(entity);
+    entityClient.update(entity);
   }
 }

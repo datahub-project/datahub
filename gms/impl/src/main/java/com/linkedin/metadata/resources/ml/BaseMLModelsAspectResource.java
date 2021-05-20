@@ -4,7 +4,7 @@ import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.MLModelAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.ml.MLModelKey;
 import com.linkedin.restli.common.ComplexResourceKey;

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka.config;
 
-import com.linkedin.metadata.dao.internal.BaseRemoteWriterDAO;
-import com.linkedin.metadata.dao.internal.RestliRemoteWriterDAO;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 
 @Configuration
-public class RemoteWriterConfig {
+public class EntityClientConfig {
 
   @Value("${GMS_HOST:localhost}")
   private String gmsHost;
@@ -22,8 +21,8 @@ public class RemoteWriterConfig {
   private String gmsSslProtocol;
 
   @Bean
-  public BaseRemoteWriterDAO remoteWriterDAO() {
+  public EntityClient entityRemoteWriterDao() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-    return new RestliRemoteWriterDAO(restClient);
+    return new EntityClient(restClient);
   }
 }

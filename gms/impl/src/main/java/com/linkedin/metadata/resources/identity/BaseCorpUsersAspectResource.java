@@ -4,7 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
