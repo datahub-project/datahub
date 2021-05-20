@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.metadata.dao.EbeanAspectDao;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EbeanAspectDao;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.mxe.TopicConvention;

@@ -32,38 +32,6 @@
         "proposedDelta": null
     },
     {
-		"auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.TestEntitySnapshot": {
-                "urn": "urn:li:testEntity:(part1,part2,part3)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.experimental.TestEntityInfo": {
-                            "title": "test_title",
-                            "aliases": ["alias_one", "alias_two"],
-                            "recordAliases": [{
-                            	"name": "alias_three"
-                            }],
-                            "foreignKeyArray": ["urn:li:chart:105"],
-                            "foreignKey": "urn:li:chart:202",
-                            "description": "some descript",
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "inputs": [{
-                            	"entity": "urn:li:chart:303",
-                            	"myEdgeProp": "extra prop"
-                            }]
-                        }
-                    }
-                ]
-            }
-        },
-        "proposedDelta": null
-	},
-    {
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
@@ -139,6 +107,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                 "aspects": [
+                     {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/kafka/SampleKafkaDataset"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "description": null,
@@ -281,6 +254,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/hdfs/SampleHdfsDataset"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -479,6 +457,11 @@
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
                 "aspects": [
                     {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/hive/SampleHdfsDataset"]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
@@ -605,6 +588,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/hive/logging_events"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -743,6 +731,11 @@
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
                 "aspects": [
                     {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/hive/fct_users_created"]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
@@ -864,6 +857,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/hive/fct_users_deleted"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -992,49 +990,6 @@
     {
         "auditHeader": null,
         "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot": {
-                "urn": "urn:li:dataProcess:(sqoop,DEMO,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:datahub",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataprocess.DataProcessInfo": {
-                            "inputs": {
-                                "array": [
-                                    "urn:li:dataset:(urn:li:dataPlatform:cassandra,barEarth,DEV)",
-                                    "urn:li:dataset:(urn:li:dataPlatform:cassandra,barMars,DEV)"
-                                ]
-                            },
-                            "outputs": {
-                                "array": [
-                                    "urn:li:dataset:(urn:li:dataPlatform:hbase,barSky,PROD)",
-                                    "urn:li:dataset:(urn:li:dataPlatform:hbase,barOcean,PROD)"
-                                ]
-                            }
-                        }
-                    }
-                ]
-            }
-        },
-        "proposedDelta": null
-    },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
                 "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
                 "aspects": [
@@ -1058,7 +1013,8 @@
                         "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
                             "name": "User Creations",
                             "description": "Constructs the fct_users_created from logging_events",
-                            "type": "SQL"
+                            "type": "SQL",
+                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
                         }
                     },
                     {
@@ -1067,7 +1023,7 @@
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
                             ],
                             "outputDatasets": [
-                             	"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+                                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
                             ]
                         }
                     }
@@ -1102,7 +1058,8 @@
                         "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
                             "name": "User Deletions",
                             "description": "Constructs the fct_users_deleted from logging_events",
-                            "type": "SQL"
+                            "type": "SQL",
+                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
                         }
                     },
                     {
@@ -1111,7 +1068,10 @@
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
                             ],
                             "outputDatasets": [
-                             	"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                            ],
+                            "inputDatajobs": [
+                                "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
                             ]
                         }
                     }
@@ -1126,6 +1086,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
                 "urn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/airflow/dag_abc"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -1154,12 +1119,17 @@
         },
         "proposedDelta": null
     },
-	{
+    {
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
                 "urn": "urn:li:chart:(looker,baz1)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/looker/baz1"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.chart.ChartInfo": {
                             "title": "Baz Chart 1",
@@ -1207,6 +1177,11 @@
                 "urn": "urn:li:chart:(looker,baz2)",
                 "aspects": [
                     {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/looker/baz2"]
+                        }
+                    },
+                    {
                         "com.linkedin.pegasus2avro.chart.ChartInfo": {
                             "title": "Baz Chart 2",
                             "description": "Baz Chart 2",
@@ -1247,6 +1222,11 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
                 "urn": "urn:li:dashboard:(looker,baz)",
                 "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                           "paths": ["/prod/looker/baz"]
+                        }
+                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [

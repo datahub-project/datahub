@@ -35,7 +35,7 @@ record DatasetKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldName": "name",
+    "fieldName": "origin",
     "indexSettings": [
       { "indexType": "KEYWORD_LOWERCASE" },
       { "indexType": "PARTIAL" }

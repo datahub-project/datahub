@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
-import com.linkedin.metadata.dao.EbeanAspectDao;
+import com.linkedin.metadata.entity.EbeanAspectDao;
 import io.ebean.config.ServerConfig;
 
 import org.springframework.beans.factory.annotation.Autowired;

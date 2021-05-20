@@ -5,7 +5,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;

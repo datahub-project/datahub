@@ -13,7 +13,7 @@ import com.linkedin.identity.CorpUserResourceKey;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;

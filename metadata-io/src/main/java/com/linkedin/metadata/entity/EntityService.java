@@ -1,4 +1,4 @@
-package com.linkedin.metadata.dao;
+package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -10,7 +10,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.EntitySpecUtils;
-import com.linkedin.metadata.dao.ebean.EbeanAspect;
+import com.linkedin.metadata.entity.ebean.EbeanAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.ModelUtils;
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 import lombok.Value;
 
 import static com.linkedin.metadata.EntitySpecUtils.*;
-import static com.linkedin.metadata.dao.EbeanAspectDao.*;
+import static com.linkedin.metadata.entity.EbeanAspectDao.*;
 
 
 public class EntityService {

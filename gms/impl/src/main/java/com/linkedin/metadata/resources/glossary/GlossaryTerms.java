@@ -13,7 +13,7 @@ import com.linkedin.metadata.aspect.GlossaryTermAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
-import com.linkedin.metadata.dao.EntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.SearchResult;

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.dao.ebean;
+package com.linkedin.metadata.entity.ebean;
 
 import io.ebean.Model;
 import io.ebean.annotation.Index;
