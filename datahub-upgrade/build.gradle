@@ -1,0 +1,28 @@
+plugins {
+  id 'org.springframework.boot'
+  id 'java'
+}
+
+// configurations {
+//  compile.exclude module: 'neo4j'
+// }
+
+dependencies {
+  compile project(':metadata-io')
+  compile project(':gms:impl')
+
+  compile externalDependency.javaxInject
+  compile externalDependency.lombok
+  compile externalDependency.picocli
+  compile externalDependency.springBeans
+  compile externalDependency.springBootAutoconfigure
+  compile externalDependency.springCore
+  compile externalDependency.springKafka
+
+  annotationProcessor externalDependency.lombok
+  annotationProcessor externalDependency.picocli
+}
+
+bootJar {
+  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCli'
+}

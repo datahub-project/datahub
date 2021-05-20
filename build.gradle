@@ -9,7 +9,7 @@ buildscript {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
-    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.2.RELEASE'
+    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
   }
 }
 
@@ -102,9 +102,9 @@ project.ext.externalDependency = [
     'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
     'springJdbc': 'org.springframework:spring-jdbc:5.2.3.RELEASE',
     'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
-    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.2.RELEASE',
-    'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
-    'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
+    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.4.RELEASE',
+    'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.4.RELEASE',
+    'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.4.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
     'testng': 'org.testng:testng:6.9.9',
