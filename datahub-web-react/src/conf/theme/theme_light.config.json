@@ -20,7 +20,8 @@
         "box-shadow-hover": "0px 1px 0px 0.5px rgb(239 239 239)"
     },
     "assets": {
-        "logoUrl": "/assets/logo.png"
+        "logoUrl": "/assets/logo.png",
+        "logoAspectRatio": 1.125
     },
     "content": {
         "title": "DataHub",

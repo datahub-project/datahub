@@ -21,6 +21,7 @@ export type Theme = {
     };
     assets: {
         logoUrl: string;
+        logoAspectRatio: number;
     };
     content: {
         title: string;

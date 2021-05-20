@@ -29,7 +29,6 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    logoImage: { width: '36px', height: '32px' },
 };
 
 type Props = {
@@ -66,11 +65,16 @@ export const SearchHeader = ({
 }: Props) => {
     const themeConfig = useTheme();
 
+    const logoHeight = 32; // height is fixed
+    const { logoAspectRatio } = themeConfig.assets; // aspect ratio comes from config
+    const logoWidth = logoAspectRatio * logoHeight;
+    const logoImageStyle = { width: `${logoWidth}px`, height: `${logoHeight}px` };
+
     return (
         <Header style={styles.header as any}>
             <Link to="/">
                 <Space size={4}>
-                    <Image style={styles.logoImage} src={themeConfig.assets.logoUrl} preview={false} />
+                    <Image style={logoImageStyle} src={themeConfig.assets.logoUrl} preview={false} />
                     <HeaderTitle level={4}>{themeConfig.content.title}</HeaderTitle>
                 </Space>
             </Link>
