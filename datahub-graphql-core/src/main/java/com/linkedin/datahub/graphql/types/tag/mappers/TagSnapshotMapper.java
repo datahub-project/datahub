@@ -1,12 +1,11 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
 import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.TagUrn;
+
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.tag.TagProperties;

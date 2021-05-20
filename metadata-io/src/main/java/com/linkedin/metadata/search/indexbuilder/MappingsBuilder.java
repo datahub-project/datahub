@@ -11,8 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class MappingsBuilder {
 
   private MappingsBuilder() {
@@ -107,6 +109,7 @@ public class MappingsBuilder {
         mappings = getMappingsForBrowsePaths();
         break;
       default:
+        log.info("Unsupported index type: {}", indexSetting.getIndexType());
         break;
     }
     return Optional.ofNullable(mappings);
@@ -116,7 +119,7 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put("type", "text")
         .put("fields", ImmutableMap.of("length",
             ImmutableMap.<String, Object>builder().put("type", "token_count").put("analyzer", "slash_pattern").build()))
-        .put("analyzer", "browse_path")
+        .put("analyzer", "browse_path_hierarchy")
         .put("fielddata", true)
         .build();
   }

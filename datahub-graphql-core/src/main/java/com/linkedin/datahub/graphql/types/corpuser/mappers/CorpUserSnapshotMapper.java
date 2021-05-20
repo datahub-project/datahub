@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.corpuser.mappers;
 
 import com.linkedin.common.GlobalTags;
-import com.linkedin.common.urn.CorpuserUrn;
+
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;

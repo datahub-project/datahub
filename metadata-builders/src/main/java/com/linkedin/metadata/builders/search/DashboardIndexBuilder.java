@@ -24,7 +24,7 @@ public class DashboardIndexBuilder extends BaseIndexBuilder<DashboardDocument> {
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull DashboardUrn urn) {
+  public static String buildBrowsePath(@Nonnull DashboardUrn urn) {
     return ("/" + urn.getDashboardToolEntity() + "/"  + urn.getDashboardIdEntity()).toLowerCase();
   }
 

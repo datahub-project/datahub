@@ -65,12 +65,6 @@ public class SettingsBuilder {
 
   private static Map<String, Object> buildTokenizers() {
     ImmutableMap.Builder<String, Object> tokenizers = ImmutableMap.builder();
-    // Tokenizer for browse paths
-    tokenizers.put("path_hierarchy_tokenizer", ImmutableMap.<String, Object>builder().put("type", "path_hierarchy")
-        .put("replacement", "/")
-        .put("delimiter", ".")
-        .build());
-
     // Tokenize by slashes
     tokenizers.put("slash_tokenizer",
         ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[/]").build());
@@ -126,7 +120,7 @@ public class SettingsBuilder {
         .build());
 
     // Analyzer for matching browse path
-    analyzers.put("browse_path", ImmutableMap.<String, Object>builder().put("tokenizer", "path_hierarchy_tokenizer")
+    analyzers.put("browse_path_hierarchy", ImmutableMap.<String, Object>builder().put("tokenizer", "path_hierarchy")
         .put("filter", ImmutableList.of("lowercase"))
         .build());
 

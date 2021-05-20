@@ -76,7 +76,7 @@ public class SearchDocumentTransformer {
             break;
         }
       } else {
-        Optional<JsonNode> valueNodeOpt = getNodeForValue(valueType, fieldValues, isArray);
+        Optional<JsonNode> valueNodeOpt = getNodeForValue(valueType, fieldValues, indexSetting.getIndexType(), isArray);
         if (valueNodeOpt.isPresent()) {
           valueNode = valueNodeOpt.get();
         }
@@ -93,24 +93,27 @@ public class SearchDocumentTransformer {
     }
     // For fields with an index setting without an override, set key to fieldName
     final String fieldName = fieldSpec.getFieldName();
-    Optional<JsonNode> valueNode = getNodeForValue(valueType, fieldValues, isArray);
+    // Get the index type of the first index setting without override
+    final IndexType mainIndexType = indexSettingsHasOverride.get(false).get(0).getIndexType();
+    Optional<JsonNode> valueNode = getNodeForValue(valueType, fieldValues, mainIndexType, isArray);
     valueNode.ifPresent(node -> searchDocument.set(fieldName, node));
   }
 
   private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final List<Object> fieldValues,
-      final boolean isArray) {
+      final IndexType indexType, final boolean isArray) {
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-      fieldValues.forEach(value -> getNodeForValue(fieldType, value).ifPresent(arrayNode::add));
+      fieldValues.forEach(value -> getNodeForValue(fieldType, value, indexType).ifPresent(arrayNode::add));
       return Optional.of(arrayNode);
     }
     if (!fieldValues.isEmpty()) {
-      return getNodeForValue(fieldType, fieldValues.get(0));
+      return getNodeForValue(fieldType, fieldValues.get(0), indexType);
     }
     return Optional.empty();
   }
 
-  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue) {
+  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue,
+      final IndexType indexType) {
     switch (fieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
@@ -121,6 +124,10 @@ public class SearchDocumentTransformer {
       // By default run toString
       default:
         String value = fieldValue.toString();
+        // If index type is BROWSE_PATH, make sure the value starts with a slash
+        if (indexType == IndexType.BROWSE_PATH && !value.startsWith("/")) {
+          value = "/" + value;
+        }
         return value.isEmpty() ? Optional.empty()
             : Optional.of(JsonNodeFactory.instance.textNode(fieldValue.toString()));
     }

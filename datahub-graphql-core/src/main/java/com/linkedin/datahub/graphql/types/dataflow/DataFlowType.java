@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
 import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.Urn;
@@ -18,16 +19,12 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowMapper;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowSnapshotMapper;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datajob.client.DataFlows;
-import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.aspect.DataFlowAspect;
@@ -38,7 +35,6 @@ import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;

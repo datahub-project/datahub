@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -26,11 +27,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.ml.client.MLModels;
-import com.linkedin.restli.common.CollectionResponse;
 
 public class MLModelType implements SearchableEntityType<MLModel> {
 

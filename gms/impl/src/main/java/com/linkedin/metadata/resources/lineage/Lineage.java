@@ -47,7 +47,10 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     private static final List<String> LINEAGE_RELATIONSHIP_TYPES = Arrays.asList(
-        "DownstreamOf", "Consumes", "Contains", "Produces");
+        "DownstreamOf", "Consumes", "Contains");
+
+    private static final List<String> INVERSE_LINEAGE_RELATIONSHIP_TYPES = Arrays.asList(
+        "Produces");
 
     @Inject
     @Named("graphQueryDao")
@@ -93,8 +96,9 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     ) throws URISyntaxException {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
         return RestliUtils.toTask(() -> {
-            // TODO(gabe-lyons): support unions in Neo4jQueryDao queries & then we can remove the multiple DAO queries
             final List<Urn> downstreamOfEntities = getRelatedEntities(rawUrn, LINEAGE_RELATIONSHIP_TYPES, direction);
+            downstreamOfEntities.addAll(
+                getRelatedEntities(rawUrn, INVERSE_LINEAGE_RELATIONSHIP_TYPES, getOppositeDirection(direction)));
 
             final EntityRelationshipArray entityArray = new EntityRelationshipArray(
                     Stream.of(downstreamOfEntities).flatMap(Collection::stream)

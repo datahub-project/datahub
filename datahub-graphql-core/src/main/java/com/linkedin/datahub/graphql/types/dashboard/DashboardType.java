@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
 import com.linkedin.common.urn.CorpuserUrn;
+
 import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -19,13 +19,10 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardSnapshotMapper;
-import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.experimental.Entity;
@@ -36,7 +33,6 @@ import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
