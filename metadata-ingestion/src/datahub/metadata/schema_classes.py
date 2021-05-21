@@ -1,15 +1,17 @@
 # flake8: noqa
 # fmt: off
+import datetime
+import decimal
 import json
 import os.path
-import decimal
-import datetime
+from typing import Dict, List, Optional, Union
+
 import six
-from avrogen.dict_wrapper import DictWrapper
-from avrogen import avrojson
-from avro.schema import RecordSchema, SchemaFromJSONData as make_avsc_object
 from avro import schema as avro_schema
-from typing import List, Dict, Union, Optional
+from avro.schema import RecordSchema
+from avro.schema import SchemaFromJSONData as make_avsc_object
+from avrogen import avrojson
+from avrogen.dict_wrapper import DictWrapper
 
 
 def __read_file(file_name):

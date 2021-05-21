@@ -7,6 +7,9 @@ from feast.feature import Feature
 from feast.feature_table import FeatureTable
 from feast.value_type import ValueType
 
+from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
+
 # from datahub.ingestion.run.pipeline import Pipeline
 # from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -98,36 +101,30 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
         # commit the tables to the feature store
         test_client.apply([table_1, table_2, table_3])
 
-        breakpoint()
+        # Run the metadata ingestion pipeline.
+        pipeline = Pipeline.create(
+            {
+                "run_id": "feast-test",
+                "source": {
+                    "type": "feast",
+                    "config": {
+                        "core_url": "localhost:6565",
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/feast_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
 
-        for table in test_client.list_feature_tables():
-
-            print(test_client.get_feature_table(table.name))
-
-        # # Run the metadata ingestion pipeline.
-        # pipeline = Pipeline.create(
-        #     {
-        #         "run_id": "feast-test",
-        #         "source": {
-        #             "type": "feast",
-        #             "config": {
-        #                 "core_url": "localhost:6565",
-        #             },
-        #         },
-        #         "sink": {
-        #             "type": "file",
-        #             "config": {
-        #                 "filename": f"{tmp_path}/feast_mces.json",
-        #             },
-        #         },
-        #     }
-        # )
-        # pipeline.run()
-        # pipeline.raise_from_status()
-
-        # # Verify the output.
-        # output = mce_helpers.load_json_file(str(tmp_path / "feast_mces.json"))
-        # golden = mce_helpers.load_json_file(
-        #     str(test_resources_dir / "feast_mce_golden.json")
-        # )
-        # mce_helpers.assert_mces_equal(output, golden)
+        # Verify the output.
+        output = mce_helpers.load_json_file(str(tmp_path / "feast_mces.json"))
+        golden = mce_helpers.load_json_file(
+            str(test_resources_dir / "feast_mce_golden.json")
+        )
+        mce_helpers.assert_mces_equal(output, golden)
