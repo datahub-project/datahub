@@ -28,10 +28,10 @@ Declare the source's pip dependencies in the `plugins` variable of the [setup sc
 
 Declare the source under the `entry_points` variable of the [setup script](./setup.py). This enables the source to be listed when running `datahub check plugins`, and sets up the source's shortened alias for use in recipes.
 
-### 6. Write some tests
+### 6. Write tests
 
 Tests go in the `tests` directory. We use the [pytest framework](https://pytest.org/).
 
-### 7. Write some docs
+### 7. Write docs
 
 Add the plugin to the table at the top of the README file, and add the source's documentation underneath the sources header.
