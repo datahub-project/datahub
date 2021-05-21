@@ -157,7 +157,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
           totalRowsMigrated++;
         }
-        context.report().addLine(String.format("Successfully migrated rows %s rows", totalRowsMigrated));
+        context.report().addLine(String.format("Successfully migrated %s rows", totalRowsMigrated));
 
         start = start + count;
         try {
