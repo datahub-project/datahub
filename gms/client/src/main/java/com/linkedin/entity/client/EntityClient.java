@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,20 +62,27 @@ public class EntityClient {
         _client = restliClient;
     }
 
+    private <T> Response<T> sendClientRequest(Request<T> request) throws RemoteInvocationException {
+        try {
+            return _client.sendRequest(request).getResponse();
+        } catch (RemoteInvocationException e) {
+            if (((RestLiResponseException) e).getStatus() == 404) {
+                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
+                    + "Please update your gms to the latest Datahub release");
+                System.exit(1);
+            } else {
+                throw e;
+            }
+        }
+        return null;
+    }
+
     @Nonnull
     public RecordTemplate get(@Nonnull final Urn urn) throws RemoteInvocationException {
         final GetRequest<Entity> getRequest = ENTITIES_REQUEST_BUILDERS.get()
                 .id(urn.toString())
                 .build();
-        try {
-            return _client.sendRequest(getRequest).getResponse().getEntity();
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-            }
-            throw e;
-        }
+        return sendClientRequest(getRequest).getEntity();
     }
 
     @Nonnull
@@ -89,32 +97,23 @@ public class EntityClient {
 
         final Map<Urn, Entity> response = new HashMap<>();
 
-        try {
-            for (List<Urn> urnsInBatch : entityUrnBatches) {
-                BatchGetEntityRequest<String, Entity> batchGetRequest =
-                        ENTITIES_REQUEST_BUILDERS.batchGet()
-                                .ids(urnsInBatch.stream().map(urn -> urn.toString()).collect(Collectors.toSet()))
-                                .build();
-                final Map<Urn, Entity> batchResponse = _client.sendRequest(batchGetRequest).getResponseEntity().getResults()
-                        .entrySet().stream().collect(Collectors.toMap(
-                                entry -> {
-                                    try {
-                                        return Urn.createFromString(entry.getKey());
-                                    } catch (URISyntaxException e) {
-                                       throw new RuntimeException(String.format("Failed to create Urn from key string %s", entry.getKey()));
-                                    }
-                                },
-                                entry -> entry.getValue().getEntity())
-                        );
-                response.putAll(batchResponse);
-            }
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-            } else {
-                throw e;
-            }
+        for (List<Urn> urnsInBatch : entityUrnBatches) {
+            BatchGetEntityRequest<String, Entity> batchGetRequest =
+                    ENTITIES_REQUEST_BUILDERS.batchGet()
+                            .ids(urnsInBatch.stream().map(urn -> urn.toString()).collect(Collectors.toSet()))
+                            .build();
+            final Map<Urn, Entity> batchResponse = sendClientRequest(batchGetRequest).getEntity().getResults()
+                    .entrySet().stream().collect(Collectors.toMap(
+                            entry -> {
+                                try {
+                                    return Urn.createFromString(entry.getKey());
+                                } catch (URISyntaxException e) {
+                                   throw new RuntimeException(String.format("Failed to create Urn from key string %s", entry.getKey()));
+                                }
+                            },
+                            entry -> entry.getValue().getEntity())
+                    );
+            response.putAll(batchResponse);
         }
         return response;
     }
@@ -139,17 +138,7 @@ public class EntityClient {
             .fieldParam(field)
             .filterParam(newFilter(requestFilters))
             .limitParam(limit);
-        try {
-            return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                return new AutoCompleteResult();
-            } else {
-                throw e;
-            }
-        }
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
     /**
@@ -174,17 +163,7 @@ public class EntityClient {
         if (requestFilters != null) {
             requestBuilder.filterParam(newFilter(requestFilters));
         }
-        try {
-            return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                return new BrowseResult();
-            } else {
-                throw e;
-            }
-        }
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
     public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
@@ -210,11 +189,7 @@ public class EntityClient {
 
         final Request request = builder.build();
 
-        try {
-            _client.sendRequest(request).getResponse();
-        } catch (RemoteInvocationException e) {
-            throw new RemoteInvocationException(e);
-        }
+        sendClientRequest(request);
     }
 
     /**
@@ -245,17 +220,8 @@ public class EntityClient {
             .filterParam(newFilter(requestFilters))
             .startParam(start)
             .countParam(count);
-        try {
-            return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-              _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                  + "Please update your gms to the latest Datahub release");
-                return new SearchResult();
-            } else {
-                throw e;
-            }
-        }
+
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
     /**
@@ -270,16 +236,6 @@ public class EntityClient {
         EntitiesDoGetBrowsePathsRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);
-        try {
-            return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
-        } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                return new StringArray();
-            } else {
-                throw e;
-            }
-        }
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 }
