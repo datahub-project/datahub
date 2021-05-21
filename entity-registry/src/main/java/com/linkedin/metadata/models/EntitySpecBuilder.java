@@ -102,14 +102,12 @@ public class EntitySpecBuilder {
           failValidation(String.format("Could not build entity spec for entity with name %s."
                   + " Found multiple Aspects with the same name %s",
               entityAnnotation.getName(), aspectSpec.getName()));
-          return null;
         }
         if (aspectSpec.isKey()) {
           if (foundKey) {
             failValidation(String.format("Could not build entity spec for entity with name %s."
                     + " Found multiple Key aspects.",
                 entityAnnotation.getName()));
-            return null;
           }
           validateKeyAspect(aspectSpec);
           foundKey = true;
@@ -120,7 +118,6 @@ public class EntitySpecBuilder {
         failValidation(String.format("Could not build entity spec for entity with name %s."
                 + " Did not find a Key aspect.",
             entityAnnotation.getName()));
-        return null;
       }
 
       // Validate entity name
@@ -129,7 +126,6 @@ public class EntitySpecBuilder {
         failValidation(String.format("Could not build entity spec for entity with name %s."
                 + " Found multiple Entity Snapshots with the same name.",
             entityAnnotation.getName()));
-        return null;
       }
 
       _entityNames.add(entityAnnotation.getName());
@@ -213,7 +209,6 @@ public class EntitySpecBuilder {
     if (entitySnapshotSchema.getType() != DataSchema.Type.RECORD) {
       failValidation(String.format("Failed to validate entity snapshot schema of type %s. Schema must be of record type.",
           entitySnapshotSchema.getType().toString()));
-      return null;
     }
 
     final RecordDataSchema entitySnapshotRecordSchema = (RecordDataSchema) entitySnapshotSchema;
@@ -223,7 +218,6 @@ public class EntitySpecBuilder {
         || entitySnapshotRecordSchema.getField(URN_FIELD_NAME).getType().getDereferencedType() != DataSchema.Type.STRING) {
       failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid urn field.",
           entitySnapshotRecordSchema.getName()));
-      return null;
     }
 
     // 2. Validate Aspect Array
@@ -233,7 +227,6 @@ public class EntitySpecBuilder {
       failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field found. "
               + "'aspects' should be an array of union type.",
           entitySnapshotRecordSchema.getName()));
-      return null;
     }
 
     // 3. Validate Aspect Union
@@ -246,7 +239,6 @@ public class EntitySpecBuilder {
       failValidation(String.format("Failed to validate entity snapshot schema with name %s. Invalid aspects field field. "
               + "'aspects' should be an array of union type.",
           entitySnapshotRecordSchema.getName()));
-      return null;
     }
 
     return entitySnapshotRecordSchema;
@@ -257,7 +249,6 @@ public class EntitySpecBuilder {
     if (aspectSchema.getType() != DataSchema.Type.RECORD) {
       failValidation(String.format("Failed to validate aspect schema of type %s. Schema must be of record type.",
           aspectSchema.getType().toString()));
-      return null;
     }
     return (RecordDataSchema) aspectSchema;
   }
@@ -268,10 +259,11 @@ public class EntitySpecBuilder {
     // Validate that each field is a string or enum.
     for (RecordDataSchema.Field field : schema.getFields()) {
       if (!DataSchema.Type.STRING.equals(field.getType().getDereferencedType())
-          || !DataSchema.Type.ENUM.equals(field.getType().getDereferencedType())
+          && !DataSchema.Type.ENUM.equals(field.getType().getDereferencedType())
       ) {
-        failValidation(
-            "Failed to validate key aspect. Key aspects must only contain fields of STRING or ENUM type.");
+        failValidation(String.format(
+            "Failed to validate key aspect named %s. Key aspects must only contain fields of STRING or ENUM type.",
+            keyAspect.getName()));
       }
     }
   }
