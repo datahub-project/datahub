@@ -220,6 +220,21 @@ export const dataset3 = {
             },
         ],
     },
+    glossaryTerms: {
+        terms: [
+            {
+                term: {
+                    type: EntityType.GlossaryTerm,
+                    urn: 'urn:li:glossaryTerm:sample-glossary-term',
+                    name: 'sample-glossary-term',
+                    glossaryTermInfo: {
+                        definition: 'sample definition',
+                        termSource: 'sample term source',
+                    },
+                },
+            },
+        ],
+    },
     upstreamLineage: null,
     downstreamLineage: null,
     institutionalMemory: {
@@ -514,6 +529,7 @@ export const dataFlow1 = {
             },
         ],
     },
+    dataJobs: [],
 } as DataFlow;
 
 export const dataJob1 = {

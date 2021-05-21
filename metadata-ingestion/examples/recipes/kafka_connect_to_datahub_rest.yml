@@ -1,0 +1,18 @@
+---
+run_id: kafka-connect-test
+
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:8083"
+    cluster_name: "connect-cluster"
+    connector_patterns:
+      deny:
+        - ^denied-connector.*
+      allow:
+        - ^allowed-connector.*
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

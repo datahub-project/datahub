@@ -4,10 +4,11 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.add_dataset_ownership import (
     SimpleAddDatasetOwnership,
 )
+from datahub.ingestion.transformer.add_dataset_tags import SimpleAddDatasetTags
 
 
-def test_simple_dataset_ownership_tranformation(mock_time):
-    no_owner_aspect = models.MetadataChangeEventClass(
+def make_generic_dataset():
+    return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
             aspects=[
@@ -15,6 +16,11 @@ def test_simple_dataset_ownership_tranformation(mock_time):
             ],
         ),
     )
+
+
+def test_simple_dataset_ownership_tranformation(mock_time):
+    no_owner_aspect = make_generic_dataset()
+
     with_owner_aspect = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
@@ -85,3 +91,32 @@ def test_simple_dataset_ownership_tranformation(mock_time):
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+
+def test_simple_dataset_tags_transformation(mock_time):
+    dataset_mce = make_generic_dataset()
+
+    transformer = SimpleAddDatasetTags.create(
+        {
+            "tag_urns": [
+                builder.make_tag_urn("NeedsDocumentation"),
+                builder.make_tag_urn("Legacy"),
+            ]
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+
+    # Check that tags were added.
+    tags_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.GlobalTagsClass
+    )
+    assert tags_aspect
+    assert len(tags_aspect.tags) == 2
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")

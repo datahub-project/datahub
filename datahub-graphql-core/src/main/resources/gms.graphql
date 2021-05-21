@@ -286,6 +286,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured tags associated with the dataset
     """
     globalTags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 type GlossaryTerm implements Entity {
@@ -604,6 +609,10 @@ type SchemaField {
     Tags associated with the field
     """
     globalTags: GlobalTags
+    """
+    Glossary terms associated with the field
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 type EditableSchemaMetadata {
@@ -660,6 +669,10 @@ type UpstreamEntityRelationships {
 }
 
 type DownstreamEntityRelationships {
+    entities: [EntityRelationship]
+}
+
+type DataFlowDataJobsRelationships {
     entities: [EntityRelationship]
 }
 
@@ -1036,6 +1049,14 @@ type TagAssociation {
 
 type GlobalTags {
     tags: [TagAssociation!]
+}
+
+type GlossaryTerms {
+    terms: [GlossaryTermAssociation!]
+}
+
+type GlossaryTermAssociation {
+    term: GlossaryTerm!
 }
 
 input SearchInput {
@@ -2250,6 +2271,11 @@ type DataFlow implements Entity {
     Status metadata of the dataflow
     """
     status: Status
+
+    """
+    DataJobs
+    """
+    dataJobs: DataFlowDataJobsRelationships
 }
 
 type DataFlowInfo {
@@ -2293,7 +2319,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The associated data flow
     """
-    dataFlow: DataFlow!
+    dataFlow: DataFlow
 
     """
     Id of the job
@@ -2369,4 +2395,10 @@ type DataJobInputOutput {
     Output datasets produced by the data job during processing
     """
     outputDatasets: [Dataset!]
+
+    """
+    Input datajobs that this data job depends on
+    """
+    inputDatajobs: [DataJob!]
+
 }

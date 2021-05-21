@@ -46,7 +46,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                    |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
@@ -511,6 +511,7 @@ Extracts:
 
 - List of people
 - Names, emails, titles, and manager information for each person
+- List of groups
 
 ```yml
 source:
@@ -521,7 +522,12 @@ source:
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
     filter: "(objectClass=*)" # optional field
+    drop_missing_first_last_name: False # optional
 ```
+
+The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
+for devices or services should be excluded when they do not contain a first and last name. This will only
+impact the ingestion of LDAP users, while LDAP groups will be unaffected by this config option.
 
 ### LookML `lookml`
 
@@ -612,6 +618,30 @@ source:
     load_schema: True / False
 ```
 
+### Kafka Connect `kafka-connect`
+
+Extracts:
+
+- Kafka Connect connector as individual `DataFlowSnapshotClass` entity
+- Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
+- Lineage information between source database to Kafka topic
+
+```yml
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:8083"
+    cluster_name: "connect-cluster"
+    connector_patterns:
+      deny:
+        - ^denied-connector.*
+      allow:
+        - ^allowed-connector.*
+```
+
+Current limitations:
+- Currently works only for Debezium source connectors.
+
 ## Sinks
 
 ### DataHub Rest `datahub-rest`
@@ -695,7 +725,26 @@ transformers:
 
 :::tip
 
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`AddDatasetOwnership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+
+:::
+
+### `simple_add_dataset_tags`
+
+Adds a set of tags to every dataset.
+
+```yml
+transformers:
+  - type: "simple_add_dataset_tags"
+    config:
+      tag_urns:
+        - "urn:li:tag:NeedsDocumentation"
+        - "urn:li:tag:Legacy"
+```
+
+:::tip
+
+If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
 
 :::
 
