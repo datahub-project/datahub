@@ -1,7 +1,7 @@
 import { Alert } from 'antd';
 import React, { useMemo } from 'react';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
-import { EntityType, GlossaryTerm } from '../../../../types.generated';
+import { EntityType, GlossaryTerm, SearchResult } from '../../../../types.generated';
 import { useGetEntitySearchResults } from '../../../../utils/customGraphQL/useGetEntitySearchResults';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import RelatedEntityResults from '../../../shared/entitySearch/RelatedEntityResults';
@@ -42,16 +42,17 @@ export default function GlossaryTermProfile() {
         }) || loading;
 
     const entitySearchForDetails = useMemo(() => {
+        const filteredSearchResult: {
+            [key in EntityType]?: Array<SearchResult>;
+        } = {};
+
         Object.keys(entitySearchResult).forEach((type) => {
             const entities = entitySearchResult[type].data?.search?.searchResults;
-
-            if (!entities || entities.length === 0) {
-                delete entitySearchResult[type];
-            } else {
-                entitySearchResult[type] = entitySearchResult[type].data?.search?.searchResults;
+            if (entities && entities.length > 0) {
+                filteredSearchResult[type] = entitySearchResult[type].data?.search?.searchResults;
             }
         });
-        return entitySearchResult;
+        return filteredSearchResult;
     }, [entitySearchResult]);
 
     const getTabs = ({ glossaryTermInfo }: GlossaryTerm) => {

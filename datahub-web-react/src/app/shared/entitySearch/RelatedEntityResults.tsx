@@ -1,7 +1,7 @@
 import { Empty, Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../types.generated';
+import { EntityType, SearchResult } from '../../../types.generated';
 // import { navigateToSubviewUrl } from './routingUtils/navigateToSubviewUrl';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import RelatedEntity from './RelatedEntity';
@@ -21,7 +21,9 @@ const DetailWrapper = styled.div`
 `;
 
 type Props = {
-    searchResult: { [key in EntityType]?: any[] };
+    searchResult: {
+        [key in EntityType]?: Array<SearchResult>;
+    };
     emptyMessage?: string;
 };
 

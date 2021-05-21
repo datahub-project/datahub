@@ -1,13 +1,14 @@
 import React from 'react';
 import { List, Typography, Divider } from 'antd';
 import styled from 'styled-components';
-
-import { EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PreviewType } from '../../entity/Entity';
+import { EntityType, SearchResult } from '../../../types.generated';
 
 type Props = {
-    searchResult: { [key in EntityType]?: any[] };
+    searchResult: {
+        [key in EntityType]?: Array<SearchResult>;
+    };
     entityPath?: string;
 };
 
@@ -34,7 +35,7 @@ export default ({ searchResult, entityPath }: Props) => {
     return (
         <ListContainer>
             <TitleContainer>
-                <Typography.Title level={3}>Related {entityRegistry.getCollectionName(entityType)}</Typography.Title>
+                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)}</Typography.Title>
                 <Divider />
             </TitleContainer>
             <List

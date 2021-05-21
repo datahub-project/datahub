@@ -1,13 +1,17 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import { EntityType, PlatformNativeType } from '../../../../types.generated';
+import { EntityType, PlatformNativeType, SearchResult } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
 import RelatedEntityResults from '../RelatedEntityResults';
 
-const searchResult = {
+const searchResult: {
+    [key in EntityType]?: Array<SearchResult>;
+} = {
     [EntityType.Dataset]: [
         {
             entity: {
+                urn: 'some:urn1',
+                type: EntityType.Dataset,
                 name: 'HiveDataset',
                 origin: 'PROD',
                 description: 'this is a dataset',
@@ -17,9 +21,12 @@ const searchResult = {
                 },
                 tags: [],
             },
-        },
+            matchedFields: [],
+        } as SearchResult,
         {
             entity: {
+                urn: 'some:urn2',
+                type: EntityType.Dataset,
                 name: 'KafkaDataset',
                 origin: 'PROD',
                 description: 'this is also a dataset',
@@ -29,7 +36,8 @@ const searchResult = {
                 },
                 tags: [],
             },
-        },
+            matchedFields: [],
+        } as SearchResult,
     ],
 };
 
@@ -40,15 +48,6 @@ describe('RelatedEntityResults', () => {
                 <RelatedEntityResults searchResult={searchResult} />;
             </TestPageContainer>,
         );
-        expect(getByText('Datasets')).toBeInTheDocument();
-    });
-
-    it('will  show the related dataset when selected', () => {
-        const { getByText } = render(
-            <TestPageContainer>
-                <RelatedEntityResults searchResult={searchResult} />;
-            </TestPageContainer>,
-        );
-        expect(getByText('Related Datasets')).toBeInTheDocument();
+        expect(getByText('this is a dataset')).toBeInTheDocument();
     });
 });

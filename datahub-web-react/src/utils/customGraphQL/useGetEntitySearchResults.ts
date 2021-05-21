@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { EntityType, SearchInput } from '../../types.generated';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
+import { QueryResult } from '@apollo/client';
+import { EntityType, Exact, SearchInput } from '../../types.generated';
+import { GetSearchResultsQuery, useGetSearchResultsQuery } from '../../graphql/search.generated';
 
 type AllEntityInput<T, K> = Pick<T, Exclude<keyof T, keyof K>> & K;
 
@@ -8,7 +9,21 @@ export function useGetEntitySearchResults(
     input: AllEntityInput<SearchInput, { type?: EntityType }>,
     searchTypes: Array<EntityType>,
 ) {
-    const result: any = {};
+    const result: {
+        [key in EntityType]: QueryResult<
+            GetSearchResultsQuery,
+            Exact<{
+                input: SearchInput;
+            }>
+        >;
+    } = {} as {
+        [key in EntityType]: QueryResult<
+            GetSearchResultsQuery,
+            Exact<{
+                input: SearchInput;
+            }>
+        >;
+    };
     for (let i = 0; i < searchTypes.length; i++) {
         const type = searchTypes[i];
         // eslint-disable-next-line react-hooks/rules-of-hooks

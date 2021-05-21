@@ -8,7 +8,7 @@ import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGe
 import { Message } from '../../shared/Message';
 import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
 import { EntityProfile } from '../../shared/EntityProfile';
-import { CorpUser } from '../../../types.generated';
+import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -35,16 +35,18 @@ export default function UserProfile() {
         }) || loading;
 
     const ownershipForDetails = useMemo(() => {
+        const filteredOwnershipResult: {
+            [key in EntityType]?: Array<SearchResult>;
+        } = {};
+
         Object.keys(ownershipResult).forEach((type) => {
             const entities = ownershipResult[type].data?.search?.searchResults;
 
-            if (!entities || entities.length === 0) {
-                delete ownershipResult[type];
-            } else {
-                ownershipResult[type] = ownershipResult[type].data?.search?.searchResults;
+            if (entities && entities.length > 0) {
+                filteredOwnershipResult[type] = ownershipResult[type].data?.search?.searchResults;
             }
         });
-        return ownershipResult;
+        return filteredOwnershipResult;
     }, [ownershipResult]);
 
     if (error || (!loading && !error && !data)) {
