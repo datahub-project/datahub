@@ -192,6 +192,12 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
+                {themeConfig.content.subtitle && (
+                    <>
+                        <br />
+                        <Typography.Text style={styles.subHeaderLabel}>{themeConfig.content.subtitle}</Typography.Text>
+                    </>
+                )}
                 <AutoComplete
                     style={styles.searchBox}
                     options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({
