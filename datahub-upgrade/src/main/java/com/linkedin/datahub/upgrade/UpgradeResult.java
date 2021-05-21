@@ -18,7 +18,7 @@ public interface UpgradeResult {
      */
     FAILED,
     /**
-     * Upgrade deliberately aborted.
+     * Upgrade was aborted.
      */
     ABORTED
   }
