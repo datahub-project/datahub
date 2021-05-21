@@ -102,7 +102,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @RestMethod.BatchGet
   @Nonnull
-  public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
+  public Task<Map<String, Entity>> batchGet(
+      @Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
@@ -143,9 +144,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_SEARCH)
   @Nonnull
-  public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
+  public Task<SearchResult> search(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_INPUT) @Nonnull String input,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     return RestliUtils.toTask(() -> _entitySearchDao.search(entityName, input, filter, sortCriterion, start, count));
@@ -153,18 +157,24 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Nonnull
-  public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Nullable String field,
-      @ActionParam(PARAM_FILTER) @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<AutoCompleteResult> autocomplete(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_QUERY) @Nonnull String query,
+      @ActionParam(PARAM_FIELD) @Nullable String field,
+      @ActionParam(PARAM_FILTER) @Nullable Filter filter,
+      @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() -> _entitySearchDao.autoComplete(entityName, query, field, filter, limit));
   }
 
   @Action(name = ACTION_BROWSE)
   @Nonnull
-  public Task<BrowseResult> browse(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_PATH) @Nonnull String path, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<BrowseResult> browse(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_PATH) @Nonnull String path,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() -> _entityBrowseDao.browse(entityName, path, filter, start, limit));
   }

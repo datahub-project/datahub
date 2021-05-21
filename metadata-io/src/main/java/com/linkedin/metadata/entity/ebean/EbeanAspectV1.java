@@ -18,13 +18,13 @@ import lombok.Setter;
 
 
 /**
- * Schema definition for the new aspect table.
+ * Schema definition for the legacy aspect table.
  */
 @Getter
 @Setter
 @Entity
-@Table(name = "metadata_aspect") // TODO: Update to v1
-public class EbeanAspect extends Model {
+@Table(name = "metadata_aspect")
+public class EbeanAspectV1 extends Model {
 
   private static final long serialVersionUID = 1L;
 

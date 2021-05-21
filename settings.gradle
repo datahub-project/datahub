@@ -1,4 +1,3 @@
-include 'buildSrc'
 include 'datahub-dao'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
@@ -34,5 +33,6 @@ include 'metadata-utils'
 include 'docs-website'
 include 'metadata-io'
 include 'entity-registry'
+include 'datahub-upgrade'
 
 startParameter.excludedTaskNames << ':datahub-web:build'

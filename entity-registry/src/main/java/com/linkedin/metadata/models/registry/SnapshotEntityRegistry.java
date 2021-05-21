@@ -20,7 +20,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
-  private SnapshotEntityRegistry() {
+  public SnapshotEntityRegistry() {
     entityNameToSpec = EntitySpecBuilder.buildEntitySpecs(new Snapshot().schema(), EntitySpecBuilder.ValidationMode.WARN)
         .stream()
         .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));

@@ -10,7 +10,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.EntitySpecUtils;
-import com.linkedin.metadata.entity.ebean.EbeanAspect;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.ModelUtils;
@@ -49,6 +49,7 @@ public class EntityService {
 
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
+  private Boolean _alwaysEmitAuditEvent = false;
 
   /**
    * Constructs an Entity Service object.
@@ -107,13 +108,13 @@ public class EntityService {
   @Nonnull
   public Map<Urn, List<RecordTemplate>> batchGetAspectRecordLists(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     // Create DB keys
-    final Set<EbeanAspect.PrimaryKey> dbKeys = urns.stream()
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> {
           final Set<String> aspectsToFetch = aspectNames.isEmpty()
               ? _entityToValidAspects.get(urnToEntityName(urn))
               : aspectNames;
           return aspectsToFetch.stream()
-              .map(aspectName -> new EbeanAspect.PrimaryKey(urn.toString(), aspectName, LATEST_VERSION))
+              .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_VERSION))
               .collect(Collectors.toList());
         })
         .flatMap(List::stream)
@@ -145,8 +146,8 @@ public class EntityService {
 
   @Nullable
   public RecordTemplate getAspectRecord(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
-    final EbeanAspect.PrimaryKey primaryKey = new EbeanAspect.PrimaryKey(urn.toString(), aspectName, version);
-    final Optional<EbeanAspect> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
+    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect
         .map(ebeanAspect -> toAspectRecord(urnToEntityName(urn), aspectName, ebeanAspect.getMetadata()))
         .orElse(null);
@@ -220,18 +221,18 @@ public class EntityService {
     final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
       // 1. Fetch the latest existing version of the aspect.
-      final EbeanAspect latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
+      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
 
       // 2. Compare the latest existing and new.
       final RecordTemplate oldValue = latest == null ? null : toAspectRecord(urnToEntityName(urn), aspectName, latest.getMetadata());
       final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-      // 2. Skip updating if there is no difference between existing and new.
+      // 3. Skip updating if there is no difference between existing and new.
       if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
         return new AddAspectResult(urn, oldValue, oldValue);
       }
 
-      // 3. Save the newValue as the latest version
+      // 4. Save the newValue as the latest version
       _entityDao.saveLatestAspect(
           urn.toString(),
           aspectName,
@@ -252,22 +253,98 @@ public class EntityService {
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate newValue = result.getNewValue();
 
-    // 4. Produce MAE after a successful update
-    if (oldValue != newValue) {
+    // 5. Produce MAE after a successful update
+    if (oldValue != newValue || _alwaysEmitAuditEvent) {
       produceMetadataAuditEvent(urn, oldValue, newValue);
     }
 
     return newValue;
   }
 
-  @Value
-  private static class AddAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version) {
+    return updateAspect(
+        urn,
+        aspectName,
+        newValue,
+        auditStamp,
+        version,
+        false);
   }
 
-  private void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae) {
+    return updateAspect(
+        urn,
+        aspectName,
+        newValue,
+        auditStamp,
+        version,
+        emitMae,
+        DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate value,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae,
+      final int maxTransactionRetry) {
+
+    final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
+
+      final EbeanAspectV2 oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
+      final RecordTemplate oldValue = oldAspect == null ? null : toAspectRecord(urnToEntityName(urn), aspectName,
+          oldAspect.getMetadata());
+
+      _entityDao.saveAspect(
+          urn.toString(),
+          aspectName,
+          toJsonAspect(value),
+          auditStamp.getActor().toString(),
+          auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+          new Timestamp(auditStamp.getTime()),
+          version,
+          oldAspect == null
+      );
+
+      return new AddAspectResult(urn, oldValue, value);
+
+    }, maxTransactionRetry);
+
+    final RecordTemplate oldValue = result.getOldValue();
+    final RecordTemplate newValue = result.getNewValue();
+
+    if (emitMae) {
+      produceMetadataAuditEvent(urn, oldValue, newValue);
+    }
+
+    return newValue;
+  }
+
+  public void setAlwaysEmitAuditEvent(Boolean alwaysEmitAuditEvent) {
+    _alwaysEmitAuditEvent = alwaysEmitAuditEvent;
+  }
+
+  public Boolean getAlwaysEmitAuditEvent() {
+    return _alwaysEmitAuditEvent;
+  }
+
+  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
     // First, try to create a new and an old snapshot.
     final Snapshot newSnapshot = buildSnapshot(urn, newValue);
     Snapshot oldSnapshot = null;
@@ -281,6 +358,13 @@ public class EntityService {
     if (_emitAspectSpecificAuditEvent) {
       _kafkaProducer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
     }
+  }
+
+  @Value
+  private static class AddAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
