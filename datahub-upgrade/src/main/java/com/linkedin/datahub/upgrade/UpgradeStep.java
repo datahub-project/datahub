@@ -3,8 +3,14 @@ package com.linkedin.datahub.upgrade;
 import java.util.function.Function;
 
 
+/**
+ * Represents a single executable step in an {@link Upgrade}.
+ */
 public interface UpgradeStep<T> {
 
+  /**
+   * Returns an identifier for the upgrade step.
+   */
   String id();
 
   /**

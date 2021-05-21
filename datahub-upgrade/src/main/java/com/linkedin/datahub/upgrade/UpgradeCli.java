@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
@@ -22,16 +23,19 @@ public class UpgradeCli implements CommandLineRunner {
 
   @Inject
   @Named("noCodeUpgrade")
-  private Upgrade _noCodeUpgrade;
-
-  UpgradeCli() {
-    _upgradeManager.register(_noCodeUpgrade);
-  }
+  private NoCodeUpgrade noCodeUpgrade;
 
   @Override
   public void run(String... cmdLineArgs) {
+    _upgradeManager.register(noCodeUpgrade);
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
-    _upgradeManager.execute(args.upgradeId);
+    UpgradeResult result = _upgradeManager.execute(args.upgradeId);
+
+    if (UpgradeResult.Result.FAILED.equals(result.result())) {
+      System.exit(1);
+    } else {
+      System.exit(0);
+    }
   }
 }

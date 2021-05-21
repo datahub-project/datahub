@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.nocode;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
+import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -8,13 +10,10 @@ import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.List;
 
-
-/**
- * Note that we will not "qualify" the upgrade.
- */
 public class NoCodeUpgrade implements Upgrade {
 
-  private final List<UpgradeStep> _steps;
+  private final List<UpgradeStep<?>> _steps;
+  private final List<UpgradeCleanupStep> _cleanupSteps;
 
   public NoCodeUpgrade(
       final EbeanServer server,
@@ -35,6 +34,7 @@ public class NoCodeUpgrade implements Upgrade {
         entityService,
         entityRegistry,
         shouldRunQualification);
+    _cleanupSteps = buildCleanupSteps(server);
   }
 
   @Override
@@ -43,16 +43,25 @@ public class NoCodeUpgrade implements Upgrade {
   }
 
   @Override
-  public List<UpgradeStep> steps() {
+  public List<UpgradeStep<?>> steps() {
     return _steps;
   }
 
-  private List<UpgradeStep> buildUpgradeSteps(
+  @Override
+  public List<UpgradeCleanupStep> cleanupSteps() {
+    return _cleanupSteps;
+  }
+
+  private List<UpgradeCleanupStep> buildCleanupSteps(final EbeanServer server) {
+    return ImmutableList.of(new RemoveAspectTableStep(server));
+  }
+
+  private List<UpgradeStep<?>> buildUpgradeSteps(
       final EbeanServer server,
       final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry,
       final boolean shouldRunQualification) {
-    final List<UpgradeStep> steps = new ArrayList<>();
+    final List<UpgradeStep<?>> steps = new ArrayList<>();
     if (shouldRunQualification) {
       steps.add(new UpgradeQualificationStep(server));
     }

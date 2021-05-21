@@ -227,12 +227,12 @@ public class EntityService {
       final RecordTemplate oldValue = latest == null ? null : toAspectRecord(urnToEntityName(urn), aspectName, latest.getMetadata());
       final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-      // 2. Skip updating if there is no difference between existing and new.
+      // 3. Skip updating if there is no difference between existing and new.
       if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
         return new AddAspectResult(urn, oldValue, oldValue);
       }
 
-      // 3. Save the newValue as the latest version
+      // 4. Save the newValue as the latest version
       _entityDao.saveLatestAspect(
           urn.toString(),
           aspectName,
@@ -253,19 +253,87 @@ public class EntityService {
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate newValue = result.getNewValue();
 
-    // 4. Produce MAE after a successful update
-    if (oldValue != newValue) {
+    // 5. Produce MAE after a successful update
+    if (oldValue != newValue || _alwaysEmitAuditEvent) {
       produceMetadataAuditEvent(urn, oldValue, newValue);
     }
 
     return newValue;
   }
 
-  @Value
-  private static class AddAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version) {
+    return updateAspect(
+        urn,
+        aspectName,
+        newValue,
+        auditStamp,
+        version,
+        false);
+  }
+
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae) {
+    return updateAspect(
+        urn,
+        aspectName,
+        newValue,
+        auditStamp,
+        version,
+        emitMae,
+        DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  @Nonnull
+  public RecordTemplate updateAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate value,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final long version,
+      @Nonnull final boolean emitMae,
+      final int maxTransactionRetry) {
+
+    final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
+
+      final EbeanAspectV2 oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
+      final RecordTemplate oldValue = oldAspect == null ? null : toAspectRecord(urnToEntityName(urn), aspectName,
+          oldAspect.getMetadata());
+
+      _entityDao.saveAspect(
+          urn.toString(),
+          aspectName,
+          toJsonAspect(value),
+          auditStamp.getActor().toString(),
+          auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+          new Timestamp(auditStamp.getTime()),
+          version,
+          oldAspect == null
+      );
+
+      return new AddAspectResult(urn, oldValue, value);
+
+    }, maxTransactionRetry);
+
+    final RecordTemplate oldValue = result.getOldValue();
+    final RecordTemplate newValue = result.getNewValue();
+
+    if (emitMae) {
+      produceMetadataAuditEvent(urn, oldValue, newValue);
+    }
+
+    return newValue;
   }
 
   public void setAlwaysEmitAuditEvent(Boolean alwaysEmitAuditEvent) {
@@ -276,7 +344,7 @@ public class EntityService {
     return _alwaysEmitAuditEvent;
   }
 
-  private void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
+  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue, @Nonnull final RecordTemplate newValue) {
     // First, try to create a new and an old snapshot.
     final Snapshot newSnapshot = buildSnapshot(urn, newValue);
     Snapshot oldSnapshot = null;
@@ -290,6 +358,13 @@ public class EntityService {
     if (_emitAspectSpecificAuditEvent) {
       _kafkaProducer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
     }
+  }
+
+  @Value
+  private static class AddAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {

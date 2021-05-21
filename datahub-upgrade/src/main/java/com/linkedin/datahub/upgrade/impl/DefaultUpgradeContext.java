@@ -12,13 +12,13 @@ public class DefaultUpgradeContext implements UpgradeContext {
 
   private final Upgrade _upgrade;
   private final UpgradeReport _report;
-  private final List<UpgradeStepResult> _previousStepResults;
+  private final List<UpgradeStepResult<?>> _previousStepResults;
   private final List<String> _args;
 
   DefaultUpgradeContext(
       Upgrade upgrade,
       UpgradeReport report,
-      List<UpgradeStepResult> previousStepResults,
+      List<UpgradeStepResult<?>> previousStepResults,
       String... args) {
     _upgrade = upgrade;
     _report = report;
@@ -32,7 +32,7 @@ public class DefaultUpgradeContext implements UpgradeContext {
   }
 
   @Override
-  public List<UpgradeStepResult> stepResults() {
+  public List<UpgradeStepResult<?>> stepResults() {
     return _previousStepResults;
   }
 

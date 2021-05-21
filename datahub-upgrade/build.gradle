@@ -3,13 +3,10 @@ plugins {
   id 'java'
 }
 
-// configurations {
-//  compile.exclude module: 'neo4j'
-// }
-
 dependencies {
   compile project(':metadata-io')
   compile project(':gms:impl')
+  compile project(':gms:factories')
 
   compile externalDependency.javaxInject
   compile externalDependency.lombok
@@ -19,10 +16,14 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
 
+  runtime externalDependency.mariadbConnector
+  runtime externalDependency.mysqlConnector
+  runtime externalDependency.postgresql
+
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 }
 
 bootJar {
-  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCli'
+  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
 }

@@ -3,10 +3,7 @@ package com.linkedin.datahub.upgrade.nocode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringArray;
-import com.linkedin.datahub.upgrade.UpgradeUtils;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -18,11 +15,13 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.search.indexbuilder.BrowsePathUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 
@@ -31,7 +30,6 @@ public class DataMigrationStep implements UpgradeStep<Void> {
   private final EbeanServer _server;
   private final EntityService _entityService;
   private final SnapshotEntityRegistry _entityRegistry;
-
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
@@ -68,7 +66,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
       int start = 0;
       int count = 1000;
-      while ((start + count) < rowCount) {
+      while (start < rowCount) {
 
         context.report().addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
 
@@ -82,7 +80,9 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           // 3. Instantiate the RecordTemplate class associated with the aspect.
           final RecordTemplate aspectRecord;
           try {
-            aspectRecord = RecordUtils.toRecordTemplate(aspectName, new DataMap());
+            aspectRecord = RecordUtils.toRecordTemplate(
+                Class.forName(aspectName).asSubclass(RecordTemplate.class),
+                aspect.getMetadata());
           } catch (Exception e) {
             return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, UpgradeStepResult.Action.ABORT,
                 String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", aspectName, e.getMessage()));
@@ -131,26 +131,49 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           }
 
           // 8. Write the row back using the EntityService
-          _entityService.setAlwaysEmitAuditEvent(true);
-          _entityService.ingestAspect(urn, newAspectName, aspectRecord, toAuditStamp(aspect));
+          boolean emitMae = aspect.getKey().getVersion() == 0L;
+          _entityService.updateAspect(
+              urn,
+              newAspectName,
+              aspectRecord,
+              toAuditStamp(aspect),
+              aspect.getKey().getVersion(),
+              emitMae
+          );
 
           // 9. If necessary, emit a browse path aspect.
           if (entitySpec.getAspectSpecMap().containsKey("browsePaths") && !urnsWithBrowsePath.contains(urn)) {
             // Emit a browse path aspect.
-            BrowsePaths browsePaths = new BrowsePaths();
-            String path = UpgradeUtils.urnToBrowsePath(urn);
-            StringArray paths = new StringArray();
-            paths.add(path);
-            browsePaths.setPaths(paths);
-            urnsWithBrowsePath.add(urn);
+            BrowsePaths browsePaths;
+            try {
+              browsePaths = BrowsePathUtils.buildBrowsePath(urn);
+
+              final AuditStamp browsePathsStamp = new AuditStamp();
+              browsePathsStamp.setActor(Urn.createFromString("urn:li:principal:system"));
+              browsePathsStamp.setTime(System.currentTimeMillis());
+
+              // Now, ingest the browse path
+              _entityService.ingestAspect(urn, "browsePaths", browsePaths, browsePathsStamp);
+
+              urnsWithBrowsePath.add(urn);
+
+            } catch (URISyntaxException e) {
+              throw new RuntimeException("Failed to ingest the Browse Path!", e);
+            }
           }
 
           // Keep track of total records migrated.
           totalRowsMigrated++;
         }
-        context.report().addLine(String.format("Successfully migrated rows %s-%s", start, start + count));
+        context.report().addLine(String.format("Successfully migrated rows %s rows", totalRowsMigrated));
         totalBatchesMigrated++;
         start = start + count;
+        try {
+          // TODO: Make batch size and sleep time configurable.
+          TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+          throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
+        }
       }
       return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
     };

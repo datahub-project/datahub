@@ -43,7 +43,8 @@ import javax.persistence.Table;
 public class EbeanAspectDao {
 
   public static final long LATEST_VERSION = 0;
-  private static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
+  public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
+
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
   private final EbeanServer _server;

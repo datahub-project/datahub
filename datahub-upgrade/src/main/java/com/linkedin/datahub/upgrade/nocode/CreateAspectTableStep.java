@@ -5,7 +5,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import io.ebean.EbeanServer;
-import io.ebean.SqlQuery;
 import java.util.function.Function;
 
 // Do we need SQL-tech specific migration paths?
@@ -30,20 +29,17 @@ public class CreateAspectTableStep implements UpgradeStep<Void> {
   @Override
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
-      final SqlQuery query = _server.createSqlQuery(
-          "CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (\n"
-              + "  urn                           varchar(500) not null,\n"
-              + "  aspect                        varchar(200) not null,\n"
-              + "  version                       bigint(20) not null,\n"
-              + "  metadata                      longtext not null,\n"
-              + "  createdon                     datetime(6) not null,\n"
-              + "  createdby                     varchar(255) not null,\n"
-              + "  createdfor                    varchar(255),\n"
-              + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
-              + ")"
-      );
       try {
-        query.findList();
+        _server.execute(_server.createSqlUpdate("CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (\n"
+            + "  urn                           varchar(500) not null,\n"
+            + "  aspect                        varchar(200) not null,\n"
+            + "  version                       bigint(20) not null,\n"
+            + "  metadata                      longtext not null,\n"
+            + "  createdon                     datetime(6) not null,\n"
+            + "  createdby                     varchar(255) not null,\n"
+            + "  createdfor                    varchar(255),\n"
+            + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
+            + ")"));
       } catch (Exception e) {
         return new DefaultUpgradeStepResult<>(
             id(),
