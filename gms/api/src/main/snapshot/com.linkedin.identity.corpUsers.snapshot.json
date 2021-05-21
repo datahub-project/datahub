@@ -568,7 +568,7 @@
     } ],
     "Entity" : {
       "browsable" : true,
-      "name" : "corpuser",
+      "name" : "corpUser",
       "searchable" : true
     }
   }, {

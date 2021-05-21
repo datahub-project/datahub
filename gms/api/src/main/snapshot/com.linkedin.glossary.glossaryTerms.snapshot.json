@@ -305,8 +305,29 @@
     "name" : "GlossaryTermAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpUser",
-    "ref" : [ "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "GlossaryTermKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a GlossaryTerm",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "TEXT"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "glossaryTermKey"
+      }
+    }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.GlossaryTermKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
