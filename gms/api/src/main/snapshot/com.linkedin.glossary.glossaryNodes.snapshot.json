@@ -235,8 +235,29 @@
     "name" : "GlossaryNodeAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a GlossaryNode",
-    "ref" : [ "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "GlossaryNodeKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a GlossaryNode",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "Searchable" : {
+          "fieldName" : "name",
+          "indexSettings" : [ {
+            "indexType" : "TEXT"
+          }, {
+            "indexType" : "PARTIAL"
+          } ]
+        }
+      } ],
+      "Aspect" : {
+        "isKey" : true,
+        "name" : "glossaryNodeKey"
+      }
+    }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.GlossaryNodeKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

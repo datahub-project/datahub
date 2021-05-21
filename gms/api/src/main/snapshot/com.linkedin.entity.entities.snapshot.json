@@ -2018,7 +2018,7 @@
           } ],
           "Entity" : {
             "browsable" : true,
-            "name" : "corpuser",
+            "name" : "corpUser",
             "searchable" : true
           }
         }, {
@@ -3513,6 +3513,27 @@
                 "doc" : "A union of all supported metadata aspects for a CorpUser",
                 "ref" : [ {
                   "type" : "record",
+                  "name" : "GlossaryTermKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a GlossaryTerm",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "glossaryTermKey"
+                  }
+                }, {
+                  "type" : "record",
                   "name" : "GlossaryTermInfo",
                   "namespace" : "com.linkedin.glossary",
                   "doc" : "Properties associated with a GlossaryTerm",
@@ -3600,6 +3621,27 @@
                 "doc" : "A union of all supported metadata aspects for a GlossaryNode",
                 "ref" : [ {
                   "type" : "record",
+                  "name" : "GlossaryNodeKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a GlossaryNode",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "Searchable" : {
+                      "fieldName" : "name",
+                      "indexSettings" : [ {
+                        "indexType" : "TEXT"
+                      }, {
+                        "indexType" : "PARTIAL"
+                      } ]
+                    }
+                  } ],
+                  "Aspect" : {
+                    "isKey" : true,
+                    "name" : "glossaryNodeKey"
+                  }
+                }, {
+                  "type" : "record",
                   "name" : "GlossaryNodeInfo",
                   "namespace" : "com.linkedin.glossary",
                   "doc" : "Properties associated with a GlossaryNode",
@@ -3637,7 +3679,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",

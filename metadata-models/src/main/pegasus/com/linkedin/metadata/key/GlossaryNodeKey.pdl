@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a GlossaryNode
+ */
+@Aspect = {
+  "name": "glossaryNodeKey",
+  "isKey": true
+}
+record GlossaryNodeKey {
+
+  @Searchable = {
+    "fieldName": "name",
+    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+  }
+  name: string
+
+}

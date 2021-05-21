@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,20 +47,21 @@ public class EntitySpecBuilder {
     for (final UnionDataSchema.Member member : unionMembers) {
       final EntitySpec entitySpec = buildEntitySpec(member.getType());
       if (entitySpec != null) {
-        entitySpecs.add(buildEntitySpec(member.getType()));
+        entitySpecs.add(entitySpec);
       }
-
-      // Now validate that all relationships point to valid entities.
-      for (final RelationshipFieldSpec spec : _relationshipFieldSpecs) {
-        if (!_entityNames.containsAll(spec.getValidDestinationTypes())) {
-          failValidation(
-              String.format("Found invalid relationship with name %s at path %s. Invalid entityType(s) provided.",
-                  spec.getRelationshipName(),
-                  spec.getPath().toString()));
-        }
-      }
-
     }
+
+    // Now validate that all relationships point to valid entities.
+    for (final RelationshipFieldSpec spec : _relationshipFieldSpecs) {
+      if (!_entityNames.containsAll(spec.getValidDestinationTypes().stream().map(String::toLowerCase).collect(
+          Collectors.toList()))) {
+        failValidation(
+            String.format("Found invalid relationship with name %s at path %s. Invalid entityType(s) provided.",
+                spec.getRelationshipName(),
+                spec.getPath().toString()));
+      }
+    }
+
     return entitySpecs;
   }
 
@@ -121,14 +123,14 @@ public class EntitySpecBuilder {
       }
 
       // Validate entity name
-      if (_entityNames.contains(entityAnnotation.getName())) {
+      if (_entityNames.contains(entityAnnotation.getName().toLowerCase())) {
         // Duplicate entity found.
         failValidation(String.format("Could not build entity spec for entity with name %s."
                 + " Found multiple Entity Snapshots with the same name.",
             entityAnnotation.getName()));
       }
 
-      _entityNames.add(entityAnnotation.getName());
+      _entityNames.add(entityAnnotation.getName().toLowerCase());
 
       return new EntitySpec(
           aspectSpecs,
