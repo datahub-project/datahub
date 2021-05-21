@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -61,11 +62,7 @@ public class IndexBuilder {
         .findFirst()
         .get()
         .getSourceAsMap();
-    Settings oldSettings = searchClient.indices()
-        .getSettings(new GetSettingsRequest().indices(indexName), RequestOptions.DEFAULT)
-        .getIndexToSettings()
-        .values()
-        .toArray(Settings.class)[0].getAsSettings("index");
+
     MapDifference<String, Object> mappingsDiff = Maps.difference(mappings, oldMappings);
     // If there are no updates to mappings, return
     if (mappingsDiff.areEqual()) {
@@ -117,7 +114,7 @@ public class IndexBuilder {
     log.info("Finished setting up {}", indexName);
   }
 
-  private long getCount(String indexName) throws IOException {
+  private long getCount(@Nonnull String indexName) throws IOException {
     return searchClient.count(new CountRequest(indexName).query(QueryBuilders.matchAllQuery()), RequestOptions.DEFAULT)
         .getCount();
   }

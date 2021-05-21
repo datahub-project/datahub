@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 
 
+/**
+ * Extracts fields from a RecordTemplate based on the appropriate {@link FieldSpec}.
+ */
 public class FieldExtractor {
   private FieldExtractor() {
   }

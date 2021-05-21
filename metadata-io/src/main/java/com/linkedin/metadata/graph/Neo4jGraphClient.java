@@ -42,7 +42,7 @@ public class Neo4jGraphClient implements GraphClient {
     this._sessionConfig = sessionConfig;
   }
 
-  public void addEdge(final Edge edge) {
+  public void addEdge(@Nonnull final Edge edge) {
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();
 
@@ -120,7 +120,6 @@ public class Neo4jGraphClient implements GraphClient {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     // also delete any relationship going to or from it
-    final String nodeType = urn.getEntityType();
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
     String matchTemplate = "MATCH (src {urn: $urn})-[r:%s]-(dest) DELETE r";
