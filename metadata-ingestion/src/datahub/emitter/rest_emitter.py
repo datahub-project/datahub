@@ -26,21 +26,6 @@ from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
 
 logger = logging.getLogger(__name__)
 
-resource_locator: Dict[Type[object], str] = {
-    ChartSnapshotClass: "charts",
-    DashboardSnapshotClass: "dashboards",
-    CorpUserSnapshotClass: "corpUsers",
-    CorpGroupSnapshotClass: "corpGroups",
-    DatasetSnapshotClass: "datasets",
-    DataProcessSnapshotClass: "dataProcesses",
-    DataFlowSnapshotClass: "dataFlows",
-    DataJobSnapshotClass: "dataJobs",
-    MLModelSnapshotClass: "mlModels",
-    TagSnapshotClass: "tags",
-    TestEntitySnapshotClass: "entities",
-}
-
-
 def _rest_li_ify(obj: Any) -> Any:
     if isinstance(obj, (dict, OrderedDict)):
         if len(obj.keys()) == 1:

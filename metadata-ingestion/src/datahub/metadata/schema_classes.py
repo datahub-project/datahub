@@ -2479,313 +2479,6 @@ class UpstreamLineageClass(DictWrapper):
         self._inner_dict['upstreams'] = value
     
     
-class AliasRecordClass(DictWrapper):
-    # No docs available.
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.experimental.AliasRecord")
-    def __init__(self,
-        name: str,
-    ):
-        super().__init__()
-        
-        self.name = name
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "AliasRecordClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.name = str()
-    
-    
-    @property
-    def name(self) -> str:
-        # No docs available.
-        return self._inner_dict.get('name')  # type: ignore
-    
-    
-    @name.setter
-    def name(self, value: str) -> None:
-        # No docs available.
-        self._inner_dict['name'] = value
-    
-    
-class ChartTypeOptionClass(object):
-    # No docs available.
-    
-    TYPE_1 = "TYPE_1"
-    TYPE_2 = "TYPE_2"
-    
-    
-class InputClass(DictWrapper):
-    # No docs available.
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.experimental.Input")
-    def __init__(self,
-        entity: str,
-        myEdgeProp: Union[None, str]=None,
-    ):
-        super().__init__()
-        
-        self.entity = entity
-        self.myEdgeProp = myEdgeProp
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "InputClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.entity = str()
-        self.myEdgeProp = self.RECORD_SCHEMA.field_map["myEdgeProp"].default
-    
-    
-    @property
-    def entity(self) -> str:
-        # No docs available.
-        return self._inner_dict.get('entity')  # type: ignore
-    
-    
-    @entity.setter
-    def entity(self, value: str) -> None:
-        # No docs available.
-        self._inner_dict['entity'] = value
-    
-    
-    @property
-    def myEdgeProp(self) -> Union[None, str]:
-        # No docs available.
-        return self._inner_dict.get('myEdgeProp')  # type: ignore
-    
-    
-    @myEdgeProp.setter
-    def myEdgeProp(self, value: Union[None, str]) -> None:
-        # No docs available.
-        self._inner_dict['myEdgeProp'] = value
-    
-    
-class TestEntityInfoClass(DictWrapper):
-    """Information about a test entity"""
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.experimental.TestEntityInfo")
-    def __init__(self,
-        title: str,
-        aliases: List[str],
-        recordAliases: List["AliasRecordClass"],
-        foreignKeyArray: List[str],
-        foreignKey: str,
-        description: str,
-        lastModified: "ChangeAuditStampsClass",
-        customProperties: Optional[Dict[str, str]]=None,
-        externalUrl: Union[None, str]=None,
-        url: Union[None, str]=None,
-        inputs: Union[None, List["InputClass"]]=None,
-        type: Union[None, Union[str, "ChartTypeOptionClass"]]=None,
-        lastRefreshed: Union[None, int]=None,
-    ):
-        super().__init__()
-        
-        if customProperties is None:
-            self.customProperties = {}
-        else:
-            self.customProperties = customProperties
-        self.externalUrl = externalUrl
-        self.title = title
-        self.aliases = aliases
-        self.recordAliases = recordAliases
-        self.foreignKeyArray = foreignKeyArray
-        self.foreignKey = foreignKey
-        self.description = description
-        self.lastModified = lastModified
-        self.url = url
-        self.inputs = inputs
-        self.type = type
-        self.lastRefreshed = lastRefreshed
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "TestEntityInfoClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.customProperties = dict()
-        self.externalUrl = self.RECORD_SCHEMA.field_map["externalUrl"].default
-        self.title = str()
-        self.aliases = list()
-        self.recordAliases = list()
-        self.foreignKeyArray = list()
-        self.foreignKey = str()
-        self.description = str()
-        self.lastModified = ChangeAuditStampsClass.construct_with_defaults()
-        self.url = self.RECORD_SCHEMA.field_map["url"].default
-        self.inputs = self.RECORD_SCHEMA.field_map["inputs"].default
-        self.type = self.RECORD_SCHEMA.field_map["type"].default
-        self.lastRefreshed = self.RECORD_SCHEMA.field_map["lastRefreshed"].default
-    
-    
-    @property
-    def customProperties(self) -> Dict[str, str]:
-        """Getter: Custom property bag."""
-        return self._inner_dict.get('customProperties')  # type: ignore
-    
-    
-    @customProperties.setter
-    def customProperties(self, value: Dict[str, str]) -> None:
-        """Setter: Custom property bag."""
-        self._inner_dict['customProperties'] = value
-    
-    
-    @property
-    def externalUrl(self) -> Union[None, str]:
-        """Getter: URL where the reference exist"""
-        return self._inner_dict.get('externalUrl')  # type: ignore
-    
-    
-    @externalUrl.setter
-    def externalUrl(self, value: Union[None, str]) -> None:
-        """Setter: URL where the reference exist"""
-        self._inner_dict['externalUrl'] = value
-    
-    
-    @property
-    def title(self) -> str:
-        """Getter: Title of the test entity"""
-        return self._inner_dict.get('title')  # type: ignore
-    
-    
-    @title.setter
-    def title(self, value: str) -> None:
-        """Setter: Title of the test entity"""
-        self._inner_dict['title'] = value
-    
-    
-    @property
-    def aliases(self) -> List[str]:
-        # No docs available.
-        return self._inner_dict.get('aliases')  # type: ignore
-    
-    
-    @aliases.setter
-    def aliases(self, value: List[str]) -> None:
-        # No docs available.
-        self._inner_dict['aliases'] = value
-    
-    
-    @property
-    def recordAliases(self) -> List["AliasRecordClass"]:
-        # No docs available.
-        return self._inner_dict.get('recordAliases')  # type: ignore
-    
-    
-    @recordAliases.setter
-    def recordAliases(self, value: List["AliasRecordClass"]) -> None:
-        # No docs available.
-        self._inner_dict['recordAliases'] = value
-    
-    
-    @property
-    def foreignKeyArray(self) -> List[str]:
-        # No docs available.
-        return self._inner_dict.get('foreignKeyArray')  # type: ignore
-    
-    
-    @foreignKeyArray.setter
-    def foreignKeyArray(self, value: List[str]) -> None:
-        # No docs available.
-        self._inner_dict['foreignKeyArray'] = value
-    
-    
-    @property
-    def foreignKey(self) -> str:
-        # No docs available.
-        return self._inner_dict.get('foreignKey')  # type: ignore
-    
-    
-    @foreignKey.setter
-    def foreignKey(self, value: str) -> None:
-        # No docs available.
-        self._inner_dict['foreignKey'] = value
-    
-    
-    @property
-    def description(self) -> str:
-        # No docs available.
-        return self._inner_dict.get('description')  # type: ignore
-    
-    
-    @description.setter
-    def description(self, value: str) -> None:
-        # No docs available.
-        self._inner_dict['description'] = value
-    
-    
-    @property
-    def lastModified(self) -> "ChangeAuditStampsClass":
-        """Getter: Captures information about who created/last modified/deleted this chart and when"""
-        return self._inner_dict.get('lastModified')  # type: ignore
-    
-    
-    @lastModified.setter
-    def lastModified(self, value: "ChangeAuditStampsClass") -> None:
-        """Setter: Captures information about who created/last modified/deleted this chart and when"""
-        self._inner_dict['lastModified'] = value
-    
-    
-    @property
-    def url(self) -> Union[None, str]:
-        """Getter: URL for the test entity. This could be used as an external link on DataHub to allow users access/view the chart"""
-        return self._inner_dict.get('url')  # type: ignore
-    
-    
-    @url.setter
-    def url(self, value: Union[None, str]) -> None:
-        """Setter: URL for the test entity. This could be used as an external link on DataHub to allow users access/view the chart"""
-        self._inner_dict['url'] = value
-    
-    
-    @property
-    def inputs(self) -> Union[None, List["InputClass"]]:
-        """Getter: Test Entity inputs"""
-        return self._inner_dict.get('inputs')  # type: ignore
-    
-    
-    @inputs.setter
-    def inputs(self, value: Union[None, List["InputClass"]]) -> None:
-        """Setter: Test Entity inputs"""
-        self._inner_dict['inputs'] = value
-    
-    
-    @property
-    def type(self) -> Union[None, Union[str, "ChartTypeOptionClass"]]:
-        """Getter: Type of the chart"""
-        return self._inner_dict.get('type')  # type: ignore
-    
-    
-    @type.setter
-    def type(self, value: Union[None, Union[str, "ChartTypeOptionClass"]]) -> None:
-        """Setter: Type of the chart"""
-        self._inner_dict['type'] = value
-    
-    
-    @property
-    def lastRefreshed(self) -> Union[None, int]:
-        """Getter: The time when this test entity was last refreshed"""
-        return self._inner_dict.get('lastRefreshed')  # type: ignore
-    
-    
-    @lastRefreshed.setter
-    def lastRefreshed(self, value: Union[None, int]) -> None:
-        """Setter: The time when this test entity was last refreshed"""
-        self._inner_dict['lastRefreshed'] = value
-    
-    
 class GlossaryNodeInfoClass(DictWrapper):
     """Properties associated with a GlossaryNode"""
     
@@ -3888,70 +3581,6 @@ class TagKeyClass(DictWrapper):
         self._inner_dict['name'] = value
     
     
-class TestEntityKeyClass(DictWrapper):
-    """Key for a TestEntity"""
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.TestEntityKey")
-    def __init__(self,
-        keyPart1: str,
-        keyPart2: str,
-        keyPart3: str,
-    ):
-        super().__init__()
-        
-        self.keyPart1 = keyPart1
-        self.keyPart2 = keyPart2
-        self.keyPart3 = keyPart3
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "TestEntityKeyClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.keyPart1 = str()
-        self.keyPart2 = str()
-        self.keyPart3 = str()
-    
-    
-    @property
-    def keyPart1(self) -> str:
-        """Getter: Title of the chart"""
-        return self._inner_dict.get('keyPart1')  # type: ignore
-    
-    
-    @keyPart1.setter
-    def keyPart1(self, value: str) -> None:
-        """Setter: Title of the chart"""
-        self._inner_dict['keyPart1'] = value
-    
-    
-    @property
-    def keyPart2(self) -> str:
-        """Getter: Title of the chart"""
-        return self._inner_dict.get('keyPart2')  # type: ignore
-    
-    
-    @keyPart2.setter
-    def keyPart2(self, value: str) -> None:
-        """Setter: Title of the chart"""
-        self._inner_dict['keyPart2'] = value
-    
-    
-    @property
-    def keyPart3(self) -> str:
-        """Getter: Title of the chart"""
-        return self._inner_dict.get('keyPart3')  # type: ignore
-    
-    
-    @keyPart3.setter
-    def keyPart3(self, value: str) -> None:
-        """Setter: Title of the chart"""
-        self._inner_dict['keyPart3'] = value
-    
-    
 class ChartSnapshotClass(DictWrapper):
     """A metadata snapshot for a specific Chart entity."""
     
@@ -4635,55 +4264,6 @@ class TagSnapshotClass(DictWrapper):
     @aspects.setter
     def aspects(self, value: List[Union["TagKeyClass", "OwnershipClass", "TagPropertiesClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        self._inner_dict['aspects'] = value
-    
-    
-class TestEntitySnapshotClass(DictWrapper):
-    """A metadata snapshot for a specific Test Entity."""
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.TestEntitySnapshot")
-    def __init__(self,
-        urn: str,
-        aspects: List[Union["TestEntityKeyClass", "TestEntityInfoClass", "BrowsePathsClass"]],
-    ):
-        super().__init__()
-        
-        self.urn = urn
-        self.aspects = aspects
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "TestEntitySnapshotClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.urn = str()
-        self.aspects = list()
-    
-    
-    @property
-    def urn(self) -> str:
-        """Getter: URN for the entity the metadata snapshot is associated with."""
-        return self._inner_dict.get('urn')  # type: ignore
-    
-    
-    @urn.setter
-    def urn(self, value: str) -> None:
-        """Setter: URN for the entity the metadata snapshot is associated with."""
-        self._inner_dict['urn'] = value
-    
-    
-    @property
-    def aspects(self) -> List[Union["TestEntityKeyClass", "TestEntityInfoClass", "BrowsePathsClass"]]:
-        """Getter: The list of metadata aspects associated with the Test Entity. Depending on the use case, this can either be all, or a selection, of supported aspects."""
-        return self._inner_dict.get('aspects')  # type: ignore
-    
-    
-    @aspects.setter
-    def aspects(self, value: List[Union["TestEntityKeyClass", "TestEntityInfoClass", "BrowsePathsClass"]]) -> None:
-        """Setter: The list of metadata aspects associated with the Test Entity. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
     
@@ -5619,7 +5199,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "TestEntitySnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
     ):
@@ -5655,13 +5235,13 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "TestEntitySnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "TestEntitySnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLFeatureSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -7131,10 +6711,6 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
-    'com.linkedin.pegasus2avro.experimental.AliasRecord': AliasRecordClass,
-    'com.linkedin.pegasus2avro.experimental.ChartTypeOption': ChartTypeOptionClass,
-    'com.linkedin.pegasus2avro.experimental.Input': InputClass,
-    'com.linkedin.pegasus2avro.experimental.TestEntityInfo': TestEntityInfoClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
@@ -7152,7 +6728,6 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureKey': MLFeatureKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLModelKey': MLModelKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TagKey': TagKeyClass,
-    'com.linkedin.pegasus2avro.metadata.key.TestEntityKey': TestEntityKeyClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot': ChartSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot': CorpGroupSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot': CorpUserSnapshotClass,
@@ -7167,7 +6742,6 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot': MLFeatureSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot': MLModelSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot': TagSnapshotClass,
-    'com.linkedin.pegasus2avro.metadata.snapshot.TestEntitySnapshot': TestEntitySnapshotClass,
     'com.linkedin.pegasus2avro.ml.metadata.BaseData': BaseDataClass,
     'com.linkedin.pegasus2avro.ml.metadata.CaveatDetails': CaveatDetailsClass,
     'com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations': CaveatsAndRecommendationsClass,
@@ -7264,10 +6838,6 @@ __SCHEMA_TYPES = {
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
-    'AliasRecord': AliasRecordClass,
-    'ChartTypeOption': ChartTypeOptionClass,
-    'Input': InputClass,
-    'TestEntityInfo': TestEntityInfoClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
@@ -7285,7 +6855,6 @@ __SCHEMA_TYPES = {
     'MLFeatureKey': MLFeatureKeyClass,
     'MLModelKey': MLModelKeyClass,
     'TagKey': TagKeyClass,
-    'TestEntityKey': TestEntityKeyClass,
     'ChartSnapshot': ChartSnapshotClass,
     'CorpGroupSnapshot': CorpGroupSnapshotClass,
     'CorpUserSnapshot': CorpUserSnapshotClass,
@@ -7300,7 +6869,6 @@ __SCHEMA_TYPES = {
     'MLFeatureSnapshot': MLFeatureSnapshotClass,
     'MLModelSnapshot': MLModelSnapshotClass,
     'TagSnapshot': TagSnapshotClass,
-    'TestEntitySnapshot': TestEntitySnapshotClass,
     'BaseData': BaseDataClass,
     'CaveatDetails': CaveatDetailsClass,
     'CaveatsAndRecommendations': CaveatsAndRecommendationsClass,
