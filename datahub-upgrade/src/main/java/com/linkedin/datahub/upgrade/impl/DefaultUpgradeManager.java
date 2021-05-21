@@ -62,7 +62,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
       // Apply Actions
       if (UpgradeStepResult.Action.ABORT.equals(stepResult.action())) {
         upgradeReport.addLine(String.format("Step with id %s requested an abort of the in-progress update. Aborting the upgrade...", step.id()));
-        return new DefaultUpgradeResult(UpgradeResult.Result.FAILED, upgradeReport);
+        return new DefaultUpgradeResult(UpgradeResult.Result.ABORTED, upgradeReport);
       }
 
       // Handle Results

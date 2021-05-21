@@ -20,12 +20,11 @@ public class EntitySpec {
   private final RecordDataSchema _snapshotSchema;
   private final TyperefDataSchema _aspectTyperefSchema;
 
-  public EntitySpec(@Nonnull final List<AspectSpec> aspectSpecs, @Nonnull final EntityAnnotation entityAnnotation) {
-    this(aspectSpecs, entityAnnotation, null, null);
-  }
-
-  public EntitySpec(@Nonnull final List<AspectSpec> aspectSpecs, @Nonnull final EntityAnnotation entityAnnotation,
-      final RecordDataSchema snapshotSchema, final TyperefDataSchema aspectTyperefSchema) {
+  public EntitySpec(
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nonnull final EntityAnnotation entityAnnotation,
+      @Nonnull final RecordDataSchema snapshotSchema,
+      @Nonnull final TyperefDataSchema aspectTyperefSchema) {
     _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
     _entityAnnotation = entityAnnotation;
     _snapshotSchema = snapshotSchema;

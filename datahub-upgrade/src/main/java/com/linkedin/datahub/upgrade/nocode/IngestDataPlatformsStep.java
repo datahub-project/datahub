@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataplatform.DataPlatformInfo;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.dataplatform.utils.DataPlatformsUtil;
 import java.net.URISyntaxException;
@@ -56,7 +56,7 @@ public class IngestDataPlatformsStep implements UpgradeStep<Void> {
 
         _entityService.ingestAspect(
             entry.getKey(),
-            EntitySpecUtils.getAspectNameFromSchema(entry.getValue().schema()),
+            ModelUtils.getAspectNameFromSchema(entry.getValue().schema()),
             entry.getValue(),
             auditStamp
         );

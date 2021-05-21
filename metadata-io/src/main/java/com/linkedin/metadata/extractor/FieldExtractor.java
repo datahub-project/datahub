@@ -6,7 +6,7 @@ import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.models.FieldSpec;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 
 
+/**
+ * Extracts fields from a RecordTemplate based on the appropriate {@link FieldSpec}.
+ */
 public class FieldExtractor {
   private FieldExtractor() {
   }
@@ -49,7 +52,7 @@ public class FieldExtractor {
       if (pathComponents.size() < 4) {
         continue;
       }
-      String aspectName = EntitySpecUtils.getAspectNameFromFullyQualifiedName(pathComponents.get(2));
+      String aspectName = ModelUtils.getAspectNameFromFullyQualifiedName(pathComponents.get(2));
       aspectsInSnapshot.add(aspectName);
       final String path = aspectName + "/" + StringUtils.join(pathComponents.subList(3, pathComponents.size()), "/");
       final Optional<T> matchingSpec = Optional.ofNullable(pathToFieldSpec.get(path));

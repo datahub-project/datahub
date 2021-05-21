@@ -22,6 +22,7 @@ public class RelationshipAnnotation {
   String name;
   List<String> validDestinationTypes;
 
+  @Nonnull
   public static RelationshipAnnotation fromPegasusAnnotationObject(
       @Nonnull final Object annotationObj,
       @Nonnull final String context

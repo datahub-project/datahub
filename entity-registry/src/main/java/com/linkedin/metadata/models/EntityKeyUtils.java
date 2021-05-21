@@ -6,6 +6,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import javax.annotation.Nonnull;
 
 
 public class EntityKeyUtils {
@@ -26,7 +27,8 @@ public class EntityKeyUtils {
    * the provided key schema in order.
    * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema (field number or type mismatch)
    */
-  public static RecordTemplate convertUrnToEntityKey(final Urn urn, final RecordDataSchema keySchema) {
+  @Nonnull
+  public static RecordTemplate convertUrnToEntityKey(@Nonnull final Urn urn, @Nonnull final RecordDataSchema keySchema) {
 
     // #1. Ensure we have a class to bind into.
     Class<? extends RecordTemplate> clazz;

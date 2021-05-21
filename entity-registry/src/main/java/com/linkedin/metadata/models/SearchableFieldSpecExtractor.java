@@ -10,13 +10,20 @@ import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
+/**
+ * Implementation of {@link SchemaVisitor} responsible for extracting {@link SearchableFieldSpec}s
+ * from an aspect schema.
+ */
 public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   private final List<SearchableFieldSpec> _specs = new ArrayList<>();
+  private final Set<String> _searchFieldNames = new HashSet<>();
 
   public List<SearchableFieldSpec> getSpecs() {
     return _specs;
@@ -24,7 +31,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   @Override
   public void callbackOnContext(TraverserContext context, DataSchemaTraverse.Order order) {
-
     if (context.getEnclosingField() == null) {
       return;
     }
@@ -37,14 +43,17 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       if (currentSchema.getDereferencedDataSchema().isComplex()) {
         final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
         if (isValidComplexType(complexSchema)) {
-
             final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
             if (annotationObj != null) {
               final PathSpec path = new PathSpec(context.getSchemaPathSpec());
               final SearchableAnnotation annotation = SearchableAnnotation.fromPegasusAnnotationObject(
                   annotationObj,
-                  path.toString()
-              );
+                  path.toString());
+              if (_searchFieldNames.contains(annotation.getFieldName())) {
+                throw new ModelValidationException(
+                    String.format("Entity has multiple searchable fields with the same field name %s",
+                        annotation.getFieldName()));
+              }
               final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
               _specs.add(fieldSpec);
           }

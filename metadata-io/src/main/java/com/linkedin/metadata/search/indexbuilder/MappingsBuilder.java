@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -20,7 +21,7 @@ public class MappingsBuilder {
   private MappingsBuilder() {
   }
 
-  public static Map<String, Object> getMappings(final EntitySpec entitySpec) {
+  public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
     mappings.put("urn", getMappingsForUrn());
     entitySpec.getSearchableFieldSpecs()
@@ -32,7 +33,7 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
   }
 
-  private static Map<String, Object> setMappingsForField(final SearchableFieldSpec searchableFieldSpec) {
+  private static Map<String, Object> setMappingsForField(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
     Map<String, Object> mappingsForField = new HashMap<>();
     // Separate the settings with override and settings without
     Map<Boolean, List<IndexSetting>> indexSettingsHasOverride = searchableFieldSpec.getIndexSettings()

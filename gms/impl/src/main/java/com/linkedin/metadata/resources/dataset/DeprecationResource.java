@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetDeprecation;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -40,7 +40,7 @@ public class DeprecationResource extends BaseDatasetVersionedAspectResource<Data
 
       final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
           urn,
-          EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+          ModelUtils.getAspectNameFromSchema(aspectSchema),
           version
       );
       if (maybeAspect != null) {
@@ -59,7 +59,7 @@ public class DeprecationResource extends BaseDatasetVersionedAspectResource<Data
       final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
       getEntityService().ingestAspect(
           urn,
-          EntitySpecUtils.getAspectNameFromSchema(datasetDeprecation.schema()),
+          ModelUtils.getAspectNameFromSchema(datasetDeprecation.schema()),
           datasetDeprecation,
           auditStamp);
       return new CreateResponse(HttpStatus.S_201_CREATED);

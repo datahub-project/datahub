@@ -9,7 +9,7 @@ import com.linkedin.dataset.DownstreamArray;
 import com.linkedin.dataset.DownstreamLineage;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamLineage;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.CriterionArray;
@@ -91,7 +91,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
             final RecordTemplate upstreamLineageRecord =
                 _entityService.getLatestAspectRecord(
                     ds,
-                    EntitySpecUtils.getAspectNameFromSchema(new UpstreamLineage().schema())
+                    ModelUtils.getAspectNameFromSchema(new UpstreamLineage().schema())
                 );
             if (upstreamLineageRecord != null) {
               final UpstreamLineage upstreamLineage = new UpstreamLineage(upstreamLineageRecord.data());

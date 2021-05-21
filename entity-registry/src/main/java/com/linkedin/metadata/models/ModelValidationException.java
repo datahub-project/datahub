@@ -1,5 +1,8 @@
 package com.linkedin.metadata.models;
 
+/**
+ * Exception thrown when Entity, Aspect models fail to be validated.
+ */
 public class ModelValidationException extends RuntimeException {
 
   public ModelValidationException(String message) {

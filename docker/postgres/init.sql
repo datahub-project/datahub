@@ -1,17 +1,17 @@
 -- create metadata aspect table
-create table metadata_aspect (
+create table metadata_aspect_v2 (
   urn                           varchar(500) not null,
   aspect                        varchar(200) not null,
-  version                       bigint not null,
+  version                       bigint(20) not null,
   metadata                      text not null,
+  systemmetadata                text,
   createdon                     timestamp not null,
   createdby                     varchar(255) not null,
   createdfor                    varchar(255),
   constraint pk_metadata_aspect primary key (urn,aspect,version)
 );
 
--- create default records for datahub user
-insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdby) values(
+insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) values(
   'urn:li:corpuser:datahub',
   'com.linkedin.identity.CorpUserInfo',
   0,

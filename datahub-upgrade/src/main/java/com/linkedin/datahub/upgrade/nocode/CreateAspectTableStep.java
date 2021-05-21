@@ -35,6 +35,7 @@ public class CreateAspectTableStep implements UpgradeStep<Void> {
             + "  aspect                        varchar(200) not null,\n"
             + "  version                       bigint(20) not null,\n"
             + "  metadata                      longtext not null,\n"
+            + "  systemmetadata                longtext,\n"
             + "  createdon                     datetime(6) not null,\n"
             + "  createdby                     varchar(255) not null,\n"
             + "  createdfor                    varchar(255),\n"

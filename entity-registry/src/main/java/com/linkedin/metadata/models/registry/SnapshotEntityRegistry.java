@@ -11,7 +11,7 @@ import javax.annotation.Nonnull;
 
 
 /**
- * Implementation of {@link EntityRegistry} that parses {@link EntitySpec} objects
+ * Implementation of {@link EntityRegistry} that builds {@link EntitySpec} objects
  * from the a {@link Snapshot} Record Template present on the classpath
  */
 public class SnapshotEntityRegistry implements EntityRegistry {
@@ -21,11 +21,12 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
   public SnapshotEntityRegistry() {
-    entityNameToSpec = EntitySpecBuilder.buildEntitySpecs(new Snapshot().schema(), EntitySpecBuilder.ValidationMode.WARN)
+    entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(new Snapshot().schema())
         .stream()
         .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }
 
+  @Nonnull
   @Override
   public EntitySpec getEntitySpec(@Nonnull final String entityName) {
     String lowercaseEntityName = entityName.toLowerCase();
@@ -36,6 +37,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     return entityNameToSpec.get(lowercaseEntityName);
   }
 
+  @Nonnull
   @Override
   public List<EntitySpec> getEntitySpecs() {
     return new ArrayList<>(entityNameToSpec.values());

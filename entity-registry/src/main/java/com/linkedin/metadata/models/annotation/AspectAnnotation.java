@@ -15,10 +15,12 @@ public class AspectAnnotation {
 
   public static final String ANNOTATION_NAME = "Aspect";
   private static final String NAME_FIELD = "name";
+  private static final String IS_KEY_FIELD = "isKey";
 
   String name;
   Boolean isKey;
 
+  @Nonnull
   public static AspectAnnotation fromSchemaProperty(
       @Nonnull final Object annotationObj,
       @Nonnull final String context) {
@@ -41,7 +43,7 @@ public class AspectAnnotation {
               NAME_FIELD
           ));
     }
-    final Optional<Boolean> isKey = AnnotationUtils.getField(map, "isKey", Boolean.class);
+    final Optional<Boolean> isKey = AnnotationUtils.getField(map, IS_KEY_FIELD, Boolean.class);
 
     return new AspectAnnotation(name.get(), isKey.orElse(false));
   }

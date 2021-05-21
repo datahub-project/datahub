@@ -9,11 +9,10 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
@@ -35,7 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
-import static com.linkedin.metadata.EntitySpecUtils.*;
+import static com.linkedin.metadata.ModelUtils.*;
 import static com.linkedin.metadata.entity.EbeanAspectDao.*;
 
 
@@ -189,12 +188,12 @@ public class EntityService {
 
   public void ingestSnapshot(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final List<RecordTemplate> aspectRecordsToIngest = ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     // TODO the following should run in a transaction.
     aspectRecordsToIngest.stream().map(aspect -> {
-      final String aspectName = EntitySpecUtils.getAspectNameFromSchema(aspect.schema());
+      final String aspectName = ModelUtils.getAspectNameFromSchema(aspect.schema());
       return ingestAspect(urn, aspectName, aspect, auditStamp); // TODO: Can we memoize this lookup?
     })
     .collect(Collectors.toList());
@@ -412,7 +411,7 @@ public class EntityService {
       @Nonnull final List<UnionTemplate> aspectUnionTemplates) {
     final String entityName = urnToEntityName(urn);
     final EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
-    return ModelUtils.newSnapshot(
+    return com.linkedin.metadata.dao.utils.ModelUtils.newSnapshot(
         getDataTemplateClassFromSchema(entitySpec.getSnapshotSchema(), RecordTemplate.class),
         urn,
         aspectUnionTemplates);
@@ -422,7 +421,7 @@ public class EntityService {
       @Nonnull final TyperefDataSchema aspectUnionSchema,
       @Nonnull final RecordTemplate aspectRecord) {
     // TODO:
-    return ModelUtils.newAspectUnion(
+    return com.linkedin.metadata.dao.utils.ModelUtils.newAspectUnion(
         getDataTemplateClassFromSchema(aspectUnionSchema, UnionTemplate.class),
         aspectRecord
     );

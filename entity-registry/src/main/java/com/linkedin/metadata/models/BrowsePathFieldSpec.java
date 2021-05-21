@@ -15,4 +15,5 @@ public class BrowsePathFieldSpec {
   public PathSpec getPath() {
     return _path;
   }
+
 }

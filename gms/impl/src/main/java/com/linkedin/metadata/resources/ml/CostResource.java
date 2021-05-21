@@ -4,7 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.restli.common.HttpStatus;
 import javax.annotation.Nonnull;
@@ -40,7 +40,7 @@ public class CostResource extends BaseMLModelsAspectResource<Cost> {
 
             final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+                ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version
             );
             if (maybeAspect != null) {
@@ -59,7 +59,7 @@ public class CostResource extends BaseMLModelsAspectResource<Cost> {
             final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
             getEntityService().ingestAspect(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(cost.schema()),
+                ModelUtils.getAspectNameFromSchema(cost.schema()),
                 cost,
                 auditStamp);
             return new CreateResponse(HttpStatus.S_201_CREATED);
