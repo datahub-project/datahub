@@ -18,5 +18,4 @@ typeref Snapshot = union[
   TagSnapshot,
   GlossaryTermSnapshot,
   GlossaryNodeSnapshot
-  TestEntitySnapshot
 ]

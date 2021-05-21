@@ -27,6 +27,8 @@ import java.util.function.Function;
 
 public class DataMigrationStep implements UpgradeStep<Void> {
 
+  private static final String BROWSE_PATHS_ASPECT_NAME = EntitySpecUtils.getAspectNameFromSchema(new BrowsePaths().schema());
+
   private final EbeanServer _server;
   private final EntityService _entityService;
   private final SnapshotEntityRegistry _entityRegistry;
@@ -48,7 +50,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
   @Override
   public int retryCount() {
-    return 1;
+    return 0;
   }
 
   @Override
@@ -56,95 +58,88 @@ public class DataMigrationStep implements UpgradeStep<Void> {
     return (context) -> {
 
       context.report().addLine("Starting data migration...");
-
       final int rowCount = _server.find(EbeanAspectV1.class).findCount();
-
-      context.report().addLine(String.format("Found %s rows in legacy aspects table.", rowCount));
+      context.report().addLine(String.format("Found %s rows in legacy aspects table", rowCount));
 
       int totalRowsMigrated = 0;
-      int totalBatchesMigrated = 0;
-
       int start = 0;
       int count = 1000;
       while (start < rowCount) {
 
         context.report().addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
-
-        // 1. Get batch of rows
         PagedList<EbeanAspectV1> rows = getPagedAspects(start, count);
 
-        // 2. Convert batch of rows into something more interesting..
-        for (EbeanAspectV1 aspect : rows.getList()) {
-          final String aspectName = aspect.getKey().getAspect();
+        for (EbeanAspectV1 oldAspect : rows.getList()) {
 
-          // 3. Instantiate the RecordTemplate class associated with the aspect.
+          final String oldAspectName = oldAspect.getKey().getAspect();
+
+          // 1. Instantiate the RecordTemplate class associated with the aspect.
           final RecordTemplate aspectRecord;
           try {
             aspectRecord = RecordUtils.toRecordTemplate(
-                Class.forName(aspectName).asSubclass(RecordTemplate.class),
-                aspect.getMetadata());
+                Class.forName(oldAspectName).asSubclass(RecordTemplate.class),
+                oldAspect.getMetadata());
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, UpgradeStepResult.Action.ABORT,
-                String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", aspectName, e.getMessage()));
+            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
+                String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", oldAspectName, e.getMessage()));
           }
 
-          // 4. Extract an Entity type from the entity Urn
+          // 2. Extract an Entity type from the entity Urn
           Urn urn;
           try {
-            urn = Urn.createFromString(aspect.getKey().getUrn());
+            urn = Urn.createFromString(oldAspect.getKey().getUrn());
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object", aspect.getKey().getUrn(), e));
+            throw new RuntimeException(String.format("Failed to bind Urn with value %s into Urn object", oldAspect.getKey().getUrn(), e));
           }
 
-          // 5. Verify that the entity associated with the aspect is found
-          // in the registry.
+          // 3. Verify that the entity associated with the aspect is found in the registry.
           final String entityName = urn.getEntityType();
           final EntitySpec entitySpec;
           try {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, UpgradeStepResult.Action.ABORT,
+            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
                 String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e.toString()));
           }
 
-          // 6. Extract new aspect name from Aspect schema
+          // 4. Extract new aspect name from Aspect schema
           final String newAspectName;
           try {
             newAspectName = EntitySpecUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, UpgradeStepResult.Action.ABORT,
+            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
                 String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
                     aspectRecord.schema().getFullName(),
                     entityName,
                     e.toString()));
           }
 
-          // 7. Verify that the aspect is a valid aspect associated with the entity
+          // 5. Verify that the aspect is a valid aspect associated with the entity
           try {
             entitySpec.getAspectSpec(newAspectName);
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, UpgradeStepResult.Action.ABORT,
+            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
                 String.format("Failed to find aspect spec with name %s associated with entity named %s",
                     newAspectName,
                     entityName,
                     e.toString()));
           }
 
-          // 8. Write the row back using the EntityService
-          boolean emitMae = aspect.getKey().getVersion() == 0L;
+          // 6. Write the row back using the EntityService
+          boolean emitMae = oldAspect.getKey().getVersion() == 0L;
           _entityService.updateAspect(
               urn,
               newAspectName,
               aspectRecord,
-              toAuditStamp(aspect),
-              aspect.getKey().getVersion(),
+              toAuditStamp(oldAspect),
+              oldAspect.getKey().getVersion(),
               emitMae
           );
 
-          // 9. If necessary, emit a browse path aspect.
-          if (entitySpec.getAspectSpecMap().containsKey("browsePaths") && !urnsWithBrowsePath.contains(urn)) {
+          // 7. If necessary, emit a browse path aspect.
+          if (entitySpec.getAspectSpecMap().containsKey(BROWSE_PATHS_ASPECT_NAME) && !urnsWithBrowsePath.contains(urn)) {
             // Emit a browse path aspect.
-            BrowsePaths browsePaths;
+            final BrowsePaths browsePaths;
             try {
               browsePaths = BrowsePathUtils.buildBrowsePath(urn);
 
@@ -152,24 +147,20 @@ public class DataMigrationStep implements UpgradeStep<Void> {
               browsePathsStamp.setActor(Urn.createFromString("urn:li:principal:system"));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
-              // Now, ingest the browse path
-              _entityService.ingestAspect(urn, "browsePaths", browsePaths, browsePathsStamp);
-
+              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp);
               urnsWithBrowsePath.add(urn);
 
             } catch (URISyntaxException e) {
-              throw new RuntimeException("Failed to ingest the Browse Path!", e);
+              throw new RuntimeException("Failed to ingest Browse Path", e);
             }
           }
 
-          // Keep track of total records migrated.
           totalRowsMigrated++;
         }
         context.report().addLine(String.format("Successfully migrated rows %s rows", totalRowsMigrated));
-        totalBatchesMigrated++;
+
         start = start + count;
         try {
-          // TODO: Make batch size and sleep time configurable.
           TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
           throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");

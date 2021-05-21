@@ -33,7 +33,11 @@ public interface UpgradeStepResult<T> {
      */
     CONTINUE,
     /**
-     * Immediately abort the upgrade.
+     * Immediately fail the upgrade, without retry.
+     */
+    FAIL,
+    /**
+     * Immediately abort the upgrade, without retry.
      */
     ABORT
   }
