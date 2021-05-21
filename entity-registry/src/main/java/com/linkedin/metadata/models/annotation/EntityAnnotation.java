@@ -22,6 +22,7 @@ public class EntityAnnotation {
   boolean searchable;
   boolean browsable;
 
+  @Nonnull
   public static EntityAnnotation fromSchemaProperty(
       @Nonnull final Object annotationObj,
       @Nonnull final String context) {

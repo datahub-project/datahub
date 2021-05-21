@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.Map;
 
 
+/**
+ * Implementation of {@link SchemaVisitor} responsible for extracting {@link RelationshipFieldSpec}s
+ * from an aspect schema.
+ */
 public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
   private final List<RelationshipFieldSpec> _specs = new ArrayList<>();

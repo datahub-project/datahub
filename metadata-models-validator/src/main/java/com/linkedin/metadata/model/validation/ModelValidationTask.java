@@ -4,7 +4,6 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.pegasus.generator.DataSchemaParser;
 import java.io.IOException;
-import java.util.Arrays;
 
 
 /**
@@ -33,7 +32,6 @@ public class ModelValidationTask {
 
     final String resolverPath = args[0];
     final String modelPath = args[1];
-    final EntitySpecBuilder.ValidationMode validationMode = getValidationMode(args[2]);
 
     final DataSchemaParser parser = new DataSchemaParser(resolverPath);
     parser.parseSources(new String[]{ modelPath });
@@ -47,20 +45,9 @@ public class ModelValidationTask {
     }
 
     try {
-      EntitySpecBuilder.buildEntitySpecs(snapshotSchema, validationMode);
+      new EntitySpecBuilder().buildEntitySpecs(snapshotSchema);
     } catch (Exception e) {
       throw new RuntimeException("Failed to validate DataHub PDL models", e);
-    }
-  }
-
-  private static EntitySpecBuilder.ValidationMode getValidationMode(final String validationModeStr) {
-    try {
-      return EntitySpecBuilder.ValidationMode.valueOf(validationModeStr);
-    } catch (Exception e) {
-      throw new IllegalArgumentException(
-          String.format("Invalid validation mode %s provided. Valid values are %s",
-              validationModeStr,
-              Arrays.toString(EntitySpecBuilder.ValidationMode.values())));
     }
   }
 }

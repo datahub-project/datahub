@@ -5,7 +5,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -39,7 +39,7 @@ public class InstitutionalMemoryResource extends BaseDatasetVersionedAspectResou
 
             final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+                ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version
             );
             if (maybeAspect != null) {
@@ -58,7 +58,7 @@ public class InstitutionalMemoryResource extends BaseDatasetVersionedAspectResou
             final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
             getEntityService().ingestAspect(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(institutionalMemory.schema()),
+                ModelUtils.getAspectNameFromSchema(institutionalMemory.schema()),
                 institutionalMemory,
                 auditStamp);
             return new CreateResponse(HttpStatus.S_201_CREATED);

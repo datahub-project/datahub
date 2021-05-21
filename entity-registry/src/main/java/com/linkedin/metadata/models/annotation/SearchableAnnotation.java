@@ -82,6 +82,7 @@ public class SearchableAnnotation {
   private static final Set<IndexType> FILTERABLE_INDEX_TYPES =
       ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE);
 
+  @Nonnull
   public static SearchableAnnotation fromPegasusAnnotationObject(
       @Nonnull final Object annotationObj,
       @Nonnull final String context
@@ -136,6 +137,7 @@ public class SearchableAnnotation {
         indexSettings, weightsPerFieldValueMap.orElse(ImmutableMap.of()));
   }
 
+  @Nonnull
   private static IndexSetting getIndexSettingFromObject(
       @Nonnull final Object indexSettingObj,
       @Nonnull final String context

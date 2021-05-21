@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataprocess.DataProcessInfo;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -37,7 +37,7 @@ public class DataProcessInfoResource extends BaseDataProcessesAspectResource<Dat
             final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
             getEntityService().ingestAspect(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(dataProcessInfo.schema()),
+                ModelUtils.getAspectNameFromSchema(dataProcessInfo.schema()),
                 dataProcessInfo,
                 auditStamp);
             return new CreateResponse(HttpStatus.S_201_CREATED);
@@ -54,7 +54,7 @@ public class DataProcessInfoResource extends BaseDataProcessesAspectResource<Dat
 
             final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
                 urn,
-                EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+                ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version
             );
             if (maybeAspect != null) {

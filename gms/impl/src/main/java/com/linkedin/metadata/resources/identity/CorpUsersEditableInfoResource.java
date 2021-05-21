@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserEditableInfo;
-import com.linkedin.metadata.EntitySpecUtils;
+import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -37,7 +37,7 @@ public final class CorpUsersEditableInfoResource extends BaseCorpUsersAspectReso
       final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
       getEntityService().ingestAspect(
           urn,
-          EntitySpecUtils.getAspectNameFromSchema(corpUserEditableInfo.schema()),
+          ModelUtils.getAspectNameFromSchema(corpUserEditableInfo.schema()),
           corpUserEditableInfo,
           auditStamp);
       return new CreateResponse(HttpStatus.S_201_CREATED);
@@ -54,7 +54,7 @@ public final class CorpUsersEditableInfoResource extends BaseCorpUsersAspectReso
 
       final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
           urn,
-          EntitySpecUtils.getAspectNameFromSchema(aspectSchema),
+          ModelUtils.getAspectNameFromSchema(aspectSchema),
           version
       );
       if (maybeAspect != null) {

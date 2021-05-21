@@ -14,10 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-
+/**
+ * Implementation of {@link SchemaVisitor} responsible for extracting {@link BrowsePathFieldSpec}s
+ * from an aspect schema.
+ */
 public class BrowsePathFieldSpecExtractor implements SchemaVisitor {
 
-  private static final String BROWSE_PATH_ANNOTATION_NAME = "BrowsePath";
+  public static final String ANNOTATION_NAME = "BrowsePath";
 
   private final List<BrowsePathFieldSpec> _specs = new ArrayList<>();
 
@@ -47,7 +50,7 @@ public class BrowsePathFieldSpecExtractor implements SchemaVisitor {
           final DataSchema itemSchema = arraySchema.getItems().getDereferencedDataSchema();
           if (itemSchema.isPrimitive() && isValidPrimitiveType((PrimitiveDataSchema) itemSchema)) {
 
-            final Object annotationObj = resolvedProperties.get(BROWSE_PATH_ANNOTATION_NAME);
+            final Object annotationObj = resolvedProperties.get(ANNOTATION_NAME);
             if (annotationObj != null) {
               final PathSpec path = new PathSpec(context.getSchemaPathSpec());
               final BrowsePathFieldSpec fieldSpec = new BrowsePathFieldSpec(path);
