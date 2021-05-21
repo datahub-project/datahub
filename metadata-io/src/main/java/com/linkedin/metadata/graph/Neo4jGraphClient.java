@@ -27,28 +27,19 @@ import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
 
-// TODO: Should we rename this? Should we use any interfaces at all?
-public class Neo4jGraphDAO {
+public class Neo4jGraphClient implements GraphClient {
 
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
 
-  public Neo4jGraphDAO(@Nonnull Driver driver) {
+  public Neo4jGraphClient(@Nonnull Driver driver) {
     this(driver, SessionConfig.defaultConfig());
   }
 
-  public Neo4jGraphDAO(@Nonnull Driver driver, @Nonnull SessionConfig sessionConfig) {
+  public Neo4jGraphClient(@Nonnull Driver driver, @Nonnull SessionConfig sessionConfig) {
     this._driver = driver;
     this._sessionConfig = sessionConfig;
-  }
-
-  @Data
-  @AllArgsConstructor
-  public static class Edge {
-    private Urn source;
-    private Urn destination;
-    private String relationshipType;
   }
 
   public void addEdge(final Edge edge) {

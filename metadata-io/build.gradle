@@ -5,6 +5,7 @@ configurations {
 }
 
 dependencies {
+  implementation 'org.testng:testng:7.1.0'
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-builders')
@@ -30,6 +31,8 @@ dependencies {
 
   implementation gradleApi()
   annotationProcessor externalDependency.lombok
+
+  compile externalDependency.neo4jHarness
 }
 
 project.compileJava {

@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.Neo4jGraphClient;
 import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -17,8 +18,8 @@ public class GraphQueryDaoFactory {
 
     @Nonnull
     @DependsOn({"neo4jDriver"})
-    @Bean(name = "graphQueryDao")
-    protected Neo4jGraphDAO createInstance() {
-        return new Neo4jGraphDAO(applicationContext.getBean(Driver.class));
+    @Bean(name = "neo4jGraphClient")
+    protected GraphClient createInstance() {
+        return new Neo4jGraphClient(applicationContext.getBean(Driver.class));
     }
 }

@@ -4,7 +4,7 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
@@ -53,8 +53,8 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
         "Produces");
 
     @Inject
-    @Named("graphQueryDao")
-    private Neo4jGraphDAO _graphQueryDao;
+    @Named("neo4jGraphClient")
+    private GraphClient _graphClient;
 
     public Lineage() {
         super();
@@ -72,7 +72,7 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
     private List<Urn> getRelatedEntities(String rawUrn, List<String> relationshipTypes, RelationshipDirection direction) {
         return
-            _graphQueryDao.findRelatedUrns("", newFilter("urn", rawUrn),
+            _graphClient.findRelatedUrns("", newFilter("urn", rawUrn),
                 "", EMPTY_FILTER,
                 relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
                 0, MAX_DOWNSTREAM_CNT)

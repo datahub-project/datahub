@@ -29,6 +29,10 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
   public SearchResults apply(com.linkedin.metadata.query.SearchResult input) {
     final SearchResults result = new SearchResults();
 
+    if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumEntities()) {
+      return result;
+    }
+
     result.setStart(input.getFrom());
     result.setCount(input.getPageSize());
     result.setTotal(input.getNumEntities());

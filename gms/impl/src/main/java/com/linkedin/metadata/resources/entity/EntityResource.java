@@ -66,6 +66,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
 
+  // TODO: uncomment this to us a logger w/ warn access
+  // private final Logger _logger = LoggerFactory.getLogger("EntityResource");
+
   @Inject
   @Named("entityService")
   private EntityService _entityService;
