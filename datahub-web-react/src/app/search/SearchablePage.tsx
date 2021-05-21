@@ -79,6 +79,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 onQueryChange={onAutoComplete || autoComplete}
                 authenticatedUserUrn={user?.urn || ''}
                 authenticatedUserPictureLink={user?.editableInfo?.pictureLink}
+                entityRegistry={entityRegistry}
             />
             <div style={styles.children}>{children}</div>
         </Layout>

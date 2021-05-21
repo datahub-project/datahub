@@ -32,14 +32,16 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
     const [disableAdd, setDisableAdd] = useState(false);
 
     const autoComplete = (query: string) => {
-        getAutoCompleteResults({
-            variables: {
-                input: {
-                    type: EntityType.Tag,
-                    query,
+        if (query && query !== '') {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        type: EntityType.Tag,
+                        query,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     const inputExistsInAutocomplete = suggestionsData?.autoComplete?.suggestions?.some(
