@@ -55,8 +55,9 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
             date_partition_column="date_partition_col",
         )
 
+        # first feature table for testing, with all of Feast's datatypes
         table_1 = FeatureTable(
-            name="test_feature_table_1",
+            name="test_feature_table_all_feature_dtypes",
             features=[
                 Feature(name="test_BYTES_feature", dtype=ValueType.BYTES),
                 Feature(name="test_STRING_feature", dtype=ValueType.STRING),
@@ -78,8 +79,9 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
             batch_source=batch_source,
         )
 
+        # second feature table for testing, with just a single feature
         table_2 = FeatureTable(
-            name="test_feature_table_2",
+            name="test_feature_table_single_feature",
             features=[
                 Feature(name="test_BYTES_feature", dtype=ValueType.BYTES),
             ],
@@ -88,8 +90,9 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
             batch_source=batch_source,
         )
 
+        # third feature table for testing, no labels
         table_3 = FeatureTable(
-            name="empty_table",
+            name="test_feature_table_no_labels",
             features=[
                 Feature(name="test_BYTES_feature", dtype=ValueType.BYTES),
             ],
