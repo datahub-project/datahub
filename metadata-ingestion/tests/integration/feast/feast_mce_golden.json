@@ -2,14 +2,248 @@
 {
     "auditHeader": null,
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,empty_table)",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BOOL_LIST_feature)",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
-                        "mlFeatures": [
-                            "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_feature)"
-                        ]
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BOOL_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "BINARY",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "BYTE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_DOUBLE_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_DOUBLE_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "CONTINUOUS",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_FLOAT_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_FLOAT_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "CONTINUOUS",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_INT32_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_INT32_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "ORDINAL",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_INT64_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_INT64_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "ORDINAL",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_STRING_LIST_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "SEQUENCE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_STRING_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "TEXT",
+                        "version": null
                     }
                 }
             ]
@@ -21,7 +255,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_feature_table_1)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
@@ -51,8 +285,62 @@
 {
     "auditHeader": null,
     "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "BYTE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_feature_table_2)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_feature_table_no_labels)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                        "mlFeatures": [
+                            "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_feature)"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_BYTES_feature)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "description": null,
+                        "dataType": "BYTE",
+                        "version": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:feast,test_feature_table_single_feature)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {

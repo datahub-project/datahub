@@ -125,6 +125,12 @@ class FeastSource(Source):
 
                 allFeatures.append(feature_snapshot)
 
+                # make the MCE and workunit
+                mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+                wu = MetadataWorkUnit(id=table.name, mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+
             # create snapshot instance for the featureset
             featureset_snapshot = MLFeatureSetSnapshot(
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table.name})",
