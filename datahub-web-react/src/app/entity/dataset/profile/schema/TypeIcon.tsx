@@ -7,10 +7,11 @@ import {
     CalendarOutlined,
     FieldTimeOutlined,
 } from '@ant-design/icons';
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import React, { FC } from 'react';
 import { VscSymbolString, VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
+import { capitalizeFirstLetter } from '../../../../shared/capitalizeFirstLetter';
 import { SchemaFieldDataType } from '../../../../../types.generated';
 
 const TypeIconContainer = styled.div`
@@ -22,9 +23,10 @@ const TypeIconContainer = styled.div`
     width: 40px;
 `;
 
-const TypeSubtitle = styled(Typography.Text)`
+const TypeSubtitle = styled(Typography.Text)<{ hasIcon: boolean }>`
     font-size: 8px;
     text-align: center;
+    ${(props) => (props.hasIcon ? '' : 'margin-top: 4px;')}
 `;
 
 const IconSpan = styled.span`
@@ -72,14 +74,29 @@ const DATA_TYPE_ICON_MAP: Record<
 
 type Props = {
     type: SchemaFieldDataType;
+    nativeDataType: string | null | undefined;
 };
 
-export default function TypeIcon({ type }: Props) {
+export default function TypeIcon({ type, nativeDataType }: Props) {
     const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[type];
+    // eslint-disable-next-line react/prop-types
+    const NativeDataTypeTooltip = ({ children }) =>
+        nativeDataType ? (
+            <Tooltip placement="top" title={capitalizeFirstLetter(nativeDataType)}>
+                {children}
+            </Tooltip>
+        ) : (
+            <>{children}</>
+        );
+
     return (
-        <TypeIconContainer data-testid={`icon-${type}`}>
-            {Icon && <Icon style={{ fontSize: size }} />}
-            <TypeSubtitle type="secondary">{text}</TypeSubtitle>
-        </TypeIconContainer>
+        <NativeDataTypeTooltip>
+            <TypeIconContainer data-testid={`icon-${type}`}>
+                {Icon && <Icon style={{ fontSize: size }} />}
+                <TypeSubtitle type="secondary" hasIcon={!!Icon}>
+                    {text}
+                </TypeSubtitle>
+            </TypeIconContainer>
+        </NativeDataTypeTooltip>
     );
 }
