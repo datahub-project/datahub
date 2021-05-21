@@ -4,9 +4,8 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import io.ebean.EbeanServer;
-import io.ebean.SqlQuery;
-import io.ebean.SqlRow;
 import java.util.function.Function;
 
 
@@ -31,34 +30,26 @@ public class UpgradeQualificationStep implements UpgradeStep<Void> {
   @Override
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
-      final String queryStr =
-          "SELECT * FROM INFORMATION_SCHEMA.TABLES \n"
-          + "WHERE TABLE_NAME = 'metadata_aspect_v2'";
-
-      final SqlQuery query = _server.createSqlQuery(queryStr);
       try {
-        SqlRow row = query.findOne();
-
-        if (row == null) {
+        if (AspectStorageValidationUtil.checkV2TableExists(_server)) {
+          // Unqualified (Table already exists)
+          return new DefaultUpgradeStepResult<>(
+              id(),
+              UpgradeStepResult.Result.SUCCEEDED,
+              UpgradeStepResult.Action.ABORT,
+              "Failed to qualify upgrade candidate. Aborting the upgrade...");
+        } else {
           // Qualified.
           return new DefaultUpgradeStepResult<>(
               id(),
               UpgradeStepResult.Result.SUCCEEDED,
               "Found qualified upgrade candidate. Proceeding with upgrade...");
         }
-
-        // Unqualified (Table already exists)
-        return new DefaultUpgradeStepResult<>(
-            id(),
-            UpgradeStepResult.Result.SUCCEEDED,
-            UpgradeStepResult.Action.ABORT,
-            "Failed to qualify upgrade candidate. Aborting the upgrade...");
-
       } catch (Exception e) {
         return new DefaultUpgradeStepResult<>(
             id(),
             UpgradeStepResult.Result.FAILED,
-            String.format("Failed to execute SQL query: %s", queryStr));
+            String.format("Failed to check if metadata_aspect_v2 table exists: %s", e.toString()));
       }
     };
   }

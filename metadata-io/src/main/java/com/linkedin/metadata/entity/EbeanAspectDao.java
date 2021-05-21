@@ -38,6 +38,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
 import javax.persistence.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class EbeanAspectDao {
@@ -48,10 +50,13 @@ public class EbeanAspectDao {
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
   private final EbeanServer _server;
+  private boolean _connectionValidated = false;
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
 
   private int _queryKeysCount = 0; // 0 means no pagination on keys
+
+  private final Logger _logger = LoggerFactory.getLogger("EbeanAspectDao");
 
   /**
    * Constructor for EntityEbeanDao.
@@ -74,6 +79,19 @@ public class EbeanAspectDao {
     return _server;
   }
 
+  private boolean validateConnection() {
+    if (_connectionValidated) {
+      return true;
+    }
+    if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
+      _logger.error("GMS is on a newer version than your storage layer. Please refer to /docs/advanced/no-code-upgrade.md for an easy upgrade guide");
+      return false;
+    } else {
+      _connectionValidated = true;
+      return true;
+    }
+  }
+
   public long saveLatestAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
@@ -85,6 +103,7 @@ public class EbeanAspectDao {
       @Nonnull final String newActor,
       @Nullable final String newImpersonator,
       @Nonnull final Timestamp newTime) {
+    validateConnection();
     // Save oldValue as the largest version + 1
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
@@ -110,6 +129,7 @@ public class EbeanAspectDao {
       @Nonnull final Timestamp timestamp,
       final long version,
       final boolean insert) {
+    validateConnection();
 
     final EbeanAspectV2 aspect = new EbeanAspectV2();
     aspect.setKey(new EbeanAspectV2.PrimaryKey(urn, aspectName, version));
@@ -124,6 +144,7 @@ public class EbeanAspectDao {
   }
 
   protected void saveAspect(@Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
+    validateConnection();
     if (insert) {
       _server.insert(ebeanAspect);
     } else {
@@ -133,22 +154,26 @@ public class EbeanAspectDao {
 
   @Nullable
   protected EbeanAspectV2 getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
     final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, 0L);
     return _server.find(EbeanAspectV2.class, key);
   }
 
   @Nullable
   public EbeanAspectV2 getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
+    validateConnection();
     return getAspect(new EbeanAspectV2.PrimaryKey(urn, aspectName, version));
   }
 
   @Nullable
   public EbeanAspectV2 getAspect(@Nonnull final EbeanAspectV2.PrimaryKey primaryKey) {
+    validateConnection();
     return _server.find(EbeanAspectV2.class, primaryKey);
   }
 
   @Nonnull
   public Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGet(@Nonnull final Set<EbeanAspectV2.PrimaryKey> keys) {
+    validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -171,6 +196,7 @@ public class EbeanAspectDao {
    */
   @Nonnull
   private List<EbeanAspectV2> batchGet(@Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount) {
+    validateConnection();
 
     int position = 0;
 
@@ -196,6 +222,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspect,
       final long version,
       @Nonnull final Map<String, Object> outputParamsToValues) {
+    validateConnection();
 
     final String urnArg = "urn" + selectId;
     final String aspectArg = "aspect" + selectId;
@@ -215,6 +242,7 @@ public class EbeanAspectDao {
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
       final int position) {
+    validateConnection();
 
     // Build one SELECT per key and then UNION ALL the results. This can be much more performant than OR'ing the
     // conditions together. Our query will look like:
@@ -262,6 +290,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
+    validateConnection();
 
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
@@ -283,6 +312,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
+    validateConnection();
 
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
@@ -310,6 +340,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
+    validateConnection();
 
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
@@ -342,6 +373,7 @@ public class EbeanAspectDao {
       final long version,
       final int start,
       final int pageSize) {
+    validateConnection();
 
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
@@ -371,6 +403,7 @@ public class EbeanAspectDao {
 
   @Nonnull
   public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
+    validateConnection();
     int retryCount = 0;
     Exception lastException;
 
@@ -419,7 +452,8 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       @Nonnull final VersionBasedRetention retention,
       long largestVersion) {
-    
+    validateConnection();
+
     _server.find(EbeanAspectV2.class)
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
@@ -434,6 +468,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention,
       long currentTime) {
+    validateConnection();
 
     _server.find(EbeanAspectV2.class)
         .where()
@@ -444,6 +479,7 @@ public class EbeanAspectDao {
   }
 
   private long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
     final List<EbeanAspectV2.PrimaryKey> result = _server.find(EbeanAspectV2.class)
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
