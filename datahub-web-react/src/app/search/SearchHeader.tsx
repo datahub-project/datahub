@@ -29,7 +29,7 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    logoImage: { width: '36px', height: '32px' },
+    logoImage: { height: '32px', width: 'auto' },
 };
 
 type Props = {
