@@ -132,7 +132,6 @@ public class Neo4jGraphClientTest {
         0,
         10);
 
-    // TODO(Gabe): figure out why thisn test is failing
-    // assertEquals(relatedUrnsPostDelete.size(), 0);
+    assertEquals(relatedUrnsPostDelete.size(), 0);
   }
 }

@@ -134,7 +134,7 @@ public class Neo4jGraphClient implements GraphClient {
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
 
-    runQuery(buildStatement(statement, params));
+    runQuery(buildStatement(statement, params)).consume();
   }
 
   // visible for testing
