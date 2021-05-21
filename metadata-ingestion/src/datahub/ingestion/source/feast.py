@@ -93,7 +93,6 @@ class FeastSource(Source):
         return TypeClass
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # env = "PROD"
         platform = "feast"
 
         tables = self.feast_client.list_feature_tables()
@@ -110,12 +109,14 @@ class FeastSource(Source):
             allFeatures: List[MLFeatureSnapshot] = []
 
             for feature in features:
-                print(feature.name)
 
+                # create snapshot instance for the feature
                 feature_snapshot = MLFeatureSnapshot(
                     urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{feature.name})",
                     aspects=[],
                 )
+
+                # append feature type
                 feature_snapshot.aspects.append(
                     MLFeaturePropertiesClass(
                         dataType=self.get_field_type(feature.dtype.name, table.name),
@@ -124,8 +125,7 @@ class FeastSource(Source):
 
                 allFeatures.append(feature_snapshot)
 
-            print(table.name)
-
+            # create snapshot instance for the featureset
             featureset_snapshot = MLFeatureSetSnapshot(
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table.name})",
                 aspects=[],
@@ -134,6 +134,7 @@ class FeastSource(Source):
                 MLFeatureSetPropertiesClass(mlFeatures=[x.urn for x in allFeatures])
             )
 
+            # make the MCE and workunit
             mce = MetadataChangeEvent(proposedSnapshot=featureset_snapshot)
             wu = MetadataWorkUnit(id=table.name, mce=mce)
             self.report.report_workunit(wu)
