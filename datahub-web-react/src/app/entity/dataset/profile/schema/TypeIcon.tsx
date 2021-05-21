@@ -80,9 +80,9 @@ type Props = {
 export default function TypeIcon({ type, nativeDataType }: Props) {
     const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[type];
     // eslint-disable-next-line react/prop-types
-    const CustomTooltip = ({ children }) =>
+    const NativeDataTypeTooltip = ({ children }) =>
         nativeDataType ? (
-            <Tooltip placement="topLeft" title={capitalizeFirstLetter(nativeDataType)}>
+            <Tooltip placement="top" title={capitalizeFirstLetter(nativeDataType)}>
                 {children}
             </Tooltip>
         ) : (
@@ -90,13 +90,13 @@ export default function TypeIcon({ type, nativeDataType }: Props) {
         );
 
     return (
-        <CustomTooltip>
+        <NativeDataTypeTooltip>
             <TypeIconContainer data-testid={`icon-${type}`}>
                 {Icon && <Icon style={{ fontSize: size }} />}
                 <TypeSubtitle type="secondary" hasIcon={!!Icon}>
                     {text}
                 </TypeSubtitle>
             </TypeIconContainer>
-        </CustomTooltip>
+        </NativeDataTypeTooltip>
     );
 }

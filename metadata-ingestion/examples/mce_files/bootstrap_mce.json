@@ -214,7 +214,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
                                     "recursive": false
                                 },
@@ -337,7 +337,7 @@
                                             "com.linkedin.pegasus2avro.schema.RecordType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -352,7 +352,7 @@
                                             "com.linkedin.pegasus2avro.schema.DateType": {}
                                         }
                                     },
-                                    "nativeDataType": "DATE()",
+                                    "nativeDataType": "Date",
                                     "recursive": false
                                 },
                                 {
@@ -382,7 +382,7 @@
                                             "com.linkedin.pegasus2avro.schema.StringType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -397,7 +397,7 @@
                                             "com.linkedin.pegasus2avro.schema.RecordType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -534,7 +534,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -661,7 +661,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -798,7 +798,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -929,7 +929,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
