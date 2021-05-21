@@ -80,8 +80,10 @@ public class EbeanAspectDao {
   }
 
   private boolean validateConnection() {
-    if (_connectionValidated) return true;
-    if(!AspectStorageValidationUtil.checkV2TableExists(_server)) {
+    if (_connectionValidated) {
+      return true;
+    }
+    if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
       _logger.error("GMS is on a newer version than your storage layer. Please refer to /docs/advanced/no-code-upgrade.md for an easy upgrade guide");
       return false;
     } else {

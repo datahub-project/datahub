@@ -10,7 +10,7 @@ public class AspectStorageValidationUtil {
 
   }
   public static boolean checkV2TableExists(EbeanServer server) {
-    final String queryStr=
+    final String queryStr =
         "SELECT * FROM INFORMATION_SCHEMA.TABLES \n"
             + "WHERE TABLE_NAME = 'metadata_aspect_v2'";
 

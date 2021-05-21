@@ -3,25 +3,13 @@ import json
 import logging
 import shlex
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, List, Optional
 
 import requests
 from requests.exceptions import HTTPError, RequestException
 
 from datahub.configuration.common import OperationalError
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
-    ChartSnapshotClass,
-    CorpGroupSnapshotClass,
-    CorpUserSnapshotClass,
-    DashboardSnapshotClass,
-    DataFlowSnapshotClass,
-    DataJobSnapshotClass,
-    DataProcessSnapshotClass,
-    DatasetSnapshotClass,
-    MLModelSnapshotClass,
-    TagSnapshotClass,
-)
 
 logger = logging.getLogger(__name__)
 
