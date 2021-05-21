@@ -21,10 +21,10 @@ from datahub.metadata.schema_classes import (  # MLFeatureSnapshotClass,
     DatasetSnapshotClass,
     MLModelSnapshotClass,
     TagSnapshotClass,
-    TestEntitySnapshotClass,
 )
 
 logger = logging.getLogger(__name__)
+
 
 def _rest_li_ify(obj: Any) -> Any:
     if isinstance(obj, (dict, OrderedDict)):
