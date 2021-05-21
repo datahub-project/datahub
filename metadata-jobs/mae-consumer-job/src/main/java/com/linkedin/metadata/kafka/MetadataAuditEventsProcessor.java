@@ -10,7 +10,8 @@ import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
-import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
@@ -55,18 +56,18 @@ public class MetadataAuditEventsProcessor {
   private ElasticsearchConnector elasticSearchConnector;
   private SnapshotProcessor snapshotProcessor;
 
-  private Neo4jGraphDAO _graphQueryDao;
+  private GraphClient _graphClient;
 
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
   public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
-      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, Neo4jGraphDAO graphWriterDAO,
+      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, GraphClient graphClient,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
     this.snapshotProcessor = snapshotProcessor;
-    this._graphQueryDao = graphWriterDAO;
+    this._graphClient = graphClient;
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
@@ -112,7 +113,7 @@ public class MetadataAuditEventsProcessor {
    */
   private void updateNeo4j(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
-    final List<Neo4jGraphDAO.Edge> edgesToAdd = new ArrayList<>();
+    final List<Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrnStr = snapshot.data().get("urn").toString();
     Urn sourceUrn;
     try {
@@ -133,16 +134,16 @@ public class MetadataAuditEventsProcessor {
       relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
       for (Object fieldValue : entry.getValue()) {
         try {
-          edgesToAdd.add(new Neo4jGraphDAO.Edge(sourceUrn, Urn.createFromString(fieldValue.toString()),
+          edgesToAdd.add(new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()),
               entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
           log.info("Invalid destination urn: {}", e.getLocalizedMessage());
         }
       }
     }
-    _graphQueryDao.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+    _graphClient.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
         createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-    edgesToAdd.forEach(edge -> _graphQueryDao.addEdge(edge));
+    edgesToAdd.forEach(edge -> _graphClient.addEdge(edge));
   }
 
   /**

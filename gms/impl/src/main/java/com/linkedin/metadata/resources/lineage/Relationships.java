@@ -1,10 +1,11 @@
 package com.linkedin.metadata.resources.lineage;
 
 import com.linkedin.common.EntityRelationship;
+
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.Neo4jGraphDAO;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
@@ -39,8 +40,8 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     @Inject
-    @Named("graphQueryDao")
-    private Neo4jGraphDAO _graphQueryDao;
+    @Named("neo4jGraphClient")
+    private GraphClient _graphClient;
 
     public Relationships() {
         super();
@@ -48,7 +49,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
 
     private List<Urn> getRelatedEntities(String rawUrn, List<String> relationshipTypes, RelationshipDirection direction) {
         return
-                _graphQueryDao.findRelatedUrns("", newFilter("urn", rawUrn),
+                _graphClient.findRelatedUrns("", newFilter("urn", rawUrn),
                         "", EMPTY_FILTER,
                         relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
                         0, MAX_DOWNSTREAM_CNT)
@@ -103,7 +104,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     public UpdateResponse delete(
             @QueryParam("urn") @Nonnull String rawUrn
     ) throws Exception {
-        _graphQueryDao.removeNode(Urn.createFromString(rawUrn));
+        _graphClient.removeNode(Urn.createFromString(rawUrn));
         return new UpdateResponse(HttpStatus.S_200_OK);
     }
 }

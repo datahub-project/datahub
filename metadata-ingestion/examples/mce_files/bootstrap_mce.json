@@ -458,7 +458,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hive/SampleHdfsDataset"]
+                           "paths": ["/prod/hive/SampleHiveDataset"]
                         }
                     },
                     {
