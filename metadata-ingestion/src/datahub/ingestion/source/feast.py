@@ -112,7 +112,7 @@ class FeastSource(Source):
 
                 # create snapshot instance for the feature
                 feature_snapshot = MLFeatureSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table.name},{feature.name})",
+                    urn=f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{table.name},{feature.name})",
                     aspects=[],
                 )
 
@@ -133,7 +133,7 @@ class FeastSource(Source):
 
             # create snapshot instance for the featureset
             featureset_snapshot = MLFeatureSetSnapshot(
-                urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table.name})",
+                urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table.name})",
                 aspects=[],
             )
             featureset_snapshot.aspects.append(
