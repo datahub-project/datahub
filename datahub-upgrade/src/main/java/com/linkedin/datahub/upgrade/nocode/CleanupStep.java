@@ -10,17 +10,17 @@ import java.util.function.BiConsumer;
 /**
  * Removes the Aspect Table on Upgrade Failure.
  */
-public class RemoveAspectTableStep implements UpgradeCleanupStep {
+public class CleanupStep implements UpgradeCleanupStep {
 
   private final EbeanServer _server;
 
-  public RemoveAspectTableStep(final EbeanServer server) {
+  public CleanupStep(final EbeanServer server) {
     _server = server;
   }
 
   @Override
   public String id() {
-    return "RemoveAspectTableStep";
+    return "CleanupStep";
   }
 
   @Override
