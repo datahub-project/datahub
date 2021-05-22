@@ -8,4 +8,7 @@ dependencies {
 
   implementation gradleApi()
   annotationProcessor externalDependency.lombok
+
+  testCompile externalDependency.testng
+
 }

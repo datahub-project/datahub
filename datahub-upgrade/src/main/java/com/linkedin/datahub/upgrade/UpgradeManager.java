@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
+import java.util.List;
+
 
 /**
  * Responsible for managing the execution of an {@link Upgrade}.
@@ -14,6 +16,6 @@ public interface UpgradeManager {
   /**
    * Kick off an {@link Upgrade} by identifier.
    */
-  UpgradeResult execute(String upgradeId, String... args);
+  UpgradeResult execute(String upgradeId, List<String> args);
 
 }

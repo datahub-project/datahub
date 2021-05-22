@@ -4,7 +4,6 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import java.util.Arrays;
 import java.util.List;
 
 
@@ -19,11 +18,11 @@ public class DefaultUpgradeContext implements UpgradeContext {
       Upgrade upgrade,
       UpgradeReport report,
       List<UpgradeStepResult<?>> previousStepResults,
-      String... args) {
+      List<String> args) {
     _upgrade = upgrade;
     _report = report;
     _previousStepResults = previousStepResults;
-    _args = Arrays.asList(args);
+    _args = args;
   }
 
   @Override

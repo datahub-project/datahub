@@ -159,6 +159,13 @@ public class DataMigrationStep implements UpgradeStep<Void> {
         }
         context.report().addLine(String.format("Successfully migrated %s rows", totalRowsMigrated));
 
+        if (totalRowsMigrated != rowCount) {
+          return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
+              String.format("Number of rows migrated %s does not equal the number of input rows %s...",
+                  totalRowsMigrated,
+                  rowCount));
+        }
+
         start = start + count;
         try {
           TimeUnit.SECONDS.sleep(1);

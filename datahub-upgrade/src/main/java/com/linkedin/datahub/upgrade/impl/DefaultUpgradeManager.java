@@ -25,14 +25,14 @@ public class DefaultUpgradeManager implements UpgradeManager {
   }
 
   @Override
-  public UpgradeResult execute(String upgradeId, String... args) {
+  public UpgradeResult execute(String upgradeId, List<String> args) {
     if (_upgrades.containsKey(upgradeId)) {
       return executeInternal(_upgrades.get(upgradeId), args);
     }
     throw new IllegalArgumentException(String.format("No upgrade with id %s could be found. Aborting...", upgradeId));
   }
 
-  private UpgradeResult executeInternal(Upgrade upgrade, String... args) {
+  private UpgradeResult executeInternal(Upgrade upgrade, List<String> args) {
     final UpgradeReport upgradeReport = new DefaultUpgradeReport();
     final UpgradeContext context = new DefaultUpgradeContext(upgrade, upgradeReport, new ArrayList<>(), args);
     upgradeReport.addLine(String.format("Starting upgrade with id %s...", upgrade.id()));

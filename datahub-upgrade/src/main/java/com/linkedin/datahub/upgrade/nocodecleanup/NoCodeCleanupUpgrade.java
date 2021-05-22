@@ -1,15 +1,14 @@
 package com.linkedin.datahub.upgrade.nocodecleanup;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.datahub.upgrade.nocode.RemoveAspectTableStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.Neo4jGraphClient;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -45,10 +44,12 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   }
 
   private List<UpgradeCleanupStep> buildCleanupSteps(final EbeanServer server) {
-    return ImmutableList.of(new RemoveAspectTableStep(server));
+    return Collections.emptyList();
   }
 
-  private List<UpgradeStep<?>> buildUpgradeSteps(final EbeanServer server, final EntityService entityService,
+  private List<UpgradeStep<?>> buildUpgradeSteps(
+      final EbeanServer server,
+      final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry, Neo4jGraphClient graphClient) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
