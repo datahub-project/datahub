@@ -111,7 +111,7 @@ public class Neo4jGraphClient implements GraphClient {
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
 
-    runQuery(buildStatement(statement, params));
+    runQuery(buildStatement(statement, params)).consume();
   }
 
   public void removeEdgeTypesFromNode(
@@ -263,5 +263,15 @@ public class Neo4jGraphClient implements GraphClient {
     params.put("urn", urn.toString());
 
     return buildStatement(statement, params);
+  }
+
+  public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
+    final String matchTemplate =
+        "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
+    final String statement = String.format(matchTemplate, labelPattern);
+
+    final Map<String, Object> params = new HashMap<>();
+
+    runQuery(buildStatement(statement, params)).consume();
   }
 }

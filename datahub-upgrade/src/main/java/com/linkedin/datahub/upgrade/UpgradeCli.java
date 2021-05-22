@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import java.util.List;
+import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,15 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("noCodeUpgrade")
   private NoCodeUpgrade noCodeUpgrade;
 
+  @Inject
+  @Named("noCodeCleanup")
+  private NoCodeCleanupUpgrade noCodeCleanup;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
+    _upgradeManager.register(noCodeCleanup);
+
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
     UpgradeResult result = _upgradeManager.execute(args.upgradeId, args.args);

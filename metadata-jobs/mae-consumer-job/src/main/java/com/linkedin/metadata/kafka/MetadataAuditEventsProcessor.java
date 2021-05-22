@@ -141,9 +141,11 @@ public class MetadataAuditEventsProcessor {
         }
       }
     }
-    _graphClient.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
-        createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-    edgesToAdd.forEach(edge -> _graphClient.addEdge(edge));
+    if (edgesToAdd.size() > 0) {
+      _graphClient.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+          createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
+      edgesToAdd.forEach(edge -> _graphClient.addEdge(edge));
+    }
   }
 
   /**

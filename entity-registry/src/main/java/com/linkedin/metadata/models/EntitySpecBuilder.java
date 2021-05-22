@@ -263,9 +263,10 @@ public class EntitySpecBuilder {
       if (!DataSchema.Type.STRING.equals(field.getType().getDereferencedType())
           && !DataSchema.Type.ENUM.equals(field.getType().getDereferencedType())
       ) {
-        failValidation(String.format(
-            "Failed to validate key aspect named %s. Key aspects must only contain fields of STRING or ENUM type.",
-            keyAspect.getName()));
+        failValidation(
+            String.format("Failed to validate key aspect nameed %s. Key "
+                + "aspects must only contain fields of STRING or ENUM type. Found %s.",
+                keyAspect.getName(), field.getType().toString()));
       }
     }
   }
