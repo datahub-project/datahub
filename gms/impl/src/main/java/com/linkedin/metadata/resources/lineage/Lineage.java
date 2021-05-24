@@ -35,7 +35,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
 /**
- * Deprecated! Use {@link EntityResource} instead.
+ * Deprecated! Use {@link Relationships} instead.
  *
  * Rest.li entry point: /lineage/{entityKey}?type={entityType}direction={direction}
  */

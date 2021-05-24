@@ -2018,7 +2018,7 @@
           } ],
           "Entity" : {
             "browsable" : true,
-            "name" : "corpUser",
+            "name" : "corpuser",
             "searchable" : true
           }
         }, {
@@ -4050,6 +4050,8 @@
           "type" : "int"
         } ],
         "returns" : "com.linkedin.metadata.query.SearchResult"
+      }, {
+        "name" : "setWritable"
       } ],
       "entity" : {
         "path" : "/entities/{entitiesId}"
