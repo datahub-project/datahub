@@ -46,7 +46,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
@@ -340,6 +340,7 @@ source:
     password: pass
     provider: db | ldap
     connect_uri: http://localhost:8088
+    env: "PROD" # Optional, default is "PROD"
 ```
 
 See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
@@ -496,6 +497,7 @@ source:
     connect_uri: "mongodb://localhost"
     username: admin
     password: password
+    env: "PROD" # Optional, default is "PROD"
     authMechanism: "DEFAULT"
     options: {}
     database_pattern: {}
@@ -640,6 +642,7 @@ source:
 ```
 
 Current limitations:
+
 - Currently works only for Debezium source connectors.
 
 ## Sinks
