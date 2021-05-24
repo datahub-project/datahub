@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List
 
@@ -177,9 +178,7 @@ class FeastSource(Source):
             )
 
             featureset_batch_source = None
-            featureset_batch_source_config = None
             featureset_stream_source = None
-            featureset_stream_source_config = None
 
             if isinstance(table.batch_source, BigQuerySource):
 
@@ -197,12 +196,21 @@ class FeastSource(Source):
 
                 featureset_stream_source = "KinesisSource"
 
+            featureset_stream_config = table.to_dict()["spec"].get("streamSource")
+
+            if featureset_stream_config is not None:
+                featureset_stream_config = json.dumps(featureset_stream_config)
+
             featureset_snapshot.aspects.append(
                 MLFeatureSetPropertiesClass(
                     mlFeatures=[x.urn for x in allFeatures],
                     mlEntities=[x.urn for x in allEntities],
                     batchSource=featureset_batch_source,
                     streamSource=featureset_stream_source,
+                    batchSourceConfig=json.dumps(
+                        table.to_dict()["spec"]["batchSource"]
+                    ),
+                    streamSourceConfig=featureset_stream_config,
                 )
             )
 

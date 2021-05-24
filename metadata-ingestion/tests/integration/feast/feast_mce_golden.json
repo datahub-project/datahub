@@ -332,7 +332,7 @@
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,dummy_entity_2)"
                         ],
                         "batchSource": "FileSource",
-                        "batchSourceConfig": null,
+                        "batchSourceConfig": "{\"type\": \"BATCH_FILE\", \"eventTimestampColumn\": \"ts_col\", \"datePartitionColumn\": \"date_partition_col\", \"createdTimestampColumn\": \"timestamp\", \"fileOptions\": {\"fileFormat\": {\"parquetFormat\": {}}, \"fileUrl\": \"file://feast/*\"}}",
                         "streamSource": null,
                         "streamSourceConfig": null
                     }
@@ -395,7 +395,7 @@
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_no_labels,dummy_entity_2)"
                         ],
                         "batchSource": "FileSource",
-                        "batchSourceConfig": null,
+                        "batchSourceConfig": "{\"type\": \"BATCH_FILE\", \"eventTimestampColumn\": \"ts_col\", \"datePartitionColumn\": \"date_partition_col\", \"createdTimestampColumn\": \"timestamp\", \"fileOptions\": {\"fileFormat\": {\"parquetFormat\": {}}, \"fileUrl\": \"file://feast/*\"}}",
                         "streamSource": null,
                         "streamSourceConfig": null
                     }
@@ -458,7 +458,7 @@
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_single_feature,dummy_entity_1)"
                         ],
                         "batchSource": "FileSource",
-                        "batchSourceConfig": null,
+                        "batchSourceConfig": "{\"type\": \"BATCH_FILE\", \"eventTimestampColumn\": \"ts_col\", \"datePartitionColumn\": \"date_partition_col\", \"createdTimestampColumn\": \"timestamp\", \"fileOptions\": {\"fileFormat\": {\"parquetFormat\": {}}, \"fileUrl\": \"file://feast/*\"}}",
                         "streamSource": null,
                         "streamSourceConfig": null
                     }
