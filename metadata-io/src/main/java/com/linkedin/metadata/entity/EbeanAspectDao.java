@@ -72,6 +72,10 @@ public class EbeanAspectDao {
     _server = server;
   }
 
+  public void setWritable() {
+    canWrite = true;
+  }
+
   /**
    * Return the {@link EbeanServer} server instance used for customized queries.
    */
@@ -79,12 +83,17 @@ public class EbeanAspectDao {
     return _server;
   }
 
+  // Flag used to make sure the dao isn't writing aspects
+  // while its storage is being migrated
+  private boolean canWrite = true;
+
   private boolean validateConnection() {
     if (_connectionValidated) {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
       _logger.error("GMS is on a newer version than your storage layer. Please refer to /docs/advanced/no-code-upgrade.md for an easy upgrade guide");
+      canWrite = false;
       return false;
     } else {
       _connectionValidated = true;

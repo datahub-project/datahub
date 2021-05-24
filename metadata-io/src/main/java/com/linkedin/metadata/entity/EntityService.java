@@ -359,6 +359,11 @@ public class EntityService {
     }
   }
 
+  @Nonnull
+  public void setWritable() {
+    _entityDao.setWritable();
+  }
+
   @Value
   private static class AddAspectResult {
     Urn urn;
