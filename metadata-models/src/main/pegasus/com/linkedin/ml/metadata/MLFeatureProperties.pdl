@@ -9,6 +9,11 @@ import com.linkedin.common.VersionTag
 record MLFeatureProperties {
 
   /**
+   * Name of the MLFeature
+   */
+  name: optional string
+
+  /**
    * Documentation of the MLFeature
    */
   description: optional string

@@ -9,6 +9,11 @@ import com.linkedin.common.VersionTag
 record MLEntityProperties {
 
   /**
+   * Name of the MLEntity
+   */
+  name: optional string
+
+  /**
    * Documentation of the MLEntity
    */
   description: optional string

@@ -3980,12 +3980,14 @@ class MLEntityPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLEntityProperties")
     def __init__(self,
+        name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
+        self.name = name
         self.description = description
         self.dataType = dataType
         self.version = version
@@ -3998,9 +4000,22 @@ class MLEntityPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.name = self.RECORD_SCHEMA.field_map["name"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
+    
+    
+    @property
+    def name(self) -> Union[None, str]:
+        """Getter: Name of the MLEntity"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    
+    @name.setter
+    def name(self, value: Union[None, str]) -> None:
+        """Setter: Name of the MLEntity"""
+        self._inner_dict['name'] = value
     
     
     @property
@@ -4044,12 +4059,14 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties")
     def __init__(self,
+        name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
+        self.name = name
         self.description = description
         self.dataType = dataType
         self.version = version
@@ -4062,9 +4079,22 @@ class MLFeaturePropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.name = self.RECORD_SCHEMA.field_map["name"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
+    
+    
+    @property
+    def name(self) -> Union[None, str]:
+        """Getter: Name of the MLFeature"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    
+    @name.setter
+    def name(self, value: Union[None, str]) -> None:
+        """Setter: Name of the MLFeature"""
+        self._inner_dict['name'] = value
     
     
     @property

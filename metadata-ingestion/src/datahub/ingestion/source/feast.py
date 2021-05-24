@@ -9,11 +9,13 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
+    MLEntitySnapshot,
     MLFeatureSetSnapshot,
     MLFeatureSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    MLEntityPropertiesClass,
     MLFeaturePropertiesClass,
     MLFeatureSetPropertiesClass,
 )
@@ -105,8 +107,16 @@ class FeastSource(Source):
             # sort features by name for consistent outputs
             features = sorted(table.features, key=lambda x: x.name)
 
+            # sort entities by name for consistent outputs
+            entities = [
+                self.feast_client.get_entity(entity_name)
+                for entity_name in table.entities
+            ]
+            entities = sorted(entities, key=lambda x: x.name)
+
             # initialize the schema for the collection
             allFeatures: List[MLFeatureSnapshot] = []
+            allEntities: List[MLEntitySnapshot] = []
 
             for feature in features:
 
@@ -116,9 +126,10 @@ class FeastSource(Source):
                     aspects=[],
                 )
 
-                # append feature type
+                # append feature name and type
                 feature_snapshot.aspects.append(
                     MLFeaturePropertiesClass(
+                        name=feature.name,
                         dataType=self.get_field_type(feature.dtype.name, table.name),
                     )
                 )
@@ -131,13 +142,43 @@ class FeastSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
+            for entity in entities:
+
+                # create snapshot instance for the entity
+                entity_snapshot = MLEntitySnapshot(
+                    urn=f"urn:li:mlEntity:(urn:li:dataPlatform:{platform},{table.name},{entity.name})",
+                    aspects=[],
+                )
+
+                # append entity name and type
+                entity_snapshot.aspects.append(
+                    MLEntityPropertiesClass(
+                        name=entity.name,
+                        description=entity.description,
+                        dataType=self.get_field_type(
+                            entity.value_type.name, table.name
+                        ),
+                    )
+                )
+
+                allEntities.append(entity_snapshot)
+
+                # make the MCE and workunit
+                mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
+                wu = MetadataWorkUnit(id=table.name, mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+
             # create snapshot instance for the featureset
             featureset_snapshot = MLFeatureSetSnapshot(
                 urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table.name})",
                 aspects=[],
             )
             featureset_snapshot.aspects.append(
-                MLFeatureSetPropertiesClass(mlFeatures=[x.urn for x in allFeatures])
+                MLFeatureSetPropertiesClass(
+                    mlFeatures=[x.urn for x in allFeatures],
+                    mlEntities=[x.urn for x in allEntities],
+                )
             )
 
             # make the MCE and workunit

@@ -2723,6 +2723,15 @@
                     "doc": "Properties associated with a MLEntity",
                     "fields": [
                       {
+                        "name": "name",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Name of the MLEntity",
+                        "default": null
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -2826,6 +2835,15 @@
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                     "doc": "Properties associated with a MLFeature",
                     "fields": [
+                      {
+                        "name": "name",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Name of the MLFeature",
+                        "default": null
+                      },
                       {
                         "name": "description",
                         "type": [
