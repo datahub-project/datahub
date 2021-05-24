@@ -20,12 +20,17 @@ import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 
 public class DataMigrationStep implements UpgradeStep<Void> {
+
+  private static final int DEFAULT_BATCH_SIZE = 1000;
+  private static final long DEFAULT_BATCH_DELAY_MS = 250;
 
   private static final String BROWSE_PATHS_ASPECT_NAME = ModelUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
@@ -63,7 +68,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
       int totalRowsMigrated = 0;
       int start = 0;
-      int count = 1000;
+      int count = getBatchSize(context.parsedArgs());
       while (start < rowCount) {
 
         context.report().addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
@@ -168,7 +173,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
         start = start + count;
         try {
-          TimeUnit.SECONDS.sleep(1);
+          TimeUnit.MILLISECONDS.sleep(getBatchDelayMs(context.parsedArgs()));
         } catch (InterruptedException e) {
           throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
         }
@@ -201,5 +206,23 @@ public class DataMigrationStep implements UpgradeStep<Void> {
         .orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .findPagedList();
+  }
+
+  private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
+    int resolvedBatchSize = DEFAULT_BATCH_SIZE;
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).isPresent()) {
+      resolvedBatchSize = Integer.parseInt(parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).get());
+    }
+    return resolvedBatchSize;
+  }
+
+  private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
+    long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
+      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).get());
+    }
+    return resolvedBatchDelayMs;
   }
 }
