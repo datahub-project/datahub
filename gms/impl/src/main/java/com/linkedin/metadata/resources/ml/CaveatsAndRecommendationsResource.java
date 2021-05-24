@@ -39,7 +39,7 @@ public class CaveatsAndRecommendationsResource extends BaseMLModelsAspectResourc
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new CaveatsAndRecommendations().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

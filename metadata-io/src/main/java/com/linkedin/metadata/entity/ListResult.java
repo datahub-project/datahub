@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.linkedin.metadata.query.ListResultMetadata;
 import java.util.List;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Value;
 
@@ -10,6 +11,7 @@ import lombok.Value;
  *
  * @param <T> the result type
  */
+@AllArgsConstructor
 @Builder
 @Value
 public class ListResult<T> {
@@ -19,14 +21,14 @@ public class ListResult<T> {
   // A single page of results
   List<T> values;
 
-  // Related search result metadata
+  // Related result metadata
   ListResultMetadata metadata;
 
   // Offset from the next page
   int nextStart;
 
   // Whether there's more results
-  boolean havingMore;
+  boolean hasNext;
 
   // Total number of hits
   int totalCount;

@@ -1,9 +1,10 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.ebean;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.AspectStorageValidationUtil;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.retention.IndefiniteRetention;
@@ -41,10 +42,11 @@ import javax.persistence.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.linkedin.metadata.entity.EntityService.*;
+
 
 public class EbeanAspectDao {
 
-  public static final long LATEST_VERSION = 0;
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
 
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
@@ -121,7 +123,7 @@ public class EbeanAspectDao {
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, LATEST_VERSION, oldAspectMetadata == null);
+    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, LATEST_ASPECT_VERSION, oldAspectMetadata == null);
 
     // Apply retention policy
     applyRetention(urn, aspectName, getRetention(aspectName), largestVersion);
@@ -327,7 +329,7 @@ public class EbeanAspectDao {
         .select(EbeanAspectV2.KEY_ID)
         .where()
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .eq(EbeanAspectV2.VERSION_COLUMN, LATEST_VERSION)
+        .eq(EbeanAspectV2.VERSION_COLUMN, LATEST_ASPECT_VERSION)
         .setFirstRow(start)
         .setMaxRows(pageSize)
         .orderBy()
@@ -373,7 +375,7 @@ public class EbeanAspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
-    return listAspectMetadata(aspectName, LATEST_VERSION, start, pageSize);
+    return listAspectMetadata(aspectName, LATEST_ASPECT_VERSION, start, pageSize);
   }
 
   @Nonnull
@@ -465,9 +467,9 @@ public class EbeanAspectDao {
 
     _server.find(EbeanAspectV2.class)
         .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .eq(EbeanAspectV2.URN_COLUMN, urn)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, LATEST_VERSION)
+        .ne(EbeanAspectV2.VERSION_COLUMN, LATEST_ASPECT_VERSION)
         .le(EbeanAspectV2.VERSION_COLUMN, largestVersion - retention.getMaxVersionsToRetain() + 1)
         .delete();
   }
@@ -514,7 +516,7 @@ public class EbeanAspectDao {
         .values(values)
         .metadata(listResultMetadata)
         .nextStart(nextStart)
-        .havingMore(pagedList.hasNext())
+        .hasNext(pagedList.hasNext())
         .totalCount(pagedList.getTotalCount())
         .totalPageCount(pagedList.getTotalPageCount())
         .pageSize(pagedList.getPageSize())

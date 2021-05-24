@@ -9,7 +9,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.ModelUtils;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.resources.dataplatform.utils.DataPlatformsUtil;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -19,9 +19,9 @@ import java.util.function.Function;
 
 public class IngestDataPlatformsStep implements UpgradeStep<Void> {
 
-  private final EntityService _entityService;
+  private final EbeanEntityService _entityService;
 
-  public IngestDataPlatformsStep(final EntityService entityService) {
+  public IngestDataPlatformsStep(final EbeanEntityService entityService) {
     _entityService = entityService;
   }
 

@@ -38,7 +38,7 @@ public class DeprecationResource extends BaseDatasetVersionedAspectResource<Data
       final Urn urn = getUrn(getContext().getPathKeys());
       final RecordDataSchema aspectSchema = new DatasetDeprecation().schema();
 
-      final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+      final RecordTemplate maybeAspect = getEntityService().getAspect(
           urn,
           ModelUtils.getAspectNameFromSchema(aspectSchema),
           version

@@ -39,7 +39,7 @@ public final class UpstreamLineageResource extends BaseDatasetVersionedAspectRes
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new UpstreamLineage().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

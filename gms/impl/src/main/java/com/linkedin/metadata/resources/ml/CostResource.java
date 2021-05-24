@@ -38,7 +38,7 @@ public class CostResource extends BaseMLModelsAspectResource<Cost> {
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new Cost().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

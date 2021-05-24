@@ -5,7 +5,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.query.ESSearchDAO;
@@ -99,7 +99,7 @@ public class MLModels extends BaseSearchableEntityResource<
 
     @Inject
     @Named("entityService")
-    private EntityService _entityService;
+    private EbeanEntityService _entityService;
 
     @Inject
     @Named("esSearchDao")
@@ -327,7 +327,7 @@ public class MLModels extends BaseSearchableEntityResource<
                 pagingContext.getCount());
 
             final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
-            final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+            final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
 
             return new CollectionResult<>(
                 entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getMLModelSnapshot())).collect(Collectors.toList()),
