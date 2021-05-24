@@ -43,6 +43,7 @@ DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
 DEFAULT_ENV = "PROD"
 
+
 class MongoDBConfig(ConfigModel):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html

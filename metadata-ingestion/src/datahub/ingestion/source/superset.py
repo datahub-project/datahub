@@ -76,6 +76,7 @@ chart_type_from_viz_type = {
 
 DEFAULT_ENV = "PROD"
 
+
 class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
