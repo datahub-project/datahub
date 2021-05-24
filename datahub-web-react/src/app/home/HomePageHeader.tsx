@@ -116,7 +116,7 @@ export const HomePageHeader = () => {
     const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
 
     const onSearch = (query: string) => {
-        if (query.trim().length === 0) {
+        if (!query || query.trim().length === 0) {
             return;
         }
         analytics.event({
@@ -125,11 +125,22 @@ export const HomePageHeader = () => {
             pageNumber: 1,
             originPath: window.location.pathname,
         });
-        navigateToSearchUrl({
-            query,
-            history,
-            entityRegistry,
-        });
+        if (query.startsWith('ExploreEntity-')) {
+            const queryStrings = query.split('-');
+            const type = queryStrings[1] as EntityType;
+            navigateToSearchUrl({
+                type,
+                query: queryStrings[2],
+                history,
+                entityRegistry,
+            });
+        } else {
+            navigateToSearchUrl({
+                query,
+                history,
+                entityRegistry,
+            });
+        }
     };
 
     const onAutoComplete = (query: string) => {

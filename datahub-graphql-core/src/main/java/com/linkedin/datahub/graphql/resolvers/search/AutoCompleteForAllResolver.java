@@ -5,7 +5,6 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteAllResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import graphql.schema.DataFetcher;
@@ -15,10 +14,8 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -57,7 +54,8 @@ public class AutoCompleteForAllResolver implements DataFetcher<CompletableFuture
                             limit,
                             environment.getContext()
                     );
-                    final AutoCompleteResultForEntity autoCompleteResultForEntity = new AutoCompleteResultForEntity(entity.type(), searchResult.getSuggestions());
+                    final AutoCompleteResultForEntity autoCompleteResultForEntity =
+                            new AutoCompleteResultForEntity(entity.type(), searchResult.getSuggestions());
                     return autoCompleteResultForEntity;
                 } catch (Exception e) {
                     return new AutoCompleteResultForEntity(entity.type(), new ArrayList<>());
@@ -69,7 +67,10 @@ public class AutoCompleteForAllResolver implements DataFetcher<CompletableFuture
                 AutoCompleteAllResults result = new AutoCompleteAllResults(sanitizedQuery, new ArrayList<>());
                 result.setSuggestions(Arrays.stream(autoCompletesFuture)
                         .map(CompletableFuture::join)
-                        .filter(autoCompleteResultForEntity -> autoCompleteResultForEntity.getSuggestions() != null && autoCompleteResultForEntity.getSuggestions().size() > 0)
+                        .filter(
+                                autoCompleteResultForEntity ->
+                                        autoCompleteResultForEntity.getSuggestions() != null && autoCompleteResultForEntity.getSuggestions().size() > 0
+                        )
                         .collect(Collectors.toList()));
                 return result;
             });

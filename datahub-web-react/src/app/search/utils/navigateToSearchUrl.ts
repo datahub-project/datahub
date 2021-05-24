@@ -21,17 +21,20 @@ export const navigateToSearchUrl = ({
     history: RouteComponentProps['history'];
     entityRegistry: EntityRegistry;
 }) => {
+    const updatedQuery = newQuery && newQuery.startsWith('ExploreEntity-') ? newQuery.split('-')[2] : newQuery;
+    const updatedType =
+        newQuery && newQuery.startsWith('ExploreEntity-') ? (newQuery.split('-')[1] as EntityType) : newType;
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(newFilters),
-            query: newQuery,
+            query: updatedQuery,
             page: newPage,
         },
         { arrayFormat: 'comma' },
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}/${newType ? entityRegistry.getPathName(newType) : ''}`,
+        pathname: `${PageRoutes.SEARCH}/${updatedType ? entityRegistry.getPathName(updatedType) : ''}`,
         search,
     });
 };

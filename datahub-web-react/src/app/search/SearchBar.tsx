@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input, AutoComplete } from 'antd';
 import styled from 'styled-components';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
@@ -13,6 +13,12 @@ const SuggestionContainer = styled.div`
 
 const SuggestionText = styled.span`
     margin-left: 10px;
+`;
+
+const ExploreForEntity = styled.span`
+    font-style: italic;
+    font-weight: light;
+    font-size: 11px;
 `;
 
 const styles = {
@@ -57,12 +63,26 @@ export const SearchBar = ({
     style,
     autoCompleteStyle,
 }: Props) => {
+    const [searchQuery, setSearchQuery] = useState<string>();
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
         label: Object.keys(EntityType).find((key) => EntityType[key] === entity.type) || entity.type,
-        options: entity.suggestions.map((suggestion: string) =>
-            renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW)),
-        ),
+        options: [
+            ...entity.suggestions.map((suggestion: string) =>
+                renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW)),
+            ),
+            {
+                value: `ExploreEntity-${entity.type}-${searchQuery}`,
+                label: (
+                    <SuggestionContainer>
+                        <ExploreForEntity>
+                            Explore all `{searchQuery}` in {entityRegistry.getCollectionName(entity.type)}
+                        </ExploreForEntity>
+                    </SuggestionContainer>
+                ),
+            },
+        ],
     }));
+
     return (
         <div style={style}>
             <AutoComplete
@@ -75,6 +95,14 @@ export const SearchBar = ({
                 <Input.Search
                     placeholder={placeholderText}
                     onSearch={(value: string) => onSearch(value)}
+                    value={searchQuery}
+                    onChange={(e) =>
+                        setSearchQuery(
+                            e.target.value && e.target.value.startsWith('ExploreEntity-')
+                                ? e.target.value.split('-')[2]
+                                : e.target.value,
+                        )
+                    }
                     data-testid="search-input"
                 />
             </AutoComplete>

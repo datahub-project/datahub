@@ -5,6 +5,7 @@ import { useTheme } from 'styled-components';
 
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { EntityType } from '../../types.generated';
 import { useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
@@ -38,7 +39,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
     const search = (query: string) => {
-        if (query.trim().length === 0) {
+        if (!query || query.trim().length === 0) {
             return;
         }
         analytics.event({
@@ -47,11 +48,22 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             pageNumber: 1,
             originPath: window.location.pathname,
         });
-        navigateToSearchUrl({
-            query,
-            history,
-            entityRegistry,
-        });
+        if (query.startsWith('ExploreEntity-')) {
+            const queryStrings = query.split('-');
+            const type = queryStrings[1] as EntityType;
+            navigateToSearchUrl({
+                type,
+                query: queryStrings[2],
+                history,
+                entityRegistry,
+            });
+        } else {
+            navigateToSearchUrl({
+                query,
+                history,
+                entityRegistry,
+            });
+        }
     };
 
     const autoComplete = (query: string) => {
