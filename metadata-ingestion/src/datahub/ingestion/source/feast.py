@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List
 
 from feast import Client
+from feast.data_source import BigQuerySource, FileSource, KafkaSource, KinesisSource
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -174,10 +175,34 @@ class FeastSource(Source):
                 urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table.name})",
                 aspects=[],
             )
+
+            featureset_batch_source = None
+            featureset_batch_source_config = None
+            featureset_stream_source = None
+            featureset_stream_source_config = None
+
+            if isinstance(table.batch_source, BigQuerySource):
+
+                featureset_batch_source = "BigQuerySource"
+
+            if isinstance(table.batch_source, FileSource):
+
+                featureset_batch_source = "FileSource"
+
+            if isinstance(table.stream_source, KafkaSource):
+
+                featureset_stream_source = "KafkaSource"
+
+            if isinstance(table.stream_source, KinesisSource):
+
+                featureset_stream_source = "KinesisSource"
+
             featureset_snapshot.aspects.append(
                 MLFeatureSetPropertiesClass(
                     mlFeatures=[x.urn for x in allFeatures],
                     mlEntities=[x.urn for x in allEntities],
+                    batchSource=featureset_batch_source,
+                    streamSource=featureset_stream_source,
                 )
             )
 

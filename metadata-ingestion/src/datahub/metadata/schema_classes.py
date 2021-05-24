@@ -4140,11 +4140,19 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     def __init__(self,
         mlFeatures: Union[None, List[str]]=None,
         mlEntities: Union[None, List[str]]=None,
+        batchSource: Union[None, str]=None,
+        batchSourceConfig: Union[None, str]=None,
+        streamSource: Union[None, str]=None,
+        streamSourceConfig: Union[None, str]=None,
     ):
         super().__init__()
         
         self.mlFeatures = mlFeatures
         self.mlEntities = mlEntities
+        self.batchSource = batchSource
+        self.batchSourceConfig = batchSourceConfig
+        self.streamSource = streamSource
+        self.streamSourceConfig = streamSourceConfig
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeatureSetPropertiesClass":
@@ -4156,6 +4164,10 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.mlEntities = self.RECORD_SCHEMA.field_map["mlEntities"].default
+        self.batchSource = self.RECORD_SCHEMA.field_map["batchSource"].default
+        self.batchSourceConfig = self.RECORD_SCHEMA.field_map["batchSourceConfig"].default
+        self.streamSource = self.RECORD_SCHEMA.field_map["streamSource"].default
+        self.streamSourceConfig = self.RECORD_SCHEMA.field_map["streamSourceConfig"].default
     
     
     @property
@@ -4180,6 +4192,54 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     def mlEntities(self, value: Union[None, List[str]]) -> None:
         """Setter: List of features contained in the feature set"""
         self._inner_dict['mlEntities'] = value
+    
+    
+    @property
+    def batchSource(self) -> Union[None, str]:
+        """Getter: Batch source of the feature set"""
+        return self._inner_dict.get('batchSource')  # type: ignore
+    
+    
+    @batchSource.setter
+    def batchSource(self, value: Union[None, str]) -> None:
+        """Setter: Batch source of the feature set"""
+        self._inner_dict['batchSource'] = value
+    
+    
+    @property
+    def batchSourceConfig(self) -> Union[None, str]:
+        """Getter: Batch source config of the feature set"""
+        return self._inner_dict.get('batchSourceConfig')  # type: ignore
+    
+    
+    @batchSourceConfig.setter
+    def batchSourceConfig(self, value: Union[None, str]) -> None:
+        """Setter: Batch source config of the feature set"""
+        self._inner_dict['batchSourceConfig'] = value
+    
+    
+    @property
+    def streamSource(self) -> Union[None, str]:
+        """Getter: Streaming source of the feature set"""
+        return self._inner_dict.get('streamSource')  # type: ignore
+    
+    
+    @streamSource.setter
+    def streamSource(self, value: Union[None, str]) -> None:
+        """Setter: Streaming source of the feature set"""
+        self._inner_dict['streamSource'] = value
+    
+    
+    @property
+    def streamSourceConfig(self) -> Union[None, str]:
+        """Getter: Streaming source config of the feature set"""
+        return self._inner_dict.get('streamSourceConfig')  # type: ignore
+    
+    
+    @streamSourceConfig.setter
+    def streamSourceConfig(self, value: Union[None, str]) -> None:
+        """Setter: Streaming source config of the feature set"""
+        self._inner_dict['streamSourceConfig'] = value
     
     
 class MLModelFactorPromptsClass(DictWrapper):

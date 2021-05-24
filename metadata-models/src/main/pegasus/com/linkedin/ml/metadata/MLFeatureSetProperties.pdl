@@ -18,4 +18,23 @@ record MLFeatureSetProperties {
    */
   mlEntities: optional array[MLEntityUrn]
 
+  /**
+   * Batch source of the feature set
+   */
+  batchSource: optional string
+
+  /**
+   * Batch source config of the feature set
+   */
+  batchSourceConfig: optional string
+
+  /**
+   * Streaming source of the feature set
+   */
+  streamSource: optional string
+
+  /**
+   * Streaming source config of the feature set
+   */
+  streamSourceConfig: optional string
 }

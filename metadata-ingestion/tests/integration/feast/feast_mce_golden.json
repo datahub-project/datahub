@@ -330,7 +330,11 @@
                         "mlEntities": [
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,dummy_entity_1)",
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,dummy_entity_2)"
-                        ]
+                        ],
+                        "batchSource": "FileSource",
+                        "batchSourceConfig": null,
+                        "streamSource": null,
+                        "streamSourceConfig": null
                     }
                 }
             ]
@@ -389,7 +393,11 @@
                         ],
                         "mlEntities": [
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_no_labels,dummy_entity_2)"
-                        ]
+                        ],
+                        "batchSource": "FileSource",
+                        "batchSourceConfig": null,
+                        "streamSource": null,
+                        "streamSourceConfig": null
                     }
                 }
             ]
@@ -448,7 +456,11 @@
                         ],
                         "mlEntities": [
                             "urn:li:mlEntity:(urn:li:dataPlatform:feast,test_feature_table_single_feature,dummy_entity_1)"
-                        ]
+                        ],
+                        "batchSource": "FileSource",
+                        "batchSourceConfig": null,
+                        "streamSource": null,
+                        "streamSourceConfig": null
                     }
                 }
             ]
