@@ -170,6 +170,39 @@ public abstract class EntityService {
     }
   }
 
+  protected Map<Urn, Snapshot> batchGetSnapshotUnion(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return batchGetSnapshotRecord(urns, aspectNames).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotUnion(entry.getValue())));
+  }
+
+  @Nonnull
+  protected Map<Urn, RecordTemplate> batchGetSnapshotRecord(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return batchGetLatestAspectUnions(urns, aspectNames).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotRecord(entry.getKey(), entry.getValue())));
+  }
+
+  @Nonnull
+  protected Map<Urn, List<UnionTemplate>> batchGetLatestAspectUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return getLatestAspects(urns, aspectNames).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+          return entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
+              .collect(Collectors.toList());
+        }));
+  }
+
+  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
+    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
+    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+
+    aspectRecordsToIngest.stream().map(aspect -> {
+      final String aspectName = ModelUtils.getAspectNameFromSchema(aspect.schema());
+      return ingestAspect(urn, aspectName, aspect, auditStamp);
+    }).collect(Collectors.toList());
+  }
+
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
     final RecordTemplate keyAspectValue = buildKeyAspect(urn);
     return toSnapshotUnion(
@@ -272,4 +305,6 @@ public abstract class EntityService {
                 .collect(Collectors.toSet())
         ));
   }
+
+  public abstract void setWritable();
 }

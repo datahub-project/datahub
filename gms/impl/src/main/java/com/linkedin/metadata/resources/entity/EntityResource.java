@@ -185,4 +185,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     return RestliUtils.toTask(() -> new StringArray(_entityBrowseDao.getBrowsePaths(urnToEntityName(urn), urn)));
   }
+
+  @Action(name = "setWritable")
+  @Nonnull
+  public void setWriteable() {
+    _entityService.setWritable();
+  }
 }

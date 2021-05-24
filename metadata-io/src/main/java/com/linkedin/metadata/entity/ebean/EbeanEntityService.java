@@ -279,4 +279,9 @@ public class EbeanEntityService extends EntityService {
     final RecordDataSchema aspectSchema = aspectSpec.getPegasusSchema();
     return RecordUtils.toRecordTemplate(getDataTemplateClassFromSchema(aspectSchema, RecordTemplate.class), jsonAspect);
   }
+
+  @Nonnull
+  public void setWritable() {
+    _entityDao.setWritable();
+  }
 }
