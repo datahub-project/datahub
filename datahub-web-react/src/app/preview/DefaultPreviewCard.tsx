@@ -19,6 +19,7 @@ interface Props {
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
+    dataTestID?: string;
 }
 
 const DescriptionParagraph = styled(Typography.Paragraph)`
@@ -56,11 +57,12 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     snippet,
+    dataTestID,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <Row style={styles.row} justify="space-between">
+        <Row style={styles.row} justify="space-between" data-testid={dataTestID}>
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
