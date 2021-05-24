@@ -814,4 +814,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md).
+See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).

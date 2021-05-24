@@ -1,6 +1,5 @@
 ---
 title: "Deploying with Kubernetes"
-hide_title: true
 ---
 
 # Deploying Datahub with Kubernetes
