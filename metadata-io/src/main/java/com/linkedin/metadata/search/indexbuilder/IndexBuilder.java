@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,8 @@ public class IndexBuilder {
   private final RestHighLevelClient searchClient;
   private final EntitySpec entitySpec;
   private final String indexName;
+
+  private static final int NUM_RETRIES = 3;
 
   public void buildIndex() throws IOException {
     log.info("Setting up index: {}", indexName);
@@ -80,9 +83,24 @@ public class IndexBuilder {
       throw e;
     }
 
-    // Check if reindex succeeded by comparing document counts
-    long originalCount = getCount(indexName);
-    long reindexedCount = getCount(tempIndexName);
+    // Check whether reindex succeeded by comparing document count
+    // There can be some delay between the reindex finishing and count being fully up to date, so try multiple times
+    long originalCount = 0;
+    long reindexedCount = 0;
+    for (int i = 0; i < NUM_RETRIES; i++) {
+      // Check if reindex succeeded by comparing document counts
+      originalCount = getCount(indexName);
+      reindexedCount = getCount(tempIndexName);
+      if (originalCount == reindexedCount) {
+        break;
+      }
+      try {
+        TimeUnit.SECONDS.sleep(1);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
     if (originalCount != reindexedCount) {
       log.info("Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}", originalCount,
           reindexedCount);
