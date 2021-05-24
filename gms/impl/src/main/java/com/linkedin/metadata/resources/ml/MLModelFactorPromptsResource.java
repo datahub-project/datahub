@@ -38,7 +38,7 @@ public class MLModelFactorPromptsResource extends BaseMLModelsAspectResource<MLM
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new MLModelFactorPrompts().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

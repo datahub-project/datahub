@@ -255,7 +255,7 @@ public class DataJobs extends BaseBrowsableEntityResource<
           pagingContext.getCount());
 
       final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
-      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
 
       return new CollectionResult<>(
           entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getDataJobSnapshot())).collect(
@@ -286,7 +286,7 @@ public class DataJobs extends BaseBrowsableEntityResource<
           pagingContext.getCount());
 
       final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
-      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
 
       return new CollectionResult<>(
           entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getDataJobSnapshot())).collect(

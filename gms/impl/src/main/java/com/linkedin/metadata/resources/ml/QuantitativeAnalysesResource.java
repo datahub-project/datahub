@@ -38,7 +38,7 @@ public class QuantitativeAnalysesResource extends BaseMLModelsAspectResource<Qua
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new QuantitativeAnalyses().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

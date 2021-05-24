@@ -38,7 +38,7 @@ public class IntendedUseResource extends BaseMLModelsAspectResource<IntendedUse>
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new IntendedUse().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

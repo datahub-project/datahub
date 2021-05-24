@@ -39,7 +39,7 @@ public class OwnershipResource extends BaseMLModelsAspectResource<Ownership> {
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new Ownership().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

@@ -112,7 +112,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(() -> {
       final Set<String> projectedAspects =
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
-      return _entityService.batchGetEntities(urns, projectedAspects)
+      return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
           .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));

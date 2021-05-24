@@ -1,8 +1,9 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
-import com.linkedin.metadata.entity.EbeanAspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.mxe.TopicConvention;
@@ -31,6 +32,6 @@ public class EntityServiceFactory {
             applicationContext.getBean(TopicConvention.class)
         );
 
-        return new EntityService(applicationContext.getBean(EbeanAspectDao.class), producer, SnapshotEntityRegistry.getInstance());
+        return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer, SnapshotEntityRegistry.getInstance());
     }
 }

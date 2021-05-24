@@ -92,8 +92,7 @@ public class DataPlatforms extends BaseEntityResource<
    */
   @RestMethod.GetAll
   public Task<List<DataPlatform>> getAllDataPlatforms(@Nonnull @PagingContextParam(defaultCount = 100) PagingContext pagingContext) {
-    return Task.value(_entityService.listAspects(
-        "dataPlatform",
+    return Task.value(_entityService.listLatestAspects(
         "dataPlatformInfo",
         pagingContext.getStart(),
         pagingContext.getCount())

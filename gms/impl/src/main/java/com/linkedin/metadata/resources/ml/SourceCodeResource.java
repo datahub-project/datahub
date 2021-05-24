@@ -38,7 +38,7 @@ public class SourceCodeResource extends BaseMLModelsAspectResource<SourceCode> {
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new SourceCode().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

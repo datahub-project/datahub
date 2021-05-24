@@ -38,7 +38,7 @@ public class TrainingDataResource extends BaseMLModelsAspectResource<TrainingDat
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new TrainingData().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version

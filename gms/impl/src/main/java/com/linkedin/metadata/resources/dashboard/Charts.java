@@ -19,9 +19,9 @@ import com.linkedin.metadata.aspect.ChartAspectArray;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
@@ -256,7 +256,7 @@ public class Charts extends BaseBrowsableEntityResource<
           pagingContext.getCount());
 
       final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
-      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
 
       return new CollectionResult<>(
           entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getChartSnapshot())).collect(
@@ -287,7 +287,7 @@ public class Charts extends BaseBrowsableEntityResource<
           pagingContext.getCount());
 
       final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
-      final Map<Urn, Entity> entity = _entityService.batchGetEntities(urns, projectedAspects);
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
 
       return new CollectionResult<>(
           entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getChartSnapshot())).collect(

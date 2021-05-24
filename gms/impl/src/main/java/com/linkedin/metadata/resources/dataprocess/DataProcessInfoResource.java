@@ -52,7 +52,7 @@ public class DataProcessInfoResource extends BaseDataProcessesAspectResource<Dat
             final Urn urn = getUrn(getContext().getPathKeys());
             final RecordDataSchema aspectSchema = new DataProcessInfo().schema();
 
-            final RecordTemplate maybeAspect = getEntityService().getAspectRecord(
+            final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
                 ModelUtils.getAspectNameFromSchema(aspectSchema),
                 version
