@@ -64,6 +64,7 @@ export const SearchBar = ({
     autoCompleteStyle,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>();
+    const [selected, setSelected] = useState<string>();
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
         label: Object.keys(EntityType).find((key) => EntityType[key] === entity.type) || entity.type,
         options: [
@@ -91,6 +92,8 @@ export const SearchBar = ({
                 onSelect={(value: string) => onSearch(value)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
+                value={selected}
+                onChange={(v) => setSelected(v && v.startsWith('ExploreEntity-') ? v.split('-')[2] : v)}
             >
                 <Input.Search
                     placeholder={placeholderText}

@@ -48,6 +48,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             pageNumber: 1,
             originPath: window.location.pathname,
         });
+
         if (query.startsWith('ExploreEntity-')) {
             const queryStrings = query.split('-');
             const type = queryStrings[1] as EntityType;
