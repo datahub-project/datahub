@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized MLEntity identifier.
+ */
+@java.class = "com.linkedin.common.urn.MLEntityUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "mlEntity",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "MLEntity",
+  "doc" : "Standardized MLEntity identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "mlEntityNamespace",
+    "type" : "string",
+    "doc" : "Namespace for the MLEntity"
+  }, { "type" : "string",
+    "name" : "mlEntityName",
+    "doc" : "Name of the MLEntity",
+    "maxLength" : 210
+  }],
+  "maxLength" : 284
+}
+typeref MLEntityUrn = string

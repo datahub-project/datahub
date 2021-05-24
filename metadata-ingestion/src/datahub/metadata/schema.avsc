@@ -2699,7 +2699,7 @@
         },
         {
           "type": "record",
-          "name": "MLFeatureSnapshot",
+          "name": "MLEntitySnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "fields": [
             {
@@ -2707,7 +2707,7 @@
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.MLEntityUrn"
               }
             },
             {
@@ -2718,9 +2718,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
-                    "name": "MLFeatureProperties",
+                    "name": "MLEntityProperties",
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
-                    "doc": "Properties associated with a MLFeature",
+                    "doc": "Properties associated with a MLEntity",
                     "fields": [
                       {
                         "name": "description",
@@ -2728,7 +2728,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Documentation of the MLFeature",
+                        "doc": "Documentation of the MLEntity",
                         "default": null
                       },
                       {
@@ -2778,6 +2778,69 @@
                             }
                           }
                         ],
+                        "doc": "Data Type of the MLEntity",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLEntity",
+                        "default": null
+                      }
+                    ]
+                  },
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLEntity. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "MLFeatureSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  {
+                    "type": "record",
+                    "name": "MLFeatureProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a MLFeature",
+                    "fields": [
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLFeature",
+                        "default": null
+                      },
+                      {
+                        "name": "dataType",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.MLFeatureDataType"
+                        ],
                         "doc": "Data Type of the MLFeature",
                         "default": null
                       },
@@ -2797,7 +2860,7 @@
                   "com.linkedin.pegasus2avro.common.Deprecation"
                 ]
               },
-              "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              "doc": "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ]
         },
@@ -2837,9 +2900,22 @@
                         ],
                         "doc": "List of features contained in the feature set",
                         "default": null
+                      },
+                      {
+                        "name": "mlEntities",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of features contained in the feature set",
+                        "default": null
                       }
                     ]
-                  }
+                  },
+                  "com.linkedin.pegasus2avro.ml.metadata.MLEntityProperties"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."

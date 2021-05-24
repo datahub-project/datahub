@@ -1,0 +1,25 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.MLFeatureDataType
+import com.linkedin.common.VersionTag
+
+/**
+ * Properties associated with a MLEntity
+ */
+record MLEntityProperties {
+
+  /**
+   * Documentation of the MLEntity
+   */
+  description: optional string
+
+  /**
+   * Data Type of the MLEntity
+   */
+  dataType: optional MLFeatureDataType
+
+  /**
+  * Version of the MLEntity
+  */
+  version: optional VersionTag
+}

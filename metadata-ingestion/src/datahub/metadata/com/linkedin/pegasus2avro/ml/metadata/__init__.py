@@ -5,6 +5,7 @@ from ......schema_classes import EthicalConsiderationsClass
 from ......schema_classes import EvaluationDataClass
 from ......schema_classes import IntendedUseClass
 from ......schema_classes import IntendedUserTypeClass
+from ......schema_classes import MLEntityPropertiesClass
 from ......schema_classes import MLFeaturePropertiesClass
 from ......schema_classes import MLFeatureSetPropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
@@ -25,6 +26,7 @@ EthicalConsiderations = EthicalConsiderationsClass
 EvaluationData = EvaluationDataClass
 IntendedUse = IntendedUseClass
 IntendedUserType = IntendedUserTypeClass
+MLEntityProperties = MLEntityPropertiesClass
 MLFeatureProperties = MLFeaturePropertiesClass
 MLFeatureSetProperties = MLFeatureSetPropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass

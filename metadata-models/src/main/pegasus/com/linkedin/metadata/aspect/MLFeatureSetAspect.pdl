@@ -1,10 +1,12 @@
 namespace com.linkedin.metadata.aspect
 
 import com.linkedin.ml.metadata.MLFeatureSetProperties
+import com.linkedin.ml.metadata.MLEntityProperties
 
 /**
  * A union of all supported metadata aspects for a ML Feature Set
  */
 typeref MLFeatureSetAspect = union[
-  MLFeatureSetProperties
+  MLFeatureSetProperties,
+  MLEntityProperties
 ]
