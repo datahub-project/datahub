@@ -12,6 +12,9 @@ import java.util.List;
 
 public class NoCodeUpgrade implements Upgrade {
 
+  public static final String BATCH_SIZE_ARG_NAME = "batchSize";
+  public static final String BATCH_DELAY_MS_ARG_NAME = "batchDelayMs";
+
   private final List<UpgradeStep<?>> _steps;
   private final List<UpgradeCleanupStep> _cleanupSteps;
 

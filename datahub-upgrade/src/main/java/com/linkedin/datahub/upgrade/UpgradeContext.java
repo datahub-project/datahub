@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 
 /**
@@ -24,8 +26,14 @@ public interface UpgradeContext {
   UpgradeReport report();
 
   /**
-   * Returns a list of arguments that have been provided as input to the upgrade.
+   * Returns a list of raw arguments that have been provided as input to the upgrade.
    */
   List<String> args();
+
+  /**
+   * Returns a map of argument to <>optional</> value, as delimited by an '=' character.
+   */
+  Map<String, Optional<String>> parsedArgs();
+
 
 }

@@ -36,14 +36,31 @@ import static com.linkedin.metadata.ModelUtils.*;
  * any underlying storage system to be used in materializing GMS domain objects, which are implemented using Pegasus
  * {@link RecordTemplate}s.
  *
- * The key requirement of any implementation is being able to bind what is persisted
- * in storage to an aspect {@link RecordTemplate}, using help from the {@link EntityRegistry}.
+ * A key requirement of any implementation is being able to bind what is persisted in storage to an aspect
+ * {@link RecordTemplate}, using help from the {@link EntityRegistry}.
+ *
+ * Another requirement is that any implementation honors the internal versioning semantics. The latest version of any aspect
+ * is set to 0 for efficient retrieval; in most cases the latest state of an aspect will be the only fetched.
+ *
+ * As such, 0 is treated as a special number. Once an aspect is no longer the latest, versions will increment
+ * monotonically, starting from 1. Thus, the second-to-last version of an aspect will be equal to total # versions
+ * of the aspect - 1.
+ *
+ * For example, if there are 5 instances of a single aspect, the latest will have version 0, and the second-to-last
+ * will have version 4. The "true" latest version of an aspect is always equal to the highest stored version
+ * of a given aspect + 1.
  *
  * Note that currently, implementations of this interface are responsible for producing Metadata Audit Events on
  * ingestion using {@link #produceMetadataAuditEvent(Urn, RecordTemplate, RecordTemplate)}.
+ *
+ * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  */
 public abstract class EntityService {
 
+  /**
+   * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
+   * monotonically increasing version incrementing as usual once the latest version is replaced.
+   */
   public static final long LATEST_ASPECT_VERSION = 0;
 
   private final EntityKafkaMetadataEventProducer _producer;
@@ -51,25 +68,25 @@ public abstract class EntityService {
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
 
-  protected EntityService(final EntityKafkaMetadataEventProducer producer, final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EntityKafkaMetadataEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
   }
 
-  public abstract RecordTemplate getAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull long version);
-
   public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
+  public abstract RecordTemplate getAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version);
+
   public abstract ListResult<RecordTemplate> listLatestAspects(
       @Nonnull final String aspectName,
-      @Nonnull final int start,
-      @Nonnull int count);
+      final int start,
+      int count);
 
   public abstract RecordTemplate ingestAspect(
       @Nonnull final Urn urn,
@@ -82,11 +99,11 @@ public abstract class EntityService {
       @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue,
       @Nonnull final AuditStamp auditStamp,
-      @Nonnull final long version,
-      @Nonnull final boolean emitMae);
+      final long version,
+      final boolean emitMae);
 
   /**
-   * Default implementations. Subclasses should feel free to override if necessary.
+   * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
     for (final Entity entity : entities) {
@@ -106,7 +123,7 @@ public abstract class EntityService {
   }
 
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return batchGetSnapshotUnion(urns, aspectNames).entrySet().stream()
+    return getSnapshotUnions(urns, aspectNames).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
@@ -127,7 +144,7 @@ public abstract class EntityService {
   }
 
   protected Set<String> getEntityAspectNames(final Urn entityUrn) {
-    return _entityToValidAspects.get(urnToEntityName(entityUrn));
+    return getEntityAspectNames(urnToEntityName(entityUrn));
   }
 
   protected Set<String> getEntityAspectNames(final String entityName) {
@@ -203,12 +220,27 @@ public abstract class EntityService {
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
   }
 
-  protected Urn toUrn(final String urnStr) {
-    try {
-      return Urn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
-    }
+  @Nonnull
+  protected Map<Urn, Snapshot> getSnapshotUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return getSnapshotRecords(urns, aspectNames).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotUnion(entry.getValue())));
+  }
+
+  @Nonnull
+  protected Map<Urn, RecordTemplate> getSnapshotRecords(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return getLatestAspectUnions(urns, aspectNames).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotRecord(entry.getKey(), entry.getValue())));
+  }
+
+  @Nonnull
+  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+    return getLatestAspects(urns, aspectNames).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry ->
+           entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
+              .collect(Collectors.toList())
+        ));
   }
 
   protected Entity toEntity(@Nonnull final Snapshot snapshot) {
@@ -243,6 +275,25 @@ public abstract class EntityService {
         getDataTemplateClassFromSchema(entitySpec.getAspectTyperefSchema(), UnionTemplate.class),
         aspectRecord
     );
+  }
+
+  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
+    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
+    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+
+    aspectRecordsToIngest.stream().map(aspect -> {
+      final String aspectName = ModelUtils.getAspectNameFromSchema(aspect.schema());
+      return ingestAspect(urn, aspectName, aspect, auditStamp);
+    }).collect(Collectors.toList());
+  }
+
+  protected Urn toUrn(final String urnStr) {
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
+    }
   }
 
   private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
