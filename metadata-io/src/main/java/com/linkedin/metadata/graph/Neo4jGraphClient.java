@@ -85,15 +85,20 @@ public class Neo4jGraphClient implements GraphClient {
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
-    String matchTemplate = "MATCH (src%s %s)-[r:%s %s]-(dest%s %s) RETURN dest";
+    String matchTemplate = "MATCH (src%s %s)-[r%s %s]-(dest%s %s) RETURN dest";
     if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src%s %s)<-[r:%s %s]-(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)<-[r%s %s]-(dest%s %s) RETURN dest";
     } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src%s %s)-[r:%s %s]->(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s) RETURN dest";
+    }
+
+    String relationshipTypeFilter = "";
+    if (relationshipTypes.size() > 0) {
+      relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
 
     String statementString =
-        String.format(matchTemplate, sourceType, srcCriteria, StringUtils.join(relationshipTypes, "|"), edgeCriteria,
+        String.format(matchTemplate, sourceType, srcCriteria, relationshipTypeFilter, edgeCriteria,
             destinationType, destCriteria);
 
     statementString += " SKIP $offset LIMIT $count";
@@ -122,13 +127,18 @@ public class Neo4jGraphClient implements GraphClient {
     // also delete any relationship going to or from it
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
-    String matchTemplate = "MATCH (src {urn: $urn})-[r:%s]-(dest) DELETE r";
+    String matchTemplate = "MATCH (src {urn: $urn})-[r%s]-(dest) DELETE r";
     if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src {urn: $urn})<-[r:%s]-(dest) DELETE r";
+      matchTemplate = "MATCH (src {urn: $urn})<-[r%s]-(dest) DELETE r";
     } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src {urn: $urn})-[r:%s]->(dest) DELETE r";
+      matchTemplate = "MATCH (src {urn: $urn})-[r%s]->(dest) DELETE r";
     }
-    final String statement = String.format(matchTemplate, StringUtils.join(relationshipTypes, "|"));
+
+    String relationshipTypeFilter = "";
+    if (relationshipTypes.size() > 0) {
+      relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
+    }
+    final String statement = String.format(matchTemplate, relationshipTypeFilter);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());

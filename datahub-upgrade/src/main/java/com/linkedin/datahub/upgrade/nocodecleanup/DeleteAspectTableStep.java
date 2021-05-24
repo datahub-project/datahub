@@ -31,7 +31,7 @@ public class DeleteAspectTableStep implements UpgradeStep<Void> {
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
       try {
-        _server.execute(_server.createSqlUpdate("DELETE FROM metadata_aspect;"));
+        _server.execute(_server.createSqlUpdate("DROP TABLE IF EXISTS metadata_aspect;"));
       } catch (Exception e) {
         return new DefaultUpgradeStepResult<>(
             id(),
