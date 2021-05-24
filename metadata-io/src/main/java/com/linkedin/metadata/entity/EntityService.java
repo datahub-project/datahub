@@ -277,17 +277,6 @@ public abstract class EntityService {
     );
   }
 
-  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
-    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
-
-    aspectRecordsToIngest.stream().map(aspect -> {
-      final String aspectName = ModelUtils.getAspectNameFromSchema(aspect.schema());
-      return ingestAspect(urn, aspectName, aspect, auditStamp);
-    }).collect(Collectors.toList());
-  }
-
   protected Urn toUrn(final String urnStr) {
     try {
       return Urn.createFromString(urnStr);
