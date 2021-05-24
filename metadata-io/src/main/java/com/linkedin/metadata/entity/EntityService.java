@@ -153,11 +153,6 @@ public abstract class EntityService {
     }
   }
 
-  @Nonnull
-  public void setWritable() {
-    _entityDao.setWritable();
-  }
-
   protected Map<Urn, Snapshot> batchGetSnapshotUnion(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     return batchGetSnapshotRecord(urns, aspectNames).entrySet()
         .stream()
@@ -259,4 +254,6 @@ public abstract class EntityService {
                 .collect(Collectors.toSet())
         ));
   }
+
+  public abstract void setWritable();
 }
