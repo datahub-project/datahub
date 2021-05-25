@@ -23,7 +23,7 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.CorpGroupDocument;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;

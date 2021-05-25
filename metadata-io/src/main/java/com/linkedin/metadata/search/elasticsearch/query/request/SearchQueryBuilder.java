@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query.builder;
+package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;

@@ -20,7 +20,7 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;

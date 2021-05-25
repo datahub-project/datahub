@@ -8,7 +8,7 @@ import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.restli.RestliUtils;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import java.time.Clock;

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query;
+package com.linkedin.metadata.search.elasticsearch.query;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;

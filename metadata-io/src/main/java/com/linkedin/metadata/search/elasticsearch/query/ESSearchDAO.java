@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query;
+package com.linkedin.metadata.search.elasticsearch.query;
 
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.models.EntitySpec;
@@ -7,8 +7,8 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
-import com.linkedin.metadata.search.query.builder.AutocompleteRequestHandler;
-import com.linkedin.metadata.search.query.builder.SearchRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
