@@ -75,7 +75,7 @@ public class EbeanAspectDao {
   }
 
   public void setWritable() {
-    canWrite = true;
+    _canWrite = true;
   }
 
   /**
@@ -87,7 +87,7 @@ public class EbeanAspectDao {
 
   // Flag used to make sure the dao isn't writing aspects
   // while its storage is being migrated
-  private boolean canWrite = true;
+  private boolean _canWrite = true;
 
   private boolean validateConnection() {
     if (_connectionValidated) {
@@ -95,7 +95,7 @@ public class EbeanAspectDao {
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
       _logger.error("GMS is on a newer version than your storage layer. Please refer to /docs/advanced/no-code-upgrade.md for an easy upgrade guide");
-      canWrite = false;
+      _canWrite = false;
       return false;
     } else {
       _connectionValidated = true;
@@ -115,6 +115,9 @@ public class EbeanAspectDao {
       @Nullable final String newImpersonator,
       @Nonnull final Timestamp newTime) {
     validateConnection();
+    if (!_canWrite) {
+      return 0;
+    }
     // Save oldValue as the largest version + 1
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
