@@ -15,18 +15,18 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 import static org.testng.Assert.*;
 
 
-public class Neo4jGraphClientTest {
+public class Neo4jGraphServiceTest {
 
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;
-  private Neo4jGraphClient _client;
+  private Neo4jGraphService _client;
 
   @BeforeMethod
   public void init() {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
-    _client = new Neo4jGraphClient(_driver);
+    _client = new Neo4jGraphService(_driver);
   }
 
   @AfterMethod
