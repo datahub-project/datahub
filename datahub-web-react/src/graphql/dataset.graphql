@@ -37,6 +37,7 @@ query getDataset($urn: String!) {
             elements {
                 url
                 author
+                authorUsername
                 description
                 created {
                     actor

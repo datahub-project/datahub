@@ -19,7 +19,15 @@ public class InstitutionalMemoryMetadataMapper implements ModelMapper<com.linked
         result.setUrl(input.getUrl().toString());
         result.setDescription(input.getDescription());
         result.setAuthor(input.getCreateStamp().getActor().toString());
+        result.setAuthorUsername(extractAuthorUsername(input.getCreateStamp().getActor().toString()));
         result.setCreated(AuditStampMapper.map(input.getCreateStamp()));
         return result;
+    }
+
+    private String extractAuthorUsername(String actor) {
+        if (actor.contains(":")) {
+            return actor.substring(actor.lastIndexOf(":") + 1);
+        }
+        return "";
     }
 }

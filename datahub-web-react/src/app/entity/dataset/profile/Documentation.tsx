@@ -6,6 +6,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export type Props = {
     authenticatedUserUrn?: string;
+    authenticatedUserUsername?: string;
     documents: Array<InstitutionalMemoryMetadata>;
     updateDocumentation: (update: InstitutionalMemoryUpdate) => void;
 };
@@ -35,7 +36,12 @@ function FormInput({ name, placeholder, type }: { name: string; placeholder: str
     );
 }
 
-export default function Documentation({ authenticatedUserUrn, documents, updateDocumentation }: Props) {
+export default function Documentation({
+    authenticatedUserUrn,
+    documents,
+    updateDocumentation,
+    authenticatedUserUsername,
+}: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [form] = Form.useForm();
@@ -51,6 +57,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
             stagedDocs.map((doc, index) => ({
                 key: index,
                 author: doc.author,
+                authorUsername: doc.authorUsername,
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -60,7 +67,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
 
     const isEditing = (record: any) => record.key === editingIndex;
 
-    const onAdd = (authorUrn: string) => {
+    const onAdd = (authorUrn: string, authorUsername: string) => {
         setEditingIndex(stagedDocs.length);
 
         form.setFieldsValue({
@@ -72,6 +79,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
             url: '',
             description: '',
             author: authorUrn,
+            authorUsername,
             created: {
                 time: Date.now(),
             },
@@ -147,8 +155,10 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
         {
             title: 'Author',
             dataIndex: 'author',
-            render: (authorUrn: string) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${authorUrn}`}>{authorUrn}</Link>
+            render: (authorUrn: string, record: any) => (
+                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${authorUrn}`}>
+                    {record.authorUsername}
+                </Link>
             ),
         },
         {
@@ -185,8 +195,8 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
             <Form form={form} component={false}>
                 <Table pagination={false} columns={tableColumns} dataSource={tableData} />
             </Form>
-            {authenticatedUserUrn && editingIndex < 0 && (
-                <Button type="link" onClick={() => onAdd(authenticatedUserUrn)}>
+            {authenticatedUserUrn && authenticatedUserUsername && editingIndex < 0 && (
+                <Button type="link" onClick={() => onAdd(authenticatedUserUrn, authenticatedUserUsername)}>
                     <b> + </b> Add a link
                 </Button>
             )}
