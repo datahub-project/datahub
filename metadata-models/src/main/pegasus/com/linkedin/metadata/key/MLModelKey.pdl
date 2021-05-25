@@ -15,10 +15,9 @@ record MLModelKey {
   * Standardized platform urn for the model
   */
   @Searchable = {
-    "fieldName": "platform",
-    "indexSettings": [
-      { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.055 }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "boostScore": 0.1
   }
   platform: Urn
 
@@ -26,14 +25,10 @@ record MLModelKey {
   * Name of the MLModel
   */
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 1000.0 },
-      { "indexType": "PATTERN", "addToDefaultQuery": true, "boostScore": 8.0 },
-      { "indexType": "PARTIAL_PATTERN", "addToDefaultQuery": true, "boostScore": 8.0 },
-      { "indexType": "PARTIAL_LONG", "addToDefaultQuery": true, "boostScore": 0.125 }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   name: string
 
@@ -41,11 +36,7 @@ record MLModelKey {
   * Fabric type where model belongs to or where it was generated
   */
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "PARTIAL" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
   }
   origin: FabricType
 }

@@ -19,13 +19,10 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Title of the chart
    */
   @Searchable = {
-    "fieldName": "title",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 8.0 },
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   title: string
 
@@ -33,11 +30,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Detailed description about the chart
    */
   @Searchable = {
-    "fieldName": "description",
-    "indexSettings": [
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 1.0 },
-      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
-    ]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasDescription"
   }
   description: string
 
@@ -60,8 +55,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Type of the chart
    */
   @Searchable = {
-    "fieldName": "type",
-    "indexSettings": [{ "indexType": "KEYWORD" }],
+    "fieldType": "KEYWORD",
     "addToFilters": true
   }
   type: optional ChartType
@@ -70,8 +64,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Access level for the chart
    */
   @Searchable = {
-    "fieldName": "access",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }],
+    "fieldType": "KEYWORD",
     "addToFilters": true
   }
   access: optional AccessLevel

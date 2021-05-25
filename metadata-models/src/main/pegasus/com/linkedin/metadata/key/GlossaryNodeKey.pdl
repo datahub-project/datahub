@@ -13,8 +13,7 @@ import com.linkedin.common.FabricType
 record GlossaryNodeKey {
 
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
   }
   name: string
 

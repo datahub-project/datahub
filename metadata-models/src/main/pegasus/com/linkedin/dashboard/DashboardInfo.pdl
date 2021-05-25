@@ -20,13 +20,10 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Title of the dashboard
    */
   @Searchable = {
-    "fieldName": "title",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 8.0 },
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   title: string
 
@@ -34,11 +31,9 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Detailed description about the dashboard
    */
   @Searchable = {
-    "fieldName": "description",
-    "indexSettings": [
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 1.0 },
-      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
-    ]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasDescription"
   }
   description: string
 
@@ -67,8 +62,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Access level for the dashboard
    */
   @Searchable = {
-    "fieldName": "access",
-    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "fieldType": "KEYWORD",
     "addToFilters": true
   }
   access: optional AccessLevel

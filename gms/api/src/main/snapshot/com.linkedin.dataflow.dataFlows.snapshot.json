@@ -45,9 +45,7 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
-          "indexSettings" : [ {
-            "indexType" : "BROWSE_PATH"
-          } ]
+          "fieldType" : "BROWSE_PATH"
         }
       }
     } ],
@@ -190,17 +188,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -225,12 +215,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -314,10 +300,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -380,20 +363,10 @@
           "type" : "string",
           "doc" : "Flow name",
           "Searchable" : {
-            "fieldName" : "name",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "boostScore" : 4.0,
-              "indexType" : "KEYWORD_LOWERCASE"
-            }, {
-              "addToDefaultQuery" : true,
-              "indexType" : "TEXT"
-            }, {
-              "addToDefaultQuery" : true,
-              "boostScore" : 0.5,
-              "indexType" : "PARTIAL"
-            } ],
-            "isDefaultAutocomplete" : true
+            "boostScore" : 10.0,
+            "enableAutocomplete" : true,
+            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "queryByDefault" : true
           }
         }, {
           "name" : "description",
@@ -401,11 +374,9 @@
           "doc" : "Flow description",
           "optional" : true,
           "Searchable" : {
-            "fieldName" : "description",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "indexType" : "TEXT"
-            } ]
+            "fieldType" : "TEXT",
+            "hasValuesFieldName" : "hasDescription",
+            "queryByDefault" : true
           }
         }, {
           "name" : "project",
@@ -413,12 +384,7 @@
           "doc" : "Optional project/namespace associated with the flow",
           "optional" : true,
           "Searchable" : {
-            "fieldName" : "project",
-            "indexSettings" : [ {
-              "indexType" : "KEYWORD"
-            }, {
-              "indexType" : "PARTIAL"
-            } ]
+            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
           }
         } ],
         "Aspect" : {
@@ -458,41 +424,25 @@
         "type" : "string",
         "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
         "Searchable" : {
-          "fieldName" : "orchestrator",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "flowId",
         "type" : "string",
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
-          "fieldName" : "flowId",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 4.0,
-            "indexType" : "KEYWORD"
-          }, {
-            "indexType" : "PARTIAL"
-          } ],
-          "isDefaultAutocomplete" : true
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "cluster",
         "type" : "string",
         "doc" : "Cluster where the flow is executed",
         "Searchable" : {
-          "fieldName" : "cluster",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "indexType" : "KEYWORD"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {

@@ -16,11 +16,9 @@ record MLModelProperties {
    * Documentation of the MLModel
    */
   @Searchable = {
-    "fieldName": "description",
-    "indexSettings": [
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 0.035 },
-      { "indexType": "BOOLEAN", "overrideFieldName": "hasDescription" }
-    ]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 
@@ -38,12 +36,8 @@ record MLModelProperties {
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
   @Searchable = {
-    "fieldName": "type",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 0.01 },
-      { "indexType": "TEXT" },
-      { "indexType": "PARTIAL" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true
   }
   type: optional string
 

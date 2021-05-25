@@ -12,11 +12,8 @@ record DataFlowKey {
   * Workflow manager like azkaban, airflow which orchestrates the flow
   */
   @Searchable = {
-    "fieldName": "orchestrator",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
-      { "indexType": "PARTIAL" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true
   }
   orchestrator: string
 
@@ -24,12 +21,9 @@ record DataFlowKey {
   * Unique Identifier of the data flow
   */
   @Searchable = {
-    "fieldName": "flowId",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL" }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true
   }
   flowId: string
 
@@ -37,11 +31,8 @@ record DataFlowKey {
   * Cluster where the flow is executed
   */
   @Searchable = {
-    "fieldName": "cluster",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true },
-      { "indexType": "PARTIAL" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true
   }
   cluster: string
 }

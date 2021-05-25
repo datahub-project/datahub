@@ -177,7 +177,7 @@ public class Neo4jGraphService implements GraphService {
    *
    * @param statements List of statements with parameters to be executed in order
    */
-  private ExecutionResult executeStatements(@Nonnull List<Statement> statements) {
+  private synchronized ExecutionResult executeStatements(@Nonnull List<Statement> statements) {
     int retry = 0;
     final StopWatch stopWatch = new StopWatch();
     stopWatch.start();

@@ -23,10 +23,8 @@ record DataJobInputOutput {
   @Searchable = {
     "/*": {
       "fieldName": "inputs",
-      "indexSettings": [
-        { "indexType": "URN" },
-        { "indexType": "COUNT", "overrideFieldName": "numInputDatasets" }
-      ]
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets"
     }
   }
   inputDatasets: array[DatasetUrn]
@@ -43,10 +41,8 @@ record DataJobInputOutput {
   @Searchable = {
     "/*": {
       "fieldName": "outputs",
-      "indexSettings": [
-       { "indexType": "URN" },
-       { "indexType": "COUNT", "overrideFieldName": "numOutputDatasets" }
-      ]
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets"
     }
   }
   outputDatasets: array[DatasetUrn]

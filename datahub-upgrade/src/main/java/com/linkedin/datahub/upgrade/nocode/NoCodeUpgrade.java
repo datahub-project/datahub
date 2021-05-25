@@ -57,10 +57,13 @@ public class NoCodeUpgrade implements Upgrade {
       final SnapshotEntityRegistry entityRegistry) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));
+    steps.add(new GMSQualificationStep());
+    steps.add(new MAEQualificationStep());
     steps.add(new UpgradeQualificationStep(server));
     steps.add(new CreateAspectTableStep(server));
     steps.add(new IngestDataPlatformsStep(entityService));
     steps.add(new DataMigrationStep(server, entityService, entityRegistry));
+    steps.add(new GMSEnableWriteModeStep());
     return steps;
   }
 }

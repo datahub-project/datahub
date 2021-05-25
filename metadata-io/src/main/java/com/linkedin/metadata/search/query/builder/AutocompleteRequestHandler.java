@@ -5,6 +5,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import java.util.ArrayList;
@@ -40,8 +41,9 @@ public class AutocompleteRequestHandler {
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
     _defaultAutocompleteFields = entitySpec.getSearchableFieldSpecs()
         .stream()
-        .filter(SearchableFieldSpec::isDefaultAutocomplete)
-        .map(SearchableFieldSpec::getFieldName)
+        .map(SearchableFieldSpec::getSearchableAnnotation)
+        .filter(SearchableAnnotation::isEnableAutocomplete)
+        .map(SearchableAnnotation::getFieldName)
         .collect(Collectors.toList());
   }
 

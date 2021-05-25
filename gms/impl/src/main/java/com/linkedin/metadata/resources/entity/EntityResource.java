@@ -160,8 +160,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<AutoCompleteResult> autocomplete(
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_QUERY) @Nonnull String query,
-      @ActionParam(PARAM_FIELD) @Nullable String field,
-      @ActionParam(PARAM_FILTER) @Nullable Filter filter,
+      @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() -> _entitySearchDao.autoComplete(entityName, query, field, filter, limit));
@@ -186,9 +186,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(() -> new StringArray(_entityBrowseDao.getBrowsePaths(urnToEntityName(urn), urn)));
   }
 
+  /*
+  Used to enable writes in GMS after data migration is complete
+   */
   @Action(name = "setWritable")
   @Nonnull
-  public void setWriteable() {
-    _entityService.setWritable();
+  public Task<Void> setWriteable() {
+    return RestliUtils.toTask(() -> {
+      _entityService.setWritable();
+      return null;
+    });
   }
 }

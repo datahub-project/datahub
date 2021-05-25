@@ -79,9 +79,7 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
-          "indexSettings" : [ {
-            "indexType" : "BROWSE_PATH"
-          } ]
+          "fieldType" : "BROWSE_PATH"
         }
       }
     } ],
@@ -294,17 +292,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -418,12 +408,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -507,10 +493,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -634,10 +617,7 @@
           "type" : "boolean",
           "doc" : "Whether the dataset is deprecated by owner.",
           "Searchable" : {
-            "fieldName" : "deprecated",
-            "indexSettings" : [ {
-              "indexType" : "BOOLEAN"
-            } ],
+            "fieldType" : "BOOLEAN",
             "weightsPerFieldValue" : {
               "true" : 0.5
             }
@@ -836,18 +816,8 @@
                 "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                 "Searchable" : {
                   "fieldName" : "fieldPaths",
-                  "indexSettings" : [ {
-                    "addToDefaultQuery" : true,
-                    "indexType" : "KEYWORD_LOWERCASE"
-                  }, {
-                    "addToDefaultQuery" : true,
-                    "boostScore" : 0.2,
-                    "indexType" : "PATTERN"
-                  }, {
-                    "indexType" : "PARTIAL_PATTERN"
-                  }, {
-                    "indexType" : "PARTIAL_LONG"
-                  } ]
+                  "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                  "queryByDefault" : true
                 }
               }, {
                 "name" : "jsonPath",
@@ -865,12 +835,10 @@
                 "doc" : "Description",
                 "optional" : true,
                 "Searchable" : {
+                  "boostScore" : 0.1,
                   "fieldName" : "fieldDescriptions",
-                  "indexSettings" : [ {
-                    "addToDefaultQuery" : true,
-                    "boostScore" : 0.125,
-                    "indexType" : "TEXT"
-                  } ]
+                  "fieldType" : "TEXT",
+                  "queryByDefault" : true
                 }
               }, {
                 "name" : "type",
@@ -992,16 +960,10 @@
                 "optional" : true,
                 "Searchable" : {
                   "/tags/*/tag" : {
+                    "boostScore" : 0.5,
                     "fieldName" : "fieldTags",
-                    "indexSettings" : [ {
-                      "addToDefaultQuery" : true,
-                      "boostScore" : 0.5,
-                      "indexType" : "URN"
-                    }, {
-                      "addToDefaultQuery" : true,
-                      "boostScore" : 0.1,
-                      "indexType" : "PARTIAL_URN"
-                    } ]
+                    "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                    "queryByDefault" : true
                   }
                 }
               }, {
@@ -1100,12 +1062,10 @@
                 "doc" : "Description",
                 "optional" : true,
                 "Searchable" : {
+                  "boostScore" : 0.1,
                   "fieldName" : "editedFieldDescriptions",
-                  "indexSettings" : [ {
-                    "addToDefaultQuery" : true,
-                    "boostScore" : 0.125,
-                    "indexType" : "TEXT"
-                  } ]
+                  "fieldType" : "TEXT",
+                  "queryByDefault" : true
                 }
               }, {
                 "name" : "globalTags",
@@ -1114,16 +1074,10 @@
                 "optional" : true,
                 "Searchable" : {
                   "/tags/*/tag" : {
+                    "boostScore" : 0.5,
                     "fieldName" : "editedFieldTags",
-                    "indexSettings" : [ {
-                      "addToDefaultQuery" : true,
-                      "boostScore" : 0.5,
-                      "indexType" : "URN"
-                    }, {
-                      "addToDefaultQuery" : true,
-                      "boostScore" : 0.1,
-                      "indexType" : "PARTIAL_URN"
-                    } ]
+                    "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                    "queryByDefault" : true
                   }
                 }
               } ]
@@ -1170,9 +1124,7 @@
                 },
                 "Searchable" : {
                   "fieldName" : "upstreams",
-                  "indexSettings" : [ {
-                    "indexType" : "URN"
-                  } ]
+                  "fieldType" : "URN"
                 }
               }, {
                 "name" : "type",
@@ -1250,13 +1202,9 @@
       "doc" : "Documentation of the dataset",
       "optional" : true,
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "indexType" : "TEXT"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasDescription"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "uri",
@@ -1348,42 +1296,28 @@
       "fields" : [ {
         "name" : "platform",
         "type" : "com.linkedin.common.Urn",
-        "doc" : "Data platform urn associated with the dataset"
+        "doc" : "Data platform urn associated with the dataset",
+        "Searchable" : {
+          "addToFilters" : true,
+          "fieldType" : "URN"
+        }
       }, {
         "name" : "name",
         "type" : "string",
         "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
         "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 1000.0,
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "addToDefaultQuery" : true,
-            "boostScore" : 8.0,
-            "indexType" : "PATTERN"
-          }, {
-            "addToDefaultQuery" : true,
-            "boostScore" : 4.0,
-            "indexType" : "PARTIAL_PATTERN"
-          }, {
-            "addToDefaultQuery" : true,
-            "indexType" : "PARTIAL_LONG"
-          } ],
-          "isDefaultAutocomplete" : true
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "origin",
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
-          "fieldName" : "origin",
-          "indexSettings" : [ {
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "addToFilters" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
         }
       } ],
       "Aspect" : {

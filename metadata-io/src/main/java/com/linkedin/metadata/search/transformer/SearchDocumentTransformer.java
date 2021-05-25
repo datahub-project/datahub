@@ -4,14 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexType;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,75 +44,49 @@ public class SearchDocumentTransformer {
 
   public static void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,
       final ObjectNode searchDocument) {
-    // Separate the settings with override and settings without
-    Map<Boolean, List<IndexSetting>> indexSettingsHasOverride = fieldSpec.getIndexSettings()
-        .stream()
-        .collect(Collectors.partitioningBy(setting -> setting.getOverrideFieldName().isPresent()));
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
     boolean isArray = fieldSpec.isArray();
 
-    // Deal with settings with overrides first
-    for (IndexSetting indexSetting : indexSettingsHasOverride.getOrDefault(true, ImmutableList.of())) {
-      JsonNode valueNode = null;
-      if (indexSetting.getIndexType() == IndexType.BOOLEAN) {
-        if (valueType == DataSchema.Type.BOOLEAN) {
-          valueNode = JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false));
-        } else {
-          valueNode = JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty());
-        }
-      } else if (indexSetting.getIndexType() == IndexType.COUNT) {
-        switch (valueType) {
-          case INT:
-            valueNode = JsonNodeFactory.instance.numberNode((Integer) firstValue.orElse(0));
-            break;
-          case LONG:
-            valueNode = JsonNodeFactory.instance.numberNode((Long) firstValue.orElse(0L));
-            break;
-          default:
-            valueNode = JsonNodeFactory.instance.numberNode(fieldValues.size());
-            break;
-        }
+    // Set hasValues field if exists
+    fieldSpec.getSearchableAnnotation().getHasValuesFieldName().ifPresent(fieldName -> {
+      if (valueType == DataSchema.Type.BOOLEAN) {
+        searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false)));
       } else {
-        Optional<JsonNode> valueNodeOpt = getNodeForValue(valueType, fieldValues, indexSetting.getIndexType(), isArray);
-        if (valueNodeOpt.isPresent()) {
-          valueNode = valueNodeOpt.get();
-        }
+        searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(!fieldValues.isEmpty()));
       }
-      String overrideFieldName = indexSetting.getOverrideFieldName().get();
-      // If any of the above special cases matched, set the overriden field name
-      if (valueNode != null) {
-        searchDocument.set(overrideFieldName, valueNode);
+    });
+
+    // Set numValues field if exists
+    fieldSpec.getSearchableAnnotation().getNumValuesFieldName().ifPresent(fieldName -> {
+      switch (valueType) {
+        case INT:
+          searchDocument.set(fieldName, JsonNodeFactory.instance.numberNode((Integer) firstValue.orElse(0)));
+          break;
+        case LONG:
+          searchDocument.set(fieldName, JsonNodeFactory.instance.numberNode((Long) firstValue.orElse(0L)));
+          break;
+        default:
+          searchDocument.set(fieldName, JsonNodeFactory.instance.numberNode(fieldValues.size()));
+          break;
       }
-    }
+    });
 
-    if (!indexSettingsHasOverride.containsKey(false) || indexSettingsHasOverride.get(false).isEmpty()) {
-      return;
-    }
-    // For fields with an index setting without an override, set key to fieldName
-    final String fieldName = fieldSpec.getFieldName();
-    // Get the index type of the first index setting without override
-    final IndexType mainIndexType = indexSettingsHasOverride.get(false).get(0).getIndexType();
-    Optional<JsonNode> valueNode = getNodeForValue(valueType, fieldValues, mainIndexType, isArray);
-    valueNode.ifPresent(node -> searchDocument.set(fieldName, node));
-  }
+    final String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+    final FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
 
-  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final List<Object> fieldValues,
-      final IndexType indexType, final boolean isArray) {
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
-      fieldValues.forEach(value -> getNodeForValue(fieldType, value, indexType).ifPresent(arrayNode::add));
-      return Optional.of(arrayNode);
+      fieldValues.forEach(value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
+      searchDocument.set(fieldName, arrayNode);
+    } else if (!fieldValues.isEmpty()) {
+      getNodeForValue(valueType, fieldValues.get(0), fieldType).ifPresent(node -> searchDocument.set(fieldName, node));
     }
-    if (!fieldValues.isEmpty()) {
-      return getNodeForValue(fieldType, fieldValues.get(0), indexType);
-    }
-    return Optional.empty();
   }
 
-  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type fieldType, final Object fieldValue,
-      final IndexType indexType) {
-    switch (fieldType) {
+  private static Optional<JsonNode> getNodeForValue(final DataSchema.Type schemaFieldType, final Object fieldValue,
+      final FieldType fieldType) {
+    switch (schemaFieldType) {
       case BOOLEAN:
         return Optional.of(JsonNodeFactory.instance.booleanNode((Boolean) fieldValue));
       case INT:
@@ -125,7 +97,7 @@ public class SearchDocumentTransformer {
       default:
         String value = fieldValue.toString();
         // If index type is BROWSE_PATH, make sure the value starts with a slash
-        if (indexType == IndexType.BROWSE_PATH && !value.startsWith("/")) {
+        if (fieldType == FieldType.BROWSE_PATH && !value.startsWith("/")) {
           value = "/" + value;
         }
         return value.isEmpty() ? Optional.empty()

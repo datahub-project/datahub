@@ -12,8 +12,7 @@ record Status {
    * whether the entity is removed or not
    */
   @Searchable = {
-    "fieldName": "removed",
-    "indexSettings": [{ "indexType": "BOOLEAN" }]
+    "fieldType": "BOOLEAN"
   }
   removed: boolean = false
 }

@@ -43,19 +43,19 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       if (currentSchema.getDereferencedDataSchema().isComplex()) {
         final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
         if (isValidComplexType(complexSchema)) {
-            final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
-            if (annotationObj != null) {
-              final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-              final SearchableAnnotation annotation = SearchableAnnotation.fromPegasusAnnotationObject(
-                  annotationObj,
-                  path.toString());
-              if (_searchFieldNames.contains(annotation.getFieldName())) {
-                throw new ModelValidationException(
-                    String.format("Entity has multiple searchable fields with the same field name %s",
-                        annotation.getFieldName()));
-              }
-              final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
-              _specs.add(fieldSpec);
+          final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+          if (annotationObj != null) {
+            final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+            final SearchableAnnotation annotation =
+                SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
+                    currentSchema.getType(), path.toString());
+            if (_searchFieldNames.contains(annotation.getFieldName())) {
+              throw new ModelValidationException(
+                  String.format("Entity has multiple searchable fields with the same field name %s",
+                      annotation.getFieldName()));
+            }
+            final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
+            _specs.add(fieldSpec);
           }
         }
       } else if (isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
@@ -63,10 +63,9 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
         if (annotationObj != null) {
           final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-          final SearchableAnnotation annotation = SearchableAnnotation.fromPegasusAnnotationObject(
-              annotationObj,
-              path.toString()
-          );
+          final SearchableAnnotation annotation =
+              SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
+                  currentSchema.getType(), path.toString());
           final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
           _specs.add(fieldSpec);
         }
@@ -84,7 +83,16 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     return new SchemaVisitorTraversalResult();
   }
 
-  private  Map<String, Object> getResolvedProperties(final DataSchema schema) {
+  private String getSchemaFieldName(PathSpec pathSpec) {
+    List<String> components = pathSpec.getPathComponents();
+    String lastComponent = components.get(components.size() - 1);
+    if (lastComponent.equals("*")) {
+      return components.get(components.size() - 2);
+    }
+    return lastComponent;
+  }
+
+  private Map<String, Object> getResolvedProperties(final DataSchema schema) {
     return !schema.getResolvedProperties().isEmpty() ? schema.getResolvedProperties() : schema.getProperties();
   }
 

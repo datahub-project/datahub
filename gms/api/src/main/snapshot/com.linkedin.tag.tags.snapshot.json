@@ -64,12 +64,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -153,10 +149,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -205,18 +198,10 @@
         "type" : "string",
         "doc" : "The unique tag name",
         "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 8.0,
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "addToDefaultQuery" : true,
-            "indexType" : "TEXT"
-          }, {
-            "indexType" : "PARTIAL_SHORT"
-          } ],
-          "isDefaultAutocomplete" : true
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {

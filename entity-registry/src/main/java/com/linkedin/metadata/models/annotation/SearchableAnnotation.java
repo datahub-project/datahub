@@ -1,17 +1,15 @@
 package com.linkedin.metadata.models.annotation;
 
+import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
 import org.gradle.internal.impldep.com.google.common.collect.ImmutableMap;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
 /**
@@ -22,149 +20,60 @@ public class SearchableAnnotation {
 
   public static final String ANNOTATION_NAME = "Searchable";
 
-  // Name of the field in the search index
+  // Name of the field in the search index. Defaults to the field name in the schema
   String fieldName;
+  // Type of the field. Defines how the field is indexed and matched
+  FieldType fieldType;
+  // Whether we should match the field for the default search query
+  boolean queryByDefault;
   // Whether we should use the field for default autocomplete
-  boolean isDefaultAutocomplete;
-  // Whether or not to add field to filters. Note, if set to true, the first index setting needs to be of type KEYWORD
+  boolean enableAutocomplete;
+  // Whether or not to add field to filters.
   boolean addToFilters;
-  // List of settings for indexing the field. The first setting is used as default.
-  List<IndexSetting> indexSettings;
+  // Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
+  double boostScore;
+  // If set, add a index field of the given name that checks whether the field exists
+  Optional<String> hasValuesFieldName;
+  // If set, add a index field of the given name that checks the number of elements
+  Optional<String> numValuesFieldName;
   // (Optional) Weights to apply to score for a given value
   Map<Object, Double> weightsPerFieldValue;
 
-  /**
-   * Type of indexing to be done for the field
-   * Each type maps to a different analyzer/normalizer
-   */
-  public enum IndexType {
-    KEYWORD,
-    KEYWORD_LOWERCASE,
-    BOOLEAN,
-    COUNT,
-    BROWSE_PATH,
-    TEXT,
-    PATTERN,
-    URN,
-    PARTIAL,
-    PARTIAL_SHORT,
-    PARTIAL_LONG,
-    PARTIAL_PATTERN,
-    PARTIAL_URN
+  public enum FieldType {
+    KEYWORD, TEXT, TEXT_WITH_PARTIAL_MATCHING, BROWSE_PATH, URN, URN_WITH_PARTIAL_MATCHING, BOOLEAN, COUNT
   }
-
-  public static final Map<IndexType, String> SUBFIELD_BY_TYPE =
-      ImmutableMap.<IndexType, String>builder().put(IndexType.KEYWORD, "keyword")
-          .put(IndexType.KEYWORD_LOWERCASE, "keyword")
-          .put(IndexType.BOOLEAN, "boolean")
-          .put(IndexType.TEXT, "delimited")
-          .put(IndexType.PATTERN, "pattern")
-          .put(IndexType.URN, "urn_components")
-          .put(IndexType.PARTIAL, "ngram")
-          .put(IndexType.PARTIAL_SHORT, "ngram")
-          .put(IndexType.PARTIAL_LONG, "ngram")
-          .put(IndexType.PARTIAL_PATTERN, "pattern_ngram")
-          .put(IndexType.PARTIAL_URN, "urn_components_ngram")
-          .build();
-
-  @Value
-  public static class IndexSetting {
-    // Type of index
-    IndexType indexType;
-    // (Optional) Whether the field is queryable without specifying the field in the query
-    boolean addToDefaultQuery;
-    // (Optional) Boost score for ranking
-    Optional<Double> boostScore;
-    // (Optional) Override fieldName (If set, creates a new search field with the specified name)
-    Optional<String> overrideFieldName;
-  }
-
-  private static final Set<IndexType> FILTERABLE_INDEX_TYPES =
-      ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE);
 
   @Nonnull
-  public static SearchableAnnotation fromPegasusAnnotationObject(
-      @Nonnull final Object annotationObj,
-      @Nonnull final String context
-  ) {
+  public static SearchableAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
+      @Nonnull final String schemaFieldName, @Nonnull final DataSchema.Type schemaDataType,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-          ANNOTATION_NAME,
-          context
-      ));
+      throw new ModelValidationException(
+          String.format("Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+              ANNOTATION_NAME, context));
     }
 
     Map map = (Map) annotationObj;
     final Optional<String> fieldName = AnnotationUtils.getField(map, "fieldName", String.class);
-    if (!fieldName.isPresent()) {
+    final Optional<String> fieldType = AnnotationUtils.getField(map, "fieldType", String.class);
+    if (!fieldType.isPresent() || !EnumUtils.isValidEnum(FieldType.class, fieldType.get())) {
       throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid field 'fieldName'. Expected field of type String",
-          ANNOTATION_NAME,
-          context
-      ));
-    }
-    final Optional<Boolean> isDefaultAutocomplete =
-        AnnotationUtils.getField(map, "isDefaultAutocomplete", Boolean.class);
-    final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
-    final Optional<List> indexSettingsList = AnnotationUtils.getField(map, "indexSettings", List.class);
-    if (!indexSettingsList.isPresent() || indexSettingsList.get().isEmpty()) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid field 'indexSettings'. Expected field of type List to not be empty",
-          ANNOTATION_NAME,
-          context
-        ));
-    }
-    final List<IndexSetting> indexSettings = new ArrayList<>(indexSettingsList.get().size());
-    for (Object indexSettingObj : indexSettingsList.get()) {
-      indexSettings.add(SearchableAnnotation.getIndexSettingFromObject(indexSettingObj, context));
+          "Failed to validate @%s annotation declared at %s: Invalid field 'fieldType'. Invalid fieldType provided. Valid types are %s",
+          ANNOTATION_NAME, context, Arrays.toString(FieldType.values())));
     }
 
-    // If the field is being added to filters, the first index setting must be of type KEYWORD
-    if (addToFilters.orElse(false)) {
-      if (indexSettings.get(0).getIndexType() != IndexType.KEYWORD) {
-        throw new ModelValidationException(
-            String.format("Failed to validate @%s annotation declared at %s: Fields with addToDefaultQuery ",
-                ANNOTATION_NAME,
-                context)
-            + "set to true, must have a setting of type KEYWORD as it's first index setting");
-      }
-    }
+    final Optional<Boolean> queryByDefault = AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
+    final Optional<Boolean> enableAutocomplete = AnnotationUtils.getField(map, "enableAutocomplete", Boolean.class);
+    final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToFilters", Boolean.class);
+    final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
+    final Optional<String> hasValuesFieldName = AnnotationUtils.getField(map, "hasValuesFieldName", String.class);
+    final Optional<String> numValuesFieldName = AnnotationUtils.getField(map, "numValuesFieldName", String.class);
 
     final Optional<Map> weightsPerFieldValueMap =
-        AnnotationUtils.getField(map, "overrideFieldName", Map.class).map(m -> (Map<Object, Double>) m);
-    return new SearchableAnnotation(fieldName.get(), isDefaultAutocomplete.orElse(false), addToFilters.orElse(false),
-        indexSettings, weightsPerFieldValueMap.orElse(ImmutableMap.of()));
-  }
-
-  @Nonnull
-  private static IndexSetting getIndexSettingFromObject(
-      @Nonnull final Object indexSettingObj,
-      @Nonnull final String context
-  ) {
-    if (!Map.class.isAssignableFrom(indexSettingObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid value type provided for indexSettings (Expected Map)",
-          ANNOTATION_NAME,
-          context
-      ));
-    }
-
-    Map map = (Map) indexSettingObj;
-    final Optional<String> indexType = AnnotationUtils.getField(map, "indexType", String.class);
-    if (!indexType.isPresent() || !EnumUtils.isValidEnum(IndexType.class, indexType.get())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid field 'indexType'. Invalid indexType provided. Valid types are %s",
-          ANNOTATION_NAME,
-          context,
-          Arrays.toString(IndexType.values())));
-    }
-
-    final Optional<Boolean> addToDefaultQuery = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
-    final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
-    final Optional<String> overrideFieldName = AnnotationUtils.getField(map, "overrideFieldName", String.class);
-
-    return new IndexSetting(IndexType.valueOf(indexType.get()), addToDefaultQuery.orElse(false), boostScore,
-        overrideFieldName);
+        AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class).map(m -> (Map<Object, Double>) m);
+    return new SearchableAnnotation(fieldName.orElse(schemaFieldName), FieldType.valueOf(fieldType.get()),
+        queryByDefault.orElse(false), enableAutocomplete.orElse(false), addToFilters.orElse(false),
+        boostScore.orElse(1.0), hasValuesFieldName, numValuesFieldName,
+        weightsPerFieldValueMap.orElse(ImmutableMap.of()));
   }
 }

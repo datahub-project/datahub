@@ -36,10 +36,12 @@
         "type" : "string"
       }, {
         "name" : "field",
-        "type" : "string"
+        "type" : "string",
+        "optional" : true
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter"
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
       }, {
         "name" : "limit",
         "type" : "int"

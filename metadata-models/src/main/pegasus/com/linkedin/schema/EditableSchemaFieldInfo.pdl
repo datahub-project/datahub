@@ -16,7 +16,9 @@ record EditableSchemaFieldInfo {
    */
   @Searchable = {
     "fieldName": "editedFieldDescriptions",
-    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 0.125 }]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "boostScore": 0.1
   }
   description: optional string
 
@@ -26,10 +28,9 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
-      "indexSettings": [
-        { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.5 },
-        { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 }
-      ]
+      "fieldType": "URN_WITH_PARTIAL_MATCHING",
+      "queryByDefault": true,
+      "boostScore": 0.5
     }
   }
   globalTags: optional GlobalTags
