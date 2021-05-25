@@ -37,16 +37,9 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                                      | Console sink                        |
 | athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| dbt           | _no additional dependencies_                               | DBT source                          |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
 | mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
@@ -373,6 +366,20 @@ source:
     database: dbname
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+### Feast `feast`
+
+Extracts:
+
+- List of feature tables, features, and entities
+- Column types associated with each feature and entity
+
+```yml
+source:
+  type: feast
+  config:
+    core_url: localhost:6565 # default
 ```
 
 ### Google BigQuery `bigquery`
