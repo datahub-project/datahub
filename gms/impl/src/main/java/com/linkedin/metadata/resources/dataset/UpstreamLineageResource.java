@@ -6,7 +6,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.dataset.UpstreamLineageDelta;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -41,7 +41,7 @@ public final class UpstreamLineageResource extends BaseDatasetVersionedAspectRes
 
             final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
-                ModelUtils.getAspectNameFromSchema(aspectSchema),
+                PegasusUtils.getAspectNameFromSchema(aspectSchema),
                 version
             );
             if (maybeAspect != null) {
@@ -60,7 +60,7 @@ public final class UpstreamLineageResource extends BaseDatasetVersionedAspectRes
             final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
             getEntityService().ingestAspect(
                 urn,
-                ModelUtils.getAspectNameFromSchema(upstreamLineage.schema()),
+                PegasusUtils.getAspectNameFromSchema(upstreamLineage.schema()),
                 upstreamLineage,
                 auditStamp);
             return new CreateResponse(HttpStatus.S_201_CREATED);

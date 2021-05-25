@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataPlatforms.DataPlatform;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataPlatformAspect;
 import com.linkedin.metadata.aspect.DataPlatformAspectArray;
 import com.linkedin.metadata.dao.BaseLocalDAO;
@@ -72,7 +73,8 @@ public class DataPlatforms extends BaseEntityResource<
       @Nonnull String platformName,
       @QueryParam(PARAM_ASPECTS) @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity = _entityService.getEntity(
           new DataPlatformUrn(platformName),
@@ -122,7 +124,8 @@ public class DataPlatforms extends BaseEntityResource<
   public Task<DataPlatformSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity;
       try {

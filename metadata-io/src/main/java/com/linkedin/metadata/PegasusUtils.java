@@ -14,9 +14,9 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 /**
  * Static utility class providing methods for extracting entity metadata from Pegasus models.
  */
-public class ModelUtils {
+public class PegasusUtils {
 
-  private ModelUtils() {
+  private PegasusUtils() {
   }
 
   public static String getEntityNameFromSchema(final RecordDataSchema entitySnapshotSchema) {

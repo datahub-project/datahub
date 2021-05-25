@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.BaseIndexBuilder;
 import com.linkedin.metadata.builders.search.SnapshotProcessor;
@@ -96,7 +96,7 @@ public class MetadataAuditEventsProcessor {
         log.info(snapshot.toString());
 
         final EntitySpec entitySpec = SnapshotEntityRegistry.getInstance()
-            .getEntitySpec(ModelUtils.getEntityNameFromSchema(snapshot.schema()));
+            .getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
         updateElasticsearch(snapshot, entitySpec);
         updateNeo4j(snapshot, entitySpec);
       }

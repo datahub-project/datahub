@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
@@ -32,7 +32,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
 
-  private static final String BROWSE_PATHS_ASPECT_NAME = ModelUtils.getAspectNameFromSchema(new BrowsePaths().schema());
+  private static final String BROWSE_PATHS_ASPECT_NAME = PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
   private final EbeanServer _server;
   private final EntityService _entityService;
@@ -110,7 +110,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           // 4. Extract new aspect name from Aspect schema
           final String newAspectName;
           try {
-            newAspectName = ModelUtils.getAspectNameFromSchema(aspectRecord.schema());
+            newAspectName = PegasusUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
             return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
                 String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",

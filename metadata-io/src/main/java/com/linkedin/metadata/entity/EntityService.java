@@ -7,7 +7,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.ModelUtils.*;
+import static com.linkedin.metadata.PegasusUtils.*;
 
 
 /**
@@ -198,7 +198,7 @@ public abstract class EntityService {
     final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     aspectRecordsToIngest.stream().map(aspect -> {
-      final String aspectName = ModelUtils.getAspectNameFromSchema(aspect.schema());
+      final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
       return ingestAspect(urn, aspectName, aspect, auditStamp);
     }).collect(Collectors.toList());
   }

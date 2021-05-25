@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
-import static com.linkedin.metadata.ModelUtils.*;
+import static com.linkedin.metadata.PegasusUtils.*;
 
 
 /**

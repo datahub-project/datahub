@@ -4,7 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.restli.common.HttpStatus;
 import javax.annotation.Nonnull;
@@ -40,7 +40,7 @@ public class EvaluationDataResource extends BaseMLModelsAspectResource<Evaluatio
 
             final RecordTemplate maybeAspect = getEntityService().getAspect(
                 urn,
-                ModelUtils.getAspectNameFromSchema(aspectSchema),
+                PegasusUtils.getAspectNameFromSchema(aspectSchema),
                 version
             );
             if (maybeAspect != null) {
@@ -59,7 +59,7 @@ public class EvaluationDataResource extends BaseMLModelsAspectResource<Evaluatio
             final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
             getEntityService().ingestAspect(
                 urn,
-                ModelUtils.getAspectNameFromSchema(evaluationData.schema()),
+                PegasusUtils.getAspectNameFromSchema(evaluationData.schema()),
                 evaluationData,
                 auditStamp);
             return new CreateResponse(HttpStatus.S_201_CREATED);
