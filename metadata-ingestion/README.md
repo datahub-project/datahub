@@ -380,6 +380,7 @@ source:
   type: feast
   config:
     core_url: localhost:6565 # default
+    env: "PROD" # Optional, default is "PROD"
 ```
 
 ### Google BigQuery `bigquery`

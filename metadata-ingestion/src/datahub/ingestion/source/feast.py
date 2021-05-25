@@ -42,11 +42,14 @@ _field_type_mapping: Dict[str, str] = {
     "UNIX_TIMESTAMP_LIST": MLFeatureDataType.SEQUENCE,
 }
 
+DEFAULT_ENV = "PROD"
+
 
 class FeastConfig(ConfigModel):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     core_url: str = "localhost:6565"
+    env: str = DEFAULT_ENV
 
 
 @dataclass
@@ -113,7 +116,7 @@ class FeastSource(Source):
             platform = "feast"
 
             get_feature_urn = (
-                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},feature,{feature_name})"
+                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},feature,{feature_name},{self.config.env}))"
             )
             # ingest features
             for feature in ingest["features"]:
@@ -139,7 +142,7 @@ class FeastSource(Source):
                 yield wu
 
             get_entity_urn = (
-                lambda entity_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},entity,{entity_name})"
+                lambda entity_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},entity,{entity_name},{self.config.env}))"
             )
             # ingest entities
             for entity in ingest["entities"]:
@@ -170,7 +173,7 @@ class FeastSource(Source):
 
                 # create snapshot instance for the featureset
                 featureset_snapshot = MLFeatureSetSnapshot(
-                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table['name']})",
+                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},table,{table['name']},{self.config.env}))",
                     aspects=[],
                 )
                 featureset_snapshot.aspects.append(
