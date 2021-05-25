@@ -1,5 +1,6 @@
 import { AutoComplete, Button, Form, Select, Space, Table, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 import {
     CorpUser,
     EntityType,
@@ -11,6 +12,12 @@ import {
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
+
+const UpdatedText = styled(Typography.Text)`
+    position: absolute;
+    right: 0;
+    margin: 0;
+`;
 
 const OWNER_SEARCH_PLACEHOLDER = 'Search an LDAP';
 const NUMBER_OWNERS_REQUIRED = 2;
@@ -307,22 +314,24 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     ];
 
     return (
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <Typography.Text style={{ float: 'right' }}>
+        <>
+            <UpdatedText>
                 Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
-            </Typography.Text>
-            <Typography.Title level={3}>Ownership</Typography.Title>
-            <Typography.Paragraph>
-                Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
-            </Typography.Paragraph>
-            <Form form={form} component={false}>
-                <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} rowKey="urn" />
-            </Form>
-            {editingIndex < 0 && (
-                <Button type="link" onClick={onAdd}>
-                    <b> + </b> Add an owner
-                </Button>
-            )}
-        </Space>
+            </UpdatedText>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Typography.Title level={3}>Ownership</Typography.Title>
+                <Typography.Paragraph>
+                    Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
+                </Typography.Paragraph>
+                <Form form={form} component={false}>
+                    <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} rowKey="urn" />
+                </Form>
+                {editingIndex < 0 && (
+                    <Button type="link" onClick={onAdd}>
+                        <b> + </b> Add an owner
+                    </Button>
+                )}
+            </Space>
+        </>
     );
 };

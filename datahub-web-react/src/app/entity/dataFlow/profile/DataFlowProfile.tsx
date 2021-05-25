@@ -16,19 +16,16 @@ import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
-export enum TabType {
-    Tasks = 'Tasks',
-    Ownership = 'Ownership',
-    Properties = 'Properties',
-}
-
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties, TabType.Tasks];
-
 /**
  * Responsible for display the DataFlow Page
  */
 export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const TabType = {
+        Task: entityRegistry.getCollectionName(EntityType.DataJob),
+        Ownership: 'Ownership',
+        Properties: 'Properties',
+    };
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         update(cache, { data: newDataFlow }) {
@@ -78,11 +75,11 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: <PropertiesView properties={info?.customProperties || []} />,
             },
             {
-                name: TabType.Tasks,
-                path: TabType.Tasks.toLowerCase(),
+                name: TabType.Task,
+                path: TabType.Task.toLowerCase(),
                 content: <DataFlowDataJobs dataJobs={dataJobs?.entities || []} />,
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
     };
 
     return (
