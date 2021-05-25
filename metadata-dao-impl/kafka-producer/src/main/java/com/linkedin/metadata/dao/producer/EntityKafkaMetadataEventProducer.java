@@ -6,10 +6,10 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
-import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
@@ -29,11 +29,11 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 
 
 /**
- * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}. If
- * none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
+ * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}.
+ * If none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
  */
 @Slf4j
-public class EntityKafkaMetadataEventProducer {
+public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
@@ -67,27 +67,7 @@ public class EntityKafkaMetadataEventProducer {
     _topicConvention = topicConvention;
   }
 
-  public void produceSnapshotBasedMetadataChangeEvent(
-      @Nonnull final Urn urn,
-      @Nonnull final Snapshot newSnapshot) {
-    MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
-    metadataChangeEvent.setProposedSnapshot(newSnapshot);
-
-    GenericRecord record;
-    try {
-      record = EventUtils.pegasusToAvroMCE(metadataChangeEvent);
-    } catch (IOException e) {
-      throw new ModelConversionException("Failed to convert Pegasus MCE to Avro", e);
-    }
-
-    if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeEventTopicName(), urn.toString(), record),
-          _callback.get());
-    } else {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeEventTopicName(), urn.toString(), record));
-    }
-  }
-
+  @Override
   public void produceMetadataAuditEvent(
       @Nonnull final Urn urn,
       @Nullable final Snapshot oldSnapshot,
@@ -114,6 +94,7 @@ public class EntityKafkaMetadataEventProducer {
     }
   }
 
+  @Override
   public void produceAspectSpecificMetadataAuditEvent(
       @Nonnull final Urn urn,
       @Nullable final RecordTemplate oldValue,
