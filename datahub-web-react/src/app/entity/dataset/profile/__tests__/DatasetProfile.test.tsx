@@ -44,7 +44,7 @@ describe('DatasetProfile', () => {
     });
 
     it('renders business terms', async () => {
-        const { queryByText } = render(
+        const { getByText, queryByText } = render(
             <MockedProvider
                 mocks={mocks}
                 addTypename={false}
@@ -62,5 +62,8 @@ describe('DatasetProfile', () => {
         await waitFor(() => expect(queryByText('sample-glossary-term')).toBeInTheDocument());
 
         expect(queryByText('Tags & Terms')).toBeInTheDocument();
+        expect(getByText('sample-glossary-term').closest('a').href).toEqual(
+            'http://localhost/glossary/urn:li:glossaryTerm:sample-glossary-term',
+        );
     });
 });
