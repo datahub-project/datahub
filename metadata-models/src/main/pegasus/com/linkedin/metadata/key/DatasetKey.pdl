@@ -14,6 +14,13 @@ record DatasetKey {
   /**
   * Data platform urn associated with the dataset
   */
+  @Searchable = {
+    "fieldName": "platform",
+    "indexSettings": [
+      { "indexType": "KEYWORD_URN" }
+    ],
+    "addToFilters": true
+  }
   platform: Urn
 
   /**
@@ -39,7 +46,8 @@ record DatasetKey {
     "indexSettings": [
       { "indexType": "KEYWORD_LOWERCASE" },
       { "indexType": "PARTIAL" }
-    ]
+    ],
+    "addToFilters": true
   }
   origin: FabricType
 }

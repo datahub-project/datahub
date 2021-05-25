@@ -40,6 +40,7 @@ public class SearchableAnnotation {
   public enum IndexType {
     KEYWORD,
     KEYWORD_LOWERCASE,
+    KEYWORD_URN,
     BOOLEAN,
     COUNT,
     BROWSE_PATH,
@@ -56,6 +57,7 @@ public class SearchableAnnotation {
   public static final Map<IndexType, String> SUBFIELD_BY_TYPE =
       ImmutableMap.<IndexType, String>builder().put(IndexType.KEYWORD, "keyword")
           .put(IndexType.KEYWORD_LOWERCASE, "keyword")
+          .put(IndexType.KEYWORD_URN, "keyword")
           .put(IndexType.BOOLEAN, "boolean")
           .put(IndexType.TEXT, "delimited")
           .put(IndexType.PATTERN, "pattern")
@@ -80,7 +82,7 @@ public class SearchableAnnotation {
   }
 
   private static final Set<IndexType> FILTERABLE_INDEX_TYPES =
-      ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE);
+      ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE, IndexType.KEYWORD_URN);
 
   @Nonnull
   public static SearchableAnnotation fromPegasusAnnotationObject(

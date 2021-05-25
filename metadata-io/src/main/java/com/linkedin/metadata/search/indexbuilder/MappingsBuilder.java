@@ -76,6 +76,9 @@ public class MappingsBuilder {
       case KEYWORD_LOWERCASE:
         mappings = ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer");
         break;
+      case KEYWORD_URN:
+        mappings = ImmutableMap.of("type", "text", "analyzer", "urn_component", "fielddata", true);
+        break;
       case BOOLEAN:
         mappings = ImmutableMap.of("type", "boolean");
         break;
