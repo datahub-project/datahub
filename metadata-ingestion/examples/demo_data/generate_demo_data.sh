@@ -4,7 +4,6 @@ set -euxo pipefail
 # This script will use the YML files in examples/demo_data to generate
 # all_covid19_datasets.json, directives.csv, and finally demo_data.json.
 
-set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Fetch public COVID-19 datasets from BigQuery.
