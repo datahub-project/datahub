@@ -2,7 +2,7 @@ import { Divider, Image, Row, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
@@ -19,6 +19,7 @@ interface Props {
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
+    glossaryTerms?: GlossaryTerms;
 }
 
 const DescriptionParagraph = styled(Typography.Paragraph)`
@@ -56,6 +57,7 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     snippet,
+    glossaryTerms,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -94,7 +96,7 @@ export default function DefaultPreviewCard({
                     <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
                     <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                 </Space>
-                <TagTermGroup editableTags={tags} maxShow={3} />
+                <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
             </Space>
         </Row>
     );
