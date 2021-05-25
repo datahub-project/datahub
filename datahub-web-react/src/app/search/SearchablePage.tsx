@@ -17,7 +17,7 @@ const styles = {
 
 interface Props extends React.PropsWithChildren<any> {
     initialQuery?: string;
-    onSearch?: (query: string) => void;
+    onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
@@ -38,7 +38,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const user = useGetAuthenticatedUser();
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
-    const search = (query: string) => {
+    const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -49,22 +49,12 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             originPath: window.location.pathname,
         });
 
-        if (query.startsWith('ExploreEntity-')) {
-            const queryStrings = query.split('-');
-            const type = queryStrings[1] as EntityType;
-            navigateToSearchUrl({
-                type,
-                query: queryStrings[2],
-                history,
-                entityRegistry,
-            });
-        } else {
-            navigateToSearchUrl({
-                query,
-                history,
-                entityRegistry,
-            });
-        }
+        navigateToSearchUrl({
+            type,
+            query,
+            history,
+            entityRegistry,
+        });
     };
 
     const autoComplete = (query: string) => {

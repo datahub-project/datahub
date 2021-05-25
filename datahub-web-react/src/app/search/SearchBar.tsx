@@ -5,7 +5,7 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import EntityRegistry from '../entity/EntityRegistry';
 
-const SuggestionContainer = styled.div`
+const SuggestionContainer = styled.div<{ type?: string }>`
     display: 'flex',
     flex-direction: 'row',
     align-items: 'center',
@@ -25,7 +25,7 @@ const styles = {
     autoComplete: { width: 650 },
 };
 
-const renderItem = (suggestion: string, icon: JSX.Element) => ({
+const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
     value: suggestion,
     label: (
         <SuggestionContainer>
@@ -33,13 +33,14 @@ const renderItem = (suggestion: string, icon: JSX.Element) => ({
             <SuggestionText>{suggestion}</SuggestionText>
         </SuggestionContainer>
     ),
+    type,
 });
 
 interface Props {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    onSearch: (query: string) => void;
+    onSearch: (query: string, type?: EntityType) => void;
     onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
     autoCompleteStyle?: React.CSSProperties;
@@ -64,22 +65,23 @@ export const SearchBar = ({
     autoCompleteStyle,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>();
-    const [selected, setSelected] = useState<string>();
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
         label: Object.keys(EntityType).find((key) => EntityType[key] === entity.type) || entity.type,
         options: [
             ...entity.suggestions.map((suggestion: string) =>
-                renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW)),
+                renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
             ),
             {
-                value: `ExploreEntity-${entity.type}-${searchQuery}`,
+                value: searchQuery || '',
                 label: (
-                    <SuggestionContainer>
+                    <SuggestionContainer type={entity.type} key={entity.type}>
                         <ExploreForEntity>
                             Explore all `{searchQuery}` in {entityRegistry.getCollectionName(entity.type)}
                         </ExploreForEntity>
                     </SuggestionContainer>
                 ),
+                type: entity.type,
+                key: `${searchQuery}-${entity.type}`,
             },
         ],
     }));
@@ -89,23 +91,15 @@ export const SearchBar = ({
             <AutoComplete
                 style={autoCompleteStyle || styles.autoComplete}
                 options={options}
-                onSelect={(value: string) => onSearch(value)}
+                onSelect={(value: string, option) => onSearch(value, option.type)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
-                value={selected}
-                onChange={(v) => setSelected(v && v.startsWith('ExploreEntity-') ? v.split('-')[2] : v)}
             >
                 <Input.Search
                     placeholder={placeholderText}
                     onSearch={(value: string) => onSearch(value)}
                     value={searchQuery}
-                    onChange={(e) =>
-                        setSearchQuery(
-                            e.target.value && e.target.value.startsWith('ExploreEntity-')
-                                ? e.target.value.split('-')[2]
-                                : e.target.value,
-                        )
-                    }
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
                 />
             </AutoComplete>

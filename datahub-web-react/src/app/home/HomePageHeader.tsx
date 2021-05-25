@@ -115,7 +115,8 @@ export const HomePageHeader = () => {
     const { data } = useIsAnalyticsEnabledQuery();
     const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
 
-    const onSearch = (query: string) => {
+    const onSearch = (query: string, type?: EntityType) => {
+        console.log('onSearch---', query, type);
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -125,22 +126,12 @@ export const HomePageHeader = () => {
             pageNumber: 1,
             originPath: window.location.pathname,
         });
-        if (query.startsWith('ExploreEntity-')) {
-            const queryStrings = query.split('-');
-            const type = queryStrings[1] as EntityType;
-            navigateToSearchUrl({
-                type,
-                query: queryStrings[2],
-                history,
-                entityRegistry,
-            });
-        } else {
-            navigateToSearchUrl({
-                query,
-                history,
-                entityRegistry,
-            });
-        }
+        navigateToSearchUrl({
+            type,
+            query,
+            history,
+            entityRegistry,
+        });
     };
 
     const onAutoComplete = (query: string) => {
@@ -208,8 +199,8 @@ export const HomePageHeader = () => {
                 <SearchBar
                     placeholderText={themeConfig.content.search.searchbarMessage}
                     suggestions={suggestionsData?.autoCompleteForAll?.suggestions || []}
-                    onSearch={(value: string) => onSearch(value)}
-                    onQueryChange={(value: string) => onAutoComplete(value)}
+                    onSearch={onSearch}
+                    onQueryChange={onAutoComplete}
                     autoCompleteStyle={styles.searchBox}
                     entityRegistry={entityRegistry}
                 />

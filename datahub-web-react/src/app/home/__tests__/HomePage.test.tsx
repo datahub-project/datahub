@@ -29,7 +29,7 @@ describe('HomePage', () => {
     });
 
     it('renders autocomplete results', async () => {
-        const { getByTestId, queryByText } = render(
+        const { getByTestId, queryAllByText } = render(
             <MockedProvider
                 mocks={mocks}
                 addTypename={false}
@@ -47,8 +47,8 @@ describe('HomePage', () => {
         await waitFor(() => expect(searchInput).toBeInTheDocument());
         fireEvent.change(searchInput, { target: { value: 't' } });
 
-        await waitFor(() => expect(queryByText('The Great Test Dataset')).toBeInTheDocument());
-        await waitFor(() => expect(queryByText('Some other test')).toBeInTheDocument());
+        await waitFor(() => expect(queryAllByText('The Great Test Dataset').length).toBeGreaterThanOrEqual(1));
+        expect(queryAllByText('Some other test').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders search suggestions', async () => {

@@ -34,10 +34,6 @@ const StyledTab = styled.span`
     }
 `;
 
-const updateQuery = (query: string) => (query && query.startsWith('ExploreEntity-') ? query.split('-')[2] : query);
-const updateActiveType = (query: string, activeType: EntityType | undefined) =>
-    query && query.startsWith('ExploreEntity-') ? (query.split('-')[1] as EntityType) : activeType;
-
 type SearchPageParams = {
     type?: string;
 };
@@ -53,15 +49,12 @@ export const SearchPage = () => {
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = updateQuery(params.query ? (params.query as string) : '');
-    const activeType = updateActiveType(
-        params.query as string,
-        entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined),
-    );
+    const query: string = params.query ? (params.query as string) : '';
+    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
 
-    const onSearch = (q: string) => {
+    const onSearch = (q: string, type?: EntityType) => {
         if (query.trim().length === 0) {
             return;
         }
@@ -72,7 +65,7 @@ export const SearchPage = () => {
             pageNumber: 1,
             originPath: window.location.pathname,
         });
-        navigateToSearchUrl({ type: activeType, query: updateQuery(q), page: 1, history, entityRegistry });
+        navigateToSearchUrl({ type: type || activeType, query: q, page: 1, history, entityRegistry });
     };
 
     const onChangeSearchType = (newType: string) => {
