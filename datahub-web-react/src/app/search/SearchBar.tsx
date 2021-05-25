@@ -50,7 +50,7 @@ interface Props {
 const defaultProps = {
     style: undefined,
 };
-
+const updateValue = (v) => (v && v.startsWith('SEARCH__') ? v.split('__')[1] : v);
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -65,6 +65,7 @@ export const SearchBar = ({
     autoCompleteStyle,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>();
+    const [selected, setSelected] = useState<string>();
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
         label: Object.keys(EntityType).find((key) => EntityType[key] === entity.type) || entity.type,
         options: [
@@ -72,7 +73,7 @@ export const SearchBar = ({
                 renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
             ),
             {
-                value: searchQuery || '',
+                value: `SEARCH__${searchQuery}__${entity.type}`,
                 label: (
                     <SuggestionContainer type={entity.type} key={entity.type}>
                         <ExploreForEntity>
@@ -91,13 +92,15 @@ export const SearchBar = ({
             <AutoComplete
                 style={autoCompleteStyle || styles.autoComplete}
                 options={options}
-                onSelect={(value: string, option) => onSearch(value, option.type)}
+                onSelect={(value: string, option) => onSearch(updateValue(value), option.type)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
+                value={selected}
+                onChange={(v) => setSelected(updateValue(v))}
             >
                 <Input.Search
                     placeholder={placeholderText}
-                    onSearch={(value: string) => onSearch(value)}
+                    onSearch={(value: string) => onSearch(updateValue(value))}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
