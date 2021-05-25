@@ -375,6 +375,9 @@ Extracts:
 - List of feature tables, features, and entities
 - Column types associated with each feature and entity
 
+Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
+parsed to DataHub's native objects. This was done because of a dependency conflict in the `feast` module.
+
 ```yml
 source:
   type: feast

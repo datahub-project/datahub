@@ -12,11 +12,6 @@ enum MLFeatureDataType {
   USELESS
 
   /**
-   * Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.
-   */
-  CONTINUOUS
-
-  /**
    * Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.
    * Animal species is one example. For example, pig is not higher than bird and lower than fish.
    */
@@ -90,4 +85,9 @@ enum MLFeatureDataType {
   * Set Data Type ex: set, frozenset
   */
   SET
+
+  /**
+   * Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.
+   */
+  CONTINUOUS
 }
