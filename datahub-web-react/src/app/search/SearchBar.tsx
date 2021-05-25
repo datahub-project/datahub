@@ -4,8 +4,10 @@ import styled from 'styled-components';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import EntityRegistry from '../entity/EntityRegistry';
+import { SEARCH_FOR_ENTITY_PREFIX } from './utils/constants';
+import filterSearchQuery from './utils/filterSearchQuery';
 
-const SuggestionContainer = styled.div<{ type?: string }>`
+const SuggestionContainer = styled.div`
     display: 'flex',
     flex-direction: 'row',
     align-items: 'center',
@@ -50,7 +52,7 @@ interface Props {
 const defaultProps = {
     style: undefined,
 };
-const updateValue = (v) => (v && v.startsWith('SEARCH__') ? v.split('__')[1] : v);
+
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -73,9 +75,9 @@ export const SearchBar = ({
                 renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
             ),
             {
-                value: `SEARCH__${searchQuery}__${entity.type}`,
+                value: `${SEARCH_FOR_ENTITY_PREFIX}${searchQuery}__${entity.type}`,
                 label: (
-                    <SuggestionContainer type={entity.type} key={entity.type}>
+                    <SuggestionContainer key={entity.type}>
                         <ExploreForEntity>
                             Explore all `{searchQuery}` in {entityRegistry.getCollectionName(entity.type)}
                         </ExploreForEntity>
@@ -92,15 +94,15 @@ export const SearchBar = ({
             <AutoComplete
                 style={autoCompleteStyle || styles.autoComplete}
                 options={options}
-                onSelect={(value: string, option) => onSearch(updateValue(value), option.type)}
+                onSelect={(value: string, option) => onSearch(filterSearchQuery(value), option.type)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
                 value={selected}
-                onChange={(v) => setSelected(updateValue(v))}
+                onChange={(v) => setSelected(filterSearchQuery(v))}
             >
                 <Input.Search
                     placeholder={placeholderText}
-                    onSearch={(value: string) => onSearch(updateValue(value))}
+                    onSearch={(value: string) => onSearch(filterSearchQuery(value))}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
