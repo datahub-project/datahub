@@ -9,7 +9,6 @@ dependencies {
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-builders')
-  compile project(':metadata-dao-impl:kafka-producer')
   compile project(':metadata-dao-impl:restli-dao')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
@@ -33,6 +32,8 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   compile externalDependency.neo4jHarness
+
+  testCompile externalDependency.mockito
 }
 
 project.compileJava {

@@ -9,8 +9,8 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
@@ -63,37 +63,82 @@ public abstract class EntityService {
    */
   public static final long LATEST_ASPECT_VERSION = 0;
 
-  private final EntityKafkaMetadataEventProducer _producer;
+  private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
 
-  protected EntityService(@Nonnull final EntityKafkaMetadataEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
   }
 
+  /**
+   * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
+   * set of aspect names.
+   *
+   * @param urns set of urns to fetch aspects for
+   * @param aspectNames aspects to fetch for each urn in urns set
+   * @return a map of provided {@link Urn} to a List containing the requested aspects.
+   */
   public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
+  /**
+   * Retrieves an aspect having a specific {@link Urn}, name, & version.
+   *
+   * @param urn an urn associated with the requested aspect
+   * @param aspectName name of the aspect requested
+   * @param version specific version of the aspect being requests
+   * @return the {@link RecordTemplate} representation of the requested aspect object
+   */
   public abstract RecordTemplate getAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       long version);
 
+  /**
+   * Retrieves a list of all persisted aspects with a specific name, sorted by corresponding urn.
+   *
+   * @param aspectName name of the aspect requested
+   * @param start the starting index of the returned aspects, used in pagination
+   * @param count the count of the aspects to be returned, used in pagination
+   * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
+   */
   public abstract ListResult<RecordTemplate> listLatestAspects(
       @Nonnull final String aspectName,
       final int start,
       int count);
 
+  /**
+   * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param newValue value of the aspect being inserted
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @return the {@link RecordTemplate} representation of the written aspect object
+   */
   public abstract RecordTemplate ingestAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue,
       @Nonnull final AuditStamp auditStamp);
 
+  /**
+   * Updates a particular version of an aspect & optionally emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * @param urn an urn associated with the aspect to update
+   * @param aspectName name of the aspect being updated
+   * @param newValue new value of the aspect being updated
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @param version specific version of the aspect being requests
+   * @param emitMae whether a {@link com.linkedin.mxe.MetadataAuditEvent} should be emitted in correspondence upon
+   *                successful update
+   * @return the {@link RecordTemplate} representation of the requested aspect object
+   */
   public abstract RecordTemplate updateAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
