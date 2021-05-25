@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List
 
@@ -98,11 +100,101 @@ class FeastSource(Source):
         return TypeClass
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        with tempfile.NamedTemporaryFile(suffix=".json") as tf:
 
-        docker_client = docker.from_env()
-        docker_client.containers.run(
-            "feast-ingest", 'ingest.py --core_url="localhost:6565"', detach=True
-        )
+            docker_client = docker.from_env()
+            docker_client.containers.run(
+                "feast-ingest",
+                f'ingest.py --core_url="{self.config.core_url}" --output_path=/out.json',
+                # allow the image to access the core URL if on host
+                network_mode="host",
+                # mount the tempfile so the Docker image has access
+                volumes={
+                    tf.name: {"bind": "/out.json", "mode": "rw"},
+                },
+            )
+
+            ingest = json.load(tf)
+
+            platform = "feast"
+
+            get_feature_urn = (
+                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},feature,{feature_name})"
+            )
+            # ingest features
+            for feature in ingest["features"]:
+
+                # create snapshot instance for the feature
+                feature_snapshot = MLFeatureSnapshot(
+                    urn=get_feature_urn(feature["name"]),
+                    aspects=[],
+                )
+
+                # append feature name and type
+                feature_snapshot.aspects.append(
+                    MLFeaturePropertiesClass(
+                        name=feature["name"],
+                        dataType=self.get_field_type(feature["type"], feature["name"]),
+                    )
+                )
+
+                # make the MCE and workunit
+                mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+                wu = MetadataWorkUnit(id=feature["name"], mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+
+            get_entity_urn = (
+                lambda entity_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},entity,{entity_name})"
+            )
+            # ingest entities
+            for entity in ingest["entities"]:
+
+                # create snapshot instance for the entity
+                entity_snapshot = MLEntitySnapshot(
+                    urn=get_entity_urn(entity["name"]),
+                    aspects=[],
+                )
+
+                # append entity name and type
+                entity_snapshot.aspects.append(
+                    MLEntityPropertiesClass(
+                        name=entity["name"],
+                        description=entity["description"],
+                        dataType=self.get_field_type(entity["type"], entity["name"]),
+                    )
+                )
+
+                # make the MCE and workunit
+                mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
+                wu = MetadataWorkUnit(id=entity["name"], mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
+
+            # ingest tables
+            for table in ingest["tables"]:
+
+                # create snapshot instance for the featureset
+                featureset_snapshot = MLFeatureSetSnapshot(
+                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table['name']})",
+                    aspects=[],
+                )
+                featureset_snapshot.aspects.append(
+                    MLFeatureSetPropertiesClass(
+                        mlFeatures=[get_feature_urn(x) for x in table["features"]],
+                        mlEntities=[get_entity_urn(x) for x in table["entities"]],
+                        batchSource=table.get("batch_source"),
+                        streamSource=table.get("stream_source"),
+                        batchSourceConfig=table.get("batch_source_config"),
+                        streamSourceConfig=table.get("stream_source_config"),
+                    )
+                )
+
+                # make the MCE and workunit
+                mce = MetadataChangeEvent(proposedSnapshot=featureset_snapshot)
+                wu = MetadataWorkUnit(id=table["name"], mce=mce)
+                self.report.report_workunit(wu)
+                yield wu
 
     def get_report(self) -> FeastSourceReport:
         return self.report

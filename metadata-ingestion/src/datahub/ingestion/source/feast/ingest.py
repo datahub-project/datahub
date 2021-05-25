@@ -13,44 +13,53 @@ from feast.data_source import BigQuerySource, FileSource, KafkaSource, KinesisSo
 )
 @click.option("--core_url", required=True, type=str, help="Feast core URL")
 @click.option(
+    "--output_path",
+    required=False,
+    default=None,
+    type=str,
+    help="Path to write output JSON file to",
+)
+@click.option(
     "--options",
     required=False,
     default={},
     type=dict,
     help="JSON of additional options to pass to feast.Client",
 )
-def cli(core_url, options):
+def cli(core_url, output_path, options):
 
     client = Client(core_url=core_url, **options)
 
     tables = client.list_feature_tables()
+    features = client.list_features_by_ref().values()
+    entities = client.list_entities()
 
     # sort tables by name for consistent outputs
     tables = sorted(tables, key=lambda x: x.name)
+    features = sorted(features, key=lambda x: x.name)
+    entities = sorted(entities, key=lambda x: x.name)
+
+    parsed_features = [
+        {"name": feature.name, "type": feature.dtype.name} for feature in features
+    ]
+
+    parsed_entities = [
+        {
+            "name": entity.name,
+            "type": entity.value_type.name,
+            "description": entity.description,
+        }
+        for entity in entities
+    ]
 
     parsed_tables = []
 
     for table in tables:
 
         # sort features by name for consistent outputs
-        features = sorted(table.features, key=lambda x: x.name)
-
+        features = sorted([x.name for x in table.features])
         # sort entities by name for consistent outputs
-        entities = [client.get_entity(entity_name) for entity_name in table.entities]
-        entities = sorted(entities, key=lambda x: x.name)
-
-        parsed_features = [
-            {"name": feature.name, "type": feature.dtype.name} for feature in features
-        ]
-
-        parsed_entities = [
-            {
-                "name": entity.name,
-                "type": entity.value_type.name,
-                "description": entity.description,
-            }
-            for entity in entities
-        ]
+        entities = sorted(table.entities)
 
         batch_source = None
         stream_source = None
@@ -71,21 +80,39 @@ def cli(core_url, options):
 
             stream_source = "KinesisSource"
 
-        featureset_stream_config = table.to_dict()["spec"].get("streamSource")
+        stream_source_config = table.to_dict()["spec"].get("streamSource")
 
-        if featureset_stream_config is not None:
-            featureset_stream_config = json.dumps(featureset_stream_config)
+        if stream_source_config is not None:
+            stream_source_config = json.dumps(stream_source_config)
 
         parsed_tables.append(
             {
-                "features": parsed_features,
-                "entities": parsed_entities,
+                "name": table.name,
+                "features": features,
+                "entities": entities,
                 "batch_source": batch_source,
                 "stream_source": stream_source,
+                "batch_source_config": json.dumps(
+                    table.to_dict()["spec"]["batchSource"]
+                ),
+                "stream_source_config": stream_source_config,
             }
         )
 
-    print(json.dumps(parsed_tables))
+    output = {
+        "features": parsed_features,
+        "entities": parsed_entities,
+        "tables": parsed_tables,
+    }
+
+    if output_path is not None:
+
+        with open(output_path, "w") as f:
+            json.dump(output, f)
+
+    else:
+
+        print(output)
 
 
 if __name__ == "__main__":
