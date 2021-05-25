@@ -4,20 +4,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import java.util.Map;
-import java.util.Optional;
 
 
 /**
  * Builder for generating settings for elasticsearch indices
  */
 public class SettingsBuilder {
-  private static final Map<String, Object> settings = buildSettings();
+  private static final Map<String, Object> SETTINGS = buildSettings();
 
   private SettingsBuilder() {
   }
 
   public static Map<String, Object> getSettings() {
-    return settings;
+    return SETTINGS;
   }
 
   private static Map<String, Object> buildSettings() {
