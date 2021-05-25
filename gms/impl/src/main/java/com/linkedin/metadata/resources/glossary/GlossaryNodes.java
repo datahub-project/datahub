@@ -26,7 +26,7 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.GlossaryNodeInfoDocument;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.GlossaryNodeSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
@@ -101,8 +101,8 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   private EntityService _entityService;
 
   @Inject
-  @Named("esSearchDao")
-  private ESSearchDAO _entitySearchDao;
+  @Named("searchService")
+  private SearchService _searchService;
 
   @Override
   @Nonnull
@@ -217,7 +217,7 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
       final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
       final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
           : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
-      final SearchResult filterResults = _entitySearchDao.filter(
+      final SearchResult filterResults = _searchService.filter(
           "glossaryNode",
           searchFilter,
           searchSortCriterion,
@@ -266,7 +266,7 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
             .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
-      final SearchResult searchResult = _entitySearchDao.search(
+      final SearchResult searchResult = _searchService.search(
           "glossaryNode",
           input,
           filter,
@@ -292,7 +292,7 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
                                                @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
                                                @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entitySearchDao.autoComplete(
+        _searchService.autoComplete(
             "glossaryNode",
             query,
             field,

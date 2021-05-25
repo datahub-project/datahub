@@ -35,9 +35,8 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.DatasetDocument;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
-import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
@@ -100,12 +99,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
   private EntityService _entityService;
 
   @Inject
-  @Named("esSearchDao")
-  private ESSearchDAO _entitySearchDao;
-
-  @Inject
-  @Named("esBrowseDao")
-  private ESBrowseDAO _entityBrowseDao;
+  @Named("searchService")
+  private SearchService _searchService;
 
   @Override
   @Nonnull
@@ -310,7 +305,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
             .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
-      final SearchResult searchResult = _entitySearchDao.search(
+      final SearchResult searchResult = _searchService.search(
           "dataset",
           input,
           filter,
@@ -359,7 +354,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entitySearchDao.autoComplete(
+        _searchService.autoComplete(
           "dataset",
           query,
           field,
@@ -375,7 +370,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entityBrowseDao.browse(
+        _searchService.browse(
             "dataset",
             path,
             filter,
@@ -390,7 +385,7 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     return RestliUtils.toTask(() ->
-        new StringArray(_entityBrowseDao.getBrowsePaths(
+        new StringArray(_searchService.getBrowsePaths(
             "dataset",
             urn))
     );

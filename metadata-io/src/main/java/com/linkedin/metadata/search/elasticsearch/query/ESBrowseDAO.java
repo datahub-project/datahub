@@ -47,9 +47,9 @@ import org.elasticsearch.search.sort.SortOrder;
 @RequiredArgsConstructor
 public class ESBrowseDAO {
 
-  private final EntityRegistry _entityRegistry;
-  private final RestHighLevelClient _client;
-  private final IndexConvention _indexConvention;
+  private final EntityRegistry entityRegistry;
+  private final RestHighLevelClient client;
+  private final IndexConvention indexConvention;
 
   private static final String BROWSE_PATH = "browsePaths";
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
@@ -72,11 +72,11 @@ public class ESBrowseDAO {
     final Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
 
     try {
-      final String indexName = _indexConvention.getIndexName(_entityRegistry.getEntitySpec(entityName));
+      final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
       final SearchResponse groupsResponse =
-          _client.search(constructGroupsSearchRequest(indexName, path, requestMap, 0, 1000), RequestOptions.DEFAULT);
+          client.search(constructGroupsSearchRequest(indexName, path, requestMap, 0, 1000), RequestOptions.DEFAULT);
       final SearchResponse entitiesResponse =
-          _client.search(constructEntitiesSearchRequest(indexName, path, requestMap, from, size),
+          client.search(constructEntitiesSearchRequest(indexName, path, requestMap, from, size),
               RequestOptions.DEFAULT);
       final BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from);
       result.getMetadata().setPath(path);
@@ -279,18 +279,19 @@ public class ESBrowseDAO {
   /**
    * Gets a list of paths for a given urn.
    *
+   * @param entityName type of entity to query
    * @param urn urn of the entity
    * @return all paths related to a given urn
    */
   @Nonnull
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
-    final String indexName = _indexConvention.getIndexName(_entityRegistry.getEntitySpec(entityName));
+    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     searchRequest.source(
         new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
     final SearchHit[] searchHits;
     try {
-      searchHits = _client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
+      searchHits = client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
     } catch (Exception e) {
       log.error("Get paths from urn query failed: " + e.getMessage());
       throw new ESQueryException("Get paths from urn query failed: ", e);

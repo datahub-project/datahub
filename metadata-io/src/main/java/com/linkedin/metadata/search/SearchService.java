@@ -1,9 +1,12 @@
 package com.linkedin.metadata.search;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -19,12 +22,15 @@ public interface SearchService {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  void upsert(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId);
+  void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId);
 
   /**
    * Deletes the document with the given document ID from the index.
+   *
+   * @param entityName name of the entity
+   * @param docId the ID of the document to delete
    */
-  void deleteDocument(@Nonnull String docId);
+  void deleteDocument(@Nonnull String entityName, @Nonnull String docId);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
@@ -53,8 +59,8 @@ public interface SearchService {
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of filtered documents and related search result metadata
    */
   @Nonnull
-  SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion, int from, int size);
+  SearchResult filter(@Nonnull String entityName, @Nullable Filter filters, @Nullable SortCriterion sortCriterion,
+      int from, int size);
 
   /**
    * Returns a list of suggestions given type ahead query.
@@ -71,4 +77,28 @@ public interface SearchService {
   @Nonnull
   AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
       @Nullable Filter requestParams, int limit);
+
+  /**
+   * Gets a list of groups/entities that match given browse request.
+   *
+   * @param entityName type of entity to query
+   * @param path the path to be browsed
+   * @param requestParams the request map with fields and values as filters
+   * @param from index of the first entity located in path
+   * @param size the max number of entities contained in the response
+   * @return a {@link BrowseResult} that contains a list of groups/entities
+   */
+  @Nonnull
+  BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
+      int size);
+
+  /**
+   * Gets a list of paths for a given urn.
+   *
+   * @param entityName type of entity to query
+   * @param urn urn of the entity
+   * @return all paths related to a given urn
+   */
+  @Nonnull
+  List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
 }

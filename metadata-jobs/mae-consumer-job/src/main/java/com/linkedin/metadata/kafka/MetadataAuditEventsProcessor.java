@@ -1,31 +1,25 @@
 package com.linkedin.metadata.kafka;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.gms.factory.common.GraphServiceFactory;
+import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.builders.search.BaseIndexBuilder;
-import com.linkedin.metadata.builders.search.SnapshotProcessor;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
-import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -36,10 +30,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -49,38 +45,16 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 @Slf4j
 @Component
+@Import({GraphServiceFactory.class, SearchServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
+  @Inject
+  @Named("graphService")
+  private GraphService graphService;
 
-  private RestHighLevelClient elasticSearchClient;
-  private ElasticsearchConnector elasticSearchConnector;
-  private SnapshotProcessor snapshotProcessor;
-
-  private GraphService _graphService;
-
-  private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
-  private IndexConvention indexConvention;
-
-  public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
-      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, GraphService graphService,
-      Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
-    this.elasticSearchClient = elasticSearchClient;
-    this.elasticSearchConnector = elasticSearchConnector;
-    this.snapshotProcessor = snapshotProcessor;
-    this._graphService = graphService;
-    this.indexBuilders = indexBuilders;
-    this.indexConvention = indexConvention;
-    log.info("registered index builders {}", indexBuilders);
-    for (EntitySpec entitySpec : SnapshotEntityRegistry.getInstance().getEntitySpecs()) {
-      if (entitySpec.isSearchable() || entitySpec.isBrowsable()) {
-        try {
-          new IndexBuilder(elasticSearchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-      }
-    }
-  }
+  @Inject
+  @Named("searchService")
+  private SearchService searchService;
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
       + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
@@ -95,8 +69,8 @@ public class MetadataAuditEventsProcessor {
 
         log.info(snapshot.toString());
 
-        final EntitySpec entitySpec = SnapshotEntityRegistry.getInstance()
-            .getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
+        final EntitySpec entitySpec =
+            SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
         updateElasticsearch(snapshot, entitySpec);
         updateNeo4j(snapshot, entitySpec);
       }
@@ -134,8 +108,8 @@ public class MetadataAuditEventsProcessor {
       relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
       for (Object fieldValue : entry.getValue()) {
         try {
-          edgesToAdd.add(new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()),
-              entry.getKey().getRelationshipName()));
+          edgesToAdd.add(
+              new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
           log.info("Invalid destination urn: {}", e.getLocalizedMessage());
         }
@@ -143,9 +117,9 @@ public class MetadataAuditEventsProcessor {
     }
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
-        _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+        edgesToAdd.forEach(edge -> graphService.addEdge(edge));
       }).start();
     }
   }
@@ -160,7 +134,8 @@ public class MetadataAuditEventsProcessor {
     if (!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
       return;
     }
-    Optional<JsonNode> searchDocument;
+    String urn = snapshot.data().get("urn").toString();
+    Optional<String> searchDocument;
     try {
       searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec);
     } catch (Exception e) {
@@ -171,15 +146,15 @@ public class MetadataAuditEventsProcessor {
     if (!searchDocument.isPresent()) {
       return;
     }
-    JsonElasticEvent elasticEvent = new JsonElasticEvent(searchDocument.get().toString());
+
+    String docId;
     try {
-      elasticEvent.setId(URLEncoder.encode(searchDocument.get().get("urn").asText(), "UTF-8"));
+      docId = URLEncoder.encode(urn, "UTF-8");
     } catch (UnsupportedEncodingException e) {
       log.error("Failed to encode the urn with error: {}", e.toString());
       return;
     }
-    elasticEvent.setIndex(indexConvention.getIndexName(entitySpec));
-    elasticEvent.setActionType(ChangeType.UPDATE);
-    elasticSearchConnector.feedElasticEvent(elasticEvent);
+
+    searchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
   }
 }

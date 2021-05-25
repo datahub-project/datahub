@@ -27,15 +27,15 @@ import org.elasticsearch.client.RestHighLevelClient;
 @RequiredArgsConstructor
 public class ESSearchDAO {
 
-  private final EntityRegistry _entityRegistry;
-  private final RestHighLevelClient _client;
-  private final IndexConvention _indexConvention;
+  private final EntityRegistry entityRegistry;
+  private final RestHighLevelClient client;
+  private final IndexConvention indexConvention;
 
   @Nonnull
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, int from,
       int size) {
     try {
-      final SearchResponse searchResponse = _client.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
     } catch (Exception e) {
@@ -58,11 +58,11 @@ public class ESSearchDAO {
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpec).getSearchRequest(input, postFilters, sortCriterion, from, size);
-    searchRequest.indices(_indexConvention.getIndexName(entitySpec));
+    searchRequest.indices(indexConvention.getIndexName(entitySpec));
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpec, searchRequest, from, size);
   }
@@ -79,10 +79,10 @@ public class ESSearchDAO {
   @Nonnull
   public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpec).getFilterRequest(filters, sortCriterion, from, size);
-    searchRequest.indices(_indexConvention.getIndexName(entitySpec));
+    searchRequest.indices(indexConvention.getIndexName(entitySpec));
     return executeAndExtract(entitySpec, searchRequest, from, size);
   }
 
@@ -101,11 +101,11 @@ public class ESSearchDAO {
   public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
       @Nullable Filter requestParams, int limit) {
     try {
-      EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
       AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
       SearchRequest req = builder.getSearchRequest(entitySpec, query, field, requestParams, limit);
-      req.indices(_indexConvention.getIndexName(entitySpec));
-      SearchResponse searchResponse = _client.search(req, RequestOptions.DEFAULT);
+      req.indices(indexConvention.getIndexName(entitySpec));
+      SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
       return builder.extractResult(searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());

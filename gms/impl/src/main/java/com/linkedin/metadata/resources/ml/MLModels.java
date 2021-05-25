@@ -8,7 +8,7 @@ import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.restli.RestliUtils;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -102,8 +102,8 @@ public class MLModels extends BaseSearchableEntityResource<
     private EbeanEntityService _entityService;
 
     @Inject
-    @Named("esSearchDao")
-    private ESSearchDAO _entitySearchDao;
+    @Named("searchService")
+    private SearchService _searchService;
 
     @Nonnull
     @Override
@@ -318,7 +318,7 @@ public class MLModels extends BaseSearchableEntityResource<
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
         return RestliUtils.toTask(() -> {
 
-            final SearchResult searchResult = _entitySearchDao.search(
+            final SearchResult searchResult = _searchService.search(
                 "mlModel",
                 input,
                 filter,
@@ -344,7 +344,7 @@ public class MLModels extends BaseSearchableEntityResource<
         @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
         @ActionParam(PARAM_LIMIT) int limit) {
         return RestliUtils.toTask(() ->
-            _entitySearchDao.autoComplete(
+            _searchService.autoComplete(
                 "mlModel",
                 query,
                 field,
