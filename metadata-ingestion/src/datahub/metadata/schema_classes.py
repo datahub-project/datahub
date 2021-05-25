@@ -4138,6 +4138,7 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties")
     def __init__(self,
+        name: str,
         mlFeatures: Union[None, List[str]]=None,
         mlEntities: Union[None, List[str]]=None,
         batchSource: Union[None, str]=None,
@@ -4147,6 +4148,7 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     ):
         super().__init__()
         
+        self.name = name
         self.mlFeatures = mlFeatures
         self.mlEntities = mlEntities
         self.batchSource = batchSource
@@ -4162,12 +4164,25 @@ class MLFeatureSetPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.name = str()
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.mlEntities = self.RECORD_SCHEMA.field_map["mlEntities"].default
         self.batchSource = self.RECORD_SCHEMA.field_map["batchSource"].default
         self.batchSourceConfig = self.RECORD_SCHEMA.field_map["batchSourceConfig"].default
         self.streamSource = self.RECORD_SCHEMA.field_map["streamSource"].default
         self.streamSourceConfig = self.RECORD_SCHEMA.field_map["streamSourceConfig"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the feature set"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the feature set"""
+        self._inner_dict['name'] = value
     
     
     @property

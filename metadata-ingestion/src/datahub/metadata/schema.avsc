@@ -2908,6 +2908,11 @@
                     "doc": "Properties associated with a MLFeatureSet",
                     "fields": [
                       {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the feature set"
+                      },
+                      {
                         "name": "mlFeatures",
                         "type": [
                           "null",

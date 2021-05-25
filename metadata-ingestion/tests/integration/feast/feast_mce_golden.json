@@ -349,6 +349,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                        "name": "test_feature_table_all_feature_dtypes",
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,feature,test_BOOL_LIST_feature)",
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,feature,test_BOOL_feature)",
@@ -388,6 +389,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                        "name": "test_feature_table_no_labels",
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,feature,test_BYTES_feature)"
                         ],
@@ -413,6 +415,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                        "name": "test_feature_table_single_feature",
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,feature,test_BYTES_feature)"
                         ],

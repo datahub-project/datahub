@@ -181,6 +181,7 @@ class FeastSource(Source):
                 )
                 featureset_snapshot.aspects.append(
                     MLFeatureSetPropertiesClass(
+                        name=table["name"],
                         mlFeatures=[get_feature_urn(x) for x in table["features"]],
                         mlEntities=[get_entity_urn(x) for x in table["entities"]],
                         batchSource=table.get("batch_source"),

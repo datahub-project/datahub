@@ -9,6 +9,11 @@ import com.linkedin.common.MLEntityUrn
 record MLFeatureSetProperties {
 
   /**
+   * Name of the feature set
+   */
+  name: string
+
+  /**
    * List of features contained in the feature set
    */
   mlFeatures: optional array[MLFeatureUrn]
