@@ -43,40 +43,32 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       if (currentSchema.getDereferencedDataSchema().isComplex()) {
         final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
         if (isValidComplexType(complexSchema)) {
-          final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
-          if (annotationObj != null) {
-            final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-            final SearchableAnnotation annotation =
-                SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
-                    currentSchema.getType(), path.toString());
-            if (_searchFieldNames.contains(annotation.getFieldName())) {
-              throw new ModelValidationException(
-                  String.format("Entity has multiple searchable fields with the same field name %s",
-                      annotation.getFieldName()));
-            }
-            final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
-            _specs.add(fieldSpec);
-            _searchFieldNames.add(annotation.getFieldName());
-          }
+          extractSearchableAnnotation(currentSchema, resolvedProperties, context);
         }
       } else if (isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
-        final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
-
-        if (annotationObj != null) {
-          final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-          final SearchableAnnotation annotation =
-              SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
-                  currentSchema.getType(), path.toString());
-          final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
-          if (_searchFieldNames.contains(annotation.getFieldName())) {
-            throw new ModelValidationException(
-                String.format("Entity has multiple searchable fields with the same field name %s",
-                    annotation.getFieldName()));
-          }
-          _specs.add(fieldSpec);
-          _searchFieldNames.add(annotation.getFieldName());
-        }
+        extractSearchableAnnotation(currentSchema, resolvedProperties, context);
       }
+    }
+  }
+
+  private void extractSearchableAnnotation(
+      final DataSchema currentSchema,
+      final Map<String, Object> resolvedProperties,
+      final TraverserContext context) {
+    final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+    if (annotationObj != null) {
+      final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+      final SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
+              currentSchema.getType(), path.toString());
+      if (_searchFieldNames.contains(annotation.getFieldName())) {
+        throw new ModelValidationException(
+            String.format("Entity has multiple searchable fields with the same field name %s",
+                annotation.getFieldName()));
+      }
+      final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
+      _specs.add(fieldSpec);
+      _searchFieldNames.add(annotation.getFieldName());
     }
   }
 
