@@ -13,6 +13,7 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.query.ESBrowseDAO;
 import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.utils.DefaultBrowsePathUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -122,6 +123,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
+    DefaultBrowsePathUtil.addBrowsePathIfNotExists(entity.getValue());
+    // TODO Correctly audit ingestions.
+    final AuditStamp auditStamp =
+        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+    return RestliUtils.toTask(() -> {
+      _entityService.ingestEntity(entity, auditStamp);
+      return null;
+    });
+  }
+
+  @Action(name = "ingest_update")
+  @Nonnull
+  public Task<Void> ingestUpdate(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));

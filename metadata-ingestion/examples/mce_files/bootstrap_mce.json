@@ -457,11 +457,6 @@
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
                 "aspects": [
                     {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hive/SampleHiveDataset"]
-                        }
-                    },
-                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
@@ -588,11 +583,6 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
                 "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hive/logging_events"]
-                        }
-                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -731,11 +721,6 @@
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
                 "aspects": [
                     {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hive/fct_users_created"]
-                        }
-                    },
-                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
@@ -857,11 +842,6 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
                 "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hive/fct_users_deleted"]
-                        }
-                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
@@ -1087,11 +1067,6 @@
                 "urn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
                 "aspects": [
                     {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/airflow/dag_abc"]
-                        }
-                    },
-                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
@@ -1125,11 +1100,6 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
                 "urn": "urn:li:chart:(looker,baz1)",
                 "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/looker/baz1"]
-                        }
-                    },
                     {
                         "com.linkedin.pegasus2avro.chart.ChartInfo": {
                             "title": "Baz Chart 1",
@@ -1177,11 +1147,6 @@
                 "urn": "urn:li:chart:(looker,baz2)",
                 "aspects": [
                     {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/looker/baz2"]
-                        }
-                    },
-                    {
                         "com.linkedin.pegasus2avro.chart.ChartInfo": {
                             "title": "Baz Chart 2",
                             "description": "Baz Chart 2",
@@ -1222,11 +1187,6 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
                 "urn": "urn:li:dashboard:(looker,baz)",
                 "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/looker/baz"]
-                        }
-                    },
                     {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
