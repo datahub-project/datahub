@@ -1,12 +1,9 @@
 import json
-import os
 import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List
 
 import docker
-from feast import Client
-from feast.data_source import BigQuerySource, FileSource, KafkaSource, KinesisSource
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -70,8 +67,6 @@ class FeastSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = FeastSourceReport()
-
-        self.feast_client = Client(core_url=self.config.core_url, **self.config.options)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FeastSource":
