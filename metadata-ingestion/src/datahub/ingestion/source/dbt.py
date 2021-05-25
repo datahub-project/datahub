@@ -58,7 +58,7 @@ class DBTNode:
     dbt_file_path: str
     node_type: str  # source, model
     materialization: str  # table, view, ephemeral
-    name: str # name, identifier
+    name: str  # name, identifier
     columns: List[DBTColumn]
     upstream_urns: List[str]
     datahub_urn: str
@@ -111,7 +111,11 @@ def extract_dbt_entities(
             # It's a model
             dbtNode.materialization = node["config"]["materialized"]
             dbtNode.upstream_urns = get_upstreams(
-                node["depends_on"]["nodes"], nodes, load_catalog, target_platform, environment
+                node["depends_on"]["nodes"],
+                nodes,
+                load_catalog,
+                target_platform,
+                environment,
             )
         else:
             # It's a source
