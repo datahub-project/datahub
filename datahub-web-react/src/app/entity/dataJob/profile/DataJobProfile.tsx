@@ -9,7 +9,7 @@ import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataJob, EntityType, GlobalTags } from '../../../../types.generated';
 import DataJobHeader from './DataJobHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -85,7 +85,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
             {data && data.dataJob && (
                 <EntityProfile
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataJob?.globalTags as GlobalTags}
                             canAdd
                             canRemove

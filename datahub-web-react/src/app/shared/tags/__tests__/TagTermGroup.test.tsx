@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
-import TagGroup from '../TagGroup';
+import TagTermGroup from '../TagTermGroup';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import { EntityType } from '../../../../types.generated';
+import { EntityType, GlossaryTerms } from '../../../../types.generated';
 
 const legacyTag = {
     urn: 'urn:li:tag:legacy',
@@ -26,11 +26,27 @@ const globalTags2 = {
     tags: [{ tag: ownershipTag }],
 };
 
-describe('TagGroup', () => {
+const identifierTerm = {
+    urn: 'urn:li:glossaryTerm:intruments.InstrumentIdentifier',
+    name: 'InstrumentIdentifier',
+    type: EntityType.GlossaryTerm,
+};
+
+const costTerm = {
+    urn: 'urn:li:glossaryTerm:intruments.InstrumentCost',
+    name: 'InstrumentCost',
+    type: EntityType.GlossaryTerm,
+};
+
+const glossaryTerms = {
+    terms: [{ term: identifierTerm }, { term: costTerm }],
+};
+
+describe('TagTermGroup', () => {
     it('renders editable tags', async () => {
         const { getByText, getByLabelText, queryAllByLabelText, queryByText } = render(
             <TestPageContainer>
-                <TagGroup editableTags={globalTags1} canRemove />
+                <TagTermGroup editableTags={globalTags1} canRemove />
             </TestPageContainer>,
         );
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
@@ -50,7 +66,7 @@ describe('TagGroup', () => {
     it('renders uneditable tags', () => {
         const { getByText, queryByLabelText, queryByText } = render(
             <TestPageContainer>
-                <TagGroup uneditableTags={globalTags2} />
+                <TagTermGroup uneditableTags={globalTags2} />
             </TestPageContainer>,
         );
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
@@ -61,7 +77,7 @@ describe('TagGroup', () => {
     it('renders both together', () => {
         const { getByText, queryByText, queryAllByLabelText } = render(
             <TestPageContainer>
-                <TagGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove />
+                <TagTermGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove />
             </TestPageContainer>,
         );
         expect(queryByText('Add Tag')).not.toBeInTheDocument();
@@ -73,7 +89,7 @@ describe('TagGroup', () => {
     it('renders create tag', () => {
         const { getByText, queryByText } = render(
             <TestPageContainer>
-                <TagGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove canAdd />
+                <TagTermGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove canAdd />
             </TestPageContainer>,
         );
         expect(queryByText('+ Add Tag')).toBeInTheDocument();
@@ -81,5 +97,16 @@ describe('TagGroup', () => {
         const AddTagButton = getByText('+ Add Tag');
         fireEvent.click(AddTagButton);
         expect(queryByText('Find a tag')).toBeInTheDocument();
+    });
+
+    it('renders terms', () => {
+        const { getByText, queryAllByLabelText } = render(
+            <TestPageContainer>
+                <TagTermGroup glossaryTerms={glossaryTerms as GlossaryTerms} />
+            </TestPageContainer>,
+        );
+        expect(getByText('InstrumentIdentifier')).toBeInTheDocument();
+        expect(getByText('InstrumentCost')).toBeInTheDocument();
+        expect(queryAllByLabelText('book').length).toBe(2);
     });
 });

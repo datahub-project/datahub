@@ -219,7 +219,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
                                     "recursive": false
                                 },
@@ -347,7 +347,7 @@
                                             "com.linkedin.pegasus2avro.schema.RecordType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -362,7 +362,7 @@
                                             "com.linkedin.pegasus2avro.schema.DateType": {}
                                         }
                                     },
-                                    "nativeDataType": "DATE()",
+                                    "nativeDataType": "Date",
                                     "recursive": false
                                 },
                                 {
@@ -392,7 +392,7 @@
                                             "com.linkedin.pegasus2avro.schema.StringType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -407,7 +407,7 @@
                                             "com.linkedin.pegasus2avro.schema.RecordType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -549,7 +549,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -681,7 +681,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -823,7 +823,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -959,7 +959,7 @@
                                             "com.linkedin.pegasus2avro.schema.BooleanType": {}
                                         }
                                     },
-                                    "nativeDataType": "string",
+                                    "nativeDataType": "varchar(100)",
                                     "recursive": false
                                 },
                                 {
@@ -1068,7 +1068,10 @@
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
                             ],
                             "outputDatasets": [
-                                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                             	"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                            ],
+                            "inputDatajobs": [
+                                "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
                             ]
                         }
                     }

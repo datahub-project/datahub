@@ -1,5 +1,5 @@
 """LDAP Source"""
-from dataclasses import dataclass
+import dataclasses
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -70,21 +70,32 @@ class LDAPSourceConfig(ConfigModel):
     base_dn: str
     filter: str = "(objectClass=*)"
 
+    # If set to true, any users without first and last names will be dropped.
+    drop_missing_first_last_name: bool = True
+
     page_size: int = 20
 
 
-@dataclass
+@dataclasses.dataclass
+class LDAPSourceReport(SourceReport):
+    dropped_dns: List[str] = dataclasses.field(default_factory=list)
+
+    def report_dropped(self, dn: str) -> None:
+        self.dropped_dns.append(dn)
+
+
+@dataclasses.dataclass
 class LDAPSource(Source):
     """LDAP Source Class."""
 
     config: LDAPSourceConfig
-    report: SourceReport
+    report: LDAPSourceReport
 
     def __init__(self, ctx: PipelineContext, config: LDAPSourceConfig):
         """Constructor."""
         super().__init__(ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = LDAPSourceReport()
 
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
@@ -126,17 +137,30 @@ class LDAPSource(Source):
                 break
 
             for dn, attrs in rdata:
+                if dn is None:
+                    continue
+
+                if not attrs:
+                    self.report.report_warning(
+                        "<general>",
+                        f"skipping {dn} because attrs is empty; check your permissions if this is unexpected",
+                    )
+                    continue
+
                 if (
                     b"inetOrgPerson" in attrs["objectClass"]
                     or b"posixAccount" in attrs["objectClass"]
+                    or b"person" in attrs["objectClass"]
                 ):
                     yield from self.handle_user(dn, attrs)
-
-                if (
+                elif (
                     b"posixGroup" in attrs["objectClass"]
                     or b"organizationalUnit" in attrs["objectClass"]
+                    or b"group" in attrs["objectClass"]
                 ):
                     yield from self.handle_group(dn, attrs)
+                else:
+                    self.report.report_dropped(dn)
 
             pctrls = get_pctrls(serverctrls)
             if not pctrls:
@@ -155,11 +179,11 @@ class LDAPSource(Source):
         manager_ldap = None
         if "manager" in attrs:
             try:
-                m_cn = attrs["manager"][0].split(b",")[0]
+                m_cn = attrs["manager"][0].decode()
                 manager_msgid = self.ldap_client.search_ext(
-                    self.config.base_dn,
-                    ldap.SCOPE_SUBTREE,
-                    f"({m_cn.decode()})",
+                    m_cn,
+                    ldap.SCOPE_BASE,
+                    self.config.filter,
                     serverctrls=[self.lc],
                 )
                 _m_dn, m_attrs = self.ldap_client.result3(manager_msgid)[1][0]
@@ -174,7 +198,8 @@ class LDAPSource(Source):
             wu = MetadataWorkUnit(dn, mce)
             self.report.report_workunit(wu)
             yield wu
-        yield from []
+        else:
+            self.report.report_dropped(dn)
 
     def handle_group(
         self, dn: str, attrs: Dict[str, Any]
@@ -186,7 +211,8 @@ class LDAPSource(Source):
             wu = MetadataWorkUnit(dn, mce)
             self.report.report_workunit(wu)
             yield wu
-        yield from []
+        else:
+            self.report.report_dropped(dn)
 
     def build_corp_user_mce(
         self, dn: str, attrs: dict, manager_ldap: Optional[str]
@@ -195,9 +221,15 @@ class LDAPSource(Source):
         Create the MetadataChangeEvent via DN and attributes.
         """
         ldap_user = guess_person_ldap(attrs)
+
+        if self.config.drop_missing_first_last_name and (
+            "givenName" not in attrs or "sn" not in attrs
+        ):
+            return None
         full_name = attrs["cn"][0].decode()
         first_name = attrs["givenName"][0].decode()
         last_name = attrs["sn"][0].decode()
+
         email = (attrs["mail"][0]).decode() if "mail" in attrs else ldap_user
         display_name = (
             (attrs["displayName"][0]).decode() if "displayName" in attrs else full_name
@@ -253,8 +285,8 @@ class LDAPSource(Source):
             )
         return None
 
-    def get_report(self) -> SourceReport:
-        """Returns the sourcereport."""
+    def get_report(self) -> LDAPSourceReport:
+        """Returns the source report."""
         return self.report
 
     def close(self) -> None:

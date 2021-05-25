@@ -122,6 +122,7 @@ function markdown_guess_title(
   filepath: string
 ): void {
   if (contents.data.title) {
+    contents.data.sidebar_label = contents.data.title;
     return;
   }
 
@@ -138,13 +139,15 @@ function markdown_guess_title(
       throw new Error(`too many h1 headers in ${filepath}`);
     }
     title = headers[0].slice(2).trim();
-    if (title.startsWith("DataHub ")) {
-      title = title.slice(8).trim();
-    }
   }
 
   contents.data.title = title;
-  contents.data.hide_title = true;
+
+  let sidebar_label = title;
+  if (sidebar_label.startsWith("DataHub ")) {
+    sidebar_label = sidebar_label.slice(8).trim();
+  }
+  contents.data.sidebar_label = sidebar_label;
 }
 
 function markdown_add_edit_url(

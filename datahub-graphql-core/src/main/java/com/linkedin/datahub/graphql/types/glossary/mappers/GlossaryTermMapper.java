@@ -5,6 +5,8 @@ import javax.annotation.Nonnull;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -24,8 +26,11 @@ public class GlossaryTermMapper implements ModelMapper<com.linkedin.glossary.Glo
         com.linkedin.datahub.graphql.generated.GlossaryTerm result = new com.linkedin.datahub.graphql.generated.GlossaryTerm();
         result.setUrn(glossaryTerm.getUrn().toString());
         result.setType(EntityType.GLOSSARY_TERM);
-        result.setName(glossaryTerm.getUrn().getNameEntity());
+        result.setName(GlossaryTermUtils.getGlossaryTermName(glossaryTerm.getUrn().getNameEntity()));
         result.setGlossaryTermInfo(GlossaryTermInfoMapper.map(glossaryTerm.getGlossaryTermInfo()));
+        if (glossaryTerm.hasOwnership()) {
+            result.setOwnership(OwnershipMapper.map(glossaryTerm.getOwnership()));
+        }
         return result;
     }
 }

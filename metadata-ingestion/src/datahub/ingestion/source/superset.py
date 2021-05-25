@@ -74,6 +74,8 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+DEFAULT_ENV = "PROD"
+
 
 class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
@@ -83,6 +85,7 @@ class SupersetConfig(ConfigModel):
     password: Optional[str] = None
     provider: str = "db"
     options: dict = {}
+    env: str = DEFAULT_ENV
 
 
 def get_metric_name(metric):
@@ -110,7 +113,6 @@ def get_filter_name(filter_obj):
 class SupersetSource(Source):
     config: SupersetConfig
     report: SourceReport
-    env = "PROD"
     platform = "superset"
 
     def __hash__(self):
@@ -181,7 +183,7 @@ class SupersetSource(Source):
                 f"urn:li:dataset:("
                 f"{platform_urn},{database_name + '.' if database_name else ''}"
                 f"{schema_name + '.' if schema_name else ''}"
-                f"{table_name},{self.env})"
+                f"{table_name},{self.config.env})"
             )
             return dataset_urn
         return None
