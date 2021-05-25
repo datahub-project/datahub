@@ -41,6 +41,8 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 # https://stackoverflow.com/a/48273736/5004662.
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
+DEFAULT_ENV = "PROD"
+
 
 class MongoDBConfig(ConfigModel):
     # See the MongoDB authentication docs for details and examples.
@@ -52,6 +54,7 @@ class MongoDBConfig(ConfigModel):
     options: dict = {}
     enableSchemaInference: bool = True
     schemaSamplingSize: Optional[PositiveInt] = 1000
+    env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -392,7 +395,6 @@ class MongoDBSource(Source):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        env = "PROD"
         platform = "mongodb"
 
         database_names: List[str] = self.mongo_client.list_database_names()
@@ -417,7 +419,7 @@ class MongoDBSource(Source):
                     continue
 
                 dataset_snapshot = DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{env})",
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})",
                     aspects=[],
                 )
 

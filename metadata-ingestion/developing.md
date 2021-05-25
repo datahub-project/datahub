@@ -83,6 +83,8 @@ The syntax for installing plugins is slightly different in development. For exam
 
 Contributions welcome!
 
+Also take a look at the guide to [adding a source](./adding-source.md).
+
 ### Testing
 
 ```shell

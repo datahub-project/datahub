@@ -55,8 +55,8 @@ const defaultColumns = [
         dataIndex: 'type',
         key: 'type',
         align: 'left' as AlignType,
-        render: (type: SchemaFieldDataType) => {
-            return <TypeIcon type={type} />;
+        render: (type: SchemaFieldDataType, record: SchemaField) => {
+            return <TypeIcon type={type} nativeDataType={record.nativeDataType} />;
         },
     },
     {
