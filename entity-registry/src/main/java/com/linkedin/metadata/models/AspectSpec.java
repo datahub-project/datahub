@@ -1,6 +1,5 @@
 package com.linkedin.metadata.models;
 
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.ArrayList;
@@ -13,32 +12,28 @@ import javax.annotation.Nonnull;
 public class AspectSpec {
 
   private final AspectAnnotation _aspectAnnotation;
-  private final Map<PathSpec, SearchableFieldSpec> _searchableFieldSpecs;
-  private final Map<PathSpec, RelationshipFieldSpec> _relationshipFieldSpecs;
-  private final Map<PathSpec, BrowsePathFieldSpec> _browsePathFieldSpec;
+  private final Map<String, SearchableFieldSpec> _searchableFieldSpecs;
+  private final Map<String, RelationshipFieldSpec> _relationshipFieldSpecs;
 
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
 
   public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
-      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
-      @Nonnull final List<BrowsePathFieldSpec> browsePathFieldSpecs) {
-    this(aspectAnnotation, searchableFieldSpecs, relationshipFieldSpec, browsePathFieldSpecs, null);
+      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec) {
+    this(aspectAnnotation, searchableFieldSpecs, relationshipFieldSpec, null);
   }
 
   public AspectSpec(
       @Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
-      @Nonnull final List<BrowsePathFieldSpec> browsePathFieldSpecs, final RecordDataSchema schema) {
+      final RecordDataSchema schema) {
     _aspectAnnotation = aspectAnnotation;
     _searchableFieldSpecs = searchableFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec, (val1, val2) -> val1));
+        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _relationshipFieldSpecs = relationshipFieldSpec.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec, (val1, val2) -> val1));
-    _browsePathFieldSpec = browsePathFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath(), spec -> spec, (val1, val2) -> val1));
+        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _schema = schema;
   }
 
@@ -50,16 +45,12 @@ public class AspectSpec {
     return _aspectAnnotation.getIsKey();
   }
 
-  public Map<PathSpec, SearchableFieldSpec> getSearchableFieldSpecMap() {
+  public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {
     return _searchableFieldSpecs;
   }
 
-  public Map<PathSpec, RelationshipFieldSpec> getRelationshipFieldSpecMap() {
+  public Map<String, RelationshipFieldSpec> getRelationshipFieldSpecMap() {
     return _relationshipFieldSpecs;
-  }
-
-  public Map<PathSpec, BrowsePathFieldSpec> getBrowsePathFieldSpecMap() {
-    return _browsePathFieldSpec;
   }
 
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
@@ -68,10 +59,6 @@ public class AspectSpec {
 
   public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
     return new ArrayList<>(_relationshipFieldSpecs.values());
-  }
-
-  public List<BrowsePathFieldSpec> getBrowsePathFieldSpecs() {
-    return new ArrayList<>(_browsePathFieldSpec.values());
   }
 
   public RecordDataSchema getPegasusSchema() {

@@ -36,6 +36,12 @@ const EditIcon = styled(EditOutlined)`
     margin-top: 4px;
 `;
 
+const EditedLabel = styled(Typography.Text)`
+    padding-left: 8px;
+    color: rgb(150, 150, 150);
+    font-style: italic;
+`;
+
 const MessageKey = 'UpdateSchemaDescription';
 
 type Props = {
@@ -104,6 +110,7 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     </Form>
                 </Modal>
             )}
+            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
         </DescriptionContainer>
     );
 }

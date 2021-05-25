@@ -55,6 +55,9 @@ export const SearchPage = () => {
     const filters: Array<FacetFilterInput> = useFilters(params);
 
     const onSearch = (q: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
         analytics.event({
             type: EventType.SearchEvent,
             query: q,

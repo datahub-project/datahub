@@ -1,0 +1,68 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Info associated with a Test Entity
+ */
+@Aspect = {
+  "name": "testEntityInfo"
+}
+record TestEntityInfo {
+
+  @Searchable = {
+    "fieldName": "textField",
+    "fieldType": "TEXT"
+  }
+  textField: optional string
+
+  @Searchable = {
+   "/*": {
+    "fieldName": "textArrayField",
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+   }
+  }
+  textArrayField: array[string]
+
+  @Relationship = {
+    "name": "foreignKey",
+    "entityTypes": []
+  }
+  foreignKey: optional Urn
+
+  @Relationship = {
+    "/*": {
+      "name": "foreignKeyArray",
+      "entityTypes": []
+    }
+  }
+  foreignKeyArray: array[Urn]
+
+  nestedRecordField: record SimpleNestedRecord1 {
+   @Searchable = {
+     "fieldName": "nestedIntegerField",
+     "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+   }
+   nestedIntegerField: int
+
+  @Relationship = {
+    "name": "nestedForeignKey",
+    "entityTypes": []
+  }
+  nestedForeignKey: Urn
+ }
+
+  nestedRecordArrayField: array[record SimpleNestedRecord2 {
+    @Searchable = {
+     "fieldName": "nestedArrayIntegerField",
+     "fieldType": "KEYWORD"
+    }
+    nestedArrayIntegerField: int
+
+    @Relationship = {
+      "name": "nestedArrayForeignKey",
+      "entityTypes": []
+    }
+    nestedArrayForeignKey: Urn
+  }]
+}

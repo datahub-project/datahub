@@ -12,7 +12,6 @@ public class UpgradeUtils {
   private static final String KEY_VALUE_DELIMITER = "=";
 
   public static Map<String, Optional<String>> parseArgs(final List<String> args) {
-
     if (args == null) {
       return Collections.emptyMap();
     }

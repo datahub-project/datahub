@@ -12,6 +12,7 @@ import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
 
 import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
+import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -26,6 +27,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new TagEntity());
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());
+    entityRegistry.register(new GlossaryTermEntity());
     return entityRegistry;
 }
 

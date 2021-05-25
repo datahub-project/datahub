@@ -2,14 +2,15 @@ import { Divider, Image, Row, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GlobalTags, Owner } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
-import TagGroup from '../shared/tags/TagGroup';
+import TagTermGroup from '../shared/tags/TagTermGroup';
 
 interface Props {
     name: string;
     logoUrl?: string;
+    logoComponent?: JSX.Element;
     url: string;
     description: string;
     type?: string;
@@ -18,6 +19,7 @@ interface Props {
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
+    glossaryTerms?: GlossaryTerms;
 }
 
 const DescriptionParagraph = styled(Typography.Paragraph)`
@@ -46,6 +48,7 @@ const styles = {
 export default function DefaultPreviewCard({
     name,
     logoUrl,
+    logoComponent,
     url,
     description,
     type,
@@ -54,6 +57,7 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     snippet,
+    glossaryTerms,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -62,16 +66,19 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
-                        {logoUrl && <PreviewImage src={logoUrl} preview />}
+                        {logoUrl ? <PreviewImage src={logoUrl} preview /> : logoComponent || ''}
+
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>
                                 {name}
                             </Typography.Text>
-                            <Space split={<Divider type="vertical" />} size={16}>
-                                <Typography.Text>{type}</Typography.Text>
-                                <Typography.Text strong>{platform}</Typography.Text>
-                                {qualifier && <Tag>{qualifier}</Tag>}
-                            </Space>
+                            {(type || platform || qualifier) && (
+                                <Space split={<Divider type="vertical" />} size={16}>
+                                    <Typography.Text>{type}</Typography.Text>
+                                    <Typography.Text strong>{platform}</Typography.Text>
+                                    {qualifier && <Tag>{qualifier}</Tag>}
+                                </Space>
+                            )}
                         </Space>
                     </Space>
                 </Link>
@@ -89,7 +96,7 @@ export default function DefaultPreviewCard({
                     <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
                     <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                 </Space>
-                <TagGroup editableTags={tags} maxShow={3} />
+                <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
             </Space>
         </Row>
     );

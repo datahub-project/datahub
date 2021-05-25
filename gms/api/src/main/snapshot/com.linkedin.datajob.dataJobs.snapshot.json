@@ -451,6 +451,11 @@
             }
           } ],
           "doc" : "Datajob type"
+        }, {
+          "name" : "flowUrn",
+          "type" : "com.linkedin.common.DataFlowUrn",
+          "doc" : "DataFlow urn that this job is part of",
+          "optional" : true
         } ],
         "Aspect" : {
           "name" : "dataJobInfo"
@@ -507,6 +512,20 @@
               "fieldName" : "outputs",
               "fieldType" : "URN",
               "numValuesFieldName" : "numOutputDatasets"
+            }
+          }
+        }, {
+          "name" : "inputDatajobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.DataJobUrn"
+          },
+          "doc" : "Input datajobs that this data job depends on",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob" ],
+              "name" : "DownstreamOf"
             }
           }
         } ],

@@ -45,7 +45,7 @@ public class SearchQueryBuilder {
     textQuery.defaultOperator(Operator.AND);
 
     for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
-      if(!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
+      if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
         continue;
       }
 

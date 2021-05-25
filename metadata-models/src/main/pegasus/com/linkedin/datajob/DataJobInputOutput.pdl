@@ -1,6 +1,7 @@
 namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
+import com.linkedin.common.DataJobUrn
 
 
 /**
@@ -46,4 +47,15 @@ record DataJobInputOutput {
     }
   }
   outputDatasets: array[DatasetUrn]
+
+  /**
+   * Input datajobs that this data job depends on
+   */
+  @Relationship = {
+    "/*": {
+      "name": "DownstreamOf",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  inputDatajobs: optional array[DataJobUrn] 
 }

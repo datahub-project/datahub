@@ -45,6 +45,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
+import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import graphql.schema.idl.RuntimeWiring;
@@ -90,6 +91,9 @@ public class GmsGraphQLEngine {
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getEntitiesClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getEntitiesClient());
+    public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
+            GmsClientFactory.getRelationshipsClient()
+    );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
 
     /**
@@ -114,7 +118,8 @@ public class GmsGraphQLEngine {
      */
     public static final List<LoadableType<?>> RELATIONSHIP_TYPES = ImmutableList.of(
             DOWNSTREAM_LINEAGE_TYPE,
-            UPSTREAM_LINEAGE_TYPE
+            UPSTREAM_LINEAGE_TYPE,
+            DATAFLOW_DATAJOBS_TYPE
     );
 
     /**
@@ -477,15 +482,11 @@ public class GmsGraphQLEngine {
                 )
             )
             .type("DataFlow", typeWiring -> typeWiring
-                    .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                    .dataFetcher("dataJobs", new AuthenticatedResolver<>(
                             new LoadableTypeResolver<>(
-                                    DOWNSTREAM_LINEAGE_TYPE,
-                                    (env) -> ((Entity) env.getSource()).getUrn()))
-                    )
-                    .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
-                                    UPSTREAM_LINEAGE_TYPE,
-                                    (env) -> ((Entity) env.getSource()).getUrn()))
+                                    DATAFLOW_DATAJOBS_TYPE,
+                                    (env) -> ((Entity) env.getSource()).getUrn())
+                            )
                     )
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring

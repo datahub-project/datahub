@@ -67,7 +67,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/README",
+      "metadata-ingestion/adding-source",
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",
@@ -101,6 +101,7 @@ module.exports = {
       "docs/advanced/es-7-upgrade",
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
+      "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/nocode/README",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
@@ -111,6 +112,7 @@ module.exports = {
       "docs/how/kafka-config",
       "docker/README",
       "datahub-kubernetes/README",
+      "docker/datahub-upgrade/README",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

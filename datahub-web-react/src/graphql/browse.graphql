@@ -48,6 +48,22 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
             }
+            ... on GlossaryTerm {
+                name
+                ownership {
+                    ...ownershipFields
+                }
+                glossaryTermInfo {
+                    definition
+                    termSource
+                    sourceRef
+                    sourceUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+            }
             ... on Chart {
                 urn
                 type

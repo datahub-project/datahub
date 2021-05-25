@@ -44,6 +44,7 @@ const styles = {
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
+    subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
     subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -115,6 +116,9 @@ export const HomePageHeader = () => {
     const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
 
     const onSearch = (query: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
         analytics.event({
             type: EventType.SearchEvent,
             query,
@@ -189,6 +193,9 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
+                {themeConfig.content.subtitle && (
+                    <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
+                )}
                 <AutoComplete
                     style={styles.searchBox}
                     options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({

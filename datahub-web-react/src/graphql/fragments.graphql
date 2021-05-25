@@ -8,6 +8,15 @@ fragment globalTagsFields on GlobalTags {
     }
 }
 
+fragment glossaryTerms on GlossaryTerms {
+    terms {
+        term {
+            urn
+            name
+        }
+    }
+}
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -141,6 +150,9 @@ fragment nonRecursiveDatasetFields on Dataset {
             globalTags {
                 ...globalTagsFields
             }
+            glossaryTerms {
+                ...glossaryTerms
+            }
         }
         primaryKeys
     }
@@ -161,6 +173,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     globalTags {
         ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 

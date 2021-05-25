@@ -35,7 +35,7 @@ public class DataHubUsageEventsProcessor {
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}", topics =
-      "${KAFKA_TOPIC_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}", containerFactory = "stringSerializedKafkaListener")
+      "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}", containerFactory = "stringSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
     final String record = consumerRecord.value();
     log.debug("Got DHUE");
