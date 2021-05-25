@@ -59,10 +59,15 @@ export default function TagTermGroup({
     return (
         <div>
             {glossaryTerms?.terms?.map((term) => (
-                <Tag color="blue" closable={false}>
-                    {term.term.name}
-                    <BookOutlined style={{ marginLeft: '2%' }} />
-                </Tag>
+                <Link
+                    to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
+                    key={term.term.urn}
+                >
+                    <Tag color="blue" closable={false}>
+                        {term.term.name}
+                        <BookOutlined style={{ marginLeft: '2%' }} />
+                    </Tag>
+                </Link>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
