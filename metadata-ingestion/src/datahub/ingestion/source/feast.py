@@ -75,22 +75,22 @@ class FeastSource(Source):
         config = FeastConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_field_type(self, field_type: str, table_name: str) -> str:
+    def get_field_type(self, field_type: str, parent_name: str) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
 
         Parameters
         ----------
             field_type:
-                type of a Python object
-            table_name:
+                type of a Feast object
+            parent_name:
                 name of table (for logging)
         """
         TypeClass = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
             self.report.report_warning(
-                table_name, f"unable to map type {field_type} to metadata schema"
+                parent_name, f"unable to map type {field_type} to metadata schema"
             )
             TypeClass = MLFeatureDataType.USELESS
 
@@ -116,7 +116,7 @@ class FeastSource(Source):
             platform = "feast"
 
             get_feature_urn = (
-                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},feature,{feature_name},{self.config.env}))"
+                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{feature_name},{self.config.env}))"
             )
             # ingest features
             for feature in ingest["features"]:
@@ -142,7 +142,7 @@ class FeastSource(Source):
                 yield wu
 
             get_entity_urn = (
-                lambda entity_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},entity,{entity_name},{self.config.env}))"
+                lambda entity_name: f"urn:li:mlEntity:(urn:li:dataPlatform:{platform},{entity_name},{self.config.env}))"
             )
             # ingest entities
             for entity in ingest["entities"]:
@@ -173,7 +173,7 @@ class FeastSource(Source):
 
                 # create snapshot instance for the featureset
                 featureset_snapshot = MLFeatureSetSnapshot(
-                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},table,{table['name']},{self.config.env}))",
+                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table['name']},{self.config.env}))",
                     aspects=[],
                 )
                 featureset_snapshot.aspects.append(

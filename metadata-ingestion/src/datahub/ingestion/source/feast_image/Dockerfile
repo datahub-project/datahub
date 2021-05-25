@@ -7,14 +7,8 @@ ENV PYTHONUNBUFFERED True
 # slows stuff down
 ENV FEAST_TELEMETRY False
 
-# install system dependencies
-# RUN apt-get update
-
 # Copy local code to the container image.
 ENV APP_HOME /app
-WORKDIR $APP_HOME
-
-# Copy only requirements to cache them in docker layer
 WORKDIR $APP_HOME
 COPY requirements.txt ./
 
