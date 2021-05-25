@@ -47,7 +47,6 @@ class FeastConfig(ConfigModel):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     core_url: str = "localhost:6565"
-    options: dict = {}
 
 
 @dataclass

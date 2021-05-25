@@ -19,16 +19,9 @@ from feast.data_source import BigQuerySource, FileSource, KafkaSource, KinesisSo
     type=str,
     help="Path to write output JSON file to",
 )
-@click.option(
-    "--options",
-    required=False,
-    default={},
-    type=dict,
-    help="JSON of additional options to pass to feast.Client",
-)
-def cli(core_url, output_path, options):
+def cli(core_url, output_path):
 
-    client = Client(core_url=core_url, **options)
+    client = Client(core_url=core_url)
 
     tables = client.list_feature_tables()
     features = client.list_features_by_ref().values()
