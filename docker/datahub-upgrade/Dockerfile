@@ -31,6 +31,11 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
-ENV UPGRADE_ID=""
 
-CMD /datahub/datahub-upgrade/scripts/upgrade.sh
+# Upgrade CLI Arguments
+ENV UPGRADE_ID=""
+ENV ARG_1=""
+ENV ARG_2=""
+ENV ARG_3=""
+
+CMD /datahub/datahub-upgrade/scripts/start.sh

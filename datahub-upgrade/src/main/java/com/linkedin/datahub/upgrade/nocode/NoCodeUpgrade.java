@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ public class NoCodeUpgrade implements Upgrade {
   // Upgrade requires the EbeanServer.
   public NoCodeUpgrade(
       final EbeanServer server,
-      final EbeanEntityService entityService,
+      final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry) {
     _steps = buildUpgradeSteps(
         server,
@@ -53,7 +53,7 @@ public class NoCodeUpgrade implements Upgrade {
 
   private List<UpgradeStep<?>> buildUpgradeSteps(
       final EbeanServer server,
-      final EbeanEntityService entityService,
+      final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));

@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
@@ -35,13 +35,13 @@ public class DataMigrationStep implements UpgradeStep<Void> {
   private static final String BROWSE_PATHS_ASPECT_NAME = ModelUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
   private final EbeanServer _server;
-  private final EbeanEntityService _entityService;
+  private final EntityService _entityService;
   private final SnapshotEntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
       final EbeanServer server,
-      final EbeanEntityService entityService,
+      final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry) {
     _server = server;
     _entityService = entityService;

@@ -3,9 +3,7 @@ package com.linkedin.datahub.upgrade.nocodecleanup;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.graph.Neo4jGraphClient;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,14 +16,13 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   private final List<UpgradeCleanupStep> _cleanupSteps;
 
   // Upgrade requires the EbeanServer.
-  public NoCodeCleanupUpgrade(final EbeanServer server, final EbeanEntityService entityService,
-      final SnapshotEntityRegistry entityRegistry, Neo4jGraphClient graphClient) {
+  public NoCodeCleanupUpgrade(
+      final EbeanServer server,
+      final Neo4jGraphClient graphClient) {
     _steps = buildUpgradeSteps(
         server,
-        entityService,
-        entityRegistry,
         graphClient);
-    _cleanupSteps = buildCleanupSteps(server);
+    _cleanupSteps = buildCleanupSteps();
   }
 
   @Override
@@ -43,14 +40,13 @@ public class NoCodeCleanupUpgrade implements Upgrade {
     return _cleanupSteps;
   }
 
-  private List<UpgradeCleanupStep> buildCleanupSteps(final EbeanServer server) {
+  private List<UpgradeCleanupStep> buildCleanupSteps() {
     return Collections.emptyList();
   }
 
   private List<UpgradeStep<?>> buildUpgradeSteps(
       final EbeanServer server,
-      final EbeanEntityService entityService,
-      final SnapshotEntityRegistry entityRegistry, Neo4jGraphClient graphClient) {
+      final Neo4jGraphClient graphClient) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));
