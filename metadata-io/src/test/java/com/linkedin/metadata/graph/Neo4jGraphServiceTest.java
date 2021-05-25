@@ -15,7 +15,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 import static org.testng.Assert.*;
 
 
-public class Neo4jGraphClientTest {
+public class Neo4jGraphServiceTest {
 
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;

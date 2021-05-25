@@ -48,7 +48,7 @@ public class RelationshipAnnotation {
     }
 
     final Optional<List> entityTypesList = AnnotationUtils.getField(map, ENTITY_TYPES_FIELD, List.class);
-    if (!entityTypesList.isPresent() || entityTypesList.get().isEmpty()) {
+    if (!entityTypesList.isPresent()) {
       throw new ModelValidationException(
           String.format(
               "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
