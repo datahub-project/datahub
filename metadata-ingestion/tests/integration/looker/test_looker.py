@@ -28,7 +28,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                     query=Query(
                         model="data",
                         view="my_view",
-                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}',
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
                 )
             ],
