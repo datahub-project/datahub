@@ -72,7 +72,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # "feast": {"feast>=0.10.4"},
-    "feast": {"requests"},
+    "feast": {"docker"},
     "glue": {"boto3"},
     "hive": sql_common
     | {

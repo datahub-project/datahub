@@ -104,6 +104,8 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
         # commit the tables to the feature store
         test_client.apply([table_1, table_2, table_3])
 
+        breakpoint()
+
         # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(
             {
