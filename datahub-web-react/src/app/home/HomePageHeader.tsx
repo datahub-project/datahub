@@ -45,6 +45,7 @@ const styles = {
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
+    subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
     subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -196,6 +197,9 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
+                {themeConfig.content.subtitle && (
+                    <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
+                )}
                 <SearchBar
                     placeholderText={themeConfig.content.search.searchbarMessage}
                     suggestions={suggestionsData?.autoCompleteForAll?.suggestions || []}

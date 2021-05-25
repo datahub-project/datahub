@@ -1,4 +1,4 @@
-import { Avatar, Tooltip } from 'antd';
+import { Avatar, AvatarProps, Tooltip } from 'antd';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -6,7 +6,9 @@ import styled from 'styled-components';
 
 import defaultAvatar from '../../../images/default_avatar.png';
 
-const AvatarStyled = styled(Avatar)<{ size?: number; isGroup?: boolean }>`
+const AvatarStyled = styled(
+    ({ size: _, isGroup: __, ...props }: AvatarProps & { size?: number; isGroup?: boolean }) => <Avatar {...props} />,
+)`
     color: #fff;
     background-color: ${(props) =>
         props.isGroup ? '#ccc' : '#ccc'}; // TODO: make it different style for corpGroup vs corpUser

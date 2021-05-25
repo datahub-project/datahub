@@ -47,6 +47,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                 }
                 ... on CorpUser {
                     username

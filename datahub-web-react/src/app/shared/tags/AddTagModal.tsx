@@ -25,7 +25,9 @@ const TagSelect = styled(Select)`
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
 export default function AddTagModal({ updateTags, globalTags, visible, onClose }: AddTagModalProps) {
-    const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery({
+        fetchPolicy: 'no-cache',
+    });
     const [inputValue, setInputValue] = useState('');
     const [selectedTagValue, setSelectedTagValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);

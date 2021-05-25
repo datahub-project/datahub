@@ -142,6 +142,7 @@ Here is a list of companies that are currently building POC or seriously evaluat
 - [Microsoft](https://microsoft.com)
 - [Morgan Stanley](https://www.morganstanley.com)
 - [Orange Telecom](https://www.orange.com)
+- [Plum Research](https://plumresearch.com)
 - [REEF Technology](https://reeftechnology.com)
 - [SpotHero](https://spothero.com)
 - [Sysco AS](https://sysco.no)
